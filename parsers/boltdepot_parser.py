@@ -28,11 +28,7 @@ class BoltDepotParser(Parser):
         # Set the required inputs
         self.required_inputs = [req_part_name, req_part_quantity]
 
-    def decode_json_data(self, json_data):
-        byte_data = self.decode_data(json_data)
-        _data = base64.b64decode(byte_data['qrData'])
-        decoded_data = _data.decode('utf-8')
-        return decoded_data
+
 
     def matches(self, data):
         decoded_data = self.decode_json_data(data)
@@ -64,6 +60,7 @@ class BoltDepotParser(Parser):
                 self.part.image_url = "https://www.boltdepot.com/" + \
                                       document.select_one('#ctl00_ctl00_Body_Body__ctrl_0_CatalogImage')['src']
                 self._extract_properties(document)
+                self.part.part_name = f"{self.part.part_number}-{self.part.part_vendor}"
                 return self
             else:
                 raise Exception('Failed to load product page')
@@ -76,8 +73,10 @@ class BoltDepotParser(Parser):
         try:
             decoded_data = self.decode_json_data(json_data)
             uri = urlparse(decoded_data)
-            self.part.part_number = parse_qs(uri.query)['product'][0]
-            self.part.part_vendor = "Bolt Depot"
+            _pn = parse_qs(uri.query)['product'][0]
+            self.part.part_number = _pn
+            self.set_property("part.manufacturer_part_number", _pn)
+            self.set_property("part_vendor", "Bolt Depot")
             return self
 
         except Exception as e:
