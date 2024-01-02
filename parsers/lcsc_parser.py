@@ -11,6 +11,22 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
+def get_nested_value(data, keys, default=""):
+    """Safely extract a value from nested dictionaries.
+
+    Args:
+        data (dict): The dictionary to extract the value from.
+        keys (list): A list of keys representing the path to the desired value.
+        default (str, optional): The default value to return if the key is not found. Defaults to "".
+
+    Returns:
+        The extracted value or the default value.
+    """
+    for key in keys:
+        data = data.get(key, {})
+        if not data:
+            return default
+    return data if data != default else default
 
 def parse_to_datetime(input_string):
     try:
@@ -81,18 +97,46 @@ class LcscParser(Parser):
         #     print(f"{key}: {value}")
 
         try:
-            lcsc_data = self.api.get_info_from_easyeda_api(lcsc_id=self.part.part_number)
+            lcsc_data = self.api.get_info_from_easyeda_api(lcsc_id=self.part.part_number.upper()) # This is cases sensitive on lcsc servers side
             if lcsc_data != {}:
-                self.part.additional_properties['value'] = lcsc_data['result']['dataStr']['head']['c_para']['Value'], ""
-                self.part.additional_properties['package'] = lcsc_data['result']['dataStr']['head']['c_para']['package'], ""
-                self.part.additional_properties['manufacturer'] = lcsc_data['result']['dataStr']['head']['c_para']['Manufacturer'], ""
-                self.set_property('image_url', lcsc_data['result']['szlcsc']['image'], "")
-                self.set_property('part_name', f" {self.part.manufacturer_part_number}", '')
-                self.part.additional_properties['datasheet_url'] = \
-                    lcsc_data['result']['packageDetail']['dataStr']['head']['c_para']['link']
-                self.part.additional_properties['url'] = lcsc_data['result']['szlcsc']['url']
-                self.set_property('description', self.part.additional_properties['datasheet_url'].strip(
-                    "https://lcsc.com/product-detail").replace("-", ", ").rstrip(".html"), "")
+                # self.part.additional_properties['value'] = lcsc_data['result']['dataStr']['head']['c_para']['Value'], ""
+                # self.part.additional_properties['package'] = lcsc_data['result']['dataStr']['head']['c_para']['package'], ""
+                # self.part.additional_properties['manufacturer'] = lcsc_data['result']['dataStr']['head']['c_para']['Manufacturer'], ""
+                #self.set_property('image_url', lcsc_data['result']['szlcsc']['image']) # This seems to be denied on the server, perhaps it needs the right useragent
+                self.set_property('part_name', f" {self.part.manufacturer_part_number}")
+                # self.part.additional_properties['datasheet_url'] = \
+                #     lcsc_data['result']['packageDetail']['dataStr']['head']['c_para']['link']
+                # self.part.additional_properties['url'] = lcsc_data['result']['szlcsc']['url']
+
+
+                # Using the function to set additional properties
+                self.part.additional_properties['value'] = get_nested_value(
+                    lcsc_data, ['result', 'dataStr', 'head', 'c_para', 'Value'])
+
+                self.part.additional_properties['package'] = get_nested_value(
+                    lcsc_data, ['result', 'dataStr', 'head', 'c_para', 'package'])
+
+                self.part.additional_properties['manufacturer'] = get_nested_value(
+                    lcsc_data, ['result', 'dataStr', 'head', 'c_para', 'Manufacturer'])
+
+                self.part.additional_properties['datasheet_url'] = get_nested_value(
+                    lcsc_data, ['result', 'packageDetail', 'dataStr', 'head', 'c_para', 'link'])
+
+                self.part.additional_properties['url'] = get_nested_value(
+                    lcsc_data, ['result', 'szlcsc', 'url'])
+
+                # Check if 'datasheet_url' exists in additional_properties and is not empty
+                if 'datasheet_url' in self.part.additional_properties and self.part.additional_properties[
+                    'datasheet_url']:
+                    # Process the datasheet_url and set the 'description' property
+                    description = self.part.additional_properties['datasheet_url'].strip(
+                        "https://lcsc.com/product-detail").replace("-", ", ").rstrip(".html")
+                    self.set_property('description', description)
+                else:
+                    # Handle the case where 'datasheet_url' is not available or empty
+                    # For example, set 'description' to an empty string or a default value
+                    self.set_property('description', "")
+
         except Exception as e:
             print(f'Error enriching data: {e}')
             return None

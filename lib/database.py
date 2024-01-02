@@ -49,3 +49,11 @@ class DatabaseManager:
 
     async def get_all_categories(self):
         return self.db.get_all_categories()
+
+    def get_all_locations(self):
+        # Assuming that locations are stored in a table called 'locations'
+        return self.db.get_all_locations()
+
+    async def add_location(self, location):
+        return self.db.add_location(location)
+

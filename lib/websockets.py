@@ -61,6 +61,7 @@ class WebSocketManager:
         while True:
             try:
                 await websocket.send_text("heartbeat")
+                print("Sending heartbeat")
                 await sleep(5)  # Adjust the interval as needed
             except WebSocketDisconnect:
                 break

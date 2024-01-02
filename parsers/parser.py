@@ -93,21 +93,36 @@ class Parser(ABC):
         return _data
 
     def set_property(self, property_name, value):
-        # Check if the property exists in the Part object or in the class itself
-        target = self.part if hasattr(self.part, property_name) else self if hasattr(self, property_name) else None
+        # Initialize a variable to keep track of whether the property was successfully set
+        property_set_successfully = False
 
-        if target is not None:
-            # Set the property
-            setattr(target, property_name, value)
-            # Determine whether to remove the required input
+        # Try to set the property
+        try:
+            # Check if the property exists in the Part object or in the class itself
+            target = self.part if hasattr(self.part, property_name) else self if hasattr(self, property_name) else None
+
+            if target is not None:
+                # Set the property
+                setattr(target, property_name, value)
+                property_set_successfully = True
+        except Exception as e:
+            # Handle any exceptions that might occur
+            print(f"Error setting property: {e}")
+
+        # If the property was not set successfully, set it to an empty string
+        if not property_set_successfully:
+            if hasattr(self.part, property_name):
+                setattr(self.part, property_name, "")
+            elif hasattr(self, property_name):
+                setattr(self, property_name, "")
+
+        # The rest of your code for handling the required inputs
+        if property_set_successfully:
             should_remove_input = False
-            # Check if value is a string and not empty or just whitespace
             if isinstance(value, str) and value.strip():
                 should_remove_input = True
-            # Check if value is not a string and not None
             elif value is not None:
                 should_remove_input = True
-            # Remove the required input if the condition is met
             if should_remove_input:
                 self.required_inputs = [req for req in self.required_inputs if req.field_name != property_name]
 

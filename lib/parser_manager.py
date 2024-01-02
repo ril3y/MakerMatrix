@@ -33,6 +33,7 @@ class ParserManager:
     def parse_data(self, data):
         for parser in self.parsers:
             if parser.matches(data):
+                parser.part.generate_uuid()
                 parser.parse(data)
                 return parser
         return None

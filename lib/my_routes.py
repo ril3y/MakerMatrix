@@ -3,6 +3,7 @@ import json
 import threading
 import uuid
 from asyncio import create_task
+from fastapi import FastAPI, HTTPException, Request
 
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
@@ -23,6 +24,16 @@ db = PartInventory('part_inventory.json')
 active_websockets = {}
 websocket_info = {}
 websocket_info_lock = threading.Lock()
+from pydantic import BaseModel
+
+from typing import List
+
+class Location(BaseModel):
+    name: str
+    description: str
+    parent_id: int = None
+    children: List['Location'] = []
+
 
 
 
@@ -57,6 +68,81 @@ def setup_routes(app: FastAPI):
             return JSONResponse(content=part, status_code=200)
         else:
             return JSONResponse(content={"error": "Part not found"}, status_code=404)
+
+    @app.get("/get_all_locations/")
+    async def get_all_locations():
+        db_manager = DatabaseManager.get_instance()
+        locations = db_manager.get_all_locations()
+        return JSONResponse(content={"locations": locations}, status_code=200)
+
+
+    @app.get("/get_location_details/{location_id}")
+    async def get_location_details(location_id: int):
+        db_manager = DatabaseManager.get_instance()
+        location = await db_manager.get_location_details(location_id)
+        if location:
+            return JSONResponse(content=location, status_code=200)
+        else:
+            return JSONResponse(content={"error": "Location not found"}, status_code=404)
+
+    @app.put("/edit_location/{location_id}")
+    async def edit_location(location_id: int, name: str = None, description: str = None, parent_id: int = None):
+        db_manager = DatabaseManager.get_instance()
+        updated_location = await db_manager.edit_location(location_id, name, description, parent_id)
+        if updated_location:
+            return {"message": "Location updated", "location": updated_location}
+        else:
+            return JSONResponse(content={"error": "Error updating location"}, status_code=400)
+
+    @app.get("/clear_locations/")
+    async def clear_locations():
+        db_manager = DatabaseManager.get_instance()
+        db.locations_table.truncate()  # This clears all records in the locations table
+        return {"message": "All locations cleared"}
+
+    @app.post("/add_location/")
+    async def add_location(location: Location):
+        db_manager = DatabaseManager.get_instance()
+
+        # Add the new location to the database
+        added_location = await db_manager.add_location(location.dict())
+
+        # Return a success message with the added location data
+        return {"message": "Location added successfully", "location": added_location}
+
+    @app.get("/get_location/{location_id}")
+    async def get_location(location_id: int):
+        db_manager = DatabaseManager.get_instance()
+        location = await db_manager.get_location(location_id)
+
+        if location:
+            return location
+        else:
+            return JSONResponse(content={"error": "Location not found"}, status_code=404)
+
+    @app.put("/update_location/{location_id}")
+    async def update_location(location_id: int, location: Location):
+        db_manager = DatabaseManager.get_instance()
+
+        # Update the location with the provided data
+        updated_location = await db_manager.update_location(location_id, location.dict())
+
+        if updated_location:
+            return {"message": "Location updated", "location": updated_location}
+        else:
+            return JSONResponse(content={"error": "Error updating location"}, status_code=400)
+
+    @app.delete("/delete_location/{location_id}")
+    async def delete_location(location_id: int):
+        db_manager = DatabaseManager.get_instance()
+
+        # Delete the location and its children
+        deleted_location = await db_manager.delete_location(location_id)
+
+        if deleted_location:
+            return {"message": "Location deleted", "location": deleted_location}
+        else:
+            return JSONResponse(content={"error": "Error deleting location"}, status_code=400)
 
     @app.get("/search/{query}")
     async def search(query: str):
