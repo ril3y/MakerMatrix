@@ -4,6 +4,7 @@ import threading
 import uuid
 from asyncio import create_task
 from fastapi import FastAPI, HTTPException, Request
+from typing import Optional
 
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
@@ -17,6 +18,7 @@ from lib.part_inventory import PartInventory
 from parser_manager import ParserManager
 from lib.websockets import WebSocketManager
 from lib.database import DatabaseManager
+
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
 db = PartInventory('part_inventory.json')
 
@@ -28,13 +30,12 @@ from pydantic import BaseModel
 
 from typing import List
 
+
 class Location(BaseModel):
+    id: Optional[str]  # Use Optional to make id field not required
     name: str
     description: str
-    parent_id: int = None
-    children: List['Location'] = []
-
-
+    parent_id: Optional[str] = None  # Also make parent_id not required
 
 
 def setup_routes(app: FastAPI):
@@ -75,7 +76,6 @@ def setup_routes(app: FastAPI):
         locations = db_manager.get_all_locations()
         return JSONResponse(content={"locations": locations}, status_code=200)
 
-
     @app.get("/get_location_details/{location_id}")
     async def get_location_details(location_id: int):
         db_manager = DatabaseManager.get_instance()
@@ -97,7 +97,7 @@ def setup_routes(app: FastAPI):
     @app.get("/clear_locations/")
     async def clear_locations():
         db_manager = DatabaseManager.get_instance()
-        db.locations_table.truncate()  # This clears all records in the locations table
+        db.location_table.truncate()  # This clears all records in the locations table
         return {"message": "All locations cleared"}
 
     @app.post("/add_location/")
@@ -108,7 +108,12 @@ def setup_routes(app: FastAPI):
         added_location = await db_manager.add_location(location.dict())
 
         # Return a success message with the added location data
-        return {"message": "Location added successfully", "location": added_location}
+        # return JSONResponse(content={"error": "Error updating location"}, status_code=400)
+        if "error" in added_location:
+            res = JSONResponse(content=added_location, status_code=409)
+        else:
+            res = JSONResponse(content=added_location, status_code=200)
+        return res
 
     @app.get("/get_location/{location_id}")
     async def get_location(location_id: int):

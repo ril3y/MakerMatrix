@@ -33,7 +33,7 @@ sys.path.append("./parsers")
 sys.path.append("./lib")
 
 # Serve static files from the "build/static" directory
-app.mount("/static", StaticFiles(directory="static/part_inventory_ui/build/static"), name="static")
+app.mount("/static", StaticFiles(directory="static/part_inventory_ui/build/"), name="static")
 
 if __name__ == "__main__":
     # Start the FastAPI server

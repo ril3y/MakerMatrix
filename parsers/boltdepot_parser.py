@@ -5,12 +5,9 @@ from urllib.parse import urlparse, parse_qs
 from parsers.parser import Parser
 from parts.parts import Part
 from lib.required_input import RequiredInput
-import base64
 
 
 class BoltDepotParser(Parser):
-
-
 
     def submit(self):
         pass
@@ -22,13 +19,11 @@ class BoltDepotParser(Parser):
                          part_type="hardware",
                          supplier="bolt depot")
         # Required Inputs
-        req_part_name = RequiredInput(field_name="part_name", data_type="string", prompt="Enter the part name")
+        # req_part_name = RequiredInput(field_name="part_name", data_type="string", prompt="Enter the part name")
         req_part_quantity = RequiredInput(field_name="quantity", data_type="int", prompt="Enter the quantity.")
 
         # Set the required inputs
-        self.required_inputs = [req_part_name, req_part_quantity]
-
-
+        self.required_inputs = [req_part_quantity]
 
     def matches(self, data):
         decoded_data = self.decode_json_data(data)
