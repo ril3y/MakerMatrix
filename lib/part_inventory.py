@@ -2,11 +2,14 @@ from tinydb import TinyDB, Query
 from datetime import datetime
 
 import uuid
+
+
 class PartInventory:
     def __init__(self, db_file):
         self.db = TinyDB(db_file)
         self.part_table = self.db.table('parts')
         self.location_table = self.db.table('locations')
+        self.suppliers = self.db.table('suppliers')
 
     def get_all_categories(self):
         unique_categories = set()
@@ -24,7 +27,7 @@ class PartInventory:
         return_message = {}
 
         # Check if a part with the same part_number already exists
-        existing_part = self.part_table.get(PartQuery.part_number ==  data.part.part_number)
+        existing_part = self.part_table.get(PartQuery.part_number == data.part.part_number)
 
         # TODO:  We need to ask if they want to register a location for this part.  If so then we can do auto location
         # or we can get existing locations from the db then present them to the UI.
@@ -99,8 +102,8 @@ class PartInventory:
         self.part_table.remove(Part.manufacturer_pn == manufacturer_pn)
 
     def _find_by_manufacturer_pn(self, manufacturer_pn):
-        Part = Query()
-        return self.part_table.get(Part.manufacturer_pn == manufacturer_pn)
+        part = Query()
+        return self.part_table.get(part.manufacturer_pn == manufacturer_pn)
 
     def update_quantity(self, manufacturer_pn, new_quantity):
         part = self._find_by_manufacturer_pn(manufacturer_pn)
@@ -126,8 +129,8 @@ class PartInventory:
             raise ValueError("parent_id must be a string or None")
 
         # Check if a location with the same name already exists
-        Location = Query()
-        existing_location = self.location_table.get(Location.name == name)
+        location = Query()
+        existing_location = self.location_table.get(location.name == name)
         if existing_location:
             return {"error": "A location with the same name already exists"}
 
@@ -145,10 +148,10 @@ class PartInventory:
 
         # If parent_id is not None, look up the parent location
         if parent_id is not None:
-            parent_location = self.location_table.get(Location.id == parent_id)
+            parent_location = self.location_table.get(location.id == parent_id)
             if parent_location:
                 parent_location['children'].append(location_id)
-                self.location_table.update({'children': parent_location['children']}, Location.id == parent_id)
+                self.location_table.update({'children': parent_location['children']}, location.id == parent_id)
 
         self.location_table.insert(new_location)
         return {"message": "Location added successfully"}
@@ -164,3 +167,34 @@ class PartInventory:
     def delete_location(self, location_id):
         # Delete a location
         self.location_table.remove(doc_ids=[location_id])
+
+        # SUPPLIERS
+
+    def add_supplier(self, supplier_data):
+        supplier = Query()
+        existing_supplier = self.suppliers.get(supplier.name == supplier_data['name'])
+        if existing_supplier:
+            return {"error": "A supplier with the same name already exists"}
+
+        # Generate a UUID for the new supplier
+        supplier_id = str(uuid.uuid4())
+        supplier_data['id'] = supplier_id
+
+        self.suppliers.insert(supplier_data)
+        return {"message": "Supplier added successfully", "id": supplier_id}
+
+    def update_supplier(self, supplier_id, new_data):
+        supplier = Query()
+        self.suppliers.update(new_data, supplier.id == supplier_id)
+
+    def delete_supplier(self, supplier_id):
+        supplier = Query()
+        self.suppliers.remove(supplier.id == supplier_id)
+
+    def find_supplier_by_name(self, name):
+        supplier = Query()
+        return self.suppliers.get(supplier.name == name)
+
+    def search_suppliers(self, query):
+        supplier = Query()
+        return self.suppliers.search(supplier.name.search(query))
