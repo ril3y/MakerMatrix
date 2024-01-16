@@ -16,6 +16,7 @@ from lib.part_inventory import PartInventory
 from parser_manager import ParserManager
 from lib.websockets import WebSocketManager
 from lib.database import DatabaseManager
+from lib.part_inventory import PartInventory
 from pydantic import BaseModel, root_validator, ValidationError
 from pydantic import BaseModel
 from typing import List
@@ -153,7 +154,9 @@ def setup_routes(app: FastAPI):
             json_data = await request.json()
             part = PartModel(**json_data)
             # Process and save part
-            return {"message": "Part added successfully", "part": part.dict()}
+            db_manager = DatabaseManager.get_instance('part_inventory.json')
+            return_message = await db_manager.add_part(part, overwrite=False)
+            return return_message
         except ValidationError as e:
             # Log e.errors() to see the detailed validation errors
             raise HTTPException(status_code=422, detail=str(e.errors()))
