@@ -5,19 +5,20 @@ import uuid
 from asyncio import create_task
 from fastapi import FastAPI, HTTPException, Request
 from typing import Optional
-
+from fastapi import UploadFile, File
+import os, shutil
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.responses import FileResponse
-
 from lib.connection import Connection
 from database import DatabaseManager
-
-# Import necessary modules and classes
 from lib.part_inventory import PartInventory
 from parser_manager import ParserManager
 from lib.websockets import WebSocketManager
 from lib.database import DatabaseManager
+from pydantic import BaseModel, root_validator, ValidationError
+from pydantic import BaseModel
+from typing import List
 
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
 db = PartInventory('part_inventory.json')
@@ -26,16 +27,29 @@ db = PartInventory('part_inventory.json')
 active_websockets = {}
 websocket_info = {}
 websocket_info_lock = threading.Lock()
-from pydantic import BaseModel
-
-from typing import List
 
 
-class Location(BaseModel):
+class LocationModel(BaseModel):
     id: Optional[str]  # Use Optional to make id field not required
-    name: str
-    description: str
+    name: Optional[str]
+    description: Optional[str]
     parent_id: Optional[str] = None  # Also make parent_id not required
+
+
+class PartModel(BaseModel):
+    part_number: Optional[str] = None
+    part_name: Optional[str] = None
+    quantity: Optional[int]
+    description: Optional[str] = None
+    supplier: Optional[str] = None  # Also make parent_id not required
+    location: Optional[LocationModel] = None
+
+    @root_validator
+    def check_part_details(cls, values):
+        part_number, part_name = values.get('part_number'), values.get('part_name')
+        if part_number is None and part_name is None:
+            raise ValueError('Either part_number or part_name must be provided')
+        return values
 
 
 def setup_routes(app: FastAPI):
@@ -101,7 +115,7 @@ def setup_routes(app: FastAPI):
         return {"message": "All locations cleared"}
 
     @app.post("/add_location/")
-    async def add_location(location: Location):
+    async def add_location(location: LocationModel):
         db_manager = DatabaseManager.get_instance()
 
         # Add the new location to the database
@@ -125,13 +139,40 @@ def setup_routes(app: FastAPI):
         else:
             return JSONResponse(content={"error": "Location not found"}, status_code=404)
 
-    @app.put("/update_location/{location_id}")
-    async def update_location(location_id: int, location: Location):
-        db_manager = DatabaseManager.get_instance()
+    @app.get("/get_image/{image_id}")
+    async def get_image(image_id: str):
+        file_path = f"uploaded_images/{image_id}"
+        if os.path.exists(file_path):
+            return FileResponse(file_path)
+        else:
+            raise HTTPException(status_code=404, detail="Image not found")
 
+    @app.post("/add_part")
+    async def add_part(request: Request):
+        try:
+            json_data = await request.json()
+            part = PartModel(**json_data)
+            # Process and save part
+            return {"message": "Part added successfully", "part": part.dict()}
+        except ValidationError as e:
+            # Log e.errors() to see the detailed validation errors
+            raise HTTPException(status_code=422, detail=str(e.errors()))
+
+    @app.post("/upload_image/")
+    async def upload_image(file: UploadFile = File(...)):
+        file_extension = os.path.splitext(file.filename)[1]
+        image_id = str(uuid.uuid4())
+        file_path = f"uploaded_images/{image_id}{file_extension}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        return {"image_id": image_id}
+
+    @app.put("/update_location/{location_id}")
+    async def update_location(location_id: int, location: LocationModel):
+        db_manager = DatabaseManager.get_instance()
         # Update the location with the provided data
         updated_location = await db_manager.update_location(location_id, location.dict())
-
         if updated_location:
             return {"message": "Location updated", "location": updated_location}
         else:
@@ -140,10 +181,8 @@ def setup_routes(app: FastAPI):
     @app.delete("/delete_location/{location_id}")
     async def delete_location(location_id: int):
         db_manager = DatabaseManager.get_instance()
-
         # Delete the location and its children
         deleted_location = await db_manager.delete_location(location_id)
-
         if deleted_location:
             return {"message": "Location deleted", "location": deleted_location}
         else:
