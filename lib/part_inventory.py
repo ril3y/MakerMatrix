@@ -27,7 +27,10 @@ class PartInventory:
         return_message = {}
 
         # Check if a part with the same part_number already exists
-        existing_part = self.part_table.get(PartQuery.part_number == data.part.part_number)
+        if data.part.part_number:
+            existing_part = self.part_table.get(PartQuery.part_number == data.part.part_number)
+        else:
+            existing_part = self.part_table.get(PartQuery.part_name == data.part.part_name)
 
         # TODO:  We need to ask if they want to register a location for this part.  If so then we can do auto location
         # or we can get existing locations from the db then present them to the UI.
