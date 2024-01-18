@@ -10,6 +10,7 @@ class PartInventory:
         self.part_table = self.db.table('parts')
         self.location_table = self.db.table('locations')
         self.suppliers = self.db.table('suppliers')
+        self.categories = self.db.table('categories')
 
     def get_all_categories(self):
         unique_categories = set()
