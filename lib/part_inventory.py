@@ -11,6 +11,7 @@ class PartInventory:
         self.location_table = self.db.table('locations')
         self.suppliers = self.db.table('suppliers')
         self.categories = self.db.table('categories')
+        self.category_table = self.db.table('category_table')
 
     def get_all_categories(self):
         unique_categories = set()
@@ -202,3 +203,13 @@ class PartInventory:
     def search_suppliers(self, query):
         supplier = Query()
         return self.suppliers.search(supplier.name.search(query))
+def add_category(self, category_name):
+    # Generate a UUID for the new category
+    category_id = str(uuid.uuid4())
+    self.category_table.insert({'id': category_id, 'name': category_name})
+
+def remove_category(self, category_id):
+    self.category_table.remove(doc_ids=[category_id])
+
+def update_category(self, category_id, new_name):
+    self.category_table.update({'name': new_name}, doc_ids=[category_id])

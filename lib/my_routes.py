@@ -287,3 +287,17 @@ def setup_routes(app: FastAPI):
                 del ws_manager.active_websockets[client_id]
                 await ws_manager.broadcast(json.dumps({"action": "disconnect", "clientId": client_id}))
             print(f"Client {client_id} disconnected")
+@app.post("/add_category/")
+async def add_category(category_name: str):
+    db.add_category(category_name)
+    return {"message": f"Category {category_name} added successfully"}
+
+@app.delete("/remove_category/{category_id}")
+async def remove_category(category_id: str):
+    db.remove_category(category_id)
+    return {"message": f"Category with id {category_id} removed successfully"}
+
+@app.put("/update_category/{category_id}")
+async def update_category(category_id: str, new_name: str):
+    db.update_category(category_id, new_name)
+    return {"message": f"Category with id {category_id} updated successfully to {new_name}"}
