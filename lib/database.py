@@ -57,3 +57,11 @@ class DatabaseManager:
     async def add_location(self, location):
         return self.db.add_location(location)
 
+    async def add_category(self, category_name):
+        return self.part_inventory.add_category(category_name)
+
+    async def remove_category(self, category_id):
+        return self.part_inventory.remove_category(category_id)
+
+    async def update_category(self, category_id, new_name):
+        return self.part_inventory.update_category(category_id, new_name)
