@@ -20,6 +20,7 @@ from lib.part_inventory import PartInventory
 from pydantic import BaseModel, root_validator, ValidationError
 from pydantic import BaseModel
 from typing import List
+import datetime
 
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
 db = PartInventory('part_inventory.json')
@@ -51,6 +52,10 @@ class PartModel(BaseModel):
         if part_number is None and part_name is None:
             raise ValueError('Either part_number or part_name must be provided')
         return values
+
+    def to_json(self):
+        return json.dumps(self.dict(), default=str)
+
 
 
 def setup_routes(app: FastAPI):
@@ -159,7 +164,10 @@ def setup_routes(app: FastAPI):
             return return_message
         except ValidationError as e:
             # Log e.errors() to see the detailed validation errors
+            print(e)
             raise HTTPException(status_code=422, detail=str(e.errors()))
+        except Exception as e:
+            print(e)
 
     @app.post("/upload_image/")
     async def upload_image(file: UploadFile = File(...)):

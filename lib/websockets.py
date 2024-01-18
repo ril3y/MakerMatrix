@@ -104,7 +104,7 @@ class WebSocketManager:
                     continue
 
             # Attempt to add the part to the database
-            return_message = await self.db_manager.add_part(parser)
+            return_message = await self.db_manager.add_part(parser.part)
 
             # Handle scenario where a part already exists (indicated by 'question' event)
             if return_message['event'] == 'question':
