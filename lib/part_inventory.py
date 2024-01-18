@@ -22,15 +22,15 @@ class PartInventory:
         # Fetches all documents from the 'locations' table
         return self.location_table.all()
 
-    async def add_part(self, data, overwrite) -> dict:
+    async def add_part(self, part, overwrite) -> dict:
         PartQuery = Query()
         return_message = {}
 
         # Check if a part with the same part_number already exists
-        if data.part.part_number:
-            existing_part = self.part_table.get(PartQuery.part_number == data.part.part_number)
+        if part.part_number:
+            existing_part = self.part_table.get(PartQuery.part_number == part.part_number)
         else:
-            existing_part = self.part_table.get(PartQuery.part_name == data.part.part_name)
+            existing_part = self.part_table.get(PartQuery.part_name == part.part_name)
 
         # TODO:  We need to ask if they want to register a location for this part.  If so then we can do auto location
         # or we can get existing locations from the db then present them to the UI.
@@ -53,7 +53,7 @@ class PartInventory:
             # If part exists and overwrite is False, ask for confirmation
             return_message = {
                 "event": "question",
-                "question_text": f"Existing part found: {data.part.part_number}. Do you want to overwrite this entry for this part?",
+                "question_text": f"Existing part found: {part.part_number}. Do you want to overwrite this entry for this part?",
                 "question_type": "alert",
                 "positive_text": "Yes",
                 "negative_text": "Nope!"
@@ -65,11 +65,11 @@ class PartInventory:
                 self.part_table.remove(doc_ids=[existing_part.doc_id])
 
             # Insert or update the part record
-            document_id = self.part_table.insert(data.to_dict(data.part))
+            document_id = self.part_table.insert(part.dict())
 
             return_message = {
                 "event": "part_added",
-                "data": data.to_dict(data.part)
+                "data": part.dict()
             }
             return_message['data']['document_id'] = document_id
 
