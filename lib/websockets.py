@@ -85,52 +85,54 @@ class WebSocketManager:
         The method operates in a loop to continuously process data until all required inputs are fulfilled
         and the part is successfully added or updated in the database.
         """
+        try:
+            while True:
+                # Check if there are required inputs yet to be fulfilled
+                if len(parser.required_inputs) != 0:
+                    # Format required data for client response
+                    required_data = parser.format_required_data(part_number=parser.part.part_number,
+                                                                requirements=parser.required_inputs, clientId=client_id)
 
-        while True:
-            # Check if there are required inputs yet to be fulfilled
-            if len(parser.required_inputs) != 0:
-                # Format required data for client response
-                required_data = parser.format_required_data(part_number=parser.part.part_number,
-                                                            requirements=parser.required_inputs, clientId=client_id)
+                    # Send required data to the client
+                    await self.send_data_to_client(client_id, required_data)
 
-                # Send required data to the client
-                await self.send_data_to_client(client_id, required_data)
+                    # Receive input from the client
+                    user_input = await self.receive_input_from_client(client_id)
 
-                # Receive input from the client
-                user_input = await self.receive_input_from_client(client_id)
+                    # Validate user input; if invalid, continue the loop to request input again
+                    if not parser.validate(user_input):
+                        continue
 
-                # Validate user input; if invalid, continue the loop to request input again
-                if not parser.validate(user_input):
-                    continue
+                # Attempt to add the part to the database
+                return_message = await self.db_manager.add_part(parser.part)
 
-            # Attempt to add the part to the database
-            return_message = await self.db_manager.add_part(parser.part)
+                # Handle scenario where a part already exists (indicated by 'question' event)
+                if return_message['event'] == 'question':
+                    # Send the question to the client
+                    await self.send_data_to_client(client_id, parser.to_json(return_message))
 
-            # Handle scenario where a part already exists (indicated by 'question' event)
-            if return_message['event'] == 'question':
-                # Send the question to the client
-                await self.send_data_to_client(client_id, parser.to_json(return_message))
+                    # Wait for user response to the question
+                    user_response = await self.receive_input_from_client(client_id)
+                    user_response_data = json.loads(user_response)['data']
 
-                # Wait for user response to the question
-                user_response = await self.receive_input_from_client(client_id)
-                user_response_data = json.loads(user_response)['data']
+                    # Check user's response
+                    if user_response_data == "yes":
+                        # If 'yes', overwrite the part in the database and check the response
+                        overwrite_response = await self.db_manager.add_part(parser.part, overwrite=True)
 
-                # Check user's response
-                if user_response_data == "yes":
-                    # If 'yes', overwrite the part in the database and check the response
-                    overwrite_response = await self.db_manager.add_part(parser, overwrite=True)
-
-                    # If the response event is not 'question', assume success and exit the loop
-                    if overwrite_response.get('event') != 'question':
-                        await self.send_data_to_client(client_id, parser.to_json(overwrite_response))
+                        # If the response event is not 'question', assume success and exit the loop
+                        if overwrite_response.get('event') != 'question':
+                            await self.send_data_to_client(client_id, parser.to_json(overwrite_response))
+                            break
+                    elif user_response_data == "no":
+                        # If user responds with 'no', exit the loop without overwriting
                         break
-                elif user_response_data == "no":
-                    # If user responds with 'no', exit the loop without overwriting
+                else:
+                    # If there's no 'question' event, part addition is successful; exit the loop
+                    await self.send_data_to_client(client_id, parser.to_json(return_message))
                     break
-            else:
-                # If there's no 'question' event, part addition is successful; exit the loop
-                await self.send_data_to_client(client_id,parser.to_json(return_message))
-                break
+        except Exception as e:
+            print(e)
 
     async def handle_new_data(self, new_data, client_id):
         parser = self.parser_manager.parse_data(new_data)

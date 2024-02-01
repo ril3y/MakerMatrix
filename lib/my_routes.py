@@ -1,3 +1,4 @@
+import logging
 import threading
 import json
 import threading
@@ -57,7 +58,6 @@ class PartModel(BaseModel):
         return json.dumps(self.dict(), default=str)
 
 
-
 def setup_routes(app: FastAPI):
     # Define route functions
 
@@ -90,25 +90,76 @@ def setup_routes(app: FastAPI):
         else:
             return JSONResponse(content={"error": "Part not found"}, status_code=404)
 
+
+    @app.get("/preview-delete/{location_id}")
+    async def preview_delete(location_id: str):
+        # Fetch the number of parts affected by the deletion
+        affected_parts = await db.get_parts_effected_locations(location_id)
+        affected_parts_count = len(affected_parts)
+
+        # Fetch the child locations affected by the deletion
+        child_locations = await db.get_location_hierarchy(location_id)
+        affected_children_count = len(child_locations)
+
+        return {
+            "location_id": location_id,
+            "affected_parts_count": affected_parts_count,
+            "affected_children_count": affected_children_count
+        }
+
+    @app.get("/get_location_path/{location_id}")
+    async def get_location_path(location_id: str):
+        """
+        Retrieves the path from a specific location to the root.
+
+        :param location_id: The ID of the specific location.
+        :return: A list of locations forming the path from the specified location to the root.
+        """
+        path = await db.get_location_path(location_id)
+        if path:
+            return JSONResponse(content={"path": path}, status_code=200)
+        else:
+            return JSONResponse(content={"error": "Location path not found"}, status_code=404)
+
     @app.get("/get_all_locations/")
     async def get_all_locations():
-        db_manager = DatabaseManager.get_instance()
-        locations = db_manager.get_all_locations()
+        # db_manager = DatabaseManager.get_instance()
+        locations = await db.get_all_locations()
         return JSONResponse(content={"locations": locations}, status_code=200)
 
+    @app.get("/get_counts")
+    async def get_counts():
+        """
+        Returns all counts for parts, locations, and categories
+        """
+        # db_manager = DatabaseManager.get_instance()
+        try:
+            parts =  db.get_all_parts()
+            locations =  db.get_all_locations()
+            categories =  db.get_all_categories()
+
+            parts_count = len(parts)
+            locations_count = len(locations)
+            categories_count = len(categories)
+            return JSONResponse(
+                content={"parts": parts_count, "locations": locations_count, "categories": categories_count},
+                status_code=200)
+        except Exception as e:
+            print(f"Error getting counts: {e}")
+            return JSONResponse(content={"error": "An error occurred while fetching counts"}, status_code=500)
+
     @app.get("/get_location_details/{location_id}")
-    async def get_location_details(location_id: int):
-        db_manager = DatabaseManager.get_instance()
-        location = await db_manager.get_location_details(location_id)
+    async def get_location_details(location_id: str):
+        location = await db.get_location_hierarchy(location_id)
         if location:
             return JSONResponse(content=location, status_code=200)
         else:
             return JSONResponse(content={"error": "Location not found"}, status_code=404)
 
     @app.put("/edit_location/{location_id}")
-    async def edit_location(location_id: int, name: str = None, description: str = None, parent_id: int = None):
-        db_manager = DatabaseManager.get_instance()
-        updated_location = await db_manager.edit_location(location_id, name, description, parent_id)
+    async def edit_location(location_id: str, name: str = None, description: str = None, parent_id: int = None):
+        # db_manager = DatabaseManager.get_instance()
+        updated_location = await db.edit_location(location_id, name, description, parent_id)
         if updated_location:
             return {"message": "Location updated", "location": updated_location}
         else:
@@ -116,16 +167,16 @@ def setup_routes(app: FastAPI):
 
     @app.get("/clear_locations/")
     async def clear_locations():
-        db_manager = DatabaseManager.get_instance()
+        # db_manager = DatabaseManager.get_instance()
         db.location_table.truncate()  # This clears all records in the locations table
         return {"message": "All locations cleared"}
 
     @app.post("/add_location/")
     async def add_location(location: LocationModel):
-        db_manager = DatabaseManager.get_instance()
+        # db_manager = DatabaseManager.get_instance()
 
         # Add the new location to the database
-        added_location = await db_manager.add_location(location.dict())
+        added_location = await db.add_location(location.dict())
 
         # Return a success message with the added location data
         # return JSONResponse(content={"error": "Error updating location"}, status_code=400)
@@ -135,17 +186,17 @@ def setup_routes(app: FastAPI):
             res = JSONResponse(content=added_location, status_code=200)
         return res
 
+
     @app.get("/get_location/{location_id}")
-    async def get_location(location_id: int):
-        db_manager = DatabaseManager.get_instance()
-        location = await db_manager.get_location(location_id)
+    async def get_location(location_id: str):
+        location = await db.get_location(location_id)
 
         if location:
             return location
         else:
             return JSONResponse(content={"error": "Location not found"}, status_code=404)
 
-    @app.get("/get_image/{image_id}")
+    @app.get("/get_image/{image_id}/")
     async def get_image(image_id: str):
         file_path = f"uploaded_images/{image_id}"
         if os.path.exists(file_path):
@@ -159,8 +210,8 @@ def setup_routes(app: FastAPI):
             json_data = await request.json()
             part = PartModel(**json_data)
             # Process and save part
-            db_manager = DatabaseManager.get_instance('part_inventory.json')
-            return_message = await db_manager.add_part(part, overwrite=False)
+            # db_manager = DatabaseManager.get_instance('part_inventory.json')
+            return_message = await db.add_part(part, overwrite=False)
             return return_message
         except ValidationError as e:
             # Log e.errors() to see the detailed validation errors
@@ -189,22 +240,74 @@ def setup_routes(app: FastAPI):
         else:
             return JSONResponse(content={"error": "Error updating location"}, status_code=400)
 
+    @app.delete("/cleanup-locations")
+    async def cleanup_locations():
+        # Step 1: Find all locations
+        all_locations = db.get_all_locations()
+
+        # Create a set of all valid location IDs
+        valid_ids = {loc.get('id') for loc in all_locations}
+
+        # Step 2: Identify invalid locations
+        invalid_locations = [
+            loc for loc in all_locations
+            if loc.get('parent_id') and loc.get('parent_id') not in valid_ids
+        ]
+
+        # Recursive function to delete a location and its descendants
+        async def delete_location_and_descendants(location_id):
+            # Delete all child locations
+            for loc in all_locations:
+                if loc.get('parent_id') == location_id:
+                    delete_location_and_descendants(loc.get('id'))
+
+            # Delete the location itself
+            await db.delete_location(location_id)
+
+        # Step 3: Delete invalid locations and their descendants
+        for loc in invalid_locations:
+            await delete_location_and_descendants(loc.get('id'))
+
+        return {"message": "Cleanup completed", "deleted_locations_count": len(invalid_locations)}
+
     @app.delete("/delete_location/{location_id}")
-    async def delete_location(location_id: int):
-        db_manager = DatabaseManager.get_instance()
-        # Delete the location and its children
-        deleted_location = await db_manager.delete_location(location_id)
+    async def delete_location(location_id: str):
+        # Query and get all child locations
+        child_locations = await db.get_location_hierarchy(location_id)
+
+        # Iterate and delete each child location
+        for child_location in child_locations:
+            await db.delete_location(child_location['id'])  # Assuming each child has an 'id' attribute
+
+        # Finally, delete the specified location
+        deleted_location = await db.delete_location(location_id)
+
         if deleted_location:
-            return {"message": "Location deleted", "location": deleted_location}
+            return {
+                "message": "Location and its children deleted successfully",
+                "deleted_location": location_id,
+                "deleted_children_count": len(child_locations)
+            }
         else:
-            return JSONResponse(content={"error": "Error deleting location"}, status_code=400)
+            raise HTTPException(status_code=400, detail="Error deleting location")
 
     @app.get("/search/{query}")
-    async def search(query: str):
-        search_results = db.search_parts(query)
-        suggestions = db.get_suggestions(query)
-        return {"search_results": search_results, "suggestions": suggestions}
+    async def search(query: str, search_type: str = "number"):
+        """
+        Perform a search based on the query and type.
+        :param query: The search query string.
+        :param search_type: The type of search (e.g., 'name', 'number').
+        :return: A JSON response with search results and suggestions.
+        """
 
+        valid_search_types = ["name","number"]
+
+        if search_type in valid_search_types:
+            search_results = db.search_parts(query, search_type)
+            suggestions = db.get_suggestions(query, search_type)
+            return {"search_results": search_results, "suggestions": suggestions}
+        else:
+            return HTTPException(status_code=500, detail="invalid search type")
     # Define a route to serve the index.html file
     @app.get("/")
     async def serve_index_html():
@@ -287,17 +390,21 @@ def setup_routes(app: FastAPI):
                 del ws_manager.active_websockets[client_id]
                 await ws_manager.broadcast(json.dumps({"action": "disconnect", "clientId": client_id}))
             print(f"Client {client_id} disconnected")
-@app.post("/add_category/")
-async def add_category(category_name: str):
-    db.add_category(category_name)
-    return {"message": f"Category {category_name} added successfully"}
 
-@app.delete("/remove_category/{category_id}")
-async def remove_category(category_id: str):
-    db.remove_category(category_id)
-    return {"message": f"Category with id {category_id} removed successfully"}
 
-@app.put("/update_category/{category_id}")
-async def update_category(category_id: str, new_name: str):
-    db.update_category(category_id, new_name)
-    return {"message": f"Category with id {category_id} updated successfully to {new_name}"}
+    @app.post("/add_category/")
+    async def add_category(category_name: str):
+        db.add_category(category_name)
+        return {"message": f"Category {category_name} added successfully"}
+
+
+    @app.delete("/remove_category/{category_id}")
+    async def remove_category(category_id: str):
+        db.remove_category(category_id)
+        return {"message": f"Category with id {category_id} removed successfully"}
+
+
+    @app.put("/update_category/{category_id}")
+    async def update_category(category_id: str, new_name: str):
+        db.update_category(category_id, new_name)
+        return {"message": f"Category with id {category_id} updated successfully to {new_name}"}

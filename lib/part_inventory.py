@@ -10,15 +10,10 @@ class PartInventory:
         self.part_table = self.db.table('parts')
         self.location_table = self.db.table('locations')
         self.suppliers = self.db.table('suppliers')
-        self.categories = self.db.table('categories')
-        self.category_table = self.db.table('category_table')
+        self.category_table = self.db.table('categories')
 
     def get_all_categories(self):
-        unique_categories = set()
-        for part in self.part_table.all():
-            if 'categories' in part:
-                unique_categories.update(part['categories'])
-        return list(unique_categories)
+        return self.category_table.all()
 
     def get_all_locations(self):
         # Fetches all documents from the 'locations' table
@@ -84,17 +79,27 @@ class PartInventory:
         # Retrieve all parts from the database
         return self.part_table.all()
 
-    def search_parts(self, query):
+    def search_parts(self, query, search_type):
         Part = Query()
-        return self.part_table.search(Part.part_number.search(query))
+        if search_type == "name":
+            return self.part_table.search(Part.part_name.search(query))
+        elif search_type == "number":
+            return self.part_table.search(Part.part_number.search(query))
+        return None
 
-    def get_suggestions(self, query):
+    def get_suggestions(self, query, search_type):
         Part = Query()
         # Search for part numbers that start with the given query
-        matching_parts = self.part_table.search(Part.part_number.search('^' + query))
-        # Extract part numbers from the results
-        suggestions = [part['part_number'] for part in matching_parts]
-        return suggestions
+        if search_type == "name":
+            matching_parts = self.part_table.search(Part.part_name.search('^' + query))
+            suggestions = [part['part_name'] for part in matching_parts]
+            return suggestions
+        elif search_type == "number":
+            matching_parts = self.part_table.search(Part.part_number.search('^' + query))
+            # Extract part numbers from the results
+            suggestions = [part['part_number'] for part in matching_parts]
+            return suggestions
+        return None
 
     def get_part_by_part_number(self, part_number):
         # Retrieve a part by its manufacturer_pn
@@ -125,7 +130,7 @@ class PartInventory:
         self.part_table.update({'quantity': new_quantity}, doc_ids=[part.doc_id])
 
     # LOCATIONS
-    def add_location(self, location_data):
+    async def add_location(self, location_data):
         name = location_data['name']
         description = location_data['description']
         parent_id = location_data.get('parent_id')
@@ -161,21 +166,81 @@ class PartInventory:
         self.location_table.insert(new_location)
         return {"message": "Location added successfully"}
 
-    def update_location(self, location_id, new_data):
+    async def update_location(self, location_id, new_data):
         # Update a location
-        self.location_table.update(new_data, doc_ids=[location_id])
+        self.location_table.update(new_data, (Query().id == [location_id]))
 
-    def get_location(self, location_id):
-        # Retrieve a location by its ID
-        return self.location_table.get(doc_id=location_id)
+    async def get_location_path(self, location_id):
+        """
+        Retrieves the path from a specific location to the root in a nested JSON format.
 
-    def delete_location(self, location_id):
+        :param location_id: The ID of the specific location.
+        :return: A nested JSON object representing the path from the specified location to the root.
+        """
+        def construct_path(location_id):
+            location = self.location_table.get(Query().id == location_id)
+            if location is None:
+                return None
+
+            parent_id = location.get('parent_id')
+            if parent_id:
+                parent_location = construct_path(parent_id)
+                if parent_location:
+                    return {'location': location, 'parent': parent_location}
+            return {'location': location, 'parent': None}
+
+        return construct_path(location_id)
+
+    async def get_location_hierarchy(self, parent_id):
+        """
+        Recursively retrieves all child locations for a given parent location.
+
+        :param parent_id: The ID of the parent location.
+        :return: A nested JSON structure of locations.
+        """
+
+        def fetch_children(location_id):
+            children = self.location_table.search(Query().parent_id == location_id)
+            for child in children:
+                # Recursive call to fetch the children of the current child
+                child['children'] = fetch_children(child.doc_id)
+            return children
+
+        # Start the recursion with the specified parent ID
+        return fetch_children(parent_id)
+
+    async def get_location(self, location_id):
+        """
+        Retrieves a location by its ID from the locations table.
+
+        :param location_id: The ID of the location to retrieve.
+        :return: The location data if found, otherwise None.
+        """
+        location = self.location_table.get(Query().id == location_id)
+        return location if location else None
+
+    async def delete_location(self, location_id):
+
+        parts_affected = await self.get_parts_effected_locations(location_id)
+        query = Query()
+
+        for part in parts_affected:
+            # Assuming 'id' is the unique identifier for parts
+            part_id = part.doc_id
+            if part_id is not None:
+                # Update the part's location to an empty dictionary
+                self.part_table.update({'location': {}}, doc_ids=[part_id])
+
         # Delete a location
-        self.location_table.remove(doc_ids=[location_id])
+        return self.location_table.remove(Query().id == location_id)
 
-        # SUPPLIERS
 
-    def add_supplier(self, supplier_data):
+    async def get_parts_effected_locations(self, location_id):
+        query = Query()
+        parts_effected = self.part_table.search(location_id == query.location.id)
+        return parts_effected
+
+    async def add_supplier(self, supplier_data):
         supplier = Query()
         existing_supplier = self.suppliers.get(supplier.name == supplier_data['name'])
         if existing_supplier:
@@ -203,6 +268,7 @@ class PartInventory:
     def search_suppliers(self, query):
         supplier = Query()
         return self.suppliers.search(supplier.name.search(query))
+
     def add_category(self, category_name):
         # Generate a UUID for the new category
         category_id = str(uuid.uuid4())

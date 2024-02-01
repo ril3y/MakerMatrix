@@ -26,6 +26,24 @@ class DatabaseManager:
     async def add_part(self, data, overwrite=False):
         return await self.db.add_part(data, overwrite)
 
+    async def get_location_by_id(self, location_id):
+        """
+        Retrieves a location by its ID.
+
+        :param location_id: The ID of the location to retrieve.
+        :return: The location data if found, otherwise None.
+        """
+        return self.db.get_location_by_id(location_id)
+
+    async def get_location_hierarchy(self, parent_id):
+        """
+        Retrieves a hierarchy of locations starting from a parent location.
+
+        :param parent_id: The ID of the parent location.
+        :return: A nested JSON structure containing all child locations.
+        """
+        return await self.db.get_location_hierarchy(parent_id)
+
     async def update_quantity(self, manufacturer_pn, new_quantity):
         self.db.update_quantity(manufacturer_pn, new_quantity)
 
@@ -50,12 +68,12 @@ class DatabaseManager:
     async def get_all_categories(self):
         return self.db.get_all_categories()
 
-    def get_all_locations(self):
+    async def get_all_locations(self):
         # Assuming that locations are stored in a table called 'locations'
         return self.db.get_all_locations()
 
     async def add_location(self, location):
-        return self.db.add_location(location)
+        return await self.db.add_location(location)
 
     async def add_category(self, category_name):
         return self.part_inventory.add_category(category_name)

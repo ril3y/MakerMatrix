@@ -1,15 +1,8 @@
-import re
-import requests
-from bs4 import BeautifulSoup
+import os, re
 from lib.required_input import RequiredInput
 from parts.parts import Part
 from parsers.parser import Parser
 from api.easyeda import EasyedaApi
-import base64
-import json
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
 
 def get_nested_value(data, keys, default=""):
     """Safely extract a value from nested dictionaries.
@@ -28,20 +21,6 @@ def get_nested_value(data, keys, default=""):
             return default
     return data if data != default else default
 
-def parse_to_datetime(input_string):
-    try:
-        # Extract the date part (ignoring the first two characters and the last four)
-        if input_string:
-            date_part = input_string[2:8]
-            parsed_date = datetime.strptime(date_part, '%y%m%d')
-            # Format the date as a string in the desired format
-            return parsed_date.strftime('%Y-%m-%d')  # e.g., "2023-03-15"
-        else:
-            return None
-    except ValueError as ve:
-        print(f"Error parsing date: {ve}")
-        return None
-
 
 class LcscParser(Parser):
 
@@ -55,47 +34,22 @@ class LcscParser(Parser):
                          supplier="LCSC")
 
         # Define required inputs, you can remove / set them during enrich stage too.
-        req_part_name = RequiredInput(field_name="part_name", data_type="string", prompt="Enter the part name")
+        #req_part_name = RequiredInput(field_name="part_name", data_type="string", prompt="Enter the part name")
         req_part_type = RequiredInput(field_name="part_type", data_type="string", prompt="Enter the part type.")
         req_part_quantity = RequiredInput(field_name="quantity", data_type="int", prompt="Enter the quantity.")
 
-        self.required_inputs = [req_part_name, req_part_type, req_part_quantity]
+        self.required_inputs = [req_part_type, req_part_quantity]
 
     def matches(self, data):
-        match_data = self.decode_json_data(data)
-        return bool(self.pattern.search(match_data))
+        if 'MOUSER_PART_API_KEY' in os.environ:
+            print("Mouser API key exists")
+
+            match_data = self.decode_json_data(data)
+            return bool(self.pattern.search(match_data))
+        return False
 
     def enrich(self):
         # Specific to LCSC data enrichment
-
-        # url = 'https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL10A106MQ8NNNC_10uF-106-20-6-3V_C1691.html'
-        #
-        # # Send a GET request to the URL
-        # response = requests.get(url)
-        #
-        # # Parse the HTML content
-        # soup = BeautifulSoup(response.text, 'html.parser')
-        #
-        # # Find the table by class name (adjust if needed)
-        # table = soup.find('table', class_='info-table')
-        #
-        # # Initialize a dictionary to store key-value pairs
-        # data = {}
-        #
-        # # Iterate through table rows and extract key-value pairs
-        # if table:
-        #     for row in table.find_all('tr'):
-        #         # Extract columns: assume first column is key and second column is value
-        #         cols = row.find_all('td')
-        #         if len(cols) >= 2:
-        #             key = cols[0].get_text(strip=True)
-        #             value = cols[1].get_text(strip=True)
-        #             data[key] = value
-        #
-        # # Output extracted data
-        # for key, value in data.items():
-        #     print(f"{key}: {value}")
-
         try:
             lcsc_data = self.api.get_info_from_easyeda_api(lcsc_id=self.part.part_number.upper()) # This is cases sensitive on lcsc servers side
             if lcsc_data != {}:
@@ -149,37 +103,13 @@ class LcscParser(Parser):
             data = {key: value for key, value in key_value_pairs}
 
             self.set_property("quantity", int(data.get('qty')))
-
-            # new_order_number = data.get('pbn', '')
-            #
-            # if 'order_number' in self.part.additional_properties:
-            #     if self.part.additional_properties['order_number'] is not None:
-            #         # Check if the new order number is not already in the list
-            #         if new_order_number not in self.part.additional_properties['order_number']:
-            #             self.part.additional_properties['order_number'].append(new_order_number)
-            #     else:
-            #         # If the order_number is None, initialize it as a list with the new order number
-            #         self.part.additional_properties['order_number'] = [new_order_number]
-            # else:
-            #     # If the order_number key doesn't exist, create it
-            #     self.part.additional_properties['order_number'] = [new_order_number]
-
-            # self.part_link = data.get('pl',
             self.set_property('part_number',data.get('pc', '').lower())
             self.set_property('manufacturer_part_number', data.get('pm', '').lower())
-            self.part.additional_properties['order_date'] = parse_to_datetime(data.get('on', ''))
-            self.part.order_date = parse_to_datetime(data.get('on', ''))
-
-            if self.part.part_number.lower().startswith("c"):
-                part_type = "capacitor"
-            elif self.part.part_number.lower().startswith("r"):
-                part_type = "resistor"
-            elif self.part.part_number.lower().startswith("l"):
-                part_type = "inductor"
-            else:
-                part_type = 'unknown'
-
-            self.part_type = self.set_property('part_type',part_type)
+            # self.part.additional_properties['order_date'] = parse_to_datetime(data.get('on', ''))
+            # self.part.order_date = parse_to_datetime(data.get('on', ''))
+            #
+            #
+            # self.part_type = self.set_property('part_type',part_type)
 
         except Exception as e:
             print(f'Error parsing byte data: {e}')
@@ -189,4 +119,3 @@ class LcscParser(Parser):
         # Implementation for data submission specific to LcscParser
         pass
 
-    # Implement other necessary methods or utilities as required

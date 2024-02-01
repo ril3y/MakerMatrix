@@ -8,11 +8,15 @@ class ParserManager:
     def load_parsers(self):
         parsers = []
         parser_dir = './parsers/'
-        for filename in os.listdir(parser_dir):
-            if self.is_valid_parser_file(filename):
-                module = self.load_module_from_file(parser_dir, filename)
-                parsers.extend(self.get_parser_instances(module))
-        return parsers
+        try:
+
+            for filename in os.listdir(parser_dir):
+                if self.is_valid_parser_file(filename):
+                    module = self.load_module_from_file(parser_dir, filename)
+                    parsers.extend(self.get_parser_instances(module))
+            return parsers
+        except TypeError as e:
+            print(f"Invalid parser file '{filename} : {e}")
 
     def is_valid_parser_file(self, filename):
         return (os.path.isfile(os.path.join('./parsers/', filename)) and
