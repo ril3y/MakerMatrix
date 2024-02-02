@@ -90,7 +90,6 @@ def setup_routes(app: FastAPI):
         else:
             return JSONResponse(content={"error": "Part not found"}, status_code=404)
 
-
     @app.get("/preview-delete/{location_id}")
     async def preview_delete(location_id: str):
         # Fetch the number of parts affected by the deletion
@@ -124,7 +123,7 @@ def setup_routes(app: FastAPI):
     @app.get("/get_all_locations/")
     async def get_all_locations():
         # db_manager = DatabaseManager.get_instance()
-        locations = await db.get_all_locations()
+        locations = db.get_all_locations()
         return JSONResponse(content={"locations": locations}, status_code=200)
 
     @app.get("/get_counts")
@@ -134,9 +133,9 @@ def setup_routes(app: FastAPI):
         """
         # db_manager = DatabaseManager.get_instance()
         try:
-            parts =  db.get_all_parts()
-            locations =  db.get_all_locations()
-            categories =  db.get_all_categories()
+            parts = db.get_all_parts()
+            locations = db.get_all_locations()
+            categories = db.get_all_categories()
 
             parts_count = len(parts)
             locations_count = len(locations)
@@ -185,7 +184,6 @@ def setup_routes(app: FastAPI):
         else:
             res = JSONResponse(content=added_location, status_code=200)
         return res
-
 
     @app.get("/get_location/{location_id}")
     async def get_location(location_id: str):
@@ -300,7 +298,7 @@ def setup_routes(app: FastAPI):
         :return: A JSON response with search results and suggestions.
         """
 
-        valid_search_types = ["name","number"]
+        valid_search_types = ["name", "number"]
 
         if search_type in valid_search_types:
             search_results = db.search_parts(query, search_type)
@@ -308,6 +306,7 @@ def setup_routes(app: FastAPI):
             return {"search_results": search_results, "suggestions": suggestions}
         else:
             return HTTPException(status_code=500, detail="invalid search type")
+
     # Define a route to serve the index.html file
     @app.get("/")
     async def serve_index_html():
@@ -391,18 +390,15 @@ def setup_routes(app: FastAPI):
                 await ws_manager.broadcast(json.dumps({"action": "disconnect", "clientId": client_id}))
             print(f"Client {client_id} disconnected")
 
-
     @app.post("/add_category/")
     async def add_category(category_name: str):
         db.add_category(category_name)
         return {"message": f"Category {category_name} added successfully"}
 
-
     @app.delete("/remove_category/{category_id}")
     async def remove_category(category_id: str):
         db.remove_category(category_id)
         return {"message": f"Category with id {category_id} removed successfully"}
-
 
     @app.put("/update_category/{category_id}")
     async def update_category(category_id: str, new_name: str):
