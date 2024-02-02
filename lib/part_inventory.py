@@ -1,4 +1,5 @@
 from tinydb import TinyDB, Query
+from tinydb import Query, where
 from datetime import datetime
 
 import uuid
@@ -81,10 +82,13 @@ class PartInventory:
 
     def search_parts(self, query, search_type):
         Part = Query()
+        query = query.lower()  # Convert query to lowercase
         if search_type == "name":
-            return self.part_table.search(Part.part_name.search(query))
+            # Search case-insensitively by name
+            return self.part_table.search(where('part_name').test(lambda x: x.lower() if x else '' == query))
         elif search_type == "number":
-            return self.part_table.search(Part.part_number.search(query))
+            # Search case-insensitively by number
+            return self.part_table.search(where('part_number').test(lambda x: x.lower() if x else '' == query))
         return None
 
     def get_suggestions(self, query, search_type):
