@@ -23,7 +23,7 @@ class Part():
         self._supplier = kwargs.get('supplier', None)
         self._part_location = kwargs.get('part_location', {})
         # self._package = kwargs.get('package', {})
-        self._uuid = ""
+        self._part_id = ""
 
     def apply_required_data(self, user_data):
         pass
@@ -33,16 +33,16 @@ class Part():
         pass
 
     @property
-    def uuid(self):
+    def part_id(self):
         """Getter for UUID. UUIDs are read-only."""
-        return self._uuid
+        return self._part_id
 
-    @uuid.setter
-    def manufacturer_part_number(self, value):
-        self._uuid = value
+    @part_id.setter
+    def part_id(self, value):
+        self._part_id = value
 
-    def generate_uuid(self):
-        self._uuid = str(uuid.uuid4())
+    def generate_part_id(self):
+        self._part_id = str(uuid.uuid4())
 
     @property
     def manufacturer(self):

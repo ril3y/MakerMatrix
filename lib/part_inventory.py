@@ -1,6 +1,5 @@
 from tinydb import TinyDB, Query
 from tinydb import Query, where
-from datetime import datetime
 
 import uuid
 
@@ -62,6 +61,15 @@ class PartInventory:
                 # Remove the existing part first
                 self.part_table.remove(doc_ids=[existing_part.doc_id])
 
+            # Auto populate categories if they do not exist
+            categories = part.categories
+            for category_name in categories:
+                for category in self.get_all_categories():
+                    if category.get('name').strip() == category_name.strip():
+                        break
+                else:
+                    self.add_category(category_name)
+
             # Insert or update the part record
             document_id = self.part_table.insert(part.dict())
 
@@ -79,6 +87,11 @@ class PartInventory:
     def get_all_parts(self):
         # Retrieve all parts from the database
         return self.part_table.all()
+
+    def delete_parts(self, part_id):
+        Part = Query()
+        return self.part_table.remove(Part.part_id == part_id)
+
 
     def search_parts(self, query, search_type):
         Part = Query()
@@ -279,7 +292,30 @@ class PartInventory:
         self.category_table.insert({'id': category_id, 'name': category_name})
 
     def remove_category(self, category_id):
-        self.category_table.remove(doc_ids=[category_id])
+        categories = Query()
+        self.category_table.remove(categories.id == category_id)
+
+    def delete_all_categories(self):
+        categories = self.get_all_categories()
+        self.category_table.truncate()
+        return len(categories)
 
     def update_category(self, category_id, new_name):
-        self.category_table.update({'name': new_name}, doc_ids=[category_id])
+        category = Query()
+        self.category_table.update({'name': new_name}, category_id==category)
+
+
+    def update_part(self, supplier_id, new_part):
+        supplier = Query()
+        self.part_table.update(new_part, supplier.id == supplier_id)
+
+    def get_all_parts_paginated(self, page, page_size):
+        # Calculate offset
+        offset = (page - 1) * page_size
+        # Fetch paginated results
+        results = self.part_table.all()[offset:offset + page_size]
+        return results
+
+    def get_total_parts_count(self):
+        # Return the total number of parts
+        return len(self.part_table.all())

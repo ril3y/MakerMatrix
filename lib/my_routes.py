@@ -1,27 +1,25 @@
-import logging
-import threading
 import json
+import json
+import os
+import shutil
 import threading
 import uuid
 from asyncio import create_task
-from fastapi import FastAPI, HTTPException, Request
-from typing import Optional
-from fastapi import UploadFile, File
-import os, shutil
+
 from fastapi import FastAPI, WebSocket
+from fastapi import HTTPException, Request, Query
+from fastapi import UploadFile, File
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from starlette.responses import FileResponse
+
 from lib.connection import Connection
-from database import DatabaseManager
-from lib.part_inventory import PartInventory
-from parser_manager import ParserManager
-from lib.websockets import WebSocketManager
 from lib.database import DatabaseManager
+from lib.models.part_model import PartModel
 from lib.part_inventory import PartInventory
-from pydantic import BaseModel, root_validator, ValidationError
-from pydantic import BaseModel
-from typing import List
-import datetime
+from lib.websockets import WebSocketManager
+from models.location_model import LocationModel
+from parser_manager import ParserManager
 
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
 db = PartInventory('part_inventory.json')
@@ -30,32 +28,6 @@ db = PartInventory('part_inventory.json')
 active_websockets = {}
 websocket_info = {}
 websocket_info_lock = threading.Lock()
-
-
-class LocationModel(BaseModel):
-    id: Optional[str]  # Use Optional to make id field not required
-    name: Optional[str]
-    description: Optional[str]
-    parent_id: Optional[str] = None  # Also make parent_id not required
-
-
-class PartModel(BaseModel):
-    part_number: Optional[str] = None
-    part_name: Optional[str] = None
-    quantity: Optional[int]
-    description: Optional[str] = None
-    supplier: Optional[str] = None  # Also make parent_id not required
-    location: Optional[LocationModel] = None
-
-    @root_validator
-    def check_part_details(cls, values):
-        part_number, part_name = values.get('part_number'), values.get('part_name')
-        if part_number is None and part_name is None:
-            raise ValueError('Either part_number or part_name must be provided')
-        return values
-
-    def to_json(self):
-        return json.dumps(self.dict(), default=str)
 
 
 def setup_routes(app: FastAPI):
@@ -77,7 +49,15 @@ def setup_routes(app: FastAPI):
         parts = db.get_all_parts()
         return JSONResponse(content=parts, status_code=200)
 
-    @app.get("/clear_parts")
+    @app.get("/get_parts/")
+    async def get_parts(page: int = Query(default=1, ge=1), page_size: int = Query(default=10, ge=1)):
+        parts = db.get_all_parts_paginated(page=page,
+                                           page_size=page_size)
+        return JSONResponse(
+            content={"parts": parts, "page": page, "page_size": page_size, "total": db.get_total_parts_count()},
+            status_code=200)
+
+    @app.delete("/clear_parts")
     async def clear_all_parts():
         db.clear_all_parts()
         return {"status": "success", "message": "All parts have been cleared."}
@@ -289,6 +269,21 @@ def setup_routes(app: FastAPI):
         else:
             raise HTTPException(status_code=400, detail="Error deleting location")
 
+    @app.delete("/delete_part/{part_id}")
+    async def delete_location(part_id: str):
+
+
+        # Finally, delete the specified location
+        deleted_part =  db.delete_parts(part_id)
+
+        if deleted_part:
+            return {
+                "message": "Part deleted successfully",
+                "deleted_partid": part_id,
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Error deleting location")
+
     @app.get("/search/{query}")
     async def search(query: str, search_type: str = "number"):
         """
@@ -346,6 +341,7 @@ def setup_routes(app: FastAPI):
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
+
         client_id = str(uuid.uuid4())
         await websocket.accept()
 
@@ -372,12 +368,12 @@ def setup_routes(app: FastAPI):
                     data = message.get("text")
                     if data is not None:
                         print(f"Received text data: {data}")
-                        await ws_manager.handle_new_data(data, client_id)  # Correct if handle_new_data is async
+                        await ws_manager.handle_new_data(data, client_id)
                     else:
                         data = message.get("bytes")
                         if data is not None:
                             print(f"Received byte data: {data}")
-                            ws_manager.queue.put((data, client_id))  # Correct, as put is not awaited
+                            ws_manager.queue.put((data, client_id))
 
 
         except Exception as e:
@@ -400,7 +396,21 @@ def setup_routes(app: FastAPI):
         db.remove_category(category_id)
         return {"message": f"Category with id {category_id} removed successfully"}
 
+    @app.delete("/remove_all_categories/")
+    async def remove_category():
+        documents_deleted_count = db.delete_all_categories()
+        return {"message": f"Removed {documents_deleted_count} categories successfully"}
+
     @app.put("/update_category/{category_id}")
     async def update_category(category_id: str, new_name: str):
         db.update_category(category_id, new_name)
         return {"message": f"Category with id {category_id} updated successfully to {new_name}"}
+
+    @app.put("/update_part/{part_id}")
+    async def update_part(part_id: str, updated_part: PartModel):
+        success = db.update_part(part_id, updated_part.dict())
+        if success:
+            return {"message": f"Part with id {part_id} updated successfully"}
+        else:
+            raise HTTPException(status_code=404, detail=f"Part with id {part_id} not found")
+

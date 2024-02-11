@@ -1,5 +1,6 @@
-from lib.part_inventory import PartInventory
 from threading import Lock
+
+from lib.part_inventory import PartInventory
 
 
 class DatabaseManager:
