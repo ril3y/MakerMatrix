@@ -1,7 +1,7 @@
-from tinydb import TinyDB, Query
-from tinydb import Query, where
-
 import uuid
+
+from tinydb import Query, where
+from tinydb import TinyDB
 
 
 class PartInventory:
@@ -88,10 +88,39 @@ class PartInventory:
         # Retrieve all parts from the database
         return self.part_table.all()
 
-    def delete_parts(self, part_id):
-        Part = Query()
-        return self.part_table.remove(Part.part_id == part_id)
+    async def delete_part(self, part_id: str):
+        # Check if the part exists in the database
+        query = Query()
+        part = self.part_table.get(query.part_id == part_id)
+        if part is None:
+            return "Part not found."
 
+        # Delete the part from the database
+        self.part_table.remove(query.part_id == part_id)
+        return f"Part {part_id} deleted successfully."
+
+    def dynamic_search(self, criteria):
+        query = Query()
+        queries = []
+
+        for field, value in criteria.items():
+            if '__' in field:
+                # For nested fields, split and create nested queries
+                field, subfield = field.split('__')
+
+                def match(doc, field=field, subfield=subfield, value=value):
+                    return value.lower() in str(doc.get(field, {}).get(subfield, '')).lower()
+
+                queries.append(Query().fragment({field: match}))
+            else:
+                # For top-level fields
+                queries.append(where(field).test(lambda x: value.lower() in str(x).lower()))
+
+        final_query = queries.pop(0)
+        for q in queries:
+            final_query &= q  # Combine queries with logical AND
+
+        return self.part_table.search(final_query)
 
     def search_parts(self, query, search_type):
         Part = Query()
@@ -102,6 +131,8 @@ class PartInventory:
         elif search_type == "number":
             # Search case-insensitively by number
             return self.part_table.search(where('part_number').test(lambda x: x.lower() if x else '' == query))
+        elif search_type == "value":
+            return self.part_table.search(where('value').test(lambda x: x.lower() if x else '' == query))
         return None
 
     def get_suggestions(self, query, search_type):
@@ -122,6 +153,12 @@ class PartInventory:
         # Retrieve a part by its manufacturer_pn
         Part = Query()
         return self.part_table.get(Part.part_number == part_number)
+
+    async def get_part_by_part_id(self, part_id):
+        # Retrieve a part by its manufacturer_pn
+        Part = Query()
+        part = self.part_table.get(Part.part_id == part_id)
+        return part
 
     def delete_part_by_manufacturer_pn(self, manufacturer_pn):
         # Delete a part by its manufacturer_pn
@@ -194,6 +231,7 @@ class PartInventory:
         :param location_id: The ID of the specific location.
         :return: A nested JSON object representing the path from the specified location to the root.
         """
+
         def construct_path(location_id):
             location = self.location_table.get(Query().id == location_id)
             if location is None:
@@ -251,7 +289,6 @@ class PartInventory:
         # Delete a location
         return self.location_table.remove(Query().id == location_id)
 
-
     async def get_parts_effected_locations(self, location_id):
         query = Query()
         parts_effected = self.part_table.search(location_id == query.location.id)
@@ -302,12 +339,60 @@ class PartInventory:
 
     def update_category(self, category_id, new_name):
         category = Query()
-        self.category_table.update({'name': new_name}, category_id==category)
+        self.category_table.update({'name': new_name}, category_id == category)
 
+    # def update_part(self, supplier_id, new_part):
+    #     updated_part = Query()
+    #     # self.part_table.update(new_part, supplier.id == supplier_id)
+    #
+    #     existing_part = self.part_table.get(updated_part.part_number == new_part['part_number'])
+    #     if existing_part:
+    #         self.add_part(new_part, overwrite=True)
 
-    def update_part(self, supplier_id, new_part):
-        supplier = Query()
-        self.part_table.update(new_part, supplier.id == supplier_id)
+    def update_part(self, part_id, part) -> dict:
+        PartQuery = Query()
+        return_message = {}
+
+        # Initialize variables to determine how to search for the existing part
+        search_criteria = None
+
+        # Check if part_id is provided, prioritize it for searching
+        if part_id:
+            existing_part = self.part_table.get(PartQuery.part_number == part['part_number'])
+        # else:
+        #     # If part_id is not provided, search by part_number or part_name
+        #     if part.part_number:
+        #         search_criteria = PartQuery.part_number == part.part_number
+        #     elif part.part_name:
+        #         search_criteria = PartQuery.part_name == part.part_name
+        #     existing_part = self.part_table.get(search_criteria) if search_criteria else None
+
+        if not existing_part:
+            return {"error": "Part not found."}
+
+        # Convert the existing part to a dictionary for easier comparison
+        existing_part_dict = dict(existing_part)
+
+        # Convert the new part data to a dictionary
+        new_part_dict = part
+
+        # Determine the fields that have changed
+        updated_fields = {key: value for key, value in new_part_dict.items() if existing_part_dict.get(key) != value}
+
+        # Check if there are any changes
+        if not updated_fields:
+            return {"message": "No changes detected."}
+
+        # Update the part record with only the changed fields
+        self.part_table.update(updated_fields, doc_ids=[existing_part.doc_id])
+
+        return_message = {
+            "event": "part_updated",
+            "data": updated_fields  # Return only the updated fields
+        }
+        return_message['data']['document_id'] = existing_part.doc_id
+
+        return return_message
 
     def get_all_parts_paginated(self, page, page_size):
         # Calculate offset

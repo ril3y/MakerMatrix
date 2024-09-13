@@ -5,8 +5,9 @@ import shutil
 import threading
 import uuid
 from asyncio import create_task
+from typing import Dict
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Body
 from fastapi import HTTPException, Request, Query
 from fastapi import UploadFile, File
 from fastapi.responses import JSONResponse
@@ -18,8 +19,8 @@ from lib.database import DatabaseManager
 from lib.models.part_model import PartModel
 from lib.part_inventory import PartInventory
 from lib.websockets import WebSocketManager
-from models.location_model import LocationModel
-from parser_manager import ParserManager
+from lib.models.location_model import LocationModel
+from lib.parser_manager import ParserManager
 
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
 db = PartInventory('part_inventory.json')
@@ -182,6 +183,24 @@ def setup_routes(app: FastAPI):
         else:
             raise HTTPException(status_code=404, detail="Image not found")
 
+    @app.delete("/delete_part/{part_id}")
+    async def delete_part(part_id: str):
+        try:
+            # Assuming db_manager is used to handle database operations
+            # and `delete_part` is a method that deletes a part by ID
+            part_exists = await db.get_part_by_part_id(part_id)  # Check if the part exists
+            if not part_exists:
+                raise HTTPException(status_code=404, detail="Part not found")
+
+            # Delete part using the database manager
+            delete_message = await db.delete_part(part_id)
+            return {"message": delete_message}
+
+        except Exception as e:
+            print(e)
+            raise HTTPException(status_code=500, detail="An error occurred while deleting the part")
+
+
     @app.post("/add_part")
     async def add_part(request: Request):
         try:
@@ -284,6 +303,13 @@ def setup_routes(app: FastAPI):
         else:
             raise HTTPException(status_code=400, detail="Error deleting location")
 
+    @app.post("/search-parts/")
+    async def search_parts(criteria: Dict[str, str] = Body(...)):
+        if not criteria:
+            raise HTTPException(status_code=400, detail="Search criteria are required")
+        results = db.dynamic_search(criteria)
+        return results
+
     @app.get("/search/{query}")
     async def search(query: str, search_type: str = "number"):
         """
@@ -307,16 +333,16 @@ def setup_routes(app: FastAPI):
     async def serve_index_html():
         return FileResponse("static/part_inventory_ui/build/index.html")
 
-    @app.on_event("startup")
-    async def startup_event():
-        # Initialize DatabaseManager
-        db_manager = DatabaseManager.get_instance('part_inventory.json')
-
-        # Initialize WebSocketManager with the DatabaseManager instance
-        ws_manager = WebSocketManager.get_instance(db_manager)
-
-        # Start processing the queue
-        create_task(ws_manager.process_queue())
+    # @app.on_event("startup")
+    # async def startup_event():
+    #     # Initialize DatabaseManager
+    #     db_manager = DatabaseManager.get_instance('part_inventory.json')
+    #
+    #     # Initialize WebSocketManager with the DatabaseManager instance
+    #     ws_manager = WebSocketManager.get_instance(db_manager)
+    #
+    #     # Start processing the queue
+    #     create_task(ws_manager.process_queue())
 
     @app.get("/all_categories/")
     async def get_all_categories():

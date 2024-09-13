@@ -4,6 +4,13 @@ from asyncio import Queue
 from time import sleep
 
 import json
+import uuid
+from fastapi import WebSocket, WebSocketDisconnect
+from lib.connection import Connection
+from asyncio import sleep, create_task
+from lib.database import DatabaseManager
+
+import queue
 from threading import Lock
 
 from fastapi import WebSocket
@@ -59,9 +66,8 @@ class WebSocketManager:
             try:
                 await websocket.send_text("heartbeat")
                 print("Sending heartbeat")
-                sleep(1)  # Adjust the interval as needed
-            except Exception as e:
-                print(e)
+                await sleep(5)  # Adjust the interval as needed
+            except WebSocketDisconnect:
                 break
 
     async def broadcast(self, message: str):
@@ -163,115 +169,3 @@ class WebSocketManager:
         else:
             print(f"No active connection found for client {client_id}.")
 
-    async def handle_new_data(self, new_data, client_id):
-        parser = self.parser_manager.parse_data(new_data)
-        if parser is not None:
-            parser.enrich()
-            await self.process_and_add_part(parser, client_id)
-
-    async def receive_input_from_client(self, client_id):
-        if client_id in self.active_websockets:
-            connection = self.active_websockets[client_id]
-            try:
-                response = await connection.websocket.receive_text()
-                print(f"Response from user_input {response}")
-                return response
-            except Exception as e:
-                print(f"Error receiving input from client {client_id}: {e}")
-                return None
-        else:
-            print(f"No active WebSocket connection for client {client_id}")
-            return None
-
-    async def send_data_to_client(self, client_id, data):
-        if client_id in self.active_websockets:
-            connection = self.active_websockets[client_id]
-            try:
-                await connection.websocket.send_text(data)
-                print(f"Data sent to client {client_id}.")
-            except Exception as e:
-                print(f"Error sending data to client {client_id}: {e}")
-        else:
-            print(f"No active connection found for client {client_id}.")
-
-    async def process_and_add_part(self, parser, client_id):
-        try:
-            while True:
-                # Check if there are required inputs yet to be fulfilled
-                if len(parser.required_inputs) != 0:
-                    # Format required data for client response
-                    required_data = parser.format_required_data(part_number=parser.part.part_number,
-                                                                requirements=parser.required_inputs, clientId=client_id)
-
-                    # Send required data to the client
-                    await self.send_data_to_client(client_id, required_data)
-
-                    # Receive input from the client
-                    user_input = await self.receive_input_from_client(client_id)
-
-                    # Validate user input; if invalid, continue the loop to request input again
-                    if not parser.validate(user_input):
-                        continue
-
-                # Attempt to add the part to the database
-                return_message = await self.db_manager.add_part(parser.part)
-
-                # Handle scenario where a part already exists (indicated by 'question' event)
-                if return_message['event'] == 'question':
-                    # Send the question to the client
-                    await self.send_data_to_client(client_id, parser.to_json(return_message))
-
-                    # Wait for user response to the question
-                    user_response = await self.receive_input_from_client(client_id)
-                    user_response_data = json.loads(user_response)['data']
-
-                    # Check user's response
-                    if user_response_data == "yes":
-                        # If 'yes', overwrite the part in the database and check the response
-                        overwrite_response = await self.db_manager.add_part(parser.part, overwrite=True)
-
-                        # If the response event is not 'question', assume success and exit the loop
-                        if overwrite_response.get('event') != 'question':
-                            await self.send_data_to_client(client_id, parser.to_json(overwrite_response))
-                            break
-                    elif user_response_data == "no":
-                        # If user responds with 'no', exit the loop without overwriting
-                        break
-                else:
-                    # If there's no 'question' event, part addition is successful; exit the loop
-                    await self.send_data_to_client(client_id, parser.to_json(overwrite_response))
-                    break
-        except Exception as e:
-            print(e)
-
-
-    async def handle_new_data(self, new_data, client_id):
-        parser = self.parser_manager.parse_data(new_data)
-        if parser is not None:
-            parser.enrich()
-            await self.process_and_add_part(parser, client_id)
-
-    async def receive_input_from_client(self, client_id):
-        if client_id in self.active_websockets:
-            connection = self.active_websockets[client_id]
-            try:
-                response = await connection.websocket.receive_text()
-                print(f"Response from user_input {response}")
-                return response
-            except Exception as e:
-                print(f"Error receiving input from client {client_id}: {e}")
-                return None
-        else:
-            print(f"No active WebSocket connection for client {client_id}")
-            return None
-
-    async def send_data_to_client(self, client_id, data):
-        if client_id in self.active_websockets:
-            connection = self.active_websockets[client_id]
-            try:
-                await connection.websocket.send_text(data)
-                print(f"Data sent to client {client_id}.")
-            except Exception as e:
-                print(f"Error sending data to client {client_id}: {e}")
-        else:
-            print(f"No active connection found for client {client_id}.")
