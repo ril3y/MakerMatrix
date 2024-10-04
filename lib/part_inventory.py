@@ -2,7 +2,7 @@ import uuid
 
 from tinydb import Query, where
 from tinydb import TinyDB
-
+import re
 
 class PartInventory:
     def __init__(self, db_file):
@@ -123,36 +123,53 @@ class PartInventory:
         return self.part_table.search(final_query)
 
     def search_parts(self, query, search_type):
-        Part = Query()
         query = query.lower()  # Convert query to lowercase
         if search_type == "name":
             # Search case-insensitively by name
-            return self.part_table.search(where('part_name').test(lambda x: x.lower() if x else '' == query))
+            return self.part_table.search(where('part_name').test(lambda x: x.lower() == query if x else False))
         elif search_type == "number":
             # Search case-insensitively by number
-            return self.part_table.search(where('part_number').test(lambda x: x.lower() if x else '' == query))
+            return self.part_table.search(where('part_number').test(lambda x: x.lower() == query if x else False))
         elif search_type == "value":
-            return self.part_table.search(where('value').test(lambda x: x.lower() if x else '' == query))
+            # Search case-insensitively by value
+            return self.part_table.search(where('value').test(lambda x: x.lower() == query if x else False))
         return None
+
+    import re
 
     def get_suggestions(self, query, search_type):
         Part = Query()
-        # Search for part numbers that start with the given query
+
+        # Search based on the search_type with case-insensitive matching
         if search_type == "name":
-            matching_parts = self.part_table.search(Part.part_name.search('^' + query))
+            matching_parts = self.part_table.search(Part.part_name.search('^' + query, flags=re.IGNORECASE))
             suggestions = [part['part_name'] for part in matching_parts]
             return suggestions
         elif search_type == "number":
-            matching_parts = self.part_table.search(Part.part_number.search('^' + query))
-            # Extract part numbers from the results
+            matching_parts = self.part_table.search(Part.part_number.search('^' + query, flags=re.IGNORECASE))
             suggestions = [part['part_number'] for part in matching_parts]
             return suggestions
+        elif search_type == "id":
+            matching_parts = self.part_table.search(Part.part_id.search('^' + query, flags=re.IGNORECASE))
+            suggestions = [part['part_id'] for part in matching_parts]
+            return suggestions
+        elif search_type == "value":
+            matching_parts = self.part_table.search(Part.value.search('^' + query, flags=re.IGNORECASE))
+            suggestions = [part['value'] for part in matching_parts]
+            return suggestions
+
+        # Return None if the search_type is not supported
         return None
 
-    def get_part_by_part_number(self, part_number):
+    async def get_part_by_part_number(self, part_number):
         # Retrieve a part by its manufacturer_pn
         Part = Query()
         return self.part_table.get(Part.part_number == part_number)
+
+    async def get_part_by_part_name(self, part_name):
+        # Retrieve a part by its manufacturer_pn
+        Part = Query()
+        return self.part_table.get(Part.part_name == part_name)
 
     async def get_part_by_part_id(self, part_id):
         # Retrieve a part by its manufacturer_pn

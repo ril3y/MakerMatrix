@@ -9,3 +9,6 @@ pytest~=7.4.3
 python-multipart==0.0.8
 mouser~=0.1.5
 pydantic==1.10.9
+pillow~=10.4.0
+qrcode~=7.4.2
+starlette~=0.36.3

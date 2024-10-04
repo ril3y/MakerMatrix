@@ -6,7 +6,10 @@ import threading
 import uuid
 from asyncio import create_task
 from typing import Dict
+from io import BytesIO
 
+import qrcode
+import base64
 from fastapi import FastAPI, WebSocket, Body
 from fastapi import HTTPException, Request, Query
 from fastapi import UploadFile, File
@@ -16,11 +19,15 @@ from starlette.responses import FileResponse
 
 from lib.connection import Connection
 from lib.database import DatabaseManager
+from lib.models.label_model import LabelData
 from lib.models.part_model import PartModel
 from lib.part_inventory import PartInventory
 from lib.websockets import WebSocketManager
 from lib.models.location_model import LocationModel
 from lib.parser_manager import ParserManager
+from lib.printer import Printer
+from lib.models import printer_request_model
+from lib.models import printer_config_model
 
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
 db = PartInventory('part_inventory.json')
@@ -31,7 +38,7 @@ websocket_info = {}
 websocket_info_lock = threading.Lock()
 
 
-def setup_routes(app: FastAPI):
+def setup_routes(app: FastAPI, printer: Printer):
     # Define route functions
 
     @app.put("/update_quantity/")
@@ -63,13 +70,56 @@ def setup_routes(app: FastAPI):
         db.clear_all_parts()
         return {"status": "success", "message": "All parts have been cleared."}
 
-    @app.get("/get_part/{part_number}")
+    @app.get("/get_part_by_id/{part_id}")
+    async def get_part_by_id(part_id: str):
+        part = await db.get_part_by_part_id(part_id)
+        if part:
+            return JSONResponse(content=part, status_code=200)
+        else:
+            return JSONResponse(content={"error": f"Part ID {part_id} not found"}, status_code=404)
+
+    @app.get("/get_part_by_name/{part_name}")
+    async def get_part_by_id(part_name: str):
+        part = await db.get_part_by_part_name(part_name)
+        if part:
+            return JSONResponse(content=part, status_code=200)
+        else:
+            return JSONResponse(content={"error": f"Part name {part_name} not found"}, status_code=404)
+
+    @app.get("/get_part_by_number/{part_number}")
     async def get_part_by_part_number(part_number: str):
         part = db.get_part_by_part_number(part_number)
         if part:
             return JSONResponse(content=part, status_code=200)
         else:
-            return JSONResponse(content={"error": "Part not found"}, status_code=404)
+            return JSONResponse(content={"error": f"Part number {part_number} not found"}, status_code=404)
+
+    @app.get("/get_part_by_details")
+    async def get_part_by_details(part_id: str = None, part_name: str = None, part_number: str = None):
+        if not part_id and not part_name and not part_number:
+            raise HTTPException(status_code=400,
+                                detail="At least one of part_id, part_name, or part_number must be provided.")
+
+        part = None
+
+        # Attempt to find the part by part_id first
+        if part_id:
+            part = await db.get_part_by_part_id(part_id)
+
+        # If not found by part_id, try part_name
+        if not part and part_name:
+            part = await db.get_part_by_part_name(part_name)
+
+        # If not found by part_name, try part_number
+        if not part and part_number:
+            part = await db.get_part_by_part_number(part_number)
+
+        if part:
+            return JSONResponse(content=part, status_code=200)
+        else:
+            return JSONResponse(content={"error": "Part not found with the provided details"}, status_code=404)
+
+
 
     @app.get("/preview-delete/{location_id}")
     async def preview_delete(location_id: str):
@@ -200,7 +250,6 @@ def setup_routes(app: FastAPI):
             print(e)
             raise HTTPException(status_code=500, detail="An error occurred while deleting the part")
 
-
     @app.post("/add_part")
     async def add_part(request: Request):
         try:
@@ -291,9 +340,8 @@ def setup_routes(app: FastAPI):
     @app.delete("/delete_part/{part_id}")
     async def delete_location(part_id: str):
 
-
         # Finally, delete the specified location
-        deleted_part =  db.delete_parts(part_id)
+        deleted_part = db.delete_parts(part_id)
 
         if deleted_part:
             return {
@@ -311,7 +359,7 @@ def setup_routes(app: FastAPI):
         return results
 
     @app.get("/search/{query}")
-    async def search(query: str, search_type: str = "number"):
+    async def search(query: str, search_type: str ):
         """
         Perform a search based on the query and type.
         :param query: The search query string.
@@ -319,11 +367,12 @@ def setup_routes(app: FastAPI):
         :return: A JSON response with search results and suggestions.
         """
 
-        valid_search_types = ["name", "number"]
+        valid_search_types = ["name", "number", "value", "id"]
 
         if search_type in valid_search_types:
             search_results = db.search_parts(query, search_type)
             suggestions = db.get_suggestions(query, search_type)
+            print(f"Returned Suggestions: {suggestions}")
             return {"search_results": search_results, "suggestions": suggestions}
         else:
             return HTTPException(status_code=500, detail="invalid search type")
@@ -440,3 +489,46 @@ def setup_routes(app: FastAPI):
         else:
             raise HTTPException(status_code=404, detail=f"Part with id {part_id} not found")
 
+    @app.post("/printer/print_qr")
+    async def print_qr_code(label_data: LabelData):
+        # Access the part_name and part_number from the request body
+        part_number = label_data.part_number
+        part_name = label_data.part_name
+
+        # Lookup logic based on the provided values
+        _part = None
+        if part_number:
+            _part = await db.get_part_by_part_number(part_number)
+        if not _part and part_name:
+            _part = await db.get_part_by_part_name(part_name)
+
+        if not _part:
+            raise HTTPException(status_code=404, detail="Part not found")
+
+        # Generate and print the QR code
+        qr_img = qrcode.make(f'{{"name": "{_part["part_name"]}", "number": "{_part["part_number"]}"}}')
+        # Call the printer function to print the QR code
+        response = printer.print_qr_from_memory(qr_img)
+
+        if response:
+            return {"message": "QR code printed successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to print QR code")
+
+    @app.post("/printer/config")
+    async def configure_printer(config: printer_config_model.PrinterConfig):
+        printer.set_backend(config.backend)
+        printer.set_printer_identifier(config.printer_identifier)
+        printer.save_config()  # Save the configuration
+        return {"message": "Printer configuration updated and saved."}
+
+    # Route to load printer configuration
+    @app.get("/printer/load_config")
+    async def load_printer_config():
+        try:
+            printer.load_config()
+            return {"message": "Printer configuration loaded."}
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="Config file not found.")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))

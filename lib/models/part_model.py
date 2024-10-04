@@ -1,7 +1,14 @@
 import json
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, root_validator
 from lib.models.location_model import LocationModel
+
+
+class CategoryModel(BaseModel):
+    id: Optional[str]
+    name: Optional[str]
+    description: Optional[str]
+    parent_id: Optional[str] = None
 
 
 class PartModel(BaseModel):
@@ -10,9 +17,10 @@ class PartModel(BaseModel):
     part_name: Optional[str] = None
     quantity: Optional[int]
     description: Optional[str] = None
-    supplier: Optional[str] = None  # Also make parent_id not required
+    supplier: Optional[str] = None
     location: Optional[LocationModel] = None
     image_url: Optional[str] = None
+    additional_properties: Optional[Dict[str, Any]] = {}  # Add additional_properties
 
     @root_validator
     def check_part_details(cls, values):

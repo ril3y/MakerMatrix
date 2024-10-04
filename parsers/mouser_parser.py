@@ -121,17 +121,28 @@ class Mouser(Parser):
             # So we need to add the required inputs for missing data.
             if "resistance" not in self.part.additional_properties.keys():
                 # Parsing the resistance did not work manually add this
+                self.part.part_type = "resistor"
 
                 self.required_inputs.append(
                     RequiredInput(field_name="value", data_type="string", prompt="Enter the resistance value"))
 
+                self.add_required_input(field_name="package", data_type="string", prompt="Enter the package. IE: 0402")
+
         elif "capacitance" in description_string or "capacitor" in description_string:
             self.part.categories.append('capacitors')
-            self.add_required_input(field_name="value", data_type="string", prompt="Enter the capacitance value")
+            self.add_required_input(field_name="value", data_type="string", prompt="Enter the capacitance value. IE: "
+                                                                                   "22pf")
+            self.add_required_input(field_name="package", data_type="string", prompt="Enter the package. IE: 0402")
 
             if 'SMD' in description_string:
                 self.part.add_additional_property('type', 'smd')
+                self.part.part_type = "capacitor"
                 self.part.categories.append('smd')
+
+        elif " ic " in description_string.lower():
+            self.part.part_type = "integrated circuit"
+            self.add_optional_input(field_name="ic_type", data_type="string", prompt="Enter the type of IC.")
+            self.add_required_input(field_name="package", data_type="string", prompt="Enter the package type.")
 
     def _parse_legacy(self, qr_data):
         fields = qr_data.split('\x1d')

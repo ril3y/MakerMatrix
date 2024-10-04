@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 import json
+
+from lib.optional_input import OptionalInput
 from parts.parts import Part
 from typing import List
 from lib.required_input import RequiredInput
@@ -14,6 +16,7 @@ import base64
 
 class Parser(ABC):
     def __init__(self, pattern):
+        self.optional_inputs = []
         self.pattern = pattern
         self.part = Part
         self.required_inputs = []
@@ -78,6 +81,9 @@ class Parser(ABC):
 
     def add_required_input(self, field_name, data_type, prompt):
         self.required_inputs.append(RequiredInput(field_name, data_type, prompt))
+
+    def add_optional_input(self, field_name, data_type, prompt):
+        self.optional_inputs.append(OptionalInput(field_name, data_type, prompt))
 
     def remove_required_input(self, field_name):
         for r in self.required_inputs:

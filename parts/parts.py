@@ -170,6 +170,9 @@ class Part():
         else:
             raise TypeError("Additional properties must be a dictionary")
 
+    def add_category(self, category_name):
+        self._categories.append(category_name)
+
     def add_additional_property(self, key, value):
         """Adds or updates an entry in the additional_properties dictionary.
 
