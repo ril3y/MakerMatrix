@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import ValidationError
@@ -114,16 +114,22 @@ async def get_part_by_id(part_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# @router.get("/get_part_by_details/{part_details}")
-# async def get_part_by_details(part_details: str):
-#     try:
-#         part = await PartService.get_part_by_details(part_details)
-#         if part:
-#             return part
-#         else:
-#             raise HTTPException(status_code=404, detail=f"Part Details {part_details} not found")
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+@router.get("/get_part_by_details")
+def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str] = None, part_name: Optional[str] = None):
+    try:
+        # Pass the search criteria directly to the service
+        part = PartService.get_part_by_details(part_id=part_id, part_number=part_number, part_name=part_name)
+        if part:
+            return part
+        else:
+            raise HTTPException(status_code=404, detail=f"Part Details with part_number '{part_number}' not found")
+    except HTTPException as http_exc:
+        # Re-raise HTTPException (such as the 404) without catching it
+        raise http_exc
+    except Exception as e:
+        # Catch other generic exceptions and raise a 500 error
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/get_parts/")

@@ -15,12 +15,11 @@ class PartRepository(BaseRepository):
     def get_part_by_part_number(self, part_number: str) -> Optional[PartModel]:
         return self.table.get(self.query().part_number == part_number)
 
+    def get_part_by_part_name(self, part_name: str) -> Optional[PartModel]:
+        return self.table.get(self.query().part_name == part_name)
+
     def get_part_by_manufacturer_pn(self, manufacturer_part_number: str) -> Optional[PartModel]:
         return self.table.get(self.query().manufacturer_part_number == manufacturer_part_number)
-
-    def get_part_by_details(self, part_details: str) -> Optional[PartModel]:
-        # Add logic to query parts by details
-        pass
 
     def get_all_parts_paginated(self, page, page_size):
         # Calculate offset

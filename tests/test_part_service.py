@@ -245,11 +245,7 @@ def test_search_by_description(setup_test_data_search_parts):
         for part in data["data"]
         for field in part["matched_fields"]
     )
-    # assert any(
-    #     "capacitor".lower() in str(part["part"][field["field"]]).lower()
-    #     for part in data["data"]
-    #     for field in part["matched_fields"]
-    # )
+
 
 
 def test_search_by_additional_property(setup_test_data_search_parts):
@@ -263,7 +259,6 @@ def test_search_by_additional_property(setup_test_data_search_parts):
     assert data['data'][0]['matched_fields'][0]['key'] == 'resistance'
     assert data['data'][0]['matched_fields'][0]['field'] == 'additional_properties'
     assert data['data'][0]['part']['additional_properties']['resistance'] == search_term
-
 
 
 def test_search_parts_min_length(setup_test_data_search_parts):
@@ -289,9 +284,39 @@ def test_search_parts_valid_length():
     # Assert that "results" key is in the response
     assert "data" in response.json()
 
-    # Optional: Check if the results contain parts (depends on your setup)
-    # assert len(response.json()["results"]) > 0
 
+def test_get_part_by_details_with_id(setup_test_data_search_parts):
+    # Get the part_id from the setup data
+    test_part = setup_test_data_search_parts[0]
+    part_id = test_part["part_id"]
+
+    # Create the part model
+    part_data = {"part_id": part_id}
+
+    # Test by part_id
+    response = client.get("/parts/get_part_by_details/", params={"part_id": part_id})
+    assert response.status_code == 200
+    res = response.json()
+    assert res["part_id"] == part_id
+
+
+def test_get_part_by_details_not_found(setup_test_data_search_parts):
+    # Test with a non-existent part
+    part_number = "NonExistentPart123"
+
+    response = client.get("/parts/get_part_by_details/", params={"part_number": part_number})
+    assert response.status_code == 404
+    assert response.json() == {"detail": f"Part Details with part_number '{part_number}' not found"}
+def test_get_part_by_details_with_part_name(setup_test_data_search_parts):
+    # Get the part_name from the setup data
+    test_part = setup_test_data_search_parts[2]
+    part_name = test_part["part_name"]
+
+    # Test by part_name using query parameters
+    response = client.get("/parts/get_part_by_details/", params={"part_name": part_name})
+    assert response.status_code == 200
+    res = response.json()
+    assert res["part_name"] == part_name
 
 
 def test_update_part(setup_part_update_part):

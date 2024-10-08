@@ -128,12 +128,17 @@ class PartService:
             return None
 
     @staticmethod
-    async def get_part_by_details(part_details: str) -> Optional[PartModel]:
-        try:
-            return await PartService.part_repo.get_part_by_details(part_details)
-        except Exception as e:
-            logger.error(f"Failed to retrieve part by ID {part_details}: {e}")
-            return None
+    def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str] = None,
+                            part_name: Optional[str] = None) -> Optional[dict]:
+        # Determine which parameter is provided and call the appropriate repo method
+        if part_id:
+            return PartService.part_repo.get_part_by_id(part_id)
+        elif part_number:
+            return PartService.part_repo.get_part_by_part_number(part_number)
+        elif part_name:
+            return PartService.part_repo.get_part_by_part_name(part_name)
+        else:
+            raise ValueError("At least one of part_id, part_number, or part_name must be provided.")
 
     @staticmethod
     def get_part_by_pn(pn: str) -> Optional[PartModel]:
@@ -182,10 +187,11 @@ class PartService:
 
     @staticmethod
     def update_part(part_model: PartModel) -> dict:
-        # Retrieve the existing part based on the ID, part number, or part name
-        existing_part = PartService.part_repo.get_part_by_id(part_model.part_id) or \
-                        PartService.part_repo.get_part_by_part_number(part_model.part_number) or \
-                        PartService.part_repo.get_part_by_part_name(part_model.part_name)
+        part_id = part_model.part_id
+        part_name = part_model.part_name
+        part_number = part_model.part_number
+
+        existing_part = PartService.get_part_by_details(part_id, part_number, part_name)
 
         if not existing_part:
             return {"status": "error", "message": "Part not found"}
