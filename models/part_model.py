@@ -1,6 +1,7 @@
 import json
+import uuid
 from typing import Optional, Dict, Any, List, Union
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, root_validator, validator
 
 from models.category_model import CategoryModel
 from models.location_model import LocationModel
@@ -40,7 +41,7 @@ class GenericPartQuery(BaseModel):
 
 
 class PartModel(BaseModel):
-    part_id: str
+    part_id: Optional[str] = None
     part_number: Optional[str] = None
     part_name: Optional[str] = None
     quantity: Optional[int]
@@ -51,18 +52,47 @@ class PartModel(BaseModel):
     additional_properties: Optional[Dict[str, Any]] = {}  # Add additional_properties
     categories: Optional[List[Union[str, CategoryModel]]] = None
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.part_id:
+            self.part_id = str(uuid.uuid4())
+
     @root_validator
     def check_part_details(cls, values):
-        part_number, part_name = values.get('part_number'), values.get('part_name')
+        part_id = values.get('part_id')
+        part_number = values.get('part_number')
+        part_name = values.get('part_name')
         quantity = values.get('quantity')
 
-        if part_number is None and part_name is None:
-            raise ValueError('Either part_number or part_name must be provided')
+        # Allow the use of part_id as a unique identifier for updates
+        if not part_id and not (part_number or part_name):
+            raise ValueError('Either part_id, part_number, or part_name must be provided.')
 
         if quantity is not None and quantity <= 0:
             raise ValueError('Quantity must be a positive number')
 
+        additional_properties = values.get('additional_properties', {})
+        if additional_properties:
+            # Check for blank values and duplicate keys
+            for key, value in additional_properties.items():
+                if not key or value is None or value == "":
+                    raise ValueError(f"Additional property '{key}' has a blank value.")
+            if len(additional_properties) != len(set(additional_properties.keys())):
+                raise ValueError("Duplicate keys found in additional properties.")
+
         return values
+
+    @validator("part_name")
+    def check_unique_part_name(cls, value, values):
+        if value:
+            # Import PartService here to avoid circular import issues
+            from services.part_service import PartService
+            part_id = values.get("part_id")
+
+            # Check if there is any part with the same name, excluding the current part by ID
+            if not PartService.part_repo.is_part_name_unique(value, part_id):
+                raise ValueError(f"Part name '{value}' must be unique.")
+        return value
 
     def to_json(self):
         return json.dumps(self.dict(), default=str)

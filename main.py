@@ -1,24 +1,14 @@
-import sys
 import uvicorn
 from fastapi import FastAPI
-from lib.my_routes import setup_routes
-from lib.printer import Printer
-
-sys.path.append("./lib")
-
-# Initialize DatabaseManager
-# db_manager = DatabaseManager('part_inventory.json')
 from fastapi.middleware.cors import CORSMiddleware
-# Global printer instance
-# printer = Printer(model='QL-800', backend='pyusb', printer_identifier='tcp://0x04f9:0x209b')
 
+from routers import (parts_routes, locations_routes,
+                     categories_routes, printer_routes, utlity_routes)
+from services.printer_service import PrinterService
+
+# Initialize the FastAPI app
 app = FastAPI()
 
-# Configure CORS
-origins = [
-    "http://localhost:3000",  # Allow your React application's origin
-    # "http://another.origin.com"  # Add other origins if needed
-]
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -28,21 +18,18 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-sys.path.append("./parsers")
-sys.path.append("./lib")
-
-# Serve static files from the "build/static" directory
-# try:
-#
-#     app.mount("/static", StaticFiles(directory="static/part_inventory_ui/build/"), name="static")
-# except RuntimeError as e:
-#     print("Error while mounting static")
+# Include routers
+app.include_router(parts_routes.router, prefix="/parts", tags=["parts"])
+app.include_router(locations_routes.router, prefix="/locations", tags=["locations"])
+app.include_router(categories_routes.router, prefix="/categories", tags=["categories"])
+app.include_router(printer_routes.router, prefix="/printer", tags=["printer"])
+app.include_router(utlity_routes.router, prefix="/utility", tags=["utility"])
 
 if __name__ == "__main__":
     # Load printer config at startup
     try:
-        printer = Printer()
-        printer.load_config()
+        printer_service = PrinterService()
+        printer_service.load_printer_config()
         print("Printer configuration loaded on startup.")
     except FileNotFoundError:
         print("No config file found. Using default printer configuration.")
@@ -50,5 +37,4 @@ if __name__ == "__main__":
         print(f"Error loading configuration: {e}")
 
     # Start the FastAPI server
-    setup_routes(app, printer)
     uvicorn.run(app, host='0.0.0.0', port=57891)

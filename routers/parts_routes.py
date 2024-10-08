@@ -1,7 +1,6 @@
-
 from typing import Dict
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import ValidationError
 from starlette.responses import JSONResponse
 
@@ -9,6 +8,7 @@ from models.part_model import PartModel, UpdateQuantityRequest, GenericPartQuery
 from services.part_service import PartService
 
 router = APIRouter()
+
 
 @router.put("/decrement_count/")
 async def decrement_count(generic_part_query: GenericPartQuery):
@@ -20,6 +20,24 @@ async def decrement_count(generic_part_query: GenericPartQuery):
             "new_quantity": part['quantity']}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/update_part")
+def update_part(part_data: PartModel):
+    try:
+        response = PartService.update_part(part_data)
+        if response["status"] == "error":
+            raise HTTPException(status_code=404, detail=response["message"])
+        return {
+            "status": "success",
+            "message": response["message"],
+            "data": response["data"]
+        }
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.put("/update_quantity/")
@@ -43,7 +61,12 @@ def update_part_quantity(update_request: UpdateQuantityRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
+@router.post("/search-parts/")
+async def search_parts(criteria: Dict[str, str] = Body(...)):
+    if not criteria:
+        raise HTTPException(status_code=400, detail="Search criteria are required")
+    results = PartService.dynamic_search(criteria)
+    return results
 
 
 @router.get("/all_parts/")
@@ -101,7 +124,6 @@ async def get_part_by_id(part_id: str):
 #             raise HTTPException(status_code=404, detail=f"Part Details {part_details} not found")
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @router.get("/get_parts/")
@@ -168,12 +190,21 @@ async def delete_part(part_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/search-parts/")
-async def search_parts(criteria: Dict[str, str]):
+@router.get("/search-parts/")
+async def search(term: str):
+    min_length = 2
+    if len(term) < min_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Search term must be at least {min_length} characters long."
+        )
     try:
-        if not criteria:
-            raise HTTPException(status_code=400, detail="Search criteria are required")
-        results = PartService.dynamic_search(criteria)
-        return results
+        results = PartService.dynamic_search(term)
+        if isinstance(results, dict) and "error" in results:
+            raise HTTPException(status_code=500, detail=results["error"])
+        # Return results directly
+        return {"status": "success", "data": results}
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

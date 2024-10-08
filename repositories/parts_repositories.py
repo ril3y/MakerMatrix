@@ -1,10 +1,7 @@
-import os
-from tinydb import TinyDB, Query
-
-from models.category_model import CategoryModel
-from models.part_model import PartModel, GenericPartQuery
 from typing import Optional, List
 
+from models.category_model import CategoryModel
+from models.part_model import PartModel
 from repositories.base_repository import BaseRepository
 
 
@@ -38,6 +35,18 @@ class PartRepository(BaseRepository):
             self.table.truncate()
         except Exception as e:
             print(f"Error truncating table: {e}")
+
+    def is_part_name_unique(self, name: str, exclude_id: Optional[str] = None) -> bool:
+        # Query to find a part with the same name
+        query = self.query().part_name == name
+        parts = self.table.search(query)
+
+        # If exclude_id is provided, filter out the part with that ID
+        if exclude_id:
+            parts = [part for part in parts if part["part_id"] != exclude_id]
+
+        # Return True if no other parts with the same name exist, otherwise False
+        return len(parts) == 0
 
     def add_part(self, part_data: dict, overwrite: bool) -> dict:
         # Check if a part with the same part_number or part_name already exists
@@ -73,6 +82,15 @@ class PartRepository(BaseRepository):
 
             part_data['categories'] = processed_categories
 
+        # Process additional_properties if present
+        if 'additional_properties' in part_data and part_data['additional_properties']:
+            processed_properties = {}
+            for key, value in part_data['additional_properties'].items():
+                # Convert the keys and values to strings for consistency
+                processed_properties[key] = str(value)
+
+            part_data['additional_properties'] = processed_properties
+
         # Insert or update the part record
         document_id = self.table.insert(part_data)
 
@@ -90,9 +108,35 @@ class PartRepository(BaseRepository):
             return True
         return False
 
-    def dynamic_search(self, part_id: str) -> bool:
-        pass
-        return False
+    def dynamic_search(self, term: str) -> List[dict]:
+        # Search the database for all parts first
+        all_parts = self.table.all()
+
+        # Filter parts based on whether they match the search term
+        def matches(part):
+            matched_fields = []
+            # Check all top-level fields
+            top_level_fields = ['part_name', 'part_number', 'description', 'supplier']
+            for field in top_level_fields:
+                if term.lower() in str(part.get(field, '')).lower():
+                    matched_fields.append({"field": field})
+
+            # Check additional_properties
+            additional_props = part.get('additional_properties', {})
+            for key, value in additional_props.items():
+                if term.lower() in str(key).lower() or term.lower() in str(value).lower():
+                    matched_fields.append({"field": "additional_properties", "key": key})
+
+            return matched_fields if matched_fields else None
+
+        # Filter parts that match the term and include matched fields
+        results = []
+        for part in all_parts:
+            matched_fields = matches(part)
+            if matched_fields:
+                results.append({"part": part, "matched_fields": matched_fields})
+
+        return results
 
     def update_quantity(self, part_id: str, new_quantity: int) -> bool:
         """
@@ -101,6 +145,31 @@ class PartRepository(BaseRepository):
         """
         # Update the quantity if the part is found
         self.table.update({'quantity': new_quantity}, self.query().part_id == part_id)
+
+    def update_part(self, part_model: PartModel) -> dict:
+
+        # Find the part using the part_id
+        existing_part = self.table.get(self.query().part_id == part_model.part_id)
+        if not existing_part:
+            return {"status": "error", "message": "Part not found"}
+
+        # Convert the model to a dictionary for updating
+        update_data = part_model.dict(exclude_unset=True)
+
+        # Perform the update
+        updated_count = self.table.update(update_data, doc_ids=[existing_part.doc_id])
+
+        if updated_count:
+            return {
+                "status": "success",
+                "message": f"Part with id '{part_model.part_id}' updated successfully",
+                "data": update_data
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"Failed to update part with id '{part_model.part_id}'"
+            }
 
     def decrement_count_repo(self, part_id: str) -> PartModel | None:
         query = self.query()

@@ -1,13 +1,10 @@
 import logging
-import os
+from typing import List, Optional, Any, Dict, Coroutine
 
-from tinydb import TinyDB, Query
-from tinydb.table import Document
+from tinydb import Query
 
 from lib.part_inventory import PartInventory
 from models.part_model import PartModel, GenericPartQuery
-from typing import List, Optional, Tuple, Any, Dict, Coroutine
-
 from repositories.parts_repositories import PartRepository
 
 # Configure logging
@@ -16,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class PartService:
-   # db = PartInventory('part_inventory.json')
+    # db = PartInventory('part_inventory.json')
     part_repo = PartRepository()
 
     # return PartInventory.part_table.get(PartInventory.query.part_id == part_id)
@@ -25,7 +22,6 @@ class PartService:
         query = Query()
         # part = PartInventory.query_part_table(query.manufacturer_pn == manufacturer_pn)
         return PartInventory.part_table.get(PartInventory.query.manufacturer_pn == manufacturer_pn)
-
 
     @staticmethod
     def get_generic_part(generic_part: GenericPartQuery) -> tuple[None, str] | tuple[PartModel, str]:
@@ -52,11 +48,12 @@ class PartService:
         except Exception as e:
             logger.error(f"Failed to update quantity: {e}")
             raise
+
     @staticmethod
     def update_quantity_service(new_quantity: int,
-                                      manufacturer_pn: str = None,
-                                      part_number: str = None,
-                                      part_id: str = None) -> bool:
+                                manufacturer_pn: str = None,
+                                part_number: str = None,
+                                part_id: str = None) -> bool:
         """
         Update the quantity of a part based on part_id, part_number, or manufacturer_pn.
         Returns True if the update was successful, False if the part was not found.
@@ -66,7 +63,6 @@ class PartService:
             part = None
             _generic_part = GenericPartQuery(part_id=part_id, part_number=part_number, manufacturer_pn=manufacturer_pn)
             part, _ = PartService.get_generic_part(_generic_part)
-
 
             if not part:
                 logger.error("Part not found using provided details.")
@@ -173,9 +169,37 @@ class PartService:
         return PartService.part_repo.delete_part(part_id)
 
     @staticmethod
-    def dynamic_search(criteria: dict):
-        return PartService.part_repo.dynamic_search(criteria)
+    def dynamic_search(search_term: str):
+        try:
+            return PartService.part_repo.dynamic_search(search_term)
+        except Exception as e:
+            print(f"Error performing dynamic search: {e}")
+            return {"error": "An error occurred while searching."}
 
     @staticmethod
     def clear_all_parts():
         return PartService.part_repo.clear_all_parts()
+
+    @staticmethod
+    def update_part(part_model: PartModel) -> dict:
+        # Retrieve the existing part based on the ID, part number, or part name
+        existing_part = PartService.part_repo.get_part_by_id(part_model.part_id) or \
+                        PartService.part_repo.get_part_by_part_number(part_model.part_number) or \
+                        PartService.part_repo.get_part_by_part_name(part_model.part_name)
+
+        if not existing_part:
+            return {"status": "error", "message": "Part not found"}
+
+        # Prepare update data: We can update fields directly on the model
+        if part_model.additional_properties:
+            # Merge additional_properties with existing ones if necessary
+            existing_properties = existing_part.get('additional_properties', {})
+            updated_properties = {**existing_properties, **part_model.additional_properties}
+            part_model.additional_properties = {k: v for k, v in updated_properties.items() if v}
+
+        # Pass the entire model to the repository
+        return PartService.part_repo.update_part(part_model)
+
+    @staticmethod
+    def is_part_name_unique(part_name: str) -> bool:
+        return PartService.part_repo.is_part_name_unique(part_name)

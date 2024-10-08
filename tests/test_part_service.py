@@ -1,24 +1,64 @@
+import uuid
+from random import randint
+
 import pytest
 from fastapi.testclient import TestClient
+
 from main import app  # Import your FastAPI app
-from random import randint
 
 client = TestClient(app)
 
 
 @pytest.fixture
 def setup_decrement_part_quantity_test_data():
-    response = client.post("/parts/add_part?overwrite=true", json={
+    cleanup()
+
+    part = {
         "part_number": "PN001",
         "quantity": 50,
         "part_id": "71479ea9-061a-4813-97d4-0374d851a588",
-        "part_name": "Test Part Decrement",
+        "part_name": "Test Part",
         "categories": [
             "electronics",  # Simple category as a string
             {"name": "components", "description": "Basic electronic components"}  # Detailed category
         ]
-                           })
+    }
+
+    response = client.post("/parts/add_part?overwrite=true", json=part)
+    return response.json()
+
+
+@pytest.fixture
+def setup_test_data_search_parts():
+    # Clear the database before adding new parts
+    response = client.delete("/parts/clear_parts")
     assert response.status_code == 200
+
+    # Generate unique parts with random UUIDs for each part name
+    parts = [
+        {"part_number": f"PN{str(uuid.uuid4())[:8]}",
+         "additional_properties": {"resistance": "1k", "resistor": True},
+         "quantity": 100, "part_name": f"Resistor {uuid.uuid4()}"},
+        {"part_number": f"PN{str(uuid.uuid4())[:8]}", "quantity": 200, "description": "100nF capacitor",
+         "part_name": f"Capacitor {uuid.uuid4()}"},
+        {"part_number": f"PN{str(uuid.uuid4())[:8]}", "quantity": 200, "description": "10uH capacitor",
+         "part_name": f"Capacitor {uuid.uuid4()}"},
+        {"part_number": f"PN{str(uuid.uuid4())[:8]}", "quantity": 300, "part_name": f"Inductor {uuid.uuid4()}"},
+        {"part_number": f"PN{str(uuid.uuid4())[:8]}", "quantity": 400, "part_name": f"Diode {uuid.uuid4()}"},
+        {"part_number": f"PN{str(uuid.uuid4())[:8]}", "quantity": 500, "part_name": f"Transistor {uuid.uuid4()}"},
+        {"part_number": f"PN{str(uuid.uuid4())[:8]}", "quantity": 500, "description": "current sense resistor",
+         "part_name": f"testing part {uuid.uuid4()}"},
+    ]
+
+    # Add each part to the database and store the response to fetch IDs
+    added_parts = []
+    for part in parts:
+        response = client.post("/parts/add_part?overwrite=true", json=part)
+        added_parts.append(response.json()["data"])
+
+    # Return the added parts so tests can access them
+    return added_parts
+
 
 @pytest.fixture
 def setup_test_delete_data():
@@ -37,6 +77,24 @@ def setup_test_delete_data():
 
     client.post("/parts/add_part?overwrite=true", json=part)
     return part
+
+
+@pytest.fixture
+def setup_part_update_part():
+    cleanup()
+    # Initial setup: create a part to update later
+    part_data = {
+        "part_number": "PN001",
+        "part_name": "Resistor",
+        "quantity": 100,
+        "description": "A 1k Ohm resistor",
+        "supplier": "Supplier A",
+        "additional_properties": {"resistance": "1k"},
+        "categories": ["electronics", "passive components"]
+    }
+    response = client.post("/parts/add_part", json=part_data)
+    return response.json()["data"]
+
 
 @pytest.fixture
 def setup_test_data():
@@ -66,7 +124,7 @@ def test_get_parts_empty_page(setup_test_data):
     assert len(data["parts"]) == 1  # Only one part left on page 3
     assert data["page"] == 3
     assert data["page_size"] == 2
-    assert data["total"] == 5 # Total remains the same
+    assert data["total"] == 5  # Total remains the same
 
 
 def test_get_parts_invalid_page_size(setup_test_data):
@@ -105,6 +163,7 @@ def test_delete_part(setup_test_delete_data):
 
 def test_decrement_part_quantity_with_part_id(setup_decrement_part_quantity_test_data):
     # Test updating a part's quantity using part_id
+
     part_id = "71479ea9-061a-4813-97d4-0374d851a588"
 
     request_data = {
@@ -127,7 +186,7 @@ def test_get_part_by_details_with_part_id():
     assert res["part_number"] == 'PN001'
 
 
-def test_update_part_quantity_with_part_id():
+def test_update_part_quantity_with_part_id(setup_decrement_part_quantity_test_data):
     # Test updating a part's quantity using part_id
     part_id = "71479ea9-061a-4813-97d4-0374d851a588"
     new_quantity = randint(1, 10000)
@@ -155,8 +214,8 @@ def test_get_all_parts():
     assert isinstance(parts, list)
 
 
-def test_get_part_by_details_with_part_number():
-    part_number = "PN001"
+def test_get_part_by_details_with_part_number(setup_test_data_search_parts):
+    part_number = setup_test_data_search_parts[0]["part_number"]
 
     response = client.get("/parts/get_part_by_part_number/", params={"part_number": part_number})
     assert response.status_code == 200
@@ -165,16 +224,103 @@ def test_get_part_by_details_with_part_number():
     assert res["part_number"] == part_number
 
 
+def test_search_by_part_name(setup_test_data_search_parts):
+    # Search using a part name
+    response = client.get("/parts/search-parts/", params={"term": "Resistor"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert len(data["data"]) == 2
 
-# def test_get_part_by_details_not_found():
-#     # Test with details that don't match any part
-#     response = client.get("/get_part_by_details", params={"part_id": "nonexistent"})
-#     assert response.status_code == 404
-#     assert response.json() == {"error": "Part not found with the provided details"}
+
+def test_search_by_description(setup_test_data_search_parts):
+    # Search using a term found in the description
+    response = client.get("/parts/search-parts/", params={"term": "capacitor"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert len(data["data"][0]['matched_fields']) > 0
+    assert any(
+        field["field"] == "description" and "capacitor".lower() in str(part["part"].get("description", "")).lower()
+        for part in data["data"]
+        for field in part["matched_fields"]
+    )
+    # assert any(
+    #     "capacitor".lower() in str(part["part"][field["field"]]).lower()
+    #     for part in data["data"]
+    #     for field in part["matched_fields"]
+    # )
 
 
-# def test_get_part_by_details_no_params():
-#     # Test with no parameters provided
-#     response = client.get("/get_part_by_details")
-#     assert response.status_code == 400
-#     assert "At least one of part_id, part_name, or part_number must be provided." in response.json()["detail"]
+def test_search_by_additional_property(setup_test_data_search_parts):
+    # Search using a term found in the additional properties
+    search_term = "1k"
+    response = client.get("/parts/search-parts/", params={"term": search_term})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert len(data["data"]) > 0
+    assert data['data'][0]['matched_fields'][0]['key'] == 'resistance'
+    assert data['data'][0]['matched_fields'][0]['field'] == 'additional_properties'
+    assert data['data'][0]['part']['additional_properties']['resistance'] == search_term
+
+
+
+def test_search_parts_min_length(setup_test_data_search_parts):
+    # Test with a search term that is too short
+    short_search_term = "a"  # Less than the minimum length (e.g., 3)
+    response = client.get("/parts/search-parts/", params={"term": short_search_term})
+
+    # Assert that the status code is 400 (Bad Request)
+    assert response.status_code == 400
+
+    # Assert the response message matches the expected error
+    assert response.json() == {"detail": "Search term must be at least 2 characters long."}
+
+
+def test_search_parts_valid_length():
+    # Test with a valid search term
+    valid_search_term = "resistor"  # More than the minimum length (e.g., 3)
+    response = client.get("/parts/search-parts/", params={"term": valid_search_term})
+
+    # Assert that the status code is 200 (OK)
+    assert response.status_code == 200
+
+    # Assert that "results" key is in the response
+    assert "data" in response.json()
+
+    # Optional: Check if the results contain parts (depends on your setup)
+    # assert len(response.json()["results"]) > 0
+
+
+
+def test_update_part(setup_part_update_part):
+    # Get the part_id from the setup
+    part_id = setup_part_update_part["part_id"]
+
+    # Prepare update data
+    updated_data = {
+        "part_id": part_id,
+        "quantity": 200,
+        "description": "A 2k Ohm resistor",
+        "additional_properties": {
+            "resistance": "2k",
+            "tolerance": "5%"
+        }
+    }
+
+    # Make the PUT request to update the part
+    response = client.put("/parts/update_part", json=updated_data)
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["status"] == "success"
+    assert response_data["data"]["quantity"] == 200
+    assert response_data["data"]["additional_properties"]["resistance"] == "2k"
+    assert response_data["data"]["additional_properties"]["tolerance"] == "5%"
+
+
+def cleanup():
+    # remove all parts
+    response = client.delete("/parts/clear_parts")
+    assert response.status_code == 200
