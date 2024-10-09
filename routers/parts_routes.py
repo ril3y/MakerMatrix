@@ -23,7 +23,7 @@ async def decrement_count(generic_part_query: GenericPartQuery):
 
 
 @router.put("/update_part")
-def update_part(part_data: PartModel):
+async def update_part(part_data: PartModel):
     try:
         response = PartService.update_part(part_data)
         if response["status"] == "error":
@@ -37,7 +37,6 @@ def update_part(part_data: PartModel):
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @router.put("/update_quantity/")
@@ -115,7 +114,8 @@ async def get_part_by_id(part_id: str):
 
 
 @router.get("/get_part_by_details")
-def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str] = None, part_name: Optional[str] = None):
+def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str] = None,
+                        part_name: Optional[str] = None):
     try:
         # Pass the search criteria directly to the service
         part = PartService.get_part_by_details(part_id=part_id, part_number=part_number, part_name=part_name)
@@ -129,7 +129,6 @@ def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str
     except Exception as e:
         # Catch other generic exceptions and raise a 500 error
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @router.get("/get_parts/")
@@ -214,3 +213,36 @@ async def search(term: str):
         raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/get_parts_by_location/{location_id}")
+async def get_parts_by_location(location_id: str, recursive: bool = False):
+    try:
+        result = PartService.get_parts_by_location_id(location_id, recursive)
+        if result:
+            return {
+                "status": "success",
+                "message": f"Parts found for location {location_id}",
+                "location_id": location_id,
+                "data": result,
+                "part_count": len(result)
+            }
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "status": "error",
+                    "message": f"No parts found for location {location_id}",
+                    "location_id": location_id,
+                }
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": f"An error occurred while retrieving parts for location {location_id}",
+                "location_id": location_id,
+                "error": str(e)
+            }
+        )

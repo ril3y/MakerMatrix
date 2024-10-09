@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from models.category_model import CategoryModel
 from models.part_model import PartModel
@@ -195,3 +195,35 @@ class PartRepository(BaseRepository):
 
     def get_total_parts_count(self) -> int:
         return len(self.table)
+
+    def get_parts_by_location_id(self, location_id: str, recursive: bool = False) -> List[Dict]:
+        """
+        Retrieve parts associated with the given location ID.
+
+        If recursive is True, it will also fetch parts associated with child locations.
+        """
+        # Fetch parts directly associated with the given location
+        parts = self.table.search(self.query().location.id == location_id)
+
+        if recursive:
+            # If recursive, find parts associated with all child locations
+            child_location_ids = self.get_child_location_ids(location_id)
+            for child_id in child_location_ids:
+                parts.extend(self.get_parts_by_location_id(child_id, recursive=True))
+
+        return parts
+
+    def get_child_location_ids(self, parent_id: str) -> List[str]:
+        """
+        Recursively retrieve all child location IDs for a given parent location.
+        """
+        from repositories.location_repositories import LocationRepository
+        location_repo = LocationRepository()
+        child_locations = location_repo.get_child_locations(parent_id)
+
+        # Extract IDs and recursively find all nested children
+        child_ids = [loc['id'] for loc in child_locations]
+        for loc in child_locations:
+            child_ids.extend(self.get_child_location_ids(loc['id']))
+
+        return child_ids

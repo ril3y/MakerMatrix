@@ -4,6 +4,7 @@ from typing import List, Optional, Any, Dict, Coroutine
 from tinydb import Query
 
 from lib.part_inventory import PartInventory
+from models.location_model import LocationQueryModel
 from models.part_model import PartModel, GenericPartQuery
 from repositories.parts_repositories import PartRepository
 
@@ -184,6 +185,30 @@ class PartService:
     @staticmethod
     def clear_all_parts():
         return PartService.part_repo.clear_all_parts()
+
+    @staticmethod
+    def get_parts_by_location_id(location_id: str, recursive=False) -> List[Dict]:
+        return PartService.part_repo.get_parts_by_location_id(location_id, recursive)
+
+    @staticmethod
+    def preview_delete_location(location_id: str) -> Dict:
+        # Get all parts affected under this location
+        parts = PartService.part_repo.get_parts_by_location_id(location_id, recursive=True)
+        affected_parts_count = len(parts)
+
+        # Get all child locations under this location
+        from repositories.location_repositories import LocationRepository
+        location_repo = LocationRepository()
+        child_locations = location_repo.get_child_locations(location_id)
+        affected_children_count = len(child_locations)
+
+        return {
+            "location_id": location_id,
+            "affected_parts_count": affected_parts_count,
+            "affected_children_count": affected_children_count,
+            "parts": parts,
+            "children": child_locations
+        }
 
     @staticmethod
     def update_part(part_model: PartModel) -> dict:

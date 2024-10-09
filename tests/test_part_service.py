@@ -5,6 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app  # Import your FastAPI app
+from models.location_model import LocationModel
+from models.part_model import PartModel
 
 client = TestClient(app)
 
@@ -247,7 +249,6 @@ def test_search_by_description(setup_test_data_search_parts):
     )
 
 
-
 def test_search_by_additional_property(setup_test_data_search_parts):
     # Search using a term found in the additional properties
     search_term = "1k"
@@ -307,6 +308,8 @@ def test_get_part_by_details_not_found(setup_test_data_search_parts):
     response = client.get("/parts/get_part_by_details/", params={"part_number": part_number})
     assert response.status_code == 404
     assert response.json() == {"detail": f"Part Details with part_number '{part_number}' not found"}
+
+
 def test_get_part_by_details_with_part_name(setup_test_data_search_parts):
     # Get the part_name from the setup data
     test_part = setup_test_data_search_parts[2]
@@ -349,3 +352,86 @@ def cleanup():
     # remove all parts
     response = client.delete("/parts/clear_parts")
     assert response.status_code == 200
+
+
+@pytest.fixture
+def setup_test_locations_and_parts():
+    # Clear existing locations and parts first
+    client.delete("/locations/delete_all_locations")
+    client.delete("/parts/clear_parts")
+
+    # Create top-level location (Office)
+    office_location = LocationModel(name="Office", description="Main office space")
+    office_response = client.post("/locations/add_location", json=office_location.dict())
+    office_id = office_response.json()["data"]["id"]
+
+    # Create a child location (Toolbox) under the office
+    toolbox_location = LocationModel(name="Toolbox", description="Tool storage", parent_id=office_id)
+    toolbox_response = client.post("/locations/add_location", json=toolbox_location.dict())
+    toolbox_id = toolbox_response.json()["data"]["id"]
+
+    # Add a part to the office location
+    part_office = PartModel(
+        part_number=f"PN{uuid.uuid4().hex[:6]}",
+        part_name="Office Chair",
+        quantity=5,
+        description="An office chair",
+        location={"id": office_id}
+    )
+    office_part_response = client.post("/parts/add_part", json=part_office.dict())
+    office_part_id = office_part_response.json()["data"]["part_id"]
+
+    # Add a part to the toolbox location
+    part_toolbox = PartModel(
+        part_number=f"PN{uuid.uuid4().hex[:6]}",
+        part_name="Hammer",
+        quantity=10,
+        description="A hammer from the toolbox",
+        location={"id": toolbox_id}
+    )
+    screwdriver = PartModel(
+        part_number=f"PN{uuid.uuid4().hex[:6]}",
+        part_name="Phillips Screwdriver",
+        quantity=1,
+        description="A screwdriver 5mm",
+        location={"id": toolbox_id}
+    )
+
+    toolbox_part_response = client.post("/parts/add_part", json=part_toolbox.dict())
+    toolbox_part_id = toolbox_part_response.json()["data"]["part_id"]
+
+    screwdriver_part_response = client.post("/parts/add_part", json=screwdriver.dict())
+    screwdriver_part_id = screwdriver_part_response.json()["data"]["part_id"]
+
+    return {
+        "office_id": office_id,
+        "toolbox_id": toolbox_id,
+        "office_part_id": office_part_id,
+        "toolbox_part_id": toolbox_part_id,
+        "screwdriver_part_id": screwdriver_part_id,
+    }
+
+
+def test_get_parts_by_location_id(setup_test_locations_and_parts):
+    # Retrieve the setup data
+    setup_data = setup_test_locations_and_parts
+    office_id = setup_data["office_id"]
+    toolbox_id = setup_data["toolbox_id"]
+
+    # Get parts directly associated with the office location (non-recursive)
+    response = client.get(f"/parts/get_parts_by_location/{office_id}", params={"recursive": False})
+    assert response.status_code == 200
+    assert len(response.json()["data"]) == 1  # Only one part directly tied to 'office'
+
+    # Get all parts associated with the office location and its children (recursive)
+    response_recursive = client.get(
+        f"/parts/get_parts_by_location/{office_id}",
+        params={"recursive": "true"}
+    )
+    assert response_recursive.status_code == 200
+    assert len(response_recursive.json()["data"]) == 3  # Includes the part from the 'Toolbox' location
+
+    # Test getting parts directly associated with the toolbox location (non-recursive)
+    response_toolbox = client.get(f"/parts/get_parts_by_location/{toolbox_id}?recursive=false")
+    assert response_toolbox.status_code == 200
+    assert len(response_toolbox.json()["data"]) == 2  # Only one part tied to 'Toolbox'
