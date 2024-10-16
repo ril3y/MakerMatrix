@@ -1,15 +1,12 @@
 import json
-import json
 import os
 import shutil
 import threading
 import uuid
 from asyncio import create_task
 from typing import Dict
-from io import BytesIO
 
 import qrcode
-import base64
 from fastapi import FastAPI, WebSocket, Body
 from fastapi import HTTPException, Request, Query
 from fastapi import UploadFile, File
@@ -17,17 +14,16 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from starlette.responses import FileResponse
 
-from lib.connection import Connection
-from lib.database import DatabaseManager
-from lib.models.label_model import LabelData
-from lib.models.part_model import PartModel
-from lib.part_inventory import PartInventory
-from lib.websockets import WebSocketManager
-from lib.models.location_model import LocationModel
-from lib.parser_manager import ParserManager
-from lib.printer import Printer
-from lib.models import printer_request_model
-from lib.models import printer_config_model
+from MakerMatrix.lib.connection import Connection
+from MakerMatrix.lib.database import DatabaseManager
+from MakerMatrix.lib import LabelData
+from MakerMatrix.lib import PartModel
+from MakerMatrix.lib.part_inventory import PartInventory
+from MakerMatrix.lib.websockets import WebSocketManager
+from MakerMatrix.lib import LocationModel
+from MakerMatrix.lib.parser_manager import ParserManager
+from MakerMatrix.lib.printer import Printer
+from MakerMatrix.lib import printer_config_model
 
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
 db = PartInventory('part_inventory.json')

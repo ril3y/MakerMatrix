@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import ValidationError
 from starlette.responses import JSONResponse
 
-from models.part_model import PartModel, UpdateQuantityRequest, GenericPartQuery
-from services.part_service import PartService
+from MakerMatrix.models.part_model import PartModel, UpdateQuantityRequest, GenericPartQuery
+from MakerMatrix.services.part_service import PartService
 
 router = APIRouter()
 

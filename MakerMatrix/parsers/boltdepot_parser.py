@@ -2,9 +2,8 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs
-from parsers.parser import Parser
-from parts.parts import Part
-from lib.required_input import RequiredInput
+from MakerMatrix.parsers.parser import Parser
+from MakerMatrix.parts.parts import Part
 
 
 class BoltDepotParser(Parser):

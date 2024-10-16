@@ -1,9 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app
-from models.location_model import LocationModel
-from services.location_service import LocationService
+from MakerMatrix.main import app
+from MakerMatrix.models.location_model import LocationModel
+from MakerMatrix.services.location_service import LocationService
 
 client = TestClient(app)
 

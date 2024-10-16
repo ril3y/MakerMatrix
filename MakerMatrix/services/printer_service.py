@@ -1,8 +1,8 @@
 import qrcode
 
-from models.label_model import LabelData
-from models import printer_config_model
-from lib.printer import Printer
+from MakerMatrix.models.label_model import LabelData
+from MakerMatrix.models import printer_config_model
+from MakerMatrix.lib.printer import Printer
 
 
 class PrinterService:

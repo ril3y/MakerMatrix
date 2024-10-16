@@ -4,9 +4,9 @@ from random import randint
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app  # Import your FastAPI app
-from models.location_model import LocationModel
-from models.part_model import PartModel
+from MakerMatrix.main import app  # Import your FastAPI app
+from MakerMatrix.models.location_model import LocationModel
+from MakerMatrix.models.part_model import PartModel
 
 client = TestClient(app)
 

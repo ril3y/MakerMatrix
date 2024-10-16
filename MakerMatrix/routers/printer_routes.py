@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 
-from models import printer_config_model
-from models.label_model import LabelData
-from services.printer_service import PrinterService
+from MakerMatrix.models import printer_config_model
+from MakerMatrix.models.label_model import LabelData
+from MakerMatrix.services.printer_service import PrinterService
 
 router = APIRouter()
 

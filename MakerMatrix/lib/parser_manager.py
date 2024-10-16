@@ -1,7 +1,7 @@
 import importlib.util
 import os
 
-from parts.parts import Part
+from MakerMatrix.parts.parts import Part
 
 
 def load_module_from_file(directory, filename):

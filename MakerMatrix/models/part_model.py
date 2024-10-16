@@ -3,8 +3,8 @@ import uuid
 from typing import Optional, Dict, Any, List, Union
 from pydantic import BaseModel, model_validator
 
-from models.category_model import CategoryModel
-from models.location_model import LocationModel
+from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.models.location_model import LocationModel
 
 
 class UpdateQuantityRequest(BaseModel):
@@ -89,7 +89,7 @@ class PartModel(BaseModel):
 
         if part_name:
             # Import PartService here to avoid circular import issues
-            from services.part_service import PartService
+            from MakerMatrix.services.part_service import PartService
 
             # Check if there is any part with the same name, excluding the current part by ID
             if not PartService.part_repo.is_part_name_unique(part_name, part_id):

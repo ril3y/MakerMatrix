@@ -4,9 +4,9 @@ from datetime import datetime
 
 from mouser.api import MouserPartSearchRequest
 
-from lib.required_input import RequiredInput
-from parsers.parser import Parser
-from parts.parts import Part
+from MakerMatrix.lib.required_input import RequiredInput
+from MakerMatrix.parsers.parser import Parser
+from MakerMatrix.parts.parts import Part
 
 
 def get_nested_value(data, keys, default=""):

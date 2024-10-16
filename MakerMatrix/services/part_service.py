@@ -3,10 +3,9 @@ from typing import List, Optional, Any, Dict, Coroutine
 
 from tinydb import Query
 
-from lib.part_inventory import PartInventory
-from models.location_model import LocationQueryModel
-from models.part_model import PartModel, GenericPartQuery
-from repositories.parts_repositories import PartRepository
+from MakerMatrix.lib.part_inventory import PartInventory
+from MakerMatrix.models.part_model import PartModel, GenericPartQuery
+from MakerMatrix.repositories.parts_repositories import PartRepository
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -197,7 +196,7 @@ class PartService:
         affected_parts_count = len(parts)
 
         # Get all child locations under this location
-        from repositories.location_repositories import LocationRepository
+        from MakerMatrix.repositories.location_repositories import LocationRepository
         location_repo = LocationRepository()
         child_locations = location_repo.get_child_locations(location_id)
         affected_children_count = len(child_locations)

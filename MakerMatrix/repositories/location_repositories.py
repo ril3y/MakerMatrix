@@ -1,10 +1,8 @@
 import uuid
 from typing import Dict, Optional, List
 
-from models.location_model import LocationModel, LocationQueryModel
-from repositories.base_repository import BaseRepository
-from repositories.parts_repositories import PartRepository
-from services.part_service import PartService
+from MakerMatrix.models.location_model import LocationModel, LocationQueryModel
+from MakerMatrix.repositories.base_repository import BaseRepository
 
 
 class LocationRepository(BaseRepository):

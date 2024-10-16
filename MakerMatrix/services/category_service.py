@@ -1,7 +1,7 @@
 from typing import Optional
 
-from models.category_model import CategoryModel
-from repositories.category_repositories import CategoryRepository
+from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.repositories.category_repositories import CategoryRepository
 
 
 class CategoryService:

@@ -1,8 +1,8 @@
 from typing import Optional, List, Dict
 
-from models.category_model import CategoryModel
-from models.part_model import PartModel
-from repositories.base_repository import BaseRepository
+from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.models.part_model import PartModel
+from MakerMatrix.repositories.base_repository import BaseRepository
 
 
 class PartRepository(BaseRepository):
@@ -217,7 +217,7 @@ class PartRepository(BaseRepository):
         """
         Recursively retrieve all child location IDs for a given parent location.
         """
-        from repositories.location_repositories import LocationRepository
+        from MakerMatrix.repositories.location_repositories import LocationRepository
         location_repo = LocationRepository()
         child_locations = location_repo.get_child_locations(parent_id)
 

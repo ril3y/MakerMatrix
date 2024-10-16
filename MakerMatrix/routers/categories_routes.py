@@ -2,8 +2,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from models.category_model import CategoryModel
-from services.category_service import CategoryService
+from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.services.category_service import CategoryService
 
 router = APIRouter()
 

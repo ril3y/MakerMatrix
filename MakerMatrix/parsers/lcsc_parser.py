@@ -1,8 +1,8 @@
-import os, re
-from lib.required_input import RequiredInput
-from parts.parts import Part
-from parsers.parser import Parser
-from api.easyeda import EasyedaApi
+import re
+from MakerMatrix.lib.required_input import RequiredInput
+from MakerMatrix.parts.parts import Part
+from MakerMatrix.parsers.parser import Parser
+from MakerMatrix.api.easyeda import EasyedaApi
 
 
 def get_nested_value(data, keys, default=""):

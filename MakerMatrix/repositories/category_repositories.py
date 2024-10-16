@@ -1,8 +1,8 @@
 import uuid
 from typing import Dict, Optional
 
-from models.category_model import CategoryModel
-from repositories.base_repository import BaseRepository
+from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.repositories.base_repository import BaseRepository
 
 
 class CategoryRepository(BaseRepository):

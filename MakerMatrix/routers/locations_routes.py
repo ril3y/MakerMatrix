@@ -3,8 +3,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from starlette.responses import JSONResponse
 
-from models.location_model import LocationModel, LocationQueryModel
-from services.location_service import LocationService
+from MakerMatrix.models.location_model import LocationModel, LocationQueryModel
+from MakerMatrix.services.location_service import LocationService
 
 router = APIRouter()
 

@@ -1,7 +1,7 @@
 from typing import Optional, Dict, List
 
-from models.location_model import LocationModel, LocationQueryModel
-from repositories.location_repositories import LocationRepository
+from MakerMatrix.models.location_model import LocationModel, LocationQueryModel
+from MakerMatrix.repositories.location_repositories import LocationRepository
 
 
 class LocationService:

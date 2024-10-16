@@ -5,9 +5,9 @@ import uuid
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from starlette.responses import FileResponse, JSONResponse
 
-from services.category_service import CategoryService
-from services.location_service import LocationService
-from services.part_service import PartService
+from MakerMatrix.services.category_service import CategoryService
+from MakerMatrix.services.location_service import LocationService
+from MakerMatrix.services.part_service import PartService
 
 router = APIRouter()
 
