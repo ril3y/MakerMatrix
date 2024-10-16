@@ -1,7 +1,7 @@
 import json
 import uuid
 from typing import Optional, Dict, Any, List, Union
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, model_validator
 
 from models.category_model import CategoryModel
 from models.location_model import LocationModel
@@ -13,7 +13,7 @@ class UpdateQuantityRequest(BaseModel):
     manufacturer_pn: Optional[str] = None
     new_quantity: int
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
     def check_at_least_one_identifier(cls, values):
         part_id = values.get('part_id')
         part_number = values.get('part_number')
@@ -29,7 +29,7 @@ class GenericPartQuery(BaseModel):
     part_number: Optional[str] = None
     manufacturer_pn: Optional[str] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
     def check_at_least_one_identifier(cls, values):
         part_id = values.get('part_id')
         part_number = values.get('part_number')
@@ -57,7 +57,7 @@ class PartModel(BaseModel):
         if not self.part_id:
             self.part_id = str(uuid.uuid4())
 
-    @root_validator
+    @model_validator(mode='before')
     def check_part_details(cls, values):
         part_id = values.get('part_id')
         part_number = values.get('part_number')
@@ -82,17 +82,20 @@ class PartModel(BaseModel):
 
         return values
 
-    @validator("part_name")
-    def check_unique_part_name(cls, value, values):
-        if value:
+    @model_validator(mode='before')
+    def check_unique_part_name(cls, values):
+        part_name = values.get("part_name")
+        part_id = values.get("part_id")
+
+        if part_name:
             # Import PartService here to avoid circular import issues
             from services.part_service import PartService
-            part_id = values.get("part_id")
 
             # Check if there is any part with the same name, excluding the current part by ID
-            if not PartService.part_repo.is_part_name_unique(value, part_id):
-                raise ValueError(f"Part name '{value}' must be unique.")
-        return value
+            if not PartService.part_repo.is_part_name_unique(part_name, part_id):
+                raise ValueError(f"Part name '{part_name}' must be unique.")
+
+        return values
 
     def to_json(self):
         return json.dumps(self.dict(), default=str)
