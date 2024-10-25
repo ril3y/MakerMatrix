@@ -2,7 +2,7 @@
 # Byte-compiled files
 __pycache__/
 *.py[cod]
-
+cache.*
 # Distribution / packaging
 .Python
 env/
