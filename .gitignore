@@ -14,6 +14,14 @@ venv.bak/
 dist/
 build/
 
+
+backup/
+part_c1591_qr.png
+part_inventory.json
+part_inventory.json.backup
+
+
+
 # C extensions
 *.so
 
