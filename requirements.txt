@@ -12,3 +12,4 @@ pillow~=10.4.0
 qrcode~=7.4.2
 starlette~=0.39.2
 brother-ql>=0.9.4
+sqlmodel~=0.0.22
