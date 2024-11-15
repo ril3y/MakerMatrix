@@ -1,22 +1,36 @@
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
+from sqlalchemy.orm import joinedload
 from sqlmodel import Session, select
 # from MakerMatrix.models.category_model import CategoryModel
 # from MakerMatrix.models.part_model import PartModel
 # from MakerMatrix.repositories.base_repository import BaseRepository
 
 from MakerMatrix.models.models import PartModel, CategoryModel
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 
 
-def handle_categories(session: Session, categories_data: list) -> list:
+# def handle_categories(session: Session, categories_data: list) -> list:
+#     categories = []
+#     for category_name in categories_data:
+#         category = session.exec(
+#             select(CategoryModel).where(CategoryModel.name == category_name)
+#         ).first()
+#         if not category:
+#             category = CategoryModel(name=category_name)
+#             session.add(category)
+#         categories.append(category)
+#     return categories
+
+def handle_categories(session: Session, category_names: List[str]) -> List[CategoryModel]:
     categories = []
-    for category_name in categories_data:
-        category = session.exec(
-            select(CategoryModel).where(CategoryModel.name == category_name)
-        ).first()
+    for name in category_names:
+        category = session.exec(select(CategoryModel).where(CategoryModel.name == name)).first()
         if not category:
-            category = CategoryModel(name=category_name)
+            category = CategoryModel(name=name)
             session.add(category)
+            session.commit()
+            session.refresh(category)
         categories.append(category)
     return categories
 
@@ -24,76 +38,69 @@ def handle_categories(session: Session, categories_data: list) -> list:
 
 
 class PartRepository:
-    # def __init__(self):
-    #     super().__init__('parts')
 
-
-    #
-    # def get_part_by_part_number(self, part_number: str) -> Optional[PartModel]:
-    #     return self.table.get(self.query().part_number == part_number)
-    #
-    # def get_part_by_part_name(self, part_name: str) -> Optional[PartModel]:
-    #     return self.table.get(self.query().part_name == part_name)
-    #
-    # def get_part_by_manufacturer_pn(self, manufacturer_part_number: str) -> Optional[PartModel]:
-    #     return self.table.get(self.query().manufacturer_part_number == manufacturer_part_number)
-    #
-    # def get_all_parts_paginated(self, page, page_size):
-    #     # Calculate offset
-    #     offset = (page - 1) * page_size
-    #     # Fetch paginated results
-    #     results = self.table.all()[offset:offset + page_size]
-    #     return results
-    #
-    # def clear_all_parts(self):
-    #     # Retrieve all parts from the database
-    #     try:
-    #         self.table.truncate()
-    #     except Exception as e:
-    #         print(f"Error truncating table: {e}")
-    #
     def __init__(self, engine):
         self.engine = engine
 
     @staticmethod
-    def get_part_by_id(session: Session, part_id: str) -> Optional[PartModel]:
-        try:
-            return session.exec(
-                select(PartModel).where(PartModel.id == part_id)
-            ).first()
-        except Exception as e:
-            session.rollback()
-            raise ValueError(f"Failed to get part by ID {part_id}: {e}")
+    def get_part_by_part_number(session: Session, part_number: str) -> Optional[PartModel]:
+        part = session.exec(
+            select(PartModel).where(PartModel.part_number == part_number)
+        ).first()
+        if part:
+            return part
+        else:
+            raise ResourceNotFoundError(
+                    status="error",
+                    message="f{Error: Part with part number {part_number} not found",
+                    data=None)
 
     @staticmethod
-    def add_part(session: Session, part_data: dict) -> dict:
+    def get_part_by_id(session: Session, part_id: str) -> Optional[PartModel]:
+        part = session.exec(
+            select(PartModel)
+            .options(
+                joinedload(PartModel.categories),
+                joinedload(PartModel.location)
+            )
+            .where(PartModel.id == part_id)
+        ).first()
+
+        if part:
+            return part
+       
+        
+    @staticmethod
+    def get_part_by_name(session: Session, part_name: str) -> Optional[PartModel]:
+        part = session.exec(
+            select(PartModel)
+            .options(
+                joinedload(PartModel.categories),
+                joinedload(PartModel.location)
+            )
+            .where(PartModel.part_name == part_name)
+        ).first()
+
+        if part:
+            return part
+        else:
+            return None #We return none and do not raise an error because we want to create a new part
+        
+
+    @staticmethod
+    def add_part(session: Session, new_part: PartModel) -> PartModel:
         try:
             from MakerMatrix.repositories.category_repositories import CategoryRepository
             # Extract categories from part_data
-            categories_data = part_data.pop("categories", [])
-
-            # Check if part already exists by its part number
-            part_exists = session.exec(
-                select(PartModel).where(PartModel.part_number == part_data["part_number"])
-            ).first()
-
-            if part_exists:
-                    return {"status": "part exists", "message": "Part already exists", "data": part_exists}
-
-            # Add new part to the database
-            new_part = PartModel(**part_data)
-
-            # Handle categories for the new part using CategoriesRepo
-            new_part.categories.extend(handle_categories(session, categories_data))
-
+        
             session.add(new_part)
             session.commit()
             session.refresh(new_part)
-            return {"status": "added", "data": new_part}
+            return new_part
 
         except Exception as e:
             session.rollback()
-            raise ValueError(f"Failed to add part {part_data}: {e}")
+            raise ValueError(f"Failed to add part {new_part}: {e}")
 
     def is_part_name_unique(self, name: str, exclude_id: Optional[str] = None) -> bool:
         with Session(self.engine) as session:
@@ -109,6 +116,31 @@ class PartRepository:
 
             # Return True if no other parts with the same name exist, otherwise False
             return result is None
+
+    @staticmethod
+    def update_part(session: Session, part: PartModel) -> PartModel:
+        try:
+            #TODO:  We need to handel the case where the commit fails
+            # Add the updated part to the session and commit the changes
+            session.add(part)
+            session.commit()
+            session.refresh(part)
+            return part
+        
+        except Exception as e:
+            session.rollback()
+            raise ValueError(f"Failed to update part with id '{part.id}': {str(e)}")
+
+        except ResourceNotFoundError as rnfe:
+            # Let the custom exception handler handle this
+            raise rnfe
+
+        except Exception as e:
+            session.rollback()
+            return {
+                "status": "error",
+                "message": f"Failed to update part with id '{part_data.id}': {str(e)}"
+            }
 
     # def add_part(self, part_data: dict, overwrite: bool) -> dict:
     #     # Check if a part with the same part_number or part_name already exists
@@ -208,30 +240,7 @@ class PartRepository:
     #     # Update the quantity if the part is found
     #     self.table.update({'quantity': new_quantity}, self.query().part_id == part_id)
     #
-    # def update_part(self, part_model: PartModel) -> dict:
-    #
-    #     # Find the part using the part_id
-    #     existing_part = self.table.get(self.query().part_id == part_model.part_id)
-    #     if not existing_part:
-    #         return {"status": "error", "message": "Part not found"}
-    #
-    #     # Convert the model to a dictionary for updating
-    #     update_data = part_model.dict(exclude_unset=True)
-    #
-    #     # Perform the update
-    #     updated_count = self.table.update(update_data, doc_ids=[existing_part.doc_id])
-    #
-    #     if updated_count:
-    #         return {
-    #             "status": "success",
-    #             "message": f"Part with id '{part_model.part_id}' updated successfully",
-    #             "data": update_data
-    #         }
-    #     else:
-    #         return {
-    #             "status": "error",
-    #             "message": f"Failed to update part with id '{part_model.part_id}'"
-    #         }
+
     #
     # def decrement_count_repo(self, part_id: str) -> PartModel | None:
     #     query = self.query()

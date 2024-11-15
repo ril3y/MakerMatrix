@@ -5,11 +5,13 @@ from sqlalchemy import select
 from sqlmodel import Session
 from typing import Optional, TYPE_CHECKING
 
-from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.models.models import CategoryModel
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.repositories.parts_repositories import PartRepository, handle_categories
 from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
 from MakerMatrix.models.models import engine  # Import the engine from db.py
 from MakerMatrix.database.db import get_session
+from MakerMatrix.schemas.part_create import PartUpdate
 
 if TYPE_CHECKING:
     from MakerMatrix.models.models import PartModel  # Only imports for type checking, avoiding circular import
@@ -22,21 +24,30 @@ logger = logging.getLogger(__name__)
 class PartService:
     # Initialize a part repository instance
     part_repo = PartRepository(engine)
-    session = get_session()
+    session = next(get_session())
 
     @staticmethod
     def add_part(part_data: Dict[str, Any], category_names: List[str]) -> Dict[str, Any]:
+        """
+        Add a new part to the database.
 
-        part_data['categories'] = []  # Initialize an empty list for categories
+        Args:
+            part_data (Dict[str, Any]): The data of the part to be added.
+            category_names (List[str]): The list of category names associated with the part.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the status, message, and data of the added part.
+
+        Raises:
+            ValueError: If there is an error while adding the part.
+        """
         try:
-            session = get_session()
-            # Check if the part already exists by its part number
-            part_exists = session.exec(
-                select(PartModel).where(PartModel.part_number == part_data["part_number"])
-            ).first()
+            session = next(get_session())
+            # Check if the part already exists by its part name
+            part_exists = PartRepository.get_part_by_name(session, part_data["part_name"])
 
             if part_exists:
-                return {"status": "part exists", "message": "Part already exists", "data": part_exists[0].to_dict()}
+                return {"status": "part exists", "message": "Part already exists", "data": part_exists.to_dict()}
 
             # Add new part to the database
             new_part = PartModel(**part_data)
@@ -44,10 +55,13 @@ class PartService:
             # Handle categories for the new part
             new_part.categories.extend(handle_categories(session, category_names))
 
-            session.add(new_part)
-            session.commit()
-            session.refresh(new_part)
-            return {"status": "added", "data": new_part}
+            part_dict = PartRepository.add_part(session, new_part)
+            # Convert categories to dict representation for the response
+
+            return {
+                "status":"added", 
+                "message":"Part added successfully", 
+                "data": part_dict.to_dict()}
 
         except Exception as e:
             session.rollback()
@@ -55,17 +69,57 @@ class PartService:
 
     @staticmethod
     def is_part_name_unique(part_name: str) -> bool:
+        """
+        Check if the part name is unique.
+
+        Args:
+            part_name (str): The name of the part to be checked.
+
+        Returns:
+            bool: True if the part name is unique, False otherwise.
+        """
         return PartService.part_repo.is_part_name_unique(part_name)
 
-    from sqlmodel import select, Session
-    from MakerMatrix.models.models import PartModel
-    from MakerMatrix.database.db import get_session
+    @staticmethod
+    def get_part_by_part_number(part_number: str) -> dict[str, str | dict[str, Any]] | None:
+        identifier = "part number"
+        session = next(get_session())
+        part = PartService.part_repo.get_part_by_part_number(session, part_number)
+        if part:
+            return {
+                "status": "found",
+                "message": f"Part with {identifier} '{part_number}' found.",
+                "data": part.to_dict(),
+            }
+        
+
+    @staticmethod
+    def get_part_by_part_name(part_name: str) -> dict[str, str | dict[str, Any]] | None:
+        """
+        Get a part by its part name.
+
+        Args:
+            part_name (str): The name of the part to be retrieved.
+
+        Returns:
+            dict[str, str | dict[str, Any]] | None: A dictionary containing the status, message, and data of the found part, or None if not found.
+        """
+        identifier = "part name"
+        session = next(get_session())
+        part = PartService.part_repo.get_part_by_part_name(session, part_name)
+        if part:
+            return {
+                "status": "found",
+                "message": f"Part with {identifier} '{part_name}' found.",
+                "data": part.model_dump(),
+            }
 
     @staticmethod
     def get_part_by_id(part_id: str) -> Dict[str, Any]:
         try:
             # Use the get_session function to get a session
-            session = get_session()
+            identifier = "ID"
+            session = next(get_session())
 
             # Fetch part using the repository layer
             part = PartRepository.get_part_by_id(session, part_id)
@@ -73,36 +127,55 @@ class PartService:
             if part:
                 return {
                     "status": "found",
-                    "message": "Part retrieved successfully",
-                    "data": part.dict(),
+                    "message": f"Part with {identifier} '{part_id}' found.",
+                    "data": part.model_dump(),
                 }
+    
+            raise ResourceNotFoundError(
+                    status="error",
+                    message=f"Part with {identifier} '{part_id}' not found.",
+                    data=None
+                    )
+            
+        except ResourceNotFoundError as rnfe:
+            raise rnfe
 
-            # If part not found, raise a value error
-            raise ValueError(f"Part ID {part_id} not found")
+    @staticmethod
+    def update_part( part_id: str, part_update: PartUpdate) -> Dict[str, Any]:
+        try:
+            session = next(get_session())
+            part = PartRepository.get_part_by_id(session, part_id)
+            if not part:
+                raise ResourceNotFoundError(resource="Part", resource_id=part_id)
 
+            # Update only the provided fields
+            update_data = part_update.model_dump(exclude_unset=True)
+            for key, value in update_data.items():
+                if key == "category_names":
+                    # Special handling for categories
+                    categories = handle_categories(session, value)
+                    part.categories.clear()  # Clear existing categories
+                    part.categories.extend(categories)  # Add new categories
+                elif hasattr(part, key):
+                    try:
+                        setattr(part, key, value)
+                    except AttributeError as e:
+                        print(f"Skipping read-only or problematic attribute '{key}': {e}")
+
+            # Pass the updated part to the repository for the actual update
+            updated_part = PartRepository.update_part(session, part)
+            if update_data:
+                return {"status": "success", "message": "Part updated successfully", "data": updated_part.to_dict()}
+            else:
+                # TODO: What should we do if no updates were made?
+                # What if we return None
+                return {"status": "success", "message": "No updates provided", "data": updated_part}
+
+        except ResourceNotFoundError:
+            raise
         except Exception as e:
-            raise ValueError(f"Failed to get part by ID {part_id}: {e}")
-
-    # @staticmethod
-    # def update_part(part_model: PartModel) -> dict:
-    #     part_id = part_model.part_id
-    #     part_name = part_model.part_name
-    #     part_number = part_model.part_number
-    #
-    #     existing_part = PartService.get_part_by_details(part_id, part_number, part_name)
-    #
-    #     if not existing_part:
-    #         return {"status": "error", "message": "Part not found"}
-    #
-    #     # Prepare update data: We can update fields directly on the model
-    #     if part_model.additional_properties:
-    #         # Merge additional_properties with existing ones if necessary
-    #         existing_properties = existing_part.get('additional_properties', {})
-    #         updated_properties = {**existing_properties, **part_model.additional_properties}
-    #         part_model.additional_properties = {k: v for k, v in updated_properties.items() if v}
-    #
-    #     # Pass the entire model to the repository
-    #     return PartService.part_repo.update_part(part_model)
+            session.rollback()
+            raise ValueError(f"Failed to update part with ID {part_id}: {e}")
 
     # def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str] = None,
     #                         part_name: Optional[str] = None) -> Optional[dict]:
@@ -197,13 +270,7 @@ class PartService:
     # @staticmethod
 
     #
-    # @staticmethod
-    # def get_part_by_pn(pn: str) -> Optional[PartModel]:
-    #     try:
-    #         return PartService.part_repo.get_part_by_part_number(pn)
-    #     except Exception as e:
-    #         logger.error(f"Failed to retrieve part by part number {pn}: {e}")
-    #         return None
+
     #
     # @staticmethod
     # def get_parts_paginated(page: int, page_size: int) -> Dict[str, Any]:

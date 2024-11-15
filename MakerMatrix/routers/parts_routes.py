@@ -1,9 +1,10 @@
 from typing import Dict, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette import status
 
 from MakerMatrix.models.models import PartModel
-from MakerMatrix.schemas.part_create import PartCreate
+from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, ResourceNotFoundError
+from MakerMatrix.schemas.part_create import PartCreate, PartUpdate
 from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.category_service import CategoryService
@@ -14,78 +15,100 @@ from MakerMatrix.services.part_service import PartService
 
 router = APIRouter()
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
 async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
     try:
         # Process to add part
-        response = PartService.add_part(part.dict(exclude={"category_names"}), part.category_names)
+        response = PartService.add_part(part.model_dump(), part.category_names)
 
         if response and response.get("status") == "part exists":
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "status": "conflict",
-                    "message": "Part already exists",
-                    "data": response.get("data")  # Include existing part data
-                }
+            raise PartAlreadyExistsError(
+                part_name=part.part_name,
+                part_data=response.get("data")
             )
 
         return ResponseSchema(
-            status="success",
-            message="Part added successfully",
-            data=PartResponse.from_orm(response["data"])
+            status=response["status"],
+            message=response["message"],
+            data=PartResponse.model_validate(response["data"])
         )
 
-    except HTTPException as http_exc:
-        raise http_exc
+    except PartAlreadyExistsError as exc:
+        raise exc
     except Exception as e:
+        logger.error(f"Failed to add part: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/get_part_by_id/{part_id}")
-async def get_part_by_id(part_id: str):
+@router.get("/get_part")
+async def get_part(
+        part_id: Optional[str] = Query(None),
+        part_number: Optional[str] = Query(None),
+        part_name: Optional[str] = Query(None)
+) -> ResponseSchema[PartResponse]:
     try:
-        # Use PartService to get the part by ID
-        response = PartService.get_part_by_id(part_id)
-
-        # If part is not found, raise 404
-        if response is None:
+        # Use the PartService to determine which parameter to use for fetching
+        if part_id:
+            response = PartService.get_part_by_id(part_id)
+        elif part_number:
+            response = PartService.get_part_by_part_number(part_number)
+        elif part_name:
+            response = PartService.get_part_by_part_name(part_name)
+        else:
+            # If no identifier is provided, return a 400 error
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Part ID {part_id} not found"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one identifier (part_id, part_number, or part_name) must be provided"
             )
+
+        # if response is None:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_404_NOT_FOUND,
+        #         detail=f"get_part had a error not found"
+        #     )
 
         # If the part is found, return it
         return ResponseSchema(
-            status="found",
-            message="Part found successfully",
-            data=PartResponse.from_orm(response["data"])
+            status=response["status"],
+            message=response["message"],
+            data=PartResponse.model_validate(response["data"])
         )
+        
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
 
     except HTTPException as http_exc:
         # Re-raise any caught HTTP exceptions
         raise http_exc
     except Exception as e:
-        # Catch any other exception and return 500 error
+        # For other exceptions, raise a general HTTP error
         raise HTTPException(status_code=500, detail=str(e))
 
-# @router.put("/update_part")
-# async def update_part(part_data: PartModel):
-#     try:
-#         response = PartService.update_part(part_data)
-#         if response["status"] == "error":
-#             raise HTTPException(status_code=404, detail=response["message"])
-#         return {
-#             "status": "success",
-#             "message": response["message"],
-#             "data": response["data"]
-#         }
-#     except ValidationError as e:
-#         raise HTTPException(status_code=422, detail=str(e))
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
 
+@router.put("/update_part/{part_id}", response_model=ResponseSchema[PartResponse])
+async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[PartResponse]:
+    try:
+        # Use part_id from the path
+        response = PartService.update_part(part_id, part_data)
+
+        if response["status"] == "error":
+            raise HTTPException(status_code=404, detail=response["message"])
+
+        return ResponseSchema(
+            status="success",
+            message="Part updated successfully.",
+            data=PartResponse.model_validate(response["data"])
+        )
+
+    except ResourceNotFoundError as rnfe:
+        # Let the custom exception handler handle this
+        raise rnfe
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 #
 # @router.put("/decrement_count/")
@@ -141,13 +164,7 @@ async def get_part_by_id(part_id: str):
 #         raise HTTPException(status_code=500, detail=str(e))
 #
 #
-# @router.get("/get_part_by_part_number/")
-# async def get_part_by_part_number(part_number) -> PartModel:
-#     try:
-#         part = PartService.get_part_by_pn(part_number)
-#         return part
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+
 #
 #
 # @router.get("/get_parts/")

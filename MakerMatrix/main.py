@@ -6,6 +6,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY, HTTP_409_CONFLICT
 
+from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, ResourceNotFoundError
 from MakerMatrix.routers import parts_routes, locations_routes, categories_routes, printer_routes, utility_routes
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.printer_service import PrinterService
@@ -21,6 +22,20 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+@app.exception_handler(PartAlreadyExistsError)
+async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsError):
+    return JSONResponse(
+        status_code=409,
+        content=ResponseSchema(
+            status="conflict",
+            message=str(exc),
+            data=exc.part_data
+        ).dict()
+    )
+
+
+
 
 
 @app.exception_handler(RequestValidationError)
@@ -54,6 +69,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content=response_data.dict()
     )
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == HTTP_409_CONFLICT:
@@ -72,6 +88,19 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content={"detail": exc.detail}
     )
+    
+@app.exception_handler(ResourceNotFoundError)
+async def resource_not_found_handler(request: Request, exc: ResourceNotFoundError):
+    return JSONResponse(
+        status_code=404,
+        content=ResponseSchema(
+            status=exc.status,
+            message=exc.message[0],
+            data=exc.data
+        ).dict()
+    )
+
+
 
 # Include routers
 app.include_router(parts_routes.router, prefix="/parts", tags=["parts"])

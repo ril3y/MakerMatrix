@@ -4,7 +4,8 @@ from MakerMatrix.models.models import engine
 
 # Dependency that will provide a session to FastAPI routes
 def get_session() -> Session:
-    return Session(engine)
+    with Session(engine) as session:
+        yield session
 
 
 # Function to create tables in the SQLite database

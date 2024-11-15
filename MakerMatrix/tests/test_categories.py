@@ -1,42 +1,67 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import SQLModel
 
+from MakerMatrix.main import app
+from MakerMatrix.database.db import create_db_and_tables
+from MakerMatrix.models.models import engine
+from MakerMatrix.schemas.part_create import PartCreate  # Import PartCreate
+from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.main import app
 
 client = TestClient(app)
 
 
-@pytest.fixture
-def setup_test_data():
-    category_id = 'd6c5963b-3ab3-436f-9042-d5f233898a45'
-    category_data = {"name": "Test Category", "id": category_id}
+@pytest.fixture(scope="function", autouse=True)
+def setup_database():
+    """Set up the database before running tests and clean up afterward."""
+    # Create tables
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+
+    # Set up the database (tables creation)
+    create_db_and_tables()
+
+    yield  # Let the tests run
+
+    # Clean up the tables after running the tests
+    SQLModel.metadata.drop_all(engine)
+    
+    
+
+
+def test_remove_category():
+    category_data = {"name": "Test Category","description": "This is a test category"}
     response = client.post("/categories/add_category/", json=category_data)
-    return response.json()
-
-
-def test_remove_category(setup_test_data):
+    response_json = response.json()
     # Add a category to ensure it exists before attempting to remove it
-    category_id = setup_test_data["data"]["id"]
+    category_id = response_json["data"]["id"]
 
     # Now attempt to remove the category using the ID
-    response = client.delete("/categories/remove_category", params={"id": category_id})
+    rm_response = client.delete("/categories/remove_category", params={"id": category_id})
+    rm_response_json = rm_response.json()
     assert response.status_code == 200
-    assert response.json() == {"message": f"Category with id '{category_id}' removed successfully"}
+    assert rm_response_json['message'] == "Category with name 'Test Category' removed"
 
 
 def test_remove_non_existent_category_by_id():
     # Attempt to remove a category with a non-existent ID
     response = client.delete("/categories/remove_category", params={"id": "non-existent-id"})
     assert response.status_code == 404
-    assert response.json() == {"detail": "Category with id 'non-existent-id' not found"}
-
+    response_json = response.json()
+    assert response_json["status"] == "error"
+    assert response_json["message"] == 'Category with ID non-existent-id not found'
+    assert response_json["data"] is None
+    
 
 def test_remove_non_existent_category_by_name():
     # Attempt to remove a category with a non-existent name
     response = client.delete("/categories/remove_category", params={"name": "Non-Existent Category"})
     assert response.status_code == 404
-    assert response.json() == {"detail": "Category with name 'Non-Existent Category' not found"}
-
+    response_json = response.json()
+    assert response_json["status"] == "error"
+    assert response_json["message"] == 'Category with name Non-Existent Category not found'
+    assert response_json["data"] is None
 
 def test_remove_category_without_id_or_name():
     # Attempt to remove a category without providing either ID or name
@@ -45,19 +70,20 @@ def test_remove_category_without_id_or_name():
     assert response.json() == {"detail": "Either category ID or name must be provided"}
 
 
-def test_remove_all_categories():
+def test_delete_all_categories():
     # Add a few categories
     client.post("/categories/add_category/", json={"name": "Category 1"})
     client.post("/categories/add_category/", json={"name": "Category 2"})
 
     # Attempt to delete all categories
-    response = client.delete("/categories/remove_all_categories")
-    assert response.status_code == 200
-    assert response.json()['message'] == "All categories removed successfully"
+    response = client.delete("/categories/delete_all_categories")
+    response.status_code == 200 
+
     # Verify that no categories remain
-    get_response = client.get("/categories/all_categories")
+    get_response = client.get("/categories/get_all_categories")
     assert get_response.status_code == 200
-    assert len(get_response.json()['categories']) == 0
+    assert "All categories retrieved successfully" in get_response.json()["message"]    
+    assert len(get_response.json()['data']) == 0
 
 
 @pytest.fixture

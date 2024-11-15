@@ -2,7 +2,8 @@ from typing import Optional, Dict, Any, List, Union
 
 from pydantic import model_validator, field_validator, BaseModel
 from sqlalchemy import create_engine
-from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy.orm import joinedload
+from sqlmodel import SQLModel, Field, Relationship, select
 import uuid
 from pydantic import Field as PydanticField
 
@@ -21,7 +22,7 @@ class PartCategoryLink(SQLModel, table=True):
 # CategoryModel
 class CategoryModel(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    name: Optional[str] = Field(index=True)
+    name: str = Field(index=True, unique=True)
     description: Optional[str] = None
     parent_id: Optional[str] = Field(default=None, foreign_key="categorymodel.id")
 
@@ -59,22 +60,33 @@ class LocationModel(SQLModel, table=True):
 # PartModel
 class PartModel(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    part_name: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+
+    categories: List["CategoryModel"] = Relationship(back_populates="parts", link_model=PartCategoryLink)
+
     part_number: Optional[str] = Field(index=True)
     part_name: Optional[str] = Field(index=True)
     quantity: Optional[int]
-    description: Optional[str] = None
     supplier: Optional[str] = None
     location_id: Optional[str] = Field(default=None, foreign_key="locationmodel.id")
-    location: Optional["LocationModel"] = Relationship(back_populates="parts")
+
+    location: Optional["LocationModel"] = Relationship(
+        back_populates="parts",
+        sa_relationship_kwargs={"lazy": "selectin"}
+    )
+
     image_url: Optional[str] = None
     additional_properties: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
         sa_column=Column(JSON)
     )
-    # The actual ORM relationship field for categories
-    categories: List["CategoryModel"] = Relationship(back_populates="parts", link_model=PartCategoryLink)
-
-
+    # Example for setting eager loading by default
+    categories: List["CategoryModel"] = Relationship(
+        back_populates="parts",
+        link_model=PartCategoryLink,
+        sa_relationship_kwargs={"lazy": "selectin"}  # `selectin` eager loads with a separate query.
+    )
 
     class Config:
         arbitrary_types_allowed = True
@@ -103,6 +115,8 @@ class PartModel(SQLModel, table=True):
                 raise ValueError(f"The part name '{part_name}' already exists.")
 
         return values
+
+
 
 
 # Additional models for operations
