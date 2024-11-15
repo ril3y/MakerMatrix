@@ -1,29 +1,99 @@
-from sqlmodel import select
+from typing import Any, Dict, Optional, List
+from sqlalchemy import delete
+from sqlmodel import Session, select
 
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import CategoryModel
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 
 
 class CategoryRepository:
     def __init__(self, engine):
         self.engine = engine
+        
+        
+    @staticmethod
+    def get_category(session: Session, category_id: Optional[str] = None, name: Optional[str] = None) -> Optional[CategoryModel]:
+        if category_id:
+            category_identifier = "category ID"
+            category = session.exec(
+                select(CategoryModel).where(CategoryModel.id == category_id)
+            ).first()
+        elif name:
+            category_identifier = "category name"
+            category = session.exec(
+                select(CategoryModel).where(CategoryModel.name == name)
+            ).first()
+        else:
+            raise ValueError("Either 'category_id' or 'name' must be provided")
+        if category:
+            return category
+        else:
+            return None
+        
+    @staticmethod
+    def create_category(session: Session, new_category: CategoryModel) -> CategoryModel:
+        cmodel = CategoryModel(**new_category)
+        
+        session.add(cmodel)
+        session.commit()
+        session.refresh(cmodel)
+        return cmodel
+    
+
 
     @staticmethod
-    def handle_categories(categories_data: list) -> list[CategoryModel]:
-        with get_session() as session:
-            categories = []
-            for category_name in categories_data:
-                category = session.exec(
-                    select(CategoryModel).where(CategoryModel.name == category_name)
-                ).first()
-                if not category:
-                    category = CategoryModel(name=category_name)
-                    session.add(category)
-                categories.append(category)
-            return categories
+    def remove_category(session: Session, rm_category: CategoryModel) -> CategoryModel:
+        # Remove associations between parts and the category
+        from MakerMatrix.models.models import PartModel
 
-    # def get_all_categories(self):
-    #     return self.table.all()
+        parts = session.exec(
+            select(PartModel).where(PartModel.categories.any(id=rm_category.id))
+        ).all()
+        for part in parts:
+            part.categories = [category for category in part.categories if category.id != rm_category.id]
+            session.add(part)
+        
+        session.commit()
+        
+        # Delete the category
+        session.delete(rm_category)
+        session.commit()
+        return rm_category
+
+    @staticmethod
+    def delete_all_categories(session: Session) -> dict:
+        try:
+        
+            # Count the number of categories before deleting
+            categories = session.exec(select(CategoryModel)).all()
+            count = len(categories)
+            
+            # Delete all categories using SQLModel syntax
+            session.exec(delete(CategoryModel))
+            session.commit()
+
+            # Return a success message with the number of categories removed
+            return {"status": "success", 
+                    "message": "All #{count} categories removed successfully",
+                    "data":  None}
+
+        except Exception as e:
+            # Return an error message if something goes wrong
+            return {"status": "error",
+                    "message": f"Error deleting categories: {str(e)}",
+                    "data": None}
+
+    @staticmethod
+    def get_all_categories(session: Session) -> dict:
+        try:
+            categories = session.exec(select(CategoryModel)).all()
+            return {"status": "success",
+                    "message": "All categories retrieved successfully",
+                    "data": categories}
+            
+        except Exception as e:
+            raise ValueError(f"Error retrieving categories: {str(e)}")
     #
     # def get_category(self, category_id: Optional[str] = None, name: Optional[str] = None) -> Optional[dict]:
     #     if category_id:
@@ -42,20 +112,6 @@ class CategoryRepository:
     #         raise ValueError("Invalid parameter for 'by'. Must be 'id' or 'name'.")
     #     return len(result) > 0
     #
-    # def delete_all_categories(self) -> dict:
-    #     try:
-    #         # Count the number of categories before truncating
-    #         count = len(self.table)
-    #
-    #         # Truncate the table to remove all categories
-    #         self.table.truncate()
-    #
-    #         # Return a success message with the number of categories removed
-    #         return {"status": "success", "count": count, "message": "All categories removed successfully"}
-    #
-    #     except Exception as e:
-    #         # Return an error message if something goes wrong
-    #         return {"status": "error", "message": f"Error truncating categories table: {str(e)}"}
     #
     # def update_category(self, category: CategoryModel) -> dict:
     #     # Prepare the fields to update

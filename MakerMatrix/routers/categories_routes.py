@@ -3,23 +3,47 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
+from MakerMatrix.schemas.part_response import CategoryResponse
+from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.category_service import CategoryService
 
 router = APIRouter()
 
 
-@router.get("/all_categories/")
+@router.get("/get_all_categories/")
 async def get_all_categories():
-    categories = CategoryService.get_all_categories()
-    return {"categories": categories}
+    response = CategoryService.get_all_categories()
+    if response:
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=response["data"])
+    
 
 
 @router.post("/add_category/")
 async def add_category(category_data: CategoryModel):
     try:
         response = CategoryService.add_category(category_data)
-
-        return response
+        if response:
+            return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=CategoryResponse.model_validate(response["data"])) 
+        else:    
+            raise ResourceNotFoundError(
+                status="error",
+                message="f{Error: Category with name {category_data.name} not found",
+                data=None)
+                
+     
+            
+             
+    
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add category: {str(e)}")
 
@@ -58,23 +82,45 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
 
 
 @router.delete("/remove_category")
-async def remove_category(id: Optional[str] = None, name: Optional[str] = None) -> dict:
+async def remove_category(id: Optional[str] = None, name: Optional[str] = None)  -> ResponseSchema[CategoryResponse]:
     # Validate that at least one parameter is provided
     if not id and not name:
         raise HTTPException(status_code=400, detail="Either category ID or name must be provided")
 
     # Call the service based on the provided parameter
     try:
-        success, identifier = CategoryService.remove_category(id=id, name=name)
-        if success:
-            return {"message": f"Category with {identifier} removed successfully"}
+        response = CategoryService.remove_category(id=id, name=name)
+        if response["status"] == "removed":
+            return ResponseSchema(
+                status=response["status"],
+                message=response["message"],
+                data=CategoryResponse.model_validate(response["data"])
+            )
         else:
-            raise HTTPException(status_code=404, detail=f"Category with {identifier} not found")
+            raise HTTPException(status_code=404, detail=f"Category with {id} not found")
+    
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
+    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/remove_all_categories/")
-async def remove_all_categories():
-    response = CategoryService.delete_all_categories()
-    return response
+
+@router.delete("/delete_all_categories")
+async def delete_all_categories() -> ResponseSchema[CategoryResponse]:
+
+    try:
+        response = CategoryService.delete_all_categories()
+        if response["status"] == "success":
+            return ResponseSchema(
+                status=response["status"],
+                message=response["message"],
+                data=CategoryResponse.model_validate(response["data"])
+            )
+    
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

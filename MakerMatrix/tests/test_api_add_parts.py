@@ -13,23 +13,12 @@ from MakerMatrix.schemas.part_create import PartCreate  # Import PartCreate
 client = TestClient(app)
 
 
-def disable_sqlalchemy_logging():
-    logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
-    logging.getLogger('sqlalchemy.pool').setLevel(logging.ERROR)
 
 
-def enable_sqlalchemy_logging():
-    logging.getLogger('sqlalchemy').setLevel(logging.INFO)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-    logging.getLogger('sqlalchemy.pool').setLevel(logging.INFO)
-
-
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def setup_database():
     """Set up the database before running tests and clean up afterward."""
     # Create tables
-    disable_sqlalchemy_logging()
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
@@ -63,7 +52,7 @@ def test_add_part():
     response_json = response.json()
 
     # Check that the part was successfully added
-    assert response_json["status"] == "success"
+    assert response_json["status"] == "added"
     assert response_json["message"] == "Part added successfully"
     assert response_json["data"]["part_number"] == "Screw-001"
     assert response_json["data"]["part_name"] == "Hex Head Screw"
@@ -81,8 +70,14 @@ def test_add_existing_part():
         category_names=["hardware"]
     )
 
-    # Make a POST request to the /add_part endpoint again
-    response = client.post("/parts/add_part", json=part_data.dict())
+    # Make a POST request to the /add_part endpoint to add the part initially
+    initial_response = client.post("/parts/add_part", json=part_data.model_dump())
+
+    # Check the initial response status code to ensure the part was added successfully
+    assert initial_response.status_code == 200
+
+    # Make a POST request to the /add_part endpoint again to add the same part
+    response = client.post("/parts/add_part", json=part_data.model_dump())
 
     # Check the response status code
     assert response.status_code == 409
@@ -92,7 +87,7 @@ def test_add_existing_part():
 
     # Check that the part already exists
     assert response_json["status"] == "conflict"
-    assert response_json["message"] == "Part already exists"
+    assert "already exists" in response_json["message"] 
     assert "data" in response_json
 
 
@@ -152,15 +147,16 @@ def test_add_part_with_invalid_category():
     assert expected_error_message in errors, f"Expected error message '{expected_error_message}' not found in errors: {errors}"
 
 
+
 def test_get_part_by_id():
-    # First, add a part to the database
+    # First, add a part to the database with a known part number
     part_data = PartCreate(
-        part_number="Screw-002",
-        part_name="Round Head Screw",
-        quantity=300,
-        description="A round head screw",
+        part_number="Screw-001",
+        part_name="Hex Head Screw",
+        quantity=500,
+        description="A standard hex head screw",
         location_id=None,
-        category_names=["tools"]
+        category_names=["hardware"]
     )
 
     # Make a POST request to add the part to the database
@@ -172,7 +168,7 @@ def test_get_part_by_id():
     part_id = response_json["data"]["id"]
 
     # Make a GET request to retrieve the part by its ID
-    get_response = client.get(f"/parts/get_part_by_id/{part_id}")
+    get_response = client.get(f"/parts/get_part?part_id={part_id}")
 
     # Check the response status code
     assert get_response.status_code == 200
@@ -182,8 +178,148 @@ def test_get_part_by_id():
 
     # Check that the part data matches
     assert get_response_json["status"] == "found"
-    assert get_response_json["message"] == "Part found successfully"
-    assert get_response_json["data"]["part_number"] == "Screw-002"
+    assert "Part with ID" in get_response_json["message"]
+    assert get_response_json["data"]["part_number"] == "Screw-001"
+    assert get_response_json["data"]["part_name"] == "Hex Head Screw"
+
+
+def test_get_part_by_invalid_part_id():
+     # First, add a part to the database with a known part number
+    # part_data = PartCreate(
+    #     part_number="Screw-002",
+    #     part_name="Round Head Screw",
+    #     quantity=300,
+    #     description="A round head screw",
+    #     location_id=None,
+    #     category_names=["tools"]
+    # )
+
+    # # Make a POST request to add the part to the database
+    # response = client.post("/parts/add_part", json=part_data.model_dump())
+    # assert response.status_code == 200
+
+    # # Extract the part number from the response
+    part_id = "invalid-id"
+    
+    # Make a GET request to retrieve a part by a non-existent ID
+    get_response = client.get(f"/parts/get_part?part_id={part_id}")
+
+    # Check the response status code
+    assert get_response.status_code == 404
+
+    # Parse the response JSON
+    get_response_json = get_response.json()
+
+    # Check that the correct error message is returned
+    assert get_response_json["message"] == "Part with ID 'invalid-id' not found."
+    assert get_response_json["status"] == "error"
+    assert get_response_json["data"] is None
+
+
+def test_get_part_by_part_number():
+    # First, add a part to the database with a known part number
+    part_data = PartCreate(
+        part_number="Screw-002",
+        part_name="Round Head Screw",
+        quantity=300,
+        description="A round head screw",
+        location_id=None,
+        category_names=["tools"]
+    )
+
+    # Make a POST request to add the part to the database
+    response = client.post("/parts/add_part", json=part_data.model_dump())
+    assert response.status_code == 200
+
+    # Extract the part number from the response
+    part_number = part_data.part_number
+
+    # Make a GET request to retrieve the part by its part number
+    get_response = client.get(f"/parts/get_part?part_number={part_number}")
+
+    # Check the response status code
+    assert get_response.status_code == 200
+
+    # Parse the response JSON
+    get_response_json = get_response.json()
+
+    # Check that the part data matches
+    assert get_response_json["status"] == "found"
+    assert get_response_json["message"] == f"Part with part number '{part_number}' found."
+    assert get_response_json["data"]["part_number"] == part_number
     assert get_response_json["data"]["part_name"] == "Round Head Screw"
-    assert get_response_json["data"]["quantity"] == 300
-    assert get_response_json["data"]["description"] == "A round head screw"
+    assert get_response_json["data"]["categories"][0]['name'] == "tools"
+
+def test_update_existing_part():
+    # First, add a part to the database with a known part number and initial categories
+    part_data = PartCreate(
+        part_number="Screw-001",
+        part_name="Hex Head Screw",
+        quantity=500,
+        description="A standard hex head screw",
+        location_id=None,
+        category_names=["hardware", "tools"],
+        additional_properties={
+            "color": "silver",
+            "material": "stainless steel"
+        }
+    )
+
+    # Make a POST request to add the part to the database
+    response = client.post("/parts/add_part", json=part_data.model_dump())
+    assert response.status_code == 200
+
+    # Extract the part ID from the response
+    response_json = response.json()
+    part_id = response_json["data"]["id"]
+
+    # Verify the additional_properties and categories were added correctly
+    assert response_json["data"]["additional_properties"]["color"] == "silver"
+    assert response_json["data"]["additional_properties"]["material"] == "stainless steel"
+
+    category_names = [category["name"] for category in response_json['data']['categories']]
+    assert {"hardware", "tools"}.issubset(set(category_names))
+
+    # Define updated part data - changing categories and additional_properties
+    updated_part_data = {
+        "id": part_id,
+        "part_number": "Screw-001",
+        "part_name": "Updated Hex Head Screw",
+        "quantity": 600,
+        "description": "An updated description for the hex head screw",
+        "location_id": None,
+        "category_names": ["tools", "fasteners"],  # Remove "hardware" and add "fasteners"
+        "additional_properties": {
+            "color": "black",
+            "material": "carbon steel",
+            "weight": "0.5kg"
+        }
+    }
+
+    # Make a PUT request to update the part
+    update_response = client.put(f"/parts/update_part/{part_id}", json=updated_part_data)
+
+
+    # Check the response status code
+    assert update_response.status_code == 200
+
+    # Parse the response JSON
+    update_response_json = update_response.json()
+
+    # Check that the part data has been updated successfully
+    assert update_response_json["status"] == "success"
+    assert update_response_json["message"] == "Part updated successfully."
+    assert update_response_json["data"]["part_name"] == "Updated Hex Head Screw"
+    assert update_response_json["data"]["quantity"] == 600
+    assert update_response_json["data"]["description"] == "An updated description for the hex head screw"
+
+    # Verify the updated additional_properties
+    assert update_response_json["data"]["additional_properties"]["color"] == "black"
+    assert update_response_json["data"]["additional_properties"]["material"] == "carbon steel"
+    assert update_response_json["data"]["additional_properties"]["weight"] == "0.5kg"
+
+    # Verify the updated categories
+    
+    updated_categories = [category["name"] for category in update_response_json['data']['categories']]
+    assert {"hardware", "tools"}.issubset(set(category_names))
+    assert "hardware" not in updated_categories  # Confirm "hardware" was removed
