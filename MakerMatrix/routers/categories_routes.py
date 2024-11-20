@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from MakerMatrix.models.category_model import CategoryModel
+from MakerMatrix.models.models import CategoryModel, CategoryUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.part_response import CategoryResponse
 from MakerMatrix.schemas.response import ResponseSchema
@@ -37,10 +37,6 @@ async def add_category(category_data: CategoryModel):
                 message="f{Error: Category with name {category_data.name} not found",
                 data=None)
                 
-     
-            
-             
-    
     except ResourceNotFoundError as rnfe:
         raise rnfe
     
@@ -48,20 +44,25 @@ async def add_category(category_data: CategoryModel):
         raise HTTPException(status_code=500, detail=f"Failed to add category: {str(e)}")
 
 
-@router.put("/update_category/{category_id}")
-async def update_category(category_id: str, category_data: CategoryModel):
-    # Ensure the ID in the path matches the ID in the payload if provided
-    if category_data.id and category_data.id != category_id:
-        raise HTTPException(status_code=400, detail="Category ID in the path and payload must match")
+@router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryModel])
+async def update_category(category_id: str, category_data: CategoryUpdate) -> ResponseSchema[CategoryModel]:
+    try:
+        if not category_id:
+         raise ResourceNotFoundError(
+                status="error",
+                message="f{Error: Category with ID {category_data.id} not found",
+                data=None)
 
-    # Set the ID from the path into the model (if not already set)
-    category_data.id = category_id
-
-    response = CategoryService.update_category(category_data)
-    if response["status"] == "success":
-        return response
-    else:
-        raise HTTPException(status_code=404, detail=response["message"])
+        response = CategoryService.update_category(category_id, category_data)
+        if response['status'] == 'success':
+            return ResponseSchema(
+                status=response["status"],
+                message=response["message"],
+                data=CategoryResponse.model_validate(response["data"]))
+        else:
+            raise HTTPException(status_code=404, detail=response["message"])
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
 
 
 @router.get("/get_category")
@@ -72,9 +73,13 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
             raise HTTPException(status_code=400, detail="Either 'category_id' or 'name' must be provided")
 
         # Call the service to get the category
-        category_data = CategoryService.get_category(category_id=category_id, name=name)
-        if category_data:
-            return {"status": "success", "data": category_data}
+        response = CategoryService.get_category(category_id=category_id, name=name)
+        if response['status'] == 'success':
+           return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=CategoryResponse.model_validate(response["data"]))
+        
         else:
             raise HTTPException(status_code=404, detail="Category not found")
     except Exception as e:
@@ -105,6 +110,20 @@ async def remove_category(id: Optional[str] = None, name: Optional[str] = None) 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+# @router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryResponse])
+# async def update_category(category_id: str, category_data: CategoryModel) -> ResponseSchema[CategoryResponse]:
+#     try:
+#         updated_category = CategoryService.update_category(category_id, category_data)
+#         return ResponseSchema(
+#             status="success",
+#             message=f"Category with ID '{category_id}' updated successfully",
+#             data=CategoryResponse.model_validate(updated_category.model_dump())
+#         )
+#     except ResourceNotFoundError as rnfe:
+#         raise HTTPException(status_code=404, detail=str(rnfe))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to update category: {str(e)}")
 
 
 @router.delete("/delete_all_categories")

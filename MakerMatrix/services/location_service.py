@@ -1,65 +1,94 @@
-from typing import Optional, Dict, List
+from typing import Any, Optional, Dict, List
+from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 
-from MakerMatrix.models.location_model import LocationModel, LocationQueryModel
+from MakerMatrix.models.models import LocationModel, LocationQueryModel, engine
 from MakerMatrix.repositories.location_repositories import LocationRepository
-
+from MakerMatrix.database.db import get_session
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 
 class LocationService:
-    location_repo = LocationRepository()
+    location_repo = LocationRepository(engine)
 
     @staticmethod
-    def get_all_locations():
-        return LocationService.location_repo.get_all_locations()
+    def get_all_locations() -> List[LocationModel]:
+        session = next(get_session())
+        try:
+            return LocationService.location_repo.get_all_locations(session)
+        except Exception as e:
+            raise ValueError(f"Failed to retrieve all locations: {str(e)}")
 
     @staticmethod
-    def get_location(location: LocationQueryModel) -> Optional[Dict]:
-        return LocationService.location_repo.get_location(location)
+    def get_location(location_query: LocationQueryModel) -> Optional[LocationModel]:
+        session = next(get_session())
+        try:
+            return LocationService.location_repo.get_location(session, location_query)
+        except ResourceNotFoundError as rnfe:
+            raise rnfe
+        except Exception as e:
+            raise ValueError(f"Failed to retrieve location: {str(e)}")
 
     @staticmethod
-    def add_location(location: LocationModel) -> Dict:
-        return LocationService.location_repo.add_location(location)
-
-
+    def add_location(location_data: Dict[str, Any]) -> LocationModel:
+        session = next(get_session())
+        try:
+            return LocationService.location_repo.add_location(session, location_data)
+        except Exception as e:
+            raise ValueError(f"Failed to add location: {str(e)}")
+    
     @staticmethod
-    def get_location_details(parent_id) -> Optional[Dict]:
-        return LocationService.location_repo.get_location_details(parent_id)
+    def update_location(location_id: str, location_data: Dict[str, Any]) -> LocationModel:
+        session = next(get_session())
+        try:
+            return LocationService.location_repo.update_location(session, location_id, location_data)
+        
+        except ResourceNotFoundError as rnfe:
+            raise ResourceNotFoundError(
+                    status="error",
+                    message=f"Location with ID '{location_id}' not found.",
+                    data=None
+                    )
+        except Exception as e:
+            raise ValueError(f"Failed to update location: {str(e)}")
+    
+    @staticmethod
+    def get_location_details(location_id: str) -> Optional[LocationModel]:
+        session = next(get_session())
+        try:
+            location = LocationRepository.get_location_details(session, location_id)
+            if not location:
+                raise ResourceNotFoundError(resource="Location", resource_id=location_id)
+            return location
+        except ResourceNotFoundError as rnfe:
+            raise ResourceNotFoundError(
+                    status="error",
+                    message=f"Location with ID '{location_id}' not found.",
+                    data=None
+                    )
+            
+        except Exception as e:
+            raise ValueError(f"Failed to retrieve location details: {str(e)}")
+        
 
     @staticmethod
     def get_location_path(query_location: LocationQueryModel) -> Optional[List[Dict]]:
-        """
-        Retrieves the path from a specific location to the root in a nested JSON format.
+        session = next(get_session())
+        try:
+            return LocationService.location_repo.get_location_path(session, query_location)
+        except ResourceNotFoundError as rnfe:
+            raise rnfe
+        except Exception as e:
+            raise ValueError(f"Failed to retrieve location path: {str(e)}")
 
-        :param query_location: The ID or name of the specific location.
-        :return: A list of dictionaries representing the path from the specified location to the root.
-        """
-
-        path = []
-        current_location_id = LocationService.location_repo.get_location(query_location)
-
-        while current_location_id:
-            # Retrieve the current location using its ID
-            location = LocationService.location_repo.get_location(
-                LocationQueryModel(id=current_location_id))
-            if not location:
-                break
-
-            # Build the nested structure
-            path = {'location': location, 'parent': path}
-
-            # Move up to the parent
-            current_location_id = location.get('parent_id')
-
-        return path if path else None
-
-    @staticmethod
-    def update_location(location_id: str, location_data: LocationModel) -> Optional[dict]:
-        # Validate the location data if needed (e.g., ensure the name is unique)
-        # You may need to validate that the new name is unique and the parent location exists, if applicable.
-
-        # Update the location using the repository
-        update_data = location_data.dict(exclude_unset=True)
-        updated_location = LocationService.location_repo.update_location(location_id, update_data)
-        return updated_location
+    # @staticmethod
+    # def update_location(location_id: str, location_data: LocationModel) -> Optional[dict]:
+    #     # Validate the location data if needed (e.g., ensure the name is unique)
+    #     # You may need to validate that the new name is unique and the parent location exists, if applicable.
+    #
+    #     # Update the location using the repository
+    #     update_data = location_data.dict(exclude_unset=True)
+    #     updated_location = LocationService.location_repo.update_location(location_id, update_data)
+    #     return updated_location
 
     @staticmethod
     def get_parts_effected_locations(location_id: str):
@@ -95,8 +124,8 @@ class LocationService:
 
     @staticmethod
     def delete_all_locations():
-        return LocationService.location_repo.delete_all_locations()
-
+        session = next(get_session())
+        return LocationService.location_repo.delete_all_locations(session)
     @staticmethod
     def cleanup_locations():
         # Step 1: Get all locations
@@ -134,10 +163,4 @@ class LocationService:
         affected_parts_count = len(affected_parts)
 
         affected_children = LocationService.get_child_locations(location_id)
-        affected_children_count = len(affected_children)
-
-        return {
-            "location_id": location_id,
-            "affected_parts_count": affected_parts_count,
-            "affected_children_count": affected_children_count
-        }
+        affected_children_count
