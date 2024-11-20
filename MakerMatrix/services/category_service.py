@@ -29,13 +29,24 @@ class CategoryService:
             
                 if new_category:
                     return {
-                        "status": "created",
+                        "status": "success",
                         "message": f"Category with name '{category_name}' created",
                         "data": new_category.model_dump(),
                     }
                 
         except Exception as e:
             raise ValueError("Cannot create a category without a name")
+
+    @staticmethod
+    def get_category(category_id: Optional[str] = None, name: Optional[str] = None) -> CategoryModel:
+        session = next(get_session())
+        category =  CategoryRepository.get_category(session, category_id=category_id, name=name)
+        return {
+                        "status": "success",
+                        "message": f"Category with name '{category.name}' retrieved successfully",
+                        "data": category.model_dump(),
+                    }  
+        
 
     @staticmethod
     def remove_category(id: Optional[str] = None, name: Optional[str] = None) -> (bool, str):
@@ -73,7 +84,7 @@ class CategoryService:
         
         except Exception as e:
             raise ValueError("Cannot remove a category without a name")
-        
+    
     @staticmethod
     def delete_all_categories() -> dict:
         session = next(get_session())
@@ -84,6 +95,26 @@ class CategoryService:
         session = next(get_session())
         return CategoryService.category_repo.get_all_categories(session)
     
+    
+    @staticmethod
+    def update_category(category_id: str, category_update: CategoryModel) -> CategoryModel:
+        #TODO: I worry about how exceptions are handled here
+        try:
+            
+            session = next(get_session())
+            updated_category = CategoryRepository.update_category(session, category_id, category_update)
+            if updated_category:
+                return {
+                "status": "success",
+                "message": f"Category with ID '{category_id}' updated.",
+                "data": updated_category.model_dump(),
+            }
+                
+        except ResourceNotFoundError as rnfe:
+            raise rnfe
+        except Exception as e:
+            raise ValueError(f"Failed to update category: {str(e)}")
+        
     #
     # @staticmethod
     # def get_category(category_id: Optional[str] = None, name: Optional[str] = None) -> Optional[dict]:
@@ -97,10 +128,3 @@ class CategoryService:
     #     # Call the repository to add the category
     #     return CategoryService.category_repo.add_category(category_data)
     #
-    # @staticmethod
-    # def update_category(category_data: CategoryModel):
-    #     return CategoryService.category_repo.update_category(category_data)
-    #
-
-    #
-    
