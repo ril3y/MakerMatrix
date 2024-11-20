@@ -6,8 +6,10 @@ from sqlmodel import SQLModel
 
 from MakerMatrix.main import app
 from MakerMatrix.database.db import create_db_and_tables
+from MakerMatrix.models.models import CategoryModel
 from MakerMatrix.models.models import engine
-from MakerMatrix.schemas.part_create import PartCreate  # Import PartCreate
+from MakerMatrix.schemas.part_create import PartCreate
+from MakerMatrix.services.category_service import CategoryService  # Import PartCreate
 
 # Create a TestClient to interact with the app
 client = TestClient(app)
@@ -252,6 +254,18 @@ def test_get_part_by_part_number():
 
 def test_update_existing_part():
     # First, add a part to the database with a known part number and initial categories
+    top_category = CategoryModel(name="hardware",
+                                 description="Hardware items",
+                                 parent_id=None)
+    
+    sub_category = CategoryModel(name="tools",
+                                    description="Tools and accessories",
+                                    parent_id=top_category.id).model_dump()
+    
+    CategoryService.add_category(top_category)
+    CategoryService.add_category(sub_category)
+    hardware = client.get("/categories/get_category?name=hardware").json()
+        
     part_data = PartCreate(
         part_number="Screw-001",
         part_name="Hex Head Screw",
