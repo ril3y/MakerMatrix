@@ -2,8 +2,8 @@ from typing import Optional, Dict, Any, List, Union
 
 from pydantic import model_validator, field_validator, BaseModel
 from sqlalchemy import create_engine
-from sqlalchemy.orm import joinedload
-from sqlmodel import SQLModel, Field, Relationship, select
+from sqlalchemy.orm import joinedload, selectinload
+from sqlmodel import SQLModel, Field, Relationship, Session, select
 import uuid
 from pydantic import Field as PydanticField
 
@@ -18,7 +18,12 @@ class PartCategoryLink(SQLModel, table=True):
     part_id: str = Field(foreign_key="partmodel.id", primary_key=True)
     category_id: str = Field(foreign_key="categorymodel.id", primary_key=True)
 
-
+class CategoryUpdate(SQLModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    parent_id: Optional[str] = None
+    children: Optional[List[str]] = None  # List of child category IDs
+    
 # CategoryModel
 class CategoryModel(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -35,8 +40,13 @@ class CategoryModel(SQLModel, table=True):
 
     parts: List["PartModel"] = Relationship(back_populates="categories", link_model=PartCategoryLink)
 
+    
+    
+class LocationQueryModel(SQLModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
 
-# LocationModel
+
 class LocationModel(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: Optional[str] = Field(index=True)
@@ -55,6 +65,33 @@ class LocationModel(SQLModel, table=True):
     )
 
     parts: List["PartModel"] = Relationship(back_populates="location")
+
+    @classmethod
+    def get_with_children(cls, session: Session, location_id: str) -> Optional["LocationModel"]:
+        """ Custom method to get a location with its children """
+        statement = select(cls).options(selectinload(cls.children)).where(cls.id == location_id)
+        return session.exec(statement).first()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """ Custom serialization method for LocationModel """
+        location_dict = self.dict()
+        # Convert the related children to a list of dictionaries
+        location_dict['children'] = [child.to_dict() for child in self.children]
+        return location_dict
+
+
+class LocationUpdate(SQLModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    parent_id: Optional[str] = None
+    location_type: Optional[str] = None
+
+    # def to_dict(self) -> Dict[str, Any]:
+    #     """ Custom serialization method for LocationModel """
+    #     location_dict = self.model_dump()
+    #     # Convert the related children to a list of dictionaries
+    #     location_dict['children'] = [child.to_dict() for child in self.children]
+    #     return location_dict
 
 
 # PartModel
@@ -91,7 +128,7 @@ class PartModel(SQLModel, table=True):
     class Config:
         arbitrary_types_allowed = True
 
-        # Custom serialization function
+    # Custom serialization function
     def to_dict(self) -> Dict[str, Any]:
         """ Custom serialization method for PartModel """
         part_dict = self.dict()
@@ -101,7 +138,6 @@ class PartModel(SQLModel, table=True):
             for category in self.categories
         ]
         return part_dict
-
 
     @model_validator(mode='before')
     def check_unique_part_name(cls, values):

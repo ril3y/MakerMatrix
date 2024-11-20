@@ -86,19 +86,80 @@ def test_delete_all_categories():
     assert len(get_response.json()['data']) == 0
 
 
+
+
 @pytest.fixture
 def setup_test_data_category_update():
     # Add a category to set up the initial data for testing
-    response = client.delete("/categories/remove_category", params={"name": "Test Category Update"})
-
-    category_data = {"name": "Test Category Update", "description": "Initial description"}
+    category_data = {"name": "Test Category", "description": "Initial description"}
     add_response = client.post("/categories/add_category/", json=category_data)
     assert add_response.status_code == 200
     return add_response.json()
 
 
-def test_update_category_name(setup_test_data_category_update):
+def test_update_category(client):
+    """Test to update a category via the API."""
+    # First, add a category
+    category_data = {
+        "name": "Electronics",
+        "description": "Electronic components"
+    }
+    response = client.post("/categories/add_category", json=category_data)
+    assert response.status_code == 200
+    category_id = response.json()["data"]["id"]
+
+    # Add a child category
+    child_category_data = {
+        "name": "Resistors",
+        "description": "Various resistors",
+        "parent_id": category_id
+    }
+    child_response = client.post("/categories/add_category", json=child_category_data)
+    assert child_response.status_code == 200
+    child_category_id = child_response.json()["data"]["id"]
+
+    # Prepare update data to move the child category to a new parent
+    new_parent_data = {
+        "name": "Loose Parts",
+        "description": "Miscellaneous parts"
+    }
+    new_parent_response = client.post("/categories/add_category", json=new_parent_data)
+    assert new_parent_response.status_code == 200
+    new_parent_id = new_parent_response.json()["data"]["id"]
+
+    update_data = {
+        "children": [child_category_id]
+    }
+
+    # Update the new parent category to include the child category
+    response = client.put(f"/categories/update_category/{new_parent_id}", json=update_data)
+    assert response.status_code == 200
+
+    # Verify the response data
+    response_data = response.json()
+    assert response_data["status"] == "success"
+    assert response_data["message"] == "Category updated successfully"
+    assert response_data["data"]["id"] == new_parent_id
+    assert len(response_data["data"]["children"]) == 1
+    assert response_data["data"]["children"][0]["id"] == child_category_id
+
+    # Verify that the child category is no longer in the old parent category
+    old_parent_response = client.get(f"/categories/get_category/{category_id}")
+    assert old_parent_response.status_code == 200
+    old_parent_data = old_parent_response.json()
+    assert len(old_parent_data["data"]["children"]) == 0
+
+    # Verify that the child category is now in the new parent category
+    new_parent_response = client.get(f"/categories/get_category/{new_parent_id}")
+    assert new_parent_response.status_code == 200
+    new_parent_data = new_parent_response.json()
+    assert len(new_parent_data["data"]["children"]) == 1
+    assert new_parent_data["data"]["children"][0]["id"] == child_category_id
+
+def test_update_category_name( setup_test_data_category_update):
     # Retrieve the category ID from the setup
+    
+    
     category_id = setup_test_data_category_update["data"]["id"]
 
     # Prepare new data for updating the category
@@ -112,13 +173,16 @@ def test_update_category_name(setup_test_data_category_update):
     assert response.status_code == 200
 
     # Check that the response message is correct
-    assert response.json()["message"] == f"Category with ID '{category_id}' updated successfully"
+    response_json = response.json()
+    assert response_json["message"] == f"Category with ID '{category_id}' updated."
 
     # Optional: Verify that the update is correctly reflected in the database
     get_response = client.get("/categories/get_category", params={"category_id": category_id})
     assert get_response.status_code == 200
-    assert get_response.json()["data"]["name"] == update_data["name"]
-    assert get_response.json()["data"]["description"] == update_data["description"]
+    get_response_json = get_response.json()
+    assert get_response_json["message"] == f"Category with name '{get_response_json["data"]["name"]}' retrieved successfully"
+    assert get_response_json["data"]["name"] == update_data["name"]
+    assert get_response_json["data"]["description"] == update_data["description"]
 
 
 @pytest.fixture

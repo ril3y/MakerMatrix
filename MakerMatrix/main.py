@@ -10,6 +10,7 @@ from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, R
 from MakerMatrix.routers import parts_routes, locations_routes, categories_routes, printer_routes, utility_routes
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.printer_service import PrinterService
+from MakerMatrix.database.db import create_db_and_tables
 
 # Initialize the FastAPI app
 app = FastAPI()
@@ -23,6 +24,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+@app.on_event("startup")
+async def on_startup():
+    create_db_and_tables()
+
 @app.exception_handler(PartAlreadyExistsError)
 async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsError):
     return JSONResponse(
@@ -34,10 +39,6 @@ async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsEr
         ).dict()
     )
 
-
-
-
-
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     # Extract validation error details
@@ -45,30 +46,19 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
     messages = []
     for error in errors:
-        if error["type"] == "missing":
-            # Handle missing required fields
-            messages.append(f"Field '{error['loc'][-1]}' is required but missing.")
-        elif error["type"] == "string_type":
-            # Handle incorrect data type (e.g., int where string is expected)
-            loc_path = " -> ".join(str(loc) for loc in error["loc"])
-            messages.append(f"Invalid type for field '{loc_path}': Expected a valid string but got '{error['input']}'.")
-        else:
-            # General message for other validation errors
-            loc_path = " -> ".join(str(loc) for loc in error["loc"])
-            messages.append(f"Validation error in field '{loc_path}': {error['msg']}")
-
-    # Create a ResponseSchema for the validation error
-    response_data = ResponseSchema(
-        status="error",
-        message="Validation failed for the input data.",
-        data={"errors": messages}
-    )
+        loc = error.get("loc")
+        msg = error.get("msg")
+        typ = error.get("type")
+        messages.append(f"Error in {loc}: {msg} ({typ})")
 
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_ENTITY,
-        content=response_data.dict()
+        content=ResponseSchema(
+            status="error",
+            message="Validation error",
+            data=messages
+        ).dict()
     )
-
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -94,13 +84,11 @@ async def resource_not_found_handler(request: Request, exc: ResourceNotFoundErro
     return JSONResponse(
         status_code=404,
         content=ResponseSchema(
-            status=exc.status,
-            message=exc.message[0],
-            data=exc.data
+            status="error",
+            message=str(exc),
+            data=None
         ).dict()
     )
-
-
 
 # Include routers
 app.include_router(parts_routes.router, prefix="/parts", tags=["parts"])
