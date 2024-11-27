@@ -3,11 +3,13 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
+from MakerMatrix.database.db import get_session
 
 from MakerMatrix.main import app
 from MakerMatrix.database.db import create_db_and_tables
-from MakerMatrix.models.models import CategoryModel
+from MakerMatrix.models.models import CategoryModel, PartModel
 from MakerMatrix.models.models import engine
+from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.schemas.part_create import PartCreate
 from MakerMatrix.services.category_service import CategoryService  # Import PartCreate
 
@@ -253,26 +255,29 @@ def test_get_part_by_part_number():
     assert get_response_json["data"]["categories"][0]['name'] == "tools"
 
 def test_update_existing_part():
-    # First, add a part to the database with a known part number and initial categories
-    top_category = CategoryModel(name="hardware",
-                                 description="Hardware items",
-                                 parent_id=None)
-    
-    sub_category = CategoryModel(name="tools",
-                                    description="Tools and accessories",
-                                    parent_id=top_category.id).model_dump()
-    
+    top_category = CategoryModel(name="tools", description="All Tools", parent_id=None)
     CategoryService.add_category(top_category)
-    CategoryService.add_category(sub_category)
-    hardware = client.get("/categories/get_category?name=hardware").json()
-        
+
+
+    # Create a sub-category with the top-level category as the parent
+    sub_category1 = CategoryModel(name="hammers", description="Types of hammers", parent_id=top_category.id)
+    CategoryService.add_category(sub_category1)
+    
+    sub_category2 = CategoryModel(name="screwdrivers", description="Types of screwdrivers", parent_id=top_category.id)
+    CategoryService.add_category(sub_category2)
+
+    
+    hardware = client.get("/categories/get_category?name=tools").json()
+    # The issue is the category tools does not have the children 
+
+    
     part_data = PartCreate(
-        part_number="Screw-001",
-        part_name="Hex Head Screw",
+        part_number="323329329dj91",
+        part_name="hammer drill",
         quantity=500,
         description="A standard hex head screw",
         location_id=None,
-        category_names=["hardware", "tools"],
+        categories=["hammers", "screwdrivers"],
         additional_properties={
             "color": "silver",
             "material": "stainless steel"
@@ -280,7 +285,12 @@ def test_update_existing_part():
     )
 
     # Make a POST request to add the part to the database
+    #response = client.post("/parts/add_part", json=part_data.model_dump()) 
+    session = next(get_session())   
     response = client.post("/parts/add_part", json=part_data.model_dump())
+    
+    response = PartRepository.add_part(session, part_data)  
+    
     assert response.status_code == 200
 
     # Extract the part ID from the response
