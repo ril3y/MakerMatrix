@@ -31,7 +31,11 @@ async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
                 part_data=response.get("data")
             )
 
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status=response["status"],
             message=response["message"],
             data=PartResponse.model_validate(response["data"])
@@ -72,7 +76,11 @@ async def get_part(
         #     )
 
         # If the part is found, return it
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status=response["status"],
             message=response["message"],
             data=PartResponse.model_validate(response["data"])
@@ -98,7 +106,11 @@ async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[Par
         if response["status"] == "error":
             raise HTTPException(status_code=404, detail=response["message"])
 
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status="success",
             message="Part updated successfully.",
             data=PartResponse.model_validate(response["data"])

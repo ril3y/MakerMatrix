@@ -16,13 +16,18 @@ router = APIRouter()
 async def get_all_locations():
     try:
         locations = LocationService.get_all_locations()
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status="success",
             message="All locations retrieved successfully",
             data=locations
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/get_location")
 async def get_location(location_id: Optional[str] = None, name: Optional[str] = None):
@@ -31,7 +36,11 @@ async def get_location(location_id: Optional[str] = None, name: Optional[str] = 
             raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
         location_query = LocationQueryModel(id=location_id, name=name)
         location = LocationService.get_location(location_query)
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status="success",
             message="Location retrieved successfully",
             data=location.to_dict()
@@ -40,12 +49,17 @@ async def get_location(location_id: Optional[str] = None, name: Optional[str] = 
         raise HTTPException(status_code=404, detail=str(rnfe))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @router.put("/update_location/{location_id}", response_model=ResponseSchema[LocationModel])
 async def update_location(location_id: str, location_data: LocationUpdate) -> ResponseSchema[LocationModel]:
     try:
         updated_location = LocationService.update_location(location_id, location_data.model_dump(exclude_unset=True))
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status="success",
             message="Location updated",
             data=updated_location.model_dump()
@@ -55,11 +69,16 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/add_location")
 async def add_location(location_data: LocationModel) -> ResponseSchema[LocationModel]:
     try:
         location = LocationService.add_location(location_data.model_dump())
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status="success",
             message="Location added successfully",
             data=location.to_dict()
@@ -67,22 +86,25 @@ async def add_location(location_data: LocationModel) -> ResponseSchema[LocationM
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/get_location_details/{parent_id}")
 async def get_location_details(parent_id: str):
     try:
         location_details = LocationService.get_location_details(parent_id)
         if location_details:
+            # noinspection PyArgumentList
             return ResponseSchema(
-                status="success",
-                message="Location details retrieved successfully",
-                data=location_details.to_dict()
-            )
-    
+                    status="success",
+                    message="Location details retrieved successfully",
+                    data=location_details.to_dict()
+                )
+
     except ResourceNotFoundError as rnfe:
         # Let the custom exception handler handle this
         raise rnfe
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/get_location_path")
 async def get_location_path(location_id: Optional[str] = None, name: Optional[str] = None):
@@ -91,7 +113,11 @@ async def get_location_path(location_id: Optional[str] = None, name: Optional[st
             raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
         location_query = LocationQueryModel(id=location_id, name=name)
         location_path = LocationService.get_location_path(location_query)
+        # noinspection PyArgumentList
+        # noinspection PyArgumentList
         return ResponseSchema(
+
+
             status="success",
             message="Location path retrieved successfully",
             data=location_path
@@ -100,7 +126,6 @@ async def get_location_path(location_id: Optional[str] = None, name: Optional[st
         raise HTTPException(status_code=404, detail=str(rnfe))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 # @router.get("/all_locations/")
 # async def get_all_locations():
