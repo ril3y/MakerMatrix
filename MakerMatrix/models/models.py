@@ -40,6 +40,12 @@ class CategoryModel(SQLModel, table=True):
 
     parts: List["PartModel"] = Relationship(back_populates="categories", link_model=PartCategoryLink)
 
+    def to_dict(self) -> Dict[str, Any]:
+        """ Custom serialization method for CategoryModel """
+        category_dict = self.model_dump()
+        # Convert the related children to a list of dictionaries
+        category_dict['children'] = [child.to_dict() for child in self.children]
+        return category_dict
     
     
 class LocationQueryModel(SQLModel):

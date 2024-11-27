@@ -88,19 +88,24 @@ class PartRepository:
         
 
     @staticmethod
-    def add_part(session: Session, new_part: PartModel) -> PartModel:
-        try:
-            from MakerMatrix.repositories.category_repositories import CategoryRepository
-            # Extract categories from part_data
+    def add_part(session: Session, part_data: PartModel) -> PartModel:
+        # Ensure categories are unique
+        unique_categories = []
+        for category in part_data.categories:
+            existing_category = session.exec(select(CategoryModel).where(CategoryModel.name == category.name)).first()
+            if existing_category:
+                unique_categories.append(existing_category)
+            else:
+                session.add(category)
+                session.commit()
+                session.refresh(category)
+                unique_categories.append(category)
         
-            session.add(new_part)
-            session.commit()
-            session.refresh(new_part)
-            return new_part
-
-        except Exception as e:
-            session.rollback()
-            raise ValueError(f"Failed to add part {new_part}: {e}")
+        part_data.categories = unique_categories
+        session.add(part_data)
+        session.commit()
+        session.refresh(part_data)
+        return part_data
 
     def is_part_name_unique(self, name: str, exclude_id: Optional[str] = None) -> bool:
         with Session(self.engine) as session:
