@@ -15,7 +15,9 @@ router = APIRouter()
 async def get_all_categories():
     response = CategoryService.get_all_categories()
     if response:
+        # noinspection PyArgumentList
         return ResponseSchema(
+
             status=response["status"],
             message=response["message"],
             data=response["data"])
@@ -27,7 +29,9 @@ async def add_category(category_data: CategoryModel):
     try:
         response = CategoryService.add_category(category_data)
         if response:
+            # noinspection PyArgumentList
             return ResponseSchema(
+
             status=response["status"],
             message=response["message"],
             data=CategoryResponse.model_validate(response["data"])) 
@@ -55,7 +59,9 @@ async def update_category(category_id: str, category_data: CategoryUpdate) -> Re
 
         response = CategoryService.update_category(category_id, category_data)
         if response['status'] == 'success':
+            # noinspection PyArgumentList
             return ResponseSchema(
+
                 status=response["status"],
                 message=response["message"],
                 data=CategoryResponse.model_validate(response["data"]))
@@ -75,7 +81,9 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
         # Call the service to get the category
         response = CategoryService.get_category(category_id=category_id, name=name)
         if response['status'] == 'success':
-           return ResponseSchema(
+           # noinspection PyArgumentList
+            return ResponseSchema(
+
             status=response["status"],
             message=response["message"],
             data=CategoryResponse.model_validate(response["data"]))
@@ -96,7 +104,9 @@ async def remove_category(id: Optional[str] = None, name: Optional[str] = None) 
     try:
         response = CategoryService.remove_category(id=id, name=name)
         if response["status"] == "removed":
+            # noinspection PyArgumentList
             return ResponseSchema(
+
                 status=response["status"],
                 message=response["message"],
                 data=CategoryResponse.model_validate(response["data"])
@@ -115,7 +125,9 @@ async def remove_category(id: Optional[str] = None, name: Optional[str] = None) 
 # async def update_category(category_id: str, category_data: CategoryModel) -> ResponseSchema[CategoryResponse]:
 #     try:
 #         updated_category = CategoryService.update_category(category_id, category_data)
-#         return ResponseSchema(
+#         # noinspection PyArgumentList
+            #return ResponseSchema(
+
 #             status="success",
 #             message=f"Category with ID '{category_id}' updated successfully",
 #             data=CategoryResponse.model_validate(updated_category.model_dump())
@@ -132,7 +144,9 @@ async def delete_all_categories() -> ResponseSchema[CategoryResponse]:
     try:
         response = CategoryService.delete_all_categories()
         if response["status"] == "success":
+            # noinspection PyArgumentList
             return ResponseSchema(
+
                 status=response["status"],
                 message=response["message"],
                 data=CategoryResponse.model_validate(response["data"])
