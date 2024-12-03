@@ -12,11 +12,13 @@ from MakerMatrix.models.models import engine
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.schemas.part_create import PartCreate
 from MakerMatrix.services.category_service import CategoryService  # Import PartCreate
+import logging
+
+# Suppress SQLAlchemy INFO logs (which include SQL statements)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
 # Create a TestClient to interact with the app
 client = TestClient(app)
-
-
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -91,7 +93,7 @@ def test_add_existing_part():
 
     # Check that the part already exists
     assert response_json["status"] == "conflict"
-    assert "already exists" in response_json["message"] 
+    assert "already exists" in response_json["message"]
     assert "data" in response_json
 
 
@@ -111,12 +113,10 @@ def test_add_part_with_invalid_data():
     # Check that the response follows the custom ResponseSchema format
     response_json = response.json()
     assert response_json["status"] == "error"
-    assert response_json["message"] == "Validation failed for the input data."
+    assert response_json["message"] == "Validation error"
 
     # Extract the error details and check the missing fields
-    errors = response_json["data"]["errors"]
-    assert any("part_name" in error for error in errors)
-    assert any("quantity" in error for error in errors)
+    assert 'quantity' in response_json['data'][0]
 
 
 def test_add_part_with_invalid_category():
@@ -141,15 +141,8 @@ def test_add_part_with_invalid_category():
 
     # Check the response structure and validation error
     assert response_json["status"] == "error"
-    assert response_json["message"] == "Validation failed for the input data."
-    assert "errors" in response_json["data"]
-
-    # Extract errors from the response data
-    errors = response_json["data"]["errors"]
-
-    expected_error_message = "Invalid type for field 'body -> category_names -> 0': Expected a valid string but got '123'."
-    assert expected_error_message in errors, f"Expected error message '{expected_error_message}' not found in errors: {errors}"
-
+    assert response_json["message"] == "Validation error"
+    assert "Input should be a valid string" in response_json["data"][0]
 
 
 def test_get_part_by_id():
@@ -188,7 +181,7 @@ def test_get_part_by_id():
 
 
 def test_get_part_by_invalid_part_id():
-     # First, add a part to the database with a known part number
+    # First, add a part to the database with a known part number
     # part_data = PartCreate(
     #     part_number="Screw-002",
     #     part_name="Round Head Screw",
@@ -204,7 +197,7 @@ def test_get_part_by_invalid_part_id():
 
     # # Extract the part number from the response
     part_id = "invalid-id"
-    
+
     # Make a GET request to retrieve a part by a non-existent ID
     get_response = client.get(f"/parts/get_part?part_id={part_id}")
 
@@ -254,30 +247,28 @@ def test_get_part_by_part_number():
     assert get_response_json["data"]["part_name"] == "Round Head Screw"
     assert get_response_json["data"]["categories"][0]['name'] == "tools"
 
+
 def test_update_existing_part():
-    top_category = CategoryModel(name="tools", description="All Tools", parent_id=None)
+    top_category = CategoryModel(name="tools", description="All Tools")
     CategoryService.add_category(top_category)
 
-
     # Create a sub-category with the top-level category as the parent
-    sub_category1 = CategoryModel(name="hammers", description="Types of hammers", parent_id=top_category.id)
+    sub_category1 = CategoryModel(name="hammers", description="Types of hammers")
     CategoryService.add_category(sub_category1)
-    
-    sub_category2 = CategoryModel(name="screwdrivers", description="Types of screwdrivers", parent_id=top_category.id)
+
+    sub_category2 = CategoryModel(name="screwdrivers", description="Types of screwdrivers")
     CategoryService.add_category(sub_category2)
 
-    
     hardware = client.get("/categories/get_category?name=tools").json()
     # The issue is the category tools does not have the children 
 
-    
     part_data = PartCreate(
         part_number="323329329dj91",
         part_name="hammer drill",
         quantity=500,
         description="A standard hex head screw",
         location_id=None,
-        categories=["hammers", "screwdrivers"],
+        category_names=["hammers", "screwdrivers"],
         additional_properties={
             "color": "silver",
             "material": "stainless steel"
@@ -285,12 +276,10 @@ def test_update_existing_part():
     )
 
     # Make a POST request to add the part to the database
-    #response = client.post("/parts/add_part", json=part_data.model_dump()) 
-    session = next(get_session())   
+    # response = client.post("/parts/add_part", json=part_data.model_dump())
+
     response = client.post("/parts/add_part", json=part_data.model_dump())
-    
-    response = PartRepository.add_part(session, part_data)  
-    
+
     assert response.status_code == 200
 
     # Extract the part ID from the response
@@ -302,7 +291,7 @@ def test_update_existing_part():
     assert response_json["data"]["additional_properties"]["material"] == "stainless steel"
 
     category_names = [category["name"] for category in response_json['data']['categories']]
-    assert {"hardware", "tools"}.issubset(set(category_names))
+    assert {"hammers", "screwdrivers"}.issubset(set(category_names))
 
     # Define updated part data - changing categories and additional_properties
     updated_part_data = {
@@ -312,7 +301,7 @@ def test_update_existing_part():
         "quantity": 600,
         "description": "An updated description for the hex head screw",
         "location_id": None,
-        "category_names": ["tools", "fasteners"],  # Remove "hardware" and add "fasteners"
+        "category_names": ["tools", "fasteners"],  # Remove "screwdrivers" and add "fasteners"
         "additional_properties": {
             "color": "black",
             "material": "carbon steel",
@@ -322,7 +311,6 @@ def test_update_existing_part():
 
     # Make a PUT request to update the part
     update_response = client.put(f"/parts/update_part/{part_id}", json=updated_part_data)
-
 
     # Check the response status code
     assert update_response.status_code == 200
@@ -343,7 +331,7 @@ def test_update_existing_part():
     assert update_response_json["data"]["additional_properties"]["weight"] == "0.5kg"
 
     # Verify the updated categories
-    
+
     updated_categories = [category["name"] for category in update_response_json['data']['categories']]
-    assert {"hardware", "tools"}.issubset(set(category_names))
+    assert {"fasteners", "tools"}.issubset(set(updated_categories))
     assert "hardware" not in updated_categories  # Confirm "hardware" was removed

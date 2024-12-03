@@ -115,6 +115,12 @@ class PartService:
             }
 
     @staticmethod
+    def get_all_parts():
+        parts = PartRepository.get_all_parts()
+        return parts
+
+
+    @staticmethod
     def get_part_by_id(part_id: str) -> Dict[str, Any]:
         try:
             # Use the get_session function to get a session

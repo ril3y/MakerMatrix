@@ -38,7 +38,7 @@ async def add_category(category_data: CategoryModel):
         else:    
             raise ResourceNotFoundError(
                 status="error",
-                message="f{Error: Category with name {category_data.name} not found",
+                message=f"Error: Category with name {category_data.name} not found",
                 data=None)
                 
     except ResourceNotFoundError as rnfe:

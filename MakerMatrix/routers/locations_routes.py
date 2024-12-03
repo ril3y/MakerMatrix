@@ -17,10 +17,7 @@ async def get_all_locations():
     try:
         locations = LocationService.get_all_locations()
         # noinspection PyArgumentList
-        # noinspection PyArgumentList
         return ResponseSchema(
-
-
             status="success",
             message="All locations retrieved successfully",
             data=locations
@@ -36,17 +33,16 @@ async def get_location(location_id: Optional[str] = None, name: Optional[str] = 
             raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
         location_query = LocationQueryModel(id=location_id, name=name)
         location = LocationService.get_location(location_query)
-        # noinspection PyArgumentList
-        # noinspection PyArgumentList
-        return ResponseSchema(
+        if location:
+            # noinspection PyArgumentList
+            return ResponseSchema(
+                status="success",
+                message="Location retrieved successfully",
+                data=location.to_dict()
+            )
 
-
-            status="success",
-            message="Location retrieved successfully",
-            data=location.to_dict()
-        )
     except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=str(rnfe))
+        raise rnfe
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -55,7 +51,6 @@ async def get_location(location_id: Optional[str] = None, name: Optional[str] = 
 async def update_location(location_id: str, location_data: LocationUpdate) -> ResponseSchema[LocationModel]:
     try:
         updated_location = LocationService.update_location(location_id, location_data.model_dump(exclude_unset=True))
-        # noinspection PyArgumentList
         # noinspection PyArgumentList
         return ResponseSchema(
 
@@ -126,6 +121,36 @@ async def get_location_path(location_id: Optional[str] = None, name: Optional[st
         raise HTTPException(status_code=404, detail=str(rnfe))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/preview-location-delete/{location_id}")
+async def preview_location_delete(location_id: str) -> ResponseSchema:
+    try:
+        preview_response = LocationService.preview_location_delete(location_id)
+        return ResponseSchema(
+            status="success",
+            message="Delete preview generated",
+            data=preview_response
+        )
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/delete_location/{location_id}")
+async def delete_location(location_id: str) -> ResponseSchema:
+    try:
+        response = LocationService.delete_location(location_id)
+        return ResponseSchema(
+            status=response['status'],
+            message=response['message'],
+            data=response['data']
+        )
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # @router.get("/all_locations/")
 # async def get_all_locations():
