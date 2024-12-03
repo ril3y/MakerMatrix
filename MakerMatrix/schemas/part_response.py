@@ -10,6 +10,7 @@ class CategoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PartResponse(BaseModel):
     id: Optional[str]
     part_number: Optional[str]

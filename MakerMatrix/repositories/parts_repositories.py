@@ -123,7 +123,13 @@ class PartRepository:
             return result is None
 
     @staticmethod
-    def update_part(session: Session, part: PartModel) -> PartModel:
+    def get_all_parts(session: Session):
+        parts = session.exec(select(PartModel)).all()
+        return parts
+
+
+    @staticmethod
+    def update_part(session: Session, part: PartModel) -> PartModel | dict[str, str]:
         try:
             #TODO:  We need to handel the case where the commit fails
             # Add the updated part to the session and commit the changes
@@ -131,10 +137,6 @@ class PartRepository:
             session.commit()
             session.refresh(part)
             return part
-        
-        except Exception as e:
-            session.rollback()
-            raise ValueError(f"Failed to update part with id '{part.id}': {str(e)}")
 
         except ResourceNotFoundError as rnfe:
             # Let the custom exception handler handle this
@@ -144,7 +146,7 @@ class PartRepository:
             session.rollback()
             return {
                 "status": "error",
-                "message": f"Failed to update part with id '{part_data.id}': {str(e)}"
+                "message": f"Failed to update part with id '{part.id}': {str(e)}"
             }
 
     # def add_part(self, part_data: dict, overwrite: bool) -> dict:

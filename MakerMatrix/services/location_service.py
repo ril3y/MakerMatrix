@@ -1,11 +1,13 @@
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict, List, Set
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
-from MakerMatrix.models.models import LocationModel, LocationQueryModel, engine
+from MakerMatrix.models.models import LocationModel, LocationQueryModel, engine, PartModel
 from MakerMatrix.repositories.location_repositories import LocationRepository
 from MakerMatrix.database.db import get_session
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
+from MakerMatrix.schemas.location_delete_response import LocationDeleteResponse
+
 
 class LocationService:
     location_repo = LocationRepository(engine)
@@ -22,7 +24,10 @@ class LocationService:
     def get_location(location_query: LocationQueryModel) -> Optional[LocationModel]:
         session = next(get_session())
         try:
-            return LocationService.location_repo.get_location(session, location_query)
+            location = LocationService.location_repo.get_location(session, location_query)
+            if location:
+                return location
+
         except ResourceNotFoundError as rnfe:
             raise rnfe
         except Exception as e:
@@ -35,22 +40,22 @@ class LocationService:
             return LocationService.location_repo.add_location(session, location_data)
         except Exception as e:
             raise ValueError(f"Failed to add location: {str(e)}")
-    
+
     @staticmethod
     def update_location(location_id: str, location_data: Dict[str, Any]) -> LocationModel:
         session = next(get_session())
         try:
             return LocationService.location_repo.update_location(session, location_id, location_data)
-        
+
         except ResourceNotFoundError as rnfe:
             raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Location with ID '{location_id}' not found.",
-                    data=None
-                    )
+                status="error",
+                message=f"Location with ID '{location_id}' not found.",
+                data=None
+            )
         except Exception as e:
             raise ValueError(f"Failed to update location: {str(e)}")
-    
+
     @staticmethod
     def get_location_details(location_id: str) -> Optional[LocationModel]:
         session = next(get_session())
@@ -61,14 +66,13 @@ class LocationService:
             return location
         except ResourceNotFoundError as rnfe:
             raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Location with ID '{location_id}' not found.",
-                    data=None
-                    )
-            
+                status="error",
+                message=f"Location with ID '{location_id}' not found.",
+                data=None
+            )
+
         except Exception as e:
             raise ValueError(f"Failed to retrieve location details: {str(e)}")
-        
 
     @staticmethod
     def get_location_path(query_location: LocationQueryModel) -> Optional[List[Dict]]:
@@ -91,31 +95,63 @@ class LocationService:
     #     return updated_location
 
     @staticmethod
+    def preview_location_delete(location_id: str) -> dict[str, Any]:
+        session = next(get_session())
+        try:
+            # Get all affected locations (including children) This should always return at LEAST 1, if not the location does not exist
+            affected_locations = LocationService.location_repo.get_location_hierarchy(session, location_id)
+
+            if not affected_locations:
+                raise ResourceNotFoundError(
+                    status="error",
+                    message=f"Location with ID {location_id} not found",
+                    data=None)
+
+            # Get all affected parts
+            affected_parts_count = LocationService.location_repo.get_affected_part_ids(session, affected_locations[
+                'affected_location_ids'])
+            location_response = LocationDeleteResponse(
+                location_ids_to_delete=affected_locations['affected_location_ids'],
+                affected_parts_count=len(affected_parts_count),
+                location_hierarchy=affected_locations['hierarchy']).model_dump()
+            return location_response
+
+        except ResourceNotFoundError as rnfe:
+            raise rnfe
+
+    @staticmethod
     def get_parts_effected_locations(location_id: str):
         return LocationService.location_repo.get_parts_effected_locations(location_id)
 
     @staticmethod
     def delete_location(location_id: str) -> Dict:
-        # Retrieve all child locations using the repository
-        child_locations = LocationService.location_repo.get_location_hierarchy(location_id)
+        session = next(get_session())
 
-        # Iterate and delete each child location
-        for child_location in child_locations:
-            LocationService.location_repo.delete_location(child_location['id'])
+        query_model = LocationQueryModel(id=location_id)
+        location = LocationRepository.get_location(session, location_query=query_model)
 
-        # Finally, delete the specified location
-        deleted_location = LocationService.location_repo.delete_location(location_id)
-
-        if deleted_location:
-            return {
-                "status": "success",
-                "deleted_children_count": len(child_locations)
-            }
-        else:
+        if not location:
             return {
                 "status": "error",
-                "message": "Location not found"
+                "message": f"Location {location_id} not found",
+                "data": None
             }
+
+        # Delete location and its children
+        LocationRepository.delete_location(session, location)
+
+        # Debug: Verify parts with NULL location_id
+        orphaned_parts = session.query(PartModel).filter(PartModel.location_id == None).all()
+        print(f"Orphaned Parts: {orphaned_parts}")
+
+        return {
+            "status": "success",
+            "message": f"Deleted location_id: {location_id} and its children",
+            "data": {
+                "deleted_location_name": location.name,
+                "deleted_location_id": location_id,
+            }
+        }
 
     @staticmethod
     def edit_location(location_id: str, name: Optional[str] = None, description: Optional[str] = None,
@@ -126,6 +162,7 @@ class LocationService:
     def delete_all_locations():
         session = next(get_session())
         return LocationService.location_repo.delete_all_locations(session)
+
     @staticmethod
     def cleanup_locations():
         # Step 1: Get all locations
@@ -156,11 +193,9 @@ class LocationService:
 
         return len(invalid_locations)
 
-
     @staticmethod
     def preview_delete(location_id: str) -> Dict:
         affected_parts = LocationService.get_parts_affected_by_location(location_id)
         affected_parts_count = len(affected_parts)
 
         affected_children = LocationService.get_child_locations(location_id)
-        affected_children_count

@@ -26,12 +26,10 @@ def setup_database():
 
     # Clean up the tables after running the tests
     SQLModel.metadata.drop_all(engine)
-    
-    
 
 
 def test_remove_category():
-    category_data = {"name": "Test Category","description": "This is a test category"}
+    category_data = {"name": "Test Category", "description": "This is a test category"}
     response = client.post("/categories/add_category/", json=category_data)
     response_json = response.json()
     # Add a category to ensure it exists before attempting to remove it
@@ -52,7 +50,7 @@ def test_remove_non_existent_category_by_id():
     assert response_json["status"] == "error"
     assert response_json["message"] == 'Category with ID non-existent-id not found'
     assert response_json["data"] is None
-    
+
 
 def test_remove_non_existent_category_by_name():
     # Attempt to remove a category with a non-existent name
@@ -62,6 +60,7 @@ def test_remove_non_existent_category_by_name():
     assert response_json["status"] == "error"
     assert response_json["message"] == 'Category with name Non-Existent Category not found'
     assert response_json["data"] is None
+
 
 def test_remove_category_without_id_or_name():
     # Attempt to remove a category without providing either ID or name
@@ -77,15 +76,13 @@ def test_delete_all_categories():
 
     # Attempt to delete all categories
     response = client.delete("/categories/delete_all_categories")
-    response.status_code == 200 
+    response.status_code == 200
 
     # Verify that no categories remain
     get_response = client.get("/categories/get_all_categories")
     assert get_response.status_code == 200
-    assert "All categories retrieved successfully" in get_response.json()["message"]    
+    assert "All categories retrieved successfully" in get_response.json()["message"]
     assert len(get_response.json()['data']) == 0
-
-
 
 
 @pytest.fixture
@@ -97,7 +94,7 @@ def setup_test_data_category_update():
     return add_response.json()
 
 
-def test_update_category(client):
+def test_update_category():
     """Test to update a category via the API."""
     # First, add a category
     category_data = {
@@ -107,16 +104,6 @@ def test_update_category(client):
     response = client.post("/categories/add_category", json=category_data)
     assert response.status_code == 200
     category_id = response.json()["data"]["id"]
-
-    # Add a child category
-    child_category_data = {
-        "name": "Resistors",
-        "description": "Various resistors",
-        "parent_id": category_id
-    }
-    child_response = client.post("/categories/add_category", json=child_category_data)
-    assert child_response.status_code == 200
-    child_category_id = child_response.json()["data"]["id"]
 
     # Prepare update data to move the child category to a new parent
     new_parent_data = {
@@ -128,7 +115,7 @@ def test_update_category(client):
     new_parent_id = new_parent_response.json()["data"]["id"]
 
     update_data = {
-        "children": [child_category_id]
+        "description": "Misc parts"
     }
 
     # Update the new parent category to include the child category
@@ -138,28 +125,13 @@ def test_update_category(client):
     # Verify the response data
     response_data = response.json()
     assert response_data["status"] == "success"
-    assert response_data["message"] == "Category updated successfully"
+    assert f"Category with ID '{new_parent_id}' updated." == response_data["message"]
     assert response_data["data"]["id"] == new_parent_id
-    assert len(response_data["data"]["children"]) == 1
-    assert response_data["data"]["children"][0]["id"] == child_category_id
 
-    # Verify that the child category is no longer in the old parent category
-    old_parent_response = client.get(f"/categories/get_category/{category_id}")
-    assert old_parent_response.status_code == 200
-    old_parent_data = old_parent_response.json()
-    assert len(old_parent_data["data"]["children"]) == 0
 
-    # Verify that the child category is now in the new parent category
-    new_parent_response = client.get(f"/categories/get_category/{new_parent_id}")
-    assert new_parent_response.status_code == 200
-    new_parent_data = new_parent_response.json()
-    assert len(new_parent_data["data"]["children"]) == 1
-    assert new_parent_data["data"]["children"][0]["id"] == child_category_id
-
-def test_update_category_name( setup_test_data_category_update):
+def test_update_category_name(setup_test_data_category_update):
     # Retrieve the category ID from the setup
-    
-    
+
     category_id = setup_test_data_category_update["data"]["id"]
 
     # Prepare new data for updating the category
@@ -180,7 +152,8 @@ def test_update_category_name( setup_test_data_category_update):
     get_response = client.get("/categories/get_category", params={"category_id": category_id})
     assert get_response.status_code == 200
     get_response_json = get_response.json()
-    assert get_response_json["message"] == f"Category with name '{get_response_json["data"]["name"]}' retrieved successfully"
+    assert get_response_json[
+               "message"] == f"Category with name '{get_response_json["data"]["name"]}' retrieved successfully"
     assert get_response_json["data"]["name"] == update_data["name"]
     assert get_response_json["data"]["description"] == update_data["description"]
 

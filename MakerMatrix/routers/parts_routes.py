@@ -32,7 +32,6 @@ async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
             )
 
         # noinspection PyArgumentList
-        # noinspection PyArgumentList
         return ResponseSchema(
 
 
@@ -106,7 +105,6 @@ async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[Par
         if response["status"] == "error":
             raise HTTPException(status_code=404, detail=response["message"])
 
-        # noinspection PyArgumentList
         # noinspection PyArgumentList
         return ResponseSchema(
 

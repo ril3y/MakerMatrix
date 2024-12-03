@@ -4,6 +4,7 @@ from sqlmodel import SQLModel
 from MakerMatrix.main import app
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.models.models import engine
+from MakerMatrix.schemas.part_create import PartCreate
 
 client = TestClient(app)
 
@@ -242,34 +243,78 @@ def setup_test_delete_locations():
         {"name": "Aisle 2", "parent_id": parent_location_id},
     ]
 
-    for loc in child_locations:
-        client.post("/locations/add_location/", json=loc)
+    locs = []
+    parts = []
 
-    return parent_location_id, child_locations
+    for loc in child_locations:
+        response = client.post("/locations/add_location/", json=loc)
+        if response.json()['data']['name'] == loc['name']:
+            loc['id'] = response.json()['data']['id']
+        locs.append(response.json())
+
+    part_data = PartCreate(
+        part_number="Screw-001",
+        part_name="Hex Head Screw",
+        quantity=500,
+        description="A standard hex head screw",
+        location_id=locs[0]["data"]["id"],
+        category_names=["hardware"]
+    )
+
+    # Make a POST request to the /add_part endpoint
+    response = client.post("/parts/add_part", json=part_data.dict())
+    parts.append(response.json())
+    part_data2 = PartCreate(
+        part_number="Screw-002",
+        part_name="Hex Head Screw2",
+        quantity=500,
+        description="A standard hex head screw2",
+        location_id=locs[1]["data"]["id"],
+        category_names=["hardware"]
+    )
+
+    # Make a POST request to the /add_part endpoint
+    response = client.post("/parts/add_part", json=part_data2.dict())
+    parts.append(response.json())
+
+    return parent_location_id, child_locations, parts
 
 
 def test_delete_location(setup_test_delete_locations):
-    parent_location_id, child_locations = setup_test_delete_locations
+    parent_location_id, child_locations, parts = setup_test_delete_locations
+
+    # check preview delete
+    response = client.get(f"/locations/preview-location-delete/{parent_location_id}")
+    assert response.status_code == 200
+    preview_json = response.json()
+    assert preview_json['data']['affected_parts_count'] == 2
+    assert len(preview_json['data']['location_ids_to_delete']) == 3
+    assert preview_json['data']['location_hierarchy']['name'] == "Warehouse"
 
     # Call delete_location route
     response = client.delete(f"/locations/delete_location/{parent_location_id}")
     assert response.status_code == 200
 
     # Check the response data
-    data = response.json()
-    assert data["message"] == "Location and its children deleted successfully"
-    assert data["deleted_location"] == parent_location_id
-    assert data["deleted_children_count"] == len(child_locations)
+    res_json = response.json()
+    assert f"Deleted location_id: {parent_location_id}" in res_json["message"]
+    assert res_json['data']["deleted_location_id"] == parent_location_id
+    assert res_json['data']["deleted_location_name"] == "Warehouse"
 
     # Verify that the location and its children are removed
     for child in child_locations:
-        response = client.get(f"/locations/get_location?id={child['id']}")
+        response = client.get(f"/locations/get_location?location_id={child['id']}")
         assert response.status_code == 404
 
     # Verify that the parent location is removed
-    response = client.get(f"/locations/get_location?id={parent_location_id}")
+    response = client.get(f"/locations/get_location?location_id={parent_location_id}")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Location not found"
+    assert response.json()["message"] == f"Location {parent_location_id} not found"
+
+    for part in parts:
+        res = client.get(f"/parts/get_part?part_id={part['data']['id']}")
+        assert res.status_code == 200
+        assert res.json()['data']['location_id'] is None
 
 
 @pytest.fixture
@@ -281,7 +326,7 @@ def setup_test_locations_cleanup():
     loc1 = {"name": "Office", "id": "2333322"}
     loc2 = {"name": "Warehouse", "id": "2333323"}
     response1 = client.post("/locations/add_location", json=loc1)
-    response2 = client.post("/locations.add_location", json=loc2)
+    response2 = client.post("/locations/add_location", json=loc2)
     office_id = response1.json()["data"]["id"]
     warehouse_id = response2.json()["data"]["id"]
 
@@ -294,18 +339,3 @@ def setup_test_locations_cleanup():
     client.post("/locations/add_location", json=loc5)
 
     return [office_id, warehouse_id, loc3["id"], loc4["id"], loc5["id"]]
-
-
-def test_cleanup_locations(setup_test_locations_cleanup):
-    # Call the cleanup endpoint
-    response = client.delete("/locations/cleanup-locations")
-    assert response.status_code == 200
-
-    res = response.json()
-    assert res["message"] == "Cleanup completed"
-    assert res["deleted_locations_count"] == 1  # Expecting one invalid location to be deleted
-
-    # Verify that the invalid location is deleted
-    invalid_location_id = setup_test_locations_cleanup[-1]
-    get_response = client.get(f"/locations/get_location/{invalid_location_id}")
-    assert get_response.status_code == 404

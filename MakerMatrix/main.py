@@ -24,9 +24,11 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+
 @app.on_event("startup")
 async def on_startup():
     create_db_and_tables()
+
 
 @app.exception_handler(PartAlreadyExistsError)
 async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsError):
@@ -38,6 +40,7 @@ async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsEr
             data=exc.part_data
         ).dict()
     )
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -60,6 +63,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         ).dict()
     )
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == HTTP_409_CONFLICT:
@@ -78,7 +82,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content={"detail": exc.detail}
     )
-    
+
+
 @app.exception_handler(ResourceNotFoundError)
 async def resource_not_found_handler(request: Request, exc: ResourceNotFoundError):
     return JSONResponse(
@@ -89,6 +94,7 @@ async def resource_not_found_handler(request: Request, exc: ResourceNotFoundErro
             data=None
         ).dict()
     )
+
 
 # Include routers
 app.include_router(parts_routes.router, prefix="/parts", tags=["parts"])
