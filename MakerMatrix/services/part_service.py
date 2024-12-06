@@ -44,7 +44,7 @@ class PartService:
         try:
             session = next(get_session())
             # Check if the part already exists by its part name
-            part_exists = PartRepository.get_part_by_name(session, part_data["part_name"])
+            part_exists = PartRepository.get_part_by_name(session, fff["part_name"])
 
             if part_exists:
                 return {"status": "part exists", "message": "Part already exists", "data": part_exists.to_dict()}
@@ -113,12 +113,6 @@ class PartService:
                 "message": f"Part with {identifier} '{part_name}' found.",
                 "data": part.model_dump(),
             }
-
-    @staticmethod
-    def get_all_parts():
-        parts = PartRepository.get_all_parts()
-        return parts
-
 
     @staticmethod
     def get_part_by_id(part_id: str) -> Dict[str, Any]:

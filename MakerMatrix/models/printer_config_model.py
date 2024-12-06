@@ -7,3 +7,4 @@ class PrinterConfig(BaseModel):
     backend: str
     printer_identifier: str
     dpi: int
+    scaling_factor: float
