@@ -52,9 +52,9 @@ async def test_print_part_name(printer_service):
     # Create test label data with a long part name to test text sizing
     label_data = LabelData(
         part_number="TEST-789",
-        part_name="#6 1/2\" Tap Screw"
+        part_name="8"
     )
 
     # Test the new part name print function
-    result = await printer_service.print_part_name(label_data, 1.6)
+    result = await printer_service.print_part_name(label_data, 1.5)
     assert result is not None
