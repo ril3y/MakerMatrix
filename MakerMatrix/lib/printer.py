@@ -1,25 +1,31 @@
-from PIL import Image
+import io
+
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from brother_ql.conversion import convert
 from brother_ql.backends.helpers import send
 from brother_ql.raster import BrotherQLRaster
 import json
-from PIL import ImageOps
+
+import logging
+
+class LabelSizeError(Exception):
+    """Raised when image dimensions exceed label capabilities"""
+
+    def __init__(self, width: float, length: float, max_width: float, max_length: float):
+        self.message = f"Image size ({width}\"x{length}\") exceeds maximum label size ({max_width}\"x{max_length}\")"
+        super().__init__(self.message)
 
 
 class Printer:
-    model: str
-    backend: str
-    printer_identifier: str
-    dpi: int
-    qlr: BrotherQLRaster
+    def __init__(self, model: str = None, backend: str = None, printer_identifier: str = None, dpi: int = 300,
+                 scaling_factor=1.0):
 
-    def __init__(self, model: str = None, backend: str = None, printer_identifier: str = None, dpi: int = 300):
         self.model = model
         self.backend = backend
         self.printer_identifier = printer_identifier
         self.dpi = dpi
         self.qlr = BrotherQLRaster(self.model) if model else None
-        ##self.qlr.exception_on_warning = True  # Enable exceptions for warnings
+        self.scaling_factor = scaling_factor
 
     def set_backend(self, backend: str):
         self.backend = backend
@@ -28,80 +34,108 @@ class Printer:
         self.printer_identifier = printer_identifier
 
     def set_dpi(self, dpi: int):
-        """Set the DPI for printing."""
         if dpi not in [300, 600]:
             raise ValueError("DPI must be 300 or 600.")
         self.dpi = dpi
 
-    def _resize_and_print(self, image: Image.Image, label: str = '12', rotate: str = '0'):
-        """Common method to resize the image, convert it, and send to printer."""
-        print("Resize and Print called.")
+    def set_model(self, model: str):
+        self.model = model
+        self.qlr = BrotherQLRaster(self.model)
 
-        dpi = self.dpi  # Use the instance's DPI value
+    def _resize_and_print(self, image: Image.Image, label: str = '12', rotate: str = '0',
+                          max_length_inches: float = 3.0):
+        """Print an image to label with size validation and max length control"""
 
-        # Calculate the pixel size to match the label size
-        label_size_mm = 15  # Label width in millimeters
-        label_size_in = label_size_mm / 25.4  # Convert mm to inches
-        pixel_size = int(label_size_in * dpi)  # Calculate the pixel dimensions
+        # Adjust requested length to compensate for printer scaling
+        adjusted_length_inches = max_length_inches * self.scaling_factor
+        LABEL_WIDTH_INCHES = 0.47  # 12mm in inches
 
-        # Make a copy of the image to avoid modifying the original
-        image_copy = image.copy()
+        # Convert image dimensions to inches
+        image_width_inches = image.width / self.dpi
+        image_length_inches = image.height / self.dpi
 
-        # Ensure the image maintains its aspect ratio and fits within the label
-        image_copy.thumbnail((pixel_size, pixel_size), Image.LANCZOS)
+        new_height = int(adjusted_length_inches * self.dpi)
+        new_width = int(LABEL_WIDTH_INCHES * self.dpi)
+        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        # Define label dimensions
 
-        # Create a new white background image of the target size (15mm x 15mm)
-        background = Image.new("RGB", (pixel_size, pixel_size), "white")
+        # Resize if image exceeds max length
+        if image_length_inches > adjusted_length_inches:
+            new_height = int(adjusted_length_inches * self.dpi)
+            new_width = int(LABEL_WIDTH_INCHES * self.dpi)
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-        # Center the QR code image on the background
-        image_copy = ImageOps.fit(image_copy, (pixel_size, pixel_size), Image.LANCZOS)
-
-        # Convert the image to printer instructions
-        self.qlr.data = b''  # Clear the last QR code data
+        # Convert and print
+        self.qlr.data = b''
         instructions = convert(
             qlr=self.qlr,
-            images=[image_copy],
-            label=label,  # Should be the width of the label in mm as a string
-            rotate=rotate,  # Rotation angle: '0', '90', '180', '270', or 'auto'
-            threshold=70.0,  # Black and white threshold
-            dither=False,  # Dithering for grayscale images
-            compress=False,  # Compress the image data
-            red=False,  # Only True if using Red/Black 62 mm label tape
-            dpi_600=(self.dpi == 600),  # Set to True if using 600 DPI
-            hq=True,  # High-quality printing
-            cut=True  # Auto-cut after printing
+            images=[image],
+            label=label,
+            rotate=rotate,
+            threshold=70.0,
+            dither=False,
+            compress=False,
+            red=False,
+            dpi_600=(self.dpi == 600),
+            hq=True,
+            cut=True
         )
 
-        # Debugging: Print the size/length of the instructions before sending
-        print(f"Instruction size: {len(instructions)}")
-
-        try:
-            # Attempt to send the data to the printer
-            send(
-                instructions=instructions,
-                printer_identifier=self.printer_identifier,
-                backend_identifier=self.backend,
-                blocking=True
-            )
-            print("Print job sent successfully.")
-            return True  # Return True on success
-        except Exception as e:
-            print(f"Error during printing: {str(e)}")
-            return False  # Return False if there was an error
+        return send(
+            instructions=instructions,
+            printer_identifier=self.printer_identifier,
+            backend_identifier=self.backend,
+            blocking=True
+        )
 
     def print_qr_from_memory(self, qr_image: Image.Image, label: str = '12', rotate: str = '0'):
-        """Print a QR code from an in-memory image object."""
         return self._resize_and_print(qr_image, label, rotate)
 
     def print_qr(self, image_path: str, label: str = '12', rotate: str = '0'):
-        """Print a QR code from an image file."""
-        # Open the image from the file
         try:
             im = Image.open(image_path)
             return self._resize_and_print(im, label, rotate)
         except Exception as e:
             print(f"Error opening image file {image_path}: {str(e)}")
-            return False  # Return False if the image file cannot be opened
+            return False
+
+    def print_text_label(self, text: str, label: str = '12', label_len: float = 1.5):
+        # Calculate exact dimensions - no reduction in label length
+        label_length_pixels = int(label_len * self.dpi)
+        available_height_pixels = int(0.47 * self.dpi)
+        target_height = int(available_height_pixels * 0.8)
+
+        # Find font size that fits both height and usable width (90% of label length)
+        font_size = 1
+        max_font = 200
+        usable_width = int(label_length_pixels * 0.9)  # Text area within label
+
+        while font_size < max_font:
+            font = ImageFont.truetype("arial.ttf", font_size)
+            test_bbox = ImageDraw.Draw(Image.new('RGB', (1, 1))).textbbox((0, 0), text, font=font)
+            test_height = test_bbox[3] - test_bbox[1]
+            test_width = test_bbox[2] - test_bbox[0]
+
+            if test_height > target_height or test_width > usable_width:
+                font_size -= 1
+                break
+            font_size += 1
+
+        # Create image at full specified length
+        text_img = Image.new('RGB', (label_length_pixels, available_height_pixels), 'white')
+        draw = ImageDraw.Draw(text_img)
+        font = ImageFont.truetype("arial.ttf", font_size)
+
+        # Center the text within the full label length
+        text_bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+        x = (label_length_pixels - text_width) // 2
+        y = (available_height_pixels - text_height) // 2
+        draw.text((x, y), text, font=font, fill='black')
+
+        rotated_img = text_img.rotate(90, expand=True)
+        return self._resize_and_print(rotated_img, label=label, rotate='0', max_length_inches=label_len)
 
     def save_config(self, config_path='printer_config.json'):
         config = {
@@ -120,9 +154,9 @@ class Printer:
                 self.model = config.get('model')
                 self.backend = config.get('backend')
                 self.printer_identifier = config.get('printer_identifier')
-                self.dpi = config.get('dpi', 300)  # Default to 300 if not set
-                # Reinitialize the BrotherQLRaster with the new model
+                self.scaling_factor = config.get('scaling_factor', 1.0)
+
+                self.dpi = config.get('dpi', 300)
                 self.qlr = BrotherQLRaster(self.model)
-                self.qlr.exception_on_warning = True
         except Exception as e:
             print(f"Error loading config file: {str(e)}")
