@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List, Union
 
 from pydantic import model_validator, field_validator, BaseModel
-from sqlalchemy import create_engine, ForeignKey, String
+from sqlalchemy import create_engine, ForeignKey, String, or_, ilike, cast
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import SQLModel, Field, Relationship, Session, select
 import uuid
@@ -127,6 +127,16 @@ class PartModel(SQLModel, table=True):
         link_model=PartCategoryLink,
         sa_relationship_kwargs={"lazy": "selectin"}  # `selectin` eager loads with a separate query.
     )
+
+    @classmethod
+    def search_properties(cls, session: Session, search_term: str):
+        """Search through additional_properties and description"""
+        return session.query(cls).filter(
+            or_(
+                cls.description.ilike(f'%{search_term}%'),
+                cls.additional_properties.cast(String).ilike(f'%{search_term}%')
+            )
+        ).all()
 
     class Config:
         arbitrary_types_allowed = True
