@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 class PrinterConfig(BaseModel):
     model: str
+    driver: str
     backend: str
     printer_identifier: str
     dpi: int

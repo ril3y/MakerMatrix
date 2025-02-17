@@ -1,5 +1,6 @@
 {
   "model": "QL-800",
+  "driver": "brother_ql",
   "backend": "network",
   "printer_identifier": "tcp://192.168.1.71",
   "dpi": 300,

@@ -5,6 +5,9 @@ from MakerMatrix.main import app
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.models.models import engine
 from MakerMatrix.schemas.part_create import PartCreate
+from MakerMatrix.models.models import LocationModel
+from MakerMatrix.services.location_service import LocationService
+
 
 client = TestClient(app)
 
@@ -20,11 +23,6 @@ def setup_database():
     # Clean up the tables after running the tests
     SQLModel.metadata.drop_all(engine)
 
-
-from MakerMatrix.models.models import LocationModel
-from MakerMatrix.services.location_service import LocationService
-
-client = TestClient(app)
 
 
 @pytest.fixture

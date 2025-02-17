@@ -19,6 +19,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
 async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
     try:
@@ -33,7 +34,6 @@ async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
 
         # noinspection PyArgumentList
         return ResponseSchema(
-
 
             status=response["status"],
             message=response["message"],
@@ -79,12 +79,11 @@ async def get_part(
         # noinspection PyArgumentList
         return ResponseSchema(
 
-
             status=response["status"],
             message=response["message"],
             data=PartResponse.model_validate(response["data"])
         )
-        
+
     except ResourceNotFoundError as rnfe:
         raise rnfe
 
@@ -107,7 +106,6 @@ async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[Par
 
         # noinspection PyArgumentList
         return ResponseSchema(
-
 
             status="success",
             message="Part updated successfully.",

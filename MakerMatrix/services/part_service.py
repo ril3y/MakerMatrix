@@ -44,7 +44,7 @@ class PartService:
         try:
             session = next(get_session())
             # Check if the part already exists by its part name
-            part_exists = PartRepository.get_part_by_name(session, fff["part_name"])
+            part_exists = PartRepository.get_part_by_name(session, part_data["part_name"])
 
             if part_exists:
                 return {"status": "part exists", "message": "Part already exists", "data": part_exists.to_dict()}
@@ -59,8 +59,8 @@ class PartService:
             # Convert categories to dict representation for the response
 
             return {
-                "status":"added", 
-                "message":"Part added successfully", 
+                "status": "added",
+                "message": "Part added successfully",
                 "data": part_dict.to_dict()}
 
         except Exception as e:
@@ -91,7 +91,6 @@ class PartService:
                 "message": f"Part with {identifier} '{part_number}' found.",
                 "data": part.to_dict(),
             }
-        
 
     @staticmethod
     def get_part_by_part_name(part_name: str) -> dict[str, str | dict[str, Any]] | None:
@@ -130,18 +129,18 @@ class PartService:
                     "message": f"Part with {identifier} '{part_id}' found.",
                     "data": part.model_dump(),
                 }
-    
+
             raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Part with {identifier} '{part_id}' not found.",
-                    data=None
-                    )
-            
+                status="error",
+                message=f"Part with {identifier} '{part_id}' not found.",
+                data=None
+            )
+
         except ResourceNotFoundError as rnfe:
             raise rnfe
 
     @staticmethod
-    def update_part( part_id: str, part_update: PartUpdate) -> Dict[str, Any]:
+    def update_part(part_id: str, part_update: PartUpdate) -> Dict[str, Any]:
         try:
             session = next(get_session())
             part = PartRepository.get_part_by_id(session, part_id)

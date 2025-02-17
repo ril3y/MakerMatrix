@@ -35,8 +35,6 @@ def handle_categories(session: Session, category_names: List[str]) -> List[Categ
     return categories
 
 
-
-
 class PartRepository:
 
     def __init__(self, engine):
@@ -51,9 +49,9 @@ class PartRepository:
             return part
         else:
             raise ResourceNotFoundError(
-                    status="error",
-                    message="f{Error: Part with part number {part_number} not found",
-                    data=None)
+                status="error",
+                message="f{Error: Part with part number {part_number} not found",
+                data=None)
 
     @staticmethod
     def get_part_by_id(session: Session, part_id: str) -> Optional[PartModel]:
@@ -68,8 +66,7 @@ class PartRepository:
 
         if part:
             return part
-       
-        
+
     @staticmethod
     def get_part_by_name(session: Session, part_name: str) -> Optional[PartModel]:
         part = session.exec(
@@ -84,8 +81,7 @@ class PartRepository:
         if part:
             return part
         else:
-            return None #We return none and do not raise an error because we want to create a new part
-        
+            return None  # We return none and do not raise an error because we want to create a new part
 
     @staticmethod
     def add_part(session: Session, part_data: PartModel) -> PartModel:
@@ -100,7 +96,7 @@ class PartRepository:
                 session.commit()
                 session.refresh(category)
                 unique_categories.append(category)
-        
+
         part_data.categories = unique_categories
         session.add(part_data)
         session.commit()
@@ -127,11 +123,10 @@ class PartRepository:
         parts = session.exec(select(PartModel)).all()
         return parts
 
-
     @staticmethod
     def update_part(session: Session, part: PartModel) -> PartModel | dict[str, str]:
         try:
-            #TODO:  We need to handel the case where the commit fails
+            # TODO:  We need to handel the case where the commit fails
             # Add the updated part to the session and commit the changes
             session.add(part)
             session.commit()

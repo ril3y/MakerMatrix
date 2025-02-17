@@ -22,7 +22,7 @@ from MakerMatrix.lib.part_inventory import PartInventory
 from MakerMatrix.lib.websockets import WebSocketManager
 from MakerMatrix.lib import LocationModel
 from MakerMatrix.lib.parser_manager import ParserManager
-from MakerMatrix.lib.printer import Printer
+from MakerMatrix.lib.printer_brother import Printer
 from MakerMatrix.lib import printer_config_model
 
 # Initialize or import the PartInventory instance (adjust this according to your project setup)
@@ -485,31 +485,31 @@ def setup_routes(app: FastAPI, printer: Printer):
         else:
             raise HTTPException(status_code=404, detail=f"Part with id {part_id} not found")
 
-    @app.post("/printer/print_qr")
-    async def print_qr_code(label_data: LabelData):
-        # Access the part_name and part_number from the request body
-        part_number = label_data.part_number
-        part_name = label_data.part_name
-
-        # Lookup logic based on the provided values
-        _part = None
-        if part_number:
-            _part = await db.get_part_by_part_number(part_number)
-        if not _part and part_name:
-            _part = await db.get_part_by_part_name(part_name)
-
-        if not _part:
-            raise HTTPException(status_code=404, detail="Part not found")
-
-        # Generate and print the QR code
-        qr_img = qrcode.make(f'{{"name": "{_part["part_name"]}", "number": "{_part["part_number"]}"}}')
-        # Call the printer function to print the QR code
-        response = printer.print_qr_from_memory(qr_img)
-
-        if response:
-            return {"message": "QR code printed successfully"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to print QR code")
+    # @app.post("/printer/print_qr")
+    # async def print_qr_code(label_data: LabelData):
+    #     # Access the part_name and part_number from the request body
+    #     part_number = label_data.part_number
+    #     part_name = label_data.part_name
+    #
+    #     # Lookup logic based on the provided values
+    #     _part = None
+    #     if part_number:
+    #         _part = await db.get_part_by_part_number(part_number)
+    #     if not _part and part_name:
+    #         _part = await db.get_part_by_part_name(part_name)
+    #
+    #     if not _part:
+    #         raise HTTPException(status_code=404, detail="Part not found")
+    #
+    #     # Generate and print the QR code
+    #     qr_img = qrcode.make(f'{{"name": "{_part["part_name"]}", "number": "{_part["part_number"]}"}}')
+    #     # Call the printer function to print the QR code
+    #     response = printer.print_qr_from_memory(qr_img)
+    #
+    #     if response:
+    #         return {"message": "QR code printed successfully"}
+    #     else:
+    #         raise HTTPException(status_code=500, detail="Failed to print QR code")
 
     @app.post("/printer/config")
     async def configure_printer(config: printer_config_model.PrinterConfig):
