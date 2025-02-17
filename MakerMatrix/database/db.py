@@ -1,13 +1,12 @@
 from sqlmodel import Session, SQLModel
 from MakerMatrix.models.models import engine
-from sqlalchemy import inspect
-
+from sqlalchemy import inspect, event
+from sqlalchemy import event
 
 
 # Dependency that will provide a session to FastAPI routes
 def get_session() -> Session:
     with Session(engine) as session:
-
         yield session
 
 
@@ -15,7 +14,8 @@ def get_session() -> Session:
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
-from sqlalchemy import event
+
+
 
 @event.listens_for(engine, "connect")
 def enable_foreign_keys(dbapi_connection, connection_record):

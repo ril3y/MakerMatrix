@@ -1,8 +1,13 @@
-from pydantic import BaseModel, root_validator, Field, ValidationError
+from pydantic import BaseModel, root_validator, Field, ValidationError, ConfigDict
+
+from MakerMatrix.parts.parts import Part
 
 
 class LabelData(BaseModel):
-    part_number: str = Field(None, description="The part number")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    part: Part = Field(default=None, description="The part that contains the data for the label")
+    label_size: str = Field(None, description="The label size")
     part_name: str = Field(None, description="The part name")
 
     @root_validator(pre=True)
@@ -16,10 +21,10 @@ class LabelData(BaseModel):
 
         return values
 
-    class Config:
-        schema_extra = {
-            "example": {
-                "part_number": "c1591",
-                "part_name": "cl10b104kb8nnnc"
-            }
-        }
+    # class Config:
+    #     schema_extra = {
+    #         "example": {
+    #             "part_number": "c1591",
+    #             "part_name": "cl10b104kb8nnnc"
+    #         }
+    #     }

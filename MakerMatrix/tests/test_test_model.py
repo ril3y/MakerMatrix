@@ -12,11 +12,13 @@ def engine():
     SQLModel.metadata.create_all(engine)
     return engine
 
+
 # Create a test fixture for a session
 @pytest.fixture
 def session(engine):
     with Session(engine) as session:
         yield session
+
 
 # Test function to verify if we can create and read a part model
 def test_create_part(session):
@@ -39,6 +41,7 @@ def test_create_part(session):
     # Print the part as JSON
     print(fetched_part.model_dump_json(indent=2))
 
+
 # Test function to verify if we can create and read a location model
 def test_create_location(session):
     location = LocationModel(name="Storage Room B", description="Backup storage room")
@@ -53,6 +56,7 @@ def test_create_location(session):
 
     # Print the location as JSON
     print(fetched_location.model_dump_json(indent=2))
+
 
 # Test function to verify if we can create a category and assign it to a part
 def test_create_category_and_assign_to_part(session):
@@ -75,6 +79,7 @@ def test_create_category_and_assign_to_part(session):
     # Print the part with category as JSON
     print(fetched_part.model_dump_json(indent=2))
 
+
 # Test updating a part's quantity
 def test_update_part_quantity(session):
     part = PartModel(part_number="11111", part_name="Inductor", quantity=50)
@@ -96,6 +101,7 @@ def test_update_part_quantity(session):
     # Print the updated part as JSON
     print(fetched_part.model_dump_json(indent=2))
 
+
 # Test deleting a location
 def test_delete_location(session):
     location = LocationModel(name="Temporary Storage", description="Temporary holding area")
@@ -115,6 +121,7 @@ def test_delete_location(session):
     # The following will raise an AttributeError since fetched_location is None.
     # Uncomment to observe behavior if required:
     # print(fetched_location.model_dump_json(indent=2)) if fetched_location else print("Location deleted.")
+
 
 # Test function to create nested locations (e.g., Building -> Room -> Desk -> Drawer)
 def test_create_nested_locations(session):
@@ -207,16 +214,20 @@ def test_create_nested_locations_with_categories_and_parts(session):
 
     # Create Categories
     hardware_category = CategoryModel(name="Hardware", description="Mechanical parts like screws, bolts, etc.")
-    electronic_components_category = CategoryModel(name="Electronic Components", description="Electronic components like resistors and microcontrollers")
+    electronic_components_category = CategoryModel(name="Electronic Components",
+                                                   description="Electronic components like resistors and microcontrollers")
     session.add_all([hardware_category, electronic_components_category])
     session.commit()
     session.refresh(hardware_category)
     session.refresh(electronic_components_category)
 
     # Create Parts
-    screw = PartModel(part_number="S1234", part_name="Screw", quantity=500, location_id=drawer_1.id, categories=[hardware_category])
-    resistor = PartModel(part_number="R5678", part_name="Resistor", quantity=1000, location_id=drawer_2.id, categories=[electronic_components_category])
-    microcontroller = PartModel(part_number="MCU910", part_name="Microcontroller", quantity=50, location_id=desk.id, categories=[electronic_components_category])
+    screw = PartModel(part_number="S1234", part_name="Screw", quantity=500, location_id=drawer_1.id,
+                      categories=[hardware_category])
+    resistor = PartModel(part_number="R5678", part_name="Resistor", quantity=1000, location_id=drawer_2.id,
+                         categories=[electronic_components_category])
+    microcontroller = PartModel(part_number="MCU910", part_name="Microcontroller", quantity=50, location_id=desk.id,
+                                categories=[electronic_components_category])
     session.add_all([screw, resistor, microcontroller])
     session.commit()
     session.refresh(screw)
@@ -294,16 +305,20 @@ def test_create_nested_locations_with_categories_and_parts(session):
 
     # Create Categories
     hardware_category = CategoryModel(name="Hardware", description="Mechanical parts like screws, bolts, etc.")
-    electronic_components_category = CategoryModel(name="Electronic Components", description="Electronic components like resistors and microcontrollers")
+    electronic_components_category = CategoryModel(name="Electronic Components",
+                                                   description="Electronic components like resistors and microcontrollers")
     session.add_all([hardware_category, electronic_components_category])
     session.commit()
     session.refresh(hardware_category)
     session.refresh(electronic_components_category)
 
     # Create Parts
-    screw = PartModel(part_number="S1234", part_name="Screw", quantity=500, location_id=drawer_1.id, categories=[hardware_category])
-    resistor = PartModel(part_number="R5678", part_name="Resistor", quantity=1000, location_id=drawer_2.id, categories=[electronic_components_category])
-    microcontroller = PartModel(part_number="MCU910", part_name="Microcontroller", quantity=50, location_id=desk.id, categories=[electronic_components_category])
+    screw = PartModel(part_number="S1234", part_name="Screw", quantity=500, location_id=drawer_1.id,
+                      categories=[hardware_category])
+    resistor = PartModel(part_number="R5678", part_name="Resistor", quantity=1000, location_id=drawer_2.id,
+                         categories=[electronic_components_category])
+    microcontroller = PartModel(part_number="MCU910", part_name="Microcontroller", quantity=50, location_id=desk.id,
+                                categories=[electronic_components_category])
     session.add_all([screw, resistor, microcontroller])
     session.commit()
     session.refresh(screw)

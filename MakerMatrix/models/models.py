@@ -1,7 +1,8 @@
 from typing import Optional, Dict, Any, List, Union
 
 from pydantic import model_validator, field_validator, BaseModel
-from sqlalchemy import create_engine, ForeignKey, String, or_, ilike, cast
+from sqlalchemy import create_engine, ForeignKey, String, or_, cast
+
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import SQLModel, Field, Relationship, Session, select
 import uuid
@@ -127,6 +128,21 @@ class PartModel(SQLModel, table=True):
         link_model=PartCategoryLink,
         sa_relationship_kwargs={"lazy": "selectin"}  # `selectin` eager loads with a separate query.
     )
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "PartModel":
+        """
+        Create a PartModel from a JSON dictionary.
+        If the JSON includes a list of categories (as dicts), they will be converted
+        to CategoryModel instances.
+        """
+        data_copy = data.copy()
+        if "categories" in data_copy and isinstance(data_copy["categories"], list):
+            data_copy["categories"] = [
+                CategoryModel(**item) if isinstance(item, dict) else item
+                for item in data_copy["categories"]
+            ]
+        return cls(**data_copy)
 
     @classmethod
     def search_properties(cls, session: Session, search_term: str):
