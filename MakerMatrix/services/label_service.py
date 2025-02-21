@@ -1,90 +1,127 @@
-from typing import Dict, Any
-
 import qrcode
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 class LabelService:
-    def __init__(self, printer):
-        self.printer = printer
+    @staticmethod
+    def get_label_width_inches(label_size):
+        if isinstance(label_size, int):
+            width_mm = label_size
+        else:
+            width_mm = int(''.join(filter(str.isdigit, str(label_size))))
+        return width_mm / 25.4  # convert mm to inches
 
-    def print_text_label(self, text: str, print_config) -> Image.Image:
-        # Use print_config to obtain options:
-        label_len = print_config.label_len      # label length as float
-        font_size = print_config.font_size        # desired font size
-        font_file = print_config.font              # e.g., "arial.ttf"
-        text_color = print_config.text_color       # e.g., "black"
-        margin = print_config.margin               # margin fraction
+    @staticmethod
+    def get_available_height_pixels(print_settings) -> int:
+        # Use print_settings.label_size (in mm) to determine label height in pixels.
+        inches = print_settings.label_size / 25.4
+        return int(inches * print_settings.dpi)
 
-        # Calculate dimensions based on DPI and label_len:
-        label_length_pixels = int(label_len * self.dpi)
-        available_height_pixels = int(0.47 * self.dpi)
-        target_height = int(available_height_pixels * 0.8)
+    @staticmethod
+    def generate_qr(part: dict, print_settings) -> Image.Image:
+        """
+        Generate a QR code image using the part's unique identifier.
+        The part is expected to be a dict with a 'data' key.
+        """
+        part_data = part.get("data", {})
+        qr_data = {"id": part_data.get("id")}
+        qr_image = qrcode.make(str(qr_data))
+        if hasattr(print_settings, "qr_size"):
+            qr_image = qr_image.resize(
+                (print_settings.qr_size, print_settings.qr_size),
+                Image.Resampling.LANCZOS
+            )
+        return qr_image
 
-        # Optionally, adjust font size based on target dimensions.
-        # For simplicity, we'll use the print_config font_size.
-        font = ImageFont.truetype(font_file, font_size)
+    @staticmethod
+    def generate_text_label(text: str, print_settings) -> Image.Image:
+        """
+        Generate a text-only label image using options from print_settings.
+        """
+        dpi = print_settings.dpi
+        font_size = print_settings.font_size
+        font_file = print_settings.font
+        text_color = print_settings.text_color
+        margin = print_settings.margin
 
-        # Create a dummy image to measure text dimensions
+        try:
+            font = ImageFont.truetype(font_file, font_size)
+        except Exception as e:
+            print(f"[ERROR] Could not load font '{font_file}': {e}. Using default font.")
+            font = ImageFont.load_default()
+
         dummy_img = Image.new('RGB', (1, 1), 'white')
         draw = ImageDraw.Draw(dummy_img)
         bbox = draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
-        # Calculate margins in pixels:
         margin_x = int(text_width * margin)
         margin_y = int(text_height * margin)
-
-        # Define final image dimensions:
         final_width = text_width + 2 * margin_x
         final_height = text_height + 2 * margin_y
 
-        # Create the final image and center the text:
         text_img = Image.new('RGB', (final_width, final_height), 'white')
         draw = ImageDraw.Draw(text_img)
         x = (final_width - text_width) // 2
         y = (final_height - text_height) // 2
         draw.text((x, y), text, font=font, fill=text_color)
-
-        # Rotate the image if needed
+        # Rotate 90° as in our previous examples.
         rotated_img = text_img.rotate(90, expand=True)
         return rotated_img
 
-    def generate_label(self, part_info: Dict[str, Any], style: str) -> Image:
-        """Generate a label image based on the part information and style."""
-        if style == "text":
-            return self._generate_text_label(part_info)
-        elif style == "qr_code":
-            return self._generate_qr_code_label(part_info)
-        else:
-            raise ValueError(f"Unsupported style: {style}")
-
-    def _generate_text_label(self, part_info: Dict[str, Any]) -> Image:
-        """Generate a text-only label."""
-        label = Image.new('RGB', (200, 100), color='white')
-        draw = ImageDraw.Draw(label)
-        font = ImageFont.load_default()
-        draw.text((10, 10), part_info['name'], font=font, fill='black')
-        return label
-
-    def _generate_qr_code_label(self, part_info: Dict[str, Any]) -> Image:
-        """Generate a label with a QR code."""
-        qr = qrcode.make(part_info['name'])
-        label = Image.new('RGB', (200, 200), color='white')
-        label.paste(qr, (50, 50))
-        return label
-
-    def print_label(self, part_info: Dict[str, Any], style: str):
-        """Generate and print the label."""
-        label_image = self.generate_label(part_info, style)
+    @staticmethod
+    def get_available_height_pixels(print_settings) -> int:
+        # Use print_settings.label_size (in mm) for the physical label height.
+        # For a 12mm label:
+        inches = print_settings.label_size / 25.4
+        return int(inches * print_settings.dpi)
 
     @staticmethod
-    def get_label_width_inches(label_size):
-        """Extracts numeric width from a label size string like '12mm'."""
-        if isinstance(label_size, int):
-            width_mm = label_size  # Directly use integer if already numeric
-        else:
-            width_mm = int(''.join(filter(str.isdigit, str(label_size))))  # Convert to string before filtering
+    def generate_combined_label(part: dict, print_settings, custom_text: str = None) -> Image.Image:
+        dpi = print_settings.dpi
+        # Calculate available label height based on the measured label_size (12mm)
+        available_height_pixels = LabelService.get_available_height_pixels(print_settings)
 
-        return width_mm / 25.4  # Convert mm to inches
+        # Generate the QR code image.
+        qr_image = LabelService.generate_qr(part, print_settings)
+
+        # Instead of a fixed 0.9 multiplier, use a higher factor (e.g., 0.98) so the QR fills nearly all available height.
+        qr_scale_factor = 0.98
+        qr_size = int(available_height_pixels * qr_scale_factor)
+        # Optionally, save for debugging:
+        qr_image.save("qr_before_resize.png")
+        qr_image = ImageOps.fit(qr_image, (qr_size, qr_size), Image.Resampling.LANCZOS)
+        qr_image.save("qr_after_resize.png")
+
+        margin_pixels = int(0.1 * dpi)
+        # Reserve text area width based on print_settings.label_len (in inches converted to pixels).
+        text_area_width = int(print_settings.label_len * dpi)
+        total_width = qr_size + margin_pixels + text_area_width
+
+        combined_img = Image.new('RGB', (total_width, available_height_pixels), 'white')
+        # Paste the QR code on the left, centered vertically.
+        qr_y = (available_height_pixels - qr_size) // 2
+        combined_img.paste(qr_image, (0, qr_y))
+
+        # Determine text to display.
+        if custom_text is None:
+            custom_text = part.get("data", {}).get("part_name", "")
+
+        text_img = LabelService.generate_text_label(custom_text, print_settings)
+        # Scale the text image proportionally so it fits within the reserved text area.
+        text_img_width, text_img_height = text_img.size
+        scaling_factor = min(text_area_width / text_img_width, available_height_pixels / text_img_height)
+        new_text_width = int(text_img_width * scaling_factor)
+        new_text_height = int(text_img_height * scaling_factor)
+        text_img = text_img.resize((new_text_width, new_text_height), Image.Resampling.LANCZOS)
+
+        # Center the text image in the reserved area.
+        text_x = qr_size + margin_pixels + (text_area_width - new_text_width) // 2
+        text_y = (available_height_pixels - new_text_height) // 2
+        combined_img.paste(text_img, (text_x, text_y))
+
+        # Rotate the entire label if needed.
+        rotated_img = combined_img.rotate(90, expand=True)
+        return rotated_img
+
