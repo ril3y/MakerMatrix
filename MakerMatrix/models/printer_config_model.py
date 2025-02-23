@@ -1,11 +1,13 @@
-# Pydantic models for input validation
+from typing import Dict, Any
+
 from pydantic import BaseModel
 
 
 class PrinterConfig(BaseModel):
-    model: str
-    driver: str
     backend: str
+    driver: str
     printer_identifier: str
     dpi: int
-    scaling_factor: float
+    model: str
+    scaling_factor: float = 1.0
+    additional_settings: Dict[str, Any] = {}

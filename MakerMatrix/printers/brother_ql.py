@@ -30,80 +30,84 @@ class BrotherQL(AbstractPrinter):
         self.additional_settings = additional_settings or {}
         self.qlr = BrotherQLRaster(self.model) if model else None
 
-    def print_label(self, image: Image, pconf: PrintSettings):
-        print("[DEBUG] Converting image to printer instructions")
-        instructions = convert(
-            qlr=self.qlr,
-            images=[image],
-            label=str(pconf.label_size),
-            rotate=pconf.rotation,
-            threshold=70.0,
-            dither=False,
-            compress=False,
-            red=False,
-            dpi_600=(self.dpi == 600),
-            hq=True,
-            cut=True
+    # def print_label(self, image: Image, pconf: PrintSettings):
+    #     print("[DEBUG] Converting image to printer instructions")
+    #     instructions = convert(
+    #         qlr=self.qlr,
+    #         images=[image],
+    #         label=str(pconf.label_size),
+    #         rotate=pconf.rotation,
+    #         threshold=70.0,
+    #         dither=False,
+    #         compress=False,
+    #         red=False,
+    #         dpi_600=(self.dpi == 600),
+    #         hq=True,
+    #         cut=True
+    #     )
+    #
+    #     print("[DEBUG] Sending print job")
+    #     result = send(
+    #         instructions=instructions,
+    #         printer_identifier=self.printer_identifier,
+    #         backend_identifier=self.backend,
+    #         blocking=True
+    #     )
+    #
+    #     print("[DEBUG] Print job sent successfully")
+    #     return result
+
+    def print_text_label(self, text: str, print_settings: PrintSettings) -> bool:
+        """
+        Print a text-only label. If label_len is not set, auto-calculate the label
+        length in mm based on the text width plus margins. Then generate the final
+        text image and print it.
+        """
+        dpi = print_settings.dpi
+        available_height_pixels = LabelService.get_available_height_pixels(print_settings)
+
+        # We'll use a 5% margin, just like in generate_combined_label.
+        margin_fraction = 0.05
+        margin_pixels = int(margin_fraction * available_height_pixels)
+
+        # If label_len is None, compute it based on measured text size.
+        if print_settings.label_len is None:
+            # 1) Measure text size for the given height.
+            text_width_px, _ = LabelService.measure_text_size(
+                text=text,
+                print_settings=print_settings,
+                allowed_height=available_height_pixels
+            )
+            # 2) Convert text+margin to mm (no QR in text-only labels).
+            label_len_mm = LabelService.compute_label_len_mm_for_text_and_qr(
+                text_width_px=text_width_px,
+                margin_px=margin_pixels,
+                dpi=dpi,
+                qr_width_px=0
+            )
+        else:
+            label_len_mm = float(print_settings.label_len)
+
+        # Convert mm -> final px, apply a scaling factor (e.g. 1.1 for printer shrinkage).
+        total_label_width_px = LabelService.finalize_label_width_px(
+            label_len_mm=label_len_mm,
+            print_settings=print_settings,
+            scaling_factor=1.1
         )
 
-        print("[DEBUG] Sending print job")
-        result = send(
-            instructions=instructions,
-            printer_identifier=self.printer_identifier,
-            backend_identifier=self.backend,
-            blocking=True
+        # Now generate the text label image with the computed width/height.
+        text_label_img = LabelService.generate_text_label(
+            text=text,
+            print_settings=print_settings,
+            allowed_width=total_label_width_px,
+            allowed_height=available_height_pixels
         )
 
-        print("[DEBUG] Print job sent successfully")
-        return result
+        # Rotate if needed (90 degrees, etc.).
+        rotated_label_img = text_label_img.rotate(90, expand=True)
 
-    def print_text_label(self, text: str, print_config) -> Image.Image:
-        label = LabelService.print_text_label(text, print_config=print_config)
-        self._resize_and_print(label)
-        #
-        # # Use print_config to obtain options:
-        # label_len = print_config.label_len  # label length as float
-        # font_size = print_config.font_size  # desired font size
-        # font_file = print_config.font  # e.g., "arial.ttf"
-        # text_color = print_config.text_color  # e.g., "black"
-        # margin = print_config.margin  # margin fraction
-        #
-        # # Calculate dimensions based on DPI and label_len:
-        # label_length_pixels = int(label_len * self.dpi)
-        # available_height_pixels = int(0.47 * self.dpi)
-        # target_height = int(available_height_pixels * 0.8)
-        #
-        # # Optionally, adjust font size based on target dimensions.
-        # # For simplicity, we'll use the print_config font_size.
-        # font = ImageFont.truetype(font_file, font_size)
-        #
-        # # Create a dummy image to measure text dimensions
-        # dummy_img = Image.new('RGB', (1, 1), 'white')
-        # draw = ImageDraw.Draw(dummy_img)
-        # bbox = draw.textbbox((0, 0), text, font=font)
-        # text_width = bbox[2] - bbox[0]
-        # text_height = bbox[3] - bbox[1]
-        #
-        # # Calculate margins in pixels:
-        # margin_x = int(text_width * margin)
-        # margin_y = int(text_height * margin)
-        #
-        # # Define final image dimensions:
-        # final_width = text_width + 2 * margin_x
-        # final_height = text_height + 2 * margin_y
-        #
-        # # Create the final image and center the text:
-        # text_img = Image.new('RGB', (final_width, final_height), 'white')
-        # draw = ImageDraw.Draw(text_img)
-        # x = (final_width - text_width) // 2
-        # y = (final_height - text_height) // 2
-        # draw.text((x, y), text, font=font, fill=text_color)
-        #
-        # # Rotate the image if needed
-        # rotated_img = text_img.rotate(90, expand=True)
-        #
-        # self.print_label(rotated_img, print_config)
-        # return rotated_img
+        # Finally, send to your printer or do whatever "print" means in your app.
+        return self._resize_and_print(rotated_label_img)
 
     def set_backend(self, backend: str):
         self.backend = backend
@@ -203,38 +207,26 @@ class BrotherQL(AbstractPrinter):
     def cancel_print(self) -> None:
         print("Print job cancelled")
 
-    def print_qr_from_memory(self, qr_image: Image.Image, label: str = '12', rotate: str = '0'):
-        return self._resize_and_print(qr_image, label, rotate)
-
-    def print_qr(self, image_path: str, label: str = '12', rotate: str = '0'):
-        try:
-            im = Image.open(image_path)
-            return self._resize_and_print(im, label, rotate)
-        except Exception as e:
-            print(f"Error opening image file {image_path}: {str(e)}")
-            return False
-
-    def _get_available_height_pixels(self):
-        return int(0.47 * self.dpi)
-
     def print_qr_and_text(self, text: str, part, print_settings):
         try:
             # Generate the combined label image using LabelService.
             combined_img = LabelService.generate_combined_label(part, print_settings, custom_text=text)
-            # Save preview (for debugging)
+            # For debugging, you can save the image.
             combined_img.save("test_label.png")
 
-            # Now apply the printer's scaling factor (from printer_config, i.e. self.scaling_factor)
+            # Apply the printer's scaling factor (from printer_config, i.e. self.scaling_factor)
             if self.scaling_factor != 1.0:
                 scaled_width = int(combined_img.width * self.scaling_factor)
                 scaled_height = int(combined_img.height * self.scaling_factor)
                 combined_img = combined_img.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+                combined_img.save("scaled_label.png")
 
-            # Use print_settings.label_size (which represents the label height in mm) as the label parameter.
+            # Now send the image to print (using print_settings.label_size for the label parameter).
             return self._resize_and_print(combined_img, label=str(print_settings.label_size))
         except Exception as e:
             print(f"[ERROR] Exception in print_qr_and_text: {e}")
             import traceback
             print(traceback.format_exc())
             return False
+
 

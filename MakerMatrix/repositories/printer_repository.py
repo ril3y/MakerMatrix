@@ -2,8 +2,6 @@ import importlib
 import json
 from typing import Optional
 
-from PIL import Image
-
 from MakerMatrix.models.printer_config_model import PrinterConfig
 
 # Map config driver names to the actual class names.
@@ -37,8 +35,8 @@ class PrinterRepository:
             printer_identifier=config_data["printer_identifier"],
             dpi=config_data["dpi"],
             model=config_data["model"],
-            scaling_factor=config_data.get("scaling_factor", 1.0)
-
+            scaling_factor=config_data.get("scaling_factor", 1.0),
+            additional_settings=config_data.get("additional_settings", {})
         )
         # Reset any existing printer/driver so that changes take effect.
         self._printer = None
@@ -69,13 +67,14 @@ class PrinterRepository:
                 raise ValueError("Printer configuration is missing.")
             if not self._driver_cls:
                 self._import_driver()
-            # Instantiate the driver by passing configuration parameters.
+            # Instantiate the driver by passing configuration parameters including additional_settings.
             self._printer = self._driver_cls(
                 model=self._printer_config.model,
                 backend=self._printer_config.backend,
                 printer_identifier=self._printer_config.printer_identifier,
                 dpi=self._printer_config.dpi,
-                scaling_factor=self._printer_config.scaling_factor
+                scaling_factor=self._printer_config.scaling_factor,
+                additional_settings=self._printer_config.additional_settings
             )
         return self._printer
 
@@ -96,7 +95,8 @@ class PrinterRepository:
                 "printer_identifier": self._printer_config.printer_identifier,
                 "dpi": self._printer_config.dpi,
                 "model": self._printer_config.model,
-                "scaling_factor": self._printer_config.scaling_factor
+                "scaling_factor": self._printer_config.scaling_factor,
+                "additional_settings": self._printer_config.additional_settings
             },
                 f,
                 indent=4
@@ -111,15 +111,6 @@ class PrinterRepository:
             "printer_identifier": self._printer_config.printer_identifier,
             "dpi": self._printer_config.dpi,
             "model": self._printer_config.model,
-            "scaling_factor": self._printer_config.scaling_factor
+            "scaling_factor": self._printer_config.scaling_factor,
+            "additional_settings": self._printer_config.additional_settings
         }
-
-    # (Optional) You can also expose convenience print methods here if needed.
-    async def print_qr_code(self, part, label_size: str = '12') -> bool:
-        qr_image = self._generate_qr_code(part)
-        return self.get_printer().print_qr_from_memory(qr_image, label=label_size)
-
-    def _generate_qr_code(self, part) -> "Image.Image":
-        import qrcode
-        qr_data = {"name": part.part_name, "number": part.part_number}
-        return qrcode.make(str(qr_data))
