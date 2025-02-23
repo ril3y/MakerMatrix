@@ -5,7 +5,7 @@ tinydb~=4.8.0
 websockets~=13.1
 beautifulsoup4~=4.12.2
 pytest~=7.4.3
-python-multipart==0.0.8
+python-multipart==0.0.19
 mouser~=0.1.5
 pydantic~=2.9.2
 pillow
