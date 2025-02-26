@@ -107,7 +107,7 @@ class BrotherQL(AbstractPrinter):
         rotated_label_img = text_label_img.rotate(90, expand=True)
 
         # Finally, send to your printer or do whatever "print" means in your app.
-        return self._resize_and_print(rotated_label_img)
+        return self._resize_and_print(rotated_label_img, print_settings=print_settings)
 
     def set_backend(self, backend: str):
         self.backend = backend
@@ -125,10 +125,11 @@ class BrotherQL(AbstractPrinter):
         self.qlr = BrotherQLRaster(self.model)
 
     def _resize_and_print(self, image: Image.Image, label: str = '12', rotate: str = '0',
-                          max_length_inches: float = None):
+                          max_length_inches: float = None, print_settings: PrintSettings = None):
         """Convert the provided image to printer instructions and send it.
         Since LabelService already produces a correctly sized image, no additional resizing is performed.
         """
+        #  TODO: lets update print_settings to really provide values like label etc instead of hard coding
         try:
             print(f"[DEBUG] Starting _resize_and_print() with label: {label}, rotate: {rotate}")
             self.qlr.data = b''
@@ -147,13 +148,30 @@ class BrotherQL(AbstractPrinter):
                 cut=True
             )
             print("[DEBUG] Sending print job")
-            result = send(
-                instructions=instructions,
-                printer_identifier=self.printer_identifier,
-                backend_identifier=self.backend,
-                blocking=True
-            )
-            print("[DEBUG] Print job sent successfully")
+            if print_settings.copies > 1:
+                pass
+            result = True
+
+            if print_settings.copies > 1:
+                for i in range(0, print_settings.copies):
+                    if result is False:
+                        break  # Previous send had an issue
+                    result = send(
+                        instructions=instructions,
+                        printer_identifier=self.printer_identifier,
+                        backend_identifier=self.backend,
+                        blocking=True
+                    )
+
+            else:
+                result = send(
+                    instructions=instructions,
+                    printer_identifier=self.printer_identifier,
+                    backend_identifier=self.backend,
+                    blocking=True
+                )
+                print("[DEBUG] Print job sent successfully")
+
             return result
         except Exception as e:
             print(f"[ERROR] Exception in _resize_and_print: {e}")
@@ -228,5 +246,3 @@ class BrotherQL(AbstractPrinter):
             import traceback
             print(traceback.format_exc())
             return False
-
-

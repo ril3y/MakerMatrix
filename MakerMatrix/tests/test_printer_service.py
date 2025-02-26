@@ -92,8 +92,22 @@ async def test_print_part_name(printer_service, setup_part_update_part):
     new_part = PartModel.from_json(tmp_part)
 
     pconf = PrintSettings()
+    pconf.copies = 1
     # Test the new part name print function
     result = await printer_service.print_part_name(new_part, print_settings=pconf)
+    assert result
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_print_text_label(printer_service):
+    # Load and configure printer
+    printer_service.load_printer_config()
+
+    pconf = PrintSettings()
+    pconf.copies = 1
+    #pconf.label_len = 2 * 25.4
+    # Test the new part name print function
+    result = await printer_service.print_text_label(text="Fire Sauce", print_settings=pconf)
     assert result
 
 
