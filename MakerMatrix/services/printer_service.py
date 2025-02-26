@@ -22,6 +22,15 @@ class PrinterService:
             print(f"Error printing part name: {e}")
             return False
 
+    async def print_text_label(self, text: str, print_settings: PrintSettings):
+        printer = self.printer_repo.get_printer()
+        try:
+            # Now, we pass the PrintConfig to the printer's print_text_label method.
+            return printer.print_text_label(text, print_settings)
+        except Exception as e:
+            print(f"Error printing text: {e}")
+            return False
+
     # async def print_qr_code_with_name(self, label_data: LabelData):
     #     printer = self.printer_repo.get_printer()
     #     try:
