@@ -21,7 +21,7 @@ class PartCreate(BaseModel):
         return values
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PartUpdate(BaseModel):
@@ -36,4 +36,4 @@ class PartUpdate(BaseModel):
     category_names: Optional[List[str]] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True

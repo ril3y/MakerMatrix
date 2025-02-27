@@ -1,11 +1,12 @@
-from typing import Optional, Generic, TypeVar
+from typing import Optional, Generic, TypeVar, List
 from pydantic import BaseModel
-from pydantic.generics import GenericModel
 
-T = TypeVar('T')
+T = TypeVar("T")
 
-
-class ResponseSchema(GenericModel, Generic[T]):
+class ResponseSchema(BaseModel, Generic[T]):
     status: str
     message: str
     data: Optional[T] = None
+    page: Optional[int] = None  # For pagination
+    page_size: Optional[int] = None  # For pagination
+    total_parts: Optional[int] = None  # Total count for pagination

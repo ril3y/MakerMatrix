@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any
 
+from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 from sqlmodel import Session, select
 # from MakerMatrix.models.category_model import CategoryModel
@@ -10,18 +11,7 @@ from MakerMatrix.models.models import PartModel, CategoryModel
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 
 
-# def handle_categories(session: Session, categories_data: list) -> list:
-#     categories = []
-#     for category_name in categories_data:
-#         category = session.exec(
-#             select(CategoryModel).where(CategoryModel.name == category_name)
-#         ).first()
-#         if not category:
-#             category = CategoryModel(name=category_name)
-#             session.add(category)
-#         categories.append(category)
-#     return categories
-
+# noinspection PyTypeChecker
 def handle_categories(session: Session, category_names: List[str]) -> List[CategoryModel]:
     categories = []
     for name in category_names:
@@ -35,10 +25,81 @@ def handle_categories(session: Session, category_names: List[str]) -> List[Categ
     return categories
 
 
+# noinspection PyTypeChecker
 class PartRepository:
 
     def __init__(self, engine):
         self.engine = engine
+
+    def get_parts_by_location_id(self, session: Session, location_id: str, recursive: bool = False) -> List[Dict]:
+        """
+        Retrieve parts associated with the given location ID.
+
+        If recursive is True, it will also fetch parts associated with child locations.
+        """
+        # Fetch parts directly associated with the given location
+        parts = self.table.search(self.query().location.id == location_id)
+
+        if recursive:
+            # If recursive, find parts associated with all child locations
+            child_location_ids = self.get_child_location_ids(location_id)
+            for child_id in child_location_ids:
+                parts.extend(self.get_parts_by_location_id(child_id, recursive=True))
+
+        return parts
+
+    @staticmethod
+    def dynamic_search(session: Session, search_term: str) -> List[PartModel]:
+        """
+        Search for parts by name, part_number, or any other fields you choose.
+        Returns a list of PartModels or raises an error if none found.
+        """
+        results = session.exec(
+            select(PartModel).where(
+                or_(
+                    PartModel.part_name.ilike(f"%{search_term}%"),
+                    PartModel.part_number.ilike(f"%{search_term}%")
+                )
+            )
+        ).all()
+
+        if results:
+            return results
+        else:
+            raise ResourceNotFoundError(
+                status="error",
+                message=f"No parts found for search term '{search_term}'",
+                data=None
+            )
+
+    ###
+
+    @staticmethod
+    def delete_part(session: Session, part_id: str) -> Optional[PartModel]:
+        """
+        Delete a part by ID. Raises ResourceNotFoundError if the part doesn't exist.
+        Returns a dictionary summarizing the deletion.
+        """
+        try:
+
+            part = PartRepository.get_part_by_id(session, part_id)
+            session.delete(part)
+            session.commit()
+            return part
+        except Exception as e:
+            raise ResourceNotFoundError(
+                status="error",
+                message=f"Part with ID {part_id} not found",
+                data=None
+            )
+
+    def get_child_location_ids(self, location_id: str) -> List[str]:
+        """
+        Get a list of child location IDs for the given location ID.
+        """
+        # Fetch all locations that are children of the given location
+        child_locations = self.table.search(self.query().parent.id == location_id)
+        return [location.id for location in child_locations]
 
     @staticmethod
     def get_part_by_part_number(session: Session, part_number: str) -> Optional[PartModel]:
@@ -84,6 +145,24 @@ class PartRepository:
             return None  # We return none and do not raise an error because we want to create a new part
 
     @staticmethod
+    def get_all_parts(session: Session, page: int = 1, page_size: int = 10) -> List[PartModel]:
+        offset = (page - 1) * page_size
+        results = session.exec(
+            select(PartModel)
+            .options(
+                joinedload(PartModel.categories),
+                joinedload(PartModel.location)
+            )
+            .offset(offset)
+            .limit(page_size)
+        )
+        return results.unique().all()
+
+    @staticmethod
+    def get_part_counts(session: Session) -> int:
+        return session.exec(select(func.count()).select_from(PartModel)).one()
+
+    @staticmethod
     def add_part(session: Session, part_data: PartModel) -> PartModel:
         # Ensure categories are unique
         unique_categories = []
@@ -117,11 +196,6 @@ class PartRepository:
 
             # Return True if no other parts with the same name exist, otherwise False
             return result is None
-
-    @staticmethod
-    def get_all_parts(session: Session):
-        parts = session.exec(select(PartModel)).all()
-        return parts
 
     @staticmethod
     def update_part(session: Session, part: PartModel) -> PartModel | dict[str, str]:
@@ -270,22 +344,7 @@ class PartRepository:
     # def get_total_parts_count(self) -> int:
     #     return len(self.table)
     #
-    # def get_parts_by_location_id(self, location_id: str, recursive: bool = False) -> List[Dict]:
-    #     """
-    #     Retrieve parts associated with the given location ID.
-    #
-    #     If recursive is True, it will also fetch parts associated with child locations.
-    #     """
-    #     # Fetch parts directly associated with the given location
-    #     parts = self.table.search(self.query().location.id == location_id)
-    #
-    #     if recursive:
-    #         # If recursive, find parts associated with all child locations
-    #         child_location_ids = self.get_child_location_ids(location_id)
-    #         for child_id in child_location_ids:
-    #             parts.extend(self.get_parts_by_location_id(child_id, recursive=True))
-    #
-    #     return parts
+
     #
     # def get_child_location_ids(self, parent_id: str) -> List[str]:
     #     """

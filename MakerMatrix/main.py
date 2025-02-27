@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError, HTTPException
@@ -7,6 +9,7 @@ from starlette.responses import JSONResponse
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY, HTTP_409_CONFLICT
 
 from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, ResourceNotFoundError
+from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import parts_routes, locations_routes, categories_routes, printer_routes, utility_routes
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.printer_service import PrinterService
@@ -25,9 +28,12 @@ app.add_middleware(
 )
 
 
-@app.on_event("startup")
-async def on_startup():
-    create_db_and_tables()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Starting up...")
+    create_db_and_tables()  # Run the database setup
+    yield  # App continues running
+    print("Shutting down...")  # If you need cleanup, add it here
 
 
 @app.exception_handler(PartAlreadyExistsError)
@@ -57,9 +63,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_ENTITY,
         content=ResponseSchema(
-            status="error",
-            message="Validation error",
-            data=messages
+            status = "error",
+            message = "Validation error",
+            data = messages
         ).dict()
     )
 
@@ -74,7 +80,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
                 status="conflict",
                 message=exc.detail if isinstance(exc.detail, str) else exc.detail.get("message", "Conflict occurred"),
                 data=exc.detail.get("data", None) if isinstance(exc.detail, dict) else None,
-            ).dict()
+            ).model_dump()
         )
 
     # If it's not 409, fallback to the default handler
@@ -92,7 +98,7 @@ async def resource_not_found_handler(request: Request, exc: ResourceNotFoundErro
             status="error",
             message=str(exc),
             data=None
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -106,7 +112,7 @@ app.include_router(utility_routes.router, prefix="/utility", tags=["utility"])
 if __name__ == "__main__":
     # Load printer config at startup
     try:
-        printer_service = PrinterService()
+        printer_service = PrinterService(PrinterRepository())
         printer_service.load_printer_config()
         print("Printer configuration loaded on startup.")
     except FileNotFoundError:

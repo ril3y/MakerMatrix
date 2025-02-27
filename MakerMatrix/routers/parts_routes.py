@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette import status
 
@@ -47,6 +47,83 @@ async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/get_part_counts", response_model=ResponseSchema[int])
+async def get_part_counts():
+    try:
+        response = PartService.get_part_counts()
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=response["total_parts"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+###
+
+
+@router.delete("/delete_part", response_model=ResponseSchema[Dict[str, Any]])
+def delete_part(
+    part_id: Optional[str] = Query(None, description="Part ID"),
+    part_name: Optional[str] = Query(None, description="Part Name"),
+    part_number: Optional[str] = Query(None, description="Part Number")
+) -> ResponseSchema[Dict[str, Any]]:
+    """
+    Delete a part based on ID, part name, or part number.
+    Raises HTTP 400 if no identifier is provided.
+    Raises HTTP 404 if the part is not found.
+    """
+    try:
+        # Retrieve part using details
+        part = PartService.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
+
+        # if part is None:
+        #     raise HTTPException(
+        #         status_code=400,
+        #         detail="At least one identifier (part_id, part_name, or part_number) must be provided."
+        #     )
+
+        # Perform the deletion using the actual part ID
+        response = PartService.delete_part(part['id'])
+
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=PartResponse.model_validate(response["data"])
+        )
+
+    except ResourceNotFoundError as rnfe:
+        raise HTTPException(status_code=404, detail=rnfe.message)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete part: {str(e)}")
+
+###
+
+@router.get("/get_all_parts", response_model=ResponseSchema[List[PartResponse]])
+async def get_all_parts(
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=10, ge=1)
+) -> ResponseSchema[List[PartResponse]]:
+    try:
+        response = PartService.get_all_parts(page, page_size)
+
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=[PartResponse.model_validate(part) for part in response["data"]],
+            page=response["page"],
+            page_size=response["page_size"],
+            total_parts=response["total_parts"]
+        )
+
+    except ResourceNotFoundError as rnfe:
+        raise rnfe
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/get_part")
 async def get_part(
         part_id: Optional[str] = Query(None),
@@ -68,15 +145,6 @@ async def get_part(
                 detail="At least one identifier (part_id, part_number, or part_name) must be provided"
             )
 
-        # if response is None:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_404_NOT_FOUND,
-        #         detail=f"get_part had a error not found"
-        #     )
-
-        # If the part is found, return it
-        # noinspection PyArgumentList
-        # noinspection PyArgumentList
         return ResponseSchema(
 
             status=response["status"],
@@ -94,6 +162,14 @@ async def get_part(
         # For other exceptions, raise a general HTTP error
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/all_parts/")
+async def get_all_parts():
+    try:
+        parts = PartService.get_all_parts()
+        return parts
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/update_part/{part_id}", response_model=ResponseSchema[PartResponse])
 async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[PartResponse]:

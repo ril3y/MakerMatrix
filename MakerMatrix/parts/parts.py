@@ -2,10 +2,13 @@ from abc import abstractmethod
 from datetime import datetime
 import uuid
 
+from pydantic import BaseModel
 
-class Part():
 
-    def __init__(self, **kwargs):
+class Part(BaseModel):
+
+    def __init__(self, /, **kwargs):
+        super().__init__(**kwargs)
         self._manufacturer = None
         self._part_number = kwargs.get('part_number', None)
         self._manufacturer_part_number = kwargs.get('manufacturer_part_number', None)
