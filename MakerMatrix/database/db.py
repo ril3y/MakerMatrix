@@ -1,3 +1,5 @@
+from typing import Generator
+
 from sqlmodel import Session, SQLModel
 from MakerMatrix.models.models import engine
 from sqlalchemy import inspect, event
@@ -5,7 +7,7 @@ from sqlalchemy import event
 
 
 # Dependency that will provide a session to FastAPI routes
-def get_session() -> Session:
+def get_session() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 

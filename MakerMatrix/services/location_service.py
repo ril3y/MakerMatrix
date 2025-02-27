@@ -199,3 +199,5 @@ class LocationService:
         affected_parts_count = len(affected_parts)
 
         affected_children = LocationService.get_child_locations(location_id)
+
+

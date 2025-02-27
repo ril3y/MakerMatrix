@@ -37,6 +37,37 @@ def setup_database():
     SQLModel.metadata.drop_all(engine)
 
 
+
+@pytest.fixture
+def setup_part_update_part():
+    # Initial setup: create a part to update later
+
+    part_data = {
+        "part_number": "PN001",
+        "part_name": "B1239992810A",
+        "quantity": 100,
+        "description": "A 1k Ohm resistor",
+        "supplier": "Supplier A",
+        "additional_properties": {"resistance": "1k"},
+        "category_names": ["electronics", "passive components"]
+    }
+    response = client.post("/parts/add_part", json=part_data)
+    return response.json()
+
+
+def test_get_part_by_name(setup_part_update_part):
+    tmp_part = setup_part_update_part
+    response = client.get(f"/parts/get_part?part_name={tmp_part['data']['part_name']}")
+    assert response.status_code == 200
+    assert response.json()['data']['part_name'] == tmp_part['data']['part_name']
+
+def test_get_part_by_id(setup_part_update_part):
+    tmp_part = setup_part_update_part
+    response = client.get(f"/parts/get_part?part_id={tmp_part.id}")
+    assert response.status_code == 200
+    assert response.json()['data']['id'] == f"{tmp_part.id}"
+
+
 def test_add_part():
     # Define the part data to be sent to the API
     part_data = PartCreate(
