@@ -43,13 +43,11 @@ async def get_counts():
     """
     # db_manager = DatabaseManager.get_instance()
     try:
-        parts = PartService.part_repo.get_all_parts()
-        locations = LocationService.location_repo.get_all_locations()
-        categories = CategoryService.category_repo.get_all_categories()
+        parts_count = len(PartService.get_all_parts()['data'])
+        locations_count = len(LocationService.get_all_locations())
+        categories_count = len(CategoryService.get_all_categories()['data'])
 
-        parts_count = len(parts)
-        locations_count = len(locations)
-        categories_count = len(categories)
+
         return JSONResponse(
             content={"parts": parts_count, "locations": locations_count, "categories": categories_count},
             status_code=200)
