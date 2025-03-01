@@ -192,24 +192,25 @@ class PartService:
             # Handle categories: For each provided category name, try to get it via CategoryService.
             # If not found, create the category.
             new_categories = []
-            for cat_name in category_names:
-                try:
-                    cat_response = CategoryService.get_category(name=cat_name)
-                    category_dict = cat_response["data"]
-                    category = CategoryModel(**category_dict)
-                except Exception:
-                    # If the category doesn't exist, create it.
-                    new_category_model = CategoryModel(name=cat_name)
-                    cat_response = CategoryService.add_category(new_category_model)
-                    if isinstance(cat_response, dict):
+            if category_names:
+                for cat_name in category_names:
+                    try:
+                        cat_response = CategoryService.get_category(name=cat_name)
                         category_dict = cat_response["data"]
-                    else:
-                        category_dict = cat_response.model_dump()
-                    category = CategoryModel(**category_dict)
-                new_categories.append(category)
+                        category = CategoryModel(**category_dict)
+                    except Exception:
+                        # If the category doesn't exist, create it.
+                        new_category_model = CategoryModel(name=cat_name)
+                        cat_response = CategoryService.add_category(new_category_model)
+                        if isinstance(cat_response, dict):
+                            category_dict = cat_response["data"]
+                        else:
+                            category_dict = cat_response.model_dump()
+                        category = CategoryModel(**category_dict)
+                    new_categories.append(category)
 
-            # Associate the retrieved/created categories with the new part.
-            new_part.categories.extend(new_categories)
+                # Associate the retrieved/created categories with the new part.
+                new_part.categories.extend(new_categories)
 
             # Add the new part via the repository layer.
             part_obj = PartRepository.add_part(session, new_part)
@@ -359,7 +360,7 @@ class PartService:
             # Update only the provided fields
             update_data = part_update.model_dump(exclude_unset=True)
             for key, value in update_data.items():
-                if key == "category_names":
+                if key == "category_names" and value is not None:
                     # Special handling for categories
                     categories = handle_categories(session, value)
                     part.categories.clear()  # Clear existing categories

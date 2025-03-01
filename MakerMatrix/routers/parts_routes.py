@@ -34,7 +34,7 @@ async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
 
         # noinspection PyArgumentList
         return ResponseSchema(
-
+            # TODO: I think we can just return the response since it's already a ResponseSchema
             status=response["status"],
             message=response["message"],
             data=PartResponse.model_validate(response["data"])
@@ -65,9 +65,9 @@ async def get_part_counts():
 
 @router.delete("/delete_part", response_model=ResponseSchema[Dict[str, Any]])
 def delete_part(
-    part_id: Optional[str] = Query(None, description="Part ID"),
-    part_name: Optional[str] = Query(None, description="Part Name"),
-    part_number: Optional[str] = Query(None, description="Part Number")
+        part_id: Optional[str] = Query(None, description="Part ID"),
+        part_name: Optional[str] = Query(None, description="Part Name"),
+        part_number: Optional[str] = Query(None, description="Part Number")
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Delete a part based on ID, part name, or part number.
@@ -98,6 +98,7 @@ def delete_part(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete part: {str(e)}")
+
 
 ###
 
@@ -170,6 +171,7 @@ async def get_all_parts():
         return parts
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.put("/update_part/{part_id}", response_model=ResponseSchema[PartResponse])
 async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[PartResponse]:
