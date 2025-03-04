@@ -386,6 +386,35 @@ class PartService:
             session.rollback()
             raise ValueError(f"Failed to update part with ID {part_id}: {e}")
 
+    @staticmethod
+    def advanced_search(search_params: AdvancedPartSearch) -> Dict[str, Any]:
+        """
+        Perform an advanced search on parts with multiple filters and sorting options.
+        Returns a dictionary containing the search results and metadata.
+        """
+        session = next(get_session())
+        try:
+            results, total_count = PartService.part_repo.advanced_search(session, search_params)
+            
+            return {
+                "status": "success",
+                "message": "Search completed successfully",
+                "data": {
+                    "items": [part.to_dict() for part in results],
+                    "total": total_count,
+                    "page": search_params.page,
+                    "page_size": search_params.page_size,
+                    "total_pages": (total_count + search_params.page_size - 1) // search_params.page_size
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error performing advanced search: {e}")
+            return {
+                "status": "error",
+                "message": f"An error occurred while searching: {str(e)}",
+                "data": None
+            }
+
     # def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str] = None,
     #                         part_name: Optional[str] = None) -> Optional[dict]:
     #     # Determine which parameter is provided and call the appropriate repo method
