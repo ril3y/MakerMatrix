@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 # from MakerMatrix.models.part_model import PartModel
 # from MakerMatrix.repositories.base_repository import BaseRepository
 
-from MakerMatrix.models.models import PartModel, CategoryModel
+from MakerMatrix.models.models import PartModel, CategoryModel, AdvancedPartSearch
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 
 
@@ -237,8 +237,7 @@ class PartRepository:
                 or_(
                     PartModel.part_name.ilike(search_term),
                     PartModel.part_number.ilike(search_term),
-                    PartModel.description.ilike(search_term),
-                    PartModel.additional_properties.cast(String).ilike(search_term)
+                    PartModel.description.ilike(search_term)
                 )
             )
 
@@ -250,10 +249,9 @@ class PartRepository:
 
         # Apply category filter
         if search_params.category_names:
-            for category_name in search_params.category_names:
-                query = query.join(PartCategoryLink).join(CategoryModel).where(
-                    CategoryModel.name == category_name
-                )
+            # Join with categories and filter for each category name
+            query = query.join(PartModel.categories)
+            query = query.where(CategoryModel.name.in_(search_params.category_names))
 
         # Apply location filter
         if search_params.location_id:
