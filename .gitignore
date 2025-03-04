@@ -167,3 +167,23 @@ htmlcov/
 # Database
 *.sqlite3
 *.sqlite3-journal
+
+# Generated files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Temporary files
+*.tmp
+*.temp
+assert
+command
+env.txt
+ql-refactor-printer
