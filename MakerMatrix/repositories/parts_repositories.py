@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, delete
 from sqlalchemy.orm import joinedload
 from sqlmodel import Session, select
 # from MakerMatrix.models.category_model import CategoryModel
@@ -31,20 +31,25 @@ class PartRepository:
     def __init__(self, engine):
         self.engine = engine
 
-    def get_parts_by_location_id(self, session: Session, location_id: str, recursive: bool = False) -> List[Dict]:
+    @staticmethod
+    def get_parts_by_location_id(session: Session, location_id: str, recursive: bool = False) -> List[Dict]:
         """
         Retrieve parts associated with the given location ID.
 
         If recursive is True, it will also fetch parts associated with child locations.
         """
         # Fetch parts directly associated with the given location
-        parts = self.table.search(self.query().location.id == location_id)
+        parts = session.exec(
+            select(PartModel)
+            .options(joinedload(PartModel.location))
+            .where(PartModel.location_id == location_id)
+        ).all()
 
         if recursive:
             # If recursive, find parts associated with all child locations
-            child_location_ids = self.get_child_location_ids(location_id)
+            child_location_ids = PartRepository.get_child_location_ids(session, location_id)
             for child_id in child_location_ids:
-                parts.extend(self.get_parts_by_location_id(child_id, recursive=True))
+                parts.extend(PartRepository.get_parts_by_location_id(session, child_id, recursive=True))
 
         return parts
 
@@ -81,7 +86,6 @@ class PartRepository:
         Returns a dictionary summarizing the deletion.
         """
         try:
-
             part = PartRepository.get_part_by_id(session, part_id)
             session.delete(part)
             session.commit()
@@ -93,12 +97,15 @@ class PartRepository:
                 data=None
             )
 
-    def get_child_location_ids(self, location_id: str) -> List[str]:
+    @staticmethod
+    def get_child_location_ids(session: Session, location_id: str) -> List[str]:
         """
         Get a list of child location IDs for the given location ID.
         """
-        # Fetch all locations that are children of the given location
-        child_locations = self.table.search(self.query().parent.id == location_id)
+        from MakerMatrix.models.models import LocationModel
+        child_locations = session.exec(
+            select(LocationModel).where(LocationModel.parent_id == location_id)
+        ).all()
         return [location.id for location in child_locations]
 
     @staticmethod
@@ -111,7 +118,7 @@ class PartRepository:
         else:
             raise ResourceNotFoundError(
                 status="error",
-                message="f{Error: Part with part number {part_number} not found",
+                message=f"Error: Part with part number {part_number} not found",
                 data=None)
 
     @staticmethod
@@ -127,6 +134,12 @@ class PartRepository:
 
         if part:
             return part
+        else:
+            raise ResourceNotFoundError(
+                status="error",
+                message=f"Part with ID {part_id} not found",
+                data=None
+            )
 
     @staticmethod
     def get_part_by_name(session: Session, part_name: str) -> Optional[PartModel]:
@@ -200,15 +213,12 @@ class PartRepository:
     @staticmethod
     def update_part(session: Session, part: PartModel) -> PartModel | dict[str, str]:
         try:
-            # TODO:  We need to handel the case where the commit fails
-            # Add the updated part to the session and commit the changes
             session.add(part)
             session.commit()
             session.refresh(part)
             return part
 
         except ResourceNotFoundError as rnfe:
-            # Let the custom exception handler handle this
             raise rnfe
 
         except Exception as e:
@@ -249,9 +259,10 @@ class PartRepository:
 
         # Apply category filter
         if search_params.category_names:
-            # Join with categories and filter for each category name
-            query = query.join(PartModel.categories)
-            query = query.where(CategoryModel.name.in_(search_params.category_names))
+            category_ids = [
+                category.id for category in handle_categories(session, search_params.category_names)
+            ]
+            query = query.join(PartModel.categories).where(CategoryModel.id.in_(category_ids))
 
         # Apply location filter
         if search_params.location_id:
@@ -268,15 +279,25 @@ class PartRepository:
                 sort_column = sort_column.desc()
             query = query.order_by(sort_column)
 
-        # Get total count before pagination
-        total_count = session.exec(select(func.count()).select_from(query.subquery())).one()
-
         # Apply pagination
         offset = (search_params.page - 1) * search_params.page_size
         query = query.offset(offset).limit(search_params.page_size)
 
         # Execute the query
         results = session.exec(query).unique().all()
+
+        # Get total count for pagination
+        count_query = select(func.count()).select_from(PartModel)
+        if search_params.search_term:
+            search_term = f"%{search_params.search_term}%"
+            count_query = count_query.where(
+                or_(
+                    PartModel.part_name.ilike(search_term),
+                    PartModel.part_number.ilike(search_term),
+                    PartModel.description.ilike(search_term)
+                )
+            )
+        total_count = session.exec(count_query).one()
 
         return results, total_count
 

@@ -12,36 +12,72 @@ class CategoryRepository:
         self.engine = engine
 
     @staticmethod
-    def get_category(session: Session, category_id: Optional[str] = None, name: Optional[str] = None) -> Optional[
-        CategoryModel]:
-        if category_id:
-            category_identifier = "category ID"
-            category = session.exec(
-                select(CategoryModel).where(CategoryModel.id == category_id)
-            ).first()
-        elif name:
-            category_identifier = "category name"
-            category = session.exec(
-                select(CategoryModel).where(CategoryModel.name == name)
-            ).first()
-        else:
-            raise ValueError("Either 'category_id' or 'name' must be provided")
-        if category:
+    def get_category(session: Session, category_id: Optional[str] = None, name: Optional[str] = None) -> Optional[CategoryModel]:
+        """
+        Get a category by ID or name.
+        
+        Args:
+            session: The database session
+            category_id: Optional ID of the category to retrieve
+            name: Optional name of the category to retrieve
+            
+        Returns:
+            Optional[CategoryModel]: The category if found, None otherwise
+        """
+        try:
+            if category_id:
+                category_identifier = "category ID"
+                category = session.exec(
+                    select(CategoryModel).where(CategoryModel.id == category_id)
+                ).first()
+            elif name:
+                category_identifier = "category name"
+                category = session.exec(
+                    select(CategoryModel).where(CategoryModel.name == name)
+                ).first()
+            else:
+                raise ValueError("Either 'category_id' or 'name' must be provided")
+                
             return category
-        else:
-            return None
+        except ValueError as ve:
+            raise ve
+        except Exception as e:
+            raise ValueError(f"Failed to retrieve category: {str(e)}")
 
     @staticmethod
-    def create_category(session: Session, new_category: CategoryModel) -> CategoryModel:
-        cmodel = CategoryModel(**new_category)
-
-        session.add(cmodel)
-        session.commit()
-        session.refresh(cmodel)
-        return cmodel
+    def create_category(session: Session, new_category: Dict[str, Any]) -> CategoryModel:
+        """
+        Create a new category.
+        
+        Args:
+            session: The database session
+            new_category: The category data to create
+            
+        Returns:
+            CategoryModel: The created category
+        """
+        try:
+            cmodel = CategoryModel(**new_category)
+            session.add(cmodel)
+            session.commit()
+            session.refresh(cmodel)
+            return cmodel
+        except Exception as e:
+            session.rollback()
+            raise ValueError(f"Failed to create category: {str(e)}")
 
     @staticmethod
     def remove_category(session: Session, rm_category: CategoryModel) -> CategoryModel:
+        """
+        Remove a category and its associations.
+        
+        Args:
+            session: The database session
+            rm_category: The category to remove
+            
+        Returns:
+            CategoryModel: The removed category
+        """
         # Remove associations between parts and the category
         from MakerMatrix.models.models import PartModel
 
@@ -61,8 +97,16 @@ class CategoryRepository:
 
     @staticmethod
     def delete_all_categories(session: Session) -> dict:
+        """
+        Delete all categories from the system.
+        
+        Args:
+            session: The database session
+            
+        Returns:
+            dict: A dictionary containing the status, message, and deletion count
+        """
         try:
-
             # Count the number of categories before deleting
             categories = session.exec(select(CategoryModel)).all()
             count = len(categories)
@@ -71,57 +115,61 @@ class CategoryRepository:
             session.exec(delete(CategoryModel))
             session.commit()
 
-            # Return a success message with the number of categories removed
-            return {"status": "success",
-                    "message": "All #{count} categories removed successfully",
-                    "data": None}
+            return {
+                "status": "success",
+                "message": f"All {count} categories removed successfully",
+                "data": {"deleted_count": count}
+            }
 
         except Exception as e:
-            # Return an error message if something goes wrong
-            return {"status": "error",
-                    "message": f"Error deleting categories: {str(e)}",
-                    "data": None}
+            raise ValueError(f"Error deleting categories: {str(e)}")
 
     @staticmethod
     def get_all_categories(session: Session) -> dict:
+        """
+        Get all categories from the system.
+        
+        Args:
+            session: The database session
+            
+        Returns:
+            dict: A dictionary containing the status, message, and all categories
+        """
         try:
             categories = session.exec(select(CategoryModel)).all()
-            return {"status": "success",
-                    "message": "All categories retrieved successfully",
-                    "data": categories}
-
+            return {
+                "status": "success",
+                "message": "All categories retrieved successfully",
+                "data": categories
+            }
         except Exception as e:
             raise ValueError(f"Error retrieving categories: {str(e)}")
 
     @staticmethod
-    def update_category(session: Session, category_id: str, category_data: Dict[str, Any]) -> Type[CategoryModel]:
+    def update_category(session: Session, category_id: str, category_data: Dict[str, Any]) -> CategoryModel:
+        """
+        Update a category's fields.
+        
+        Args:
+            session: The database session
+            category_id: The ID of the category to update
+            category_data: The fields to update
+            
+        Returns:
+            CategoryModel: The updated category
+        """
         category = session.get(CategoryModel, category_id)
         if not category:
-            raise ResourceNotFoundError(resource="Category", resource_id=category_id)
+            raise ResourceNotFoundError(
+                status="error",
+                message=f"Category with ID {category_id} not found",
+                data=None
+            )
 
+        # Update fields that are not None
         for key, value in category_data.model_dump().items():
-            if key == "children" and value == None:
-                continue
-            #     elif key == "children" and value:
-            #         # Update children relationships
-            #         children = session.exec(select(CategoryModel).where(CategoryModel.id.in_(value))).all()
-            #         for child in children:
-            #             # Remove the child from any other parent category
-            #             if child.parent_id and child.parent_id != category_id:
-            #                 old_parent = session.get(CategoryModel, child.parent_id)
-            #                 if old_parent:
-            #                     old_parent.children = [c for c in old_parent.children if c.id != child.id]
-            #                     session.add(old_parent)
-            #             # Set the new parent_id for the child
-            #             child.parent_id = category_id
-            #             session.add(child)
-            #         category.children = children
-            else:
-                if value is None:
-                    continue
-                else:
-                    # only update values that are populated
-                    setattr(category, key, value)
+            if value is not None:
+                setattr(category, key, value)
 
         session.add(category)
         session.commit()

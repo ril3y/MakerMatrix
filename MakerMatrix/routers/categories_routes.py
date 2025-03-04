@@ -3,157 +3,187 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from MakerMatrix.models.models import CategoryModel, CategoryUpdate
-from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
-from MakerMatrix.schemas.part_response import CategoryResponse
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, CategoryAlreadyExistsError
+from MakerMatrix.schemas.part_response import CategoryResponse, DeleteCategoriesResponse, CategoriesListResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.category_service import CategoryService
 
 router = APIRouter()
 
 
-@router.get("/get_all_categories/")
-async def get_all_categories():
-    response = CategoryService.get_all_categories()
-    if response:
-        # noinspection PyArgumentList
-        return ResponseSchema(
-
-            status=response["status"],
-            message=response["message"],
-            data=response["data"])
+@router.get("/get_all_categories/", response_model=ResponseSchema[CategoriesListResponse])
+async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
+    """
+    Get all categories in the system.
     
-
-
-@router.post("/add_category/")
-async def add_category(category_data: CategoryModel):
+    Returns:
+        ResponseSchema: A response containing all categories
+    """
     try:
-        response = CategoryService.add_category(category_data)
-        if response:
-            # noinspection PyArgumentList
-            return ResponseSchema(
-
+        response = CategoryService.get_all_categories()
+        print(f"Service response: {response}")  # Debug log
+        return ResponseSchema(
             status=response["status"],
             message=response["message"],
-            data=CategoryResponse.model_validate(response["data"])) 
-        else:    
-            raise ResourceNotFoundError(
-                status="error",
-                message=f"Error: Category with name {category_data.name} not found",
-                data=None)
-                
-    except ResourceNotFoundError as rnfe:
-        raise rnfe
-    
+            data=CategoriesListResponse(**response["data"])
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to add category: {str(e)}")
+        print(f"Error in get_all_categories: {str(e)}")  # Debug log
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryModel])
-async def update_category(category_id: str, category_data: CategoryUpdate) -> ResponseSchema[CategoryModel]:
+@router.post("/add_category/", response_model=ResponseSchema[CategoryResponse])
+async def add_category(category_data: CategoryModel) -> ResponseSchema[CategoryResponse]:
+    """
+    Add a new category to the system.
+    
+    Args:
+        category_data: The category data to add
+        
+    Returns:
+        ResponseSchema: A response containing the created category
+    """
+    try:
+        if not category_data.name:
+            raise HTTPException(status_code=400, detail="Category name is required")
+            
+        response = CategoryService.add_category(category_data)
+        print(f"Service response: {response}")  # Debug log
+        
+        # Ensure we have a data field in the response
+        if "data" not in response:
+            raise HTTPException(status_code=500, detail="Invalid response format from service")
+            
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=CategoryResponse.model_validate(response["data"])
+        )
+    except CategoryAlreadyExistsError as cae:
+        raise HTTPException(status_code=400, detail=str(cae))
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        print(f"Error in add_category: {str(e)}")  # Debug log
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryResponse])
+async def update_category(category_id: str, category_data: CategoryUpdate) -> ResponseSchema[CategoryResponse]:
+    """
+    Update a category's fields.
+    
+    Args:
+        category_id: The ID of the category to update
+        category_data: The fields to update
+        
+    Returns:
+        ResponseSchema: A response containing the updated category
+    """
     try:
         if not category_id:
-         raise ResourceNotFoundError(
-                status="error",
-                message="f{Error: Category with ID {category_data.id} not found",
-                data=None)
-
+            raise HTTPException(status_code=400, detail="Category ID is required")
+            
         response = CategoryService.update_category(category_id, category_data)
-        if response['status'] == 'success':
-            # noinspection PyArgumentList
-            return ResponseSchema(
-
-                status=response["status"],
-                message=response["message"],
-                data=CategoryResponse.model_validate(response["data"]))
-        else:
-            raise HTTPException(status_code=404, detail=response["message"])
-    except ResourceNotFoundError as rnfe:
-        raise rnfe
-
-
-@router.get("/get_category")
-async def get_category(category_id: Optional[str] = None, name: Optional[str] = None):
-    try:
-        # Validate that either category_id or name is provided
-        if not category_id and not name:
-            raise HTTPException(status_code=400, detail="Either 'category_id' or 'name' must be provided")
-
-        # Call the service to get the category
-        response = CategoryService.get_category(category_id=category_id, name=name)
-        if response['status'] == 'success':
-           # noinspection PyArgumentList
-            return ResponseSchema(
-
+        return ResponseSchema(
             status=response["status"],
             message=response["message"],
-            data=CategoryResponse.model_validate(response["data"]))
-        
-        else:
-            raise HTTPException(status_code=404, detail="Category not found")
+            data=CategoryResponse.model_validate(response["data"])
+        )
+    except ResourceNotFoundError as rnfe:
+        raise HTTPException(status_code=404, detail=str(rnfe))
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/remove_category")
-async def remove_category(id: Optional[str] = None, name: Optional[str] = None)  -> ResponseSchema[CategoryResponse]:
-    # Validate that at least one parameter is provided
-    if not id and not name:
-        raise HTTPException(status_code=400, detail="Either category ID or name must be provided")
-
-    # Call the service based on the provided parameter
-    try:
-        response = CategoryService.remove_category(id=id, name=name)
-        if response["status"] == "removed":
-            # noinspection PyArgumentList
-            return ResponseSchema(
-
-                status=response["status"],
-                message=response["message"],
-                data=CategoryResponse.model_validate(response["data"])
-            )
-        else:
-            raise HTTPException(status_code=404, detail=f"Category with {id} not found")
+@router.get("/get_category", response_model=ResponseSchema[CategoryResponse])
+async def get_category(category_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[CategoryResponse]:
+    """
+    Get a category by ID or name.
     
+    Args:
+        category_id: Optional ID of the category to retrieve
+        name: Optional name of the category to retrieve
+        
+    Returns:
+        ResponseSchema: A response containing the requested category
+    """
+    try:
+        if not category_id and not name:
+            raise HTTPException(status_code=400, detail="Either 'category_id' or 'name' must be provided")
+            
+        response = CategoryService.get_category(category_id=category_id, name=name)
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=CategoryResponse.model_validate(response["data"])
+        )
+    except ResourceNotFoundError as rnfe:
+        raise HTTPException(status_code=404, detail=str(rnfe))
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/remove_category", response_model=ResponseSchema[CategoryResponse])
+async def remove_category(id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[CategoryResponse]:
+    """
+    Remove a category by ID or name.
+    
+    Args:
+        id: Optional ID of the category to remove
+        name: Optional name of the category to remove
+        
+    Returns:
+        ResponseSchema: A response containing the removed category
+    """
+    try:
+        if not id and not name:
+            return ResponseSchema(
+                status="error",
+                message="Either category ID or name must be provided",
+                data=None
+            )
+            
+        response = CategoryService.remove_category(id=id, name=name)
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=CategoryResponse.model_validate(response["data"])
+        )
     except ResourceNotFoundError as rnfe:
         raise rnfe
+    except ValueError as ve:
+        return ResponseSchema(
+            status="error",
+            message=str(ve),
+            data=None
+        )
+    except Exception as e:
+        return ResponseSchema(
+            status="error",
+            message=str(e),
+            data=None
+        )
+
+
+@router.delete("/delete_all_categories", response_model=ResponseSchema[DeleteCategoriesResponse])
+async def delete_all_categories() -> ResponseSchema[DeleteCategoriesResponse]:
+    """
+    Delete all categories from the system.
     
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# @router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryResponse])
-# async def update_category(category_id: str, category_data: CategoryModel) -> ResponseSchema[CategoryResponse]:
-#     try:
-#         updated_category = CategoryService.update_category(category_id, category_data)
-#         # noinspection PyArgumentList
-            #return ResponseSchema(
-
-#             status="success",
-#             message=f"Category with ID '{category_id}' updated successfully",
-#             data=CategoryResponse.model_validate(updated_category.model_dump())
-#         )
-#     except ResourceNotFoundError as rnfe:
-#         raise HTTPException(status_code=404, detail=str(rnfe))
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to update category: {str(e)}")
-
-
-@router.delete("/delete_all_categories")
-async def delete_all_categories() -> ResponseSchema[CategoryResponse]:
-
+    Returns:
+        ResponseSchema: A response containing the deletion status
+    """
     try:
         response = CategoryService.delete_all_categories()
-        if response["status"] == "success":
-            # noinspection PyArgumentList
-            return ResponseSchema(
-
-                status=response["status"],
-                message=response["message"],
-                data=CategoryResponse.model_validate(response["data"])
-            )
-    
-    except ResourceNotFoundError as rnfe:
-        raise rnfe
-    
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=DeleteCategoriesResponse(deleted_count=response["data"]["deleted_count"])
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

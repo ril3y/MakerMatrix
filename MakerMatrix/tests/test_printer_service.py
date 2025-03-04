@@ -43,7 +43,17 @@ def setup_database():
 @pytest.fixture
 def printer_service() -> PrinterService:
     """Construct a PrinterService that uses the same repository fixture."""
-    repo = PrinterRepository(config_path="printer_config.json")
+    # Create a test configuration in memory
+    test_config = {
+        "backend": "network",
+        "driver": "brother_ql",
+        "printer_identifier": "tcp://192.168.1.71",
+        "dpi": 300,
+        "model": "QL-800",
+        "scaling_factor": 1.1,
+        "additional_settings": {}
+    }
+    repo = PrinterRepository(config_data=test_config)
     return PrinterService(repo)
 
 
@@ -84,11 +94,7 @@ async def test_print_qr_code_with_name(printer_service, setup_part_update_part):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_print_part_name(printer_service, setup_part_update_part):
-    # Load and configure printer
-    printer_service.load_printer_config()
     tmp_part = setup_part_update_part["data"]
-
-    # Convert JSON dictionary to PartModel instance
     new_part = PartModel.from_json(tmp_part)
 
     pconf = PrintSettings()
@@ -100,12 +106,8 @@ async def test_print_part_name(printer_service, setup_part_update_part):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_print_text_label(printer_service):
-    # Load and configure printer
-    printer_service.load_printer_config()
-
     pconf = PrintSettings()
     pconf.copies = 1
-    #pconf.label_len = 2 * 25.4
     # Test the new part name print function
     result = await printer_service.print_text_label(text="Fire Sauce", print_settings=pconf)
     assert result

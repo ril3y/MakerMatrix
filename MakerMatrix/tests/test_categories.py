@@ -28,6 +28,21 @@ def setup_database():
     SQLModel.metadata.drop_all(engine)
 
 
+def test_add_category():
+    """Test adding a new category via the API."""
+    category_data = {"name": "Test Category", "description": "This is a test category"}
+    response = client.post("/categories/add_category/", json=category_data)
+    print(f"Response body: {response.json()}")  # Debug log
+    assert response.status_code == 200
+    
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert "Category with name 'Test Category' created successfully" in response_json["message"]
+    assert response_json["data"]["name"] == "Test Category"
+    assert response_json["data"]["description"] == "This is a test category"
+    assert "id" in response_json["data"]
+
+
 def test_remove_category():
     category_data = {"name": "Test Category", "description": "This is a test category"}
     response = client.post("/categories/add_category/", json=category_data)
@@ -82,7 +97,7 @@ def test_delete_all_categories():
     get_response = client.get("/categories/get_all_categories")
     assert get_response.status_code == 200
     assert "All categories retrieved successfully" in get_response.json()["message"]
-    assert len(get_response.json()['data']) == 0
+    assert len(get_response.json()['data']['categories']) == 0
 
 
 @pytest.fixture
@@ -202,3 +217,35 @@ def test_get_category_by_name(setup_categories_for_get_categories):
     assert data["status"] == "success"
     assert data["data"]["name"] == category_name
     assert data["data"]["description"] == "Gears, screws, and other mechanical components"
+
+
+def test_get_all_categories():
+    # First test with no categories
+    response = client.get("/categories/get_all_categories/")
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert response_json["message"] == "All categories retrieved successfully"
+    assert response_json["data"]["categories"] == []
+
+    # Add some categories
+    categories = [
+        {"name": "Test Category 1", "description": "First test category"},
+        {"name": "Test Category 2", "description": "Second test category"}
+    ]
+    
+    for category in categories:
+        client.post("/categories/add_category/", json=category)
+
+    # Test with categories
+    response = client.get("/categories/get_all_categories/")
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert response_json["message"] == "All categories retrieved successfully"
+    assert len(response_json["data"]["categories"]) == 2
+    
+    # Verify category data
+    category_names = {cat["name"] for cat in response_json["data"]["categories"]}
+    assert "Test Category 1" in category_names
+    assert "Test Category 2" in category_names

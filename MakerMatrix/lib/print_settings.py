@@ -1,3 +1,5 @@
+import os
+
 class PrintSettings:
     def __init__(
         self,
@@ -13,7 +15,8 @@ class PrintSettings:
     ):
         self.margin = margin
         self.font_size = font_size
-        self.font = font
+        # Use absolute path for font file
+        self.font = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts", font)
         self.text_color = text_color
         self.label_len = label_len
         self.label_size = label_size

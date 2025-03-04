@@ -26,7 +26,7 @@ class CategoryModel(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str = Field(index=True, unique=True)
     description: Optional[str] = None
-    parts: List["PartModel"] = Relationship(back_populates="categories", link_model=PartCategoryLink)
+    parts: List["PartModel"] = Relationship(back_populates="categories", link_model=PartCategoryLink, sa_relationship_kwargs={"lazy": "selectin"})
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

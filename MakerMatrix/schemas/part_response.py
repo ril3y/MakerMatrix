@@ -1,14 +1,19 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class CategoryResponse(BaseModel):
     id: Optional[str]
-    name: Optional[str]
+    name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CategoriesListResponse(BaseModel):
+    categories: List[CategoryResponse]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PartResponse(BaseModel):
@@ -23,13 +28,20 @@ class PartResponse(BaseModel):
     additional_properties: Optional[dict] = {}
     categories: Optional[List[CategoryResponse]] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @classmethod
     def from_orm_with_categories(cls, orm_obj):
-        part_dict = orm_obj.dict()
+        # Convert the ORM model to a dictionary
+        part_dict = orm_obj.model_dump()
         part_dict["categories"] = [
-            CategoryResponse.from_orm(category) for category in orm_obj.categories
+            {"id": cat.id, "name": cat.name, "description": cat.description}
+            for cat in orm_obj.categories
         ]
         return cls(**part_dict)
+
+
+class DeleteCategoriesResponse(BaseModel):
+    deleted_count: int
+
+    model_config = ConfigDict(from_attributes=True)

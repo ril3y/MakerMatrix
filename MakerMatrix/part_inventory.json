@@ -1,0 +1,1 @@
+{"locations": {"1": {"id": "2333322", "name": "Office", "description": null, "parent_id": null}, "2": {"id": "2333323", "name": "Warehouse", "description": null, "parent_id": null}, "3": {"id": "2333324", "name": "Desk", "description": null, "parent_id": "2333322"}, "4": {"id": "2333325", "name": "Top Drawer", "description": null, "parent_id": "2333324"}}}
