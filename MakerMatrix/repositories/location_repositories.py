@@ -317,3 +317,46 @@ class LocationRepository:
                 "message": f"Error updating location: {str(e)}",
                 "data": None
             }
+
+    @staticmethod
+    def preview_delete(session: Session, location_id: str) -> dict:
+        """
+        Preview what will be affected when deleting a location.
+        
+        Args:
+            session: The database session
+            location_id: The ID of the location to preview deletion for
+            
+        Returns:
+            dict: A dictionary containing the preview information in the standard response format
+        """
+        try:
+            # Get all affected locations (including children)
+            hierarchy = LocationRepository.get_location_hierarchy(session, location_id)
+            affected_location_ids = hierarchy["affected_location_ids"]
+            
+            # Get all affected parts
+            affected_parts = LocationRepository.get_affected_part_ids(session, affected_location_ids)
+            
+            return {
+                "status": "success",
+                "message": "Delete preview generated successfully",
+                "data": {
+                    "affected_parts_count": len(affected_parts),
+                    "affected_locations_count": len(affected_location_ids),
+                    "location_hierarchy": hierarchy["hierarchy"]
+                }
+            }
+            
+        except ResourceNotFoundError as e:
+            return {
+                "status": "error",
+                "message": str(e),
+                "data": None
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error generating delete preview: {str(e)}",
+                "data": None
+            }

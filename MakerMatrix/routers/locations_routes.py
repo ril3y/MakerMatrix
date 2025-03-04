@@ -179,6 +179,24 @@ async def edit_location(location_id: str, name: Optional[str] = None,
         return JSONResponse(content=response, status_code=404)
 
 
+@router.get("/preview-delete/{location_id}")
+async def preview_delete(location_id: str):
+    """
+    Preview what will be affected when deleting a location.
+    
+    Args:
+        location_id: The ID of the location to preview deletion for
+        
+    Returns:
+        JSONResponse: A JSON response containing the preview information.
+    """
+    response = LocationService.preview_delete(location_id)
+    if response["status"] == "success":
+        return JSONResponse(content=response, status_code=200)
+    else:
+        return JSONResponse(content=response, status_code=404)
+
+
 # @router.get("/all_locations/")
 # async def get_all_locations():
 #     locations = LocationService.get_all_locations()
