@@ -1,2 +1,0 @@
-# MakerMatrix
-Maker Inventory Tracker
