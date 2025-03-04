@@ -150,26 +150,17 @@ class PartModel(SQLModel, table=True):
     def to_dict(self) -> Dict[str, Any]:
         """ Custom serialization method for PartModel """
         base_dict = self.model_dump(exclude={"location"})
-        # Convert the related categories to a list of dictionaries
-        if "categories" in base_dict and base_dict["categories"]:
-            base_dict["categories"] = [
-                {"id": category.id, "name": category.name, "description": category.description}
-                for category in base_dict["categories"]
-            ]
+        # Always include categories, even if empty
+        base_dict["categories"] = [
+            {"id": category.id, "name": category.name, "description": category.description}
+            for category in self.categories
+        ] if self.categories else []
         return base_dict
 
     @model_validator(mode='before')
     @classmethod
     def check_unique_part_name(cls, values):
-        from MakerMatrix.services.part_service import PartService
-        part_name = values.get("part_name")
-        part_id = values.get("id")  # Assuming this is the ID field in PartModel
-
-        if part_name:
-            # Check if there is any part with the same name, excluding the current part by ID
-            if not PartService.is_part_name_unique(part_name, part_id):
-                raise ValueError(f"The part name '{part_name}' already exists.")
-
+        # Remove the circular import and validation since it's handled in the service layer
         return values
 
 

@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from MakerMatrix.models.models import CategoryModel, CategoryUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, CategoryAlreadyExistsError
@@ -140,14 +141,13 @@ async def remove_category(id: Optional[str] = None, name: Optional[str] = None) 
     Returns:
         ResponseSchema: A response containing the removed category
     """
-    try:
-        if not id and not name:
-            return ResponseSchema(
-                status="error",
-                message="Either category ID or name must be provided",
-                data=None
-            )
+    if not id and not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Either category ID or name must be provided"
+        )
             
+    try:
         response = CategoryService.remove_category(id=id, name=name)
         return ResponseSchema(
             status=response["status"],
@@ -155,19 +155,18 @@ async def remove_category(id: Optional[str] = None, name: Optional[str] = None) 
             data=CategoryResponse.model_validate(response["data"])
         )
     except ResourceNotFoundError as rnfe:
-        raise rnfe
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "message": str(rnfe),
+                "data": None
+            }
+        )
     except ValueError as ve:
-        return ResponseSchema(
-            status="error",
-            message=str(ve),
-            data=None
-        )
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        return ResponseSchema(
-            status="error",
-            message=str(e),
-            data=None
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/delete_all_categories", response_model=ResponseSchema[DeleteCategoriesResponse])

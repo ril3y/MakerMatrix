@@ -31,7 +31,11 @@ class CategoryService:
             existing_category = CategoryRepository.get_category(session, name=category_data.name)
             
             if existing_category:
-                raise CategoryAlreadyExistsError(f"Category with name '{category_data.name}' already exists")
+                return {
+                    "status": "success",
+                    "message": f"Category with name '{category_data.name}' already exists",
+                    "data": existing_category.model_dump()
+                }
             
             new_category = CategoryRepository.create_category(session, category_data.model_dump())
             if not new_category:
@@ -40,11 +44,9 @@ class CategoryService:
             return {
                 "status": "success",
                 "message": f"Category with name '{category_data.name}' created successfully",
-                "data": new_category.to_dict()
+                "data": new_category.model_dump()
             }
                 
-        except CategoryAlreadyExistsError as cae:
-            raise cae
         except ValueError as ve:
             raise ve
         except Exception as e:

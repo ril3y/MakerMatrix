@@ -13,12 +13,10 @@ def register_exception_handlers(app):
     @app.exception_handler(PartAlreadyExistsError)
     async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsError):
         return JSONResponse(
-            status_code=409,
-            content=ResponseSchema(
-                status="conflict",
-                message=str(exc),
-                data=exc.part_data
-            ).model_dump()
+            status_code=HTTP_409_CONFLICT,
+            content={
+                "detail": exc.message
+            }
         )
 
     @app.exception_handler(RequestValidationError)

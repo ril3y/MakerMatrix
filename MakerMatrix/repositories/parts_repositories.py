@@ -111,7 +111,12 @@ class PartRepository:
     @staticmethod
     def get_part_by_part_number(session: Session, part_number: str) -> Optional[PartModel]:
         part = session.exec(
-            select(PartModel).where(PartModel.part_number == part_number)
+            select(PartModel)
+            .options(
+                joinedload(PartModel.categories),
+                joinedload(PartModel.location)
+            )
+            .where(PartModel.part_number == part_number)
         ).first()
         if part:
             return part
@@ -177,23 +182,32 @@ class PartRepository:
 
     @staticmethod
     def add_part(session: Session, part_data: PartModel) -> PartModel:
-        # Ensure categories are unique
-        unique_categories = []
-        for category in part_data.categories:
-            existing_category = session.exec(select(CategoryModel).where(CategoryModel.name == category.name)).first()
-            if existing_category:
-                unique_categories.append(existing_category)
-            else:
-                session.add(category)
-                session.commit()
-                session.refresh(category)
-                unique_categories.append(category)
-
-        part_data.categories = unique_categories
-        session.add(part_data)
-        session.commit()
-        session.refresh(part_data)
-        return part_data
+        """
+        Add a new part to the database. Categories are expected to be already created
+        and associated with the part.
+        
+        Args:
+            session: The database session
+            part_data: The PartModel instance to add with categories already set
+            
+        Returns:
+            PartModel: The created part with all relationships loaded
+        """
+        try:
+            # Add the part to the session
+            session.add(part_data)
+            
+            # Commit the transaction
+            session.commit()
+            
+            # Refresh the part with relationships loaded
+            session.refresh(part_data, ['categories', 'location'])
+            
+            return part_data
+            
+        except Exception as e:
+            session.rollback()
+            raise ValueError(f"Failed to add part: {str(e)}")
 
     def is_part_name_unique(self, name: str, exclude_id: Optional[str] = None) -> bool:
         with Session(self.engine) as session:
@@ -240,22 +254,27 @@ class PartRepository:
             joinedload(PartModel.location)
         )
 
+        # Start with a base count query
+        count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel)
+
         # Apply search term filter
         if search_params.search_term:
             search_term = f"%{search_params.search_term}%"
-            query = query.where(
-                or_(
-                    PartModel.part_name.ilike(search_term),
-                    PartModel.part_number.ilike(search_term),
-                    PartModel.description.ilike(search_term)
-                )
+            search_filter = or_(
+                PartModel.part_name.ilike(search_term),
+                PartModel.part_number.ilike(search_term),
+                PartModel.description.ilike(search_term)
             )
+            query = query.where(search_filter)
+            count_query = count_query.where(search_filter)
 
         # Apply quantity range filter
         if search_params.min_quantity is not None:
             query = query.where(PartModel.quantity >= search_params.min_quantity)
+            count_query = count_query.where(PartModel.quantity >= search_params.min_quantity)
         if search_params.max_quantity is not None:
             query = query.where(PartModel.quantity <= search_params.max_quantity)
+            count_query = count_query.where(PartModel.quantity <= search_params.max_quantity)
 
         # Apply category filter
         if search_params.category_names:
@@ -263,14 +282,17 @@ class PartRepository:
                 category.id for category in handle_categories(session, search_params.category_names)
             ]
             query = query.join(PartModel.categories).where(CategoryModel.id.in_(category_ids))
+            count_query = count_query.join(PartModel.categories).where(CategoryModel.id.in_(category_ids))
 
         # Apply location filter
         if search_params.location_id:
             query = query.where(PartModel.location_id == search_params.location_id)
+            count_query = count_query.where(PartModel.location_id == search_params.location_id)
 
         # Apply supplier filter
         if search_params.supplier:
             query = query.where(PartModel.supplier == search_params.supplier)
+            count_query = count_query.where(PartModel.supplier == search_params.supplier)
 
         # Apply sorting
         if search_params.sort_by:
@@ -283,20 +305,8 @@ class PartRepository:
         offset = (search_params.page - 1) * search_params.page_size
         query = query.offset(offset).limit(search_params.page_size)
 
-        # Execute the query
+        # Execute the queries
         results = session.exec(query).unique().all()
-
-        # Get total count for pagination
-        count_query = select(func.count()).select_from(PartModel)
-        if search_params.search_term:
-            search_term = f"%{search_params.search_term}%"
-            count_query = count_query.where(
-                or_(
-                    PartModel.part_name.ilike(search_term),
-                    PartModel.part_number.ilike(search_term),
-                    PartModel.description.ilike(search_term)
-                )
-            )
         total_count = session.exec(count_query).one()
 
         return results, total_count

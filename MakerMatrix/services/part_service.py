@@ -2,12 +2,13 @@ import logging
 from http.client import HTTPException
 from typing import List, Optional, Any, Dict, Coroutine
 
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlmodel import Session
 from typing import Optional, TYPE_CHECKING
 
 from MakerMatrix.models.models import CategoryModel, LocationQueryModel, AdvancedPartSearch
-from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, PartAlreadyExistsError
 from MakerMatrix.repositories.parts_repositories import PartRepository, handle_categories
 from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
 from MakerMatrix.models.models import engine  # Import the engine from db.py
@@ -159,22 +160,25 @@ class PartService:
     #####
 
     @staticmethod
-    def add_part(part_data: Dict[str, Any], category_names: List[str]) -> Dict[str, Any]:
+    def add_part(part_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Add a new part to the database after ensuring that if a location is provided,
-        it exists. For each category name provided, attempt to retrieve it using the
-        CategoryService, and create it if not found.
+        it exists. Categories are created/retrieved before creating the part.
         """
         session = next(get_session())
         try:
+            # Validate required fields
+            if not part_data.get("part_name"):
+                raise ValueError("Part name is required")
+
             # Check if the part already exists by its name
             part_exists = PartRepository.get_part_by_name(session, part_data["part_name"])
             if part_exists:
-                return {
-                    "status": "part exists",
-                    "message": "Part already exists",
-                    "data": part_exists.to_dict()
-                }
+                raise PartAlreadyExistsError(
+                    status="error",
+                    message=f"Part with name '{part_data['part_name']}' already exists",
+                    data=part_exists.model_dump()
+                )
 
             # Verify that the location exists, but only if a location_id is provided
             if part_data.get("location_id"):
@@ -186,50 +190,46 @@ class PartService:
                         data=None
                     )
 
-            # Create a new PartModel instance using the provided data
-            new_part = PartModel(**part_data)
+            try:
+                # Handle categories first
+                category_names = part_data.pop("category_names", [])
+                categories = []
+                
+                if category_names:
+                    for name in category_names:
+                        # Try to get existing category
+                        category = session.exec(
+                            select(CategoryModel).where(CategoryModel.name == name)
+                        ).first()
+                        
+                        if not category:
+                            # Create new category if it doesn't exist
+                            category = CategoryModel(name=name)
+                            session.add(category)
+                            session.flush()  # Flush to get the ID but don't commit yet
+                        
+                        categories.append(category)
 
-            # Handle categories: For each provided category name, try to get it via CategoryService.
-            # If not found, create the category.
-            new_categories = []
-            if category_names:
-                for cat_name in category_names:
-                    try:
-                        cat_response = CategoryService.get_category(name=cat_name)
-                        category_dict = cat_response["data"]
-                        category = CategoryModel(**category_dict)
-                    except Exception:
-                        # If the category doesn't exist, create it.
-                        new_category_model = CategoryModel(name=cat_name)
-                        cat_response = CategoryService.add_category(new_category_model)
-                        if isinstance(cat_response, dict):
-                            category_dict = cat_response["data"]
-                        else:
-                            category_dict = cat_response.model_dump()
-                        category = CategoryModel(**category_dict)
-                    new_categories.append(category)
+                # Create the part with the prepared categories
+                new_part = PartModel(**part_data)
+                new_part.categories = categories
 
-                # Associate the retrieved/created categories with the new part.
-                new_part.categories.extend(new_categories)
-
-            # Add the new part via the repository layer.
-            part_obj = PartRepository.add_part(session, new_part)
-            return {
-                "status": "added",
-                "message": "Part added successfully",
-                "data": part_obj.to_dict()
-            }
-
-        except ResourceNotFoundError as rnfe:
-            raise ResourceNotFoundError(
-                status="error",
-                message=f"Failed to add part: {rnfe.message}",
-                data=None
-            )
+                # Add the part via repository
+                part_obj = PartRepository.add_part(session, new_part)
+                return {
+                    "status": "success",
+                    "message": "Part added successfully",
+                    "data": part_obj.to_dict()
+                }
+            except Exception as e:
+                logger.error(f"Failed to create part: {e}")
+                raise ValueError(f"Failed to create part: {e}")
 
         except Exception as e:
             session.rollback()
-            raise ValueError(f"Failed to add part {part_data}: {str(e)}")
+            raise e
+        finally:
+            session.close()
 
     @staticmethod
     def is_part_name_unique(part_name: str) -> bool:

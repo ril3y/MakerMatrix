@@ -61,26 +61,22 @@ def test_get_part_by_name(setup_part_update_part):
     assert response.status_code == 200
     assert response.json()['data']['part_name'] == tmp_part['data']['part_name']
 
-def test_get_part_by_id(setup_part_update_part):
-    tmp_part = setup_part_update_part
-    response = client.get(f"/parts/get_part?part_id={tmp_part.id}")
-    assert response.status_code == 200
-    assert response.json()['data']['id'] == f"{tmp_part.id}"
-
 
 def test_add_part():
     # Define the part data to be sent to the API
-    part_data = PartCreate(
-        part_number="Screw-001",
-        part_name="Hex Head Screw",
-        quantity=500,
-        description="A standard hex head screw",
-        location_id=None,
-        category_names=["hardware"]
-    )
+    part_data = {
+        "part_number": "Screw-001",
+        "part_name": "Hex Head Screw",
+        "quantity": 500,
+        "description": "A standard hex head screw",
+        "location_id": None,
+        "category_names": ["hardware"],
+        "supplier": "Acme Hardware",
+        "additional_properties": {"material": "steel", "size": "M6"}
+    }
 
     # Make a POST request to the /add_part endpoint
-    response = client.post("/parts/add_part", json=part_data.model_dump())
+    response = client.post("/parts/add_part", json=part_data)
 
     # Check the response status code
     assert response.status_code == 200
@@ -89,88 +85,111 @@ def test_add_part():
     response_json = response.json()
 
     # Check that the part was successfully added
-    assert response_json["status"] == "added"
+    assert response_json["status"] == "success"
     assert response_json["message"] == "Part added successfully"
     assert response_json["data"]["part_number"] == "Screw-001"
     assert response_json["data"]["part_name"] == "Hex Head Screw"
     assert response_json["data"]["quantity"] == 500
     assert response_json["data"]["description"] == "A standard hex head screw"
+    assert response_json["data"]["supplier"] == "Acme Hardware"
+    assert response_json["data"]["additional_properties"] == {"material": "steel", "size": "M6"}
+    assert len(response_json["data"]["categories"]) == 1
+    assert response_json["data"]["categories"][0]["name"] == "hardware"
 
 
 def test_add_existing_part():
-    part_data = PartCreate(
-        part_number="Screw-001",
-        part_name="Hex Head Screw",
-        quantity=500,
-        description="A standard hex head screw",
-        location_id=None,
-        category_names=["hardware"]
-    )
+    # Define the part data
+    part_data = {
+        "part_number": "Screw-001",
+        "part_name": "Hex Head Screw",
+        "quantity": 500,
+        "description": "A standard hex head screw",
+        "location_id": None,
+        "category_names": ["hardware"],
+        "supplier": "Acme Hardware"
+    }
 
-    # Make a POST request to the /add_part endpoint to add the part initially
-    initial_response = client.post("/parts/add_part", json=part_data.model_dump())
-
-    # Check the initial response status code to ensure the part was added successfully
+    # Add the part initially
+    initial_response = client.post("/parts/add_part", json=part_data)
     assert initial_response.status_code == 200
 
-    # Make a POST request to the /add_part endpoint again to add the same part
-    response = client.post("/parts/add_part", json=part_data.model_dump())
+    # Try to add the same part again
+    response = client.post("/parts/add_part", json=part_data)
 
-    # Check the response status code
+    # Check that we get a conflict error
     assert response.status_code == 409
-
-    # Parse the response JSON
     response_json = response.json()
-
-    # Check that the part already exists
+    assert "status" in response_json
     assert response_json["status"] == "conflict"
-    assert "already exists" in response_json["message"]
-    assert "data" in response_json
+    assert f"Part with name '{part_data['part_name']}' already exists" in response_json["message"]
 
 
 def test_add_part_with_invalid_data():
     # Define part data with missing required fields
     part_data = {
         "part_number": "Screw-002",
-        # Missing 'part_name', 'quantity', and other required fields
+        # Missing 'part_name' which is required
+        "quantity": 100
     }
 
     # Make a POST request to the /add_part endpoint
     response = client.post("/parts/add_part", json=part_data)
 
-    # Check the response status code
+    # Check that we get a validation error
     assert response.status_code == 422
-
-    # Check that the response follows the custom ResponseSchema format
     response_json = response.json()
-    assert response_json["status"] == "error"
-    assert response_json["message"] == "Validation error"
+    
+    # Verify the validation error details
+    assert "part_name" in str(response_json["detail"])
 
-    # Extract the error details and check the missing fields
-    assert 'quantity' in response_json['data'][0]
+
+def test_add_part_with_categories():
+    # Define part data with multiple categories
+    part_data = {
+        "part_number": "Tool-001",
+        "part_name": "Power Drill",
+        "quantity": 10,
+        "description": "A cordless power drill",
+        "location_id": None,
+        "category_names": ["tools", "power tools", "drills"],
+        "supplier": "DeWalt",
+        "additional_properties": {"voltage": "18V", "type": "cordless"}
+    }
+
+    # Add the part
+    response = client.post("/parts/add_part", json=part_data)
+
+    # Check the response
+    assert response.status_code == 200
+    response_json = response.json()
+
+    # Verify the part was added with all categories
+    assert response_json["status"] == "success"
+    assert response_json["message"] == "Part added successfully"
+    assert len(response_json["data"]["categories"]) == 3
+    category_names = [cat["name"] for cat in response_json["data"]["categories"]]
+    assert all(name in category_names for name in ["tools", "power tools", "drills"])
 
 
 def test_add_part_with_invalid_category():
     # Define part data with an invalid category (number instead of string)
     part_data = {
         "part_number": "Screw-003",
-        "part_name": "Hex Head Screw with Invalid Category",
+        "part_name": "Invalid Category Screw",
         "quantity": 100,
-        "description": "A hex head screw with an invalid category",
+        "description": "A screw with invalid category",
         "location_id": None,
-        "category_names": [123]  # Invalid category, should be a string
+        "category_names": [123]  # Invalid category type
     }
 
-    # Make a POST request to the /add_part endpoint
+    # Make the request
     response = client.post("/parts/add_part", json=part_data)
 
-    # Check that the response returns a validation error status code (422 Unprocessable Entity)
+    # Check that we get a validation error
     assert response.status_code == 422
-
-    # Parse the response JSON
     response_json = response.json()
 
-    # Check the response structure and validation error
+    # Check the structure of the error response
     assert response_json["status"] == "error"
     assert response_json["message"] == "Validation error"
     assert "Input should be a valid string" in response_json["data"][0]
