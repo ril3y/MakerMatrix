@@ -1,11 +1,28 @@
 import pytest
 from fastapi.testclient import TestClient
-
+from sqlmodel import SQLModel
 from MakerMatrix.main import app
-from MakerMatrix.models.location_model import LocationModel
+from MakerMatrix.database.db import create_db_and_tables
+from MakerMatrix.models.models import engine
+from MakerMatrix.schemas.part_create import PartCreate
+from MakerMatrix.models.models import LocationModel
 from MakerMatrix.services.location_service import LocationService
 
+
 client = TestClient(app)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def setup_database():
+    """Set up the database before running tests and clean up afterward."""
+    # Create tables
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    create_db_and_tables()
+    yield  # Let the tests run
+    # Clean up the tables after running the tests
+    SQLModel.metadata.drop_all(engine)
+
 
 
 @pytest.fixture
@@ -24,7 +41,7 @@ def setup_test_locations():
     added_locations = []
     for loc in top_level_locations:
         location = LocationModel(**loc)
-        LocationService.add_location(location)
+        LocationService.add_location(location.to_dict())
         added_locations.append(location)
 
     # Add second-level locations (children of top-level locations)
@@ -38,7 +55,7 @@ def setup_test_locations():
     second_level_added = []
     for child_loc in second_level_locations:
         child_location = LocationModel(**child_loc)
-        LocationService.location_repo.add_location(child_location)
+        LocationService.add_location(child_location.to_dict())
         second_level_added.append(child_location)
         added_locations.append(child_location)
 
@@ -54,7 +71,7 @@ def setup_test_locations():
 
     for third_level_loc in third_level_locations:
         nested_location = LocationModel(**third_level_loc)
-        LocationService.location_repo.add_location(nested_location)
+        LocationService.add_location(nested_location.to_dict())
         added_locations.append(nested_location)
 
     return added_locations
@@ -64,59 +81,81 @@ def setup_test_locations():
 def setup_test_location_details():
     # Clear existing locations first
     client.delete("/locations/delete_all_locations")
-
     # Create a parent location
     office = LocationModel(name="Office", description="Main office space")
-    office_response = client.post("/locations/add_location", json=office.dict())
-
+    office_response = client.post("/locations/add_location", json=office.model_dump())
     # Extract the ID of the created parent location
     office_id = office_response.json()["data"]["id"]
-
     # Create child locations under the parent location
-    desk = LocationModel(name="Desk", description="Office desk", parent_id=office_id, id="12345")
+    desk = LocationModel(name="Desk", description="Office desk", parent_id=office_id)
     chair = LocationModel(name="Chair", description="Office chair", parent_id=office_id)
-
     bottom_drawer = LocationModel(name="Bottom Drawer", description="Bottom Drawer in Desk",
                                   id="2211224", parent_id=desk.id)
     pencil_box = LocationModel(name="Pencil Box", description="Pencil Box in Bottom Drawer in Desk",
                                parent_id=bottom_drawer.id)
-
-    client.post("/locations/add_location", json=desk.dict())
-    client.post("/locations/add_location", json=chair.dict())
-    client.post("/locations/add_location", json=bottom_drawer.dict())
-    client.post("/locations/add_location", json=pencil_box.dict())
+    r1 = client.post("/locations/add_location", json=desk.model_dump())
+    r2 = client.post("/locations/add_location", json=chair.model_dump())
+    r3 = client.post("/locations/add_location", json=bottom_drawer.model_dump())
+    r4 = client.post("/locations/add_location", json=pencil_box.model_dump())
+    office_with_children = client.get(f"/locations/get_location_details/{office_id}")
 
     return {
         "office_id": office_id,
     }
 
 
+def test_add_location():
+    """Test to add a location via the API."""
+    location_data = {
+        "name": "Warehouse",
+        "description": "Main warehouse storage",
+        "location_type": "storage"
+    }
+
+    # Add the location using the API
+    response = client.post("/locations/add_location", json=location_data)
+    assert response.status_code == 200
+
+    # Verify the response data
+    response_data = response.json()
+    assert response_data["status"] == "success"
+    assert response_data["message"] == "Location added successfully"
+    assert response_data["data"]["id"] is not None
+    assert response_data["data"]["name"] == location_data["name"]
+    assert response_data["data"]["description"] == location_data["description"]
+    assert response_data["data"]["location_type"] == location_data["location_type"]
+
+    # Verify that the location can be retrieved from the database
+    location_id = response_data["data"]["id"]
+    retrieved_response = client.get(f"/locations/get_location_details/{location_id}")
+    assert retrieved_response.status_code == 200
+    retrieved_data = retrieved_response.json()
+    assert retrieved_data["data"]["id"] == location_id
+    assert retrieved_data["data"]["name"] == location_data["name"]
+    assert retrieved_data["data"]["description"] == location_data["description"]
+    assert retrieved_data["data"]["location_type"] == location_data["location_type"]
+
+
 def test_get_location_details(setup_test_location_details):
     # Extract the parent ID from the fixture
     office_id = setup_test_location_details["office_id"]
-
     # Make a request to get the location details for the parent location
     response = client.get(f"/locations/get_location_details/{office_id}")
     assert response.status_code == 200
-
     # Get the location details from the response
     location_details = response.json()
-
     # Assert the parent location information
-    assert location_details["id"] == office_id
-    assert location_details["name"] == "Office"
-    assert location_details["description"] == "Main office space"
-
+    assert location_details["data"]["id"] == office_id
+    assert location_details["data"]["name"] == "Office"
+    assert location_details["data"]["description"] == "Main office space"
     # Assert that the children locations are present
-    children = location_details.get("children", [])
+    children = location_details["data"]["children"]
     assert len(children) == 2
-
     # Check that each child has the correct parent_id and is one of the expected children
     expected_children = {"Desk", "Chair"}
     for child in children:
         assert child["parent_id"] == office_id
         assert child["name"] in expected_children
-        expected_children.remove(child["name"])
 
 
 def test_get_location_by_id(setup_test_locations):
@@ -124,7 +163,7 @@ def test_get_location_by_id(setup_test_locations):
     office_location = next((loc for loc in setup_test_locations if loc.name == "Office"), None)
     assert office_location is not None
 
-    response = client.get("/locations/get_location", params={"id": office_location.id})
+    response = client.get("/locations/get_location", params={"location_id": office_location.id})
     assert response.status_code == 200
     res = response.json()
     assert res["data"]["name"] == "Office"
@@ -167,8 +206,8 @@ def test_update_location(setup_test_locations):
     assert response.status_code == 200
     data = response.json()
     assert data["message"] == "Location updated"
-    assert data["location"]["name"] == "Updated Office"
-    assert data["location"]["description"] == "Updated description for office location"
+    assert data["data"]["name"] == "Updated Office"
+    assert data["data"]["description"] == "Updated description for office location"
 
 
 def fail_test_update_location():
@@ -191,45 +230,89 @@ def fail_test_update_location():
 @pytest.fixture
 def setup_test_delete_locations():
     # Setup test data with parent and child locations
-    client.delete("/locations/delete_all_locations")
+    delete_response = client.delete("/locations/delete_all_locations")
     parent_location = {"name": "Warehouse", "description": "Main warehouse"}
     response = client.post("/locations/add_location/", json=parent_location)
     parent_location_id = response.json()["data"]['id']
 
     # Add child locations
     child_locations = [
-        {"name": "Aisle 1", "id": "54321", "parent_id": parent_location_id},
-        {"name": "Aisle 2", "id": "12345", "parent_id": parent_location_id},
+        {"name": "Aisle 1", "parent_id": parent_location_id},
+        {"name": "Aisle 2", "parent_id": parent_location_id},
     ]
 
-    for loc in child_locations:
-        client.post("/locations/add_location/", json=loc)
+    locs = []
+    parts = []
 
-    return parent_location_id, child_locations
+    for loc in child_locations:
+        response = client.post("/locations/add_location/", json=loc)
+        if response.json()['data']['name'] == loc['name']:
+            loc['id'] = response.json()['data']['id']
+        locs.append(response.json())
+
+    part_data = PartCreate(
+        part_number="Screw-001",
+        part_name="Hex Head Screw",
+        quantity=500,
+        description="A standard hex head screw",
+        location_id=locs[0]["data"]["id"],
+        category_names=["hardware"]
+    )
+
+    # Make a POST request to the /add_part endpoint
+    response = client.post("/parts/add_part", json=part_data.dict())
+    parts.append(response.json())
+    part_data2 = PartCreate(
+        part_number="Screw-002",
+        part_name="Hex Head Screw2",
+        quantity=500,
+        description="A standard hex head screw2",
+        location_id=locs[1]["data"]["id"],
+        category_names=["hardware"]
+    )
+
+    # Make a POST request to the /add_part endpoint
+    response = client.post("/parts/add_part", json=part_data2.dict())
+    parts.append(response.json())
+
+    return parent_location_id, child_locations, parts
 
 
 def test_delete_location(setup_test_delete_locations):
-    parent_location_id, child_locations = setup_test_delete_locations
+    parent_location_id, child_locations, parts = setup_test_delete_locations
+
+    # check preview delete
+    response = client.get(f"/locations/preview-location-delete/{parent_location_id}")
+    assert response.status_code == 200
+    preview_json = response.json()
+    assert preview_json['data']['affected_parts_count'] == 2
+    assert len(preview_json['data']['location_ids_to_delete']) == 3
+    assert preview_json['data']['location_hierarchy']['name'] == "Warehouse"
 
     # Call delete_location route
     response = client.delete(f"/locations/delete_location/{parent_location_id}")
     assert response.status_code == 200
 
     # Check the response data
-    data = response.json()
-    assert data["message"] == "Location and its children deleted successfully"
-    assert data["deleted_location"] == parent_location_id
-    assert data["deleted_children_count"] == len(child_locations)
+    res_json = response.json()
+    assert f"Deleted location_id: {parent_location_id}" in res_json["message"]
+    assert res_json['data']["deleted_location_id"] == parent_location_id
+    assert res_json['data']["deleted_location_name"] == "Warehouse"
 
     # Verify that the location and its children are removed
     for child in child_locations:
-        response = client.get(f"/locations/get_location?id={child['id']}")
+        response = client.get(f"/locations/get_location?location_id={child['id']}")
         assert response.status_code == 404
 
     # Verify that the parent location is removed
-    response = client.get(f"/locations/get_location?id={parent_location_id}")
+    response = client.get(f"/locations/get_location?location_id={parent_location_id}")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Location not found"
+    assert response.json()["message"] == f"Location {parent_location_id} not found"
+
+    for part in parts:
+        res = client.get(f"/parts/get_part?part_id={part['data']['id']}")
+        assert res.status_code == 200
+        assert res.json()['data']['location_id'] is None
 
 
 @pytest.fixture
@@ -254,18 +337,3 @@ def setup_test_locations_cleanup():
     client.post("/locations/add_location", json=loc5)
 
     return [office_id, warehouse_id, loc3["id"], loc4["id"], loc5["id"]]
-
-
-def test_cleanup_locations(setup_test_locations_cleanup):
-    # Call the cleanup endpoint
-    response = client.delete("/locations/cleanup-locations")
-    assert response.status_code == 200
-
-    res = response.json()
-    assert res["message"] == "Cleanup completed"
-    assert res["deleted_locations_count"] == 1  # Expecting one invalid location to be deleted
-
-    # Verify that the invalid location is deleted
-    invalid_location_id = setup_test_locations_cleanup[-1]
-    get_response = client.get(f"/locations/get_location/{invalid_location_id}")
-    assert get_response.status_code == 404

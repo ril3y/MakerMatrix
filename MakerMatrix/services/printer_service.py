@@ -1,34 +1,71 @@
-import qrcode
-
-from MakerMatrix.models.label_model import LabelData
-from MakerMatrix.models import printer_config_model
-from MakerMatrix.lib.printer import Printer
+from MakerMatrix.lib.print_settings import PrintSettings
+from MakerMatrix.models.models import PartModel
+from MakerMatrix.repositories.printer_repository import PrinterRepository
 
 
 class PrinterService:
-    printer = Printer()
+    """
+    This service is called by your routes. It calls into the repository, which in turn
+    creates/configures the correct printer driver.
+    """
 
-    @staticmethod
-    async def print_qr_code(label_data: LabelData):
-        part_number = label_data.part_number
-        part_name = label_data.part_name
-        # Implement logic to generate and print QR code
-        qr_img = qrcode.make(f'{{"name": "{part_name}", "number": "{part_number}"}}')
-        return PrinterService.printer.print_qr_from_memory(qr_img)
+    def __init__(self, printer_repo: PrinterRepository):
+        self.printer_repo = printer_repo
+        self.printer = self.printer_repo.get_printer()
 
-    @staticmethod
-    def configure_printer(config: printer_config_model.PrinterConfig):
-        PrinterService.printer.set_backend(config.backend)
-        PrinterService.printer.set_printer_identifier(config.printer_identifier)
-        PrinterService.printer.save_config()
+    async def print_part_name(self, part: PartModel, print_settings: PrintSettings):
+        printer = self.printer_repo.get_printer()
+        try:
+            # Now, we pass the PrintConfig to the printer's print_text_label method.
+            return printer.print_text_label(part.part_name, print_settings)
+        except Exception as e:
+            print(f"Error printing part name: {e}")
+            return False
 
-    @staticmethod
-    def load_printer_config():
-        PrinterService.printer.load_config()
+    async def print_text_label(self, text: str, print_settings: PrintSettings):
+        printer = self.printer_repo.get_printer()
+        try:
+            # Now, we pass the PrintConfig to the printer's print_text_label method.
+            return printer.print_text_label(text, print_settings)
+        except Exception as e:
+            print(f"Error printing text: {e}")
+            return False
 
-    def get_current_configuration(self):
-        # Return the current printer configuration
-        return {
-            "backend": self.backend,
-            "printer_identifier": self.printer_identifier
-        }
+    # async def print_qr_code_with_name(self, label_data: LabelData):
+    #     printer = self.printer_repo.get_printer()
+    #     try:
+    #         # Create a temporary PartModel using LabelData.
+    #         part = PartModel(part_number=label_data.part_number, part_name=label_data.part_name)
+    #         qr_image = self._generate_qr_code(part)
+    #         return printer.print_qr_from_memory(qr_image)
+    #     except Exception as e:
+    #         print(f"Error printing QR code with name: {e}")
+    #         return False
+
+    async def print_qr_and_text(self, part: PartModel, print_settings: PrintSettings, text: str = None):
+        printer = self.printer_repo.get_printer()
+
+        if text:
+            if text == "name":
+                text = part['data']['part_name']
+            elif text == "number":
+                text = part['data']['part_number']
+
+        try:
+
+            return printer.print_qr_and_text(
+                text=text,
+                part=part,
+                print_settings=print_settings)
+
+        except Exception as e:
+            print(f"Error printing QR code + text: {e}")
+            return False
+
+    def load_printer_config(self):
+        """
+        Reloads the printer configuration and re-imports the driver.
+        Useful if the config file is changed at runtime.
+        """
+        self.printer_repo.load_config()
+        self.printer_repo._import_driver()
