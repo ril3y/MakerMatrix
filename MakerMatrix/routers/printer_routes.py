@@ -7,6 +7,16 @@ from MakerMatrix.services.printer_service import PrinterService
 router = APIRouter()
 
 
+@router.post("/print_label")
+async def print_label(label_data: LabelData):
+    try:
+        response = await PrinterService.print_label(label_data)
+        return {"message": "QR code printed successfully"} if response else HTTPException(status_code=500,
+                                                                                          detail="Failed to print QR code")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/print_qr")
 async def print_qr_code(label_data: LabelData):
     try:
@@ -20,7 +30,7 @@ async def print_qr_code(label_data: LabelData):
 @router.post("/config")
 async def configure_printer(config: printer_config_model.PrinterConfig):
     try:
-        PrinterService.configure_printer(config)
+        configure_printer(config)
         return {"message": "Printer configuration updated and saved."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
