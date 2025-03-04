@@ -82,23 +82,22 @@ async def add_location(location_data: LocationModel) -> ResponseSchema[LocationM
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/get_location_details/{parent_id}")
-async def get_location_details(parent_id: str):
-    try:
-        location_details = LocationService.get_location_details(parent_id)
-        if location_details:
-            # noinspection PyArgumentList
-            return ResponseSchema(
-                    status="success",
-                    message="Location details retrieved successfully",
-                    data=location_details.to_dict()
-                )
+@router.get("/get_location_details/{location_id}")
+async def get_location_details(location_id: str):
+    """
+    Get detailed information about a location, including its children.
 
-    except ResourceNotFoundError as rnfe:
-        # Let the custom exception handler handle this
-        raise rnfe
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    Args:
+        location_id (str): The ID of the location to get details for.
+
+    Returns:
+        JSONResponse: A JSON response containing the location details and its children.
+    """
+    response = LocationService.get_location_details(location_id)
+    if response["status"] == "success":
+        return JSONResponse(content=response, status_code=200)
+    else:
+        return JSONResponse(content=response, status_code=404)
 
 
 @router.get("/get_location_path/{location_id}", response_model=ResponseSchema)

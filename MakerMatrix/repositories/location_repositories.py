@@ -92,17 +92,49 @@ class LocationRepository:
         return new_location
 
     @staticmethod
-    def get_location_details(session: Session, location_id: str) -> Optional[LocationModel]:
-        location = session.exec(
-            select(LocationModel)
-            .options(joinedload(LocationModel.children))
+    def get_location_details(session: Session, location_id: str) -> dict:
+        """
+        Get detailed information about a location, including its children.
+
+        Args:
+            session: The database session
+            location_id: The ID of the location to get details for
+
+        Returns:
+            dict: A dictionary containing the location details and its children in the standard response format
+        """
+        try:
+            location = session.exec(
+                select(LocationModel)
+                .options(joinedload(LocationModel.children))
                 .where(LocationModel.id == location_id)
-        ).first()
-        if location:
-            return location
-        else:
-            raise ResourceNotFoundError(resource="Location", resource_id=location_id)
-        
+            ).first()
+            
+            if not location:
+                raise ResourceNotFoundError(resource="Location", resource_id=location_id)
+
+            # Convert location to dictionary and include children
+            location_data = location.to_dict()
+            location_data["children"] = [child.to_dict() for child in location.children]
+
+            return {
+                "status": "success",
+                "message": "Location details retrieved successfully",
+                "data": location_data
+            }
+
+        except ResourceNotFoundError as e:
+            return {
+                "status": "error",
+                "message": str(e),
+                "data": None
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error retrieving location details: {str(e)}",
+                "data": None
+            }
 
     @staticmethod
     def get_location_path(session: Session, location_id: str) -> Dict[str, Any]:
