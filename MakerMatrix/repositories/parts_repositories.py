@@ -218,6 +218,70 @@ class PartRepository:
                 "message": f"Failed to update part with id '{part.id}': {str(e)}"
             }
 
+    @staticmethod
+    def advanced_search(session: Session, search_params: AdvancedPartSearch) -> tuple[List[PartModel], int]:
+        """
+        Perform an advanced search on parts with multiple filters and sorting options.
+        Returns a tuple of (results, total_count).
+        """
+        # Start with a base query
+        query = select(PartModel).options(
+            joinedload(PartModel.categories),
+            joinedload(PartModel.location)
+        )
+
+        # Apply search term filter
+        if search_params.search_term:
+            search_term = f"%{search_params.search_term}%"
+            query = query.where(
+                or_(
+                    PartModel.part_name.ilike(search_term),
+                    PartModel.part_number.ilike(search_term),
+                    PartModel.description.ilike(search_term),
+                    PartModel.additional_properties.cast(String).ilike(search_term)
+                )
+            )
+
+        # Apply quantity range filter
+        if search_params.min_quantity is not None:
+            query = query.where(PartModel.quantity >= search_params.min_quantity)
+        if search_params.max_quantity is not None:
+            query = query.where(PartModel.quantity <= search_params.max_quantity)
+
+        # Apply category filter
+        if search_params.category_names:
+            for category_name in search_params.category_names:
+                query = query.join(PartCategoryLink).join(CategoryModel).where(
+                    CategoryModel.name == category_name
+                )
+
+        # Apply location filter
+        if search_params.location_id:
+            query = query.where(PartModel.location_id == search_params.location_id)
+
+        # Apply supplier filter
+        if search_params.supplier:
+            query = query.where(PartModel.supplier == search_params.supplier)
+
+        # Apply sorting
+        if search_params.sort_by:
+            sort_column = getattr(PartModel, search_params.sort_by)
+            if search_params.sort_order == "desc":
+                sort_column = sort_column.desc()
+            query = query.order_by(sort_column)
+
+        # Get total count before pagination
+        total_count = session.exec(select(func.count()).select_from(query.subquery())).one()
+
+        # Apply pagination
+        offset = (search_params.page - 1) * search_params.page_size
+        query = query.offset(offset).limit(search_params.page_size)
+
+        # Execute the query
+        results = session.exec(query).unique().all()
+
+        return results, total_count
+
     # def add_part(self, part_data: dict, overwrite: bool) -> dict:
     #     # Check if a part with the same part_number or part_name already exists
     #     part_id = part_data.get('part_id')

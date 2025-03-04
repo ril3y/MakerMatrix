@@ -399,3 +399,19 @@ async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[Par
 #                 "error": str(e)
 #             }
 #         )
+
+@router.post("/search", response_model=ResponseSchema[Dict[str, Any]])
+async def advanced_search(search_params: AdvancedPartSearch) -> ResponseSchema[Dict[str, Any]]:
+    """
+    Perform an advanced search on parts with multiple filters and sorting options.
+    """
+    try:
+        response = PartService.advanced_search(search_params)
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=response["data"]
+        )
+    except Exception as e:
+        logger.error(f"Error in advanced search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

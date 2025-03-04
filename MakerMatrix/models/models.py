@@ -216,6 +216,31 @@ class GenericPartQuery(SQLModel):
         return values
 
 
+class AdvancedPartSearch(SQLModel):
+    search_term: Optional[str] = None
+    min_quantity: Optional[int] = None
+    max_quantity: Optional[int] = None
+    category_names: Optional[List[str]] = None
+    location_id: Optional[str] = None
+    supplier: Optional[str] = None
+    sort_by: Optional[str] = None  # "part_name", "part_number", "quantity", "location"
+    sort_order: Optional[str] = "asc"  # "asc" or "desc"
+    page: int = 1
+    page_size: int = 10
+
+    @field_validator("sort_by")
+    def validate_sort_by(cls, v):
+        if v and v not in ["part_name", "part_number", "quantity", "location"]:
+            raise ValueError("sort_by must be one of: part_name, part_number, quantity, location")
+        return v
+
+    @field_validator("sort_order")
+    def validate_sort_order(cls, v):
+        if v and v not in ["asc", "desc"]:
+            raise ValueError("sort_order must be one of: asc, desc")
+        return v
+
+
 # Create an engine for SQLite
 sqlite_file_name = "makers_matrix.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
