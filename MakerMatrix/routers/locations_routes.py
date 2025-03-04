@@ -49,18 +49,31 @@ async def get_location(location_id: Optional[str] = None, name: Optional[str] = 
 
 @router.put("/update_location/{location_id}", response_model=ResponseSchema[LocationModel])
 async def update_location(location_id: str, location_data: LocationUpdate) -> ResponseSchema[LocationModel]:
+    """
+    Update a location's fields. This endpoint can update any combination of name, description, parent_id, and location_type.
+    
+    Args:
+        location_id: The ID of the location to update
+        location_data: The fields to update (name, description, parent_id, location_type)
+        
+    Returns:
+        ResponseSchema: A response containing the updated location data
+    """
     try:
-        updated_location = LocationService.update_location(location_id, location_data.model_dump(exclude_unset=True))
-        # noinspection PyArgumentList
+        # Convert the Pydantic model to a dict and remove None values
+        update_data = {k: v for k, v in location_data.model_dump().items() if v is not None}
+        updated_location = LocationService.update_location(location_id, update_data)
         return ResponseSchema(
-
-
             status="success",
-            message="Location updated",
+            message="Location updated successfully",
             data=updated_location.model_dump()
         )
     except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=str(rnfe))
+        if "Parent Location" in rnfe.message:
+            raise HTTPException(status_code=404, detail="Parent Location not found")
+        raise HTTPException(status_code=404, detail="Location not found")
+    except ValueError as ve:
+        raise HTTPException(status_code=500, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -114,6 +127,15 @@ async def get_location_path(location_id: str):
 
 @router.get("/preview-location-delete/{location_id}")
 async def preview_location_delete(location_id: str) -> ResponseSchema:
+    """
+    Preview what will be affected when deleting a location.
+    
+    Args:
+        location_id: The ID of the location to preview deletion for
+        
+    Returns:
+        ResponseSchema: A response containing the preview information
+    """
     try:
         preview_response = LocationService.preview_location_delete(location_id)
         return ResponseSchema(

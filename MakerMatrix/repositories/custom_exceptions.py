@@ -4,7 +4,7 @@ class ResourceNotFoundError(Exception):
                  message: str, 
                  data=None):
         self.status = status
-        self.message = message,
+        self.message = message
         self.data = data
 
         super().__init__(f"{message}")
