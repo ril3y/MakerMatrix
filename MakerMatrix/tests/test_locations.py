@@ -169,24 +169,56 @@ def test_get_location_by_id(setup_test_locations):
     assert res["data"]["name"] == "Office"
 
 
-# def test_get_location_path(setup_test_locations_get_path):
-#     # Use the drawer ID for testing
-#     drawer_id = setup_test_locations_get_path["drawer_id"]
-#
-#     # Make a GET request to get the path for the drawer
-#     response = client.get(f"/locations/get_location_path/{drawer_id}")
-#
-#     # Check the status code
-#     assert response.status_code == 200
-#
-#     # Check the content of the response
-#     path_data = response.json()["path"]
-#
-#     # Validate that the path is correct (Drawer -> Desk -> Office)
-#     assert path_data["location"]["name"] == "Drawer"
-#     assert path_data["parent"]["location"]["name"] == "Desk"
-#     assert path_data["parent"]["parent"]["location"]["name"] == "Office"
-#     assert path_data["parent"]["parent"]["parent"] is None  # Root level
+@pytest.fixture
+def setup_test_locations_get_path():
+    # Clear existing locations
+    client.delete("/locations/delete_all_locations")
+    
+    # Create a hierarchy: Office -> Desk -> Drawer
+    office = {"name": "Office", "description": "Main office"}
+    office_response = client.post("/locations/add_location", json=office)
+    office_id = office_response.json()["data"]["id"]
+    
+    desk = {"name": "Desk", "description": "Office desk", "parent_id": office_id}
+    desk_response = client.post("/locations/add_location", json=desk)
+    desk_id = desk_response.json()["data"]["id"]
+    
+    drawer = {"name": "Drawer", "description": "Desk drawer", "parent_id": desk_id}
+    drawer_response = client.post("/locations/add_location", json=drawer)
+    drawer_id = drawer_response.json()["data"]["id"]
+    
+    return {"drawer_id": drawer_id}
+
+
+def test_get_location_path(setup_test_locations_get_path):
+    # Use the drawer ID for testing
+    drawer_id = setup_test_locations_get_path["drawer_id"]
+    
+    # Make a GET request to get the path for the drawer
+    response = client.get(f"/locations/get_location_path/{drawer_id}")
+    
+    # Check the status code
+    assert response.status_code == 200
+    
+    # Check the content of the response
+    response_data = response.json()
+    
+    # Debug: Print error message if status is error
+    if response_data["status"] == "error":
+        print(f"Error message: {response_data['message']}")
+    
+    # Check the response structure matches our standard format
+    assert response_data["status"] == "success"  # Keep consistent with other location endpoints
+    assert "Location path retrieved" in response_data["message"]
+    
+    # Get the path data
+    path_data = response_data["data"]
+    
+    # Validate that the path is correct (Drawer -> Desk -> Office)
+    assert path_data["location"]["name"] == "Drawer"
+    assert path_data["parent"]["location"]["name"] == "Desk"
+    assert path_data["parent"]["parent"]["location"]["name"] == "Office"
+    assert path_data["parent"]["parent"]["parent"] is None  # Root level
 
 
 def test_update_location(setup_test_locations):

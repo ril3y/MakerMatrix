@@ -75,14 +75,38 @@ class LocationService:
             raise ValueError(f"Failed to retrieve location details: {str(e)}")
 
     @staticmethod
-    def get_location_path(query_location: LocationQueryModel) -> Optional[List[Dict]]:
+    def get_location_path(location_id: str) -> Dict[str, Any]:
+        """Get the full path from a location to its root.
+        
+        Args:
+            location_id: The ID of the location to get the path for
+            
+        Returns:
+            A dictionary containing the location path with parent references
+            
+        Raises:
+            ResourceNotFoundError: If the location is not found
+        """
         session = next(get_session())
         try:
-            return LocationService.location_repo.get_location_path(session, query_location)
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
+            path = LocationRepository.get_location_path(session, location_id)
+            return {
+                "status": "success",
+                "message": f"Location path retrieved for location {location_id}",
+                "data": path
+            }
+        except ResourceNotFoundError as e:
+            return {
+                "status": "error",
+                "message": str(e),
+                "data": None
+            }
         except Exception as e:
-            raise ValueError(f"Failed to retrieve location path: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Error retrieving location path: {str(e)}",
+                "data": None
+            }
 
     # @staticmethod
     # def update_location(location_id: str, location_data: LocationModel) -> Optional[dict]:

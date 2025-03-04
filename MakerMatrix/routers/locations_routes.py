@@ -101,26 +101,17 @@ async def get_location_details(parent_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/get_location_path")
-async def get_location_path(location_id: Optional[str] = None, name: Optional[str] = None):
-    try:
-        if not location_id and not name:
-            raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
-        location_query = LocationQueryModel(id=location_id, name=name)
-        location_path = LocationService.get_location_path(location_query)
-        # noinspection PyArgumentList
-        # noinspection PyArgumentList
-        return ResponseSchema(
-
-
-            status="success",
-            message="Location path retrieved successfully",
-            data=location_path
-        )
-    except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=str(rnfe))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/get_location_path/{location_id}", response_model=ResponseSchema)
+async def get_location_path(location_id: str):
+    """Get the full path from a location to its root.
+    
+    Args:
+        location_id: The ID of the location to get the path for
+        
+    Returns:
+        A ResponseSchema containing the location path with parent references
+    """
+    return LocationService.get_location_path(location_id)
 
 @router.get("/preview-location-delete/{location_id}")
 async def preview_location_delete(location_id: str) -> ResponseSchema:

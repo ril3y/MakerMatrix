@@ -105,16 +105,51 @@ class LocationRepository:
         
 
     @staticmethod
-    def get_location_path(session: Session, query_location: LocationQueryModel) -> Optional[List[Dict]]:
+    def get_location_path(session: Session, location_id: str) -> Dict[str, Any]:
+        """Get the full path from a location to its root, including all parent locations.
+        
+        Args:
+            session: The database session
+            location_id: The ID of the location to get the path for
+            
+        Returns:
+            A dictionary containing the location path with parent references
+            
+        Raises:
+            ResourceNotFoundError: If the location is not found
+        """
+        location = session.get(LocationModel, location_id)
+        if not location:
+            raise ResourceNotFoundError(f"Location {location_id} not found")
+        
+        # Build the path from the target location up to the root
         path = []
-        current_location = LocationRepository.get_location(session, query_location)
-        while current_location:
-            path.append(current_location)
-            if current_location.parent_id:
-                current_location = session.exec(select(LocationModel).where(LocationModel.id == current_location.parent_id)).first()
+        current = location
+        
+        while current:
+            path.append({
+                "id": current.id,
+                "name": current.name,
+                "description": current.description,
+                "location_type": current.location_type
+            })
+            if current.parent_id:
+                current = session.get(LocationModel, current.parent_id)
             else:
-                current_location = None
-        return path[::-1]  # Reverse the path to start from the root
+                current = None
+        
+        # Convert the list into a nested dictionary structure
+        result = {"location": path[0]}
+        current = result
+        for loc in path[1:]:
+            current["parent"] = {"location": loc}
+            current = current["parent"]
+        
+        # Add the final None parent to indicate root level
+        if current:
+            current["parent"] = None
+        
+        return result
     
     @staticmethod
     def delete_all_locations(session: Session) -> dict:
