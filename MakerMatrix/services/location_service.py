@@ -181,9 +181,29 @@ class LocationService:
         }
 
     @staticmethod
-    def edit_location(location_id: str, name: Optional[str] = None, description: Optional[str] = None,
-                      parent_id: Optional[int] = None):
-        return LocationService.location_repo.edit_location(location_id, name, description, parent_id)
+    def edit_location(location_id: str, name: Optional[str] = None, 
+                     description: Optional[str] = None, parent_id: Optional[str] = None) -> dict:
+        """
+        Edit specific fields of a location.
+        
+        Args:
+            location_id: The ID of the location to edit
+            name: Optional new name for the location
+            description: Optional new description
+            parent_id: Optional new parent ID
+            
+        Returns:
+            dict: A dictionary containing the updated location in the standard response format
+        """
+        try:
+            with Session(engine) as session:
+                return LocationRepository.edit_location(session, location_id, name, description, parent_id)
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error updating location: {str(e)}",
+                "data": None
+            }
 
     @staticmethod
     def delete_all_locations():
