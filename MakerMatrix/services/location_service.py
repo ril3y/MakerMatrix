@@ -107,17 +107,9 @@ class LocationService:
                 "data": path
             }
         except ResourceNotFoundError as e:
-            return {
-                "status": "error",
-                "message": str(e),
-                "data": None
-            }
+            raise e
         except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Error retrieving location path: {str(e)}",
-                "data": None
-            }
+            raise ValueError(f"Error retrieving location path: {str(e)}")
 
     @staticmethod
     def preview_location_delete(location_id: str) -> dict[str, Any]:
@@ -138,6 +130,7 @@ class LocationService:
             location_response = LocationDeleteResponse(
                 location_ids_to_delete=affected_locations['affected_location_ids'],
                 affected_parts_count=len(affected_parts_count),
+                affected_locations_count=len(affected_locations['affected_location_ids']),
                 location_hierarchy=affected_locations['hierarchy']).model_dump()
             return location_response
 

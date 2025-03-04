@@ -172,10 +172,10 @@ class LocationRepository:
         
         # Convert the list into a nested dictionary structure
         result = {"location": path[0]}
-        current = result
+        current = result["location"]
         for loc in path[1:]:
             current["parent"] = {"location": loc}
-            current = current["parent"]
+            current = current["parent"]["location"]
         
         # Add the final None parent to indicate root level
         if current:
@@ -212,13 +212,21 @@ class LocationRepository:
         """
         location = session.get(LocationModel, location_id)
         if not location:
-            raise ResourceNotFoundError(resource="Location", resource_id=location_id)
+            raise ResourceNotFoundError(
+                status="error",
+                message="Location not found",
+                data=None
+            )
         
         # If parent_id is being updated, verify the new parent exists
         if "parent_id" in location_data and location_data["parent_id"]:
             parent = session.get(LocationModel, location_data["parent_id"])
             if not parent:
-                raise ResourceNotFoundError(resource="Parent Location", resource_id=location_data["parent_id"])
+                raise ResourceNotFoundError(
+                    status="error",
+                    message="Parent Location not found",
+                    data=None
+                )
         
         # Update only the provided fields
         for key, value in location_data.items():

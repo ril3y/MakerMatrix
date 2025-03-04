@@ -216,9 +216,9 @@ def test_get_location_path(setup_test_locations_get_path):
     
     # Validate that the path is correct (Drawer -> Desk -> Office)
     assert path_data["location"]["name"] == "Drawer"
-    assert path_data["parent"]["location"]["name"] == "Desk"
-    assert path_data["parent"]["parent"]["location"]["name"] == "Office"
-    assert path_data["parent"]["parent"]["parent"] is None  # Root level
+    assert path_data["location"]["parent"]["location"]["name"] == "Desk"
+    assert path_data["location"]["parent"]["location"]["parent"]["location"]["name"] == "Office"
+    assert path_data["location"]["parent"]["location"]["parent"]["location"]["parent"] is None  # Root level
 
 
 def test_update_location(setup_test_locations):
@@ -330,7 +330,7 @@ def setup_test_delete_locations():
     )
 
     # Make a POST request to the /add_part endpoint
-    response = client.post("/parts/add_part", json=part_data.dict())
+    response = client.post("/parts/add_part", json=part_data.model_dump())
     parts.append(response.json())
     part_data2 = PartCreate(
         part_number="Screw-002",
@@ -342,7 +342,7 @@ def setup_test_delete_locations():
     )
 
     # Make a POST request to the /add_part endpoint
-    response = client.post("/parts/add_part", json=part_data2.dict())
+    response = client.post("/parts/add_part", json=part_data2.model_dump())
     parts.append(response.json())
 
     return parent_location_id, child_locations, parts
@@ -444,7 +444,7 @@ def test_preview_delete(setup_test_delete_locations):
     parent_location_id, child_locations, parts = setup_test_delete_locations
     
     # Make a request to preview deletion
-    response = client.get(f"/locations/preview-delete/{parent_location_id}")
+    response = client.get(f"/locations/preview-location-delete/{parent_location_id}")
     
     # Check the status code
     assert response.status_code == 200
@@ -458,6 +458,7 @@ def test_preview_delete(setup_test_delete_locations):
     preview_data = response_data["data"]
     assert preview_data["affected_parts_count"] == 2  # We added 2 parts in the setup
     assert preview_data["affected_locations_count"] == 3  # Parent + 2 children
+    assert preview_data["location_ids_to_delete"] is not None  # Verify the list exists
     
     # Check the hierarchy structure
     hierarchy = preview_data["location_hierarchy"]

@@ -9,6 +9,8 @@ from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.category_service import CategoryService
 from MakerMatrix.services.part_service import PartService
+from MakerMatrix.dependencies.auth import get_current_active_user, require_permission
+from MakerMatrix.models.user_models import UserModel
 
 from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
 from MakerMatrix.services.part_service import PartService
@@ -21,29 +23,42 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
-async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
+async def add_part(
+    part: PartCreate, 
+    current_user: UserModel = Depends(require_permission("parts:create"))
+) -> ResponseSchema[PartResponse]:
     try:
+        # Convert PartCreate to dict and include category_names
+        part_data = part.model_dump()
+        
         # Process to add part
-        response = PartService.add_part(part.model_dump(), part.category_names)
-
-        if response and response.get("status") == "part exists":
-            raise PartAlreadyExistsError(
-                part_name=part.part_name,
-                part_data=response.get("data")
-            )
+        response = PartService.add_part(part_data)
 
         # noinspection PyArgumentList
         return ResponseSchema(
-            # TODO: I think we can just return the response since it's already a ResponseSchema
             status=response["status"],
             message=response["message"],
             data=PartResponse.model_validate(response["data"])
         )
-
-    except PartAlreadyExistsError as exc:
-        raise exc
+    except PartAlreadyExistsError as pae:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Part with name '{part_data['part_name']}' already exists"
+        )
+    except ResourceNotFoundError as rnfe:
+        raise HTTPException(status_code=404, detail=str(rnfe))
+    except ValueError as ve:
+        if "Input should be a valid string" in str(ve):
+            raise HTTPException(
+                status_code=422,
+                detail=[{
+                    "loc": ["body", "category_names", 0],
+                    "msg": "Input should be a valid string",
+                    "type": "string_type"
+                }]
+            )
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.error(f"Failed to add part: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

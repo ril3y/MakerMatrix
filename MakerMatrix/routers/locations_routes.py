@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from starlette.responses import JSONResponse
 
 from MakerMatrix.models.models import LocationModel, LocationQueryModel
@@ -8,12 +8,16 @@ from MakerMatrix.models.models import LocationUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.location_service import LocationService
+from MakerMatrix.dependencies.auth import get_current_active_user, require_permission
+from MakerMatrix.models.user_models import UserModel
 
 router = APIRouter()
 
 
 @router.get("/get_all_locations")
-async def get_all_locations():
+async def get_all_locations(
+    current_user: UserModel = Depends(get_current_active_user)
+):
     try:
         locations = LocationService.get_all_locations()
         # noinspection PyArgumentList
@@ -27,7 +31,11 @@ async def get_all_locations():
 
 
 @router.get("/get_location")
-async def get_location(location_id: Optional[str] = None, name: Optional[str] = None):
+async def get_location(
+    location_id: Optional[str] = None, 
+    name: Optional[str] = None,
+    current_user: UserModel = Depends(get_current_active_user)
+):
     try:
         if not location_id and not name:
             raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
@@ -69,11 +77,12 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
             data=updated_location.model_dump()
         )
     except ResourceNotFoundError as rnfe:
-        if "Parent Location" in rnfe.message:
-            raise HTTPException(status_code=404, detail="Parent Location not found")
-        raise HTTPException(status_code=404, detail="Location not found")
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(rnfe)}
+        )
     except ValueError as ve:
-        raise HTTPException(status_code=500, detail=str(ve))
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -123,7 +132,18 @@ async def get_location_path(location_id: str):
     Returns:
         A ResponseSchema containing the location path with parent references
     """
-    return LocationService.get_location_path(location_id)
+    try:
+        response = LocationService.get_location_path(location_id)
+        return response
+    except ResourceNotFoundError as rnfe:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(rnfe)}
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/preview-location-delete/{location_id}")
 async def preview_location_delete(location_id: str) -> ResponseSchema:
