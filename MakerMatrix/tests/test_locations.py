@@ -222,41 +222,79 @@ def test_get_location_path(setup_test_locations_get_path):
 
 
 def test_update_location(setup_test_locations):
+    """Test updating a location's fields."""
     # Get a location from the setup
     location_to_update = setup_test_locations[1]
     location_id = location_to_update.id
 
-    # Prepare the update data
+    # Test updating name and description
     update_data = {
         "name": "Updated Office",
         "description": "Updated description for office location"
     }
-    # Make the PUT request
     response = client.put(f"/locations/update_location/{location_id}", json=update_data)
-
-    # Assert the status code and response
     assert response.status_code == 200
     data = response.json()
-    assert data["message"] == "Location updated"
+    assert data["status"] == "success"
+    assert data["message"] == "Location updated successfully"
     assert data["data"]["name"] == "Updated Office"
     assert data["data"]["description"] == "Updated description for office location"
 
-
-def fail_test_update_location():
-    # Get a location from the setup
-    location_id = "1234"
-
-    # Prepare the update data
+    # Test updating parent_id
+    parent_location = setup_test_locations[0]
     update_data = {
-        "name": "Missing ID Test Office",
-        "description": "Updated description for office location"
+        "parent_id": parent_location.id
     }
-    # Make the PUT request
     response = client.put(f"/locations/update_location/{location_id}", json=update_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["data"]["parent_id"] == parent_location.id
 
-    # Assert the status code and response
+    # Test updating location_type
+    update_data = {
+        "location_type": "warehouse"
+    }
+    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["data"]["location_type"] == "warehouse"
+
+
+def test_update_location_not_found():
+    """Test updating a non-existent location."""
+    location_id = "non_existent_id"
+    update_data = {
+        "name": "Test Location",
+        "description": "Test Description"
+    }
+    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
     assert response.status_code == 404
-    assert response.json()["detail"] == "Location not found"
+    data = response.json()
+    assert data["detail"] == "Location not found"
+
+
+def test_update_location_invalid_parent():
+    """Test updating a location with an invalid parent ID."""
+    # First create a location to update
+    location_data = {
+        "name": "Test Location",
+        "description": "Test Description",
+        "parent_id": None
+    }
+    response = client.post("/locations/add_location", json=location_data)
+    assert response.status_code == 200
+    location_id = response.json()["data"]["id"]
+
+    # Try to update with invalid parent_id
+    update_data = {
+        "parent_id": "invalid_parent_id"
+    }
+    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
+    assert response.status_code == 404
+    data = response.json()
+    assert "Parent Location not found" in data["detail"]
 
 
 @pytest.fixture
@@ -401,38 +439,6 @@ def test_cleanup_locations(setup_test_locations_cleanup):
         assert valid_location_response.json()["status"] == "success"
 
 
-def test_edit_location():
-    """Test editing a location's fields."""
-    # First create a location to edit
-    location_data = {
-        "name": "Test Location",
-        "description": "Test Description",
-        "parent_id": None
-    }
-    response = client.post("/locations/add_location", json=location_data)
-    assert response.status_code == 200
-    location_id = response.json()["data"]["id"]
-    
-    # Edit the location
-    edit_data = {
-        "name": "Updated Location",
-        "description": "Updated Description"
-    }
-    response = client.put(f"/locations/edit_location/{location_id}", params=edit_data)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["data"]["name"] == "Updated Location"
-    assert data["data"]["description"] == "Updated Description"
-    
-    # Verify the changes persist using the correct endpoint
-    response = client.get("/locations/get_location", params={"location_id": location_id})
-    assert response.status_code == 200
-    data = response.json()
-    assert data["data"]["name"] == "Updated Location"
-    assert data["data"]["description"] == "Updated Description"
-
-
 def test_preview_delete(setup_test_delete_locations):
     """Test the preview_delete endpoint that shows what will be affected by deletion."""
     parent_location_id, child_locations, parts = setup_test_delete_locations
@@ -458,3 +464,130 @@ def test_preview_delete(setup_test_delete_locations):
     assert hierarchy["name"] == "Warehouse"
     assert len(hierarchy["children"]) == 2  # Two child locations
     assert {child["name"] for child in hierarchy["children"]} == {"Aisle 1", "Aisle 2"}
+
+
+def test_location_type_validation():
+    """Test that location types can be any string value."""
+    # Test with various location types
+    location_types = [
+        "warehouse",
+        "desk_drawer",
+        "tool_chest",
+        "car_trunk",
+        "reel",
+        "cabinet",
+        "shelf",
+        "box",
+        "container"
+    ]
+    
+    for loc_type in location_types:
+        location_data = {
+            "name": f"Test Location {loc_type}",
+            "description": f"Test Description for {loc_type}",
+            "location_type": loc_type
+        }
+        response = client.post("/locations/add_location", json=location_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["data"]["location_type"] == loc_type
+
+
+def test_parent_child_relationships():
+    """Test parent-child relationship operations."""
+    # Create a parent location
+    parent_data = {
+        "name": "Parent Location",
+        "description": "Parent Description",
+        "location_type": "container"
+    }
+    parent_response = client.post("/locations/add_location", json=parent_data)
+    assert parent_response.status_code == 200
+    parent_id = parent_response.json()["data"]["id"]
+    
+    # Create a child location
+    child_data = {
+        "name": "Child Location",
+        "description": "Child Description",
+        "location_type": "box",
+        "parent_id": parent_id
+    }
+    child_response = client.post("/locations/add_location", json=child_data)
+    assert child_response.status_code == 200
+    child_id = child_response.json()["data"]["id"]
+    
+    # Verify parent-child relationship
+    child_details = client.get(f"/locations/get_location_details/{child_id}")
+    assert child_details.status_code == 200
+    child_data = child_details.json()["data"]
+    assert child_data["parent_id"] == parent_id
+    
+    # Test moving child to a new parent
+    new_parent_data = {
+        "name": "New Parent Location",
+        "description": "New Parent Description",
+        "location_type": "cabinet"
+    }
+    new_parent_response = client.post("/locations/add_location", json=new_parent_data)
+    assert new_parent_response.status_code == 200
+    new_parent_id = new_parent_response.json()["data"]["id"]
+    
+    # Update child's parent
+    update_data = {
+        "parent_id": new_parent_id
+    }
+    update_response = client.put(f"/locations/update_location/{child_id}", json=update_data)
+    assert update_response.status_code == 200
+    
+    # Verify new parent-child relationship
+    updated_child = client.get(f"/locations/get_location_details/{child_id}")
+    assert updated_child.status_code == 200
+    updated_child_data = updated_child.json()["data"]
+    assert updated_child_data["parent_id"] == new_parent_id
+
+
+def test_location_path_operations():
+    """Test location path operations."""
+    # Create a location hierarchy
+    root_data = {
+        "name": "Root Location",
+        "description": "Root Description",
+        "location_type": "warehouse"
+    }
+    root_response = client.post("/locations/add_location", json=root_data)
+    assert root_response.status_code == 200
+    root_id = root_response.json()["data"]["id"]
+    
+    # Create a child location
+    child_data = {
+        "name": "Child Location",
+        "description": "Child Description",
+        "location_type": "section",
+        "parent_id": root_id
+    }
+    child_response = client.post("/locations/add_location", json=child_data)
+    assert child_response.status_code == 200
+    child_id = child_response.json()["data"]["id"]
+    
+    # Create a grandchild location
+    grandchild_data = {
+        "name": "Grandchild Location",
+        "description": "Grandchild Description",
+        "location_type": "shelf",
+        "parent_id": child_id
+    }
+    grandchild_response = client.post("/locations/add_location", json=grandchild_data)
+    assert grandchild_response.status_code == 200
+    grandchild_id = grandchild_response.json()["data"]["id"]
+    
+    # Test getting the path for the grandchild
+    path_response = client.get(f"/locations/get_location_path/{grandchild_id}")
+    assert path_response.status_code == 200
+    path_data = path_response.json()["data"]
+    
+    # Verify the path structure
+    assert path_data["location"]["id"] == grandchild_id
+    assert path_data["location"]["parent"]["location"]["id"] == child_id
+    assert path_data["location"]["parent"]["location"]["parent"]["location"]["id"] == root_id
+    assert path_data["location"]["parent"]["location"]["parent"]["location"]["parent"] is None

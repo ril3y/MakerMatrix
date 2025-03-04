@@ -16,12 +16,14 @@ MakerMatrix is a Python-based API for managing a maker's inventory system. It pr
 - [ ] Part history/audit trail
 
 ### 2. Location Management
-- [x] Basic CRUD operations
-- [x] Location hierarchy
-- [x] Location path retrieval
+- [x] Basic CRUD operations for locations
+- [x] Location hierarchy (parent-child relationships)
+- [x] Location types (flexible)
+- [x] Location path traversal
 - [x] Location cleanup for invalid references
-- [x] Location field editing
 - [x] Location delete preview
+- [x] Location hierarchy operations
+- [x] Error handling for location operations
 - [ ] Location capacity tracking
 - [ ] Location utilization metrics
 - [ ] Location history
