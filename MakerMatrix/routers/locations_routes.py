@@ -157,6 +157,28 @@ async def cleanup_locations():
         return JSONResponse(content=response, status_code=500)
 
 
+@router.put("/edit_location/{location_id}")
+async def edit_location(location_id: str, name: Optional[str] = None, 
+                       description: Optional[str] = None, parent_id: Optional[str] = None):
+    """
+    Edit specific fields of a location.
+    
+    Args:
+        location_id: The ID of the location to edit
+        name: Optional new name for the location
+        description: Optional new description
+        parent_id: Optional new parent ID
+        
+    Returns:
+        JSONResponse: A JSON response containing the updated location.
+    """
+    response = LocationService.edit_location(location_id, name, description, parent_id)
+    if response["status"] == "success":
+        return JSONResponse(content=response, status_code=200)
+    else:
+        return JSONResponse(content=response, status_code=404)
+
+
 # @router.get("/all_locations/")
 # async def get_all_locations():
 #     locations = LocationService.get_all_locations()

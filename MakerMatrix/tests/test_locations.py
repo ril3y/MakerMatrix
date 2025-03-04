@@ -399,3 +399,35 @@ def test_cleanup_locations(setup_test_locations_cleanup):
         valid_location_response = client.get(f"/locations/get_location?location_id={valid_id}")
         assert valid_location_response.status_code == 200
         assert valid_location_response.json()["status"] == "success"
+
+
+def test_edit_location():
+    """Test editing a location's fields."""
+    # First create a location to edit
+    location_data = {
+        "name": "Test Location",
+        "description": "Test Description",
+        "parent_id": None
+    }
+    response = client.post("/locations/add_location", json=location_data)
+    assert response.status_code == 200
+    location_id = response.json()["data"]["id"]
+    
+    # Edit the location
+    edit_data = {
+        "name": "Updated Location",
+        "description": "Updated Description"
+    }
+    response = client.put(f"/locations/edit_location/{location_id}", params=edit_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["data"]["name"] == "Updated Location"
+    assert data["data"]["description"] == "Updated Description"
+    
+    # Verify the changes persist using the correct endpoint
+    response = client.get("/locations/get_location", params={"location_id": location_id})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data"]["name"] == "Updated Location"
+    assert data["data"]["description"] == "Updated Description"
