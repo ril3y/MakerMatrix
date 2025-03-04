@@ -57,22 +57,25 @@ class LocationService:
             raise ValueError(f"Failed to update location: {str(e)}")
 
     @staticmethod
-    def get_location_details(location_id: str) -> Optional[LocationModel]:
-        session = next(get_session())
-        try:
-            location = LocationRepository.get_location_details(session, location_id)
-            if not location:
-                raise ResourceNotFoundError(resource="Location", resource_id=location_id)
-            return location
-        except ResourceNotFoundError as rnfe:
-            raise ResourceNotFoundError(
-                status="error",
-                message=f"Location with ID '{location_id}' not found.",
-                data=None
-            )
+    def get_location_details(location_id: str) -> dict:
+        """
+        Get detailed information about a location, including its children.
 
+        Args:
+            location_id (str): The ID of the location to get details for.
+
+        Returns:
+            dict: A dictionary containing the location details and its children in the standard response format.
+        """
+        try:
+            with Session(engine) as session:
+                return LocationRepository.get_location_details(session, location_id)
         except Exception as e:
-            raise ValueError(f"Failed to retrieve location details: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Error retrieving location details: {str(e)}",
+                "data": None
+            }
 
     @staticmethod
     def get_location_path(location_id: str) -> Dict[str, Any]:
