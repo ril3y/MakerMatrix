@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlmodel import Session
 from typing import Optional, TYPE_CHECKING
 
-from MakerMatrix.models.models import CategoryModel, LocationQueryModel
+from MakerMatrix.models.models import CategoryModel, LocationQueryModel, AdvancedPartSearch
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.repositories.parts_repositories import PartRepository, handle_categories
 from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery

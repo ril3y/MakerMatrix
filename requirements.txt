@@ -7,7 +7,7 @@ beautifulsoup4~=4.12.2
 pytest~=7.4.3
 python-multipart==0.0.19
 mouser~=0.1.5
-pydantic~=2.9.2
+pydantic~=2.27.2
 pillow
 qrcode~=7.4.2
 starlette~=0.40.0

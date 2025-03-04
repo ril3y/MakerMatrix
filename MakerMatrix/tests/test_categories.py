@@ -131,7 +131,6 @@ def test_update_category():
 
 def test_update_category_name(setup_test_data_category_update):
     # Retrieve the category ID from the setup
-
     category_id = setup_test_data_category_update["data"]["id"]
 
     # Prepare new data for updating the category
@@ -152,8 +151,8 @@ def test_update_category_name(setup_test_data_category_update):
     get_response = client.get("/categories/get_category", params={"category_id": category_id})
     assert get_response.status_code == 200
     get_response_json = get_response.json()
-    assert get_response_json[
-               "message"] == f"Category with name '{get_response_json["data"]["name"]}' retrieved successfully"
+    assert get_response_json["message"] == (f"Category with name '{get_response_json['data']['name']}' retrieved "
+                                            f"successfully")
     assert get_response_json["data"]["name"] == update_data["name"]
     assert get_response_json["data"]["description"] == update_data["description"]
 
