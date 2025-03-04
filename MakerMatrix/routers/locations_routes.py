@@ -142,6 +142,21 @@ async def delete_location(location_id: str) -> ResponseSchema:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/cleanup-locations")
+async def cleanup_locations():
+    """
+    Clean up locations by removing those with invalid parent IDs and their descendants.
+    
+    Returns:
+        JSONResponse: A JSON response containing the cleanup results.
+    """
+    response = LocationService.cleanup_locations()
+    if response["status"] == "success":
+        return JSONResponse(content=response, status_code=200)
+    else:
+        return JSONResponse(content=response, status_code=500)
+
+
 # @router.get("/all_locations/")
 # async def get_all_locations():
 #     locations = LocationService.get_all_locations()

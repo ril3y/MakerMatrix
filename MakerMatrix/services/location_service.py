@@ -191,34 +191,22 @@ class LocationService:
         return LocationService.location_repo.delete_all_locations(session)
 
     @staticmethod
-    def cleanup_locations():
-        # Step 1: Get all locations
-        all_locations = LocationService.location_repo.get_all_locations()
-
-        # Create a set of all valid location IDs
-        valid_ids = {loc.get('id') for loc in all_locations}
-
-        # Step 2: Identify invalid locations
-        invalid_locations = [
-            loc for loc in all_locations
-            if loc.get('parent_id') and loc.get('parent_id') not in valid_ids
-        ]
-
-        # Recursive function to delete a location and its descendants
-        def delete_location_and_descendants(location_id):
-            # Delete all child locations
-            for loc in all_locations:
-                if loc.get('parent_id') == location_id:
-                    delete_location_and_descendants(loc.get('id'))
-
-            # Delete the location itself
-            LocationService.location_repo.delete_location(location_id)
-
-        # Step 3: Delete invalid locations and their descendants
-        for loc in invalid_locations:
-            delete_location_and_descendants(loc.get('id'))
-
-        return len(invalid_locations)
+    def cleanup_locations() -> dict:
+        """
+        Clean up locations by removing those with invalid parent IDs and their descendants.
+        
+        Returns:
+            dict: A dictionary containing the cleanup results in the standard response format
+        """
+        try:
+            with Session(engine) as session:
+                return LocationRepository.cleanup_locations(session)
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error during location cleanup: {str(e)}",
+                "data": None
+            }
 
     @staticmethod
     def preview_delete(location_id: str) -> Dict:

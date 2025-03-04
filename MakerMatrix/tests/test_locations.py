@@ -369,3 +369,33 @@ def setup_test_locations_cleanup():
     client.post("/locations/add_location", json=loc5)
 
     return [office_id, warehouse_id, loc3["id"], loc4["id"], loc5["id"]]
+
+
+def test_cleanup_locations(setup_test_locations_cleanup):
+    """
+    Test the cleanup_locations endpoint that removes locations with invalid parent IDs.
+    """
+    # Get the list of location IDs from the fixture
+    location_ids = setup_test_locations_cleanup
+    
+    # Make a request to cleanup locations
+    response = client.delete("/locations/cleanup-locations")
+    
+    # Check the status code
+    assert response.status_code == 200
+    
+    # Check the response structure
+    response_data = response.json()
+    assert response_data["status"] == "success"
+    assert "Cleanup completed" in response_data["message"]
+    assert "deleted_count" in response_data["data"]
+    
+    # Verify that the invalid location (with invalid parent_id) is deleted
+    invalid_location_response = client.get(f"/locations/get_location?location_id={location_ids[4]}")
+    assert invalid_location_response.status_code == 404
+    
+    # Verify that valid locations still exist
+    for valid_id in location_ids[:4]:  # First 4 locations are valid
+        valid_location_response = client.get(f"/locations/get_location?location_id={valid_id}")
+        assert valid_location_response.status_code == 200
+        assert valid_location_response.json()["status"] == "success"

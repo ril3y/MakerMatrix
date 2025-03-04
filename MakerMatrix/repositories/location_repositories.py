@@ -207,3 +207,56 @@ class LocationRepository:
         session.commit()
         session.refresh(location)
         return location
+
+    @staticmethod
+    def cleanup_locations(session: Session) -> dict:
+        """
+        Clean up locations by removing those with invalid parent IDs and their descendants.
+        
+        Args:
+            session: The database session
+            
+        Returns:
+            dict: A dictionary containing the cleanup results in the standard response format
+        """
+        try:
+            # Get all locations
+            all_locations = session.exec(select(LocationModel)).all()
+            
+            # Create a set of all valid location IDs
+            valid_ids = {loc.id for loc in all_locations}
+            
+            # Identify invalid locations (those with parent_id not in valid_ids)
+            invalid_locations = [
+                loc for loc in all_locations
+                if loc.parent_id and loc.parent_id not in valid_ids
+            ]
+            
+            # Delete invalid locations and their descendants
+            deleted_count = 0
+            for loc in invalid_locations:
+                # Get the hierarchy to delete
+                hierarchy = LocationRepository.get_location_hierarchy(session, loc.id)
+                affected_ids = hierarchy["affected_location_ids"]
+                
+                # Delete all affected locations
+                for loc_id in affected_ids:
+                    location = session.get(LocationModel, loc_id)
+                    if location:
+                        session.delete(location)
+                        deleted_count += 1
+            
+            session.commit()
+            
+            return {
+                "status": "success",
+                "message": f"Cleanup completed. Removed {deleted_count} invalid locations.",
+                "data": {"deleted_count": deleted_count}
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error during location cleanup: {str(e)}",
+                "data": None
+            }
