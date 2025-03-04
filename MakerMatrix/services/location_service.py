@@ -229,10 +229,24 @@ class LocationService:
             }
 
     @staticmethod
-    def preview_delete(location_id: str) -> Dict:
-        affected_parts = LocationService.get_parts_affected_by_location(location_id)
-        affected_parts_count = len(affected_parts)
-
-        affected_children = LocationService.get_child_locations(location_id)
+    def preview_delete(location_id: str) -> dict:
+        """
+        Preview what will be affected when deleting a location.
+        
+        Args:
+            location_id: The ID of the location to preview deletion for
+            
+        Returns:
+            dict: A dictionary containing the preview information in the standard response format
+        """
+        try:
+            with Session(engine) as session:
+                return LocationRepository.preview_delete(session, location_id)
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error generating delete preview: {str(e)}",
+                "data": None
+            }
 
 

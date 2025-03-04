@@ -431,3 +431,30 @@ def test_edit_location():
     data = response.json()
     assert data["data"]["name"] == "Updated Location"
     assert data["data"]["description"] == "Updated Description"
+
+
+def test_preview_delete(setup_test_delete_locations):
+    """Test the preview_delete endpoint that shows what will be affected by deletion."""
+    parent_location_id, child_locations, parts = setup_test_delete_locations
+    
+    # Make a request to preview deletion
+    response = client.get(f"/locations/preview-delete/{parent_location_id}")
+    
+    # Check the status code
+    assert response.status_code == 200
+    
+    # Check the response structure
+    response_data = response.json()
+    assert response_data["status"] == "success"
+    assert "Delete preview generated" in response_data["message"]
+    
+    # Check the preview data
+    preview_data = response_data["data"]
+    assert preview_data["affected_parts_count"] == 2  # We added 2 parts in the setup
+    assert preview_data["affected_locations_count"] == 3  # Parent + 2 children
+    
+    # Check the hierarchy structure
+    hierarchy = preview_data["location_hierarchy"]
+    assert hierarchy["name"] == "Warehouse"
+    assert len(hierarchy["children"]) == 2  # Two child locations
+    assert {child["name"] for child in hierarchy["children"]} == {"Aisle 1", "Aisle 2"}
