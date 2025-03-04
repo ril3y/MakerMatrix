@@ -1,75 +1,117 @@
 # Part Inventory Server
 
-A comprehensive inventory management system designed specifically for makers, hobbyists, and small workshops. This FastAPI-based server helps organize your parts, tools, and materials while providing automated label printing capabilities through Brother QL-800 printer integration.
+This server provides a RESTful API for managing an inventory of parts.  It allows you to create, read, update, and delete part records.
 
-## Why Use Part Inventory Server?
-- **Organize Your Maker Space**: Keep track of all your parts, components, and tools in one central system
-- **Quick Part Location**: Generate and print QR code labels to easily locate items in your workshop
-- **Smart Categories**: Group items by categories for better organization
-- **Location Tracking**: Track where items are stored in your workshop
-- **Inventory Management**: Monitor quantities and get insights into your parts collection
-- **Network Printing**: Print labels directly from any device on your network
-
-## Key Features
-- QR Code Label Generation and Printing
-- Network Printer Support
-- Part Inventory Management
-- Location Management
-- Category Organization
-- Real-time Inventory Counts
-- REST API for Integration
-
-## Requirements
-- Python 3.8+
-- Brother QL-800 printer (or compatible model)
-- Network connectivity to printer
-
-**Installation Guide**
+## Getting Started
 
 ### Prerequisites
 
-*   Python 3.8+
-*   Brother QL-800 printer (or compatible model)
-*   Network connectivity to printer
+* Python 3.7+
+* A database supported by SQLAlchemy (e.g., PostgreSQL, MySQL, SQLite)
 
-### Step 1: Clone the Repository
+### Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone <repository_url>
+   ```
+
+2. Create a virtual environment:
+
+   ```bash
+   python3 -m venv .venv
+   ```
+
+3. Activate the virtual environment:
+
+   ```bash
+   source .venv/bin/activate  # On Linux/macOS
+   .venv\Scripts\activate  # On Windows
+   ```
+
+4. Install the dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. Configure the database connection:
+
+   * Create a `.env` file in the root directory of the project.
+   * Add the following environment variables, replacing the placeholders with your database credentials:
+
+     ```
+     DATABASE_URL=dialect+driver://username:password@host:port/database
+     ```
+
+     For example, for a PostgreSQL database:
+
+     ```
+     DATABASE_URL=postgresql://user:password@localhost:5432/part_inventory
+     ```
+
+     Or for an SQLite database:
+
+     ```
+     DATABASE_URL=sqlite:///part_inventory.db
+     ```
+
+
+### Running the Server
+
+1. Start the server:
+
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+   This will start the server in development mode with automatic reloading.
+
+## API Endpoints
+
+The following endpoints are available:
+
+* **GET /parts**: Retrieve all parts.
+* **GET /parts/{part_id}**: Retrieve a specific part by ID.
+* **POST /parts**: Create a new part.
+* **PUT /parts/{part_id}**: Update an existing part.
+* **DELETE /parts/{part_id}**: Delete a part.
+
+
+## Data Model
+
+The part data model includes the following fields:
+
+* **id (int)**: Unique identifier for the part.
+* **name (str)**: Name of the part.
+* **description (str, optional)**: Description of the part.
+* **quantity (int)**: Quantity of the part in stock.
+
+## Example Usage
+
+### Creating a new part:
 
 ```bash
-git clone https://github.com/yourusername/part_inventory_server.git
-cd part_inventory_server
+curl -X POST -H "Content-Type: application/json" -d '{"name": "Example Part", "description": "A test part", "quantity": 10}' http://localhost:8000/parts
 ```
 
-### Step 2: Create a Virtual Environment
+### Retrieving all parts:
 
 ```bash
-python -m venv venv
+curl http://localhost:8000/parts
 ```
 
-### Step 3: Activate the Virtual Environment
+### Updating a part:
 
 ```bash
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
+curl -X PUT -H "Content-Type: application/json" -d '{"name": "Updated Part", "quantity": 5}' http://localhost:8000/parts/1
 ```
 
-### Step 4: Install Required Packages
+### Deleting a part:
 
 ```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # For development/testing
+curl -X DELETE http://localhost:8000/parts/1
 ```
 
-### Step 5: Configure the Printer
 
-1.  Create a `printer.json` file in the root directory with the following content:
-
-```json
-{
-    "printer": {
-        "model": "QL-800",
-        "backend": "network",
-        "printer_identifier": "tcp://192.168.1.71",
-        "dpi": 300
-    }
-}
-```

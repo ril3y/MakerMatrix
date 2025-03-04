@@ -2,7 +2,7 @@ from typing import Dict, Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette import status
 
-from MakerMatrix.models.models import PartModel
+from MakerMatrix.models.models import PartModel, AdvancedPartSearch
 from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, ResourceNotFoundError
 from MakerMatrix.schemas.part_create import PartCreate, PartUpdate
 from MakerMatrix.schemas.part_response import PartResponse
