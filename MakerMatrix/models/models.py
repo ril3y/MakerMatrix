@@ -7,6 +7,8 @@ import uuid
 from pydantic import Field as PydanticField
 from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.dialects.sqlite import JSON
+from datetime import datetime
+from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
 
 # Association table to link PartModel and CategoryModel
 class PartCategoryLink(SQLModel, table=True):
@@ -32,11 +34,7 @@ class CategoryModel(SQLModel, table=True):
 
     def to_dict(self) -> Dict[str, Any]:
         """ Custom serialization method for CategoryModel """
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description
-        }
+        return self.model_dump(exclude={"parts"})
 
 
 class LocationQueryModel(SQLModel):
@@ -75,10 +73,11 @@ class LocationModel(SQLModel, table=True):
 
     def to_dict(self) -> Dict[str, Any]:
         """ Custom serialization method for LocationModel """
-        location_dict = self.model_dump()
+        base_dict = self.model_dump(exclude={"parent"})
         # Convert the related children to a list of dictionaries
-        location_dict['children'] = [child.to_dict() for child in self.children]
-        return location_dict
+        if "children" in base_dict and base_dict["children"]:
+            base_dict["children"] = [child.to_dict() for child in base_dict["children"]]
+        return base_dict
 
 
 class LocationUpdate(SQLModel):
@@ -150,13 +149,14 @@ class PartModel(SQLModel, table=True):
 
     def to_dict(self) -> Dict[str, Any]:
         """ Custom serialization method for PartModel """
-        part_dict = self.model_dump()
-        # Convert the related categories to a list of dictionaries or names
-        part_dict['categories'] = [
-            {"id": category.id, "name": category.name, "description": category.description}
-            for category in self.categories
-        ]
-        return part_dict
+        base_dict = self.model_dump(exclude={"location"})
+        # Convert the related categories to a list of dictionaries
+        if "categories" in base_dict and base_dict["categories"]:
+            base_dict["categories"] = [
+                {"id": category.id, "name": category.name, "description": category.description}
+                for category in base_dict["categories"]
+            ]
+        return base_dict
 
     @model_validator(mode='before')
     @classmethod
