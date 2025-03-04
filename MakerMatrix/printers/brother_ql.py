@@ -126,10 +126,7 @@ class BrotherQL(AbstractPrinter):
 
     def _resize_and_print(self, image: Image.Image, label: str = '12', rotate: str = '0',
                           max_length_inches: float = None, print_settings: PrintSettings = None):
-        """Convert the provided image to printer instructions and send it.
-        Since LabelService already produces a correctly sized image, no additional resizing is performed.
-        """
-        #  TODO: lets update print_settings to really provide values like label etc instead of hard coding
+        """Convert the provided image to printer instructions and send it."""
         try:
             print(f"[DEBUG] Starting _resize_and_print() with label: {label}, rotate: {rotate}")
             self.qlr.data = b''
@@ -148,11 +145,8 @@ class BrotherQL(AbstractPrinter):
                 cut=True
             )
             print("[DEBUG] Sending print job")
-            if print_settings.copies > 1:
-                pass
-            result = True
-
-            if print_settings.copies > 1:
+            if print_settings and print_settings.copies > 1:
+                result = True
                 for i in range(0, print_settings.copies):
                     if result is False:
                         break  # Previous send had an issue
@@ -162,7 +156,6 @@ class BrotherQL(AbstractPrinter):
                         backend_identifier=self.backend,
                         blocking=True
                     )
-
             else:
                 result = send(
                     instructions=instructions,
@@ -240,7 +233,7 @@ class BrotherQL(AbstractPrinter):
                 combined_img.save("scaled_label.png")
 
             # Now send the image to print (using print_settings.label_size for the label parameter).
-            return self._resize_and_print(combined_img, label=str(print_settings.label_size))
+            return self._resize_and_print(combined_img, label=str(print_settings.label_size), print_settings=print_settings)
         except Exception as e:
             print(f"[ERROR] Exception in print_qr_and_text: {e}")
             import traceback

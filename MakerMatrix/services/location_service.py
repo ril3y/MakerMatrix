@@ -43,16 +43,24 @@ class LocationService:
 
     @staticmethod
     def update_location(location_id: str, location_data: Dict[str, Any]) -> LocationModel:
+        """
+        Update a location's fields. This method can update any combination of name, description, parent_id, and location_type.
+        
+        Args:
+            location_id: The ID of the location to update
+            location_data: Dictionary containing the fields to update
+            
+        Returns:
+            LocationModel: The updated location model
+            
+        Raises:
+            ResourceNotFoundError: If the location or parent location is not found
+        """
         session = next(get_session())
         try:
             return LocationService.location_repo.update_location(session, location_id, location_data)
-
         except ResourceNotFoundError as rnfe:
-            raise ResourceNotFoundError(
-                status="error",
-                message=f"Location with ID '{location_id}' not found.",
-                data=None
-            )
+            raise rnfe  # Re-raise the ResourceNotFoundError to be handled by the route
         except Exception as e:
             raise ValueError(f"Failed to update location: {str(e)}")
 
@@ -110,16 +118,6 @@ class LocationService:
                 "message": f"Error retrieving location path: {str(e)}",
                 "data": None
             }
-
-    # @staticmethod
-    # def update_location(location_id: str, location_data: LocationModel) -> Optional[dict]:
-    #     # Validate the location data if needed (e.g., ensure the name is unique)
-    #     # You may need to validate that the new name is unique and the parent location exists, if applicable.
-    #
-    #     # Update the location using the repository
-    #     update_data = location_data.dict(exclude_unset=True)
-    #     updated_location = LocationService.location_repo.update_location(location_id, update_data)
-    #     return updated_location
 
     @staticmethod
     def preview_location_delete(location_id: str) -> dict[str, Any]:
@@ -179,31 +177,6 @@ class LocationService:
                 "deleted_location_id": location_id,
             }
         }
-
-    @staticmethod
-    def edit_location(location_id: str, name: Optional[str] = None, 
-                     description: Optional[str] = None, parent_id: Optional[str] = None) -> dict:
-        """
-        Edit specific fields of a location.
-        
-        Args:
-            location_id: The ID of the location to edit
-            name: Optional new name for the location
-            description: Optional new description
-            parent_id: Optional new parent ID
-            
-        Returns:
-            dict: A dictionary containing the updated location in the standard response format
-        """
-        try:
-            with Session(engine) as session:
-                return LocationRepository.edit_location(session, location_id, name, description, parent_id)
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Error updating location: {str(e)}",
-                "data": None
-            }
 
     @staticmethod
     def delete_all_locations():

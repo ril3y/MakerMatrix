@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "MakerMatrix"
+version = "0.1.0"
+description = "A part inventory management system with label printing capabilities"
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi>=0.68.0",
+    "uvicorn>=0.15.0",
+    "sqlmodel>=0.0.8",
+    "pydantic>=2.0.0",
+    "python-multipart>=0.0.5",
+    "brother_ql>=0.9.0",
+    "pillow>=9.0.0",
+    "qrcode>=7.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.18.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+] 

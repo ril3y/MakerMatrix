@@ -1,6 +1,6 @@
 import importlib
 import json
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from MakerMatrix.models.printer_config_model import PrinterConfig
 
@@ -12,23 +12,27 @@ DRIVER_CLASS_MAP = {
 
 class PrinterRepository:
     """
-    Loads the printer configuration from a JSON file, dynamically imports the correct driver,
-    and instantiates the printer driver.
+    Loads the printer configuration from a JSON file or in-memory configuration,
+    dynamically imports the correct driver, and instantiates the printer driver.
     """
 
-    def __init__(self, config_path: str = "printer_config.json"):
+    def __init__(self, config_path: Optional[str] = None, config_data: Optional[Dict[str, Any]] = None):
         self.config_path = config_path
         self._printer = None
         self._printer_config: Optional[PrinterConfig] = None
         self._driver_cls = None
 
-        self.load_config()
+        if config_data:
+            self._load_config_data(config_data)
+        elif config_path:
+            self.load_config()
+        else:
+            raise ValueError("Either config_path or config_data must be provided")
+
         self._import_driver()
 
-    def load_config(self) -> None:
-        with open(self.config_path, "r", encoding="utf-8") as f:
-            config_data = json.load(f)
-
+    def _load_config_data(self, config_data: Dict[str, Any]) -> None:
+        """Load configuration from a dictionary instead of a file."""
         self._printer_config = PrinterConfig(
             backend=config_data["backend"],
             driver=config_data["driver"],
@@ -41,6 +45,16 @@ class PrinterRepository:
         # Reset any existing printer/driver so that changes take effect.
         self._printer = None
         self._driver_cls = None
+
+    def load_config(self) -> None:
+        """Load configuration from a JSON file."""
+        if not self.config_path:
+            raise ValueError("No config path provided")
+            
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            config_data = json.load(f)
+            
+        self._load_config_data(config_data)
 
     def _import_driver(self) -> None:
         if not self._printer_config:
@@ -82,12 +96,15 @@ class PrinterRepository:
         self._printer_config = config
         self._printer = None
         self._driver_cls = None
-        if save:
+        if save and self.config_path:
             self.save_config()
 
     def save_config(self) -> None:
         if not self._printer_config:
             raise ValueError("Printer config is not set.")
+        if not self.config_path:
+            raise ValueError("No config path provided")
+            
         with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump({
                 "backend": self._printer_config.backend,

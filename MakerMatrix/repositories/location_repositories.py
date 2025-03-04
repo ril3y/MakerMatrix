@@ -196,10 +196,31 @@ class LocationRepository:
         
     @staticmethod
     def update_location(session: Session, location_id: str, location_data: Dict[str, Any]) -> LocationModel:
+        """
+        Update a location's fields. This method can update any combination of name, description, parent_id, and location_type.
+        
+        Args:
+            session: The database session
+            location_id: The ID of the location to update
+            location_data: Dictionary containing the fields to update
+            
+        Returns:
+            LocationModel: The updated location model
+            
+        Raises:
+            ResourceNotFoundError: If the location or parent location is not found
+        """
         location = session.get(LocationModel, location_id)
         if not location:
             raise ResourceNotFoundError(resource="Location", resource_id=location_id)
         
+        # If parent_id is being updated, verify the new parent exists
+        if "parent_id" in location_data and location_data["parent_id"]:
+            parent = session.get(LocationModel, location_data["parent_id"])
+            if not parent:
+                raise ResourceNotFoundError(resource="Parent Location", resource_id=location_data["parent_id"])
+        
+        # Update only the provided fields
         for key, value in location_data.items():
             setattr(location, key, value)
         
@@ -258,63 +279,6 @@ class LocationRepository:
             return {
                 "status": "error",
                 "message": f"Error during location cleanup: {str(e)}",
-                "data": None
-            }
-
-    @staticmethod
-    def edit_location(session: Session, location_id: str, name: Optional[str] = None, 
-                     description: Optional[str] = None, parent_id: Optional[str] = None) -> dict:
-        """
-        Edit specific fields of a location.
-        
-        Args:
-            session: The database session
-            location_id: The ID of the location to edit
-            name: Optional new name for the location
-            description: Optional new description
-            parent_id: Optional new parent ID
-            
-        Returns:
-            dict: A dictionary containing the updated location in the standard response format
-        """
-        try:
-            location = session.get(LocationModel, location_id)
-            if not location:
-                raise ResourceNotFoundError(resource="Location", resource_id=location_id)
-            
-            # Update only the provided fields
-            if name is not None:
-                location.name = name
-            if description is not None:
-                location.description = description
-            if parent_id is not None:
-                # Verify that the new parent exists if provided
-                if parent_id:
-                    parent = session.get(LocationModel, parent_id)
-                    if not parent:
-                        raise ResourceNotFoundError(resource="Parent Location", resource_id=parent_id)
-                location.parent_id = parent_id
-            
-            session.add(location)
-            session.commit()
-            session.refresh(location)
-            
-            return {
-                "status": "success",
-                "message": "Location updated successfully",
-                "data": location.to_dict()
-            }
-            
-        except ResourceNotFoundError as e:
-            return {
-                "status": "error",
-                "message": str(e),
-                "data": None
-            }
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Error updating location: {str(e)}",
                 "data": None
             }
 
