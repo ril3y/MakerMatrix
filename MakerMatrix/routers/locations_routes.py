@@ -179,31 +179,10 @@ async def cleanup_locations():
         return JSONResponse(content=response, status_code=500)
 
 
-@router.put("/edit_location/{location_id}")
-async def edit_location(location_id: str, name: Optional[str] = None, 
-                       description: Optional[str] = None, parent_id: Optional[str] = None):
-    """
-    Edit specific fields of a location.
-    
-    Args:
-        location_id: The ID of the location to edit
-        name: Optional new name for the location
-        description: Optional new description
-        parent_id: Optional new parent ID
-        
-    Returns:
-        JSONResponse: A JSON response containing the updated location.
-    """
-    response = LocationService.edit_location(location_id, name, description, parent_id)
-    if response["status"] == "success":
-        return JSONResponse(content=response, status_code=200)
-    else:
-        return JSONResponse(content=response, status_code=404)
-
-
 @router.get("/preview-delete/{location_id}")
 async def preview_delete(location_id: str):
     """
+    DEPRECATED: Use /preview-location-delete/{location_id} instead.
     Preview what will be affected when deleting a location.
     
     Args:
@@ -212,11 +191,7 @@ async def preview_delete(location_id: str):
     Returns:
         JSONResponse: A JSON response containing the preview information.
     """
-    response = LocationService.preview_delete(location_id)
-    if response["status"] == "success":
-        return JSONResponse(content=response, status_code=200)
-    else:
-        return JSONResponse(content=response, status_code=404)
+    return await preview_location_delete(location_id)
 
 
 # @router.get("/all_locations/")
