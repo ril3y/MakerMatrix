@@ -9,9 +9,7 @@ from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.category_service import CategoryService
 from MakerMatrix.services.part_service import PartService
-from MakerMatrix.dependencies.auth import get_current_active_user, require_permission
 from MakerMatrix.models.user_models import UserModel
-
 from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
 from MakerMatrix.services.part_service import PartService
 
@@ -23,10 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
-async def add_part(
-    part: PartCreate, 
-    current_user: UserModel = Depends(require_permission("parts:create"))
-) -> ResponseSchema[PartResponse]:
+async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
     try:
         # Convert PartCreate to dict and include category_names
         part_data = part.model_dump()

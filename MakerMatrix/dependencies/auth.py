@@ -1,5 +1,5 @@
-from typing import Optional, Callable, List
-from fastapi import Depends, HTTPException, status, APIRouter
+from typing import Optional, Callable, List, Dict, Any
+from fastapi import Depends, HTTPException, status, APIRouter, Request
 from fastapi.security import OAuth2PasswordBearer
 from MakerMatrix.services.auth_service import AuthService
 from MakerMatrix.models.user_models import UserModel
@@ -43,23 +43,23 @@ def require_admin(current_user: UserModel = Depends(get_current_active_user)) ->
     )
 
 
-def secure_router(router: APIRouter, dependencies: List[Callable] = None, exclude_paths: List[str] = None):
+def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permissions: Dict[str, str] = None):
     """
     Apply authentication dependencies to all routes in a router.
     
     Args:
         router: The router to secure
-        dependencies: List of dependencies to apply to all routes
-        exclude_paths: List of path operations to exclude from authentication
+        exclude_paths: List of path operations to exclude from authentication (e.g., ["/public-endpoint"])
+        permissions: Dict mapping paths to required permissions (e.g., {"/admin-endpoint": "admin:access"})
         
     Returns:
         The secured router
     """
-    if dependencies is None:
-        dependencies = [Depends(get_current_active_user)]
-    
     if exclude_paths is None:
         exclude_paths = []
+    
+    if permissions is None:
+        permissions = {}
     
     # Store the original routes
     original_routes = router.routes.copy()
@@ -70,11 +70,20 @@ def secure_router(router: APIRouter, dependencies: List[Callable] = None, exclud
     # Add the routes back with dependencies
     for route in original_routes:
         path = route.path
+        
+        # Skip excluded paths
         if path in exclude_paths:
             router.routes.append(route)
+            continue
+        
+        # Check if this path needs specific permissions
+        if path in permissions:
+            # Add permission-specific dependency
+            route.dependencies.append(Depends(require_permission(permissions[path])))
         else:
-            # Add the dependencies to the route
-            route.dependencies.extend(dependencies)
-            router.routes.append(route)
+            # Add general authentication dependency
+            route.dependencies.append(Depends(get_current_active_user))
+        
+        router.routes.append(route)
     
     return router 

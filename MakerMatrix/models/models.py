@@ -43,6 +43,7 @@ class LocationQueryModel(SQLModel):
 
 
 class LocationModel(SQLModel, table=True):
+
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: Optional[str] = Field(index=True)
     description: Optional[str] = None
@@ -64,6 +65,7 @@ class LocationModel(SQLModel, table=True):
         back_populates="location",
         sa_relationship_kwargs={"passive_deletes": True}
     )
+
 
     @classmethod
     def get_with_children(cls, session: Session, location_id: str) -> Optional["LocationModel"]:

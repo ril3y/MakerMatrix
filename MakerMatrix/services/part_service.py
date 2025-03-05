@@ -194,20 +194,20 @@ class PartService:
                 # Handle categories first
                 category_names = part_data.pop("category_names", [])
                 categories = []
-                
+
                 if category_names:
                     for name in category_names:
                         # Try to get existing category
                         category = session.exec(
                             select(CategoryModel).where(CategoryModel.name == name)
                         ).first()
-                        
+
                         if not category:
                             # Create new category if it doesn't exist
                             category = CategoryModel(name=name)
                             session.add(category)
                             session.flush()  # Flush to get the ID but don't commit yet
-                        
+
                         categories.append(category)
 
                 # Create the part with the prepared categories
@@ -316,7 +316,7 @@ class PartService:
             return {
                 "status": "found",
                 "message": f"Part with {identifier} '{part_name}' found.",
-                "data": part.model_dump(),
+                "data": part.to_dict(),
             }
 
     @staticmethod
@@ -333,7 +333,7 @@ class PartService:
                 return {
                     "status": "found",
                     "message": f"Part with {identifier} '{part_id}' found.",
-                    "data": part.model_dump(),
+                    "data": part.to_dict(),
                 }
 
             raise ResourceNotFoundError(

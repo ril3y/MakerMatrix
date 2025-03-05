@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie
-from fastapi.security import OAuth2PasswordRequestForm
+from typing import Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Body
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import JWTError
 from MakerMatrix.services.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from MakerMatrix.repositories.user_repository import UserRepository
@@ -9,10 +9,25 @@ from MakerMatrix.models.user_models import UserCreate, UserModel, PasswordUpdate
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.dependencies import oauth2_scheme
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+# Define a standard OAuth2 token response model
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    
+class TokenResponse(ResponseSchema[Token]):
+    pass
+
+# Define a model for mobile login
+class MobileLoginRequest(BaseModel):
+    username: str
+    password: str
 
 router = APIRouter()
 auth_service = AuthService()
 user_repository = UserRepository()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserModel:
@@ -20,7 +35,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserModel:
 
 
 @router.post("/auth/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> JSONResponse:
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = auth_service.authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -29,45 +44,70 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> JSONRespons
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create access and refresh tokens
+    access_token = auth_service.create_access_token(
+        data={"sub": user.username, "password_change_required": user.password_change_required}
+    )
+    refresh_token = auth_service.create_refresh_token(data={"sub": user.username})
+
+    user.last_login = datetime.utcnow()
+    user_repository.update_user(user.id, last_login=user.last_login)
+
+    # Return a shape that includes top-level "access_token" and "token_type",
+    # so Swagger/OpenAPI picks them up for "Authorize".
+    content = {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "status": "success",
+        "message": "Login successful",
+    }
+
+    response = JSONResponse(content=content)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,  # For HTTPS in production
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7
+    )
+    return response
+
+
+@router.post("/auth/mobile-login", response_model=TokenResponse)
+async def mobile_login(login_data: MobileLoginRequest):
+    """
+    Login endpoint specifically for mobile applications.
+    Returns a token that can be used for authentication.
+    """
+    user = auth_service.authenticate_user(login_data.username, login_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Create access token
     access_token = auth_service.create_access_token(
         data={
             "sub": user.username,
             "password_change_required": user.password_change_required
         }
     )
-    refresh_token = auth_service.create_refresh_token(
-        data={"sub": user.username}
-    )
 
     # Update last login time
     user.last_login = datetime.utcnow()
     user_repository.update_user(user.id, last_login=user.last_login)
-
-    response = JSONResponse(
-        content=ResponseSchema(
-            status="success",
-            message="Login successful",
-            data={
-                "access_token": access_token,
-                "token_type": "bearer",
-                "user": user.to_dict(),
-                "password_change_required": user.password_change_required
-            }
-        ).model_dump()
+    
+    # Return token response
+    return ResponseSchema(
+        status="success",
+        message="Login successful",
+        data=Token(
+            access_token=access_token,
+            token_type="bearer"
+        )
     )
-
-    # Set refresh token as HTTP-only cookie
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=True,  # Enable in production with HTTPS
-        samesite="lax",
-        max_age=60 * 60 * 24 * 7  # 7 days
-    )
-
-    return response
 
 
 @router.post("/auth/refresh")
