@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from starlette.responses import JSONResponse
 
 from MakerMatrix.models.models import LocationModel, LocationQueryModel
@@ -8,16 +8,12 @@ from MakerMatrix.models.models import LocationUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.location_service import LocationService
-from MakerMatrix.dependencies.auth import get_current_active_user, require_permission
-from MakerMatrix.models.user_models import UserModel
 
 router = APIRouter()
 
 
 @router.get("/get_all_locations")
-async def get_all_locations(
-    current_user: UserModel = Depends(get_current_active_user)
-):
+async def get_all_locations():
     try:
         locations = LocationService.get_all_locations()
         # noinspection PyArgumentList
@@ -33,8 +29,7 @@ async def get_all_locations(
 @router.get("/get_location")
 async def get_location(
     location_id: Optional[str] = None, 
-    name: Optional[str] = None,
-    current_user: UserModel = Depends(get_current_active_user)
+    name: Optional[str] = None
 ):
     try:
         if not location_id and not name:
@@ -79,7 +74,7 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
     except ResourceNotFoundError as rnfe:
         return JSONResponse(
             status_code=404,
-            content={"detail": str(rnfe)}
+            content={"detail": str(rnfe),'status':'error'}
         )
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -90,17 +85,43 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
 @router.post("/add_location")
 async def add_location(location_data: LocationModel) -> ResponseSchema[LocationModel]:
     try:
+        # Check if a location with the same name and parent_id already exists
+        existing_location = None
+        try:
+            location_query = LocationQueryModel(name=location_data.name)
+            existing_location = LocationService.get_location(location_query)
+            
+            # If we found a location with the same name, check if it has the same parent_id
+            if existing_location and existing_location.parent_id == location_data.parent_id:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "status": "error",
+                        "message": f"Location with name '{location_data.name}' already exists under the same parent",
+                        "data": None
+                    }
+                )
+        except ResourceNotFoundError:
+            # If no location with this name exists, we can proceed
+            pass
+            
         location = LocationService.add_location(location_data.model_dump())
-        # noinspection PyArgumentList
-        # noinspection PyArgumentList
         return ResponseSchema(
-
-
             status="success",
             message="Location added successfully",
             data=location.to_dict()
         )
     except Exception as e:
+        # Check if this is an integrity error (likely a duplicate name + parent_id)
+        if "UNIQUE constraint failed" in str(e) or "unique constraint" in str(e).lower():
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "status": "error",
+                    "message": f"Location with name '{location_data.name}' already exists under the same parent",
+                    "data": None
+                }
+            )
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -12,13 +12,24 @@ from MakerMatrix.routers import (
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
-from MakerMatrix.dependencies.auth import secure_router, get_current_active_user
+from MakerMatrix.dependencies.auth import secure_all_routes
+from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
+from MakerMatrix.repositories.user_repository import UserRepository
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting up...")
-    create_db_and_tables()  # Run the database setup
+    # Run the database setup
+    create_db_and_tables()
+    
+    # Set up default roles and admin user
+    print("Setting up default roles and admin user...")
+    user_repo = UserRepository()
+    setup_default_roles(user_repo)
+    setup_default_admin(user_repo)
+    print("Setup complete!")
+    
     yield  # App continues running
     print("Shutting down...")  # If you need cleanup, add it here
 
@@ -38,14 +49,46 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+# Define permissions for specific routes
+parts_permissions = {
+    "/add_part": "parts:create",
+    "/update_part/{part_id}": "parts:update",
+    "/delete_part": "parts:delete"
+}
+
+locations_permissions = {
+    "/add_location": "locations:create",
+    "/update_location/{location_id}": "locations:update",
+    "/delete_location/{location_id}": "locations:delete"
+}
+
+categories_permissions = {
+    "/add_category/": "categories:create",
+    "/update_category/{category_id}": "categories:update",
+    "/remove_category": "categories:delete",
+    "/delete_all_categories": "categories:delete_all"
+}
+
+# Define paths that should be excluded from authentication
+auth_exclude_paths = [
+    "/login",
+    "/refresh",
+    "/logout"
+]
+
 # Secure routers with authentication
-secure_router(parts_routes.router)
-secure_router(locations_routes.router)
-secure_router(categories_routes.router)
-secure_router(printer_routes.router)
-secure_router(utility_routes.router)
-secure_router(user_routes.router)
-secure_router(role_routes.router)
+secure_all_routes(parts_routes.router, permissions=parts_permissions)
+secure_all_routes(locations_routes.router, permissions=locations_permissions)
+secure_all_routes(categories_routes.router, permissions=categories_permissions)
+secure_all_routes(printer_routes.router)
+secure_all_routes(utility_routes.router)
+# Don't secure auth routes - they need to be accessible without authentication
+# secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
+secure_all_routes(user_routes.router)
+secure_all_routes(role_routes.router)
+
+# Public routes that don't need authentication
+public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
 
 # Include routers
 app.include_router(parts_routes.router, prefix="/parts", tags=["parts"])

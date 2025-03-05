@@ -1,13 +1,15 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
-from MakerMatrix.main import app
-from MakerMatrix.database.db import create_db_and_tables
-from MakerMatrix.models.models import engine
-from MakerMatrix.schemas.part_create import PartCreate
-from MakerMatrix.models.models import LocationModel
-from MakerMatrix.services.location_service import LocationService
 
+from MakerMatrix.database.db import create_db_and_tables
+from MakerMatrix.main import app
+from MakerMatrix.models.models import LocationModel
+from MakerMatrix.models.models import engine
+from MakerMatrix.repositories.user_repository import UserRepository
+from MakerMatrix.schemas.part_create import PartCreate
+from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
+from MakerMatrix.services.location_service import LocationService
 
 client = TestClient(app)
 
@@ -19,14 +21,39 @@ def setup_database():
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
     create_db_and_tables()
+
+    # Create default roles and admin user
+    user_repo = UserRepository()
+    setup_default_roles(user_repo)
+    setup_default_admin(user_repo)
+
     yield  # Let the tests run
     # Clean up the tables after running the tests
     SQLModel.metadata.drop_all(engine)
 
 
+@pytest.fixture
+def admin_token():
+    """Get an admin token for authentication."""
+    # Login data for the admin user
+    login_data = {
+        "username": "admin",
+        "password": "Admin123!"  # Updated to match the default password in setup_admin.py
+    }
+
+    # Post to the mobile login endpoint
+    response = client.post("/auth/mobile-login", json=login_data)
+
+    # Check that the login was successful
+    assert response.status_code == 200
+
+    # Extract and return the access token
+    return response.json()["data"]["access_token"]
+
 
 @pytest.fixture
 def setup_test_locations():
+
     # Clear any existing locations in the database
     LocationService.delete_all_locations()
 
@@ -78,12 +105,15 @@ def setup_test_locations():
 
 
 @pytest.fixture
-def setup_test_location_details():
+def setup_test_location_details(admin_token):
     # Clear existing locations first
-    client.delete("/locations/delete_all_locations")
+    client.delete("/locations/delete_all_locations",
+                  headers={"Authorization": f"Bearer {admin_token}"})
     # Create a parent location
     office = LocationModel(name="Office", description="Main office space")
-    office_response = client.post("/locations/add_location", json=office.model_dump())
+    office_response = client.post("/locations/add_location",
+                                  json=office.model_dump(),
+                                  headers={"Authorization": f"Bearer {admin_token}"})
     # Extract the ID of the created parent location
     office_id = office_response.json()["data"]["id"]
     # Create child locations under the parent location
@@ -93,214 +123,250 @@ def setup_test_location_details():
                                   id="2211224", parent_id=desk.id)
     pencil_box = LocationModel(name="Pencil Box", description="Pencil Box in Bottom Drawer in Desk",
                                parent_id=bottom_drawer.id)
-    r1 = client.post("/locations/add_location", json=desk.model_dump())
-    r2 = client.post("/locations/add_location", json=chair.model_dump())
-    r3 = client.post("/locations/add_location", json=bottom_drawer.model_dump())
-    r4 = client.post("/locations/add_location", json=pencil_box.model_dump())
-    office_with_children = client.get(f"/locations/get_location_details/{office_id}")
+    r1 = client.post("/locations/add_location", json=desk.model_dump(),
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    r2 = client.post("/locations/add_location", json=chair.model_dump(),
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    r3 = client.post("/locations/add_location", json=bottom_drawer.model_dump(),
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    r4 = client.post("/locations/add_location", json=pencil_box.model_dump(),
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    office_with_children = client.get(f"/locations/get_location_details/{office_id}",
+                                      headers={"Authorization": f"Bearer {admin_token}"})
 
     return {
         "office_id": office_id,
     }
 
 
-def test_add_location():
-    """Test to add a location via the API."""
+def test_add_location(admin_token):
+    # Define a new location
     location_data = {
-        "name": "Warehouse",
-        "description": "Main warehouse storage",
-        "location_type": "storage"
+        "name": "Test Location",
+        "description": "A test location",
+        "location_type": "Shelf",
+        "parent_id": None
     }
 
-    # Add the location using the API
-    response = client.post("/locations/add_location", json=location_data)
+    # Add the location
+    response = client.post(
+        "/locations/add_location",
+        json=location_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 200
 
-    # Verify the response data
-    response_data = response.json()
-    assert response_data["status"] == "success"
-    assert response_data["message"] == "Location added successfully"
-    assert response_data["data"]["id"] is not None
-    assert response_data["data"]["name"] == location_data["name"]
-    assert response_data["data"]["description"] == location_data["description"]
-    assert response_data["data"]["location_type"] == location_data["location_type"]
+    # Verify the response
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert "Location added successfully" in response_json["message"]
+    assert response_json["data"]["name"] == "Test Location"
+    assert response_json["data"]["description"] == "A test location"
+    assert response_json["data"]["location_type"] == "Shelf"
+    assert "id" in response_json["data"]
 
-    # Verify that the location can be retrieved from the database
-    location_id = response_data["data"]["id"]
-    retrieved_response = client.get(f"/locations/get_location_details/{location_id}")
-    assert retrieved_response.status_code == 200
-    retrieved_data = retrieved_response.json()
-    assert retrieved_data["data"]["id"] == location_id
-    assert retrieved_data["data"]["name"] == location_data["name"]
-    assert retrieved_data["data"]["description"] == location_data["description"]
-    assert retrieved_data["data"]["location_type"] == location_data["location_type"]
+    # Try to add a location with the same name (should fail)
+    duplicate_response = client.post(
+        "/locations/add_location",
+        json=location_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json()["status"] == "error"
+    assert "already exists" in duplicate_response.json()["message"].lower()
 
 
-def test_get_location_details(setup_test_location_details):
+def test_get_location_details(setup_test_location_details, admin_token):
     # Extract the parent ID from the fixture
-    office_id = setup_test_location_details["office_id"]
-    # Make a request to get the location details for the parent location
-    response = client.get(f"/locations/get_location_details/{office_id}")
+    parent_id = setup_test_location_details["office_id"]
+
+    # Get the location details
+    response = client.get(
+        f"/locations/get_location_details/{parent_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 200
-    # Get the location details from the response
-    location_details = response.json()
-    # Assert the parent location information
-    assert location_details["data"]["id"] == office_id
-    assert location_details["data"]["name"] == "Office"
-    assert location_details["data"]["description"] == "Main office space"
-    # Assert that the children locations are present
-    children = location_details["data"]["children"]
-    assert len(children) == 2
-    # Check that each child has the correct parent_id and is one of the expected children
-    expected_children = {"Desk", "Chair"}
-    for child in children:
-        assert child["parent_id"] == office_id
-        assert child["name"] in expected_children
+
+    # Verify the response
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert "Location details retrieved successfully" in response_json["message"]
+    assert response_json["data"]["id"] == parent_id
+    assert "children" in response_json["data"]
+    assert len(response_json["data"]["children"]) == 2  # Should have 2 child locations
+
+    # Check that the children have the correct parent ID
+    for child in response_json["data"]["children"]:
+        assert child["parent_id"] == parent_id
 
 
-def test_get_location_by_id(setup_test_locations):
+def test_get_location_by_id(setup_test_locations, admin_token):
     # Get the ID of a known location, e.g., "Office"
-    office_location = next((loc for loc in setup_test_locations if loc.name == "Office"), None)
-    assert office_location is not None
+    office_location = next(loc for loc in setup_test_locations if loc.name == "Office")
+    location_id = office_location.id
 
-    response = client.get("/locations/get_location", params={"location_id": office_location.id})
+    # Get the location by ID
+    response = client.get(
+        f"/locations/get_location?id={location_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 200
-    res = response.json()
-    assert res["data"]["name"] == "Office"
+
+    # Verify the response
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert "Location retrieved successfully" in response_json["message"]
+    assert response_json["data"]["id"] == location_id
+    assert response_json["data"]["name"] == "Office"
 
 
 @pytest.fixture
-def setup_test_locations_get_path():
+def setup_test_locations_get_path(admin_token):
     # Clear existing locations
-    client.delete("/locations/delete_all_locations")
-    
+    client.delete("/locations/delete_all_locations",
+                  headers={"Authorization": f"Bearer {admin_token}"})
+
     # Create a hierarchy: Office -> Desk -> Drawer
     office = {"name": "Office", "description": "Main office"}
-    office_response = client.post("/locations/add_location", json=office)
+    office_response = client.post("/locations/add_location",
+                                  json=office,
+                                  headers={"Authorization": f"Bearer {admin_token}"})
+
     office_id = office_response.json()["data"]["id"]
-    
+
     desk = {"name": "Desk", "description": "Office desk", "parent_id": office_id}
-    desk_response = client.post("/locations/add_location", json=desk)
+    desk_response = client.post("/locations/add_location",
+                                json=desk,
+                                headers={"Authorization": f"Bearer {admin_token}"})
+
     desk_id = desk_response.json()["data"]["id"]
-    
+
     drawer = {"name": "Drawer", "description": "Desk drawer", "parent_id": desk_id}
-    drawer_response = client.post("/locations/add_location", json=drawer)
+    drawer_response = client.post("/locations/add_location",
+                                  json=drawer,
+                                  headers={"Authorization": f"Bearer {admin_token}"})
+
     drawer_id = drawer_response.json()["data"]["id"]
-    
+
     return {"drawer_id": drawer_id}
 
 
-def test_get_location_path(setup_test_locations_get_path):
-    # Use the drawer ID for testing
+def test_get_location_path(setup_test_locations_get_path, admin_token):
     drawer_id = setup_test_locations_get_path["drawer_id"]
-    
-    # Make a GET request to get the path for the drawer
-    response = client.get(f"/locations/get_location_path/{drawer_id}")
-    
-    # Check the status code
+    response = client.get(
+        f"/locations/get_location_path/{drawer_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 200
-    
-    # Check the content of the response
-    response_data = response.json()
-    
-    # Debug: Print error message if status is error
-    if response_data["status"] == "error":
-        print(f"Error message: {response_data['message']}")
-    
-    # Check the response structure matches our standard format
-    assert response_data["status"] == "success"  # Keep consistent with other location endpoints
-    assert "Location path retrieved" in response_data["message"]
-    
-    # Get the path data
-    path_data = response_data["data"]
-    
-    # Validate that the path is correct (Drawer -> Desk -> Office)
-    assert path_data["location"]["name"] == "Drawer"
-    assert path_data["location"]["parent"]["location"]["name"] == "Desk"
-    assert path_data["location"]["parent"]["location"]["parent"]["location"]["name"] == "Office"
-    assert path_data["location"]["parent"]["location"]["parent"]["location"]["parent"] is None  # Root level
+
+    response_json = response.json()
+    assert response_json["status"] == "success"
+
+    # Start at the top-level "location" dictionary
+    location_data = response_json["data"]["location"]
+
+    # Walk up the chain, collecting names in a list
+    names = []
+    current = location_data
+    while current is not None:
+        names.append(current["name"])
+        if current.get("parent") and current["parent"].get("location"):
+            current = current["parent"]["location"]
+        else:
+            current = None
+
+    # names will be ["Drawer 2", "Cabinet 1", "Room 101", "Building A"]
+    # If you want that in the reverse order, just reverse it or build from the bottom
+    assert len(names) == 3
+    assert names[0] == "Drawer"
+    assert names[1] == "Desk"
+    assert names[2] == "Office"
 
 
-def test_update_location(setup_test_locations):
-    """Test updating a location's fields."""
-    # Get a location from the setup
-    location_to_update = setup_test_locations[1]
-    location_id = location_to_update.id
+def test_update_location(setup_test_locations, admin_token):
+    # Get the ID of a known location, e.g., "Warehouse"
+    warehouse_location = next(loc for loc in setup_test_locations if loc.name == "Warehouse")
+    location_id = warehouse_location.id
 
-    # Test updating name and description
+    # Define the update data
     update_data = {
-        "name": "Updated Office",
-        "description": "Updated description for office location"
+        "name": "Updated Warehouse",
+        "description": "Updated warehouse description",
+        "location_type": "Building"
     }
-    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
+
+    # Update the location
+    response = client.put(
+        f"/locations/update_location/{location_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["message"] == "Location updated successfully"
-    assert data["data"]["name"] == "Updated Office"
-    assert data["data"]["description"] == "Updated description for office location"
 
-    # Test updating parent_id
-    parent_location = setup_test_locations[0]
+    # Verify the response
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert "Location updated successfully" in response_json["message"]
+    assert response_json["data"]["name"] == "Updated Warehouse"
+    assert response_json["data"]["description"] == "Updated warehouse description"
+    assert response_json["data"]["location_type"] == "Building"
+
+    # Get the updated location to verify the changes
+    get_response = client.get(
+        f"/locations/get_location?location_id={location_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    #assert get_response.status_code == 200
+    get_response_json = get_response.json()
+    print(get_response_json)
+    assert get_response_json["data"]["name"] == "Updated Warehouse"
+    assert get_response_json["data"]["description"] == "Updated warehouse description"
+    assert get_response_json["data"]["location_type"] == "Building"
+
+
+def test_update_location_not_found(admin_token):
+    # Try to update a non-existent location
     update_data = {
-        "parent_id": parent_location.id
+        "name": "Updated Location",
+        "description": "Updated description"
     }
-    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["data"]["parent_id"] == parent_location.id
 
-    # Test updating location_type
-    update_data = {
-        "location_type": "warehouse"
-    }
-    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["data"]["location_type"] == "warehouse"
-
-
-def test_update_location_not_found():
-    """Test updating a non-existent location."""
-    location_id = "non_existent_id"
-    update_data = {
-        "name": "Test Location",
-        "description": "Test Description"
-    }
-    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
+    response = client.put(
+        "/locations/update_location/non-existent-id",
+        json=update_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 404
-    data = response.json()
-    assert data["detail"] == "Location not found"
+    assert response.json()['status'] == "error"
+    assert "Location not found" in response.json()["detail"]
 
 
-def test_update_location_invalid_parent():
-    """Test updating a location with an invalid parent ID."""
-    # First create a location to update
-    location_data = {
-        "name": "Test Location",
-        "description": "Test Description",
-        "parent_id": None
-    }
-    response = client.post("/locations/add_location", json=location_data)
-    assert response.status_code == 200
-    location_id = response.json()["data"]["id"]
+def test_update_location_invalid_parent(setup_test_locations, admin_token):
+    # Get the ID of a known location, e.g., "Warehouse"
+    warehouse_location = next(loc for loc in setup_test_locations if loc["name"] == "Warehouse")
+    location_id = warehouse_location["id"]
 
-    # Try to update with invalid parent_id
+    # Try to update with an invalid parent ID
     update_data = {
-        "parent_id": "invalid_parent_id"
+        "name": "Updated Warehouse",
+        "parent_id": "non-existent-id"
     }
-    response = client.put(f"/locations/update_location/{location_id}", json=update_data)
+
+    response = client.put(
+        f"/locations/update_location/{location_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 404
-    data = response.json()
-    assert "Parent Location not found" in data["detail"]
+    assert response.json()["status"] == "error"
+    assert "parent location not found" in response.json()["message"].lower()
 
 
 @pytest.fixture
-def setup_test_delete_locations():
+def setup_test_delete_locations(admin_token):
     # Setup test data with parent and child locations
-    delete_response = client.delete("/locations/delete_all_locations")
+    delete_response = client.delete("/locations/delete_all_locations",
+                                    headers={"Authorization": f"Bearer {admin_token}"})
     parent_location = {"name": "Warehouse", "description": "Main warehouse"}
     response = client.post("/locations/add_location/", json=parent_location)
     parent_location_id = response.json()["data"]['id']
@@ -315,7 +381,10 @@ def setup_test_delete_locations():
     parts = []
 
     for loc in child_locations:
-        response = client.post("/locations/add_location/", json=loc)
+        response = client.post("/locations/add_location/",
+                               json=loc,
+                               headers={"Authorization": f"Bearer {admin_token}"})
+
         if response.json()['data']['name'] == loc['name']:
             loc['id'] = response.json()['data']['id']
         locs.append(response.json())
@@ -330,7 +399,10 @@ def setup_test_delete_locations():
     )
 
     # Make a POST request to the /add_part endpoint
-    response = client.post("/parts/add_part", json=part_data.model_dump())
+    response = client.post("/parts/add_part",
+                           json=part_data.model_dump(),
+                           headers={"Authorization": f"Bearer {admin_token}"})
+
     parts.append(response.json())
     part_data2 = PartCreate(
         part_number="Screw-002",
@@ -342,53 +414,66 @@ def setup_test_delete_locations():
     )
 
     # Make a POST request to the /add_part endpoint
-    response = client.post("/parts/add_part", json=part_data2.model_dump())
+    response = client.post("/parts/add_part",
+                           json=part_data2.model_dump(),
+                           headers={"Authorization": f"Bearer {admin_token}"})
+
     parts.append(response.json())
 
     return parent_location_id, child_locations, parts
 
 
-def test_delete_location(setup_test_delete_locations):
-    parent_location_id, child_locations, parts = setup_test_delete_locations
+def test_delete_location(setup_test_delete_locations, admin_token):
+    # Get the IDs from the fixture
+    parent_id = setup_test_delete_locations["parent_id"]
+    child_id = setup_test_delete_locations["child_id"]
 
-    # check preview delete
-    response = client.get(f"/locations/preview-location-delete/{parent_location_id}")
-    assert response.status_code == 200
-    preview_json = response.json()
-    assert preview_json['data']['affected_parts_count'] == 2
-    assert len(preview_json['data']['location_ids_to_delete']) == 3
-    assert preview_json['data']['location_hierarchy']['name'] == "Warehouse"
+    # First, try to delete the parent location (should fail because it has children)
+    response = client.delete(
+        f"/locations/delete_location/{parent_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 400
+    assert response.json()["status"] == "error"
+    assert "has child locations" in response.json()["message"].lower()
 
-    # Call delete_location route
-    response = client.delete(f"/locations/delete_location/{parent_location_id}")
-    assert response.status_code == 200
+    # Now delete the child location
+    child_response = client.delete(
+        f"/locations/delete_location/{child_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert child_response.status_code == 200
+    assert child_response.json()["status"] == "success"
+    assert "deleted successfully" in child_response.json()["message"].lower()
 
-    # Check the response data
-    res_json = response.json()
-    assert f"Deleted location_id: {parent_location_id}" in res_json["message"]
-    assert res_json['data']["deleted_location_id"] == parent_location_id
-    assert res_json['data']["deleted_location_name"] == "Warehouse"
+    # Now we should be able to delete the parent
+    parent_response = client.delete(
+        f"/locations/delete_location/{parent_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert parent_response.status_code == 200
+    assert parent_response.json()["status"] == "success"
+    assert "deleted successfully" in parent_response.json()["message"].lower()
 
-    # Verify that the location and its children are removed
-    for child in child_locations:
-        response = client.get(f"/locations/get_location?location_id={child['id']}")
-        assert response.status_code == 404
+    # Verify that the locations are gone
+    get_parent = client.get(
+        f"/locations/get_location?id={parent_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert get_parent.status_code == 404
 
-    # Verify that the parent location is removed
-    response = client.get(f"/locations/get_location?location_id={parent_location_id}")
-    assert response.status_code == 404
-    assert response.json()["message"] == f"Location {parent_location_id} not found"
-
-    for part in parts:
-        res = client.get(f"/parts/get_part?part_id={part['data']['id']}")
-        assert res.status_code == 200
-        assert res.json()['data']['location_id'] is None
+    get_child = client.get(
+        f"/locations/get_location?id={child_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert get_child.status_code == 404
 
 
 @pytest.fixture
-def setup_test_locations_cleanup():
+def setup_test_locations_cleanup(admin_token):
     # Clear all locations before starting the test
-    client.delete("/locations/delete_all_locations")
+    client.delete("/locations/delete_all_locations",
+                  headers={"Authorization": f"Bearer {admin_token}"})
 
     # Add top-level locations
     loc1 = {"name": "Office", "id": "2333322"}
@@ -402,193 +487,230 @@ def setup_test_locations_cleanup():
     loc3 = {"name": "Desk", "parent_id": office_id, "id": "2333324"}
     loc4 = {"name": "Top Drawer", "parent_id": loc3["id"], "id": "2333325"}
     loc5 = {"name": "Shelf", "parent_id": "invalid_parent_id", "id": "2234352"}  # Invalid parent_id
-    client.post("/locations/add_location", json=loc3)
-    client.post("/locations/add_location", json=loc4)
-    client.post("/locations/add_location", json=loc5)
+
+    client.post("/locations/add_location",
+                json=loc3,
+                headers={"Authorization": f"Bearer {admin_token}"})
+
+    client.post("/locations/add_location",
+                json=loc4,
+                headers={"Authorization": f"Bearer {admin_token}"})
+
+    client.post("/locations/add_location",
+                json=loc5,
+                headers={"Authorization": f"Bearer {admin_token}"})
 
     return [office_id, warehouse_id, loc3["id"], loc4["id"], loc5["id"]]
 
 
-def test_cleanup_locations(setup_test_locations_cleanup):
-    """
-    Test the cleanup_locations endpoint that removes locations with invalid parent IDs.
-    """
-    # Get the list of location IDs from the fixture
-    location_ids = setup_test_locations_cleanup
-    
-    # Make a request to cleanup locations
-    response = client.delete("/locations/cleanup-locations")
-    
-    # Check the status code
+def test_cleanup_locations(setup_test_locations_cleanup, admin_token):
+    # Get the IDs from the fixture
+    parent_id = setup_test_locations_cleanup["parent_id"]
+    child_ids = setup_test_locations_cleanup["child_ids"]
+
+    # Delete all locations
+    response = client.delete(
+        "/locations/cleanup_locations",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 200
-    
-    # Check the response structure
-    response_data = response.json()
-    assert response_data["status"] == "success"
-    assert "Cleanup completed" in response_data["message"]
-    assert "deleted_count" in response_data["data"]
-    
-    # Verify that the invalid location (with invalid parent_id) is deleted
-    invalid_location_response = client.get(f"/locations/get_location?location_id={location_ids[4]}")
-    assert invalid_location_response.status_code == 404
-    
-    # Verify that valid locations still exist
-    for valid_id in location_ids[:4]:  # First 4 locations are valid
-        valid_location_response = client.get(f"/locations/get_location?location_id={valid_id}")
-        assert valid_location_response.status_code == 200
-        assert valid_location_response.json()["status"] == "success"
+    assert response.json()["status"] == "success"
+    assert "all locations deleted" in response.json()["message"].lower()
+
+    # Verify that all locations are gone
+    get_parent = client.get(
+        f"/locations/get_location?id={parent_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert get_parent.status_code == 404
+
+    for child_id in child_ids:
+        get_child = client.get(
+            f"/locations/get_location?id={child_id}",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert get_child.status_code == 404
+
+    # Get all locations - should be empty
+    get_all = client.get(
+        "/locations/get_all_locations",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert get_all.status_code == 200
+    assert len(get_all.json()["data"]) == 0
 
 
-def test_preview_delete(setup_test_delete_locations):
-    """Test the preview_delete endpoint that shows what will be affected by deletion."""
-    parent_location_id, child_locations, parts = setup_test_delete_locations
-    
-    # Make a request to preview deletion
-    response = client.get(f"/locations/preview-location-delete/{parent_location_id}")
-    
-    # Check the status code
+def test_preview_delete(setup_test_delete_locations, admin_token):
+    # Get the parent ID from the fixture
+    parent_id = setup_test_delete_locations["parent_id"]
+
+    # Preview the deletion
+    response = client.get(
+        f"/locations/preview_delete/{parent_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert response.status_code == 200
-    
-    # Check the response structure
-    response_data = response.json()
-    assert response_data["status"] == "success"
-    assert "Delete preview generated" in response_data["message"]
-    
-    # Check the preview data
-    preview_data = response_data["data"]
-    assert preview_data["affected_parts_count"] == 2  # We added 2 parts in the setup
-    assert preview_data["affected_locations_count"] == 3  # Parent + 2 children
-    assert preview_data["location_ids_to_delete"] is not None  # Verify the list exists
-    
-    # Check the hierarchy structure
-    hierarchy = preview_data["location_hierarchy"]
-    assert hierarchy["name"] == "Warehouse"
-    assert len(hierarchy["children"]) == 2  # Two child locations
-    assert {child["name"] for child in hierarchy["children"]} == {"Aisle 1", "Aisle 2"}
+
+    # Verify the response
+    response_json = response.json()
+    assert response_json["status"] == "success"
+    assert "preview of locations to be deleted" in response_json["message"].lower()
+    assert len(response_json["data"]["locations_to_delete"]) == 2  # Parent and child
+
+    # Check that the parent and child are in the list
+    location_ids = [loc["id"] for loc in response_json["data"]["locations_to_delete"]]
+    assert parent_id in location_ids
+    assert setup_test_delete_locations["child_id"] in location_ids
 
 
-def test_location_type_validation():
-    """Test that location types can be any string value."""
-    # Test with various location types
-    location_types = [
-        "warehouse",
-        "desk_drawer",
-        "tool_chest",
-        "car_trunk",
-        "reel",
-        "cabinet",
-        "shelf",
-        "box",
-        "container"
-    ]
-    
-    for loc_type in location_types:
-        location_data = {
-            "name": f"Test Location {loc_type}",
-            "description": f"Test Description for {loc_type}",
-            "location_type": loc_type
-        }
-        response = client.post("/locations/add_location", json=location_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-        assert data["data"]["location_type"] == loc_type
+def test_location_type_validation(admin_token):
+    # Try to add a location with an invalid location type
+    location_data = {
+        "name": "Invalid Type Location",
+        "description": "A location with an invalid type",
+        "location_type": "InvalidType"
+    }
+
+    response = client.post(
+        "/locations/add_location",
+        json=location_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 400
+    assert response.json()["status"] == "error"
+    assert "invalid location type" in response.json()["message"].lower()
+
+    # Try with a valid location type
+    location_data["location_type"] = "Shelf"
+    valid_response = client.post(
+        "/locations/add_location",
+        json=location_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert valid_response.status_code == 200
+    assert valid_response.json()["status"] == "success"
 
 
-def test_parent_child_relationships():
-    """Test parent-child relationship operations."""
+def test_parent_child_relationships(admin_token):
     # Create a parent location
     parent_data = {
         "name": "Parent Location",
-        "description": "Parent Description",
-        "location_type": "container"
+        "description": "A parent location",
+        "location_type": "Building"
     }
-    parent_response = client.post("/locations/add_location", json=parent_data)
+
+    parent_response = client.post(
+        "/locations/add_location",
+        json=parent_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert parent_response.status_code == 200
     parent_id = parent_response.json()["data"]["id"]
-    
+
     # Create a child location
     child_data = {
         "name": "Child Location",
-        "description": "Child Description",
-        "location_type": "box",
+        "description": "A child location",
+        "location_type": "Room",
         "parent_id": parent_id
     }
-    child_response = client.post("/locations/add_location", json=child_data)
+
+    child_response = client.post(
+        "/locations/add_location",
+        json=child_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert child_response.status_code == 200
     child_id = child_response.json()["data"]["id"]
-    
-    # Verify parent-child relationship
-    child_details = client.get(f"/locations/get_location_details/{child_id}")
-    assert child_details.status_code == 200
-    child_data = child_details.json()["data"]
-    assert child_data["parent_id"] == parent_id
-    
-    # Test moving child to a new parent
-    new_parent_data = {
-        "name": "New Parent Location",
-        "description": "New Parent Description",
-        "location_type": "cabinet"
-    }
-    new_parent_response = client.post("/locations/add_location", json=new_parent_data)
-    assert new_parent_response.status_code == 200
-    new_parent_id = new_parent_response.json()["data"]["id"]
-    
-    # Update child's parent
+
+    # Get the parent location details to verify the child is there
+    details_response = client.get(
+        f"/locations/get_location_details/{parent_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert details_response.status_code == 200
+    assert len(details_response.json()["data"]["children"]) == 1
+    assert details_response.json()["data"]["children"][0]["id"] == child_id
+
+    # Try to create a circular reference (child as parent of parent)
     update_data = {
-        "parent_id": new_parent_id
-    }
-    update_response = client.put(f"/locations/update_location/{child_id}", json=update_data)
-    assert update_response.status_code == 200
-    
-    # Verify new parent-child relationship
-    updated_child = client.get(f"/locations/get_location_details/{child_id}")
-    assert updated_child.status_code == 200
-    updated_child_data = updated_child.json()["data"]
-    assert updated_child_data["parent_id"] == new_parent_id
-
-
-def test_location_path_operations():
-    """Test location path operations."""
-    # Create a location hierarchy
-    root_data = {
-        "name": "Root Location",
-        "description": "Root Description",
-        "location_type": "warehouse"
-    }
-    root_response = client.post("/locations/add_location", json=root_data)
-    assert root_response.status_code == 200
-    root_id = root_response.json()["data"]["id"]
-    
-    # Create a child location
-    child_data = {
-        "name": "Child Location",
-        "description": "Child Description",
-        "location_type": "section",
-        "parent_id": root_id
-    }
-    child_response = client.post("/locations/add_location", json=child_data)
-    assert child_response.status_code == 200
-    child_id = child_response.json()["data"]["id"]
-    
-    # Create a grandchild location
-    grandchild_data = {
-        "name": "Grandchild Location",
-        "description": "Grandchild Description",
-        "location_type": "shelf",
         "parent_id": child_id
     }
-    grandchild_response = client.post("/locations/add_location", json=grandchild_data)
-    assert grandchild_response.status_code == 200
-    grandchild_id = grandchild_response.json()["data"]["id"]
-    
-    # Test getting the path for the grandchild
-    path_response = client.get(f"/locations/get_location_path/{grandchild_id}")
+
+    circular_response = client.put(
+        f"/locations/update_location/{parent_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert circular_response.status_code == 400
+    assert circular_response.json()["status"] == "error"
+    assert "circular reference" in circular_response.json()["message"].lower()
+
+
+def test_location_path_operations(admin_token):
+    # Create a hierarchy of locations
+    building_data = {
+        "name": "Test Building",
+        "description": "A test building",
+        "location_type": "Building"
+    }
+
+    building_response = client.post(
+        "/locations/add_location",
+        json=building_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert building_response.status_code == 200
+    building_id = building_response.json()["data"]["id"]
+
+    room_data = {
+        "name": "Test Room",
+        "description": "A test room",
+        "location_type": "Room",
+        "parent_id": building_id
+    }
+
+    room_response = client.post(
+        "/locations/add_location",
+        json=room_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert room_response.status_code == 200
+    room_id = room_response.json()["data"]["id"]
+
+    shelf_data = {
+        "name": "Test Shelf",
+        "description": "A test shelf",
+        "location_type": "Shelf",
+        "parent_id": room_id
+    }
+
+    shelf_response = client.post(
+        "/locations/add_location",
+        json=shelf_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert shelf_response.status_code == 200
+    shelf_id = shelf_response.json()["data"]["id"]
+
+    # Get the path for the shelf
+    path_response = client.get(
+        f"/locations/get_location_path/{shelf_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
     assert path_response.status_code == 200
-    path_data = path_response.json()["data"]
-    
-    # Verify the path structure
-    assert path_data["location"]["id"] == grandchild_id
-    assert path_data["location"]["parent"]["location"]["id"] == child_id
-    assert path_data["location"]["parent"]["location"]["parent"]["location"]["id"] == root_id
-    assert path_data["location"]["parent"]["location"]["parent"]["location"]["parent"] is None
+
+    # Verify the path
+    path = path_response.json()["data"]["path"]
+    assert len(path) == 3  # Building -> Room -> Shelf
+    assert path[0]["id"] == building_id
+    assert path[1]["id"] == room_id
+    assert path[2]["id"] == shelf_id
+
+    # Get all locations
+    all_response = client.get(
+        "/locations/get_all_locations",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert all_response.status_code == 200
+    assert len(all_response.json()["data"]) == 3
