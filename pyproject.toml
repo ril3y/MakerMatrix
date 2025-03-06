@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "MakerMatrix"
 version = "0.1.0"
 description = "A part inventory management system with label printing capabilities"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.68.0",
     "uvicorn>=0.15.0",
@@ -19,7 +19,6 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.3.0",
     "python-dotenv>=0.19.0",
-    "httpx>=0.24.0"
 ]
 
 [project.optional-dependencies]
@@ -27,7 +26,9 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.18.0",
     "pytest-cov>=4.0.0",
-    "requests>=2.31.0"
+    "requests>=2.31.0",
+    "httpx>=0.24.0"
+
 ]
 
 [tool.pytest.ini_options]

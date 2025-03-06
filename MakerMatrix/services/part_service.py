@@ -210,9 +210,10 @@ class PartService:
 
                         categories.append(category)
 
+                part_data["categories"] = categories
                 # Create the part with the prepared categories
                 new_part = PartModel(**part_data)
-                new_part.categories = categories
+                #new_part.categories = categories
 
                 # Add the part via repository
                 part_obj = PartRepository.add_part(session, new_part)
