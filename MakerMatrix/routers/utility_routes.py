@@ -3,11 +3,13 @@ import shutil
 import uuid
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from starlette.responses import FileResponse, JSONResponse
 
 from MakerMatrix.services.category_service import CategoryService
 from MakerMatrix.services.location_service import LocationService
 from MakerMatrix.services.part_service import PartService
+from MakerMatrix.schemas.response import ResponseSchema
 
 router = APIRouter()
 
@@ -47,10 +49,11 @@ async def get_counts():
         locations_count = len(LocationService.get_all_locations())
         categories_count = len(CategoryService.get_all_categories()['data'])
 
-
-        return JSONResponse(
-            content={"parts": parts_count, "locations": locations_count, "categories": categories_count},
-            status_code=200)
+        return ResponseSchema(
+            status="success",
+            message="Counts retrieved successfully",
+            data={"parts": parts_count, "locations": locations_count, "categories": categories_count}
+        )
     except Exception as e:
         print(f"Error getting counts: {e}")
-        return JSONResponse(content={"error": "An error occurred while fetching counts"}, status_code=500)
+        raise HTTPException(status_code=500, detail="An error occurred while fetching counts")

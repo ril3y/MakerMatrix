@@ -130,39 +130,32 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
 
 
 @router.delete("/remove_category", response_model=ResponseSchema[CategoryResponse])
-async def remove_category(id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[CategoryResponse]:
+async def remove_category(cat_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[CategoryResponse]:
     """
     Remove a category by ID or name.
     
     Args:
-        id: Optional ID of the category to remove
+        cat_id: Optional ID of the category to remove
         name: Optional name of the category to remove
         
     Returns:
         ResponseSchema: A response containing the removed category
     """
-    if not id and not name:
+    if not cat_id and not name:
         raise HTTPException(
             status_code=400,
             detail="Either category ID or name must be provided"
         )
             
     try:
-        response = CategoryService.remove_category(id=id, name=name)
+        response = CategoryService.remove_category(id=cat_id, name=name)
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
             data=CategoryResponse.model_validate(response["data"])
         )
     except ResourceNotFoundError as rnfe:
-        return JSONResponse(
-            status_code=404,
-            content={
-                "status": "error",
-                "message": str(rnfe),
-                "data": None
-            }
-        )
+        raise HTTPException(status_code=404, detail=str(rnfe))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:

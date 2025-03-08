@@ -72,10 +72,7 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
             data=updated_location.model_dump()
         )
     except ResourceNotFoundError as rnfe:
-        return JSONResponse(
-            status_code=404,
-            content={"detail": str(rnfe),'status':'error'}
-        )
+        raise HTTPException(status_code=404, detail=str(rnfe))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -93,13 +90,9 @@ async def add_location(location_data: LocationModel) -> ResponseSchema[LocationM
             
             # If we found a location with the same name, check if it has the same parent_id
             if existing_location and existing_location.parent_id == location_data.parent_id:
-                return JSONResponse(
+                raise HTTPException(
                     status_code=409,
-                    content={
-                        "status": "error",
-                        "message": f"Location with name '{location_data.name}' already exists under the same parent",
-                        "data": None
-                    }
+                    detail=f"Location with name '{location_data.name}' already exists under the same parent"
                 )
         except ResourceNotFoundError:
             # If no location with this name exists, we can proceed
@@ -114,13 +107,9 @@ async def add_location(location_data: LocationModel) -> ResponseSchema[LocationM
     except Exception as e:
         # Check if this is an integrity error (likely a duplicate name + parent_id)
         if "UNIQUE constraint failed" in str(e) or "unique constraint" in str(e).lower():
-            return JSONResponse(
+            raise HTTPException(
                 status_code=409,
-                content={
-                    "status": "error",
-                    "message": f"Location with name '{location_data.name}' already exists under the same parent",
-                    "data": None
-                }
+                detail=f"Location with name '{location_data.name}' already exists under the same parent"
             )
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -134,13 +123,20 @@ async def get_location_details(location_id: str):
         location_id (str): The ID of the location to get details for.
 
     Returns:
-        JSONResponse: A JSON response containing the location details and its children.
+        ResponseSchema: A response containing the location details and its children.
     """
     response = LocationService.get_location_details(location_id)
     if response["status"] == "success":
-        return JSONResponse(content=response, status_code=200)
+        return ResponseSchema(
+            status=response["status"],
+            message=response.get("message", "Location details retrieved successfully"),
+            data=response.get("data")
+        )
     else:
-        return JSONResponse(content=response, status_code=404)
+        raise HTTPException(
+            status_code=404,
+            detail=response.get("message", "Location not found")
+        )
 
 
 @router.get("/get_location_path/{location_id}", response_model=ResponseSchema)
@@ -157,10 +153,7 @@ async def get_location_path(location_id: str):
         response = LocationService.get_location_path(location_id)
         return response
     except ResourceNotFoundError as rnfe:
-        return JSONResponse(
-            status_code=404,
-            content={"detail": str(rnfe)}
-        )
+        raise HTTPException(status_code=404, detail=str(rnfe))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -211,13 +204,20 @@ async def cleanup_locations():
     Clean up locations by removing those with invalid parent IDs and their descendants.
     
     Returns:
-        JSONResponse: A JSON response containing the cleanup results.
+        ResponseSchema: A response containing the cleanup results.
     """
     response = LocationService.cleanup_locations()
     if response["status"] == "success":
-        return JSONResponse(content=response, status_code=200)
+        return ResponseSchema(
+            status=response["status"],
+            message=response.get("message", "Locations cleaned up successfully"),
+            data=response.get("data")
+        )
     else:
-        return JSONResponse(content=response, status_code=500)
+        raise HTTPException(
+            status_code=500,
+            detail=response.get("message", "Failed to clean up locations")
+        )
 
 
 @router.get("/preview-delete/{location_id}")

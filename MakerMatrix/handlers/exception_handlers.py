@@ -14,9 +14,11 @@ def register_exception_handlers(app):
     async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsError):
         return JSONResponse(
             status_code=HTTP_409_CONFLICT,
-            content={
-                "detail": exc.message
-            }
+            content=ResponseSchema(
+                status="error",
+                message=exc.message,
+                data=None
+            ).model_dump()
         )
 
     @app.exception_handler(RequestValidationError)
@@ -42,21 +44,14 @@ def register_exception_handlers(app):
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
-        if exc.status_code == HTTP_409_CONFLICT:
-            # Extract details from the HTTPException
-            return JSONResponse(
-                status_code=exc.status_code,
-                content=ResponseSchema(
-                    status="conflict",
-                    message=exc.detail if isinstance(exc.detail, str) else exc.detail.get("message", "Conflict occurred"),
-                    data=exc.detail.get("data", None) if isinstance(exc.detail, dict) else None,
-                ).model_dump()
-            )
-
-        # If it's not 409, fallback to the default handler
+        # For all HTTP exceptions, use the ResponseSchema format
         return JSONResponse(
             status_code=exc.status_code,
-            content={"detail": exc.detail}
+            content=ResponseSchema(
+                status="error",
+                message=exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+                data=None
+            ).model_dump()
         )
 
     @app.exception_handler(ResourceNotFoundError)
