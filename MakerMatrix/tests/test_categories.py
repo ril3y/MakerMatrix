@@ -87,7 +87,7 @@ def test_remove_category(admin_token):
     # Now attempt to remove the category
     remove_response = client.delete(
         "/categories/remove_category", 
-        params={"id": category_id},
+        params={"cat_id": category_id},
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert remove_response.status_code == 200
@@ -98,7 +98,7 @@ def test_remove_non_existent_category_by_id(admin_token):
     # Attempt to remove a category with a non-existent ID
     response = client.delete(
         "/categories/remove_category", 
-        params={"id": "non-existent-id"},
+        params={"cat_id": "non-existent-id"},
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 404
@@ -152,7 +152,7 @@ def test_delete_all_categories(admin_token):
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert get_response.status_code == 200
-    assert len(get_response.json()["data"]) == 0
+    assert len(get_response.json()["data"]["categories"]) == 0
 
 
 @pytest.fixture
@@ -197,7 +197,7 @@ def test_update_category(admin_token):
     
     # Verify the update
     get_response = client.get(
-        f"/categories/get_category?id={category_id}",
+        f"/categories/get_category?category_id={category_id}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert get_response.status_code == 200
@@ -223,7 +223,7 @@ def test_update_category_name(setup_test_data_category_update, admin_token):
     
     # Verify the update
     get_response = client.get(
-        f"/categories/get_category?id={category_id}",
+        f"/categories/get_category?category_id={category_id}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert get_response.status_code == 200
@@ -258,7 +258,7 @@ def test_get_category_by_id(setup_categories_for_get_categories, admin_token):
     
     # Get the category by ID
     response = client.get(
-        f"/categories/get_category?id={category_id}",
+        f"/categories/get_category?category_id={category_id}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 200
@@ -295,7 +295,7 @@ def test_get_all_categories(admin_token):
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 200
-    assert len(response.json()["data"]) == 0
+    assert len(response.json()["data"]["categories"]) == 0
     
     # Add some categories
     categories = [
@@ -321,4 +321,4 @@ def test_get_all_categories(admin_token):
     # Verify the response
     response_data = response.json()
     assert response_data["status"] == "success"
-    assert len(response_data["data"]) == 3
+    assert len(response_data["data"]["categories"]) == 3
