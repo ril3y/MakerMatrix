@@ -16,16 +16,6 @@ from MakerMatrix.repositories.user_repository import UserRepository
 
 client = TestClient(app)
 
-
-# config = PrinterConfig(
-#     model="QL-800",
-#     backend="network",
-#     printer_identifier="tcp://192.168.1.71",
-#     dpi=300,
-#     scaling_factor=1.1
-# )
-
-
 @pytest.fixture(scope="function", autouse=True)
 def setup_database():
     """Set up the database before running tests and clean up afterward."""

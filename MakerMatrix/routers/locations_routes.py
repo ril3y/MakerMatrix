@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from starlette.responses import JSONResponse
 
 from MakerMatrix.models.models import LocationModel, LocationQueryModel
@@ -8,6 +8,7 @@ from MakerMatrix.models.models import LocationUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.location_service import LocationService
+from MakerMatrix.dependencies import oauth2_scheme
 
 router = APIRouter()
 
@@ -80,7 +81,7 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
 
 
 @router.post("/add_location")
-async def add_location(location_data: LocationModel) -> ResponseSchema[LocationModel]:
+async def add_location(location_data: LocationModel, token: str = Depends(oauth2_scheme)) -> ResponseSchema[LocationModel]:
     try:
         # Check if a location with the same name and parent_id already exists
         existing_location = None
@@ -90,9 +91,12 @@ async def add_location(location_data: LocationModel) -> ResponseSchema[LocationM
             
             # If we found a location with the same name, check if it has the same parent_id
             if existing_location and existing_location.parent_id == location_data.parent_id:
-                raise HTTPException(
+                return JSONResponse(
                     status_code=409,
-                    detail=f"Location with name '{location_data.name}' already exists under the same parent"
+                    content={
+                        "status": "error",
+                        "message": f"Location with name '{location_data.name}' already exists under the same parent"
+                    }
                 )
         except ResourceNotFoundError:
             # If no location with this name exists, we can proceed
@@ -107,9 +111,12 @@ async def add_location(location_data: LocationModel) -> ResponseSchema[LocationM
     except Exception as e:
         # Check if this is an integrity error (likely a duplicate name + parent_id)
         if "UNIQUE constraint failed" in str(e) or "unique constraint" in str(e).lower():
-            raise HTTPException(
+            return JSONResponse(
                 status_code=409,
-                detail=f"Location with name '{location_data.name}' already exists under the same parent"
+                content={
+                    "status": "error",
+                    "message": f"Location with name '{location_data.name}' already exists under the same parent"
+                }
             )
         raise HTTPException(status_code=500, detail=str(e))
 
