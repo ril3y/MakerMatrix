@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any, List, Union
 from pydantic import model_validator, field_validator, BaseModel, ConfigDict
-from sqlalchemy import create_engine, ForeignKey, String, or_, cast
+from sqlalchemy import create_engine, ForeignKey, String, or_, cast, UniqueConstraint
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import SQLModel, Field, Relationship, Session, select
 import uuid
@@ -51,6 +51,11 @@ class LocationModel(SQLModel, table=True):
     location_type: str = Field(default="standard")
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # Add SQLAlchemy table constraints
+    __table_args__ = (
+        UniqueConstraint('name', 'parent_id', name='uix_location_name_parent'),
+    )
 
     parent: Optional["LocationModel"] = Relationship(
         back_populates="children",

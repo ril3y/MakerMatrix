@@ -171,15 +171,15 @@ class LocationRepository:
                 current = None
         
         # Convert the list into a nested dictionary structure
-        result = {"location": path[0]}
-        current = result["location"]
-        for loc in path[1:]:
-            current["parent"] = {"location": loc}
-            current = current["parent"]["location"]
+        if not path:
+            return {}
+            
+        result = path[0].copy()
+        current = result
         
-        # Add the final None parent to indicate root level
-        if current:
-            current["parent"] = None
+        for i in range(1, len(path)):
+            current["parent"] = path[i].copy()
+            current = current["parent"]
         
         return result
     
