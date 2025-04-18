@@ -6,7 +6,7 @@ import json
 
 
 # Create an in-memory SQLite database engine for reuse
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def engine():
     engine = create_engine("sqlite:///:memory:", echo=True)
     SQLModel.metadata.create_all(engine)
