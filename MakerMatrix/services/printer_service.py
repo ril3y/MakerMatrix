@@ -19,8 +19,7 @@ class PrinterService:
             # Now, we pass the PrintConfig to the printer's print_text_label method.
             return printer.print_text_label(part.part_name, print_settings)
         except Exception as e:
-            print(f"Error printing part name: {e}")
-            return False
+            raise RuntimeError(f"Error printing part name: {e}")
 
     async def print_text_label(self, text: str, print_settings: PrintSettings):
         printer = self.printer_repo.get_printer()
@@ -28,8 +27,7 @@ class PrinterService:
             # Now, we pass the PrintConfig to the printer's print_text_label method.
             return printer.print_text_label(text, print_settings)
         except Exception as e:
-            print(f"Error printing text: {e}")
-            return False
+            raise RuntimeError(f"Error printing text: {e}")
 
     # async def print_qr_code_with_name(self, label_data: LabelData):
     #     printer = self.printer_repo.get_printer()
@@ -39,8 +37,7 @@ class PrinterService:
     #         qr_image = self._generate_qr_code(part)
     #         return printer.print_qr_from_memory(qr_image)
     #     except Exception as e:
-    #         print(f"Error printing QR code with name: {e}")
-    #         return False
+    #         raise RuntimeError(f"Error printing QR code with name: {e}")
 
     async def print_qr_and_text(self, part: PartModel, print_settings: PrintSettings, text: str = None):
         printer = self.printer_repo.get_printer()
@@ -59,8 +56,7 @@ class PrinterService:
                 print_settings=print_settings)
 
         except Exception as e:
-            print(f"Error printing QR code + text: {e}")
-            return False
+            raise RuntimeError(f"Error printing QR code + text: {e}")
 
     def load_printer_config(self):
         """

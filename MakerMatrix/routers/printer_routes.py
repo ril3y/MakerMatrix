@@ -30,8 +30,9 @@ async def print_qr_code(label_data: LabelData):
 @router.post("/config")
 async def configure_printer(config: printer_config_model.PrinterConfig):
     try:
-        configure_printer(config)
-        return {"message": "Printer configuration updated and saved."}
+        response = await PrinterService.configure_printer(config)
+        return {"message": "Printer configuration updated and saved."} if response else HTTPException(status_code=500,
+                                                                                          detail="Failed to configure printer")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

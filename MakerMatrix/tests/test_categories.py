@@ -44,14 +44,15 @@ def admin_token():
         "password": "Admin123!"  # Updated to match the default password in setup_admin.py
     }
     
-    # Post to the mobile login endpoint
-    response = client.post("/auth/mobile-login", json=login_data)
+    # Post to the login endpoint
+    response = client.post("/auth/login", json=login_data)
     
     # Check that the login was successful
     assert response.status_code == 200
     
     # Extract and return the access token
-    return response.json()["data"]["access_token"]
+    assert "access_token" in response.json()
+    return response.json()["access_token"]
 
 
 def test_add_category(admin_token):

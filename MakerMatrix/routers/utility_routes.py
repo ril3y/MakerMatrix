@@ -14,7 +14,7 @@ from MakerMatrix.schemas.response import ResponseSchema
 router = APIRouter()
 
 
-@router.post("/upload_image/")
+@router.post("/upload_image")
 async def upload_image(file: UploadFile = File(...)):
     file_extension = os.path.splitext(file.filename)[1]
     image_id = str(uuid.uuid4())
@@ -29,7 +29,7 @@ async def serve_index_html():
     return FileResponse("static/part_inventory_ui/build/index.html")
 
 
-@router.get("/get_image/{image_id}/")
+@router.get("/get_image/{image_id}")
 async def get_image(image_id: str):
     file_path = f"uploaded_images/{image_id}"
     if os.path.exists(file_path):

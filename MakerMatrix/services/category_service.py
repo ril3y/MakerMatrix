@@ -103,29 +103,29 @@ class CategoryService:
             if id:
                 identifier = id
                 field = "ID"
-                rm_cat = CategoryService.category_repo.get_category(session, category_id=id)
+                rm_cat = session.get(CategoryModel, id)
             else:
                 identifier = name
                 field = "name"
-                rm_cat = CategoryService.category_repo.get_category(session, name=name)
-                
+                rm_cat = session.exec(select(CategoryModel).where(CategoryModel.name == name)).first()
+
             if not rm_cat:
                 raise ResourceNotFoundError(
                     status="error",
                     message=f"Category with {field} {identifier} not found",
                     data=None
                 )
-                
+            
             result = CategoryService.category_repo.remove_category(session, rm_cat)
             if not result:
                 raise ValueError("Failed to remove category")
-                
+            
             return {
                 "status": "success",
                 "message": f"Category with name '{rm_cat.name}' removed",
                 "data": rm_cat.model_dump()
             }
-                
+            
         except ResourceNotFoundError as rnfe:
             raise rnfe
         except ValueError as ve:

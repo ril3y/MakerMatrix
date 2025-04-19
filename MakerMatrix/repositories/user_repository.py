@@ -3,10 +3,10 @@ from sqlmodel import Session, select
 from sqlalchemy.orm import joinedload
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
 from MakerMatrix.models.models import engine
-from passlib.context import CryptContext
+from passlib.hash import pbkdf2_sha256
 from datetime import datetime
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = pbkdf2_sha256
 
 class UserRepository:
     def __init__(self):
@@ -304,7 +304,34 @@ class UserRepository:
             return True
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        return pwd_context.verify(plain_password, hashed_password)
+        return pbkdf2_sha256.verify(plain_password, hashed_password)
 
     def get_password_hash(self, password: str) -> str:
-        return pwd_context.hash(password) 
+        return pbkdf2_sha256.hash(password)
+
+    def get_all_users(self) -> list[dict]:
+        """
+        Retrieve all users with their roles and relevant fields as dicts.
+        """
+        with Session(self.engine) as session:
+            users = session.exec(select(UserModel).options(joinedload(UserModel.roles))).all()
+            user_dicts = []
+            for user in users:
+                user_dicts.append({
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "is_active": user.is_active,
+                    "password_change_required": user.password_change_required,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                    "last_login": user.last_login.isoformat() if user.last_login else None,
+                    "roles": [
+                        {
+                            "id": role.id,
+                            "name": role.name,
+                            "description": role.description,
+                            "permissions": role.permissions
+                        } for role in user.roles
+                    ]
+                })
+            return user_dicts

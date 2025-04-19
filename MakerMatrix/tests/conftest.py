@@ -1,5 +1,6 @@
 import pytest
 from sqlmodel import SQLModel
+from MakerMatrix.models import user_models  # Ensure all models are registered
 from MakerMatrix.models.models import engine
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
@@ -11,6 +12,10 @@ def init_db():
     SQLModel.metadata.drop_all(engine)
     # Create tables for all models
     create_db_and_tables()
+    # Log tables present after creation
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    print('Tables after creation:', inspector.get_table_names())
     # Setup default roles and admin user
     user_repo = UserRepository()
     setup_default_roles(user_repo)
