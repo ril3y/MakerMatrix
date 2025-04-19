@@ -2,6 +2,7 @@ from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.models.models import engine
 from sqlmodel import SQLModel
 from MakerMatrix.database.db import create_db_and_tables
+from passlib.hash import pbkdf2_sha256
 
 # Default admin credentials
 DEFAULT_ADMIN_USERNAME = "admin"
@@ -49,7 +50,7 @@ def setup_default_admin(user_repo: UserRepository):
             return
 
         # Hash the default password
-        hashed_password = user_repo.get_password_hash(DEFAULT_ADMIN_PASSWORD)
+        hashed_password = pbkdf2_sha256.hash(DEFAULT_ADMIN_PASSWORD)
         
         # Create admin user with password change required
         admin_user = user_repo.create_user(

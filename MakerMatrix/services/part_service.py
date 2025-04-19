@@ -120,7 +120,7 @@ class PartService:
             deleted_part = PartService.part_repo.delete_part(session, part_id)
 
             return {
-                "status": "deleted",
+                "status": "success",
                 "message": f"Part with ID '{part_id}' was deleted.",
                 "data": deleted_part.model_dump()
             }
@@ -252,10 +252,57 @@ class PartService:
         part = PartService.part_repo.get_part_by_part_number(session, part_number)
         if part:
             return {
-                "status": "found",
+                "status": "success",
                 "message": f"Part with {identifier} '{part_number}' found.",
                 "data": part.to_dict(),
             }
+
+    @staticmethod
+    def get_part_by_part_name(part_name: str) -> dict[str, str | dict[str, Any]] | None:
+        """
+        Get a part by its part name.
+
+        Args:
+            part_name (str): The name of the part to be retrieved.
+
+        Returns:
+            dict[str, str | dict[str, Any]] | None: A dictionary containing the status, message, and data of the found part, or None if not found.
+        """
+        identifier = "part name"
+        session = next(get_session())
+        part = PartService.part_repo.get_part_by_name(session, part_name)
+        if part:
+            return {
+                "status": "success",
+                "message": f"Part with {identifier} '{part_name}' found.",
+                "data": part.to_dict(),
+            }
+
+    @staticmethod
+    def get_part_by_id(part_id: str) -> Dict[str, Any]:
+        try:
+            # Use the get_session function to get a session
+            identifier = "ID"
+            session = next(get_session())
+
+            # Fetch part using the repository layer
+            part = PartRepository.get_part_by_id(session, part_id)
+
+            if part:
+                return {
+                    "status": "success",
+                    "message": f"Part with {identifier} '{part_id}' found.",
+                    "data": part.to_dict(),
+                }
+
+            raise ResourceNotFoundError(
+                status="error",
+                message=f"Part with {identifier} '{part_id}' not found.",
+                data=None
+            )
+
+        except ResourceNotFoundError as rnfe:
+            raise rnfe
 
     @staticmethod
     def get_part_counts() -> Dict[str, int]:
@@ -293,53 +340,6 @@ class PartService:
             raise ResourceNotFoundError(
                 status="error",
                 message="No parts found.",
-                data=None
-            )
-
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
-
-    @staticmethod
-    def get_part_by_part_name(part_name: str) -> dict[str, str | dict[str, Any]] | None:
-        """
-        Get a part by its part name.
-
-        Args:
-            part_name (str): The name of the part to be retrieved.
-
-        Returns:
-            dict[str, str | dict[str, Any]] | None: A dictionary containing the status, message, and data of the found part, or None if not found.
-        """
-        identifier = "part name"
-        session = next(get_session())
-        part = PartService.part_repo.get_part_by_name(session, part_name)
-        if part:
-            return {
-                "status": "found",
-                "message": f"Part with {identifier} '{part_name}' found.",
-                "data": part.to_dict(),
-            }
-
-    @staticmethod
-    def get_part_by_id(part_id: str) -> Dict[str, Any]:
-        try:
-            # Use the get_session function to get a session
-            identifier = "ID"
-            session = next(get_session())
-
-            # Fetch part using the repository layer
-            part = PartRepository.get_part_by_id(session, part_id)
-
-            if part:
-                return {
-                    "status": "found",
-                    "message": f"Part with {identifier} '{part_id}' found.",
-                    "data": part.to_dict(),
-                }
-
-            raise ResourceNotFoundError(
-                status="error",
-                message=f"Part with {identifier} '{part_id}' not found.",
                 data=None
             )
 

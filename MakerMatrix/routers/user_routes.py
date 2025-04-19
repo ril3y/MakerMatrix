@@ -28,7 +28,7 @@ async def register_user(user_data: UserCreate):
             hashed_password=hashed_password,
             roles=user_data.roles
         )
-
+        print(f"[DEBUG] Registered user: {user.username}, roles: {user.roles}")
         return ResponseSchema(
             status="success",
             message="User registered successfully",
@@ -36,6 +36,7 @@ async def register_user(user_data: UserCreate):
         )
 
     except ValueError as e:
+        print(f"[DEBUG] Registration error: {str(e)}")
         return ResponseSchema(
             status="error",
             message=str(e),
@@ -126,6 +127,16 @@ async def update_password(user_id: str, password_data: PasswordUpdate):
         message="Password updated successfully",
         data=updated_user.to_dict()
     )
+
+
+@router.get("/all", response_model=ResponseSchema)
+async def get_all_users(current_user=Depends(get_current_user)):
+    # Only admin users can access this route
+    if not any(role.name == "admin" for role in getattr(current_user, "roles", [])):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+    from MakerMatrix.services.user_service import UserService
+    response = UserService.get_all_users()
+    return ResponseSchema(**response)
 
 
 @router.delete("/{user_id}", response_model=ResponseSchema)

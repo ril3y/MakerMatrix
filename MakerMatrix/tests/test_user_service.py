@@ -5,11 +5,12 @@ from MakerMatrix.main import app
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.models.models import engine
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserCreate, UserUpdate
+from passlib.hash import pbkdf2_sha256
 from passlib.context import CryptContext
 from MakerMatrix.scripts.setup_admin import DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
 
 client = TestClient(app)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -42,14 +43,12 @@ def admin_token():
     }
     
     response = client.post(
-        "/auth/mobile-login",
+        "/auth/login",
         json=login_data
     )
     assert response.status_code == 200
-    response_data = response.json()
-    assert "data" in response_data
-    assert "access_token" in response_data["data"]
-    return response_data["data"]["access_token"]
+    assert "access_token" in response.json()
+    return response.json()["access_token"]
 
 
 @pytest.fixture
@@ -201,11 +200,12 @@ def test_update_password(setup_test_user, admin_token):
         "password": "TestPass123"
     }
     login_response = client.post(
-        "/auth/mobile-login",
+        "/auth/login",
         json=login_data
     )
     assert login_response.status_code == 200
-    access_token = login_response.json()["data"]["access_token"]
+    assert "access_token" in login_response.json()
+    access_token = login_response.json()["access_token"]
     
     # Now update the password with the token
     password_data = {
@@ -230,11 +230,12 @@ def test_update_password(setup_test_user, admin_token):
     
     new_login_response = client.post(
         "/auth/login",
-        data=new_login_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
+        json=new_login_data
     )
     
     assert new_login_response.status_code == 200
+    assert "access_token" in new_login_response.json()
+    new_access_token = new_login_response.json()["access_token"]
 
 
 def test_delete_user(setup_test_user, admin_token):

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Body, Request, Form
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import JWTError
 from MakerMatrix.services.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -35,9 +35,36 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserModel:
 
 
 @router.post("/auth/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = auth_service.authenticate_user(form_data.username, form_data.password)
+async def login(request: Request):
+    # Try to get form data first
+    try:
+        form = await request.form()
+        username = form.get("username")
+        password = form.get("password")
+    except Exception:
+        username = None
+        password = None
+    if username and password:
+        user_in = {"username": username, "password": password}
+    else:
+        # Try JSON body
+        try:
+            data = await request.json()
+            username = data.get("username")
+            password = data.get("password")
+            if username and password:
+                user_in = {"username": username, "password": password}
+            else:
+                print("[DEBUG] /auth/login: Missing credentials in both form and JSON")
+                raise HTTPException(status_code=400, detail="Missing credentials")
+        except Exception:
+            print("[DEBUG] /auth/login: Could not parse JSON body")
+            raise HTTPException(status_code=400, detail="Missing credentials")
+
+    print(f"[DEBUG] /auth/login: using username={username}")
+    user = auth_service.authenticate_user(user_in["username"], user_in["password"])
     if not user:
+        print(f"[DEBUG] /auth/login: Invalid credentials for username={user_in['username']}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -52,15 +79,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user.last_login = datetime.utcnow()
     user_repository.update_user(user.id, last_login=user.last_login)
 
-    # Return a shape that includes top-level "access_token" and "token_type",
-    # so Swagger/OpenAPI picks them up for "Authorize".
     content = {
         "access_token": access_token,
         "token_type": "bearer",
         "status": "success",
         "message": "Login successful",
     }
-
     response = JSONResponse(content=content)
     response.set_cookie(
         key="refresh_token",
@@ -70,44 +94,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         samesite="lax",
         max_age=60 * 60 * 24 * 7
     )
+    print(f"[DEBUG] /auth/login: Successful login for username={user.username}")
     return response
-
-
-@router.post("/auth/mobile-login", response_model=TokenResponse)
-async def mobile_login(login_data: MobileLoginRequest):
-    """
-    Login endpoint specifically for mobile applications.
-    Returns a token that can be used for authentication.
-    """
-    user = auth_service.authenticate_user(login_data.username, login_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Create access token
-    access_token = auth_service.create_access_token(
-        data={
-            "sub": user.username,
-            "password_change_required": user.password_change_required
-        }
-    )
-
-    # Update last login time
-    user.last_login = datetime.utcnow()
-    user_repository.update_user(user.id, last_login=user.last_login)
-    
-    # Return token response
-    return ResponseSchema(
-        status="success",
-        message="Login successful",
-        data=Token(
-            access_token=access_token,
-            token_type="bearer"
-        )
-    )
 
 
 @router.post("/auth/refresh")

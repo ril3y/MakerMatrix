@@ -12,7 +12,7 @@ from MakerMatrix.services.category_service import CategoryService
 router = APIRouter()
 
 
-@router.get("/get_all_categories/", response_model=ResponseSchema[CategoriesListResponse])
+@router.get("/get_all_categories", response_model=ResponseSchema[CategoriesListResponse])
 async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
     """
     Get all categories in the system.
@@ -33,7 +33,7 @@ async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/add_category/", response_model=ResponseSchema[CategoryResponse])
+@router.post("/add_category", response_model=ResponseSchema[CategoryResponse])
 async def add_category(category_data: CategoryModel) -> ResponseSchema[CategoryResponse]:
     """
     Add a new category to the system.
