@@ -1,0 +1,130 @@
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios'
+import { toast } from 'react-hot-toast'
+
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'
+
+export interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+}
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+class ApiClient {
+  private client: AxiosInstance
+  private authToken: string | null = null
+
+  constructor() {
+    this.client = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    // Load token from localStorage
+    const storedToken = localStorage.getItem('auth_token')
+    if (storedToken) {
+      this.authToken = storedToken
+    }
+
+    // Request interceptor
+    this.client.interceptors.request.use(
+      (config) => {
+        if (this.authToken) {
+          config.headers.Authorization = `Bearer ${this.authToken}`
+        }
+        return config
+      },
+      (error) => {
+        return Promise.reject(error)
+      }
+    )
+
+    // Response interceptor
+    this.client.interceptors.response.use(
+      (response) => response,
+      async (error: AxiosError<ApiResponse>) => {
+        if (error.response) {
+          const { status, data } = error.response
+          
+          if (status === 401) {
+            // Unauthorized - clear token and redirect to login
+            this.clearAuth()
+            window.location.href = '/login'
+            toast.error('Session expired. Please login again.')
+          } else if (status === 403) {
+            toast.error('You do not have permission to perform this action.')
+          } else if (status === 404) {
+            toast.error(data?.error || 'Resource not found')
+          } else if (status === 409) {
+            toast.error(data?.error || 'Resource already exists')
+          } else if (status === 422) {
+            toast.error(data?.error || 'Validation error')
+          } else if (status >= 500) {
+            toast.error('Server error. Please try again later.')
+          }
+        } else if (error.request) {
+          toast.error('Network error. Please check your connection.')
+        }
+        
+        return Promise.reject(error)
+      }
+    )
+  }
+
+  setAuthToken(token: string) {
+    this.authToken = token
+    localStorage.setItem('auth_token', token)
+  }
+
+  clearAuth() {
+    this.authToken = null
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('user')
+  }
+
+  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.get<T>(url, config)
+    return response.data
+  }
+
+  async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.post<T>(url, data, config)
+    return response.data
+  }
+
+  async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.put<T>(url, data, config)
+    return response.data
+  }
+
+  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.delete<T>(url, config)
+    return response.data
+  }
+}
+
+export const apiClient = new ApiClient()
+
+// Helper function for handling API errors
+export const handleApiError = (error: any): string => {
+  if (error.response?.data?.error) {
+    return error.response.data.error
+  }
+  if (error.response?.data?.message) {
+    return error.response.data.message
+  }
+  if (error.message) {
+    return error.message
+  }
+  return 'An unexpected error occurred'
+}

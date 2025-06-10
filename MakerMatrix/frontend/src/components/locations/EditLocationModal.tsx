@@ -1,0 +1,234 @@
+import { useState, useEffect } from 'react'
+import { MapPin, AlertCircle } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
+import FormField from '@/components/ui/FormField'
+import { locationsService } from '@/services/locations.service'
+import { Location, UpdateLocationRequest } from '@/types/locations'
+
+interface EditLocationModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: () => void
+  location: Location
+}
+
+const EditLocationModal: React.FC<EditLocationModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSuccess,
+  location 
+}) => {
+  const [formData, setFormData] = useState<UpdateLocationRequest>({
+    id: location.id,
+    name: location.name,
+    description: location.description || '',
+    location_type: location.location_type || 'General',
+    parent_id: location.parent_id || undefined
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [locations, setLocations] = useState<Location[]>([])
+  const [nameError, setNameError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      loadLocations()
+      // Reset form when modal opens with new location
+      setFormData({
+        id: location.id,
+        name: location.name,
+        description: location.description || '',
+        location_type: location.location_type || 'General',
+        parent_id: location.parent_id || undefined
+      })
+      setError(null)
+      setNameError(null)
+    }
+  }, [isOpen, location])
+
+  const loadLocations = async () => {
+    try {
+      const data = await locationsService.getAllLocations()
+      // Filter out the current location and its descendants
+      const descendantIds = locationsService.getDescendantIds(location)
+      const validLocations = data.filter(loc => 
+        loc.id !== location.id && !descendantIds.includes(loc.id)
+      )
+      setLocations(validLocations)
+    } catch (err) {
+      console.error('Failed to load locations:', err)
+    }
+  }
+
+  const validateName = async (name: string) => {
+    if (!name.trim()) {
+      setNameError('Location name is required')
+      return false
+    }
+
+    if (name.trim().length < 2) {
+      setNameError('Location name must be at least 2 characters')
+      return false
+    }
+
+    // Check if name already exists (excluding current location)
+    const exists = await locationsService.checkNameExists(name, formData.parent_id || undefined, location.id)
+    if (exists) {
+      setNameError('A location with this name already exists in the same parent location')
+      return false
+    }
+
+    setNameError(null)
+    return true
+  }
+
+  const handleNameChange = (name: string) => {
+    setFormData({ ...formData, name })
+    if (nameError) {
+      validateName(name)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    const isValid = await validateName(formData.name)
+    if (!isValid) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      await locationsService.updateLocation(formData)
+      onSuccess()
+      onClose()
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update location')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Build hierarchical display for parent locations
+  const buildLocationHierarchy = (locations: Location[]): Array<{id: string, name: string, level: number}> => {
+    const result: Array<{id: string, name: string, level: number}> = []
+    
+    const addLocation = (location: Location, level: number = 0) => {
+      result.push({
+        id: location.id,
+        name: location.name,
+        level
+      })
+      
+      // Find children in the flat list
+      const children = locations.filter(loc => loc.parent_id === location.id)
+      children
+        .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+        .forEach(child => addLocation(child, level + 1))
+    }
+
+    // Start with root locations (no parent) and sort them
+    const rootLocations = locations
+      .filter(loc => !loc.parent_id)
+      .sort((a, b) => a.name.localeCompare(b.name))
+    
+    rootLocations.forEach(loc => addLocation(loc))
+
+    return result
+  }
+
+  const hierarchicalLocations = buildLocationHierarchy(locations)
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Location">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/50 rounded p-3 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500" />
+            <p className="text-red-500 text-sm">{error}</p>
+          </div>
+        )}
+
+        <FormField
+          label="Location Name"
+          required
+          error={nameError}
+        >
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            onBlur={() => validateName(formData.name)}
+            className="input w-full"
+            placeholder="e.g., Warehouse A, Shelf 1"
+            autoFocus
+          />
+        </FormField>
+
+        <FormField label="Location Type">
+          <select
+            value={formData.location_type}
+            onChange={(e) => setFormData({ ...formData, location_type: e.target.value })}
+            className="input w-full"
+          >
+            <option value="General">General</option>
+            <option value="Warehouse">Warehouse</option>
+            <option value="Room">Room</option>
+            <option value="Shelf">Shelf</option>
+            <option value="Bin">Bin</option>
+            <option value="Drawer">Drawer</option>
+            <option value="Box">Box</option>
+          </select>
+        </FormField>
+
+        <FormField label="Parent Location">
+          <select
+            value={formData.parent_id || ''}
+            onChange={(e) => setFormData({ ...formData, parent_id: e.target.value || undefined })}
+            className="input w-full"
+          >
+            <option value="">No parent (root location)</option>
+            {hierarchicalLocations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {'  '.repeat(location.level)}
+                {location.level > 0 && '└ '}
+                {location.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+
+        <FormField label="Description">
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="input w-full min-h-[80px]"
+            placeholder="Optional description of this location"
+            rows={3}
+          />
+        </FormField>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-secondary"
+            disabled={loading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-primary flex items-center gap-2"
+            disabled={loading || !!nameError}
+          >
+            <MapPin className="w-4 h-4" />
+            {loading ? 'Updating...' : 'Update Location'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+export default EditLocationModal

@@ -1,0 +1,288 @@
+# MakerMatrix - Intelligent Parts Inventory Management System
+
+## Overview
+
+MakerMatrix is a comprehensive, API-first inventory management system designed specifically for makers, electronics enthusiasts, and small-scale manufacturers. Built with FastAPI and modern Python practices, it provides a robust backend for tracking, organizing, and managing electronic components, hardware parts, and materials with integrated label printing capabilities.
+
+## Core Architecture
+
+### Technology Stack
+- **Backend Framework**: FastAPI (Python 3.10+) with async support
+- **Database**: SQLite with SQLModel ORM for type-safe database operations
+- **Authentication**: JWT-based OAuth2 with role-based access control
+- **Validation**: Pydantic V2 for request/response validation
+- **Label Printing**: Brother QL printer integration with QR code support
+- **External APIs**: Integration with EasyEDA, LCSC, Mouser, and BoltDepot
+
+### Project Structure
+```
+MakerMatrix/
+├── api/              # External API integrations
+├── database/         # Database configuration and setup
+├── dependencies/     # FastAPI dependencies (auth, etc.)
+├── handlers/         # Exception handlers
+├── models/           # SQLModel database models
+├── parsers/          # Vendor-specific part data parsers
+├── printers/         # Label printer implementations
+├── repositories/     # Data access layer
+├── routers/          # API endpoints
+├── schemas/          # Pydantic schemas
+├── services/         # Business logic layer
+└── tests/            # Test suite
+```
+
+## Key Features
+
+### 1. Part Inventory Management
+- **Unique Part Tracking**: Each part has a unique name, number, and identifier
+- **Flexible Properties**: JSON field for custom metadata and specifications
+- **Quantity Management**: Track stock levels with low-stock thresholds
+- **Multi-Category Support**: Parts can belong to multiple categories
+- **Location Tracking**: Hierarchical location system for physical organization
+- **Advanced Search**: Filter by quantity, category, location, supplier, and custom properties
+
+### 2. Hierarchical Location System
+- **Multi-Level Organization**: Support for warehouse → shelf → bin hierarchy
+- **Parent-Child Relationships**: Automatic path resolution for nested locations
+- **Cascade Protection**: Prevents accidental deletion of locations with parts
+- **Location Types**: Flexible classification (storage, workbench, transit, etc.)
+
+### 3. Category Management
+- **Flexible Taxonomy**: Create custom categories for your inventory
+- **Many-to-Many Relationships**: Parts can belong to multiple categories
+- **Bulk Operations**: Efficient category assignment and removal
+- **Auto-Creation**: Categories created automatically when adding parts
+
+### 4. Authentication & Authorization
+- **JWT Tokens**: Secure, stateless authentication
+- **Role-Based Access**: Admin, Manager, and User roles with granular permissions
+- **Permission System**: Fine-grained control (parts:create, parts:update, etc.)
+- **Password Security**: Bcrypt hashing with configurable requirements
+
+### 5. Label Printing System
+- **Brother QL Support**: Network and USB printer connectivity
+- **QR Code Generation**: Encode part data for quick scanning
+- **Combined Labels**: QR code + human-readable text
+- **Configurable Settings**: DPI, label size, margins, rotation
+- **Print Queue**: Handle multiple label requests efficiently
+
+### 6. CSV Order Import & Order Tracking
+- **Multi-Vendor CSV Support**: Import order data from major suppliers
+  - LCSC: Auto-detect filename patterns (LCSC_Exported__YYYYMMDD_HHMMSS.csv)
+  - DigiKey: Order CSV files with comprehensive part data
+  - Mouser: Standard order export format
+- **Automatic Order Tracking**: Link parts to order history
+- **Order Summary Statistics**: Track pricing history, order counts, supplier info
+- **Modular Parser System**: Easy to add new CSV formats
+- **Auto-Population**: Extract order date/number from filenames
+
+### 7. External Data Enrichment
+- **Multi-Vendor Support**: Parse data from major suppliers
+  - LCSC: Electronic components with specifications
+  - Mouser: Component data and availability
+  - BoltDepot: Hardware and fastener information
+- **EasyEDA Integration**: Fetch component details and footprints
+- **Automatic Enrichment**: Enhance part data during creation
+
+## API Endpoints
+
+### Parts Management
+- `POST /parts/add_part` - Create new part with validation
+- `GET /parts/get_part` - Retrieve by ID, name, or part number
+- `PUT /parts/update_part/{id}` - Update part details
+- `DELETE /parts/delete_part` - Remove part from inventory
+- `GET /parts/get_all_parts` - Paginated part listing
+- `POST /parts/search` - Advanced multi-criteria search
+
+### Location Management
+- `POST /locations/add_location` - Create storage location
+- `GET /locations/get_location` - Retrieve location details
+- `PUT /locations/update_location/{id}` - Update location info
+- `DELETE /locations/delete_location/{id}` - Delete with safety checks
+- `GET /locations/get_location_path` - Get full hierarchy path
+
+### Category Operations
+- `POST /categories/add_category` - Create new category
+- `GET /categories/get_all_categories` - List all categories
+- `PUT /categories/update_category/{id}` - Update category
+- `DELETE /categories/remove_category` - Delete category
+
+### User Management
+- `POST /auth/login` - Authenticate user
+- `POST /auth/logout` - Invalidate session
+- `GET /users/me` - Get current user info
+- `PUT /users/update_password` - Change password
+- `POST /users/create` - Admin: Create new user
+- `PUT /users/{id}/roles` - Admin: Assign roles
+
+### CSV Import Operations
+- `GET /api/csv/supported-types` - Get available CSV parsers
+- `POST /api/csv/preview` - Preview CSV content and detect type
+- `POST /api/csv/extract-filename-info` - Extract order info from filename
+- `POST /api/csv/import` - Import parts with order tracking
+- `POST /api/csv/parse` - Parse CSV without importing
+
+### Printer Operations
+- `POST /printer/print_label` - Print part label
+- `POST /printer/print_qr` - Print QR code only
+- `POST /printer/config` - Configure printer settings
+- `GET /printer/current_printer` - Get active configuration
+
+## Database Schema
+
+### Core Tables
+- **PartModel**: Main inventory items
+  - Unique constraints on name and part_number
+  - JSON properties field for extensibility
+  - Relationships to categories and locations
+  
+- **LocationModel**: Storage hierarchy
+  - Self-referential for parent-child relationships
+  - Location types for organization
+  - Cascade delete protection
+
+- **CategoryModel**: Part categorization
+  - Many-to-many with parts
+  - Hierarchical support planned
+
+- **UserModel**: System users
+  - Encrypted password storage
+  - Email validation
+  - Active/inactive status
+
+- **RoleModel**: Authorization roles
+  - Configurable permissions
+  - Default roles: Admin, Manager, User
+
+### Order Tracking Tables
+- **OrderModel**: Supplier order records
+  - Order number, date, supplier, status
+  - Financial totals (subtotal, tax, shipping)
+  - Import source tracking
+
+- **OrderItemModel**: Individual items within orders
+  - Part details and quantities
+  - Pricing information (unit price, extended price)
+  - Links to inventory parts
+
+- **PartOrderSummary**: Order statistics per part
+  - Last order info (date, price, order number)
+  - Pricing statistics (lowest, highest, average)
+  - Total order count per part
+
+## Security Features
+
+### Authentication
+- JWT tokens with configurable expiration
+- Refresh token support
+- Secure password hashing (bcrypt)
+- Password complexity requirements
+
+### Authorization
+- Role-based access control (RBAC)
+- Granular permission system
+- Endpoint-level security
+- Default deny policy
+
+### Data Protection
+- SQL injection prevention via ORM
+- Input validation on all endpoints
+- CORS configuration for API access
+- Secure error handling (no sensitive data exposure)
+
+## Use Cases
+
+### Electronics Workshop
+- Track resistors, capacitors, ICs by value and package
+- Organize by project or function
+- Quick lookup via QR scanning
+- Low-stock alerts for common components
+
+### Makerspace
+- Shared inventory management
+- User access control for different areas
+- Track tool locations and availability
+- Generate labels for member storage
+
+### Small Manufacturing
+- Component tracking for production
+- Supplier information management
+- Location tracking across warehouses
+- Integration with ordering systems
+
+### Educational Institution
+- Student project component allocation
+- Lab inventory management
+- Usage tracking and reporting
+- Budget management integration
+
+## Current Status
+
+### ✅ Production Ready
+- Core CRUD operations for all entities
+- Authentication and authorization system
+- Label printing with Brother QL printers
+- Advanced search functionality
+- Comprehensive error handling
+- Input validation and sanitization
+- CSV order import system with auto-detection
+- Order tracking and pricing history
+- Multi-vendor CSV parser framework
+
+### 🚧 In Development
+- Database migration system
+- Stock level notifications
+- Audit trail logging
+- Custom label templates
+- Report generation
+- Frontend order history display
+
+### 🔮 Future Enhancements
+- Multi-language support
+- Mobile app API endpoints
+- Barcode scanning support
+- Integration with ordering systems
+- Advanced analytics dashboard
+- Backup and restore functionality
+
+## Testing
+
+The project includes a comprehensive test suite:
+- **Unit Tests**: Core business logic validation
+- **Integration Tests**: API endpoint testing
+- **Repository Tests**: Database operation validation
+- **Service Tests**: Business rule enforcement
+- **Current Coverage**: ~54% with focus on critical paths
+
+## Performance Considerations
+
+- Async/await for non-blocking operations
+- Efficient pagination for large datasets
+- Indexed database fields for quick lookups
+- Connection pooling for database access
+- Caching strategy for frequently accessed data
+
+## Deployment
+
+MakerMatrix is designed for flexible deployment:
+- **Development**: Built-in uvicorn server
+- **Production**: Gunicorn with uvicorn workers
+- **Containerization**: Docker support planned
+- **Database**: SQLite for simplicity, PostgreSQL ready
+
+## Contributing
+
+The project follows standard Python practices:
+- Type hints throughout the codebase
+- Comprehensive docstrings
+- Black formatting
+- Pytest for testing
+- Pre-commit hooks for code quality
+
+## License
+
+[License information to be added]
+
+## Support
+
+For issues, feature requests, or contributions, please refer to the project repository.
