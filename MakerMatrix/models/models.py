@@ -210,6 +210,17 @@ class PartModel(SQLModel, table=True):
             for category in self.categories
         ] if self.categories else []
         
+        # Include location information if available
+        if hasattr(self, 'location') and self.location is not None:
+            base_dict["location"] = {
+                "id": self.location.id,
+                "name": self.location.name,
+                "description": self.location.description,
+                "location_type": self.location.location_type
+            }
+        else:
+            base_dict["location"] = None
+        
         # Include order summary information
         if self.order_summary:
             base_dict["order_summary"] = self.order_summary.to_dict()

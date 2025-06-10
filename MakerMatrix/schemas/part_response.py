@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, ConfigDict
 
 
@@ -24,6 +24,7 @@ class PartResponse(BaseModel):
     description: Optional[str] = None
     supplier: Optional[str] = None
     location_id: Optional[str] = None
+    location: Optional[Dict[str, Any]] = None  # Use generic dict for location data
     image_url: Optional[str] = None
     additional_properties: Optional[dict] = {}
     categories: Optional[List[CategoryResponse]] = []

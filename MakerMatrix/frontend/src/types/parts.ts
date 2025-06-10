@@ -6,6 +6,7 @@ export interface Part {
   minimum_quantity?: number
   supplier?: string
   supplier_url?: string
+  image_url?: string
   properties?: Record<string, any>
   location_id?: string
   location?: Location
@@ -17,7 +18,9 @@ export interface Part {
 export interface Location {
   id: string
   name: string
-  type?: string
+  description?: string
+  location_type?: string
+  type?: string  // Keep for backward compatibility
   parent_id?: string
   parent?: Location
   children?: Location[]
