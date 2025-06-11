@@ -41,7 +41,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
   validateFile(file: File): boolean {
     // LCSC-specific validation
     if (!file.name.toLowerCase().includes('lcsc')) {
-      toast.warning('This doesn\'t appear to be an LCSC file. Expected filename containing "LCSC".')
+      toast.error('This doesn\'t appear to be an LCSC file. Expected filename containing "LCSC".')
     }
     
     // Check file size (LCSC files are typically small-medium)
@@ -148,6 +148,9 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
             <p className="text-text-secondary mt-2">Analyzing LCSC CSV file...</p>
           </div>
         )}
+
+        {/* Import Progress */}
+        {this.renderProgressBar()}
 
         {/* Configuration and Preview */}
         {previewData && !loading && (

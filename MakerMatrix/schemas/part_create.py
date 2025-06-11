@@ -9,6 +9,7 @@ class PartCreate(BaseModel):
     quantity: Optional[int]
     description: Optional[str] = None
     supplier: Optional[str] = None
+    supplier_url: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     additional_properties: Optional[dict] = {}
@@ -30,6 +31,7 @@ class PartUpdate(BaseModel):
     quantity: Optional[int] = None
     description: Optional[str] = None
     supplier: Optional[str] = None
+    supplier_url: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     additional_properties: Optional[dict] = {}

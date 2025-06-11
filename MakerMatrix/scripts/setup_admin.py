@@ -15,17 +15,29 @@ def setup_default_roles(user_repo: UserRepository):
         {
             "name": "admin",
             "description": "Administrator with full access",
-            "permissions": ["all"]
+            "permissions": [
+                "all", "parts:read", "parts:create", "parts:update", "parts:delete",
+                "locations:read", "locations:create", "locations:update", "locations:delete",
+                "categories:read", "categories:create", "categories:update", "categories:delete",
+                "tasks:read", "tasks:create", "tasks:update", "tasks:admin"
+            ]
         },
         {
             "name": "manager",
             "description": "Manager with write access",
-            "permissions": ["read", "write", "update"]
+            "permissions": [
+                "parts:read", "parts:create", "parts:update", "parts:delete",
+                "locations:read", "locations:create", "locations:update", "locations:delete",
+                "categories:read", "categories:create", "categories:update", "categories:delete",
+                "tasks:read", "tasks:create", "tasks:update"
+            ]
         },
         {
             "name": "user",
             "description": "Regular user with read access",
-            "permissions": ["read"]
+            "permissions": [
+                "parts:read", "locations:read", "categories:read", "tasks:read"
+            ]
         }
     ]
 

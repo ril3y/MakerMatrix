@@ -233,6 +233,9 @@ class PartService:
 
                         categories.append(category)
 
+                # Extract datasheets data before creating the part
+                datasheets_data = part_data.pop("datasheets", [])
+                
                 part_data["categories"] = categories
                 # Create the part with the prepared categories
                 new_part = PartModel(**part_data)
@@ -240,6 +243,18 @@ class PartService:
 
                 # Add the part via repository
                 part_obj = PartRepository.add_part(session, new_part)
+                
+                # Create datasheet records if any
+                if datasheets_data:
+                    from MakerMatrix.models.models import DatasheetModel
+                    for datasheet_data in datasheets_data:
+                        datasheet_data['part_id'] = part_obj.id
+                        datasheet = DatasheetModel(**datasheet_data)
+                        session.add(datasheet)
+                    
+                    session.commit()  # Commit datasheets
+                    session.refresh(part_obj)  # Refresh to get updated datasheets
+                
                 return {
                     "status": "success",
                     "message": "Part added successfully",
@@ -462,6 +477,48 @@ class PartService:
         except Exception as e:
             logger.error(f"Error performing advanced search: {e}")
             raise RuntimeError(f"An error occurred while searching: {str(e)}")
+
+    @staticmethod
+    def search_parts_text(query: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+        """
+        Simple text search across part names, part numbers, and descriptions.
+        """
+        session = next(get_session())
+        try:
+            results, total_count = PartService.part_repo.search_parts_text(session, query, page, page_size)
+            
+            return {
+                "status": "success",
+                "message": f"Found {total_count} parts matching '{query}'",
+                "data": {
+                    "items": [part.to_dict() for part in results],
+                    "total": total_count,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": (total_count + page_size - 1) // page_size
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error performing text search: {e}")
+            raise RuntimeError(f"An error occurred while searching: {str(e)}")
+
+    @staticmethod
+    def get_part_suggestions(query: str, limit: int = 10) -> Dict[str, Any]:
+        """
+        Get autocomplete suggestions for part names based on search query.
+        """
+        session = next(get_session())
+        try:
+            suggestions = PartService.part_repo.get_part_suggestions(session, query, limit)
+            
+            return {
+                "status": "success",
+                "message": f"Found {len(suggestions)} suggestions for '{query}'",
+                "data": suggestions
+            }
+        except Exception as e:
+            logger.error(f"Error getting part suggestions: {e}")
+            raise RuntimeError(f"An error occurred while getting suggestions: {str(e)}")
 
     # def get_part_by_details(part_id: Optional[str] = None, part_number: Optional[str] = None,
     #                         part_name: Optional[str] = None) -> Optional[dict]:

@@ -75,6 +75,11 @@ export class PartsService {
       part_name: updateData.name,
       category_names: updateData.categories || []
     }
+    
+    // Remove frontend-only fields that don't exist in backend
+    delete backendData.name
+    delete backendData.categories
+    
     const response = await apiClient.put<ApiResponse<any>>(`/parts/update_part/${id}`, backendData)
     if (response.data) {
       return {
@@ -145,6 +150,45 @@ export class PartsService {
   async searchParts(params: SearchPartsRequest): Promise<PaginatedResponse<Part>> {
     const response = await apiClient.post<PaginatedResponse<Part>>('/parts/search', params)
     return response
+  }
+
+  async searchPartsText(query: string, page = 1, pageSize = 20): Promise<{ data: Part[], total_parts: number }> {
+    const response = await apiClient.get<any>('/parts/search_text', {
+      params: { query, page, page_size: pageSize }
+    })
+    
+    // Map backend response to frontend format
+    if (response.data && Array.isArray(response.data)) {
+      const mappedData = response.data.map((part: any) => ({
+        ...part,
+        name: part.part_name || part.name,
+        created_at: part.created_at || new Date().toISOString(),
+        updated_at: part.updated_at || new Date().toISOString()
+      }))
+      
+      return {
+        data: mappedData,
+        total_parts: response.total_parts || 0
+      }
+    }
+    
+    return { data: [], total_parts: 0 }
+  }
+
+  async getPartSuggestions(query: string, limit = 10): Promise<string[]> {
+    if (query.length < 3) {
+      return []
+    }
+    
+    try {
+      const response = await apiClient.get<any>('/parts/suggestions', {
+        params: { query, limit }
+      })
+      return response.data || []
+    } catch (error) {
+      console.error('Error fetching suggestions:', error)
+      return []
+    }
   }
 
   async checkNameExists(name: string, excludeId?: string): Promise<boolean> {

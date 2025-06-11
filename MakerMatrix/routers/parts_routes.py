@@ -425,3 +425,67 @@ async def advanced_search(search_params: AdvancedPartSearch) -> ResponseSchema[D
     except Exception as e:
         logger.error(f"Error in advanced search: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/search_text", response_model=ResponseSchema[List[PartResponse]])
+async def search_parts_text(
+    query: str = Query(..., min_length=1, description="Search term"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100)
+) -> ResponseSchema[List[PartResponse]]:
+    """
+    Simple text search across part names, numbers, and descriptions.
+    """
+    try:
+        response = PartService.search_parts_text(query, page, page_size)
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=[PartResponse.model_validate(part) for part in response["data"]["items"]],
+            page=response["data"]["page"],
+            page_size=response["data"]["page_size"],
+            total_parts=response["data"]["total"]
+        )
+    except Exception as e:
+        logger.error(f"Error in text search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/suggestions", response_model=ResponseSchema[List[str]])
+async def get_part_suggestions(
+    query: str = Query(..., min_length=3, description="Search term for suggestions"),
+    limit: int = Query(default=10, ge=1, le=20)
+) -> ResponseSchema[List[str]]:
+    """
+    Get autocomplete suggestions for part names based on search query.
+    Returns up to 'limit' part names that start with or contain the query.
+    """
+    try:
+        response = PartService.get_part_suggestions(query, limit)
+        return ResponseSchema(
+            status=response["status"],
+            message=response["message"],
+            data=response["data"]
+        )
+    except Exception as e:
+        logger.error(f"Error getting suggestions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.delete("/clear_all", response_model=ResponseSchema[Dict[str, Any]])
+async def clear_all_parts() -> ResponseSchema[Dict[str, Any]]:
+    """Clear all parts from the database - USE WITH CAUTION\!"""
+    try:
+        result = PartService.clear_all_parts()
+        return ResponseSchema(
+            status="success", 
+            message="All parts have been cleared successfully",
+            data=result
+        )
+    except Exception as e:
+        logger.error(f"Error clearing all parts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear all parts: {str(e)}"
+        )

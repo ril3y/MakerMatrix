@@ -1,16 +1,37 @@
+export interface Datasheet {
+  id: string
+  part_id: string
+  file_uuid: string
+  original_filename?: string
+  file_extension: string
+  file_size?: number
+  source_url?: string
+  supplier?: string
+  manufacturer?: string
+  title?: string
+  description?: string
+  created_at: string
+  updated_at: string
+  is_downloaded: boolean
+  download_error?: string
+  filename: string
+}
+
 export interface Part {
   id: string
   name: string
   part_number?: string
+  description?: string
   quantity: number
   minimum_quantity?: number
   supplier?: string
   supplier_url?: string
   image_url?: string
-  properties?: Record<string, any>
+  additional_properties?: Record<string, any>
   location_id?: string
   location?: Location
   categories?: Category[]
+  datasheets?: Datasheet[]
   created_at: string
   updated_at: string
 }
@@ -39,11 +60,13 @@ export interface Category {
 export interface CreatePartRequest {
   name: string
   part_number?: string
+  description?: string
   quantity: number
   minimum_quantity?: number
   supplier?: string
   supplier_url?: string
-  properties?: Record<string, any>
+  image_url?: string
+  additional_properties?: Record<string, any>
   location_id?: string
   categories?: string[]
 }

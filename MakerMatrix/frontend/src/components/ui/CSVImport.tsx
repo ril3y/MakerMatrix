@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, FileText, AlertCircle, CheckCircle, Eye, RefreshCw, Trash2, X } from 'lucide-react'
+import { Upload, FileText, AlertCircle, CheckCircle, Eye, RefreshCw, Trash2, X, Settings, Download, Image } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/services/api'
@@ -36,6 +36,21 @@ interface SupportedParser {
   sample_columns: string[]
 }
 
+interface ImportProgress {
+  processed_parts: number
+  total_parts: number
+  current_operation: string
+  is_complete: boolean
+}
+
+interface CSVImportConfig {
+  download_datasheets: boolean
+  download_images: boolean
+  overwrite_existing_files: boolean
+  download_timeout_seconds: number
+  show_progress: boolean
+}
+
 interface CSVImportProps {
   onImportComplete?: (result: ImportResult) => void
 }
@@ -53,11 +68,36 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
     order_date: new Date().toISOString().split('T')[0],
     notes: ''
   })
+  
+  // Progress tracking
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
+  const [showProgress, setShowProgress] = useState(false)
+  
+  // Configuration
+  const [config, setConfig] = useState<CSVImportConfig>({
+    download_datasheets: true,
+    download_images: true,
+    overwrite_existing_files: false,
+    download_timeout_seconds: 30,
+    show_progress: true
+  })
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const progressPollInterval = useRef<NodeJS.Timeout | null>(null)
 
-  // Load supported parsers on component mount
+  // Load supported parsers and config on component mount
   useEffect(() => {
     loadSupportedParsers()
+    loadConfig()
+  }, [])
+
+  // Cleanup progress polling on unmount
+  useEffect(() => {
+    return () => {
+      if (progressPollInterval.current) {
+        clearInterval(progressPollInterval.current)
+      }
+    }
   }, [])
 
   const loadSupportedParsers = async () => {
@@ -66,6 +106,62 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
       setSupportedParsers(response.supported_types || [])
     } catch (error) {
       console.error('Failed to load supported CSV parsers:', error)
+    }
+  }
+
+  const loadConfig = async () => {
+    try {
+      const response = await apiClient.get('/api/csv/config')
+      if (response) {
+        setConfig(response)
+      }
+    } catch (error) {
+      console.error('Failed to load CSV import config:', error)
+    }
+  }
+
+  const saveConfig = async (newConfig: CSVImportConfig) => {
+    try {
+      await apiClient.put('/api/csv/config', newConfig)
+      setConfig(newConfig)
+      toast.success('Configuration saved successfully')
+    } catch (error) {
+      toast.error('Failed to save configuration')
+      console.error('Failed to save CSV config:', error)
+    }
+  }
+
+  const pollProgress = async () => {
+    try {
+      const response = await apiClient.get('/api/csv/import/progress')
+      console.log('Progress poll response:', response) // Debug log
+      if (response && response.processed_parts !== undefined) {
+        setImportProgress(response)
+        
+        if (response.is_complete) {
+          if (progressPollInterval.current) {
+            clearInterval(progressPollInterval.current)
+            progressPollInterval.current = null
+          }
+          setShowProgress(false)
+          setImporting(false)
+        }
+      } else if (response && response.message) {
+        console.log('No import progress available:', response.message)
+      }
+    } catch (error: any) {
+      // If it's an auth error (401), stop polling to avoid spam
+      if (error.response?.status === 401) {
+        if (progressPollInterval.current) {
+          clearInterval(progressPollInterval.current)
+          progressPollInterval.current = null
+        }
+        setShowProgress(false)
+        console.warn('Authentication required for progress polling')
+      } else if (error.response?.status !== 404) {
+        // Don't log 404 errors (no progress available yet)
+        console.error('Failed to poll progress:', error)
+      }
     }
   }
 
@@ -159,10 +255,36 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
     }
 
     setImporting(true)
+    setImportProgress(null)
 
     try {
+      // Update configuration before import
+      await saveConfig(config)
+
       const fileContent = await file.text()
-      const result = await apiClient.post('/api/csv/import', {
+      
+      // Use the progress-enabled endpoint
+      const endpoint = config.show_progress ? '/api/csv/import/with-progress' : '/api/csv/import'
+      
+      // Start progress polling if enabled
+      if (config.show_progress) {
+        console.log('Starting progress tracking...') // Debug log
+        setShowProgress(true)
+        // Initialize progress state immediately
+        setImportProgress({
+          processed_parts: 0,
+          total_parts: 0,
+          current_operation: 'Starting import...',
+          is_complete: false
+        })
+        // Start polling after a short delay to let the import begin
+        setTimeout(() => {
+          console.log('Starting progress polling...') // Debug log
+          progressPollInterval.current = setInterval(pollProgress, 1000) // Poll every second
+        }, 500)
+      }
+      
+      const result = await apiClient.post(endpoint, {
         csv_content: fileContent,
         parser_type: selectedParser,
         order_info: {
@@ -187,7 +309,14 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
       toast.error('Failed to import parts from CSV')
       console.error('CSV import error:', error)
     } finally {
+      // Cleanup progress polling
+      if (progressPollInterval.current) {
+        clearInterval(progressPollInterval.current)
+        progressPollInterval.current = null
+      }
       setImporting(false)
+      setShowProgress(false)
+      setImportProgress(null)
     }
   }
 
@@ -208,15 +337,145 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-text-primary mb-2 flex items-center justify-center gap-2">
-          <Upload className="w-5 h-5" />
-          Import Parts from CSV Orders
-        </h3>
-        <p className="text-text-secondary">
-          Upload order CSV files to automatically add parts to your inventory with order tracking
-        </p>
+      <div className="text-center space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-text-primary flex items-center justify-center gap-2 mb-2">
+            <Upload className="w-5 h-5" />
+            Import Parts from CSV Orders
+          </h3>
+          <p className="text-text-secondary mb-4">
+            Upload order CSV files to automatically add parts to your inventory with order tracking
+          </p>
+        </div>
+        
+        {/* Inline Import Settings */}
+        <div className="card max-w-2xl mx-auto">
+          <div className="card-header">
+            <h4 className="text-sm font-medium text-text-primary flex items-center justify-center gap-2">
+              <Settings className="w-4 h-4" />
+              Import Settings
+            </h4>
+          </div>
+          <div className="card-content">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Download Options */}
+              <div className="space-y-3">
+                <h5 className="text-xs font-medium text-text-secondary uppercase tracking-wide">Download Options</h5>
+                
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.download_datasheets}
+                    onChange={(e) => setConfig(prev => ({ ...prev, download_datasheets: e.target.checked }))}
+                    className="checkbox"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4 text-text-secondary" />
+                    <span className="text-sm text-text-primary">Download datasheets</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.download_images}
+                    onChange={(e) => setConfig(prev => ({ ...prev, download_images: e.target.checked }))}
+                    className="checkbox"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Image className="w-4 h-4 text-text-secondary" />
+                    <span className="text-sm text-text-primary">Download images</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.overwrite_existing_files}
+                    onChange={(e) => setConfig(prev => ({ ...prev, overwrite_existing_files: e.target.checked }))}
+                    className="checkbox"
+                  />
+                  <span className="text-sm text-text-primary">Overwrite existing files</span>
+                </label>
+              </div>
+
+              {/* Performance Options */}
+              <div className="space-y-3">
+                <h5 className="text-xs font-medium text-text-secondary uppercase tracking-wide">Options</h5>
+                
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.show_progress}
+                    onChange={(e) => setConfig(prev => ({ ...prev, show_progress: e.target.checked }))}
+                    className="checkbox"
+                  />
+                  <span className="text-sm text-text-primary">Show import progress</span>
+                </label>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">
+                    Download timeout: {config.download_timeout_seconds}s
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="120"
+                    step="10"
+                    value={config.download_timeout_seconds}
+                    onChange={(e) => setConfig(prev => ({ ...prev, download_timeout_seconds: parseInt(e.target.value) }))}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Progress Bar */}
+      <AnimatePresence>
+        {showProgress && importProgress && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="card p-4"
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-text-primary">Import Progress</h4>
+                <span className="text-sm text-text-secondary">
+                  {importProgress.processed_parts} / {importProgress.total_parts || '?'} parts
+                </span>
+              </div>
+              
+              <div className="w-full bg-background-secondary rounded-full h-3 overflow-hidden">
+                {importProgress.total_parts > 0 ? (
+                  <motion.div
+                    className="bg-primary h-3 rounded-full transition-all duration-300"
+                    initial={{ width: 0 }}
+                    animate={{ 
+                      width: `${(importProgress.processed_parts / importProgress.total_parts) * 100}%`
+                    }}
+                  />
+                ) : (
+                  <div className="h-3 bg-gradient-to-r from-primary/30 via-primary to-primary/30 animate-pulse rounded-full" />
+                )}
+              </div>
+              
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-primary">{importProgress.current_operation}</span>
+                <span className="text-text-secondary">
+                  {importProgress.total_parts > 0 
+                    ? Math.round((importProgress.processed_parts / importProgress.total_parts) * 100)
+                    : 0}%
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* File Upload */}
       <div
@@ -504,7 +763,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                                 <td className="table-cell text-text-primary">{part.quantity}</td>
                                 <td className="table-cell text-text-primary">{part.supplier}</td>
                                 <td className="table-cell text-text-primary truncate max-w-48">
-                                  {part.properties?.description || '-'}
+                                  {part.additional_properties?.description || '-'}
                                 </td>
                               </tr>
                             ))}
@@ -519,6 +778,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   )
 }

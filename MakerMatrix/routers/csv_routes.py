@@ -1,16 +1,20 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import Dict, Any, List
 from pydantic import BaseModel
-from MakerMatrix.services.csv_import_service import csv_import_service
+from MakerMatrix.services.csv_import_service import csv_import_service, CSVImportService
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.services.order_service import order_service
 from MakerMatrix.dependencies.auth import require_permission
 from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["csv"])
+
+# Global reference to the active import service for progress tracking
+_active_import_service = None
 
 # Request models
 class CSVPreviewRequest(BaseModel):
@@ -190,3 +194,234 @@ async def get_parser_info(parser_type: str):
     except Exception as e:
         logger.error(f"Error getting parser info: {e}")
         raise HTTPException(status_code=500, detail="Failed to get parser information")
+
+
+# CSV Import Configuration Routes
+class CSVConfigRequest(BaseModel):
+    download_datasheets: bool = True
+    download_images: bool = True
+    overwrite_existing_files: bool = False
+    download_timeout_seconds: int = 30
+    show_progress: bool = True
+
+
+@router.get("/config")
+async def get_csv_import_config(
+    current_user: UserModel = Depends(require_permission("parts:read"))
+):
+    """Get CSV import configuration"""
+    try:
+        from MakerMatrix.database.db import get_session
+        from sqlmodel import select
+        
+        session = next(get_session())
+        try:
+            config = session.exec(
+                select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
+            ).first()
+            
+            if not config:
+                # Create default config
+                config = CSVImportConfigModel(id="default")
+                session.add(config)
+                session.commit()
+                session.refresh(config)
+            
+            return config.to_dict()
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error getting CSV config: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get CSV configuration")
+
+
+@router.put("/config")
+async def update_csv_import_config(
+    config_request: CSVConfigRequest,
+    current_user: UserModel = Depends(require_permission("parts:create"))
+):
+    """Update CSV import configuration"""
+    try:
+        from MakerMatrix.database.db import get_session
+        from sqlmodel import select
+        
+        session = next(get_session())
+        try:
+            config = session.exec(
+                select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
+            ).first()
+            
+            if not config:
+                config = CSVImportConfigModel(id="default")
+            
+            # Update configuration
+            config.download_datasheets = config_request.download_datasheets
+            config.download_images = config_request.download_images
+            config.overwrite_existing_files = config_request.overwrite_existing_files
+            config.download_timeout_seconds = config_request.download_timeout_seconds
+            config.show_progress = config_request.show_progress
+            
+            session.add(config)
+            session.commit()
+            session.refresh(config)
+            
+            return {"message": "Configuration updated successfully", "config": config.to_dict()}
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error updating CSV config: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update CSV configuration")
+
+
+@router.get("/import/progress")
+async def get_import_progress(
+    current_user: UserModel = Depends(require_permission("parts:read"))
+):
+    """Get current import progress"""
+    try:
+        # Check the active import service first, then fall back to the singleton
+        global _active_import_service
+        logger.info(f"📊 Progress poll - Active service: {_active_import_service is not None}")
+        
+        if _active_import_service:
+            progress = _active_import_service.get_current_progress()
+            logger.info(f"📊 Active service progress: {progress is not None}")
+        else:
+            progress = csv_import_service.get_current_progress()
+            logger.info(f"📊 Singleton service progress: {progress is not None}")
+            
+        if progress:
+            logger.info(f"📊 Returning progress: {progress}")
+            return progress
+        else:
+            logger.info(f"📊 No progress available")
+            return {"message": "No import in progress"}
+            
+    except Exception as e:
+        logger.error(f"Error getting import progress: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get import progress")
+
+
+@router.post("/import/with-progress", response_model=CSVImportResponse)
+async def import_csv_with_progress(
+    request: CSVImportRequest,
+    background_tasks: BackgroundTasks,
+    current_user: UserModel = Depends(require_permission("parts:create"))
+):
+    """Import CSV with progress tracking and download options"""
+    try:
+        # Get current configuration
+        from MakerMatrix.database.db import get_session
+        from sqlmodel import select
+        
+        session = next(get_session())
+        try:
+            config = session.exec(
+                select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
+            ).first()
+            
+            if not config:
+                config = CSVImportConfigModel(id="default")
+                session.add(config)
+                session.commit()
+                session.refresh(config)
+        finally:
+            session.close()
+        
+        # Create new service instance with downloads disabled during parsing
+        config_dict = config.to_dict()
+        parsing_config = config_dict.copy()
+        parsing_config['download_datasheets'] = False  # Disable during parsing
+        parsing_config['download_images'] = False      # Disable during parsing
+        
+        import_service = CSVImportService(download_config=parsing_config)
+        
+        # Parse CSV (no downloads during this phase)
+        parts_data, parsing_errors = import_service.parse_csv_to_parts(
+            request.csv_content, 
+            request.parser_type
+        )
+        
+        # Now create the import service with the real config for actual import
+        import_service_for_import = CSVImportService(download_config=config_dict)
+        
+        # Store reference for progress tracking
+        global _active_import_service
+        _active_import_service = import_service_for_import
+        
+        if not parts_data:
+            return CSVImportResponse(
+                success_parts=[],
+                failed_parts=["No valid parts data found in CSV"],
+                order_id=None
+            )
+        
+        # Progress callback function that updates the shared service state
+        def progress_callback(progress):
+            logger.info(f"Progress callback received: {type(progress)}")
+            # Handle both dict and ImportProgressModel
+            if hasattr(progress, 'processed_parts'):
+                # ImportProgressModel object
+                processed = progress.processed_parts
+                total = progress.total_parts
+                operation = progress.current_operation
+                logger.info(f"✅ PROGRESS UPDATE: {processed}/{total} - {operation}")
+                import_service_for_import.current_progress = progress
+            else:
+                # Dictionary format
+                processed = progress.get('processed_parts', 0)
+                total = progress.get('total_parts', 0)
+                operation = progress.get('current_operation', 'Processing...')
+                logger.info(f"✅ PROGRESS UPDATE (dict): {processed}/{total} - {operation}")
+                # Convert dict to ImportProgressModel for consistency
+                from MakerMatrix.models.csv_import_config_model import ImportProgressModel
+                progress_model = ImportProgressModel(
+                    total_parts=total,
+                    processed_parts=processed,
+                    successful_parts=progress.get('successful_parts', 0),
+                    failed_parts=progress.get('failed_parts', 0),
+                    current_operation=operation,
+                    is_downloading=progress.get('is_downloading', False),
+                    download_progress=progress.get('download_progress'),
+                    start_time=progress.get('start_time', '')
+                )
+                import_service_for_import.current_progress = progress_model
+        
+        # Import parts with progress tracking using the service with real config
+        part_service = PartService()
+        success_parts, failed_parts = await import_service_for_import.import_parts_with_progress(
+            parts_data,
+            part_service,
+            request.order_info,
+            progress_callback
+        )
+        
+        # Add parsing errors to failed parts if any
+        if parsing_errors:
+            failed_parts.extend([f"Parsing error: {error}" for error in parsing_errors])
+        
+        logger.info(f"CSV import with progress completed: {len(success_parts)} success, {len(failed_parts)} failed")
+        
+        # Clear progress when import is complete
+        import_service_for_import.current_progress = None
+        _active_import_service = None
+        
+        return CSVImportResponse(
+            success_parts=success_parts,
+            failed_parts=failed_parts,
+            order_id=None
+        )
+        
+    except Exception as e:
+        logger.error(f"Error importing CSV with progress: {e}", exc_info=True)
+        # Clear progress on error
+        if 'import_service_for_import' in locals():
+            import_service_for_import.current_progress = None
+        _active_import_service = None
+        # Return more detailed error for debugging
+        error_details = f"CSV import failed: {str(e)}"
+        if hasattr(e, '__cause__') and e.__cause__:
+            error_details += f" (Caused by: {str(e.__cause__)})"
+        raise HTTPException(status_code=500, detail=error_details)

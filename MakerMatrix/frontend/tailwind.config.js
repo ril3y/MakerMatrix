@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class', // Enable class-based dark mode
   theme: {
     extend: {
       colors: {
@@ -19,6 +20,7 @@ export default {
           light: '#a78bfa',
         },
         danger: '#ef4444',
+        destructive: '#ef4444',
         warning: '#f59e0b',
         success: '#10b981',
         info: '#3b82f6',
@@ -37,16 +39,16 @@ export default {
         },
         
         // Custom background colors
-        'bg-primary': '#000000',
-        'bg-secondary': 'rgba(0, 0, 0, 0.8)',
-        'bg-tertiary': 'rgba(0, 0, 0, 0.5)',
-        'bg-card': 'rgba(0, 0, 0, 0.5)',
-        'bg-input': 'rgba(0, 0, 0, 0.3)',
+        'background-primary': '#ffffff',
+        'background-secondary': '#f9fafb',
+        'background-tertiary': '#f3f4f6',
+        'bg-card': '#f9fafb',
+        'bg-input': '#ffffff',
         
         // Text colors
-        'text-primary': '#ffffff',
-        'text-secondary': '#e5e7eb',
-        'text-muted': '#9ca3af',
+        'text-primary': '#111827',
+        'text-secondary': '#374151',
+        'text-muted': '#6b7280',
         'text-accent': '#00ff9d',
         
         // Border colors

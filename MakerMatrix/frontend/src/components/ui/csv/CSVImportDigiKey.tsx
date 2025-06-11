@@ -41,7 +41,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
   validateFile(file: File): boolean {
     // DigiKey-specific validation
     if (!file.name.toLowerCase().includes('digikey')) {
-      toast.warning('This doesn\'t appear to be a DigiKey file. Expected filename containing "DigiKey".')
+      toast.error('This doesn\'t appear to be a DigiKey file. Expected filename containing "DigiKey".')
     }
     
     // DigiKey files can be larger
@@ -173,6 +173,9 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
             <p className="text-text-secondary mt-2">Analyzing DigiKey CSV file...</p>
           </div>
         )}
+
+        {/* Import Progress */}
+        {this.renderProgressBar()}
 
         {/* Configuration and Preview */}
         {previewData && !loading && (

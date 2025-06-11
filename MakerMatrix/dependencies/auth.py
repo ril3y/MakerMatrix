@@ -13,6 +13,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserModel:
     return auth_service.get_current_user(token)
 
 
+async def get_current_user_from_token(token: str) -> UserModel:
+    """Get current user from token (for WebSocket authentication)."""
+    return auth_service.get_current_user(token)
+
+
 async def get_current_active_user(current_user: UserModel = Depends(get_current_user)) -> UserModel:
     """Dependency to get the current active user."""
     if not current_user.is_active:

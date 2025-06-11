@@ -27,13 +27,18 @@ class ServerManager:
         self.term = Terminal()
         self.backend_process: Optional[subprocess.Popen] = None
         self.frontend_process: Optional[subprocess.Popen] = None
-        self.backend_logs = deque(maxlen=100)
-        self.frontend_logs = deque(maxlen=100)
+        self.backend_logs = deque(maxlen=500)  # Increased for CSV imports with downloads
+        self.frontend_logs = deque(maxlen=500)
         self.running = True
         self.backend_status = "Stopped"
         self.frontend_status = "Stopped"
         self.selected_view = "backend"  # backend, frontend, both
         self.log_scroll = 0
+        
+        # Screen update tracking for better performance
+        self.force_redraw = True
+        self.last_header_content = ""
+        self.last_logs_count = (0, 0)
         
         # URLs
         self.backend_url = "http://localhost:57891"
@@ -64,6 +69,8 @@ class ServerManager:
             log_entry = f"[{timestamp}] [❌ ERROR] {message}"
         elif level == "WARN":
             log_entry = f"[{timestamp}] [⚠️  WARN] {message}"
+        elif level == "SUCCESS":
+            log_entry = f"[{timestamp}] [✅ SUCCESS] {message}"
         else:
             log_entry = f"[{timestamp}] [{level}] {message}"
         
@@ -158,48 +165,52 @@ class ServerManager:
                     
                 line = line.strip()
                 if line:
-                    # Update status based on log content
+                    # Update status based on log content - IMPROVED ERROR DETECTION
                     if service == "backend":
                         if "Application startup complete" in line or "Uvicorn running on" in line:
                             self.backend_status = "Running"
-                        elif "CRITICAL" in line.upper() or ("ERROR" in line.upper() and 
-                              not any(ignore in line for ignore in [
-                                  "Error loading configuration from printer_config.json",
-                                  "printer configuration",
-                                  "printer_config.json"
-                              ])):
+                            self.log_message("backend", "Backend started successfully!", "SUCCESS")
+                        elif any(critical_error in line.upper() for critical_error in [
+                            "CRITICAL", "FATAL", "TRACEBACK", "EXCEPTION"
+                        ]) and not any(ignore in line.lower() for ignore in [
+                            "printer_config", "printer configuration", "optional"
+                        ]):
                             self.backend_status = "Error"
+                            self.log_message("backend", f"Critical error detected: {line}", "ERROR")
+                        # Don't mark as error for common warnings
+                        elif "ERROR" in line.upper() and not any(ignore in line.lower() for ignore in [
+                            "printer_config.json", "printer configuration", "loading configuration",
+                            "optional", "warning", "not found", "missing config"
+                        ]):
+                            # Only mark as error if it's a real error, not config warnings
+                            if any(real_error in line.lower() for real_error in [
+                                "connection", "database", "auth", "permission", "failed to"
+                            ]):
+                                self.backend_status = "Error"
                     elif service == "frontend":
-                        if "Local:" in line and "http://" in line:
+                        if "Local:" in line and "http://localhost:" in line:
                             self.frontend_status = "Running"
-                            # Extract the actual URL - handle different formats
-                            if "http://localhost:" in line:
-                                try:
-                                    # Look for the port in the line
-                                    port_match = re.search(r'http://localhost:(\d+)', line)
-                                    if port_match:
-                                        port = port_match.group(1)
-                                        self.frontend_url = f"http://localhost:{port}"
-                                        self.log_message("frontend", f"Frontend URL updated to: {self.frontend_url}")
-                                except:
-                                    pass
-                        elif "ERROR" in line.upper() or "Failed to compile" in line:
+                            self.log_message("frontend", "Frontend started successfully!", "SUCCESS")
+                            # Extract the actual URL
+                            try:
+                                port_match = re.search(r'http://localhost:(\d+)', line)
+                                if port_match:
+                                    port = port_match.group(1)
+                                    self.frontend_url = f"http://localhost:{port}"
+                            except:
+                                pass
+                        elif any(error_indicator in line for error_indicator in [
+                            "Failed to compile", "Module not found", "SyntaxError", "TypeError"
+                        ]):
                             self.frontend_status = "Error"
-                        # Detect file changes and HMR events (Vite patterns)
+                        # Detect file changes and HMR events
                         elif any(keyword in line.lower() for keyword in [
                             "hmr update", "page reload", "file changed", "rebuilding", 
                             "reloading", "full reload", "hot updated", "[vite] hot update",
                             "src updated", "hmr", "hot reloaded"
                         ]):
                             self.log_message("frontend", f"🔄 HMR: {line}", "CHANGE")
-                        # Detect specific file changes  
-                        elif ("src/" in line and any(ext in line for ext in [".tsx", ".ts", ".jsx", ".js", ".css", ".scss"])) or \
-                             (any(pattern in line.lower() for pattern in ["updated", "changed", "modified"]) and 
-                              any(ext in line for ext in [".tsx", ".ts", ".jsx", ".js", ".css"])):
-                            self.log_message("frontend", f"📝 File Changed: {line}", "CHANGE")
-                        # Generic Vite update patterns
-                        elif "[vite]" in line.lower() and any(keyword in line.lower() for keyword in ["update", "reload", "change"]):
-                            self.log_message("frontend", f"🔄 Vite: {line}", "CHANGE")
+                            continue  # Don't log HMR messages twice
                     
                     self.log_message(service, line)
                     
@@ -269,20 +280,18 @@ class ServerManager:
             )
             
             # Monitor build output
-            output_lines = []
             for line in iter(build_process.stdout.readline, ''):
                 if not line:
                     break
                 line = line.strip()
                 if line:
-                    output_lines.append(line)
                     self.log_message("frontend", f"BUILD: {line}")
             
             # Wait for build to complete
             return_code = build_process.wait()
             
             if return_code == 0:
-                self.log_message("frontend", "✅ Frontend build completed successfully!", "INFO")
+                self.log_message("frontend", "✅ Frontend build completed successfully!", "SUCCESS")
                 self.log_message("frontend", "📦 Production build is ready in MakerMatrix/frontend/dist/", "INFO")
             else:
                 self.log_message("frontend", f"❌ Frontend build failed with code {return_code}", "ERROR")
@@ -293,13 +302,24 @@ class ServerManager:
     def get_status_color(self, status: str):
         """Get color for status display"""
         colors = {
-            "Running": self.term.green,
-            "Starting": self.term.yellow,
-            "Stopped": self.term.red,
-            "Failed": self.term.red,
-            "Error": self.term.red
+            "Running": self.term.bright_green,
+            "Starting": self.term.bright_yellow,
+            "Stopped": self.term.bright_red,
+            "Failed": self.term.bright_red,
+            "Error": self.term.bright_red
         }
         return colors.get(status, self.term.white)
+    
+    def get_status_symbol(self, status: str):
+        """Get symbol for status display"""
+        symbols = {
+            "Running": "🟢",
+            "Starting": "🟡", 
+            "Stopped": "🔴",
+            "Failed": "❌",
+            "Error": "⚠️"
+        }
+        return symbols.get(status, "⚪")
     
     def fetch_dashboard_stats(self):
         """Fetch dashboard statistics from the backend API"""
@@ -308,7 +328,7 @@ class ServerManager:
             
         try:
             # Use the utility endpoint to get all counts in one call
-            response = requests.get(f"{self.backend_url}/utility/get_counts", timeout=5)
+            response = requests.get(f"{self.backend_url}/utility/get_counts", timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "success" and "data" in data:
@@ -331,64 +351,81 @@ class ServerManager:
                                 stats["users_count"] = "N/A"
                         else:
                             stats["users_count"] = "N/A"
-                    except Exception as e:
+                    except Exception:
                         stats["users_count"] = "N/A"
                     
                     # Update stats
                     self.stats.update(stats)
                     self.stats_error = None
                 else:
-                    self.stats_error = "Invalid API response format"
+                    self.stats_error = "Invalid API response"
             else:
-                self.stats_error = f"API returned {response.status_code}"
+                self.stats_error = f"API Error {response.status_code}"
                 
         except requests.exceptions.ConnectionError:
-            self.stats_error = "Cannot connect to backend"
+            self.stats_error = "Backend not reachable"
         except requests.exceptions.Timeout:
-            self.stats_error = "API request timeout"
+            self.stats_error = "API timeout"
         except Exception as e:
-            self.stats_error = f"API Error: {str(e)[:30]}..."
+            self.stats_error = f"API Error: {str(e)[:25]}..."
+    
+    def get_header_content(self):
+        """Generate header content for comparison"""
+        backend_color = self.get_status_color(self.backend_status)
+        frontend_color = self.get_status_color(self.frontend_status)
+        backend_symbol = self.get_status_symbol(self.backend_status)
+        frontend_symbol = self.get_status_symbol(self.frontend_status)
+        
+        status_line = (f"{backend_symbol} Backend: {backend_color}{self.backend_status}{self.term.normal} "
+                      f"({self.backend_url}) | "
+                      f"{frontend_symbol} Frontend: {frontend_color}{self.frontend_status}{self.term.normal} "
+                      f"({self.frontend_url})")
+        
+        if self.stats_error:
+            stats_line = f"📊 Dashboard: {self.term.red}{self.stats_error}{self.term.normal}"
+        elif self.stats["last_updated"]:
+            stats_line = (f"📊 Parts: {self.term.cyan}{self.stats['parts_count']}{self.term.normal} | "
+                         f"Locations: {self.term.cyan}{self.stats['locations_count']}{self.term.normal} | "
+                         f"Categories: {self.term.cyan}{self.stats['categories_count']}{self.term.normal} | "
+                         f"Users: {self.term.cyan}{self.stats['users_count']}{self.term.normal} | "
+                         f"Updated: {self.term.yellow}{self.stats['last_updated']}{self.term.normal}")
+        else:
+            stats_line = f"📊 Dashboard: {self.term.yellow}Waiting for backend...{self.term.normal}"
+        
+        return status_line + "\n" + stats_line
     
     def draw_header(self):
-        """Draw the header section"""
-        with self.term.location(0, 0):
-            print(self.term.clear_eol + self.term.bold + self.term.blue + "🚀 MakerMatrix Development Manager" + self.term.normal)
-        
-        with self.term.location(0, 1):
-            print(self.term.clear_eol + "─" * self.term.width)
-        
-        # Status line
-        with self.term.location(0, 2):
-            backend_color = self.get_status_color(self.backend_status)
-            frontend_color = self.get_status_color(self.frontend_status)
+        """Draw the header section only if changed"""
+        new_header_content = self.get_header_content()
+        if new_header_content != self.last_header_content or self.force_redraw:
+            with self.term.location(0, 0):
+                print(self.term.clear_eol + self.term.bold + self.term.bright_blue + 
+                      "🚀 MakerMatrix Development Manager" + self.term.normal)
             
-            print(self.term.clear_eol + f"Backend: {backend_color}{self.backend_status}{self.term.normal} ({self.backend_url}) | "
-                  f"Frontend: {frontend_color}{self.frontend_status}{self.term.normal} ({self.frontend_url})")
-        
-        # Dashboard stats line
-        with self.term.location(0, 3):
-            if self.stats_error:
-                print(self.term.clear_eol + f"📊 Dashboard: {self.term.red}{self.stats_error}{self.term.normal}")
-            elif self.stats["last_updated"]:
-                stats_text = (f"📊 Parts: {self.stats['parts_count']} | "
-                             f"Locations: {self.stats['locations_count']} | "
-                             f"Categories: {self.stats['categories_count']} | "
-                             f"Users: {self.stats['users_count']} | "
-                             f"Updated: {self.stats['last_updated']}")
-                print(self.term.clear_eol + self.term.cyan + stats_text + self.term.normal)
-            else:
-                print(self.term.clear_eol + f"📊 Dashboard: {self.term.yellow}Waiting for backend...{self.term.normal}")
+            with self.term.location(0, 1):
+                print(self.term.clear_eol + "─" * min(self.term.width, 100))
+            
+            # Status and stats lines
+            lines = new_header_content.split('\n')
+            for i, line in enumerate(lines):
+                with self.term.location(0, 2 + i):
+                    print(self.term.clear_eol + line)
+            
+            self.last_header_content = new_header_content
     
     def draw_controls(self):
         """Draw the controls section"""
+        if not self.force_redraw:
+            return
+            
         y = 5
         with self.term.location(0, y):
-            print(self.term.clear_eol + self.term.bold + "Controls:" + self.term.normal)
+            print(self.term.clear_eol + self.term.bold + self.term.bright_cyan + "Controls:" + self.term.normal)
         
         controls = [
-            "1: Start Backend  2: Stop Backend   3: Start Frontend  4: Stop Frontend",
-            "5: Start Both     6: Stop Both      7: Restart Backend 8: Restart Frontend", 
-            "9: Build Frontend (Production)  v: Switch View  r: Refresh Stats  ↑↓: Scroll  q: Quit"
+            f"{self.term.green}1{self.term.normal}: Start Backend  {self.term.green}2{self.term.normal}: Stop Backend   {self.term.green}3{self.term.normal}: Start Frontend  {self.term.green}4{self.term.normal}: Stop Frontend",
+            f"{self.term.green}5{self.term.normal}: Start Both     {self.term.green}6{self.term.normal}: Stop Both      {self.term.green}7{self.term.normal}: Restart Backend {self.term.green}8{self.term.normal}: Restart Frontend", 
+            f"{self.term.green}9{self.term.normal}: Build Frontend  {self.term.green}v{self.term.normal}: Switch View    {self.term.green}r{self.term.normal}: Refresh Stats   {self.term.green}↑↓{self.term.normal}: Scroll  {self.term.green}PgUp/PgDn{self.term.normal}: Fast Scroll  {self.term.green}q{self.term.normal}: Quit"
         ]
         
         for i, control in enumerate(controls):
@@ -396,13 +433,34 @@ class ServerManager:
                 print(self.term.clear_eol + control)
     
     def draw_logs(self):
-        """Draw the logs section"""
+        """Draw the logs section only if changed"""
         log_start_y = 10
-        available_height = self.term.height - log_start_y - 2
+        available_height = max(5, self.term.height - log_start_y - 2)
+        
+        # Check if logs changed - always update if scroll position changed
+        current_logs_count = (len(self.backend_logs), len(self.frontend_logs))
+        if current_logs_count == self.last_logs_count and not self.force_redraw:
+            return
         
         with self.term.location(0, log_start_y - 1):
-            view_indicator = f"View: {self.selected_view.title()}"
-            print(self.term.clear_eol + "─" * (self.term.width // 2) + f" {view_indicator} " + "─" * (self.term.width // 2))
+            view_indicator = f"📋 View: {self.term.bright_magenta}{self.selected_view.title()}{self.term.normal}"
+            
+            # Add scroll indicator
+            if self.selected_view == "backend":
+                total_logs = len(self.backend_logs)
+            elif self.selected_view == "frontend":
+                total_logs = len(self.frontend_logs)
+            else:
+                total_logs = len(self.backend_logs) + len(self.frontend_logs)
+            
+            if total_logs > available_height:
+                scroll_indicator = f" {self.term.yellow}[{self.log_scroll}/{max(0, total_logs - available_height)}]{self.term.normal}"
+            else:
+                scroll_indicator = ""
+            
+            separator_len = max(0, (min(self.term.width, 100) - len(view_indicator) - len(scroll_indicator.replace(self.term.yellow, '').replace(self.term.normal, ''))) // 2 - 2)
+            separator = "─" * separator_len
+            print(self.term.clear_eol + separator + f" {view_indicator}{scroll_indicator} " + separator)
         
         # Get logs based on selected view
         if self.selected_view == "backend":
@@ -410,12 +468,13 @@ class ServerManager:
         elif self.selected_view == "frontend":
             logs = list(self.frontend_logs)
         else:  # both
-            # Interleave logs by timestamp (simplified)
+            # Interleave logs by timestamp
             backend_logs = [(log, "B") for log in self.backend_logs]
             frontend_logs = [(log, "F") for log in self.frontend_logs]
             all_logs = backend_logs + frontend_logs
-            all_logs.sort(key=lambda x: x[0][:8] if len(x[0]) > 8 else x[0])  # Sort by timestamp
-            logs = [f"[{source}] {log}" for log, source in all_logs]
+            all_logs.sort(key=lambda x: x[0][:8] if len(x[0]) > 8 else x[0])
+            logs = [f"[{self.term.blue if source == 'B' else self.term.green}{source}{self.term.normal}] {log}" 
+                   for log, source in all_logs]
         
         # Apply scroll offset
         start_idx = max(0, len(logs) - available_height + self.log_scroll)
@@ -428,10 +487,13 @@ class ServerManager:
                     log_line = visible_logs[i]
                     # Truncate if too long
                     if len(log_line) > self.term.width - 1:
+                        # Account for ANSI codes when truncating
                         log_line = log_line[:self.term.width - 4] + "..."
                     print(self.term.clear_eol + log_line)
                 else:
                     print(self.term.clear_eol)
+        
+        self.last_logs_count = current_logs_count
     
     def handle_input(self, key):
         """Handle keyboard input"""
@@ -465,6 +527,7 @@ class ServerManager:
             current_idx = views.index(self.selected_view)
             self.selected_view = views[(current_idx + 1) % len(views)]
             self.log_scroll = 0
+            self.force_redraw = True
         elif key == 'r':
             threading.Thread(target=self.fetch_dashboard_stats, daemon=True).start()
         elif key.name == 'KEY_UP':
@@ -476,11 +539,29 @@ class ServerManager:
             else:
                 log_count = len(self.backend_logs) + len(self.frontend_logs)
             
-            available_height = self.term.height - 10 - 2
+            available_height = max(5, self.term.height - 10 - 2)
             max_scroll = max(0, log_count - available_height)
             self.log_scroll = min(self.log_scroll + 1, max_scroll)
         elif key.name == 'KEY_DOWN':
             self.log_scroll = max(self.log_scroll - 1, 0)
+        elif key.name == 'KEY_PGUP':
+            # Page up - scroll up by half screen
+            if self.selected_view == "backend":
+                log_count = len(self.backend_logs)
+            elif self.selected_view == "frontend":
+                log_count = len(self.frontend_logs)
+            else:
+                log_count = len(self.backend_logs) + len(self.frontend_logs)
+            
+            available_height = max(5, self.term.height - 10 - 2)
+            max_scroll = max(0, log_count - available_height)
+            page_size = max(1, available_height // 2)
+            self.log_scroll = min(self.log_scroll + page_size, max_scroll)
+        elif key.name == 'KEY_PGDN':
+            # Page down - scroll down by half screen
+            available_height = max(5, self.term.height - 10 - 2)
+            page_size = max(1, available_height // 2)
+            self.log_scroll = max(self.log_scroll - page_size, 0)
     
     def cleanup(self):
         """Clean up processes before exit"""
@@ -488,57 +569,48 @@ class ServerManager:
         self.stop_all()
     
     def run(self):
-        """Main application loop"""
+        """Main application loop with improved input handling"""
         with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
             self.log_message("system", "Development manager started")
             
             # Initial draw
+            self.force_redraw = True
             self.draw_header()
             self.draw_controls()
             self.draw_logs()
+            self.force_redraw = False
             
             try:
                 stats_timer = 0
-                last_logs_count = (len(self.backend_logs), len(self.frontend_logs))
                 
                 while self.running:
-                    # Only redraw what has changed
-                    self.draw_header()  # Always update header for status changes
-                    
-                    # Check if logs have changed
-                    current_logs_count = (len(self.backend_logs), len(self.frontend_logs))
-                    if current_logs_count != last_logs_count or self.log_scroll != 0:
-                        self.draw_logs()
-                        last_logs_count = current_logs_count
+                    # Update display components
+                    self.draw_header()
+                    self.draw_logs()
                     
                     # Fetch stats every 10 seconds if backend is running
                     stats_timer += 1
-                    if stats_timer >= 20 and self.backend_status == "Running":  # 20 * 0.5s = 10s
+                    if stats_timer >= 40 and self.backend_status == "Running":  # 40 * 0.25s = 10s
                         threading.Thread(target=self.fetch_dashboard_stats, daemon=True).start()
                         stats_timer = 0
                     
-                    # Handle input with timeout
-                    key = self.term.inkey(timeout=0.5)
+                    # IMPROVED INPUT HANDLING - much more responsive
+                    key = self.term.inkey(timeout=0.25)  # Reduced timeout for better responsiveness
                     if key:
                         self.handle_input(key)
-                        # Redraw after input handling
-                        if key in ['v', '7', '8']:  # View change or restart
-                            self.draw_controls()
-                            self.draw_logs()
                         
             except KeyboardInterrupt:
                 pass
             finally:
                 self.cleanup()
-                # Terminal context manager will handle cleanup
-                print("\nDevelopment manager stopped.")
+                print("\n🔧 Development manager stopped.")
 
 
 def main():
     """Entry point"""
     if len(sys.argv) > 1 and sys.argv[1] == "--help":
         print("""
-MakerMatrix Development Server Manager
+🚀 MakerMatrix Development Server Manager
 
 A TUI application to manage both backend (FastAPI) and frontend (React) servers.
 
@@ -548,7 +620,15 @@ Controls:
   1-8: Start/stop/restart servers
   v: Switch log view (Backend/Frontend/Both)  
   ↑↓: Scroll through logs
+  r: Refresh dashboard stats
   q: Quit
+
+Features:
+  • Real-time server status monitoring
+  • Dashboard statistics display
+  • Color-coded log messages
+  • Responsive keyboard input
+  • Production build support
 
 Requirements:
   - blessed package: pip install blessed
@@ -561,9 +641,9 @@ Requirements:
     try:
         import blessed
     except ImportError:
-        print("Error: 'blessed' package not found.")
-        print("Install with: pip install blessed")
-        print("Or install dev dependencies: pip install -r requirements-dev.txt")
+        print("❌ Error: 'blessed' package not found.")
+        print("📦 Install with: pip install blessed")
+        print("📦 Or install dev dependencies: pip install -r requirements-dev.txt")
         sys.exit(1)
     
     manager = ServerManager()
@@ -577,7 +657,7 @@ Requirements:
     try:
         manager.run()
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Error: {e}")
         manager.cleanup()
 
 

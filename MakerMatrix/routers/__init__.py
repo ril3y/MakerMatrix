@@ -9,7 +9,8 @@ from . import (
     user_routes,
     role_routes,
     ai_routes,
-    csv_routes
+    csv_routes,
+    task_routes
 )
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     "user_routes",
     "role_routes",
     "ai_routes",
-    "csv_routes"
+    "csv_routes",
+    "task_routes"
 ]

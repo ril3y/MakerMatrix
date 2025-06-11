@@ -7,6 +7,7 @@ import { locationsService } from '../../services/locations.service';
 import { categoriesService } from '../../services/categories.service';
 import { aiService } from '../../services/ai.service';
 import { usePartsStore } from '../../store/partsStore';
+import { apiClient } from '../../services/api';
 import toast from 'react-hot-toast';
 
 interface CommandResult {
@@ -18,8 +19,16 @@ interface CommandResult {
 const QuakeConsole: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [input, setInput] = useState('');
+  const [history, setHistory] = useState<Array<{type: 'input' | 'output' | 'error', content: string}>>([
+    { type: 'output', content: 'Welcome to MakerMatrix Console v1.0' },
+    { type: 'output', content: 'Available commands: find, go, stats, help' },
+    { type: 'output', content: 'Use natural language: "find all parts in desk drawer"' }
+  ]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const navigate = useNavigate();
-  const { setSearchQuery, setSelectedCategory, setSelectedLocation } = usePartsStore();
+  const { setSearchQuery, setFilters } = usePartsStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -45,50 +54,31 @@ const QuakeConsole: React.FC = () => {
     try {
       setIsProcessing(true);
       
-      // Send command to AI service
-      const aiResponse = await aiService.processCommand(input);
+      // Send command to real AI service using apiClient (handles auth automatically)
+      const aiResult = await apiClient.post('/ai/chat', {
+        message: input,
+        conversation_history: []
+      });
       
-      // Handle different types of AI responses
-      if (aiResponse.action === 'search-parts') {
-        // Navigate to parts page with search
-        setSearchQuery(aiResponse.searchQuery || '');
-        if (aiResponse.location) {
-          const locations = await locationsService.getAll();
-          const location = locations.find(l => 
-            l.name.toLowerCase().includes(aiResponse.location.toLowerCase())
-          );
-          if (location) {
-            setSelectedLocation(location.id);
-          }
-        }
-        if (aiResponse.category) {
-          const categories = await categoriesService.getAll();
-          const category = categories.find(c => 
-            c.name.toLowerCase().includes(aiResponse.category.toLowerCase())
-          );
-          if (category) {
-            setSelectedCategory(category.id);
-          }
-        }
-        navigate('/parts');
+      if (aiResult.status !== 'success') {
+        throw new Error(aiResult.message || 'AI request failed');
+      }
+
+      const aiResponse = aiResult.data.response;
+      
+      // Check if the AI response contains actionable results that should trigger navigation
+      if (aiResponse.includes('Query Result') && aiResponse.includes('partmodel')) {
+        // AI found parts data - offer to navigate to parts page
+        const updatedResponse = aiResponse + '\n\n💡 Tip: Type "go parts" to view all parts on the main page.';
         return {
-          message: `Searching for parts: ${aiResponse.description || input}`,
-          action: 'navigate'
+          message: updatedResponse,
+          data: null
         };
       }
       
-      if (aiResponse.action === 'navigate') {
-        navigate(aiResponse.path);
-        return {
-          message: `Navigating to ${aiResponse.path}`,
-          action: 'navigate'
-        };
-      }
-      
-      // Default response
       return {
-        message: aiResponse.message || 'Command processed',
-        data: aiResponse.data
+        message: aiResponse,
+        data: null
       };
     } catch (error) {
       console.error('AI command error:', error);
@@ -101,25 +91,6 @@ const QuakeConsole: React.FC = () => {
   };
 
   const commands = {
-    help: {
-      description: 'Show available commands',
-      fn: () => {
-        return `
-Available Commands:
-- help: Show this help message
-- clear: Clear the console
-- find <query>: Search for parts (AI-powered)
-- go <page>: Navigate to a page (parts, locations, categories, etc.)
-- stats: Show inventory statistics
-
-AI Natural Language Examples:
-- "find all parts in desk drawer"
-- "show me resistors in location A1"
-- "list parts with low quantity"
-- "go to settings page"
-        `;
-      }
-    },
     
     find: {
       description: 'Search for parts using natural language',
@@ -177,28 +148,90 @@ Inventory Statistics:
           return 'Error fetching statistics';
         }
       }
-    },
-    
-    clear: {
-      description: 'Clear the console',
-      fn: () => {
-        return false; // This tells react-console-emulator to clear
-      }
     }
   };
 
-  // Handle natural language input
-  const handleCommand = useCallback(async (command: string) => {
-    // Check if it's a built-in command
-    const [cmd, ...args] = command.trim().split(' ');
-    if (commands[cmd as keyof typeof commands]) {
-      return; // Let the built-in command handler process it
+  const executeCommand = async (command: string) => {
+    const trimmedCommand = command.trim();
+    if (!trimmedCommand) return;
+
+    // Add command to history
+    setHistory(prev => [...prev, { type: 'input', content: `makermatrix> ${trimmedCommand}` }]);
+    setCommandHistory(prev => [...prev, trimmedCommand]);
+    setInput('');
+    setIsProcessing(true);
+
+    try {
+      // Check built-in commands first
+      const [cmd, ...args] = trimmedCommand.split(' ');
+      
+      if (cmd === 'help') {
+        setHistory(prev => [...prev, { 
+          type: 'output', 
+          content: `Available Commands:
+- help: Show this help message
+- clear: Clear the console
+- find <query>: Search for parts (AI-powered)
+- go <page>: Navigate to a page (parts, locations, categories, etc.)
+- stats: Show inventory statistics
+
+Natural Language Examples:
+- "find all parts in desk drawer"
+- "show me resistors in location A1"
+- "list parts with low quantity"` 
+        }]);
+        return;
+      }
+
+      if (cmd === 'clear') {
+        setHistory([
+          { type: 'output', content: 'Welcome to MakerMatrix Console v1.0' },
+          { type: 'output', content: 'Available commands: find, go, stats, help' },
+          { type: 'output', content: 'Use natural language: "find all parts in desk drawer"' }
+        ]);
+        return;
+      }
+
+      if (commands[cmd as keyof typeof commands]) {
+        const result = await commands[cmd as keyof typeof commands].fn(...args);
+        setHistory(prev => [...prev, { type: 'output', content: result }]);
+        return;
+      }
+
+      // Send to AI for natural language processing
+      const result = await processAICommand(trimmedCommand);
+      setHistory(prev => [...prev, { type: 'output', content: result.message }]);
+
+    } catch (error) {
+      console.error('Command execution error:', error);
+      setHistory(prev => [...prev, { 
+        type: 'error', 
+        content: `Error: ${error instanceof Error ? error.message : 'Command failed'}` 
+      }]);
+    } finally {
+      setIsProcessing(false);
     }
-    
-    // Otherwise, send to AI
-    const result = await processAICommand(command);
-    return result.message;
-  }, []);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      executeCommand(input);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (commandHistory.length > 0) {
+        const newIndex = historyIndex === -1 ? commandHistory.length - 1 : Math.max(0, historyIndex - 1);
+        setHistoryIndex(newIndex);
+        setInput(commandHistory[newIndex]);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex !== -1) {
+        const newIndex = historyIndex < commandHistory.length - 1 ? historyIndex + 1 : -1;
+        setHistoryIndex(newIndex);
+        setInput(newIndex === -1 ? '' : commandHistory[newIndex]);
+      }
+    }
+  };
 
   return (
     <AnimatePresence mode="wait">
@@ -212,12 +245,12 @@ Inventory Statistics:
             damping: 25,
             stiffness: 300
           }}
-          className="fixed top-0 left-0 right-0 h-1/2 z-[100] shadow-2xl pointer-events-auto"
+          className="fixed top-0 left-0 right-0 z-50 shadow-2xl"
           style={{
+            height: '300px',
             background: 'rgba(17, 24, 39, 0.95)',
             backdropFilter: 'blur(8px)',
-            borderBottom: '2px solid rgba(139, 92, 246, 0.5)',
-            maxHeight: '50vh'
+            borderBottom: '2px solid rgba(139, 92, 246, 0.5)'
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -234,43 +267,36 @@ Inventory Statistics:
               </button>
             </div>
             
-            <div className="flex-1 overflow-hidden bg-transparent">
-              <Terminal
-                commands={commands}
-                welcomeMessage={`Welcome to MakerMatrix Console v1.0
-Type 'help' for available commands or use natural language to interact.
-Examples: "find all parts in desk drawer" or "show low stock items"`}
-                promptLabel={'makermatrix>'}
-                className="h-full w-full"
-                style={{
-                  backgroundColor: 'transparent',
-                  fontSize: '14px',
-                  fontFamily: 'Consolas, Monaco, monospace',
-                  minHeight: '100%',
-                  height: '100%'
-                }}
-                messageStyle={{ 
-                  color: '#e5e7eb',
-                  backgroundColor: 'transparent'
-                }}
-                promptLabelStyle={{ 
-                  color: '#a78bfa',
-                  backgroundColor: 'transparent'
-                }}
-                inputTextStyle={{ 
-                  color: '#ffffff',
-                  backgroundColor: 'transparent'
-                }}
-                contentStyle={{ 
-                  padding: '10px',
-                  backgroundColor: 'transparent',
-                  minHeight: '100%'
-                }}
-                autoFocus={isVisible}
-                dangerMode={false}
-                noDefaults={false}
-                commandCallback={handleCommand}
-              />
+            <div className="flex-1 overflow-hidden bg-transparent flex flex-col">
+              {/* Terminal history */}
+              <div className="flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar">
+                {history.map((entry, index) => (
+                  <div key={index} className={`mb-1 whitespace-pre-wrap ${
+                    entry.type === 'input' ? 'text-white' : 
+                    entry.type === 'error' ? 'text-red-400' : 'text-green-400'
+                  }`}>
+                    {entry.content}
+                  </div>
+                ))}
+                {isProcessing && (
+                  <div className="text-yellow-400 mb-1">Processing...</div>
+                )}
+              </div>
+              
+              {/* Input line */}
+              <div className="border-t border-gray-700 p-4 flex items-center font-mono text-sm">
+                <span className="text-purple-400 mr-2">makermatrix&gt;</span>
+                <input 
+                  type="text" 
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="flex-1 bg-transparent border-none outline-none text-white"
+                  placeholder="Type a command or ask in natural language..."
+                  autoFocus={isVisible}
+                  disabled={isProcessing}
+                />
+              </div>
             </div>
           </div>
         </motion.div>

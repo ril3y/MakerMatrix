@@ -21,3 +21,11 @@ passlib>=1.7.4
 python-jose[cryptography]>=3.3.0
 
 # Removed bcrypt, now using pbkdf2_sha256 via passlib only
+
+# LangChain dependencies for AI-database integration
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-experimental>=0.3.0
+langchain-ollama>=0.2.0
+langchain-openai>=0.2.0
+langchain-anthropic>=0.2.0

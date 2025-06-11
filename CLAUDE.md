@@ -49,4 +49,6 @@ pytest MakerMatrix/unit_tests/test_parts_repository.py
 - Default admin user: `admin` / `Admin123!`
 - Run `python MakerMatrix/scripts/setup_admin.py` to recreate default users
 
-[... rest of the existing file content remains unchanged ...]
+### Coding Guidelines
+- Always use pytest to test code
+- Make sure we update tests if we need to make them simpler, we don't keep creating new files

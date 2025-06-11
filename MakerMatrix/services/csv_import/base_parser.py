@@ -110,10 +110,13 @@ class BaseCSVParser(ABC):
         """Parse price string to float"""
         try:
             import re
+            from decimal import Decimal
             # Remove currency symbols and convert to float
             cleaned = re.sub(r'[$€£¥,]', '', str(price_str))
             if cleaned:
-                return float(cleaned)
+                # Convert through Decimal first to handle precision, then to float
+                decimal_value = Decimal(cleaned)
+                return float(decimal_value)
             return 0.0
         except (ValueError, TypeError):
             return 0.0

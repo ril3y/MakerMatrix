@@ -43,3 +43,42 @@ export interface BackupStatus {
   locations_count: number
   categories_count: number
 }
+
+// CSV Import Configuration
+export interface CSVImportConfig {
+  download_datasheets: boolean
+  download_images: boolean
+  overwrite_existing_files: boolean
+  max_concurrent_downloads: number
+  download_timeout_seconds: number
+  create_backup_before_import: boolean
+  show_progress: boolean
+}
+
+export interface CSVImportConfigUpdate {
+  download_datasheets?: boolean
+  download_images?: boolean
+  overwrite_existing_files?: boolean
+  max_concurrent_downloads?: number
+  download_timeout_seconds?: number
+  create_backup_before_import?: boolean
+  show_progress?: boolean
+}
+
+// Import Progress
+export interface ImportProgress {
+  total_parts: number
+  processed_parts: number
+  successful_parts: number
+  failed_parts: number
+  current_operation: string
+  is_downloading: boolean
+  download_progress?: {
+    current_file: string
+    files_downloaded: number
+    total_files: number
+  }
+  errors: string[]
+  start_time: string
+  estimated_completion?: string
+}

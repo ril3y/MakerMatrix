@@ -40,6 +40,9 @@ async def update_ai_config(config_update: AIConfigUpdate):
             setattr(current_config, field, value)
         
         if save_ai_config(current_config):
+            # Reload the provider to apply the new configuration
+            ai_service.reload_provider()
+            
             return ResponseSchema(
                 status="success",
                 message="AI configuration updated successfully",
@@ -133,6 +136,26 @@ async def reset_ai_config():
             raise HTTPException(status_code=500, detail="Failed to reset configuration")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to reset AI config: {str(e)}")
+
+
+@router.get("/providers")
+async def get_available_providers():
+    """Get information about available AI providers"""
+    try:
+        providers = ai_service.get_available_providers()
+        current_provider = ai_service.get_provider_info()
+        
+        return ResponseSchema(
+            status="success",
+            message="Available providers retrieved",
+            data={
+                "providers": providers,
+                "current_provider": current_provider,
+                "sql_support": ai_service.supports_sql_queries()
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get providers: {str(e)}")
 
 
 @router.get("/models")

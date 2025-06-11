@@ -81,14 +81,14 @@ class AIService {
 
   async generateLabel(partId: number): Promise<{ label_data: string }> {
     const response = await apiClient.post<{ label_data: string }>(`/ai/generate-label/${partId}`);
-    return response.data;
+    return response;
   }
 
   async suggestCategories(partName: string): Promise<string[]> {
     const response = await apiClient.post<{ categories: string[] }>('/ai/suggest-categories', {
       part_name: partName
     });
-    return response.data.categories;
+    return response.categories;
   }
 }
 

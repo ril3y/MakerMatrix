@@ -7,11 +7,12 @@ interface FormFieldProps {
   error?: string
   children: ReactNode
   description?: string
+  className?: string
 }
 
-const FormField = ({ label, required, error, children, description }: FormFieldProps) => {
+const FormField = ({ label, required, error, children, description, className }: FormFieldProps) => {
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${className || ''}`}>
       <label className="block text-sm font-medium text-text-primary">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}

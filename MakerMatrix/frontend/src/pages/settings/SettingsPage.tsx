@@ -1,12 +1,15 @@
 import { motion } from 'framer-motion'
-import { Settings, User, Bell, Shield, Database, Printer, Palette, Globe, Bot, Save, TestTube, RefreshCw, Upload, FileText, Download, Upload as ImportIcon } from 'lucide-react'
+import { Settings, User, Bell, Shield, Database, Printer, Palette, Globe, Bot, Save, TestTube, RefreshCw, Upload, FileText, Download, Upload as ImportIcon, Activity } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { settingsService } from '@/services/settings.service'
 import { AIConfig, PrinterConfig, BackupStatus } from '@/types/settings'
 import toast from 'react-hot-toast'
 import CSVImport from '@/components/ui/CSVImport'
+import TasksManagement from '@/components/tasks/TasksManagement'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const SettingsPage = () => {
+  const { isDarkMode, toggleDarkMode } = useTheme()
   const [activeTab, setActiveTab] = useState('general')
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null)
@@ -140,6 +143,7 @@ const SettingsPage = () => {
           {[
             { id: 'general', label: 'General', icon: Settings },
             { id: 'import', label: 'Import/Export', icon: ImportIcon },
+            { id: 'tasks', label: 'Background Tasks', icon: Activity },
             { id: 'ai', label: 'AI Helper', icon: Bot },
             { id: 'printer', label: 'Printers', icon: Printer },
             { id: 'database', label: 'Database', icon: Database },
@@ -177,10 +181,18 @@ const SettingsPage = () => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center justify-between">
-                <span className="text-text-primary">Dark Mode</span>
+                <div>
+                  <span className="text-text-primary font-medium">Dark Mode</span>
+                  <p className="text-sm text-text-secondary">Toggle between light and dark theme</p>
+                </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={isDarkMode}
+                    onChange={toggleDarkMode}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary dark:bg-gray-600"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between">
@@ -340,6 +352,27 @@ const SettingsPage = () => {
                   />
                 </div>
 
+                {(aiConfig.provider === 'openai' || aiConfig.provider === 'anthropic') && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      API Key
+                    </label>
+                    <input
+                      type="password"
+                      className="input w-full"
+                      value={aiConfig.api_key || ''}
+                      onChange={(e) => setAiConfig({...aiConfig, api_key: e.target.value})}
+                      placeholder={`Enter your ${aiConfig.provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key`}
+                    />
+                    <p className="text-xs text-text-secondary mt-1">
+                      {aiConfig.provider === 'openai' 
+                        ? 'Get your API key from platform.openai.com' 
+                        : 'Get your API key from console.anthropic.com'
+                      }
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Model Name
@@ -464,6 +497,10 @@ const SettingsPage = () => {
               }}
             />
           </div>
+        )}
+
+        {activeTab === 'tasks' && (
+          <TasksManagement />
         )}
 
         {activeTab === 'database' && (

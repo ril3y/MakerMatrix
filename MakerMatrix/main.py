@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 
 import uvicorn
 from fastapi import FastAPI, Depends
@@ -10,7 +11,7 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes,
-    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes
+    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes
 )
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -18,6 +19,8 @@ from MakerMatrix.handlers.exception_handlers import register_exception_handlers
 from MakerMatrix.dependencies.auth import secure_all_routes
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 from MakerMatrix.repositories.user_repository import UserRepository
+from MakerMatrix.services.task_service import task_service
+from MakerMatrix.services.websocket_service import start_ping_task
 
 
 @asynccontextmanager
@@ -33,8 +36,22 @@ async def lifespan(app: FastAPI):
     setup_default_admin(user_repo)
     print("Setup complete!")
     
+    # Start the task worker
+    print("Starting task worker...")
+    asyncio.create_task(task_service.start_worker())
+    print("Task worker started!")
+    
+    # Start WebSocket ping task
+    print("Starting WebSocket ping task...")
+    asyncio.create_task(start_ping_task())
+    print("WebSocket service started!")
+    
     yield  # App continues running
-    print("Shutting down...")  # If you need cleanup, add it here
+    
+    print("Shutting down...")
+    # Stop the task worker on shutdown
+    await task_service.stop_worker()
+    print("Task worker stopped!")
 
 
 # Initialize the FastAPI app with lifespan
@@ -80,6 +97,25 @@ csv_permissions = {
     "/parse": "parts:read"
 }
 
+task_permissions = {
+    "/": {
+        "POST": "tasks:create",
+        "GET": "tasks:read"
+    },
+    "/my": "tasks:read",
+    "/{task_id}": "tasks:read",
+    "/{task_id}/cancel": "tasks:update",
+    "/{task_id}/retry": "tasks:update",
+    "/worker/start": "tasks:admin",
+    "/worker/stop": "tasks:admin",
+    "/worker/status": "tasks:read",
+    "/stats/summary": "tasks:read",
+    "/types/available": "tasks:read",
+    "/quick/csv-enrichment": "tasks:create",
+    "/quick/price-update": "tasks:create", 
+    "/quick/database-cleanup": "tasks:create"
+}
+
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
     "/login",
@@ -99,6 +135,7 @@ secure_all_routes(user_routes.router)
 secure_all_routes(role_routes.router)
 secure_all_routes(ai_routes.router)
 secure_all_routes(csv_routes.router, permissions=csv_permissions)
+secure_all_routes(task_routes.router, permissions=task_permissions)
 
 # Public routes that don't need authentication
 public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
@@ -114,6 +151,9 @@ app.include_router(user_routes.router, prefix="/users", tags=["Users"])
 app.include_router(role_routes.router, prefix="/roles", tags=["Roles"])
 app.include_router(ai_routes.router, prefix="/ai", tags=["AI Configuration"])
 app.include_router(csv_routes.router, prefix="/api/csv", tags=["CSV Import"])
+app.include_router(task_routes.router, prefix="/api/tasks", tags=["Background Tasks"])
+app.include_router(websocket_routes.router, tags=["WebSocket"])
+app.include_router(static_routes.router, tags=["Static Files"])
 
 # Static file serving for React frontend
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
@@ -131,7 +171,7 @@ if os.path.exists(frontend_dist_path):
     @app.get("/{full_path:path}")
     async def serve_frontend_routes(full_path: str):
         # Don't serve frontend for API routes
-        if full_path.startswith(("parts/", "locations/", "categories/", "printer/", "utility/", "auth/", "users/", "roles/", "ai/", "api/", "docs", "redoc", "openapi.json")):
+        if full_path.startswith(("parts/", "locations/", "categories/", "printer/", "utility/", "auth/", "users/", "roles/", "ai/", "api/", "static/", "docs", "redoc", "openapi.json")):
             return {"error": "Not found"}
         return FileResponse(os.path.join(frontend_dist_path, "index.html"))
 else:

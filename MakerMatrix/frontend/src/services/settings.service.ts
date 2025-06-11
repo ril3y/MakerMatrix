@@ -1,6 +1,9 @@
 import { apiClient, ApiResponse } from './api'
 import { PrinterConfig, AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 
+// Re-export types for convenience
+export type { PrinterConfig, AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
+
 export class SettingsService {
   // Printer Configuration
   async getPrinterConfig(): Promise<PrinterConfig> {

@@ -9,11 +9,62 @@ from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.dialects.sqlite import JSON
 from datetime import datetime
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
+from MakerMatrix.models.task_models import TaskModel
 
+# Association table to link PartModel and CategoryModel
 # Association table to link PartModel and CategoryModel
 class PartCategoryLink(SQLModel, table=True):
     part_id: str = Field(foreign_key="partmodel.id", primary_key=True)
     category_id: str = Field(foreign_key="categorymodel.id", primary_key=True)
+
+
+# Datasheet model for managing PDF files
+class DatasheetModel(SQLModel, table=True):
+    id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    part_id: str = Field(foreign_key="partmodel.id")
+    
+    # File information
+    file_uuid: str = Field(unique=True)  # UUID used for filename
+    original_filename: Optional[str] = None
+    file_extension: str = Field(default=".pdf")
+    file_size: Optional[int] = None
+    
+    # Source information
+    source_url: Optional[str] = None
+    supplier: Optional[str] = None
+    manufacturer: Optional[str] = None
+    
+    # Metadata
+    title: Optional[str] = None
+    description: Optional[str] = None
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Download status
+    is_downloaded: bool = Field(default=False)
+    download_error: Optional[str] = None
+    
+    # Relationship back to part
+    part: Optional["PartModel"] = Relationship(back_populates="datasheets")
+    
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    @property
+    def filename(self) -> str:
+        """Generate the actual filename used on disk"""
+        return f"{self.file_uuid}{self.file_extension}"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Custom serialization method"""
+        base_dict = self.model_dump(exclude={"part"})
+        base_dict["filename"] = self.filename
+        if self.created_at:
+            base_dict["created_at"] = self.created_at.isoformat()
+        if self.updated_at:
+            base_dict["updated_at"] = self.updated_at.isoformat()
+        return base_dict
 
 
 class CategoryUpdate(SQLModel):
@@ -173,6 +224,12 @@ class PartModel(SQLModel, table=True):
         back_populates="part",
         sa_relationship_kwargs={"lazy": "selectin", "uselist": False}
     )
+    
+    # Datasheet files (one-to-many relationship)
+    datasheets: List["DatasheetModel"] = Relationship(
+        back_populates="part",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+    )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -203,7 +260,7 @@ class PartModel(SQLModel, table=True):
 
     def to_dict(self) -> Dict[str, Any]:
         """ Custom serialization method for PartModel """
-        base_dict = self.model_dump(exclude={"location", "order_items", "order_summary"})
+        base_dict = self.model_dump(exclude={"location", "order_items", "order_summary", "datasheets"})
         # Always include categories, even if empty
         base_dict["categories"] = [
             {"id": category.id, "name": category.name, "description": category.description}
@@ -243,6 +300,12 @@ class PartModel(SQLModel, table=True):
             ]
         else:
             base_dict["order_history"] = []
+        
+        # Include datasheet information
+        if hasattr(self, 'datasheets') and self.datasheets:
+            base_dict["datasheets"] = [datasheet.to_dict() for datasheet in self.datasheets]
+        else:
+            base_dict["datasheets"] = []
         
         return base_dict
 

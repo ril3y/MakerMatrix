@@ -36,6 +36,24 @@ export interface BaseCSVImportProps {
   filePattern?: string // e.g., "LCSC_Exported_*.csv"
 }
 
+export interface ImportProgress {
+  total_parts: number
+  processed_parts: number
+  successful_parts: number
+  failed_parts: number
+  current_operation: string
+  is_downloading: boolean
+  download_progress?: {
+    current_file: string
+    files_downloaded: number
+    total_files: number
+  }
+  errors: string[]
+  start_time: string
+  estimated_completion?: string
+  percentage_complete: number
+}
+
 export interface BaseCSVImportState {
   file: File | null
   previewData: CSVPreviewData | null
@@ -43,6 +61,7 @@ export interface BaseCSVImportState {
   importing: boolean
   showPreview: boolean
   orderInfo: OrderInfo
+  importProgress: ImportProgress | null
 }
 
 export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImportProps, BaseCSVImportState> {
@@ -56,6 +75,7 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
       loading: false,
       importing: false,
       showPreview: false,
+      importProgress: null,
       orderInfo: {
         order_number: '',
         order_date: new Date().toISOString().split('T')[0],
@@ -98,7 +118,7 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
 
     try {
       const fileContent = await selectedFile.text()
-      const data = await apiClient.post('/api/csv/preview', {
+      const data = await apiClient.post('/csv/preview', {
         csv_content: fileContent
       })
 
@@ -135,6 +155,8 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
     event.preventDefault()
   }
 
+  private progressPollingInterval: NodeJS.Timeout | null = null
+
   protected async handleImport() {
     const { file, previewData } = this.state
     const { parserType } = this.props
@@ -144,11 +166,13 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
       return
     }
 
-    this.setState({ importing: true })
+    this.setState({ importing: true, importProgress: null })
 
     try {
       const fileContent = await file.text()
-      const result = await apiClient.post('/api/csv/import', {
+      
+      // Start the import with progress tracking
+      const importPromise = apiClient.post('/csv/import/with-progress', {
         csv_content: fileContent,
         parser_type: parserType,
         order_info: {
@@ -157,6 +181,14 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
           order_date: this.state.orderInfo.order_date || new Date().toISOString()
         }
       })
+
+      // Start polling for progress
+      this.startProgressPolling()
+
+      const result = await importPromise
+      
+      // Stop polling
+      this.stopProgressPolling()
       
       toast.success(`Imported ${result.success_parts.length} parts successfully`)
       
@@ -168,11 +200,34 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
       this.clearFile()
 
     } catch (error) {
+      this.stopProgressPolling()
       toast.error('Failed to import parts from CSV')
       console.error('CSV import error:', error)
     } finally {
-      this.setState({ importing: false })
+      this.setState({ importing: false, importProgress: null })
     }
+  }
+
+  private startProgressPolling() {
+    this.progressPollingInterval = setInterval(async () => {
+      try {
+        const progress = await apiClient.get('/csv/import/progress')
+        this.setState({ importProgress: progress })
+      } catch (error) {
+        console.error('Failed to fetch import progress:', error)
+      }
+    }, 1000) // Poll every second
+  }
+
+  private stopProgressPolling() {
+    if (this.progressPollingInterval) {
+      clearInterval(this.progressPollingInterval)
+      this.progressPollingInterval = null
+    }
+  }
+
+  componentWillUnmount() {
+    this.stopProgressPolling()
   }
 
   protected clearFile = () => {
@@ -180,6 +235,7 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
       file: null,
       previewData: null,
       showPreview: false,
+      importProgress: null,
       orderInfo: {
         order_number: '',
         order_date: new Date().toISOString().split('T')[0],
@@ -198,6 +254,84 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
   }
 
   // Common render methods
+  protected renderProgressBar() {
+    const { importing, importProgress } = this.state
+
+    if (!importing || !importProgress) {
+      return null
+    }
+
+    return (
+      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">Importing Parts</h3>
+          <div className="text-sm text-gray-300">
+            {importProgress.processed_parts} / {importProgress.total_parts} parts
+          </div>
+        </div>
+
+        {/* Main progress bar */}
+        <div className="w-full bg-gray-700 rounded-full h-2">
+          <div
+            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${importProgress.percentage_complete}%` }}
+          />
+        </div>
+
+        <div className="flex justify-between text-sm text-gray-400">
+          <span>{importProgress.percentage_complete.toFixed(1)}% complete</span>
+          <span>
+            ✓ {importProgress.successful_parts} | ✗ {importProgress.failed_parts}
+          </span>
+        </div>
+
+        {/* Current operation */}
+        <div className="text-sm text-gray-300">
+          <strong>Status:</strong> {importProgress.current_operation}
+        </div>
+
+        {/* Download progress (if downloading) */}
+        {importProgress.is_downloading && importProgress.download_progress && (
+          <div className="border-t border-gray-600 pt-3">
+            <div className="flex items-center gap-2 text-sm text-blue-400 mb-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+              <span>Downloading datasheets and images...</span>
+            </div>
+            <div className="text-xs text-gray-400">
+              Current: {importProgress.download_progress.current_file}
+            </div>
+            <div className="text-xs text-gray-400">
+              Files: {importProgress.download_progress.files_downloaded} / {importProgress.download_progress.total_files}
+            </div>
+          </div>
+        )}
+
+        {/* Errors */}
+        {importProgress.errors.length > 0 && (
+          <div className="border-t border-red-600/30 pt-3">
+            <details className="text-sm">
+              <summary className="text-red-400 cursor-pointer">
+                {importProgress.errors.length} error(s) occurred
+              </summary>
+              <ul className="mt-2 text-red-300 text-xs max-h-20 overflow-y-auto">
+                {importProgress.errors.slice(-5).map((error, index) => (
+                  <li key={index}>• {error}</li>
+                ))}
+              </ul>
+            </details>
+          </div>
+        )}
+
+        {/* Estimated completion */}
+        {importProgress.estimated_completion && (
+          <div className="text-xs text-gray-500">
+            Estimated completion: {new Date(importProgress.estimated_completion).toLocaleTimeString()}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   protected renderFileUpload() {
     const { file, previewData } = this.state
     const { parserName, description, filePattern } = this.props
@@ -326,7 +460,7 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
                           <td className="table-cell text-text-primary">{part.quantity}</td>
                           <td className="table-cell text-text-primary">{part.supplier}</td>
                           <td className="table-cell text-text-primary truncate max-w-48">
-                            {part.properties?.description || '-'}
+                            {part.additional_properties?.description || '-'}
                           </td>
                         </tr>
                       ))}

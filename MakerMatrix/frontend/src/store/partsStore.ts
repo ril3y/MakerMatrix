@@ -78,12 +78,13 @@ export const usePartsStore = create<PartsState>()(
       loadParts: async (page = 1) => {
         set({ isLoading: true, error: null })
         try {
-          const response: PaginatedResponse<Part> = await partsService.getAllParts(page, get().pageSize)
+          const response = await partsService.getAllParts(page, get().pageSize)
+          const totalPages = Math.ceil(response.total_parts / get().pageSize)
           set({
-            parts: response.items,
-            totalParts: response.total,
-            currentPage: response.page,
-            totalPages: response.total_pages,
+            parts: response.data,
+            totalParts: response.total_parts,
+            currentPage: page,
+            totalPages: totalPages,
             isLoading: false,
           })
         } catch (error: any) {

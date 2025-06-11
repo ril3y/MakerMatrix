@@ -103,7 +103,12 @@ const CSVImportSelector: React.FC<CSVImportSelectorProps> = ({ onImportComplete 
         transition={{ duration: 0.3 }}
       >
         {SelectedComponent ? (
-          <SelectedComponent onImportComplete={onImportComplete} />
+          <SelectedComponent 
+            onImportComplete={onImportComplete}
+            parserType={selectedParser}
+            parserName={selectedParserInfo?.name || selectedParser}
+            description={selectedParserInfo?.description || ''}
+          />
         ) : (
           <div className="card p-8 text-center">
             <div className="w-16 h-16 bg-text-muted/10 rounded-full flex items-center justify-center mx-auto mb-4">

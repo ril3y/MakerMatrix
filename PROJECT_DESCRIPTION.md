@@ -76,13 +76,24 @@ MakerMatrix/
 - **Modular Parser System**: Easy to add new CSV formats
 - **Auto-Population**: Extract order date/number from filenames
 
-### 7. External Data Enrichment
+### 7. Advanced Part Enrichment System
 - **Multi-Vendor Support**: Parse data from major suppliers
-  - LCSC: Electronic components with specifications
-  - Mouser: Component data and availability
+  - LCSC: Electronic components with specifications, datasheets, and EasyEDA integration
+  - Mouser: Component data, images, pricing, and availability
+  - DigiKey: Comprehensive parametric data and high-quality images
   - BoltDepot: Hardware and fastener information
-- **EasyEDA Integration**: Fetch component details and footprints
-- **Automatic Enrichment**: Enhance part data during creation
+- **EasyEDA Integration**: Fetch component details, footprints, and 3D models
+- **Capability-Based Enrichment**: Intelligent selection of available data sources
+  - Datasheet fetching from supplier APIs
+  - Product image retrieval for visual identification
+  - Real-time pricing and stock information
+  - Detailed technical specifications
+  - Component validation and verification
+- **Background Task System**: Asynchronous enrichment processing
+  - Real-time progress tracking with WebSocket updates
+  - Task queue management with priority levels
+  - Retry logic for failed enrichment attempts
+  - Bulk enrichment for multiple parts simultaneously
 
 ## API Endpoints
 

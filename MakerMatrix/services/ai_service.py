@@ -1,21 +1,112 @@
+"""Refactored AI Service using modular provider architecture"""
+
 import json
 import os
-import requests
 import sqlite3
+import logging
 from typing import Dict, Any, Optional, List
+
 from MakerMatrix.models.ai_config_model import AIConfig
 from MakerMatrix.utils.config import load_ai_config
 from MakerMatrix.database.db import DATABASE_URL
-import logging
+from .ai_providers.provider_factory import AIProviderFactory
+from .ai_providers.base_provider import BaseAIProvider, AIProviderError
 
 logger = logging.getLogger(__name__)
 
+
+class IntentClassifier:
+    """Classifies user messages into different intents"""
+    
+    @staticmethod
+    def classify_intent(message: str) -> str:
+        """Classify the intent of a user message"""
+        message_lower = message.lower()
+        
+        # Database query patterns
+        database_patterns = [
+            # Inventory queries
+            r'how many.*parts',
+            r'count.*parts',
+            r'total.*parts',
+            r'parts.*count',
+            r'parts.*in.*database',
+            r'inventory.*size',
+            
+            # Find/search patterns
+            r'find.*parts',
+            r'search.*parts',
+            r'show.*parts',
+            r'list.*parts',
+            r'get.*parts',
+            
+            # Location-based queries
+            r'parts.*in.*office',
+            r'parts.*in.*warehouse',
+            r'parts.*in.*lab',
+            r'parts.*in.*location',
+            r'what.*in.*office',
+            r'what.*in.*warehouse',
+            
+            # Supplier queries
+            r'what.*suppliers',
+            r'list.*suppliers',
+            r'show.*suppliers',
+            r'suppliers.*do.*have',
+            
+            # Location queries
+            r'show.*locations',
+            r'list.*locations',
+            r'what.*locations',
+            r'all.*locations',
+            
+            # Category queries
+            r'show.*categories',
+            r'list.*categories',
+            r'what.*categories',
+            
+            # Quantity/stock queries
+            r'low.*stock',
+            r'quantity.*greater',
+            r'quantity.*less',
+            r'stock.*level',
+            
+            # General inventory terms
+            r'inventory.*status',
+            r'stock.*report',
+            r'parts.*database'
+        ]
+        
+        # Check for database query patterns
+        import re
+        for pattern in database_patterns:
+            if re.search(pattern, message_lower):
+                return "database_query"
+        
+        # Navigation patterns
+        navigation_patterns = [
+            r'go to.*',
+            r'navigate.*',
+            r'open.*page',
+            r'show.*page'
+        ]
+        
+        for pattern in navigation_patterns:
+            if re.search(pattern, message_lower):
+                return "navigation"
+        
+        # Default to general chat for other messages
+        return "general_chat"
+
+
 class AIService:
-    """Service for AI interactions with MCP SQLite support"""
+    """Modern AI Service with modular provider support and LangChain integration"""
     
     def __init__(self):
         self.config: Optional[AIConfig] = None
+        self.provider: Optional[BaseAIProvider] = None
         self.db_path = DATABASE_URL.replace("sqlite:///", "")
+        self.intent_classifier = IntentClassifier()
     
     def load_config(self) -> AIConfig:
         """Load AI configuration"""
@@ -28,8 +119,141 @@ class AIService:
         config = self.load_config()
         return config.enabled
     
+    def _get_provider(self) -> BaseAIProvider:
+        """Get or create the AI provider instance"""
+        if not self.provider:
+            config = self.load_config()
+            self.provider = AIProviderFactory.create_provider(config)
+        return self.provider
+    
+    def reload_provider(self):
+        """Reload the provider (call after config changes)"""
+        self.config = None
+        self.provider = None
+    
+    async def chat_with_ai(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
+        """Chat with AI using intent-based routing"""
+        if not self.is_enabled():
+            return {"error": "AI is disabled"}
+        
+        try:
+            # Classify the user's intent
+            intent = self.intent_classifier.classify_intent(message)
+            logger.info(f"Classified intent: {intent} for message: '{message[:50]}...'")
+            
+            # Route to appropriate handler based on intent
+            if intent == "database_query":
+                return await self.handle_database_query(message, conversation_history)
+            elif intent == "navigation":
+                return await self.handle_navigation(message, conversation_history)
+            else:  # general_chat
+                return await self.handle_general_chat(message, conversation_history)
+            
+        except AIProviderError as e:
+            logger.error(f"AI provider error: {e}")
+            return {"error": str(e)}
+        except Exception as e:
+            logger.error(f"Unexpected AI service error: {e}")
+            return {"error": f"AI service error: {str(e)}"}
+    
+    async def handle_database_query(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
+        """Handle database-related queries using LangChain SQL"""
+        try:
+            provider = self._get_provider()
+            
+            # Force use of database query for this intent
+            if provider.supports_sql_queries():
+                result = await provider.query_database(message)
+                if result:
+                    result["intent"] = "database_query"
+                    result["timestamp"] = json.dumps({"provider": provider.get_provider_name()})
+                    return result
+            
+            # Fallback if SQL queries not supported
+            logger.warning("SQL queries not supported, falling back to general chat")
+            return await self.handle_general_chat(message, conversation_history)
+            
+        except Exception as e:
+            logger.error(f"Database query error: {e}")
+            return {"error": f"Database query failed: {str(e)}"}
+    
+    async def handle_navigation(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
+        """Handle navigation requests"""
+        # Extract navigation target from message
+        message_lower = message.lower()
+        
+        # Simple navigation routing
+        if "parts" in message_lower:
+            nav_target = "/parts"
+        elif "locations" in message_lower:
+            nav_target = "/locations"
+        elif "categories" in message_lower:
+            nav_target = "/categories"
+        elif "settings" in message_lower:
+            nav_target = "/settings"
+        elif "users" in message_lower:
+            nav_target = "/users"
+        else:
+            nav_target = "/"
+        
+        return {
+            "success": True,
+            "response": f"Navigating to {nav_target}",
+            "intent": "navigation",
+            "navigation_target": nav_target,
+            "provider": "navigation_handler"
+        }
+    
+    async def handle_general_chat(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
+        """Handle general chat using the AI provider"""
+        try:
+            provider = self._get_provider()
+            result = await provider.chat(message, conversation_history)
+            
+            # Add metadata
+            result["intent"] = "general_chat"
+            result["timestamp"] = json.dumps({"provider": provider.get_provider_name()})
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"General chat error: {e}")
+            return {"error": f"General chat failed: {str(e)}"}
+    
+    async def test_connection(self) -> Dict[str, Any]:
+        """Test connection to the configured AI provider"""
+        if not self.is_enabled():
+            return {"error": "AI is disabled"}
+        
+        try:
+            provider = self._get_provider()
+            return await provider.test_connection()
+        except Exception as e:
+            logger.error(f"Connection test failed: {e}")
+            return {"error": f"Connection test failed: {str(e)}"}
+    
+    def get_provider_info(self) -> Dict[str, Any]:
+        """Get information about the current provider"""
+        config = self.load_config()
+        return AIProviderFactory.get_provider_info(config.provider)
+    
+    def get_available_providers(self) -> Dict[str, Dict[str, any]]:
+        """Get information about all available providers"""
+        return AIProviderFactory.get_available_providers()
+    
+    def supports_sql_queries(self) -> bool:
+        """Check if current provider supports SQL queries"""
+        if not self.is_enabled():
+            return False
+        try:
+            provider = self._get_provider()
+            return provider.supports_sql_queries()
+        except:
+            return False
+    
+    # Legacy methods for backward compatibility
     def get_database_schema(self) -> Dict[str, Any]:
-        """Get database schema for AI context"""
+        """Get database schema for AI context (legacy method)"""
         if not os.path.exists(self.db_path):
             return {}
         
@@ -76,7 +300,7 @@ class AIService:
             return {}
     
     def execute_safe_query(self, query: str) -> Dict[str, Any]:
-        """Execute a read-only database query safely"""
+        """Execute a read-only database query safely (legacy method)"""
         if not os.path.exists(self.db_path):
             return {"error": "Database not found"}
         
@@ -113,364 +337,7 @@ class AIService:
         except Exception as e:
             logger.error(f"Error executing query: {e}")
             return {"error": str(e)}
-    
-    def get_enhanced_system_prompt(self) -> str:
-        """Get system prompt with database schema context"""
-        config = self.load_config()
-        base_prompt = config.system_prompt
-        
-        schema = self.get_database_schema()
-        if not schema:
-            return base_prompt
-        
-        schema_context = f"""
 
-DATABASE SCHEMA CONTEXT:
-You have access to a parts inventory database with the following structure:
-
-"""
-        
-        for table_name, table_info in schema.items():
-            schema_context += f"\nTable: {table_name}\n"
-            schema_context += "Columns:\n"
-            for col in table_info["columns"]:
-                pk_marker = " (PRIMARY KEY)" if col["primary_key"] else ""
-                nn_marker = " NOT NULL" if col["not_null"] else ""
-                schema_context += f"  - {col['name']}: {col['type']}{pk_marker}{nn_marker}\n"
-            
-            if "sample_data" in table_info and table_info["sample_data"]:
-                schema_context += f"Sample data: {table_info['sample_data'][0]}\n"
-        
-        schema_context += """
-
-QUERY GUIDELINES:
-- You can execute SELECT queries to get real-time data
-- Use JOIN operations to connect related data
-- Always limit results appropriately (use LIMIT clause)
-- Common useful queries:
-  * Find parts by name/category: SELECT * FROM parts WHERE name LIKE '%keyword%'
-  * Check inventory levels: SELECT name, quantity, minimum_quantity FROM parts WHERE quantity < minimum_quantity
-  * Find parts by location: SELECT p.*, l.name as location_name FROM parts p JOIN locations l ON p.location_id = l.id
-  * Category analysis: SELECT c.name, COUNT(pc.part_id) as part_count FROM categories c LEFT JOIN part_categories pc ON c.id = pc.category_id GROUP BY c.id
-
-When users ask about inventory, always query the database for real-time information.
-"""
-        
-        return base_prompt + schema_context
-    
-    async def chat_with_ai(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
-        """Chat with AI using configured provider with database access"""
-        if not self.is_enabled():
-            return {"error": "AI is disabled"}
-        
-        config = self.load_config()
-        
-        try:
-            # Prepare messages with system prompt
-            messages = [
-                {
-                    "role": "system",
-                    "content": self.get_enhanced_system_prompt()
-                }
-            ]
-            
-            # Add conversation history
-            if conversation_history:
-                messages.extend(conversation_history)
-            
-            # Add current message
-            messages.append({
-                "role": "user", 
-                "content": message
-            })
-            
-            # Route to appropriate provider
-            if config.provider.lower() == "ollama":
-                ai_response = await self._chat_ollama(config, messages)
-            elif config.provider.lower() == "openai":
-                ai_response = await self._chat_openai(config, messages)
-            elif config.provider.lower() == "anthropic":
-                ai_response = await self._chat_anthropic(config, messages)
-            else:
-                return {"error": f"Unsupported AI provider: {config.provider}"}
-            
-            if ai_response.get("error"):
-                return ai_response
-            
-            response_text = ai_response["response"]
-            
-            # Check if AI wants to query the database
-            if "SELECT" in response_text.upper() and "```sql" in response_text.lower():
-                response_text = await self._process_sql_queries(response_text)
-            
-            return {
-                "success": True,
-                "response": response_text,
-                "model": config.model_name,
-                "provider": config.provider
-            }
-                
-        except Exception as e:
-            logger.error(f"Unexpected AI service error: {e}")
-            return {"error": f"AI service error: {str(e)}"}
-    
-    async def _chat_ollama(self, config: AIConfig, messages: List[Dict]) -> Dict[str, Any]:
-        """Chat with Ollama API"""
-        try:
-            response = requests.post(
-                f"{config.api_url}/api/chat",
-                json={
-                    "model": config.model_name,
-                    "messages": messages,
-                    "options": {
-                        "temperature": config.temperature,
-                        "num_predict": config.max_tokens
-                    }
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    "success": True,
-                    "response": result.get("message", {}).get("content", "")
-                }
-            else:
-                return {"error": f"Ollama API error: {response.status_code}"}
-                
-        except requests.RequestException as e:
-            return {"error": f"Failed to connect to Ollama: {str(e)}"}
-    
-    async def _chat_openai(self, config: AIConfig, messages: List[Dict]) -> Dict[str, Any]:
-        """Chat with OpenAI API"""
-        if not config.api_key:
-            return {"error": "OpenAI API key is required"}
-        
-        try:
-            headers = {
-                "Authorization": f"Bearer {config.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            # OpenAI API uses different URL structure
-            api_url = config.api_url if config.api_url != "http://localhost:11434" else "https://api.openai.com/v1"
-            
-            response = requests.post(
-                f"{api_url}/chat/completions",
-                headers=headers,
-                json={
-                    "model": config.model_name,
-                    "messages": messages,
-                    "temperature": config.temperature,
-                    "max_tokens": config.max_tokens
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    "success": True,
-                    "response": result["choices"][0]["message"]["content"]
-                }
-            else:
-                return {"error": f"OpenAI API error: {response.status_code} - {response.text}"}
-                
-        except requests.RequestException as e:
-            return {"error": f"Failed to connect to OpenAI: {str(e)}"}
-    
-    async def _chat_anthropic(self, config: AIConfig, messages: List[Dict]) -> Dict[str, Any]:
-        """Chat with Anthropic Claude API"""
-        if not config.api_key:
-            return {"error": "Anthropic API key is required"}
-        
-        try:
-            headers = {
-                "x-api-key": config.api_key,
-                "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01"
-            }
-            
-            # Anthropic API uses different URL structure
-            api_url = config.api_url if config.api_url != "http://localhost:11434" else "https://api.anthropic.com/v1"
-            
-            # Convert messages format for Anthropic
-            system_prompt = ""
-            user_messages = []
-            
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_prompt = msg["content"]
-                else:
-                    user_messages.append(msg)
-            
-            response = requests.post(
-                f"{api_url}/messages",
-                headers=headers,
-                json={
-                    "model": config.model_name,
-                    "max_tokens": config.max_tokens,
-                    "temperature": config.temperature,
-                    "system": system_prompt,
-                    "messages": user_messages
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    "success": True,
-                    "response": result["content"][0]["text"]
-                }
-            else:
-                return {"error": f"Anthropic API error: {response.status_code} - {response.text}"}
-                
-        except requests.RequestException as e:
-            return {"error": f"Failed to connect to Anthropic: {str(e)}"}
-    
-    async def _process_sql_queries(self, response_text: str) -> str:
-        """Process SQL queries found in AI response"""
-        try:
-            # Extract all SQL code blocks
-            import re
-            sql_pattern = r'```sql\n(.*?)\n```'
-            sql_matches = re.findall(sql_pattern, response_text, re.DOTALL | re.IGNORECASE)
-            
-            for sql_query in sql_matches:
-                sql_query = sql_query.strip()
-                if sql_query:
-                    # Execute the query
-                    query_result = self.execute_safe_query(sql_query)
-                    
-                    # Replace the SQL block with results
-                    if query_result.get("success"):
-                        result_text = f"\n\n**Query Result ({query_result['row_count']} rows):**\n```json\n{json.dumps(query_result['data'], indent=2)}\n```"
-                    else:
-                        result_text = f"\n\n**Query Error:** {query_result.get('error', 'Unknown error')}"
-                    
-                    # Replace the SQL block with query + results
-                    old_block = f"```sql\n{sql_query}\n```"
-                    new_block = f"```sql\n{sql_query}\n```{result_text}"
-                    response_text = response_text.replace(old_block, new_block)
-            
-            return response_text
-            
-        except Exception as e:
-            logger.error(f"Error processing SQL queries: {e}")
-            return response_text
-    
-    async def test_connection(self) -> Dict[str, Any]:
-        """Test connection to AI service"""
-        if not self.is_enabled():
-            return {"error": "AI is disabled"}
-        
-        config = self.load_config()
-        
-        try:
-            if config.provider.lower() == "ollama":
-                return await self._test_ollama_connection(config)
-            elif config.provider.lower() == "openai":
-                return await self._test_openai_connection(config)
-            elif config.provider.lower() == "anthropic":
-                return await self._test_anthropic_connection(config)
-            else:
-                return {"error": f"Unsupported provider: {config.provider}"}
-                
-        except Exception as e:
-            return {"error": f"Connection test failed: {str(e)}"}
-    
-    async def _test_ollama_connection(self, config: AIConfig) -> Dict[str, Any]:
-        """Test Ollama connection"""
-        try:
-            response = requests.get(f"{config.api_url}/api/tags", timeout=10)
-            if response.status_code == 200:
-                models = response.json().get("models", [])
-                model_names = [model.get("name", "") for model in models]
-                
-                if config.model_name in model_names:
-                    return {
-                        "success": True,
-                        "message": f"Successfully connected to Ollama",
-                        "available_models": model_names,
-                        "current_model": config.model_name
-                    }
-                else:
-                    return {
-                        "warning": f"Model '{config.model_name}' not found",
-                        "available_models": model_names,
-                        "suggestion": f"Try pulling the model: ollama pull {config.model_name}"
-                    }
-            else:
-                return {"error": f"Ollama connection failed: HTTP {response.status_code}"}
-        except Exception as e:
-            return {"error": f"Ollama connection failed: {str(e)}"}
-    
-    async def _test_openai_connection(self, config: AIConfig) -> Dict[str, Any]:
-        """Test OpenAI connection"""
-        if not config.api_key:
-            return {"error": "OpenAI API key is required"}
-        
-        try:
-            headers = {"Authorization": f"Bearer {config.api_key}"}
-            api_url = config.api_url if config.api_url != "http://localhost:11434" else "https://api.openai.com/v1"
-            
-            response = requests.get(f"{api_url}/models", headers=headers, timeout=10)
-            if response.status_code == 200:
-                models = response.json().get("data", [])
-                model_names = [model.get("id", "") for model in models]
-                
-                if config.model_name in model_names:
-                    return {
-                        "success": True,
-                        "message": "Successfully connected to OpenAI",
-                        "current_model": config.model_name
-                    }
-                else:
-                    return {
-                        "warning": f"Model '{config.model_name}' not found",
-                        "suggestion": "Check available models in your OpenAI account"
-                    }
-            else:
-                return {"error": f"OpenAI connection failed: HTTP {response.status_code}"}
-        except Exception as e:
-            return {"error": f"OpenAI connection failed: {str(e)}"}
-    
-    async def _test_anthropic_connection(self, config: AIConfig) -> Dict[str, Any]:
-        """Test Anthropic connection"""
-        if not config.api_key:
-            return {"error": "Anthropic API key is required"}
-        
-        try:
-            headers = {
-                "x-api-key": config.api_key,
-                "anthropic-version": "2023-06-01"
-            }
-            api_url = config.api_url if config.api_url != "http://localhost:11434" else "https://api.anthropic.com/v1"
-            
-            # Test with a simple message to verify API key works
-            test_response = requests.post(
-                f"{api_url}/messages",
-                headers=headers,
-                json={
-                    "model": config.model_name,
-                    "max_tokens": 10,
-                    "messages": [{"role": "user", "content": "Hi"}]
-                },
-                timeout=10
-            )
-            
-            if test_response.status_code == 200:
-                return {
-                    "success": True,
-                    "message": "Successfully connected to Anthropic",
-                    "current_model": config.model_name
-                }
-            else:
-                return {"error": f"Anthropic connection failed: HTTP {test_response.status_code}"}
-        except Exception as e:
-            return {"error": f"Anthropic connection failed: {str(e)}"}
 
 # Singleton instance
 ai_service = AIService()

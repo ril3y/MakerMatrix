@@ -207,3 +207,7 @@ MakerMatrix/frontend/.env.production.local
 
 # Virtual environments
 venv_test/
+
+# Downloaded datasheets and component images
+MakerMatrix/static/datasheets/
+MakerMatrix/static/images/

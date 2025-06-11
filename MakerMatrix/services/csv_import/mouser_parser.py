@@ -59,7 +59,7 @@ class MouserParser(BaseCSVParser):
                 'quantity': quantity,
                 'supplier': 'Mouser',
                 'supplier_url': f"https://www.mouser.com/ProductDetail/{mouser_part_number}",
-                'properties': {
+                'additional_properties': {
                     'mouser_part_number': mouser_part_number,
                     'manufacturer': manufacturer,
                     'description': description,

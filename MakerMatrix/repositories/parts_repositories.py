@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy import func, or_, delete
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import Session, select
 # from MakerMatrix.models.category_model import CategoryModel
 # from MakerMatrix.models.part_model import PartModel
@@ -331,6 +331,79 @@ class PartRepository:
 
         return results, total_count
 
+    @staticmethod
+    def search_parts_text(session: Session, query: str, page: int = 1, page_size: int = 20) -> tuple[List[PartModel], int]:
+        """
+        Simple text search across part names, part numbers, and descriptions.
+        Returns a tuple of (results, total_count).
+        """
+        # Create search term with wildcards
+        search_term = f"%{query}%"
+        
+        # Base query with eager loading
+        base_query = select(PartModel).options(
+            joinedload(PartModel.categories),
+            joinedload(PartModel.location)
+        )
+        
+        # Count query
+        count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel)
+        
+        # Apply search filter across multiple fields
+        search_filter = or_(
+            PartModel.part_name.ilike(search_term),
+            PartModel.part_number.ilike(search_term),
+            PartModel.description.ilike(search_term)
+        )
+        
+        # Apply filter to both queries
+        query_with_filter = base_query.where(search_filter)
+        count_query_with_filter = count_query.where(search_filter)
+        
+        # Order by relevance (exact matches first, then partial matches)
+        query_with_filter = query_with_filter.order_by(
+            # Exact part name matches first
+            func.lower(PartModel.part_name) == query.lower(),
+            # Exact part number matches second
+            func.lower(PartModel.part_number) == query.lower(),
+            # Then by part name alphabetically
+            PartModel.part_name
+        )
+        
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query_with_filter = query_with_filter.offset(offset).limit(page_size)
+        
+        # Execute queries
+        results = session.exec(query_with_filter).unique().all()
+        total_count = session.exec(count_query_with_filter).one()
+        
+        return results, total_count
+
+    @staticmethod
+    def get_part_suggestions(session: Session, query: str, limit: int = 10) -> List[str]:
+        """
+        Get autocomplete suggestions for part names based on search query.
+        Returns part names that start with or contain the query.
+        """
+        search_term = f"%{query}%"
+        
+        # Query for part names that contain the search term
+        # Prioritize names that start with the query
+        suggestions_query = select(PartModel.part_name).where(
+            PartModel.part_name.ilike(search_term)
+        ).distinct().order_by(
+            # Names starting with query come first
+            ~PartModel.part_name.ilike(f"{query}%"),
+            PartModel.part_name
+        ).limit(limit)
+        
+        # Execute query and return list of part names
+        suggestions = session.exec(suggestions_query).all()
+        
+        # Filter out None values and return as list
+        return [name for name in suggestions if name is not None]
+
     # def add_part(self, part_data: dict, overwrite: bool) -> dict:
     #     # Check if a part with the same part_number or part_name already exists
     #     part_id = part_data.get('part_id')
@@ -473,3 +546,26 @@ class PartRepository:
     #         child_ids.extend(self.get_child_location_ids(loc['id']))
     #
     #     return child_ids
+
+    @staticmethod
+    def clear_all_parts(session: Session) -> Dict[str, Any]:
+        """Clear all parts from the database - USE WITH CAUTION!"""
+        try:
+            # Get count before deletion
+            count_before = session.exec(select(func.count()).select_from(PartModel)).one()
+            
+            # Delete all parts using SQLModel syntax
+            session.exec(delete(PartModel))
+            session.commit()
+            
+            # Verify deletion
+            count_after = session.exec(select(func.count()).select_from(PartModel)).one()
+            
+            return {
+                "parts_deleted": count_before,
+                "parts_remaining": count_after,
+                "success": True
+            }
+        except Exception as e:
+            session.rollback()
+            raise Exception(f"Failed to clear all parts: {str(e)}")
