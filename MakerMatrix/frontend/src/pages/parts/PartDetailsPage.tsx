@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer } from 'lucide-react'
+import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
@@ -8,6 +8,8 @@ import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
 import PartEnrichmentModal from '@/components/parts/PartEnrichmentModal'
 import PrinterModal from '@/components/printer/PrinterModal'
+import { analyticsService } from '@/services/analytics.service'
+import { Line } from 'react-chartjs-2'
 
 const PartDetailsPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -19,6 +21,8 @@ const PartDetailsPage = () => {
   const [selectedDatasheet, setSelectedDatasheet] = useState<Datasheet | null>(null)
   const [enrichmentModalOpen, setEnrichmentModalOpen] = useState(false)
   const [printerModalOpen, setPrinterModalOpen] = useState(false)
+  const [priceTrends, setPriceTrends] = useState<any[]>([])
+  const [loadingPriceHistory, setLoadingPriceHistory] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -32,6 +36,8 @@ const PartDetailsPage = () => {
       setError(null)
       const response = await partsService.getPart(partId)
       setPart(response)
+      // Load price history after part is loaded
+      loadPriceHistory(partId)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load part details')
     } finally {
@@ -54,6 +60,18 @@ const PartDetailsPage = () => {
     // Optionally reload the part from server to get all updates
     if (id) {
       loadPart(id)
+    }
+  }
+
+  const loadPriceHistory = async (partId: string) => {
+    try {
+      setLoadingPriceHistory(true)
+      const trends = await analyticsService.getPriceTrends({ part_id: partId, limit: 20 })
+      setPriceTrends(trends)
+    } catch (err) {
+      console.error('Failed to load price history:', err)
+    } finally {
+      setLoadingPriceHistory(false)
     }
   }
 
@@ -528,6 +546,115 @@ const PartDetailsPage = () => {
         </div>
       </motion.div>
 
+      {/* Order History Section */}
+      {priceTrends.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="card"
+        >
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              Order History & Price Trends
+              <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
+                {priceTrends.length} orders
+              </span>
+            </h2>
+          </div>
+          <div className="card-content">
+            {loadingPriceHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Price Trend Chart */}
+                <div>
+                  <h3 className="text-md font-medium text-primary mb-4">Price Trend</h3>
+                  <div className="h-64">
+                    <Line
+                      data={{
+                        labels: priceTrends.map(item => new Date(item.order_date).toLocaleDateString()),
+                        datasets: [
+                          {
+                            label: 'Unit Price',
+                            data: priceTrends.map(item => item.unit_price),
+                            borderColor: 'rgb(99, 102, 241)',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: false
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: false,
+                            ticks: {
+                              callback: function(value: any) {
+                                return '$' + Number(value).toFixed(2)
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Order Details Table */}
+                <div>
+                  <h3 className="text-md font-medium text-primary mb-4">Order Details</h3>
+                  <div className="overflow-x-auto">
+                    <table className="table w-full">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Supplier</th>
+                          <th>Unit Price</th>
+                          <th>Change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {priceTrends.map((trend, index) => {
+                          const prevPrice = index < priceTrends.length - 1 ? priceTrends[index + 1].unit_price : null
+                          const priceChange = prevPrice ? ((trend.unit_price - prevPrice) / prevPrice) * 100 : 0
+                          
+                          return (
+                            <tr key={index}>
+                              <td className="text-primary">{new Date(trend.order_date).toLocaleDateString()}</td>
+                              <td className="text-secondary">{trend.supplier}</td>
+                              <td className="text-secondary">${trend.unit_price.toFixed(2)}</td>
+                              <td>
+                                {prevPrice && (
+                                  <span className={`flex items-center gap-1 ${priceChange > 0 ? 'text-error' : priceChange < 0 ? 'text-success' : 'text-secondary'}`}>
+                                    {priceChange > 0 ? '↑' : priceChange < 0 ? '↓' : '→'}
+                                    {Math.abs(priceChange).toFixed(1)}%
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       {/* PDF Viewer Modal */}
       {selectedDatasheet && (
         <PartPDFViewer
@@ -554,10 +681,10 @@ const PartDetailsPage = () => {
         onClose={() => setPrinterModalOpen(false)}
         partData={{
           part_name: part.name,
-          part_number: part.part_number,
-          location: part.location,
-          category: part.category,
-          quantity: part.quantity?.toString()
+          part_number: part.part_number || '',
+          location: part.location?.name || '',
+          category: part.categories?.[0]?.name || '',
+          quantity: part.quantity?.toString() || '0'
         }}
       />
     </div>

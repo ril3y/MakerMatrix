@@ -11,7 +11,7 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, modern_printer_routes, preview_routes,
-    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes, activity_routes
+    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes, analytics_routes
 )
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -165,6 +165,7 @@ secure_all_routes(role_routes.router)
 secure_all_routes(ai_routes.router)
 secure_all_routes(csv_routes.router, permissions=csv_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
+secure_all_routes(analytics_routes.router)
 
 # Public routes that don't need authentication
 public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
@@ -183,7 +184,7 @@ app.include_router(role_routes.router, prefix="/roles", tags=["Roles"])
 app.include_router(ai_routes.router, prefix="/ai", tags=["AI Configuration"])
 app.include_router(csv_routes.router, prefix="/api/csv", tags=["CSV Import"])
 app.include_router(task_routes.router, prefix="/api/tasks", tags=["Background Tasks"])
-app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity Log"])
+app.include_router(analytics_routes.router, tags=["Analytics"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
 app.include_router(static_routes.router, tags=["Static Files"])
 

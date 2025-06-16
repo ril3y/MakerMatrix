@@ -18,6 +18,7 @@ import LocationsPage from '@/pages/locations/LocationsPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
 import UsersPage from '@/pages/users/UsersPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
+import AnalyticsDashboard from '@/pages/analytics/AnalyticsDashboard'
 import UnauthorizedPage from '@/pages/UnauthorizedPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
@@ -68,13 +69,16 @@ function AppContent() {
               
               {/* User Management - Admin Only */}
               <Route path="/users" element={
-                <ProtectedRoute requireRole="Admin">
+                <ProtectedRoute requireRole="admin">
                   <UsersPage />
                 </ProtectedRoute>
               } />
               
               {/* Settings */}
               <Route path="/settings" element={<SettingsPage />} />
+              
+              {/* Analytics */}
+              <Route path="/analytics" element={<AnalyticsDashboard />} />
             </Route>
           </Route>
 

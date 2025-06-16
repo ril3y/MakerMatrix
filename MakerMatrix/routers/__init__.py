@@ -5,6 +5,7 @@ from . import (
     categories_routes,
     printer_routes,
     modern_printer_routes,
+    preview_routes,
     utility_routes,
     auth_routes,
     user_routes,
@@ -13,7 +14,8 @@ from . import (
     csv_routes,
     static_routes,
     task_routes,
-    websocket_routes
+    websocket_routes,
+    analytics_routes
 )
 
 __all__ = [
@@ -22,6 +24,7 @@ __all__ = [
     "categories_routes",
     "printer_routes",
     "modern_printer_routes",
+    "preview_routes",
     "utility_routes",
     "auth_routes",
     "user_routes",
@@ -30,5 +33,6 @@ __all__ = [
     "csv_routes",
     "static_routes",
     "task_routes",
-    "websocket_routes"
+    "websocket_routes",
+    "analytics_routes"
 ]

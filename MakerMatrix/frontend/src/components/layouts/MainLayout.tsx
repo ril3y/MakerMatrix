@@ -15,7 +15,8 @@ import {
   Code2,
   Terminal,
   CircuitBoard,
-  Settings
+  Settings,
+  TrendingUp
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,6 +59,11 @@ const MainLayout: React.FC = () => {
       icon: <Tags className="w-5 h-5" />
     },
     {
+      label: 'Analytics',
+      path: '/analytics',
+      icon: <TrendingUp className="w-5 h-5" />
+    },
+    {
       label: 'Settings',
       path: '/settings',
       icon: <Settings className="w-5 h-5" />
@@ -65,7 +71,7 @@ const MainLayout: React.FC = () => {
   ];
 
   // Admin-only nav items
-  if (hasRole('Admin')) {
+  if (hasRole('admin')) {
     navItems.push({
       label: 'Users',
       path: '/users',

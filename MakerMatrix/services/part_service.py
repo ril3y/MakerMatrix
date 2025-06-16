@@ -476,6 +476,13 @@ class PartService:
             if not part:
                 logger.error(f"Part not found for update: {part_id}")
                 raise ResourceNotFoundError(resource="Part", resource_id=part_id)
+            
+            # Ensure categories are properly loaded
+            if hasattr(part, 'categories') and part.categories:
+                # Force load categories to ensure they're properly populated
+                for category in part.categories:
+                    # Access category attributes to ensure they're loaded
+                    _ = category.name, category.id
 
             # Log current state before update
             logger.debug(f"Current part state before update: {part.part_name} (ID: {part_id})")
@@ -487,11 +494,27 @@ class PartService:
             for key, value in update_data.items():
                 if key == "category_names" and value is not None:
                     # Special handling for categories
-                    old_categories = [getattr(cat, 'name', str(cat)) for cat in part.categories] if part.categories else []
+                    old_categories = []
+                    if part.categories:
+                        for cat in part.categories:
+                            try:
+                                # Safely get category name, ensuring it's a proper CategoryModel
+                                if hasattr(cat, 'name') and cat.name:
+                                    old_categories.append(cat.name)
+                                else:
+                                    logger.warning(f"Category object missing name attribute: {cat}")
+                            except Exception as e:
+                                logger.error(f"Error accessing category data: {e}")
+                    
                     categories = handle_categories(session, value)
                     part.categories.clear()  # Clear existing categories
                     part.categories.extend(categories)  # Add new categories
-                    new_categories = [getattr(cat, 'name', str(cat)) for cat in categories]
+                    
+                    # Commit to ensure the relationship is properly saved
+                    session.commit()
+                    session.refresh(part)
+                    
+                    new_categories = [cat.name for cat in categories if hasattr(cat, 'name')]
                     logger.info(f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}")
                     updated_fields.append(f"categories: {old_categories} → {new_categories}")
                 elif hasattr(part, key):

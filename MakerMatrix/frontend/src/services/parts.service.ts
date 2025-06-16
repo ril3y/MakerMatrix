@@ -21,6 +21,7 @@ export class PartsService {
       return {
         ...response.data,
         name: response.data.part_name || response.data.name,
+        categories: response.data.categories || [], // Ensure categories are preserved
         created_at: response.data.created_at || new Date().toISOString(),
         updated_at: response.data.updated_at || new Date().toISOString()
       }
@@ -34,6 +35,7 @@ export class PartsService {
       return {
         ...response.data,
         name: response.data.part_name || response.data.name,
+        categories: response.data.categories || [], // Ensure categories are preserved
         created_at: response.data.created_at || new Date().toISOString(),
         updated_at: response.data.updated_at || new Date().toISOString()
       }
@@ -47,6 +49,7 @@ export class PartsService {
       return {
         ...response.data,
         name: response.data.part_name || response.data.name,
+        categories: response.data.categories || [], // Ensure categories are preserved
         created_at: response.data.created_at || new Date().toISOString(),
         updated_at: response.data.updated_at || new Date().toISOString()
       }
@@ -60,6 +63,7 @@ export class PartsService {
       return {
         ...response.data,
         name: response.data.part_name || response.data.name,
+        categories: response.data.categories || [], // Ensure categories are preserved
         created_at: response.data.created_at || new Date().toISOString(),
         updated_at: response.data.updated_at || new Date().toISOString()
       }
@@ -69,11 +73,45 @@ export class PartsService {
 
   async updatePart(data: UpdatePartRequest): Promise<Part> {
     const { id, ...updateData } = data
+    
+    // Handle category conversion from IDs to names
+    let categoryNames: string[] | undefined = undefined
+    if (updateData.categories && Array.isArray(updateData.categories)) {
+      if (updateData.categories.length > 0) {
+        // Check if categories are provided as IDs (strings) 
+        const firstCategory = updateData.categories[0]
+        if (typeof firstCategory === 'string') {
+          // Categories are IDs, we need to convert them to names
+          // Fetch category data to get names
+          try {
+            const { categoriesService } = await import('./categories.service')
+            const allCategories = await categoriesService.getAllCategories()
+            categoryNames = updateData.categories
+              .map(categoryId => {
+                const category = allCategories.find(cat => cat.id === categoryId)
+                return category?.name
+              })
+              .filter(Boolean) as string[]
+          } catch (error) {
+            console.error('Failed to convert category IDs to names:', error)
+            // Skip category update to prevent corruption
+            categoryNames = undefined
+          }
+        } else if (typeof firstCategory === 'object' && firstCategory.name) {
+          // Categories are already Category objects, extract names
+          categoryNames = updateData.categories.map((cat: any) => cat.name)
+        }
+      } else {
+        // Empty array means clear all categories
+        categoryNames = []
+      }
+    }
+    
     // Map frontend format to backend format
     const backendData = {
       ...updateData,
       part_name: updateData.name,
-      category_names: updateData.categories || []
+      ...(categoryNames !== undefined && { category_names: categoryNames })
     }
     
     // Remove frontend-only fields that don't exist in backend
@@ -85,6 +123,7 @@ export class PartsService {
       return {
         ...response.data,
         name: response.data.part_name || response.data.name,
+        categories: response.data.categories || [], // Ensure categories are preserved
         created_at: response.data.created_at || new Date().toISOString(),
         updated_at: response.data.updated_at || new Date().toISOString()
       }
@@ -106,6 +145,7 @@ export class PartsService {
       const mappedData = response.data.map((part: any) => ({
         ...part,
         name: part.part_name || part.name, // Map part_name to name
+        categories: part.categories || [], // Ensure categories are preserved
         created_at: part.created_at || new Date().toISOString(),
         updated_at: part.updated_at || new Date().toISOString()
       }))
@@ -127,6 +167,7 @@ export class PartsService {
       return response.data.map((part: any) => ({
         ...part,
         name: part.part_name || part.name, // Map part_name to name
+        categories: part.categories || [], // Ensure categories are preserved
         created_at: part.created_at || new Date().toISOString(),
         updated_at: part.updated_at || new Date().toISOString()
       }))
@@ -162,6 +203,7 @@ export class PartsService {
       const mappedData = response.data.map((part: any) => ({
         ...part,
         name: part.part_name || part.name,
+        categories: part.categories || [], // Ensure categories are preserved
         created_at: part.created_at || new Date().toISOString(),
         updated_at: part.updated_at || new Date().toISOString()
       }))
