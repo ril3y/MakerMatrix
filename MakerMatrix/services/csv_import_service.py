@@ -3,6 +3,7 @@ import io
 from typing import List, Dict, Any, Optional, Tuple, Callable
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.services.csv_import import DigikeyParser, LCSCParser, MouserParser, BaseCSVParser
+from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
 from MakerMatrix.models.csv_import_config_model import ImportProgressModel
 import logging
 import asyncio
@@ -32,6 +33,7 @@ class CSVImportService:
             DigikeyParser(),
             LCSCParser(download_config=parsing_config),
             MouserParser(),
+            MouserXLSParser(),
         ]
         
         # Also create preview parsers (for CSV preview without downloads)
@@ -39,6 +41,7 @@ class CSVImportService:
             DigikeyParser(),
             LCSCParser(download_config={'download_datasheets': False, 'download_images': False}),
             MouserParser(),
+            MouserXLSParser(),
         ]
         
         # Set preview parsers to enrich-only mode
@@ -292,13 +295,35 @@ class CSVImportService:
                     })
                 
                 try:
-                    # Check if part already exists
+                    # Check if part already exists with improved duplicate detection
                     existing_part = None
-                    if part_data.get('part_number'):
+                    part_name = part_data.get('part_name', '')
+                    part_number = part_data.get('part_number', '')
+                    
+                    logger.debug(f"Checking for duplicates: part_name='{part_name}', part_number='{part_number}'")
+                    
+                    # Check by part number first
+                    if part_number:
                         try:
-                            existing_part = await part_service.get_part_by_part_number(part_data['part_number'])
-                        except:
-                            pass
+                            part_response = part_service.get_part_by_part_number(part_number)
+                            if part_response and part_response.get('status') == 'success':
+                                existing_part = part_response['data']
+                                logger.debug(f"Found existing part by part_number: {existing_part['id']}")
+                        except Exception as e:
+                            logger.debug(f"No part found by part_number '{part_number}': {e}")
+                    
+                    # Also check by part name if not found by part number
+                    if not existing_part and part_name:
+                        try:
+                            part_response = part_service.get_part_by_part_name(part_name)
+                            if part_response and part_response.get('status') == 'success':
+                                existing_part = part_response['data']
+                                logger.debug(f"Found existing part by part_name: {existing_part['id']}")
+                        except Exception as e:
+                            logger.debug(f"No part found by part_name '{part_name}': {e}")
+                    
+                    if existing_part:
+                        logger.info(f"Duplicate part detected: {part_name} (ID: {existing_part['id']}), will update quantity")
                     
                     # Create order item record with proper type conversion
                     unit_price = part_data['additional_properties'].get('unit_price', 0.0)
@@ -309,6 +334,10 @@ class CSVImportService:
                         unit_price = float(unit_price)
                     if isinstance(extended_price, Decimal):
                         extended_price = float(extended_price)
+                    
+                    # Calculate extended_price if not provided or is 0.0
+                    if extended_price == 0.0 and unit_price > 0.0:
+                        extended_price = unit_price * part_data['quantity']
                     
                     order_item_data = CreateOrderItemRequest(
                         supplier_part_number=part_data['additional_properties'].get('supplier_part_number', ''),
@@ -328,17 +357,17 @@ class CSVImportService:
                     
                     if existing_part:
                         # Update existing part quantity and link to order
-                        new_quantity = existing_part.quantity + part_data['quantity']
+                        new_quantity = existing_part['quantity'] + part_data['quantity']
                         
                         from MakerMatrix.schemas.part_create import PartUpdate
                         update_data = PartUpdate(quantity=new_quantity)
-                        part_service.update_part(existing_part.id, update_data)
+                        part_service.update_part(existing_part['id'], update_data)
                         
                         # Update or create order summary
                         session = next(get_session())
                         try:
                             # Get existing order summary
-                            summary_stmt = select(PartOrderSummary).where(PartOrderSummary.part_id == existing_part.id)
+                            summary_stmt = select(PartOrderSummary).where(PartOrderSummary.part_id == existing_part['id'])
                             order_summary = session.exec(summary_stmt).first()
                             
                             current_price = float(part_data['additional_properties'].get('unit_price', 0.0))
@@ -368,7 +397,7 @@ class CSVImportService:
                             else:
                                 # Create new summary
                                 order_summary = PartOrderSummary(
-                                    part_id=existing_part.id,
+                                    part_id=existing_part['id'],
                                     last_ordered_date=order.order_date,
                                     last_ordered_price=current_price,
                                     last_order_number=order.order_number,
@@ -383,14 +412,14 @@ class CSVImportService:
                             session.commit()
                         except Exception as e:
                             session.rollback()
-                            logger.error(f"Failed to update order summary for part {existing_part.id}: {e}")
+                            logger.error(f"Failed to update order summary for part {existing_part['id']}: {e}")
                         finally:
                             session.close()
                         
                         # Link the order item to the existing part
-                        await order_service.link_order_item_to_part(order_item.id, existing_part.id)
+                        await order_service.link_order_item_to_part(order_item.id, existing_part['id'])
                         
-                        success_parts.append(f"Updated {part_data['part_name']}: quantity {existing_part.quantity} → {new_quantity}")
+                        success_parts.append(f"Updated {part_data['part_name']}: quantity {existing_part['quantity']} → {new_quantity}")
                         
                         # Update progress
                         if progress_callback:
@@ -401,8 +430,56 @@ class CSVImportService:
                             
                     else:
                         # Create new part and link to order
-                        new_part_result = part_service.add_part(part_data)
-                        new_part_id = new_part_result['data']['id']
+                        try:
+                            new_part_result = part_service.add_part(part_data)
+                            new_part_id = new_part_result['data']['id']
+                        except Exception as e:
+                            # Handle case where part was created between duplicate check and add_part call
+                            error_msg = str(e)
+                            if "already exists" in error_msg.lower():
+                                logger.warning(f"Race condition detected - part {part_data['part_name']} was created by another process")
+                                # Retry the duplicate check
+                                try:
+                                    if part_data.get('part_number'):
+                                        part_response = part_service.get_part_by_part_number(part_data['part_number'])
+                                        if part_response and part_response.get('status') == 'success':
+                                            existing_part = part_response['data']
+                                    else:
+                                        part_response = part_service.get_part_by_part_name(part_data['part_name'])
+                                        if part_response and part_response.get('status') == 'success':
+                                            existing_part = part_response['data']
+                                    
+                                    if existing_part:
+                                        # Update existing part quantity and link to order
+                                        new_quantity = existing_part['quantity'] + part_data['quantity']
+                                        
+                                        from MakerMatrix.schemas.part_create import PartUpdate
+                                        update_data = PartUpdate(quantity=new_quantity)
+                                        part_service.update_part(existing_part['id'], update_data)
+                                        
+                                        # Link the order item to the existing part
+                                        await order_service.link_order_item_to_part(order_item.id, existing_part['id'])
+                                        
+                                        success_parts.append(f"Updated {part_data['part_name']}: quantity {existing_part['quantity'] - part_data['quantity']} → {new_quantity}")
+                                        
+                                        # Update progress
+                                        if progress_callback:
+                                            progress_callback({
+                                                'successful_parts': len(success_parts),
+                                                'processed_parts': index + 1
+                                            })
+                                        continue
+                                    else:
+                                        # Still couldn't find the part, treat as failure
+                                        failed_parts.append(f"Failed to import {part_data['part_name']}: {error_msg}")
+                                        continue
+                                except Exception as retry_error:
+                                    failed_parts.append(f"Failed to import {part_data['part_name']}: {error_msg} (retry failed: {retry_error})")
+                                    continue
+                            else:
+                                # Different error, treat as failure
+                                failed_parts.append(f"Failed to import {part_data['part_name']}: {error_msg}")
+                                continue
                         
                         # Create order summary for new part
                         session = next(get_session())
@@ -571,6 +648,10 @@ class CSVImportService:
                         unit_price = float(unit_price)
                     if isinstance(extended_price, Decimal):
                         extended_price = float(extended_price)
+                    
+                    # Calculate extended_price if not provided or is 0.0
+                    if extended_price == 0.0 and unit_price > 0.0:
+                        extended_price = unit_price * part_data['quantity']
                     
                     order_item_data = CreateOrderItemRequest(
                         supplier_part_number=part_data['additional_properties'].get('supplier_part_number', ''),

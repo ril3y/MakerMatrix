@@ -63,7 +63,7 @@ def admin_token():
 def test_get_part_by_name(admin_token):
     tmp_part = setup_part_update_part(admin_token)
     response = client.get(
-        f"/parts/get_part?part_name={tmp_part['data']['part_name']}",
+        f"/api/parts/get_part?part_name={tmp_part['data']['part_name']}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 200
@@ -85,7 +85,7 @@ def test_add_part(admin_token):
 
     # Make a POST request to the /add_part endpoint
     response = client.post(
-        "/parts/add_part", 
+        "/api/parts/add_part", 
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -116,7 +116,7 @@ def test_add_existing_part(admin_token):
 
     # Add the part initially
     initial_response = client.post(
-        "/parts/add_part", 
+        "/api/parts/add_part", 
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -124,7 +124,7 @@ def test_add_existing_part(admin_token):
 
     # Try to add the same part again
     duplicate_response = client.post(
-        "/parts/add_part", 
+        "/api/parts/add_part", 
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -150,7 +150,7 @@ def test_delete_part_by_id(admin_token):
     }
     
     add_response = client.post(
-        "/parts/add_part",
+        "/api/parts/add_part",
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -159,7 +159,7 @@ def test_delete_part_by_id(admin_token):
     
     # Now delete the part by ID
     delete_response = client.delete(
-        f"/parts/delete_part?part_id={part_id}",
+        f"/api/parts/delete_part?part_id={part_id}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     
@@ -190,7 +190,7 @@ def test_delete_part_by_name(admin_token):
     }
     
     add_response = client.post(
-        "/parts/add_part",
+        "/api/parts/add_part",
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -198,7 +198,7 @@ def test_delete_part_by_name(admin_token):
     
     # Delete by part name
     delete_response = client.delete(
-        "/parts/delete_part?part_name=Delete Test Part By Name",
+        "/api/parts/delete_part?part_name=Delete Test Part By Name",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     
@@ -224,7 +224,7 @@ def test_delete_part_by_part_number(admin_token):
     }
     
     add_response = client.post(
-        "/parts/add_part",
+        "/api/parts/add_part",
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -232,7 +232,7 @@ def test_delete_part_by_part_number(admin_token):
     
     # Delete by part number
     delete_response = client.delete(
-        "/parts/delete_part?part_number=DELETE-TEST-003",
+        "/api/parts/delete_part?part_number=DELETE-TEST-003",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     
@@ -247,7 +247,7 @@ def test_delete_part_by_part_number(admin_token):
 def test_delete_nonexistent_part(admin_token):
     """Test deleting a part that doesn't exist"""
     delete_response = client.delete(
-        "/parts/delete_part?part_id=nonexistent-id",
+        "/api/parts/delete_part?part_id=nonexistent-id",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     
@@ -258,7 +258,7 @@ def test_delete_nonexistent_part(admin_token):
 def test_delete_part_no_identifier(admin_token):
     """Test delete endpoint with no identifiers provided"""
     delete_response = client.delete(
-        "/parts/delete_part",
+        "/api/parts/delete_part",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     
@@ -268,7 +268,7 @@ def test_delete_part_no_identifier(admin_token):
 
 def test_delete_part_unauthenticated():
     """Test delete endpoint without authentication"""
-    delete_response = client.delete("/parts/delete_part?part_id=test-id")
+    delete_response = client.delete("/api/parts/delete_part?part_id=test-id")
     
     # Should return 401 for unauthenticated request
     assert delete_response.status_code == 401
@@ -305,7 +305,7 @@ def test_update_part_categories(admin_token):
     }
     
     add_response = client.post(
-        "/parts/add_part",
+        "/api/parts/add_part",
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -314,7 +314,7 @@ def test_update_part_categories(admin_token):
     
     # Verify initial categories
     get_response = client.get(
-        f"/parts/get_part?part_id={part_id}",
+        f"/api/parts/get_part?part_id={part_id}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert get_response.status_code == 200
@@ -328,7 +328,7 @@ def test_update_part_categories(admin_token):
     }
     
     update_response = client.put(
-        f"/parts/update_part/{part_id}",
+        f"/api/parts/update_part/{part_id}",
         json=update_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -345,7 +345,7 @@ def test_update_part_categories(admin_token):
     
     # Verify the categories were actually updated
     get_updated_response = client.get(
-        f"/parts/get_part?part_id={part_id}",
+        f"/api/parts/get_part?part_id={part_id}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert get_updated_response.status_code == 200
@@ -372,7 +372,7 @@ def test_update_part_remove_all_categories(admin_token):
     }
     
     add_response = client.post(
-        "/parts/add_part",
+        "/api/parts/add_part",
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -385,7 +385,7 @@ def test_update_part_remove_all_categories(admin_token):
     }
     
     update_response = client.put(
-        f"/parts/update_part/{part_id}",
+        f"/api/parts/update_part/{part_id}",
         json=update_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -394,7 +394,7 @@ def test_update_part_remove_all_categories(admin_token):
     
     # Verify categories were removed
     get_response = client.get(
-        f"/parts/get_part?part_id={part_id}",
+        f"/api/parts/get_part?part_id={part_id}",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert get_response.status_code == 200
@@ -414,7 +414,7 @@ def test_add_part_with_invalid_data(admin_token):
 
         # Make a POST request to the /add_part endpoint
         response = client.post(
-            "/parts/add_part", 
+            "/api/parts/add_part", 
             json=part_data,
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -443,7 +443,7 @@ def test_add_part_with_categories(admin_token):
 
         # Add the part
         response = client.post(
-            "/parts/add_part", 
+            "/api/parts/add_part", 
             json=part_data,
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -456,7 +456,7 @@ def test_add_part_with_categories(admin_token):
         # Verify the part was created with the categories
         part_id = response_data["data"]["id"]
         get_response = client.get(
-            f"/parts/get_part?part_id={part_id}",
+            f"/api/parts/get_part?part_id={part_id}",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert get_response.status_code == 200
@@ -481,7 +481,7 @@ def test_add_part_with_invalid_category(admin_token):
 
         # Make the request
         response = client.post(
-            "/parts/add_part", 
+            "/api/parts/add_part", 
             json=part_data,
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -508,7 +508,7 @@ def test_get_part_by_id(admin_token):
 
         # Make a POST request to add the part to the database
         response = client.post(
-            "/parts/add_part", 
+            "/api/parts/add_part", 
             json=part_data.model_dump(),
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -519,7 +519,7 @@ def test_get_part_by_id(admin_token):
 
         # Make a GET request to retrieve the part by ID
         get_response = client.get(
-            f"/parts/get_part?part_id={part_id}",
+            f"/api/parts/get_part?part_id={part_id}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -540,7 +540,7 @@ def test_get_part_by_invalid_part_id(admin_token):
         # Make a GET request to retrieve a part by a non-existent ID
         part_id = "invalid-id"
         get_response = client.get(
-            f"/parts/get_part?part_id={part_id}",
+            f"/api/parts/get_part?part_id={part_id}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -566,7 +566,7 @@ def test_get_part_by_part_number(admin_token):
 
         # Make a POST request to add the part to the database
         response = client.post(
-            "/parts/add_part", 
+            "/api/parts/add_part", 
             json=part_data.model_dump(),
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -577,7 +577,7 @@ def test_get_part_by_part_number(admin_token):
 
         # Make a GET request to retrieve the part by part number
         get_response = client.get(
-            f"/parts/get_part?part_number={part_number}",
+            f"/api/parts/get_part?part_number={part_number}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -608,7 +608,7 @@ def test_update_existing_part(admin_token):
 
         # Make a POST request to add the part to the database
         response = client.post(
-            "/parts/add_part", 
+            "/api/parts/add_part", 
             json=part_data,
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -624,7 +624,7 @@ def test_update_existing_part(admin_token):
         }
 
         update_response = client.put(
-            f"/parts/update_part/{part_id}", 
+            f"/api/parts/update_part/{part_id}", 
             json=update_data,
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -632,7 +632,7 @@ def test_update_existing_part(admin_token):
 
         # Verify the update
         get_response = client.get(
-            f"/parts/get_part?part_id={part_id}",
+            f"/api/parts/get_part?part_id={part_id}",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert get_response.status_code == 200
@@ -659,7 +659,7 @@ def setup_part_update_part(admin_token):
 
         # Add the part
         response = client.post(
-            "/parts/add_part", 
+            "/api/parts/add_part", 
             json=part_data,
             headers={"Authorization": f"Bearer {token}"}
         )

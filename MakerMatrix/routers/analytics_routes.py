@@ -42,7 +42,7 @@ async def get_spending_by_supplier(
         )
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message=f"Retrieved spending data for {len(data)} suppliers",
             data=data
         )
@@ -67,7 +67,7 @@ async def get_spending_trend(
         )
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message=f"Retrieved spending trend for {len(data)} periods",
             data=data
         )
@@ -92,7 +92,7 @@ async def get_part_order_frequency(
         )
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message=f"Retrieved {len(data)} frequently ordered parts",
             data=data
         )
@@ -119,7 +119,7 @@ async def get_price_trends(
         )
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message=f"Retrieved price trends for {len(data)} orders",
             data=data
         )
@@ -142,7 +142,7 @@ async def get_low_stock_parts(
         )
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message=f"Found {len(data)} parts with low stock",
             data=data
         )
@@ -167,7 +167,7 @@ async def get_spending_by_category(
         )
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message=f"Retrieved spending data for {len(data)} categories",
             data=data
         )
@@ -187,7 +187,7 @@ async def get_inventory_value(
         data = analytics_service.get_inventory_value()
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message="Retrieved inventory value",
             data=data
         )
@@ -205,7 +205,7 @@ async def get_dashboard_summary(
         logger.info(f"User {current_user.username} requesting dashboard summary")
         
         # Get data for last 30 days
-        end_date = datetime.now()
+        end_date = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
         start_date = end_date - timedelta(days=30)
         
         # Collect all analytics
@@ -235,7 +235,7 @@ async def get_dashboard_summary(
         }
         
         return ResponseSchema(
-            success=True,
+            status="success",
             message="Retrieved dashboard summary",
             data=summary
         )

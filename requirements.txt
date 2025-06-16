@@ -5,6 +5,10 @@ requests==2.32.3
 websockets==13.1
 beautifulsoup4==4.12.2
 mouser==0.1.5
+pandas>=2.3.0
+openpyxl>=3.1.5
+xlrd>=2.0.2
+pyperclip>=1.8.2
 
 # Specific version pins for production dependencies
 fastapi==0.115.2

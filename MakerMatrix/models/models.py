@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Any, List, Union
-from pydantic import model_validator, field_validator, BaseModel, ConfigDict
+from pydantic import model_validator, field_validator, BaseModel, ConfigDict, field_serializer
+from decimal import Decimal
 from sqlalchemy import create_engine, ForeignKey, String, or_, cast, UniqueConstraint, Numeric
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import SQLModel, Field, Relationship, Session, select
@@ -343,9 +344,22 @@ class PartOrderSummary(SQLModel, table=True):
     
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
+    @field_serializer('last_ordered_price', 'lowest_price', 'highest_price', 'average_price')
+    def serialize_decimal_fields(self, value: Optional[float]) -> Optional[float]:
+        """Convert Decimal values to float during serialization"""
+        if isinstance(value, Decimal):
+            return float(value)
+        return value
+    
     def to_dict(self) -> Dict[str, Any]:
         """Custom serialization method"""
         base_dict = self.model_dump(exclude={"part"})
+        
+        # Manually convert Decimal fields to float to prevent warnings
+        for field in ['last_ordered_price', 'lowest_price', 'highest_price', 'average_price']:
+            if field in base_dict and isinstance(base_dict[field], Decimal):
+                base_dict[field] = float(base_dict[field])
+        
         # Convert datetime fields to ISO strings
         if self.last_ordered_date:
             base_dict["last_ordered_date"] = self.last_ordered_date.isoformat()

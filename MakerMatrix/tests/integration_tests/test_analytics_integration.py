@@ -115,7 +115,7 @@ def test_get_spending_by_supplier(setup_database, auth_headers, sample_orders):
     assert response.status_code == 200
     
     data = response.json()
-    assert data["success"] is True
+    assert data["status"] == "success"
     assert "data" in data
     
     suppliers = data["data"]
@@ -140,7 +140,7 @@ def test_get_spending_trend(setup_database, auth_headers, sample_orders):
     assert response.status_code == 200
     
     data = response.json()
-    assert data["success"] is True
+    assert data["status"] == "success"
     assert "data" in data
     
     trends = data["data"]
@@ -165,7 +165,7 @@ def test_get_price_trends(setup_database, auth_headers, sample_orders, sample_pa
     assert response.status_code == 200
     
     data = response.json()
-    assert data["success"] is True
+    assert data["status"] == "success"
     assert "data" in data
     
     trends = data["data"]
@@ -187,7 +187,7 @@ def test_get_dashboard_summary(setup_database, auth_headers, sample_orders):
     assert response.status_code == 200
     
     data = response.json()
-    assert data["success"] is True
+    assert data["status"] == "success"
     assert "data" in data
     
     summary = data["data"]
@@ -207,7 +207,7 @@ def test_get_inventory_value(setup_database, auth_headers, sample_orders):
     assert response.status_code == 200
     
     data = response.json()
-    assert data["success"] is True
+    assert data["status"] == "success"
     assert "data" in data
     
     value = data["data"]
@@ -233,7 +233,7 @@ def test_get_low_stock_parts(setup_database, auth_headers, sample_parts, sample_
     assert response.status_code == 200
     
     data = response.json()
-    assert data["success"] is True
+    assert data["status"] == "success"
     assert "data" in data
     
     low_stock = data["data"]
@@ -262,7 +262,7 @@ def test_spending_trend_sqlite_compatibility(setup_database, auth_headers, sampl
         assert response.status_code == 200, f"Failed for period: {period}"
         
         data = response.json()
-        assert data["success"] is True
+        assert data["status"] == "success"
         assert "data" in data
         
         trends = data["data"]

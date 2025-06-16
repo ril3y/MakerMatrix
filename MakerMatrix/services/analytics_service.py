@@ -40,7 +40,7 @@ class AnalyticsService:
         
         Args:
             start_date: Start date for analysis (default: 30 days ago)
-            end_date: End date for analysis (default: today)
+            end_date: End date for analysis (default: end of today)
             limit: Maximum number of suppliers to return
             
         Returns:
@@ -49,7 +49,8 @@ class AnalyticsService:
         if not start_date:
             start_date = datetime.now() - timedelta(days=30)
         if not end_date:
-            end_date = datetime.now()
+            # Use end of current day to include orders from later today
+            end_date = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
             
         logger.info(f"Calculating spending by supplier from {start_date} to {end_date}")
         
@@ -186,20 +187,25 @@ class AnalyticsService:
         logger.info(f"Getting top {limit} frequently ordered parts")
         
         with Session(self.engine) as session:
+            # Calculate order statistics for each part
             results = session.query(
                 PartModel.id,
                 PartModel.part_name,
                 PartModel.part_number,
                 PartModel.quantity,
-                OrderSummary.total_orders,
-                OrderSummary.average_price,
-                OrderSummary.last_order_date
+                func.count(func.distinct(OrderItemModel.order_id)).label('total_orders'),
+                func.avg(OrderItemModel.unit_price).label('average_price'),
+                func.max(OrderModel.order_date).label('last_order_date')
             ).join(
-                OrderSummary, PartModel.id == OrderSummary.part_id
-            ).filter(
-                OrderSummary.total_orders >= min_orders
+                OrderItemModel, PartModel.id == OrderItemModel.part_id
+            ).join(
+                OrderModel, OrderItemModel.order_id == OrderModel.id
+            ).group_by(
+                PartModel.id, PartModel.part_name, PartModel.part_number, PartModel.quantity
+            ).having(
+                func.count(func.distinct(OrderItemModel.order_id)) >= min_orders
             ).order_by(
-                OrderSummary.total_orders.desc()
+                func.count(func.distinct(OrderItemModel.order_id)).desc()
             ).limit(limit).all()
             
             return [
@@ -288,7 +294,18 @@ class AnalyticsService:
             # Calculate average order quantity for each part
             avg_quantities = session.query(
                 OrderItemModel.part_id,
-                func.avg(OrderItemModel.quantity).label('avg_order_qty')
+                func.avg(OrderItemModel.quantity_ordered).label('avg_order_qty')
+            ).group_by(
+                OrderItemModel.part_id
+            ).subquery()
+            
+            # Calculate order statistics subquery
+            order_stats = session.query(
+                OrderItemModel.part_id,
+                func.max(OrderModel.order_date).label('last_order_date'),
+                func.count(func.distinct(OrderItemModel.order_id)).label('total_orders')
+            ).join(
+                OrderModel, OrderItemModel.order_id == OrderModel.id
             ).group_by(
                 OrderItemModel.part_id
             ).subquery()
@@ -299,24 +316,16 @@ class AnalyticsService:
                 PartModel.part_name,
                 PartModel.part_number,
                 PartModel.quantity,
-                PartModel.minimum_quantity,
                 avg_quantities.c.avg_order_qty,
-                OrderSummary.last_order_date,
-                OrderSummary.total_orders
+                order_stats.c.last_order_date,
+                order_stats.c.total_orders
             ).join(
                 avg_quantities, PartModel.id == avg_quantities.c.part_id
             ).outerjoin(
-                OrderSummary, PartModel.id == OrderSummary.part_id
+                order_stats, PartModel.id == order_stats.c.part_id
             ).filter(
-                or_(
-                    # Below minimum quantity
-                    and_(
-                        PartModel.minimum_quantity.isnot(None),
-                        PartModel.quantity <= PartModel.minimum_quantity
-                    ),
-                    # Below average order quantity threshold
-                    PartModel.quantity <= (avg_quantities.c.avg_order_qty * threshold_multiplier)
-                )
+                # Below average order quantity threshold
+                PartModel.quantity <= (avg_quantities.c.avg_order_qty * threshold_multiplier)
             ).all()
             
             return [
@@ -325,7 +334,7 @@ class AnalyticsService:
                     'name': result.part_name,
                     'part_number': result.part_number,
                     'current_quantity': result.quantity,
-                    'minimum_quantity': result.minimum_quantity,
+                    'minimum_quantity': None,  # Field doesn't exist in model
                     'average_order_quantity': float(result.avg_order_qty or 0),
                     'suggested_reorder_quantity': int((result.avg_order_qty or 0) * 2),
                     'last_order_date': result.last_order_date.isoformat() if result.last_order_date else None,
@@ -352,7 +361,8 @@ class AnalyticsService:
         if not start_date:
             start_date = datetime.now() - timedelta(days=30)
         if not end_date:
-            end_date = datetime.now()
+            # Use end of current day to include orders from later today
+            end_date = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
             
         logger.info(f"Calculating spending by category from {start_date} to {end_date}")
         
@@ -400,26 +410,36 @@ class AnalyticsService:
         logger.info("Calculating inventory value")
         
         with Session(self.engine) as session:
+            # Calculate average price for each part
+            avg_prices = session.query(
+                OrderItemModel.part_id,
+                func.avg(OrderItemModel.unit_price).label('average_price')
+            ).filter(
+                OrderItemModel.unit_price.isnot(None)
+            ).group_by(
+                OrderItemModel.part_id
+            ).subquery()
+            
             # Get parts with pricing information
             results = session.query(
-                func.sum(PartModel.quantity * OrderSummary.average_price).label('total_value'),
+                func.sum(PartModel.quantity * avg_prices.c.average_price).label('total_value'),
                 func.count(PartModel.id).label('total_parts'),
                 func.sum(PartModel.quantity).label('total_units')
             ).join(
-                OrderSummary, PartModel.id == OrderSummary.part_id
+                avg_prices, PartModel.id == avg_prices.c.part_id
             ).filter(
-                OrderSummary.average_price.isnot(None)
+                avg_prices.c.average_price.isnot(None)
             ).first()
             
             # Get parts without pricing
             unpriced_count = session.query(
                 func.count(PartModel.id)
             ).outerjoin(
-                OrderSummary, PartModel.id == OrderSummary.part_id
+                avg_prices, PartModel.id == avg_prices.c.part_id
             ).filter(
                 or_(
-                    OrderSummary.average_price.is_(None),
-                    OrderSummary.part_id.is_(None)
+                    avg_prices.c.average_price.is_(None),
+                    avg_prices.c.part_id.is_(None)
                 )
             ).scalar()
             
@@ -427,7 +447,7 @@ class AnalyticsService:
                 'total_value': float(results.total_value or 0) if results else 0,
                 'priced_parts': results.total_parts if results else 0,
                 'unpriced_parts': unpriced_count or 0,
-                'total_units': results.total_units if results else 0
+                'total_units': results.total_units if (results and results.total_units is not None) else 0
             }
 
 

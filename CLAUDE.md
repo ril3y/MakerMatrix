@@ -105,6 +105,14 @@ if parser and parser.supports_capability(CapabilityType.FETCH_PRICING):
     pricing_result = await parser.fetch_pricing(part)
 ```
 
+### Order File Import Support
+- **CSV files**: LCSC, DigiKey, and other CSV formats via text-based endpoints
+- **XLS files**: Mouser Electronics order files via file upload endpoints  
+- **Libraries**: pandas, openpyxl, xlrd for Excel file support
+- **API endpoints**: `/api/csv/preview-file` and `/api/csv/import-file` for file uploads
+- **Frontend**: Modular import system with supplier-specific components
+- **Test files**: `@MakerMatrix/tests/mouser_xls_test/` contains Mouser XLS test file
+
 ### Coding Guidelines
 - Always use pytest to test code
 - Make sure we update tests if we need to make them simpler, we don't keep creating new files

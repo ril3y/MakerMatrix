@@ -44,5 +44,5 @@ def test_admin_login():
     
     # Test that the token works for a protected route
     headers = {"Authorization": f"Bearer {token}"}
-    response = client.get("/parts/get_all_parts", headers=headers)
+    response = client.get("/api/parts/get_all_parts", headers=headers)
     assert response.status_code != 401  # Should not be unauthorized 

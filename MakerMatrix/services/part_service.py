@@ -277,15 +277,27 @@ class PartService:
 
                         categories.append(category)
                     
-                    logger.info(f"Assigned {len(categories)} categories to part '{part_name}': {[getattr(cat, 'name', str(cat)) for cat in categories]}")
+                    logger.info(f"Assigned {len(categories)} categories to part '{part_name}': {[getattr(cat, 'name', f'Category-{getattr(cat, 'id', 'unknown')}') for cat in categories]}")
 
                 # Extract datasheets data before creating the part
                 datasheets_data = part_data.pop("datasheets", [])
                 if datasheets_data:
                     logger.debug(f"Processing {len(datasheets_data)} datasheets for part '{part_name}'")
                 
+                # Filter out only valid PartModel fields
+                valid_part_fields = {
+                    'part_number', 'part_name', 'description', 'quantity', 
+                    'supplier', 'location_id', 'image_url', 'additional_properties'
+                }
+                
+                # Create part data dict with only valid fields
+                filtered_part_data = {
+                    key: value for key, value in part_data.items() 
+                    if key in valid_part_fields
+                }
+                
                 # Create the part without categories first
-                new_part = PartModel(**part_data)
+                new_part = PartModel(**filtered_part_data)
                 # Then assign categories after creation
                 new_part.categories = categories
 
@@ -305,10 +317,24 @@ class PartService:
                     logger.info(f"Added {len(datasheets_data)} datasheets to part '{part_name}'")
                 
                 logger.info(f"Successfully created part: {part_name} (ID: {part_obj.id}) with {len(categories)} categories")
+                
+                # Create a safe dict without accessing potentially unloaded relationships
+                safe_part_dict = {
+                    "id": part_obj.id,
+                    "part_name": part_obj.part_name,
+                    "part_number": part_obj.part_number,
+                    "description": part_obj.description,
+                    "quantity": part_obj.quantity,
+                    "supplier": part_obj.supplier,
+                    "location_id": part_obj.location_id,
+                    "image_url": part_obj.image_url,
+                    "categories": [{"id": cat.id, "name": cat.name} for cat in categories] if categories else []
+                }
+                
                 return {
                     "status": "success",
                     "message": "Part added successfully",
-                    "data": part_obj.to_dict()
+                    "data": safe_part_dict
                 }
             except Exception as e:
                 logger.error(f"Failed to create part '{part_name}': {e}")
@@ -531,9 +557,7 @@ class PartService:
                         elif key == "quantity":
                             logger.info(f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}")
                             updated_fields.append(f"quantity: {old_value} → {value}")
-                        elif key == "minimum_quantity":
-                            logger.info(f"Updated minimum quantity for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}")
-                            updated_fields.append(f"minimum_quantity: {old_value} → {value}")
+                        # minimum_quantity field doesn't exist in PartModel - removed
                         elif key == "part_name":
                             logger.info(f"Updated part name (ID: {part_id}): '{old_value}' → '{value}'")
                             updated_fields.append(f"name: '{old_value}' → '{value}'")

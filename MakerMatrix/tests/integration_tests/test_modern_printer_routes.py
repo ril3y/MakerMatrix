@@ -93,7 +93,7 @@ def test_part(admin_token):
     }
     
     response = client.post(
-        "/parts/add_part",
+        "/api/parts/add_part",
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )

@@ -14,7 +14,7 @@ This document provides comprehensive documentation for the MakerMatrix FastAPI a
   - [Locations Management](#locations-management)
   - [User Management](#user-management)
   - [Task Management](#task-management)
-  - [CSV Import](#csv-import)
+  - [Order File Import](#order-file-import)
   - [AI Integration](#ai-integration)
   - [Printer Management](#printer-management)
   - [Utility Routes](#utility-routes)
@@ -634,11 +634,11 @@ Get user's current task usage and limits.
 #### POST /tasks/security/validate
 Validate if a task can be created without creating it.
 
-### CSV Import
+### Order File Import (CSV/XLS)
 **Base Path:** `/csv`
 
 #### GET /csv/supported-types
-Get list of supported CSV file types.
+Get list of supported order file types (CSV and XLS).
 
 #### POST /csv/preview
 Preview CSV content and detect file type.
@@ -650,8 +650,20 @@ Preview CSV content and detect file type.
 }
 ```
 
+#### POST /csv/preview-file
+Preview uploaded CSV or XLS file and detect file type.
+
+**Request:** Form data with file upload
+```http
+Content-Type: multipart/form-data
+file: <csv_or_xls_file>
+```
+
+**Supported formats:** CSV, XLS, XLSX
+**Response:** File preview data with detected parser type
+
 #### POST /csv/import
-Import parts from CSV file.
+Import parts from CSV text content.
 
 **Request Body:**
 ```json
@@ -664,6 +676,23 @@ Import parts from CSV file.
   }
 }
 ```
+
+#### POST /csv/import-file
+Import uploaded CSV or XLS file.
+
+**Request:** Form data with file upload
+```http
+Content-Type: multipart/form-data
+file: <csv_or_xls_file>
+parser_type: lcsc|digikey|mouser (optional)
+order_number: string (optional)
+order_date: string (optional)
+notes: string (optional)
+```
+
+**Supported formats:** 
+- CSV: LCSC, DigiKey, and other CSV formats
+- XLS: Mouser Electronics order files
 
 #### POST /csv/import/with-progress
 Import CSV with progress tracking.

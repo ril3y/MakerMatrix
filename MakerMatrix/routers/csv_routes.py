@@ -1,12 +1,14 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, UploadFile, File
 from typing import Dict, Any, List
 from pydantic import BaseModel
+import os
 from MakerMatrix.services.csv_import_service import csv_import_service, CSVImportService
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.services.order_service import order_service
 from MakerMatrix.dependencies.auth import require_permission
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
+from MakerMatrix.schemas.response import ResponseSchema
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,18 +48,22 @@ class CSVImportResponse(BaseModel):
     order_id: str | None = None
 
 
-@router.get("/supported-types")
+@router.get("/supported-types", response_model=ResponseSchema[List[Dict[str, Any]]])
 async def get_supported_types():
     """Get list of supported CSV file types"""
     try:
         types = csv_import_service.get_supported_types()
-        return {"supported_types": types}
+        return ResponseSchema(
+            status="success",
+            message="Supported CSV types retrieved successfully",
+            data=types
+        )
     except Exception as e:
         logger.error(f"Error getting supported types: {e}")
         raise HTTPException(status_code=500, detail="Failed to get supported types")
 
 
-@router.post("/preview", response_model=CSVPreviewResponse)
+@router.post("/preview", response_model=ResponseSchema[Dict[str, Any]])
 async def preview_csv(
     request: CSVPreviewRequest,
     current_user: UserModel = Depends(require_permission("parts:read"))
@@ -66,16 +72,20 @@ async def preview_csv(
     try:
         preview_data = csv_import_service.preview_csv(request.csv_content)
         
-        return CSVPreviewResponse(
-            detected_type=preview_data.get("detected_type"),
-            type_info=preview_data.get("type_info", "Unknown"),
-            headers=preview_data.get("headers", []),
-            preview_rows=preview_data.get("preview_rows", []),
-            parsed_preview=preview_data.get("parsed_preview", []),
-            total_rows=preview_data.get("total_rows", 0),
-            is_supported=preview_data.get("is_supported", False),
-            validation_errors=preview_data.get("validation_errors", []),
-            error=preview_data.get("error")
+        # Transform to match expected test format
+        response_data = {
+            "detected_parser": preview_data.get("detected_type"),
+            "preview_rows": preview_data.get("preview_rows", []),
+            "headers": preview_data.get("headers", []),
+            "total_rows": preview_data.get("total_rows", 0),
+            "is_supported": preview_data.get("is_supported", False),
+            "validation_errors": preview_data.get("validation_errors", [])
+        }
+        
+        return ResponseSchema(
+            status="success",
+            message="CSV preview generated successfully",
+            data=response_data
         )
         
     except Exception as e:
@@ -83,7 +93,7 @@ async def preview_csv(
         raise HTTPException(status_code=500, detail=f"Failed to preview CSV: {str(e)}")
 
 
-@router.post("/import", response_model=CSVImportResponse)
+@router.post("/import", response_model=ResponseSchema[Dict[str, Any]])
 async def import_csv(
     csv_request: CSVImportRequest,
     http_request: Request,
@@ -101,10 +111,15 @@ async def import_csv(
             logger.warning(f"CSV parsing errors: {parsing_errors}")
         
         if not parts_data:
-            return CSVImportResponse(
-                success_parts=[],
-                failed_parts=["No valid parts data found in CSV"],
-                order_id=None
+            return ResponseSchema(
+                status="success",
+                message="CSV import completed with no valid parts found",
+                data={
+                    "total_rows": 0,
+                    "successful_imports": 0,
+                    "failed_imports": 1,
+                    "failures": ["No valid parts data found in CSV"]
+                }
             )
         
         # Import parts with order tracking
@@ -143,10 +158,16 @@ async def import_csv(
         
         logger.info(f"CSV import completed: {len(success_parts)} success, {len(failed_parts)} failed")
         
-        return CSVImportResponse(
-            success_parts=success_parts,
-            failed_parts=failed_parts,
-            order_id=None  # Could include order ID in future if needed
+        return ResponseSchema(
+            status="success",
+            message=f"CSV import completed: {len(success_parts)} parts imported successfully",
+            data={
+                "total_rows": len(parts_data),
+                "successful_imports": len(success_parts),
+                "failed_imports": len(failed_parts),
+                "imported_parts": success_parts,
+                "failures": failed_parts
+            }
         )
         
     except Exception as e:
@@ -202,7 +223,7 @@ async def extract_filename_info(
         raise HTTPException(status_code=500, detail=f"Failed to extract filename info: {str(e)}")
 
 
-@router.get("/parsers/{parser_type}/info")
+@router.get("/parsers/{parser_type}/info", response_model=ResponseSchema[Dict[str, Any]])
 async def get_parser_info(parser_type: str):
     """Get information about a specific parser"""
     try:
@@ -210,7 +231,12 @@ async def get_parser_info(parser_type: str):
         if not parser:
             raise HTTPException(status_code=404, detail=f"Parser '{parser_type}' not found")
         
-        return parser.get_info()
+        parser_info = parser.get_info()
+        return ResponseSchema(
+            status="success",
+            message=f"Parser information for {parser_type} retrieved successfully",
+            data=parser_info
+        )
         
     except HTTPException:
         raise
@@ -228,7 +254,7 @@ class CSVConfigRequest(BaseModel):
     show_progress: bool = True
 
 
-@router.get("/config")
+@router.get("/config", response_model=ResponseSchema[Dict[str, Any]])
 async def get_csv_import_config(
     current_user: UserModel = Depends(require_permission("parts:read"))
 ):
@@ -250,7 +276,11 @@ async def get_csv_import_config(
                 session.commit()
                 session.refresh(config)
             
-            return config.to_dict()
+            return ResponseSchema(
+                status="success",
+                message="CSV import configuration retrieved successfully",
+                data=config.to_dict()
+            )
         finally:
             session.close()
             
@@ -259,7 +289,7 @@ async def get_csv_import_config(
         raise HTTPException(status_code=500, detail="Failed to get CSV configuration")
 
 
-@router.put("/config")
+@router.put("/config", response_model=ResponseSchema[Dict[str, Any]])
 async def update_csv_import_config(
     config_request: CSVConfigRequest,
     current_user: UserModel = Depends(require_permission("parts:create"))
@@ -289,7 +319,11 @@ async def update_csv_import_config(
             session.commit()
             session.refresh(config)
             
-            return {"message": "Configuration updated successfully", "config": config.to_dict()}
+            return ResponseSchema(
+                status="success",
+                message="CSV configuration updated successfully",
+                data=config.to_dict()
+            )
         finally:
             session.close()
             
@@ -327,7 +361,7 @@ async def get_import_progress(
         raise HTTPException(status_code=500, detail="Failed to get import progress")
 
 
-@router.post("/import/with-progress", response_model=CSVImportResponse)
+@router.post("/import/with-progress", response_model=ResponseSchema[Dict[str, Any]])
 async def import_csv_with_progress(
     request: CSVImportRequest,
     background_tasks: BackgroundTasks,
@@ -375,10 +409,15 @@ async def import_csv_with_progress(
         _active_import_service = import_service_for_import
         
         if not parts_data:
-            return CSVImportResponse(
-                success_parts=[],
-                failed_parts=["No valid parts data found in CSV"],
-                order_id=None
+            return ResponseSchema(
+                status="success",
+                message="CSV import with progress completed with no valid parts found",
+                data={
+                    "message": "Import initiated with no valid parts found",
+                    "total_rows": 0,
+                    "successful_imports": 0,
+                    "failed_imports": 1
+                }
             )
         
         # Progress callback function that updates the shared service state
@@ -431,10 +470,15 @@ async def import_csv_with_progress(
         import_service_for_import.current_progress = None
         _active_import_service = None
         
-        return CSVImportResponse(
-            success_parts=success_parts,
-            failed_parts=failed_parts,
-            order_id=None
+        return ResponseSchema(
+            status="success",
+            message=f"CSV import with progress completed: {len(success_parts)} parts imported successfully",
+            data={
+                "message": f"Import completed with progress tracking: {len(success_parts)} successful, {len(failed_parts)} failed",
+                "total_rows": len(parts_data),
+                "successful_imports": len(success_parts),
+                "failed_imports": len(failed_parts)
+            }
         )
         
     except Exception as e:
@@ -448,3 +492,257 @@ async def import_csv_with_progress(
         if hasattr(e, '__cause__') and e.__cause__:
             error_details += f" (Caused by: {str(e.__cause__)})"
         raise HTTPException(status_code=500, detail=error_details)
+
+
+# File upload endpoints for CSV and XLS files
+@router.post("/preview-file", response_model=ResponseSchema[Dict[str, Any]])
+async def preview_file(
+    file: UploadFile = File(...),
+    current_user: UserModel = Depends(require_permission("parts:read"))
+):
+    """Preview uploaded CSV or XLS file and detect file type"""
+    try:
+        # Validate file type
+        allowed_extensions = ['.csv', '.xls', '.xlsx']
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file type {file_extension}. Supported: {', '.join(allowed_extensions)}"
+            )
+        
+        # Read file content
+        content = await file.read()
+        
+        # For CSV files, convert to string and use existing preview
+        if file_extension == '.csv':
+            csv_content = content.decode('utf-8')
+            preview_data = csv_import_service.preview_csv(csv_content)
+        else:
+            # For XLS files, use the new XLS parser
+            from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
+            xls_parser = MouserXLSParser()
+            
+            if xls_parser.can_parse(file_content=content, filename=file.filename):
+                preview_data = xls_parser.get_preview_data(file_content=content)
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported XLS file format")
+        
+        # Transform to match expected format
+        response_data = {
+            "detected_parser": preview_data.get("detected_parser") or preview_data.get("detected_type"),
+            "preview_rows": preview_data.get("preview_rows", []),
+            "headers": preview_data.get("headers", []),
+            "total_rows": preview_data.get("total_rows", 0),
+            "is_supported": preview_data.get("is_supported", False),
+            "validation_errors": preview_data.get("validation_errors", []),
+            "file_format": preview_data.get("file_format", "csv")
+        }
+        
+        return ResponseSchema(
+            status="success",
+            message="File preview generated successfully",
+            data=response_data
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error previewing file: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to preview file: {str(e)}")
+
+
+@router.post("/import-file", response_model=ResponseSchema[Dict[str, Any]])
+async def import_file(
+    http_request: Request,
+    file: UploadFile = File(...),
+    parser_type: str = None,
+    order_number: str = "",
+    order_date: str = "",
+    notes: str = "",
+    current_user: UserModel = Depends(require_permission("parts:create"))
+):
+    """Import uploaded CSV or XLS file"""
+    try:
+        # Validate file type
+        allowed_extensions = ['.csv', '.xls', '.xlsx']
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file type {file_extension}. Supported: {', '.join(allowed_extensions)}"
+            )
+        
+        # Read file content
+        content = await file.read()
+        
+        # Prepare order info - will add supplier based on parser type below
+        order_info = {
+            "order_number": order_number,
+            "order_date": order_date if order_date else None,
+            "notes": notes
+        }
+        
+        if file_extension == '.csv':
+            # For CSV files, convert to string and use existing import
+            csv_content = content.decode('utf-8')
+            
+            # Parse CSV to parts data
+            # Use auto-detection if no parser_type specified
+            effective_parser_type = parser_type
+            if not effective_parser_type:
+                effective_parser_type = csv_import_service.detect_csv_type(csv_content)
+                if not effective_parser_type:
+                    raise HTTPException(status_code=400, detail="Could not auto-detect CSV format")
+            
+            # Set supplier based on parser type
+            parser_to_supplier = {
+                'lcsc': 'LCSC',
+                'digikey': 'DigiKey', 
+                'mouser': 'Mouser'
+            }
+            order_info['supplier'] = parser_to_supplier.get(effective_parser_type, 'Unknown')
+            
+            parts_data, parsing_errors = csv_import_service.parse_csv_to_parts(
+                csv_content, 
+                effective_parser_type
+            )
+            
+            if parsing_errors:
+                logger.warning(f"CSV parsing errors: {parsing_errors}")
+            
+            if not parts_data:
+                result = {
+                    "total_rows": 0,
+                    "successful_imports": 0,
+                    "failed_imports": 1,
+                    "imported_parts": [],
+                    "failures": ["No valid parts data found in CSV"]
+                }
+            else:
+                # Import parts with order tracking
+                part_service = PartService()
+                success_parts, failed_parts = await csv_import_service.import_parts_with_order(
+                    parts_data,
+                    part_service,
+                    order_info
+                )
+                
+                # Add parsing errors to failed parts if any
+                if parsing_errors:
+                    failed_parts.extend([f"Parsing error: {error}" for error in parsing_errors])
+                
+                result = {
+                    "total_rows": len(parts_data),
+                    "successful_imports": len(success_parts),
+                    "failed_imports": len(failed_parts),
+                    "imported_parts": success_parts,
+                    "failures": failed_parts
+                }
+        else:
+            # For XLS files, use the new XLS parser
+            from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
+            xls_parser = MouserXLSParser()
+            
+            if not xls_parser.can_parse(file_content=content, filename=file.filename):
+                raise HTTPException(status_code=400, detail="Unsupported XLS file format")
+            
+            # Parse the XLS file
+            parsing_result = xls_parser.parse_content(content)
+            
+            if not parsing_result.success:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Failed to parse XLS file: {parsing_result.error_message}"
+                )
+            
+            # Convert XLS parsing result to parts_data format
+            parts_data = parsing_result.parts
+            
+            # Merge parser's order_info with user-provided order_info
+            # User input takes precedence, parser provides defaults for missing values
+            if parsing_result.order_info:
+                # Start with parser-extracted order_info as defaults
+                merged_order_info = parsing_result.order_info.copy()
+                
+                # Override with user-provided values (user input has priority)
+                if order_number:  # User provided order_number
+                    merged_order_info['order_number'] = order_number
+                if order_date:   # User provided order_date
+                    merged_order_info['order_date'] = order_date
+                if notes:        # User provided notes
+                    merged_order_info['notes'] = notes
+                
+                order_info = merged_order_info
+            
+            # Ensure supplier is set for XLS files (default to Mouser for .xls files)
+            if 'supplier' not in order_info or not order_info['supplier']:
+                order_info['supplier'] = 'Mouser'
+            
+            if not parts_data:
+                result = {
+                    "total_rows": parsing_result.total_rows,
+                    "successful_imports": 0,
+                    "failed_imports": 1,
+                    "imported_parts": [],
+                    "failures": ["No valid parts data found in XLS file"]
+                }
+            else:
+                # Import parts with order tracking using the same method as CSV
+                part_service = PartService()
+                success_parts, failed_parts = await csv_import_service.import_parts_with_order(
+                    parts_data,
+                    part_service,
+                    order_info
+                )
+                
+                # Add any XLS parsing errors to failed parts
+                if parsing_result.errors:
+                    failed_parts.extend([f"XLS parsing error: {error}" for error in parsing_result.errors])
+                
+                result = {
+                    "total_rows": parsing_result.total_rows,
+                    "successful_imports": len(success_parts),
+                    "failed_imports": len(failed_parts),
+                    "imported_parts": success_parts,
+                    "failures": failed_parts
+                }
+        
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_activity(
+                action="imported",
+                entity_type="file_upload",
+                entity_name=f"File import ({file_extension.upper()}): {result.get('successful_imports', 0)} parts",
+                details={
+                    "filename": file.filename,
+                    "file_type": file_extension,
+                    "parser_type": parser_type,
+                    "total_parts": result.get('total_rows', 0),
+                    "success_count": result.get('successful_imports', 0),
+                    "failed_count": result.get('failed_imports', 0),
+                    "order_info": order_info
+                },
+                user=current_user,
+                request=http_request
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log file import activity: {e}")
+        
+        logger.info(f"File import completed: {result.get('successful_imports', 0)} success, {result.get('failed_imports', 0)} failed")
+        
+        return ResponseSchema(
+            status="success",
+            message=f"File import completed: {result.get('successful_imports', 0)} parts imported successfully",
+            data=result
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error importing file: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to import file: {str(e)}")

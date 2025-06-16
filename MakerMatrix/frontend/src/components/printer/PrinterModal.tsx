@@ -364,7 +364,13 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
                     <img
                       src={previewUrl}
                       alt="Label Preview"
-                      className="max-w-full max-h-48 border border-border rounded"
+                      className="
+      max-w-full max-h-48 border border-border rounded
+      -rotate-90                /* 90 ° CCW (same as 270 ° CW) */
+      mx-auto                   /* keep horizontally centred */
+      block                     /* needed for mx-auto on an <img> */
+    "
+    style={{ transformOrigin: 'center' }} /* stay centred vertically */
                     />
                     <p className="text-sm text-secondary mt-2">Label Preview</p>
                   </div>

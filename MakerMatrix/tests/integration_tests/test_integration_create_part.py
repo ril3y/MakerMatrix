@@ -37,7 +37,7 @@ def test_create_part_integration():
         }
 
         # Create the part
-        response = client.post("/parts/add_part", json=part_data, headers=headers)
+        response = client.post("/api/parts/add_part", json=part_data, headers=headers)
         assert response.status_code == 200
         response_data = response.json()
         assert response_data["status"] == "success"
@@ -46,7 +46,7 @@ def test_create_part_integration():
         assert response_data["data"]["quantity"] == part_data["quantity"]
 
         # Optionally, fetch the part and check
-        get_response = client.get(f"/parts/get_part?part_name={part_data['part_name']}", headers=headers)
+        get_response = client.get(f"/api/parts/get_part?part_name={part_data['part_name']}", headers=headers)
         assert get_response.status_code == 200
         get_data = get_response.json()
         assert get_data["status"] == "success"

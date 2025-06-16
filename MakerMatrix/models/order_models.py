@@ -4,7 +4,8 @@ from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy import ForeignKey, String, DateTime, Numeric
 from datetime import datetime
 import uuid
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_serializer
+from decimal import Decimal
 
 
 class OrderModel(SQLModel, table=True):
@@ -45,9 +46,22 @@ class OrderModel(SQLModel, table=True):
     
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
+    @field_serializer('subtotal', 'tax', 'shipping', 'total')
+    def serialize_decimal_fields(self, value: Optional[float]) -> Optional[float]:
+        """Convert Decimal values to float during serialization"""
+        if isinstance(value, Decimal):
+            return float(value)
+        return value
+    
     def to_dict(self) -> Dict[str, Any]:
         """Custom serialization method"""
         base_dict = self.model_dump()
+        
+        # Manually convert Decimal fields to float to prevent warnings
+        for field in ['subtotal', 'tax', 'shipping', 'total']:
+            if field in base_dict and isinstance(base_dict[field], Decimal):
+                base_dict[field] = float(base_dict[field])
+        
         # Include order items
         base_dict["order_items"] = [item.to_dict() for item in self.order_items] if self.order_items else []
         return base_dict
@@ -95,9 +109,22 @@ class OrderItemModel(SQLModel, table=True):
     
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
+    @field_serializer('unit_price', 'extended_price')
+    def serialize_decimal_fields(self, value: Optional[float]) -> Optional[float]:
+        """Convert Decimal values to float during serialization"""
+        if isinstance(value, Decimal):
+            return float(value)
+        return value
+    
     def to_dict(self) -> Dict[str, Any]:
         """Custom serialization method"""
         base_dict = self.model_dump(exclude={"order", "part"})
+        
+        # Manually convert Decimal fields to float to prevent warnings
+        for field in ['unit_price', 'extended_price']:
+            if field in base_dict and isinstance(base_dict[field], Decimal):
+                base_dict[field] = float(base_dict[field])
+        
         # Include basic part info if linked
         if self.part:
             base_dict["part"] = {

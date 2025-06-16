@@ -163,6 +163,15 @@ class WebSocketManager:
 websocket_manager = WebSocketManager()
 
 
+async def broadcast_message(message: Dict[str, Any], connection_types: list = None):
+    """Broadcast message to specified connection types"""
+    if connection_types is None:
+        connection_types = ["general"]
+    
+    for connection_type in connection_types:
+        await websocket_manager.broadcast_to_type(connection_type, message)
+
+
 async def start_ping_task():
     """Start background task to ping connections periodically"""
     while True:

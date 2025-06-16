@@ -191,7 +191,7 @@ class TestImageUpload:
         }
         
         response = client.put(
-            f"/parts/update_part/{self.test_part_id}",
+            f"/api/parts/update_part/{self.test_part_id}",
             json=update_data,
             headers={"Authorization": f"Bearer {admin_token}"}
         )
@@ -199,7 +199,7 @@ class TestImageUpload:
         assert response.status_code == 200
         
         # Verify the part has the image URL
-        part_response = client.get(f"/parts/get_part?part_id={self.test_part_id}", headers={"Authorization": f"Bearer {admin_token}"})
+        part_response = client.get(f"/api/parts/get_part?part_id={self.test_part_id}", headers={"Authorization": f"Bearer {admin_token}"})
         assert part_response.status_code == 200
         part_data = part_response.json()["data"]
         assert part_data["image_url"] == image_url

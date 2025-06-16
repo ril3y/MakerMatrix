@@ -9,6 +9,7 @@ import json
 import os
 import re
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -79,9 +80,10 @@ class EnhancedServerManager:
         self.last_display_hash = ""
         self.last_logs_count = 0
         
-        # URLs and paths
-        self.backend_url = "http://192.168.1.57:57891"
-        self.frontend_url = "http://localhost:5173"
+        # URLs and paths - updated for network access
+        self.local_ip = self._get_local_ip()
+        self.backend_url = f"http://{self.local_ip}:57891"
+        self.frontend_url = f"http://{self.local_ip}:5173"
         self.project_root = Path(__file__).parent
         self.frontend_path = self.project_root / "MakerMatrix" / "frontend"
         self.log_file_path = self.project_root / "dev_manager.log"
@@ -100,7 +102,17 @@ class EnhancedServerManager:
         
         # Initialize enhanced logging
         self._init_log_file()
-        self.log_message("system", "Enhanced Development Manager initialized", "SUCCESS")
+        self.log_message("system", f"Enhanced Development Manager initialized on {self.local_ip}", "SUCCESS")
+    
+    def _get_local_ip(self):
+        """Get the local IP address for network access"""
+        try:
+            # Connect to a remote address to determine the local IP
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except Exception:
+            return "localhost"
     
     def _init_log_file(self):
         """Initialize the log file with session header"""
@@ -174,7 +186,7 @@ class EnhancedServerManager:
             python_exe = str(venv_python) if venv_python.exists() else sys.executable
             
             self.backend_process = subprocess.Popen(
-                [python_exe, "-m", "MakerMatrix.main"],
+                [python_exe, "-m", "uvicorn", "MakerMatrix.main:app", "--host", "0.0.0.0", "--port", "57891", "--reload"],
                 cwd=self.project_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -211,7 +223,7 @@ class EnhancedServerManager:
             self.log_message("frontend", "Starting React development server...", "INFO")
             
             self.frontend_process = subprocess.Popen(
-                ["npm", "run", "dev"],
+                ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
                 cwd=self.frontend_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -262,14 +274,19 @@ class EnhancedServerManager:
                                 self.backend_status = "Error"
                 
                 elif service == "frontend":
-                    if "Local:" in line and "http://localhost:" in line:
+                    if "Local:" in line and "http://" in line:
                         self.frontend_status = "Running"
                         self.log_message("frontend", "Frontend started successfully!", "SUCCESS")
-                        # Extract URL
+                        # Extract URL and find network URL
                         try:
-                            port_match = re.search(r'http://localhost:(\d+)', line)
-                            if port_match:
-                                self.frontend_url = f"http://localhost:{port_match.group(1)}"
+                            if "Network:" in line:
+                                network_match = re.search(r'http://([0-9.]+):(\d+)', line)
+                                if network_match:
+                                    self.frontend_url = f"http://{network_match.group(1)}:{network_match.group(2)}"
+                            else:
+                                port_match = re.search(r'http://[^:]+:(\d+)', line)
+                                if port_match:
+                                    self.frontend_url = f"http://0.0.0.0:{port_match.group(1)}"
                         except:
                             pass
                     elif any(error in line for error in ["Failed to compile", "Module not found", "SyntaxError"]):
@@ -283,12 +300,16 @@ class EnhancedServerManager:
                 line_upper = line.upper()
                 line_lower = line.lower()
                 
-                if any(error in line_upper for error in ["ERROR", "FAILED", "EXCEPTION", "CRITICAL", "FATAL", "TRACEBACK"]):
+                # Check for success patterns first (these override error detection)
+                if any(success in line_lower for success in ["success", "completed", "started", "ready", "connected"]):
+                    level = "SUCCESS"
+                # Check for specific success patterns that mention "failed" but are actually success messages
+                elif "import completed" in line_lower and ("success" in line_lower or "failed" in line_lower):
+                    level = "SUCCESS"
+                elif any(error in line_upper for error in ["ERROR", "FAILED", "EXCEPTION", "CRITICAL", "FATAL", "TRACEBACK"]):
                     level = "ERROR"
                 elif any(warn in line_upper for warn in ["WARN", "WARNING", "DEPRECATED"]):
                     level = "WARN"
-                elif any(success in line_lower for success in ["success", "completed", "started", "ready", "connected"]):
-                    level = "SUCCESS"
                 
                 self.log_message(service, line, level)
                 
@@ -396,8 +417,9 @@ class EnhancedServerManager:
             return
             
         try:
-            # Get basic counts
-            response = requests.get(f"{self.backend_url}/utility/get_counts", timeout=3)
+            # Get basic counts - use localhost for internal API calls
+            api_url = "http://localhost:57891/utility/get_counts"
+            response = requests.get(api_url, timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "success" and "data" in data:
@@ -509,7 +531,7 @@ class EnhancedServerManager:
             f"{self.term.green}1{self.term.normal}:Start Backend  {self.term.green}2{self.term.normal}:Stop Backend   {self.term.green}3{self.term.normal}:Start Frontend  {self.term.green}4{self.term.normal}:Stop Frontend  {self.term.green}5{self.term.normal}:Both",
             f"{self.term.green}6{self.term.normal}:Stop All      {self.term.green}7{self.term.normal}:Restart BE     {self.term.green}8{self.term.normal}:Restart FE      {self.term.green}9{self.term.normal}:Build Frontend",
             f"{self.term.green}v{self.term.normal}:Switch View   {self.term.green}e{self.term.normal}:Errors Only    {self.term.green}r{self.term.normal}:Refresh Stats  {self.term.green}c{self.term.normal}:Clear Logs     {self.term.green}s{self.term.normal}:Search",
-            f"{self.term.green}↑↓{self.term.normal}:Scroll       {self.term.green}PgUp/PgDn{self.term.normal}:Fast     {self.term.green}Home/End{self.term.normal}:Top/Bottom  {self.term.green}Esc{self.term.normal}:Exit Search {self.term.green}q{self.term.normal}:Quit"
+            f"{self.term.green}↑↓/jk{self.term.normal}:Scroll     {self.term.green}PgUp/PgDn{self.term.normal}:Fast     {self.term.green}Home/End{self.term.normal}:Top/Bottom  {self.term.green}Esc{self.term.normal}:Exit Search {self.term.green}q{self.term.normal}:Quit"
         ]
         
         for i, control in enumerate(controls):
@@ -554,10 +576,20 @@ class EnhancedServerManager:
                 print(self.term.clear_eol + self.term.dim + "No logs available..." + self.term.normal)
             return
         
-        # Calculate visible range
-        start_idx = max(0, len(logs) - available_height - self.scroll_position)
-        end_idx = start_idx + available_height
-        visible_logs = logs[start_idx:end_idx]
+        # Calculate visible range - fixed scrolling logic
+        # scroll_position = 0 means show newest logs (bottom)
+        # scroll_position > 0 means scroll up to see older logs
+        total_logs = len(logs)
+        if total_logs <= available_height:
+            # All logs fit on screen
+            visible_logs = logs
+        else:
+            # Calculate start index based on scroll position
+            # When scroll_position = 0, show the newest logs (end of list)
+            # When scroll_position increases, show older logs (earlier in list)
+            start_idx = max(0, total_logs - available_height - self.scroll_position)
+            end_idx = start_idx + available_height
+            visible_logs = logs[start_idx:end_idx]
         
         # Display logs
         for i in range(available_height):
@@ -654,12 +686,12 @@ class EnhancedServerManager:
             self.search_term = ""
             self.filtered_logs = []
             self.scroll_position = 0
-        elif key.name == 'KEY_UP':
+        elif key.name == 'KEY_UP' or key == 'k':  # Also support 'k' for vim-like scrolling
             logs = self.get_current_logs()
             available_height = max(5, self.term.height - 11 - 2)
             max_scroll = max(0, len(logs) - available_height)
             self.scroll_position = min(self.scroll_position + 1, max_scroll)
-        elif key.name == 'KEY_DOWN':
+        elif key.name == 'KEY_DOWN' or key == 'j':  # Also support 'j' for vim-like scrolling
             self.scroll_position = max(self.scroll_position - 1, 0)
         elif key.name == 'KEY_PGUP':
             logs = self.get_current_logs()

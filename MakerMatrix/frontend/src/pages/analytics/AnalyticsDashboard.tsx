@@ -296,7 +296,7 @@ const AnalyticsDashboard = () => {
             <div>
               <p className="text-sm text-secondary">Total Units</p>
               <p className="text-2xl font-bold text-primary">
-                {summary.inventory_value.total_units.toLocaleString()}
+                {(summary.inventory_value.total_units ?? 0).toLocaleString()}
               </p>
               <p className="text-xs text-muted mt-1">
                 Across all parts
@@ -366,7 +366,7 @@ const AnalyticsDashboard = () => {
                         beginAtZero: true,
                         ticks: {
                           callback: function(value) {
-                            return '$' + value.toLocaleString()
+                            return '$' + (value ?? 0).toLocaleString()
                           }
                         }
                       }
@@ -418,7 +418,7 @@ const AnalyticsDashboard = () => {
                         beginAtZero: true,
                         ticks: {
                           callback: function(value) {
-                            return '$' + value.toLocaleString()
+                            return '$' + (value ?? 0).toLocaleString()
                           }
                         }
                       }

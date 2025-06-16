@@ -20,7 +20,7 @@ export class DashboardService {
   }
 
   async getPartCounts(): Promise<number> {
-    const response = await apiClient.get<ApiResponse<number>>('/parts/get_part_counts')
+    const response = await apiClient.get<ApiResponse<number>>('/api/parts/get_part_counts')
     return response.data!
   }
 

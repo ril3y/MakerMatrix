@@ -85,7 +85,7 @@ def auth_token(test_user):
 
 def test_protected_route_without_token():
     """Test that a protected route returns 401 without a token."""
-    response = client.get("/parts/get_all_parts")
+    response = client.get("/api/parts/get_all_parts")
     assert response.status_code == 401
     assert "Not authenticated" in response.text
 
@@ -93,7 +93,7 @@ def test_protected_route_without_token():
 def test_protected_route_with_token(auth_token):
     """Test that a protected route works with a valid token."""
     headers = {"Authorization": f"Bearer {auth_token}"}
-    response = client.get("/parts/get_all_parts", headers=headers)
+    response = client.get("/api/parts/get_all_parts", headers=headers)
     # The endpoint might return 200 or 404 depending on whether there are parts in the database
     # We just want to make sure it's not a 401 Unauthorized
     assert response.status_code != 401
@@ -125,7 +125,7 @@ def test_permission_required_endpoint(auth_token):
     # This test assumes the test user has the 'parts:create' permission
     headers = {"Authorization": f"Bearer {auth_token}"}
     response = client.post(
-        "/parts/add_part",
+        "/api/parts/add_part",
         headers=headers,
         json={
             "part_name": unique_part_name,

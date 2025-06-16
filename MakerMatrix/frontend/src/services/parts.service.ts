@@ -14,7 +14,7 @@ export class PartsService {
       part_name: data.name,
       category_names: data.categories || []
     }
-    const response = await apiClient.post<ApiResponse<any>>('/parts/add_part', backendData)
+    const response = await apiClient.post<ApiResponse<any>>('/api/parts/add_part', backendData)
     
     // Map response back to frontend format
     if (response.data) {
@@ -30,7 +30,7 @@ export class PartsService {
   }
 
   async getPart(id: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/parts/get_part?part_id=${id}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_id=${id}`)
     if (response.data) {
       return {
         ...response.data,
@@ -44,7 +44,7 @@ export class PartsService {
   }
 
   async getPartByName(name: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/parts/get_part?part_name=${name}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_name=${name}`)
     if (response.data) {
       return {
         ...response.data,
@@ -58,7 +58,7 @@ export class PartsService {
   }
 
   async getPartByNumber(partNumber: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/parts/get_part?part_number=${partNumber}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_number=${partNumber}`)
     if (response.data) {
       return {
         ...response.data,
@@ -118,7 +118,7 @@ export class PartsService {
     delete backendData.name
     delete backendData.categories
     
-    const response = await apiClient.put<ApiResponse<any>>(`/parts/update_part/${id}`, backendData)
+    const response = await apiClient.put<ApiResponse<any>>(`/api/parts/update_part/${id}`, backendData)
     if (response.data) {
       return {
         ...response.data,
@@ -132,11 +132,11 @@ export class PartsService {
   }
 
   async deletePart(id: string): Promise<ApiResponse> {
-    return await apiClient.delete<ApiResponse>(`/parts/delete_part?part_id=${id}`)
+    return await apiClient.delete<ApiResponse>(`/api/parts/delete_part?part_id=${id}`)
   }
 
   async getAllParts(page = 1, pageSize = 20): Promise<{ data: Part[], total_parts: number }> {
-    const response = await apiClient.get<any>('/parts/get_all_parts', {
+    const response = await apiClient.get<any>('/api/parts/get_all_parts', {
       params: { page, page_size: pageSize }
     })
     
@@ -160,7 +160,7 @@ export class PartsService {
   }
 
   async getAll(): Promise<Part[]> {
-    const response = await apiClient.get<any>('/parts/get_all_parts')
+    const response = await apiClient.get<any>('/api/parts/get_all_parts')
     
     // Map backend response to frontend format
     if (response.data && Array.isArray(response.data)) {
@@ -189,12 +189,12 @@ export class PartsService {
   }
 
   async searchParts(params: SearchPartsRequest): Promise<PaginatedResponse<Part>> {
-    const response = await apiClient.post<PaginatedResponse<Part>>('/parts/search', params)
+    const response = await apiClient.post<PaginatedResponse<Part>>('/api/parts/search', params)
     return response
   }
 
   async searchPartsText(query: string, page = 1, pageSize = 20): Promise<{ data: Part[], total_parts: number }> {
-    const response = await apiClient.get<any>('/parts/search_text', {
+    const response = await apiClient.get<any>('/api/parts/search_text', {
       params: { query, page, page_size: pageSize }
     })
     
@@ -223,7 +223,7 @@ export class PartsService {
     }
     
     try {
-      const response = await apiClient.get<any>('/parts/suggestions', {
+      const response = await apiClient.get<any>('/api/parts/suggestions', {
         params: { query, limit }
       })
       return response.data || []
@@ -235,7 +235,7 @@ export class PartsService {
 
   async checkNameExists(name: string, excludeId?: string): Promise<boolean> {
     try {
-      const response = await apiClient.get<ApiResponse<boolean>>('/parts/check_name_exists', {
+      const response = await apiClient.get<ApiResponse<boolean>>('/api/parts/check_name_exists', {
         params: { name, exclude_id: excludeId }
       })
       return response.data || false
@@ -245,7 +245,7 @@ export class PartsService {
   }
 
   async importFromSupplier(supplier: string, url: string): Promise<Part> {
-    const response = await apiClient.post<ApiResponse<Part>>('/parts/import', {
+    const response = await apiClient.post<ApiResponse<Part>>('/api/parts/import', {
       supplier,
       url
     })

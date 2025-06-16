@@ -49,7 +49,7 @@ def auth_token(test_user):
 
 def test_protected_route_without_token():
     """Test that a protected route returns 401 without a token."""
-    response = client.get("/parts/get_all_parts")
+    response = client.get("/api/parts/get_all_parts")
     assert response.status_code == 401
     assert "Not authenticated" in response.text
 
@@ -57,7 +57,7 @@ def test_protected_route_without_token():
 def test_protected_route_with_token(auth_token):
     """Test that a protected route works with a valid token."""
     headers = {"Authorization": f"Bearer {auth_token}"}
-    response = client.get("/parts/get_part_counts", headers=headers)
+    response = client.get("/api/parts/get_part_counts", headers=headers)
     assert response.status_code == 200
 
 

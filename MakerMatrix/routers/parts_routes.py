@@ -259,8 +259,8 @@ async def update_part(
             # Track what changed
             changes = {}
             update_dict = part_data.model_dump(exclude_unset=True)
-            if original_part:
-                original_dict = original_part.to_dict()
+            if original_part and original_part.get("status") == "success":
+                original_dict = original_part["data"]  # original_part is already a dict from service
                 for key, new_value in update_dict.items():
                     if key in original_dict and original_dict[key] != new_value:
                         changes[key] = {

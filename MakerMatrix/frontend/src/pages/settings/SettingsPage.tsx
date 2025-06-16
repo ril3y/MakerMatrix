@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { settingsService } from '@/services/settings.service'
 import { AIConfig, PrinterConfig, BackupStatus } from '@/types/settings'
 import toast from 'react-hot-toast'
-import CSVImport from '@/components/ui/CSVImport'
+import ImportSelector from '@/components/import/ImportSelector'
 import TasksManagement from '@/components/tasks/TasksManagement'
 import ThemeSelector from '@/components/ui/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -717,7 +717,7 @@ const SettingsPage = () => {
 
         {activeTab === 'import' && (
           <div className="space-y-6">
-            <CSVImport 
+            <ImportSelector 
               onImportComplete={(result) => {
                 toast.success(`Import completed: ${result.success_parts.length} parts added`)
                 if (result.failed_parts.length > 0) {

@@ -11,7 +11,7 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, modern_printer_routes, preview_routes,
-    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes, analytics_routes
+    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes, analytics_routes, activity_routes
 )
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -166,12 +166,13 @@ secure_all_routes(ai_routes.router)
 secure_all_routes(csv_routes.router, permissions=csv_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
 secure_all_routes(analytics_routes.router)
+secure_all_routes(activity_routes.router)
 
 # Public routes that don't need authentication
 public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
 
 # Include routers
-app.include_router(parts_routes.router, prefix="/parts", tags=["parts"])
+app.include_router(parts_routes.router, prefix="/api/parts", tags=["parts"])
 app.include_router(locations_routes.router, prefix="/locations", tags=["locations"])
 app.include_router(categories_routes.router, prefix="/categories", tags=["categories"])
 app.include_router(printer_routes.router, prefix="/printer", tags=["printer"])
@@ -185,6 +186,7 @@ app.include_router(ai_routes.router, prefix="/ai", tags=["AI Configuration"])
 app.include_router(csv_routes.router, prefix="/api/csv", tags=["CSV Import"])
 app.include_router(task_routes.router, prefix="/api/tasks", tags=["Background Tasks"])
 app.include_router(analytics_routes.router, tags=["Analytics"])
+app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
 app.include_router(static_routes.router, tags=["Static Files"])
 
@@ -200,12 +202,15 @@ if os.path.exists(frontend_dist_path):
     async def serve_frontend():
         return FileResponse(os.path.join(frontend_dist_path, "index.html"))
     
-    # Catch-all route for React Router (SPA routing)
+    # Catch-all route for React Router (SPA routing) - but exclude API routes entirely
     @app.get("/{full_path:path}")
     async def serve_frontend_routes(full_path: str):
-        # Don't serve frontend for API routes
+        # Skip this route entirely for API paths - let FastAPI routing handle them
         if full_path.startswith(("parts/", "locations/", "categories/", "printer/", "utility/", "auth/", "users/", "roles/", "ai/", "api/", "static/", "docs", "redoc", "openapi.json")):
-            return {"error": "Not found"}
+            # This will never actually be reached for properly mounted API routes
+            # but provides a fallback for unmounted API-like paths
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="API endpoint not found")
         return FileResponse(os.path.join(frontend_dist_path, "index.html"))
 else:
     @app.get("/")

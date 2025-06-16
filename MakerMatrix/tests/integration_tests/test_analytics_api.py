@@ -15,8 +15,8 @@ from MakerMatrix.models.models import (
 from MakerMatrix.models.order_models import (
     OrderModel, OrderItemModel, OrderSummary
 )
-from MakerMatrix.repositories.part_repository import PartRepository
-from MakerMatrix.repositories.location_repository import LocationRepository
+from MakerMatrix.repositories.parts_repositories import PartRepository
+from MakerMatrix.repositories.location_repositories import LocationRepository
 from MakerMatrix.repositories.category_repositories import CategoryRepository
 
 

@@ -100,7 +100,7 @@ def setup_part_update_part(admin_token):
 
     # Make a POST request to add the part to the database
     response = client.post(
-        "/parts/add_part", 
+        "/api/parts/add_part", 
         json=part_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )

@@ -45,7 +45,7 @@ def test_mobile_login():
         
         # Test token by accessing a protected route
         headers = {"Authorization": f"Bearer {token}"}
-        protected_response = client.get("/parts/get_all_parts", headers=headers)
+        protected_response = client.get("/api/parts/get_all_parts", headers=headers)
         
         # Verify we can access protected route with the token
         assert protected_response.status_code != 401  # Not unauthorized
