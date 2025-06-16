@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional, List
 from sqlalchemy import delete
 from sqlmodel import Session, select
@@ -9,6 +10,9 @@ from MakerMatrix.repositories.custom_exceptions import (
     CategoryAlreadyExistsError,
     InvalidReferenceError
 )
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class CategoryRepository:
@@ -73,13 +77,16 @@ class CategoryRepository:
         Raises:
             CategoryAlreadyExistsError: If category with same name already exists
         """
-        # Check for duplicate category name
         category_name = new_category.get("name")
+        logger.debug(f"[REPO] Attempting to create category in database: {category_name}")
+        
+        # Check for duplicate category name
         if category_name:
             existing_category = session.exec(
                 select(CategoryModel).where(CategoryModel.name == category_name)
             ).first()
             if existing_category:
+                logger.debug(f"[REPO] Category creation failed - duplicate name: {category_name}")
                 raise CategoryAlreadyExistsError(
                     status="error",
                     message=f"Category with name '{category_name}' already exists",
@@ -91,9 +98,11 @@ class CategoryRepository:
             session.add(cmodel)
             session.commit()
             session.refresh(cmodel)
+            logger.debug(f"[REPO] Successfully created category in database: {cmodel.name} (ID: {cmodel.id})")
             return cmodel
         except Exception as e:
             session.rollback()
+            logger.error(f"[REPO] Database error creating category {category_name}: {str(e)}")
             raise RuntimeError(f"Failed to create category: {str(e)}")
 
     @staticmethod
@@ -108,21 +117,27 @@ class CategoryRepository:
         Returns:
             CategoryModel: The removed category
         """
+        logger.debug(f"[REPO] Removing category from database: {rm_category.name} (ID: {rm_category.id})")
+        
         # Remove associations between parts and the category
         from MakerMatrix.models.models import PartModel
 
         parts = session.exec(
             select(PartModel).where(PartModel.categories.any(id=rm_category.id))
         ).all()
-        for part in parts:
-            part.categories = [category for category in part.categories if category.id != rm_category.id]
-            session.add(part)
+        
+        if parts:
+            logger.debug(f"[REPO] Removing category associations from {len(parts)} parts")
+            for part in parts:
+                part.categories = [category for category in part.categories if category.id != rm_category.id]
+                session.add(part)
 
         session.commit()
 
         # Delete the category
         session.delete(rm_category)
         session.commit()
+        logger.debug(f"[REPO] Successfully removed category from database: {rm_category.name}")
         return rm_category
 
     @staticmethod
@@ -172,8 +187,11 @@ class CategoryRepository:
         Returns:
             CategoryModel: The updated category
         """
+        logger.debug(f"[REPO] Updating category in database: {category_id} with data: {category_data}")
+        
         category = session.get(CategoryModel, category_id)
         if not category:
+            logger.debug(f"[REPO] Category update failed - not found: {category_id}")
             raise ResourceNotFoundError(
                 status="error",
                 message=f"Category with ID {category_id} not found",
@@ -181,11 +199,17 @@ class CategoryRepository:
             )
 
         # Update fields that are not None
+        updated_fields = []
         for key, value in category_data.items():
             if value is not None:
+                old_value = getattr(category, key, None)
                 setattr(category, key, value)
+                updated_fields.append(f"{key}: {old_value} -> {value}")
 
+        logger.debug(f"[REPO] Updating fields for category {category.name}: {', '.join(updated_fields)}")
+        
         session.add(category)
         session.commit()
         session.refresh(category)
+        logger.debug(f"[REPO] Successfully updated category in database: {category.name} (ID: {category_id})")
         return category

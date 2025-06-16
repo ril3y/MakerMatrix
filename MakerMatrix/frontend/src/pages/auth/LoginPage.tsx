@@ -49,10 +49,10 @@ const LoginPage = () => {
       transition={{ duration: 0.5 }}
     >
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-text-primary mb-2">
+        <h1 className="text-3xl font-bold text-primary mb-2">
           Welcome Back
         </h1>
-        <p className="text-text-secondary">
+        <p className="text-secondary">
           Sign in to access your MakerMatrix inventory
         </p>
       </div>
@@ -70,7 +70,7 @@ const LoginPage = () => {
         )}
 
         <div>
-          <label htmlFor="username" className="block text-sm font-medium text-text-secondary mb-2">
+          <label htmlFor="username" className="block text-sm font-medium text-secondary mb-2">
             Username
           </label>
           <input
@@ -87,7 +87,7 @@ const LoginPage = () => {
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">
+          <label htmlFor="password" className="block text-sm font-medium text-secondary mb-2">
             Password
           </label>
           <div className="relative">
@@ -102,7 +102,7 @@ const LoginPage = () => {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-muted hover:text-text-secondary transition-colors"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted hover:text-secondary transition-colors"
             >
               {showPassword ? (
                 <EyeOff className="w-5 h-5" />
@@ -140,8 +140,8 @@ const LoginPage = () => {
       </form>
 
       <div className="mt-8 text-center">
-        <p className="text-sm text-text-muted">
-          Default credentials: <span className="text-text-secondary font-mono">admin / Admin123!</span>
+        <p className="text-sm text-muted">
+          Default credentials: <span className="text-secondary font-mono">admin / Admin123!</span>
         </p>
       </div>
     </motion.div>

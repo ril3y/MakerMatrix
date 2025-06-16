@@ -45,10 +45,15 @@ class EnrichmentTaskHandlers:
             if not part_id:
                 raise ValueError("part_id is required for part enrichment")
             
-            # Get the part
-            part = await self.part_repository.get_by_id(part_id)
-            if not part:
-                raise ValueError(f"Part not found: {part_id}")
+            # Get the part using session
+            from MakerMatrix.database.db import get_session
+            session = next(get_session())
+            try:
+                part = PartRepository.get_part_by_id(session, part_id)
+                if not part:
+                    raise ValueError(f"Part not found: {part_id}")
+            finally:
+                session.close()
             
             # Determine which supplier to use
             supplier = preferred_supplier or part.supplier or part.part_vendor
@@ -113,7 +118,12 @@ class EnrichmentTaskHandlers:
             part.additional_properties['last_enrichment'] = datetime.utcnow().isoformat()
             
             # Update the part
-            await self.part_repository.update(part)
+            from MakerMatrix.database.db import get_session
+            session = next(get_session())
+            try:
+                PartRepository.update_part(session, part)
+            finally:
+                session.close()
             
             return {
                 "part_id": part_id,
@@ -141,11 +151,16 @@ class EnrichmentTaskHandlers:
             # Get part if part_id provided
             part = None
             if part_id:
-                part = await self.part_repository.get_by_id(part_id)
-                if not part:
-                    raise ValueError(f"Part not found: {part_id}")
-                part_number = part.part_number
-                supplier = supplier or part.supplier or part.part_vendor
+                from MakerMatrix.database.db import get_session
+                session = next(get_session())
+                try:
+                    part = PartRepository.get_part_by_id(session, part_id)
+                    if not part:
+                        raise ValueError(f"Part not found: {part_id}")
+                    part_number = part.part_number
+                    supplier = supplier or part.supplier or part.part_vendor
+                finally:
+                    session.close()
             
             if not supplier:
                 raise ValueError("Supplier is required for datasheet fetch")
@@ -172,7 +187,12 @@ class EnrichmentTaskHandlers:
                 if not part.additional_properties:
                     part.additional_properties = {}
                 part.additional_properties['datasheet_url'] = result.data.get('url')
-                await self.part_repository.update(part)
+                from MakerMatrix.database.db import get_session
+                session = next(get_session())
+                try:
+                    PartRepository.update_part(session, part)
+                finally:
+                    session.close()
             
             if progress_callback:
                 await progress_callback(100, "Datasheet fetch completed")
@@ -203,11 +223,16 @@ class EnrichmentTaskHandlers:
             # Get part if part_id provided
             part = None
             if part_id:
-                part = await self.part_repository.get_by_id(part_id)
-                if not part:
-                    raise ValueError(f"Part not found: {part_id}")
-                part_number = part.part_number
-                supplier = supplier or part.supplier or part.part_vendor
+                from MakerMatrix.database.db import get_session
+                session = next(get_session())
+                try:
+                    part = PartRepository.get_part_by_id(session, part_id)
+                    if not part:
+                        raise ValueError(f"Part not found: {part_id}")
+                    part_number = part.part_number
+                    supplier = supplier or part.supplier or part.part_vendor
+                finally:
+                    session.close()
             
             if not supplier:
                 raise ValueError("Supplier is required for image fetch")
@@ -232,7 +257,12 @@ class EnrichmentTaskHandlers:
             # Update part if part_id was provided
             if part and result.success and result.data:
                 part.image_url = result.data.get('url')
-                await self.part_repository.update(part)
+                from MakerMatrix.database.db import get_session
+                session = next(get_session())
+                try:
+                    PartRepository.update_part(session, part)
+                finally:
+                    session.close()
             
             if progress_callback:
                 await progress_callback(100, "Image fetch completed")

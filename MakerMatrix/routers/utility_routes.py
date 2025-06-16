@@ -49,9 +49,14 @@ async def get_counts():
     """
     # db_manager = DatabaseManager.get_instance()
     try:
-        parts_count = len(PartService.get_all_parts()['data'])
-        locations_count = len(LocationService.get_all_locations())
-        categories_count = len(CategoryService.get_all_categories()['data'])
+        parts_result = PartService.get_all_parts()
+        parts_count = len(parts_result['data'])
+        
+        locations_result = LocationService.get_all_locations()
+        locations_count = len(locations_result)
+        
+        categories_result = CategoryService.get_all_categories()
+        categories_count = len(categories_result['data']['categories'])
 
         return ResponseSchema(
             status="success",
@@ -59,8 +64,7 @@ async def get_counts():
             data={"parts": parts_count, "locations": locations_count, "categories": categories_count}
         )
     except Exception as e:
-        print(f"Error getting counts: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred while fetching counts")
+        raise HTTPException(status_code=500, detail=f"An error occurred while fetching counts: {str(e)}")
 
 
 @router.get("/backup/download")
@@ -99,7 +103,7 @@ async def export_data_json():
             "export_date": datetime.now().isoformat(),
             "parts": parts_data.get('data', []),
             "locations": locations_data,
-            "categories": categories_data.get('data', [])
+            "categories": categories_data.get('data', {}).get('categories', [])
         }
         
         # Create temporary file
@@ -135,7 +139,7 @@ async def get_backup_status():
         # Get table counts
         parts_count = len(PartService.get_all_parts()['data'])
         locations_count = len(LocationService.get_all_locations())
-        categories_count = len(CategoryService.get_all_categories()['data'])
+        categories_count = len(CategoryService.get_all_categories()['data']['categories'])
         
         return ResponseSchema(
             status="success",

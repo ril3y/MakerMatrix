@@ -41,12 +41,13 @@ class ServerManager:
         self.last_logs_count = (0, 0)
         
         # URLs
-        self.backend_url = "http://localhost:57891"
+        self.backend_url = "http://192.168.1.57:57891"
         self.frontend_url = "http://localhost:5173"  # Vite's default dev port
         
         # Paths
         self.project_root = Path(__file__).parent
         self.frontend_path = self.project_root / "MakerMatrix" / "frontend"
+        self.log_file_path = self.project_root / "server.log"
         
         # Dashboard stats
         self.stats = {
@@ -58,30 +59,66 @@ class ServerManager:
         }
         self.stats_error = None
         
+        # Initialize log file
+        self._init_log_file()
+    
+    def _init_log_file(self):
+        """Initialize the log file with a session header"""
+        try:
+            with open(self.log_file_path, 'a', encoding='utf-8') as f:
+                f.write(f"\n{'='*80}\n")
+                f.write(f"MakerMatrix Development Session Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"{'='*80}\n\n")
+        except Exception as e:
+            print(f"Warning: Could not initialize log file: {e}")
+    
+    def _write_to_log_file(self, log_entry: str):
+        """Write a log entry to the file"""
+        try:
+            with open(self.log_file_path, 'a', encoding='utf-8') as f:
+                f.write(f"{log_entry}\n")
+                f.flush()  # Ensure immediate write
+        except Exception as e:
+            # Silently fail to avoid disrupting the terminal UI
+            pass
+        
     def log_message(self, service: str, message: str, level: str = "INFO"):
         """Add a log message with timestamp"""
         timestamp = datetime.now().strftime("%H:%M:%S")
+        full_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Color code special log levels
+        # Create log entry for display (with emojis)
         if level == "CHANGE":
-            log_entry = f"[{timestamp}] [🔄 CHANGE] {message}"
+            display_entry = f"[{timestamp}] [🔄 CHANGE] {message}"
+            file_entry = f"[{full_timestamp}] [{service.upper()}] [CHANGE] {message}"
         elif level == "ERROR":
-            log_entry = f"[{timestamp}] [❌ ERROR] {message}"
+            display_entry = f"[{timestamp}] [❌ ERROR] {message}"
+            file_entry = f"[{full_timestamp}] [{service.upper()}] [ERROR] {message}"
         elif level == "WARN":
-            log_entry = f"[{timestamp}] [⚠️  WARN] {message}"
+            display_entry = f"[{timestamp}] [⚠️  WARN] {message}"
+            file_entry = f"[{full_timestamp}] [{service.upper()}] [WARN] {message}"
         elif level == "SUCCESS":
-            log_entry = f"[{timestamp}] [✅ SUCCESS] {message}"
+            display_entry = f"[{timestamp}] [✅ SUCCESS] {message}"
+            file_entry = f"[{full_timestamp}] [{service.upper()}] [SUCCESS] {message}"
         else:
-            log_entry = f"[{timestamp}] [{level}] {message}"
+            display_entry = f"[{timestamp}] [{level}] {message}"
+            file_entry = f"[{full_timestamp}] [{service.upper()}] [{level}] {message}"
         
+        # Write to log file immediately
+        self._write_to_log_file(file_entry)
+        
+        # Add to display logs
         if service == "backend":
-            self.backend_logs.append(log_entry)
+            self.backend_logs.append(display_entry)
         elif service == "frontend":
-            self.frontend_logs.append(log_entry)
+            self.frontend_logs.append(display_entry)
         else:
-            # System messages go to both
-            self.backend_logs.append(f"[{timestamp}] [SYSTEM] {message}")
-            self.frontend_logs.append(f"[{timestamp}] [SYSTEM] {message}")
+            # System messages go to both display and file
+            system_display = f"[{timestamp}] [SYSTEM] {message}"
+            system_file = f"[{full_timestamp}] [SYSTEM] {message}"
+            self.backend_logs.append(system_display)
+            self.frontend_logs.append(system_display)
+            self._write_to_log_file(system_file)
     
     def start_backend(self):
         """Start the FastAPI backend server"""
@@ -485,10 +522,7 @@ class ServerManager:
             with self.term.location(0, log_start_y + i):
                 if i < len(visible_logs):
                     log_line = visible_logs[i]
-                    # Truncate if too long
-                    if len(log_line) > self.term.width - 1:
-                        # Account for ANSI codes when truncating
-                        log_line = log_line[:self.term.width - 4] + "..."
+                    # Don't truncate - show full error messages
                     print(self.term.clear_eol + log_line)
                 else:
                     print(self.term.clear_eol)

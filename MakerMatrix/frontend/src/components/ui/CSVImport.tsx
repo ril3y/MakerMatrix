@@ -339,11 +339,11 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
     <div className="space-y-6">
       <div className="text-center space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-text-primary flex items-center justify-center gap-2 mb-2">
+          <h3 className="text-lg font-semibold text-primary flex items-center justify-center gap-2 mb-2">
             <Upload className="w-5 h-5" />
             Import Parts from CSV Orders
           </h3>
-          <p className="text-text-secondary mb-4">
+          <p className="text-secondary mb-4">
             Upload order CSV files to automatically add parts to your inventory with order tracking
           </p>
         </div>
@@ -351,7 +351,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
         {/* Inline Import Settings */}
         <div className="card max-w-2xl mx-auto">
           <div className="card-header">
-            <h4 className="text-sm font-medium text-text-primary flex items-center justify-center gap-2">
+            <h4 className="text-sm font-medium text-primary flex items-center justify-center gap-2">
               <Settings className="w-4 h-4" />
               Import Settings
             </h4>
@@ -360,7 +360,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Download Options */}
               <div className="space-y-3">
-                <h5 className="text-xs font-medium text-text-secondary uppercase tracking-wide">Download Options</h5>
+                <h5 className="text-xs font-medium text-secondary uppercase tracking-wide">Download Options</h5>
                 
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -370,8 +370,8 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                     className="checkbox"
                   />
                   <div className="flex items-center gap-2">
-                    <Download className="w-4 h-4 text-text-secondary" />
-                    <span className="text-sm text-text-primary">Download datasheets</span>
+                    <Download className="w-4 h-4 text-secondary" />
+                    <span className="text-sm text-primary">Download datasheets</span>
                   </div>
                 </label>
 
@@ -383,8 +383,8 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                     className="checkbox"
                   />
                   <div className="flex items-center gap-2">
-                    <Image className="w-4 h-4 text-text-secondary" />
-                    <span className="text-sm text-text-primary">Download images</span>
+                    <Image className="w-4 h-4 text-secondary" />
+                    <span className="text-sm text-primary">Download images</span>
                   </div>
                 </label>
 
@@ -395,13 +395,13 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                     onChange={(e) => setConfig(prev => ({ ...prev, overwrite_existing_files: e.target.checked }))}
                     className="checkbox"
                   />
-                  <span className="text-sm text-text-primary">Overwrite existing files</span>
+                  <span className="text-sm text-primary">Overwrite existing files</span>
                 </label>
               </div>
 
               {/* Performance Options */}
               <div className="space-y-3">
-                <h5 className="text-xs font-medium text-text-secondary uppercase tracking-wide">Options</h5>
+                <h5 className="text-xs font-medium text-secondary uppercase tracking-wide">Options</h5>
                 
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -410,11 +410,11 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                     onChange={(e) => setConfig(prev => ({ ...prev, show_progress: e.target.checked }))}
                     className="checkbox"
                   />
-                  <span className="text-sm text-text-primary">Show import progress</span>
+                  <span className="text-sm text-primary">Show import progress</span>
                 </label>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-text-primary">
+                  <label className="block text-xs font-medium text-primary">
                     Download timeout: {config.download_timeout_seconds}s
                   </label>
                   <input
@@ -444,8 +444,8 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="font-medium text-text-primary">Import Progress</h4>
-                <span className="text-sm text-text-secondary">
+                <h4 className="font-medium text-primary">Import Progress</h4>
+                <span className="text-sm text-secondary">
                   {importProgress.processed_parts} / {importProgress.total_parts || '?'} parts
                 </span>
               </div>
@@ -465,8 +465,8 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
               </div>
               
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-primary">{importProgress.current_operation}</span>
-                <span className="text-text-secondary">
+                <span className="text-primary">{importProgress.current_operation}</span>
+                <span className="text-secondary">
                   {importProgress.total_parts > 0 
                     ? Math.round((importProgress.processed_parts / importProgress.total_parts) * 100)
                     : 0}%
@@ -496,8 +496,8 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
         {file ? (
           <div className="space-y-2">
             <CheckCircle className="w-8 h-8 text-accent mx-auto" />
-            <p className="text-text-primary font-medium">{file.name}</p>
-            <p className="text-sm text-text-secondary">
+            <p className="text-primary font-medium">{file.name}</p>
+            <p className="text-sm text-secondary">
               {(file.size / 1024).toFixed(1)} KB • {previewData?.total_rows || 0} rows
             </p>
             <button
@@ -510,9 +510,9 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
           </div>
         ) : (
           <div className="space-y-2">
-            <Upload className="w-8 h-8 text-text-muted mx-auto" />
-            <p className="text-text-primary font-medium">Drop CSV file here or click to browse</p>
-            <p className="text-sm text-text-secondary">
+            <Upload className="w-8 h-8 text-muted mx-auto" />
+            <p className="text-primary font-medium">Drop CSV file here or click to browse</p>
+            <p className="text-sm text-secondary">
               Supports: {supportedParsers.map(p => p.name).join(', ')} order files
             </p>
             <button
@@ -529,7 +529,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
       {loading && (
         <div className="text-center py-4">
           <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
-          <p className="text-text-secondary mt-2">Analyzing CSV file...</p>
+          <p className="text-secondary mt-2">Analyzing CSV file...</p>
         </div>
       )}
 
@@ -545,7 +545,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
             {/* Detection Results */}
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-medium text-text-primary">File Analysis</h4>
+                <h4 className="font-medium text-primary">File Analysis</h4>
                 <div className="flex items-center gap-2">
                   {previewData.is_supported ? (
                     <span className="flex items-center gap-1 text-accent">
@@ -563,7 +563,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                  <label className="block text-sm font-medium text-primary mb-2">
                     CSV Parser Type
                   </label>
                   <select
@@ -579,17 +579,17 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                     ))}
                   </select>
                   {previewData.detected_type && (
-                    <p className="text-xs text-text-secondary mt-1">
+                    <p className="text-xs text-secondary mt-1">
                       Auto-detected: {previewData.type_info}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                  <label className="block text-sm font-medium text-primary mb-2">
                     File Information
                   </label>
-                  <div className="text-sm text-text-secondary space-y-1">
+                  <div className="text-sm text-secondary space-y-1">
                     <p><strong>Rows:</strong> {previewData.total_rows}</p>
                     <p><strong>Columns:</strong> {previewData.headers.length}</p>
                   </div>
@@ -615,10 +615,10 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
 
             {/* Order Information */}
             <div className="card p-4">
-              <h4 className="font-medium text-text-primary mb-4">Order Information</h4>
+              <h4 className="font-medium text-primary mb-4">Order Information</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                  <label className="block text-sm font-medium text-primary mb-2">
                     Order Number
                     {orderInfo.order_number && (
                       <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
@@ -633,7 +633,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                  <label className="block text-sm font-medium text-primary mb-2">
                     Order Date
                     {orderInfo.order_date && orderInfo.order_date !== new Date().toISOString().split('T')[0] && (
                       <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
@@ -649,7 +649,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                  <label className="block text-sm font-medium text-primary mb-2">
                     Notes
                   </label>
                   <textarea
@@ -705,15 +705,15 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                   className="card p-4"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-medium text-text-primary">Data Preview</h4>
-                    <span className="text-sm text-text-secondary">
+                    <h4 className="font-medium text-primary">Data Preview</h4>
+                    <span className="text-sm text-secondary">
                       Showing {Math.min(previewData.preview_rows.length, 5)} of {previewData.total_rows} rows
                     </span>
                   </div>
 
                   {/* Raw Data Table */}
                   <div className="mb-6">
-                    <h5 className="text-sm font-medium text-text-primary mb-2">Raw CSV Data</h5>
+                    <h5 className="text-sm font-medium text-primary mb-2">Raw CSV Data</h5>
                     <div className="overflow-x-auto border border-border-primary rounded-md">
                       <table className="table">
                         <thead className="table-header">
@@ -729,7 +729,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                           {previewData.preview_rows.slice(0, 5).map((row, index) => (
                             <tr key={index} className="table-row">
                               {previewData.headers.map((header, colIndex) => (
-                                <td key={colIndex} className="table-cell text-text-primary">
+                                <td key={colIndex} className="table-cell text-primary">
                                   {row[header] || '-'}
                                 </td>
                               ))}
@@ -743,7 +743,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                   {/* Parsed Data Table */}
                   {previewData.parsed_preview.length > 0 && (
                     <div>
-                      <h5 className="text-sm font-medium text-text-primary mb-2">Parsed Parts Data</h5>
+                      <h5 className="text-sm font-medium text-primary mb-2">Parsed Parts Data</h5>
                       <div className="overflow-x-auto border border-border-primary rounded-md">
                         <table className="table">
                           <thead className="table-header">
@@ -758,11 +758,11 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImportComplete }) => {
                           <tbody className="table-body">
                             {previewData.parsed_preview.slice(0, 5).map((part, index) => (
                               <tr key={index} className="table-row">
-                                <td className="table-cell text-text-primary">{part.name}</td>
-                                <td className="table-cell text-text-primary">{part.part_number}</td>
-                                <td className="table-cell text-text-primary">{part.quantity}</td>
-                                <td className="table-cell text-text-primary">{part.supplier}</td>
-                                <td className="table-cell text-text-primary truncate max-w-48">
+                                <td className="table-cell text-primary">{part.name}</td>
+                                <td className="table-cell text-primary">{part.part_number}</td>
+                                <td className="table-cell text-primary">{part.quantity}</td>
+                                <td className="table-cell text-primary">{part.supplier}</td>
+                                <td className="table-cell text-primary truncate max-w-48">
                                   {part.additional_properties?.description || '-'}
                                 </td>
                               </tr>

@@ -1,13 +1,15 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 
 from MakerMatrix.models.models import CategoryModel, CategoryUpdate
+from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, CategoryAlreadyExistsError
 from MakerMatrix.schemas.part_response import CategoryResponse, DeleteCategoriesResponse, CategoriesListResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.category_service import CategoryService
+from MakerMatrix.dependencies.auth import get_current_user
 
 router = APIRouter()
 
@@ -34,7 +36,11 @@ async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
 
 
 @router.post("/add_category", response_model=ResponseSchema[CategoryResponse])
-async def add_category(category_data: CategoryModel) -> ResponseSchema[CategoryResponse]:
+async def add_category(
+    category_data: CategoryModel,
+    request: Request,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[CategoryResponse]:
     """
     Add a new category to the system.
     
@@ -54,11 +60,27 @@ async def add_category(category_data: CategoryModel) -> ResponseSchema[CategoryR
         # Ensure we have a data field in the response
         if "data" not in response:
             raise HTTPException(status_code=500, detail="Invalid response format from service")
+        
+        # Convert response data to CategoryResponse before activity logging
+        category_response_data = CategoryResponse.model_validate(response["data"])
+        
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_category_created(
+                category_id=response["data"]["id"],
+                category_name=response["data"]["name"],
+                user=current_user,
+                request=request
+            )
+        except Exception as activity_error:
+            print(f"Failed to log category creation activity: {activity_error}")
             
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
-            data=CategoryResponse.model_validate(response["data"])
+            data=category_response_data
         )
     except CategoryAlreadyExistsError as cae:
         raise HTTPException(status_code=400, detail=str(cae))
@@ -70,7 +92,12 @@ async def add_category(category_data: CategoryModel) -> ResponseSchema[CategoryR
 
 
 @router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryResponse])
-async def update_category(category_id: str, category_data: CategoryUpdate) -> ResponseSchema[CategoryResponse]:
+async def update_category(
+    category_id: str, 
+    category_data: CategoryUpdate,
+    request: Request,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[CategoryResponse]:
     """
     Update a category's fields.
     
@@ -86,6 +113,25 @@ async def update_category(category_id: str, category_data: CategoryUpdate) -> Re
             raise HTTPException(status_code=400, detail="Category ID is required")
             
         response = CategoryService.update_category(category_id, category_data)
+        
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            
+            # Create changes dict from the update data
+            changes = {k: v for k, v in category_data.model_dump().items() if v is not None}
+            
+            await activity_service.log_category_updated(
+                category_id=category_id,
+                category_name=response["data"]["name"],
+                changes=changes,
+                user=current_user,
+                request=request
+            )
+        except Exception as activity_error:
+            print(f"Failed to log category update activity: {activity_error}")
+        
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
@@ -130,7 +176,12 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
 
 
 @router.delete("/remove_category", response_model=ResponseSchema[CategoryResponse])
-async def remove_category(cat_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[CategoryResponse]:
+async def remove_category(
+    request: Request,
+    current_user: UserModel = Depends(get_current_user),
+    cat_id: Optional[str] = None, 
+    name: Optional[str] = None
+) -> ResponseSchema[CategoryResponse]:
     """
     Remove a category by ID or name.
     
@@ -149,6 +200,20 @@ async def remove_category(cat_id: Optional[str] = None, name: Optional[str] = No
             
     try:
         response = CategoryService.remove_category(id=cat_id, name=name)
+        
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_category_deleted(
+                category_id=response["data"]["id"],
+                category_name=response["data"]["name"],
+                user=current_user,
+                request=request
+            )
+        except Exception as activity_error:
+            print(f"Failed to log category deletion activity: {activity_error}")
+        
         return ResponseSchema(
             status=response["status"],
             message=response["message"],

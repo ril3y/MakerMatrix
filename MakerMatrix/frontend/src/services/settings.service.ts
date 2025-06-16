@@ -1,22 +1,133 @@
 import { apiClient, ApiResponse } from './api'
-import { PrinterConfig, AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
+import { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 
 // Re-export types for convenience
-export type { PrinterConfig, AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
+export type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 
 export class SettingsService {
-  // Printer Configuration
-  async getPrinterConfig(): Promise<PrinterConfig> {
-    const response = await apiClient.get<{current_printer: PrinterConfig}>('/printer/current_printer')
-    return response.current_printer
+  // Modern Printer Configuration
+  async getAvailablePrinters(): Promise<any[]> {
+    const response = await apiClient.get<{printers: any[]}>('/printer/printers')
+    return response.printers || []
   }
 
-  async updatePrinterConfig(config: PrinterConfig): Promise<ApiResponse> {
-    return await apiClient.post<ApiResponse>('/printer/config', config)
+  async getPrinterInfo(printerId: string): Promise<any> {
+    const response = await apiClient.get<any>(`/printer/printers/${printerId}`)
+    return response
   }
 
-  async loadPrinterConfig(): Promise<ApiResponse> {
-    return await apiClient.get<ApiResponse>('/printer/load_config')
+  async getPrinterStatus(printerId: string): Promise<{printer_id: string, status: string}> {
+    const response = await apiClient.get<{printer_id: string, status: string}>(`/printer/printers/${printerId}/status`)
+    return response
+  }
+
+  async testPrinterConnection(printerId: string): Promise<any> {
+    const response = await apiClient.post<any>(`/printer/printers/${printerId}/test`)
+    return response
+  }
+
+  async printTestLabel(printerId: string, text: string = "Test Label", labelSize: string = "12"): Promise<any> {
+    const response = await apiClient.post<any>('/printer/print/text', {
+      printer_id: printerId,
+      text,
+      label_size: labelSize,
+      copies: 1
+    })
+    return response
+  }
+
+  async previewLabel(text: string, labelSize: string = "12"): Promise<Blob> {
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'}/printer/preview/text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      },
+      body: JSON.stringify({
+        text,
+        label_size: labelSize
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to generate preview')
+    }
+    
+    return await response.blob()
+  }
+
+  async printAdvancedLabel(requestData: {
+    printer_id: string
+    template: string
+    text: string
+    label_size: string
+    label_length?: number
+    options: {
+      fit_to_label: boolean
+      include_qr: boolean
+      qr_data?: string
+    }
+    data?: any
+  }): Promise<any> {
+    const response = await apiClient.post<any>('/printer/print/advanced', requestData)
+    return response
+  }
+
+  async previewAdvancedLabel(requestData: {
+    template: string
+    text: string
+    label_size: string
+    label_length?: number
+    options: {
+      fit_to_label: boolean
+      include_qr: boolean
+      qr_data?: string
+    }
+    data?: any
+  }): Promise<Blob> {
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'}/printer/preview/advanced`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      },
+      body: JSON.stringify(requestData)
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to generate advanced preview')
+    }
+    
+    return await response.blob()
+  }
+
+  async registerPrinter(printerData: {
+    printer_id: string
+    name: string
+    driver_type: string
+    model: string
+    backend: string
+    identifier: string
+    dpi: number
+    scaling_factor: number
+  }): Promise<any> {
+    const response = await apiClient.post<any>('/printer/register', printerData)
+    return response
+  }
+
+  async getSupportedDrivers(): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<{drivers: any[]}>>('/printer/drivers')
+    return response.data?.drivers || []
+  }
+
+  async testPrinterSetup(printerData: any): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>('/printer/test-setup', { printer: printerData })
+    return response.data!
+  }
+
+  async discoverPrinters(): Promise<any> {
+    const response = await apiClient.get<ApiResponse<any>>('/printer/discover')
+    return response.data!
   }
 
   // AI Configuration

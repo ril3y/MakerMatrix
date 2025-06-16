@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { tasksService } from '@/services/tasks.service'
+import { partsService } from '@/services/parts.service'
 
 interface Task {
   id: string
@@ -179,18 +180,18 @@ const TasksManagement: React.FC = () => {
       case 'running': return <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
       case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />
       case 'failed': return <XCircle className="w-4 h-4 text-red-500" />
-      case 'cancelled': return <Pause className="w-4 h-4 text-gray-500" />
-      default: return <AlertCircle className="w-4 h-4 text-gray-500" />
+      case 'cancelled': return <Pause className="w-4 h-4 text-muted" />
+      default: return <AlertCircle className="w-4 h-4 text-muted" />
     }
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'text-red-600 bg-red-100'
-      case 'high': return 'text-orange-600 bg-orange-100'
-      case 'normal': return 'text-blue-600 bg-blue-100'
-      case 'low': return 'text-gray-600 bg-gray-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'urgent': return 'text-error bg-error/20'
+      case 'high': return 'text-warning bg-warning/20'
+      case 'normal': return 'text-info bg-info/20'
+      case 'low': return 'text-muted bg-background-tertiary'
+      default: return 'text-muted bg-background-tertiary'
     }
   }
 
@@ -226,13 +227,46 @@ const TasksManagement: React.FC = () => {
         case 'csv-enrichment':
           taskData = { enrichment_queue: [] }
           break
+        case 'bulk-enrichment':
+          try {
+            toast.loading('Fetching parts for enrichment...', { id: 'bulk-enrichment-loading' })
+            const allParts = await partsService.getAll()
+            const partIds = allParts.map(part => part.id).filter(id => id) // Filter out any null/undefined IDs
+            
+            toast.dismiss('bulk-enrichment-loading')
+            
+            if (partIds.length === 0) {
+              toast.error('No parts found to enrich')
+              return
+            }
+            
+            taskData = { 
+              part_ids: partIds, 
+              batch_size: 10,
+              capabilities: ['fetch_pricing', 'fetch_datasheet', 'fetch_specifications'],
+              force_refresh: false
+            }
+            toast.success(`Found ${partIds.length} parts for enrichment`)
+          } catch (error) {
+            toast.dismiss('bulk-enrichment-loading')
+            toast.error(`Failed to fetch parts: ${error.message}`)
+            return
+          }
+          break
       }
       
-      await tasksService.createQuickTask(taskType, taskData)
+      console.log('Creating task:', taskType, taskData)
+      const response = await tasksService.createQuickTask(taskType, taskData)
+      console.log('Task creation response:', response)
       toast.success('Task created successfully')
-      loadTasks()
+      
+      // Reload tasks and worker status
+      await loadTasks()
+      await loadWorkerStatus()
+      await loadTaskStats()
     } catch (error) {
-      toast.error('Failed to create task')
+      console.error('Failed to create task:', error)
+      toast.error(`Failed to create task: ${error.response?.data?.detail || error.message}`)
     }
   }
 
@@ -241,20 +275,20 @@ const TasksManagement: React.FC = () => {
       {/* Header with Worker Status */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
             <Activity className="w-5 h-5" />
             Background Tasks
             {workerStatus && (
               <span className={`text-xs px-2 py-1 rounded-full ${
                 workerStatus.is_running 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-red-100 text-red-800'
+                  ? 'bg-success/20 text-success' 
+                  : 'bg-error/20 text-error'
               }`}>
                 {workerStatus.is_running ? 'Worker Running' : 'Worker Stopped'}
               </span>
             )}
           </h3>
-          <p className="text-text-secondary text-sm">
+          <p className="text-secondary text-sm">
             Manage and monitor background tasks and processes
           </p>
         </div>
@@ -295,38 +329,38 @@ const TasksManagement: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div className="card p-4 text-center">
             <div className="text-2xl font-bold text-primary">{taskStats.total_tasks}</div>
-            <div className="text-sm text-text-secondary">Total Tasks</div>
+            <div className="text-sm text-secondary">Total Tasks</div>
           </div>
           <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{taskStats.running_tasks}</div>
-            <div className="text-sm text-text-secondary">Running</div>
+            <div className="text-2xl font-bold text-info">{taskStats.running_tasks}</div>
+            <div className="text-sm text-secondary">Running</div>
           </div>
           <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{taskStats.completed_today}</div>
-            <div className="text-sm text-text-secondary">Completed Today</div>
+            <div className="text-2xl font-bold text-success">{taskStats.completed_today}</div>
+            <div className="text-sm text-secondary">Completed Today</div>
           </div>
           <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{taskStats.failed_tasks}</div>
-            <div className="text-sm text-text-secondary">Failed</div>
+            <div className="text-2xl font-bold text-error">{taskStats.failed_tasks}</div>
+            <div className="text-sm text-secondary">Failed</div>
           </div>
           <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
+            <div className="text-2xl font-bold text-warning">
               {taskStats.by_status?.pending || 0}
             </div>
-            <div className="text-sm text-text-secondary">Pending</div>
+            <div className="text-sm text-secondary">Pending</div>
           </div>
           <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-gray-600">
+            <div className="text-2xl font-bold text-muted">
               {workerStatus?.registered_handlers || 0}
             </div>
-            <div className="text-sm text-text-secondary">Handlers</div>
+            <div className="text-sm text-secondary">Handlers</div>
           </div>
         </div>
       )}
 
       {/* Quick Actions */}
       <div className="card p-4">
-        <h4 className="font-medium text-text-primary mb-3">Quick Actions</h4>
+        <h4 className="font-medium text-primary mb-3">Quick Actions</h4>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => createQuickTask('price-update')}
@@ -334,6 +368,13 @@ const TasksManagement: React.FC = () => {
           >
             <Zap className="w-4 h-4" />
             Update Prices
+          </button>
+          <button
+            onClick={() => createQuickTask('bulk-enrichment')}
+            className="btn btn-secondary btn-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Enrich All Parts
           </button>
           <button
             onClick={() => createQuickTask('database-cleanup')}
@@ -356,8 +397,8 @@ const TasksManagement: React.FC = () => {
       <div className="card p-4">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-text-secondary" />
-            <span className="text-sm text-text-primary font-medium">Filters:</span>
+            <Filter className="w-4 h-4 text-secondary" />
+            <span className="text-sm text-primary font-medium">Filters:</span>
           </div>
           
           <select
@@ -380,6 +421,8 @@ const TasksManagement: React.FC = () => {
           >
             <option value="all">All Types</option>
             <option value="csv_enrichment">CSV Enrichment</option>
+            <option value="bulk_enrichment">Bulk Enrichment</option>
+            <option value="part_enrichment">Part Enrichment</option>
             <option value="price_update">Price Update</option>
             <option value="database_cleanup">Database Cleanup</option>
             <option value="file_download">File Download</option>
@@ -414,7 +457,7 @@ const TasksManagement: React.FC = () => {
       {/* Tasks List */}
       <div className="card">
         <div className="p-4 border-b border-border">
-          <h4 className="font-medium text-text-primary">
+          <h4 className="font-medium text-primary">
             Tasks ({filteredTasks.length})
           </h4>
         </div>
@@ -423,12 +466,12 @@ const TasksManagement: React.FC = () => {
           {loading ? (
             <div className="p-8 text-center">
               <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
-              <p className="text-text-secondary mt-2">Loading tasks...</p>
+              <p className="text-secondary mt-2">Loading tasks...</p>
             </div>
           ) : filteredTasks.length === 0 ? (
             <div className="p-8 text-center">
-              <Activity className="w-8 h-8 mx-auto text-text-muted mb-2" />
-              <p className="text-text-secondary">No tasks found</p>
+              <Activity className="w-8 h-8 mx-auto text-muted mb-2" />
+              <p className="text-secondary">No tasks found</p>
             </div>
           ) : (
             filteredTasks.map((task) => (
@@ -442,19 +485,19 @@ const TasksManagement: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       {getStatusIcon(task.status)}
-                      <h5 className="font-medium text-text-primary truncate">
+                      <h5 className="font-medium text-primary truncate">
                         {task.name}
                       </h5>
                       <span className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
                         {task.priority}
                       </span>
-                      <span className="text-xs text-text-secondary">
+                      <span className="text-xs text-secondary">
                         {formatTaskType(task.task_type)}
                       </span>
                     </div>
                     
                     {task.description && (
-                      <p className="text-sm text-text-secondary truncate mb-2">
+                      <p className="text-sm text-secondary truncate mb-2">
                         {task.description}
                       </p>
                     )}
@@ -466,7 +509,7 @@ const TasksManagement: React.FC = () => {
                     )}
                     
                     {task.status === 'running' && (
-                      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                      <div className="w-full bg-background-tertiary rounded-full h-2 mb-2">
                         <div
                           className="bg-primary h-2 rounded-full transition-all duration-300"
                           style={{ width: `${task.progress_percentage}%` }}
@@ -474,7 +517,7 @@ const TasksManagement: React.FC = () => {
                       </div>
                     )}
                     
-                    <div className="flex items-center gap-4 text-xs text-text-secondary">
+                    <div className="flex items-center gap-4 text-xs text-secondary">
                       <span>Created: {new Date(task.created_at).toLocaleString()}</span>
                       {task.started_at && (
                         <span>Duration: {formatDuration(task.started_at, task.completed_at)}</span>
@@ -485,7 +528,7 @@ const TasksManagement: React.FC = () => {
                     </div>
                     
                     {task.error_message && (
-                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                      <div className="mt-2 p-2 bg-error/10 border border-error/20 rounded text-sm text-error">
                         Error: {task.error_message}
                       </div>
                     )}
@@ -534,7 +577,7 @@ const TasksManagement: React.FC = () => {
             className="card"
           >
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h4 className="font-medium text-text-primary flex items-center gap-2">
+              <h4 className="font-medium text-primary flex items-center gap-2">
                 <Monitor className="w-4 h-4" />
                 Task Console
               </h4>
@@ -546,17 +589,17 @@ const TasksManagement: React.FC = () => {
               </button>
             </div>
             
-            <div className="p-4 bg-gray-900 dark:bg-black text-green-400 font-mono text-sm min-h-[200px] max-h-[300px] overflow-y-auto custom-scrollbar">
+            <div className="p-4 bg-background-primary dark:bg-black text-success font-mono text-sm min-h-[200px] max-h-[300px] overflow-y-auto custom-scrollbar">
               {tasks.filter(t => t.status === 'running').map(task => (
                 <div key={task.id} className="mb-2">
-                  <span className="text-blue-400">[{new Date().toLocaleTimeString()}]</span>
-                  <span className="text-yellow-400"> {task.name}:</span>
-                  <span className="text-green-400"> {task.current_step || 'Running...'}</span>
-                  <span className="text-gray-400"> ({task.progress_percentage}%)</span>
+                  <span className="text-info">[{new Date().toLocaleTimeString()}]</span>
+                  <span className="text-warning"> {task.name}:</span>
+                  <span className="text-success"> {task.current_step || 'Running...'}</span>
+                  <span className="text-muted"> ({task.progress_percentage}%)</span>
                 </div>
               ))}
               {tasks.filter(t => t.status === 'running').length === 0 && (
-                <div className="text-gray-500">No running tasks to monitor...</div>
+                <div className="text-muted">No running tasks to monitor...</div>
               )}
             </div>
           </motion.div>
@@ -569,11 +612,11 @@ const TasksManagement: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto"
+            className="bg-background-primary rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto"
           >
             <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-text-primary">
+                <h3 className="text-lg font-semibold text-primary">
                   Task Details
                 </h3>
                 <button
@@ -588,22 +631,22 @@ const TasksManagement: React.FC = () => {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Task ID</label>
+                  <label className="text-sm font-medium text-secondary">Task ID</label>
                   <p className="font-mono text-sm">{selectedTask.id}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Type</label>
+                  <label className="text-sm font-medium text-secondary">Type</label>
                   <p>{formatTaskType(selectedTask.task_type)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Status</label>
+                  <label className="text-sm font-medium text-secondary">Status</label>
                   <div className="flex items-center gap-2">
                     {getStatusIcon(selectedTask.status)}
                     <span className="capitalize">{selectedTask.status}</span>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Priority</label>
+                  <label className="text-sm font-medium text-secondary">Priority</label>
                   <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(selectedTask.priority)}`}>
                     {selectedTask.priority}
                   </span>
@@ -612,22 +655,22 @@ const TasksManagement: React.FC = () => {
               
               {selectedTask.description && (
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Description</label>
+                  <label className="text-sm font-medium text-secondary">Description</label>
                   <p>{selectedTask.description}</p>
                 </div>
               )}
               
               {selectedTask.current_step && (
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Current Step</label>
+                  <label className="text-sm font-medium text-secondary">Current Step</label>
                   <p>{selectedTask.current_step}</p>
                 </div>
               )}
               
               {selectedTask.error_message && (
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Error Message</label>
-                  <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700">
+                  <label className="text-sm font-medium text-secondary">Error Message</label>
+                  <div className="p-3 bg-error/10 border border-error/20 rounded text-error">
                     {selectedTask.error_message}
                   </div>
                 </div>
@@ -635,8 +678,8 @@ const TasksManagement: React.FC = () => {
               
               {selectedTask.result_data && (
                 <div>
-                  <label className="text-sm font-medium text-text-secondary">Result Data</label>
-                  <pre className="p-3 bg-gray-100 rounded text-sm overflow-x-auto">
+                  <label className="text-sm font-medium text-secondary">Result Data</label>
+                  <pre className="p-3 bg-background-secondary rounded text-sm overflow-x-auto">
                     {JSON.stringify(selectedTask.result_data, null, 2)}
                   </pre>
                 </div>

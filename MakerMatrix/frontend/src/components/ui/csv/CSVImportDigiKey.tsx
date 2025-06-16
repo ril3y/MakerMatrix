@@ -76,7 +76,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
+            <label className="block text-sm font-medium text-primary mb-2">
               DigiKey Order Number
               {orderInfo.order_number && (
                 <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
@@ -92,7 +92,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
+            <label className="block text-sm font-medium text-primary mb-2">
               Order Date
               {orderInfo.order_date && orderInfo.order_date !== new Date().toISOString().split('T')[0] && (
                 <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
@@ -111,7 +111,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
         {/* DigiKey-specific fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
+            <label className="block text-sm font-medium text-primary mb-2">
               PO Number
             </label>
             <input
@@ -122,7 +122,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
+            <label className="block text-sm font-medium text-primary mb-2">
               Project Code
             </label>
             <input
@@ -134,7 +134,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Import Notes
           </label>
           <textarea
@@ -154,11 +154,11 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-text-primary mb-2 flex items-center justify-center gap-2">
+          <h3 className="text-lg font-semibold text-primary mb-2 flex items-center justify-center gap-2">
             <Upload className="w-5 h-5" />
             Import DigiKey Order Parts
           </h3>
-          <p className="text-text-secondary">
+          <p className="text-secondary">
             Upload DigiKey order CSV files with comprehensive part and pricing information
           </p>
         </div>
@@ -170,7 +170,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
         {loading && (
           <div className="text-center py-4">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
-            <p className="text-text-secondary mt-2">Analyzing DigiKey CSV file...</p>
+            <p className="text-secondary mt-2">Analyzing DigiKey CSV file...</p>
           </div>
         )}
 
@@ -187,7 +187,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
             {/* Detection Results */}
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-medium text-text-primary">DigiKey File Analysis</h4>
+                <h4 className="font-medium text-primary">DigiKey File Analysis</h4>
                 <div className="flex items-center gap-2">
                   {previewData.is_supported ? (
                     <span className="flex items-center gap-1 text-accent">
@@ -203,7 +203,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
                 </div>
               </div>
 
-              <div className="text-sm text-text-secondary mb-2">
+              <div className="text-sm text-secondary mb-2">
                 <strong>Detected:</strong> {previewData.type_info} • <strong>Rows:</strong> {previewData.total_rows}
               </div>
 
@@ -226,7 +226,7 @@ export class CSVImportDigiKey extends BaseCSVImportComponent {
 
             {/* Order Information */}
             <div className="card p-4">
-              <h4 className="font-medium text-text-primary mb-4">DigiKey Order Information</h4>
+              <h4 className="font-medium text-primary mb-4">DigiKey Order Information</h4>
               {this.renderCustomOrderFields()}
             </div>
 

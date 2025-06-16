@@ -355,8 +355,8 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
         {file ? (
           <div className="space-y-2">
             <CheckCircle className="w-8 h-8 text-accent mx-auto" />
-            <p className="text-text-primary font-medium">{file.name}</p>
-            <p className="text-sm text-text-secondary">
+            <p className="text-primary font-medium">{file.name}</p>
+            <p className="text-sm text-secondary">
               {(file.size / 1024).toFixed(1)} KB • {previewData?.total_rows || 0} rows
             </p>
             <button
@@ -369,11 +369,11 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
           </div>
         ) : (
           <div className="space-y-2">
-            <Upload className="w-8 h-8 text-text-muted mx-auto" />
-            <p className="text-text-primary font-medium">Drop {parserName} CSV file here or click to browse</p>
-            <p className="text-sm text-text-secondary">{description}</p>
+            <Upload className="w-8 h-8 text-muted mx-auto" />
+            <p className="text-primary font-medium">Drop {parserName} CSV file here or click to browse</p>
+            <p className="text-sm text-secondary">{description}</p>
             {filePattern && (
-              <p className="text-xs text-text-muted">Expected format: {filePattern}</p>
+              <p className="text-xs text-muted">Expected format: {filePattern}</p>
             )}
             <button
               onClick={() => this.fileInputRef.current?.click()}
@@ -402,15 +402,15 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
             className="card p-4"
           >
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-medium text-text-primary">Data Preview</h4>
-              <span className="text-sm text-text-secondary">
+              <h4 className="font-medium text-primary">Data Preview</h4>
+              <span className="text-sm text-secondary">
                 Showing {Math.min(previewData.preview_rows.length, 5)} of {previewData.total_rows} rows
               </span>
             </div>
 
             {/* Raw Data Table */}
             <div className="mb-6">
-              <h5 className="text-sm font-medium text-text-primary mb-2">Raw CSV Data</h5>
+              <h5 className="text-sm font-medium text-primary mb-2">Raw CSV Data</h5>
               <div className="overflow-x-auto border border-border-primary rounded-md">
                 <table className="table">
                   <thead className="table-header">
@@ -426,7 +426,7 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
                     {previewData.preview_rows.slice(0, 5).map((row, index) => (
                       <tr key={index} className="table-row">
                         {previewData.headers.map((header, colIndex) => (
-                          <td key={colIndex} className="table-cell text-text-primary">
+                          <td key={colIndex} className="table-cell text-primary">
                             {row[header] || '-'}
                           </td>
                         ))}
@@ -440,7 +440,7 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
             {/* Parsed Data Table */}
             {previewData.parsed_preview.length > 0 && (
               <div>
-                <h5 className="text-sm font-medium text-text-primary mb-2">Parsed Parts Data</h5>
+                <h5 className="text-sm font-medium text-primary mb-2">Parsed Parts Data</h5>
                 <div className="overflow-x-auto border border-border-primary rounded-md">
                   <table className="table">
                     <thead className="table-header">
@@ -455,11 +455,11 @@ export abstract class BaseCSVImportComponent extends React.Component<BaseCSVImpo
                     <tbody className="table-body">
                       {previewData.parsed_preview.slice(0, 5).map((part, index) => (
                         <tr key={index} className="table-row">
-                          <td className="table-cell text-text-primary">{part.name}</td>
-                          <td className="table-cell text-text-primary">{part.part_number}</td>
-                          <td className="table-cell text-text-primary">{part.quantity}</td>
-                          <td className="table-cell text-text-primary">{part.supplier}</td>
-                          <td className="table-cell text-text-primary truncate max-w-48">
+                          <td className="table-cell text-primary">{part.name}</td>
+                          <td className="table-cell text-primary">{part.part_number}</td>
+                          <td className="table-cell text-primary">{part.quantity}</td>
+                          <td className="table-cell text-primary">{part.supplier}</td>
+                          <td className="table-cell text-primary truncate max-w-48">
                             {part.additional_properties?.description || '-'}
                           </td>
                         </tr>

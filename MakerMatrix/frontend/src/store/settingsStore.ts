@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { 
   settingsService, 
-  PrinterConfig, 
   AIConfig, 
   AIConfigUpdate, 
   BackupStatus 
@@ -10,10 +9,6 @@ import {
 import { toast } from 'react-hot-toast'
 
 interface SettingsState {
-  // Printer Settings
-  printerConfig: PrinterConfig | null
-  isPrinterLoading: boolean
-  
   // AI Settings
   aiConfig: AIConfig | null
   isAILoading: boolean
@@ -32,9 +27,6 @@ interface SettingsState {
   error: string | null
   
   // Actions
-  loadPrinterConfig: () => Promise<void>
-  updatePrinterConfig: (config: PrinterConfig) => Promise<void>
-  
   loadAIConfig: () => Promise<void>
   updateAIConfig: (config: AIConfigUpdate) => Promise<void>
   testAIConnection: () => Promise<void>
@@ -57,8 +49,6 @@ export const useSettingsStore = create<SettingsState>()(
   devtools(
     (set, get) => ({
       // Initial state
-      printerConfig: null,
-      isPrinterLoading: false,
       aiConfig: null,
       isAILoading: false,
       backupStatus: null,
@@ -68,32 +58,6 @@ export const useSettingsStore = create<SettingsState>()(
       isUsersLoading: false,
       isRolesLoading: false,
       error: null,
-
-      // Printer Config Actions
-      loadPrinterConfig: async () => {
-        set({ isPrinterLoading: true, error: null })
-        try {
-          const config = await settingsService.getPrinterConfig()
-          set({ printerConfig: config, isPrinterLoading: false })
-        } catch (error: any) {
-          set({ 
-            isPrinterLoading: false, 
-            error: error.response?.data?.error || 'Failed to load printer config' 
-          })
-        }
-      },
-
-      updatePrinterConfig: async (config) => {
-        set({ isPrinterLoading: true, error: null })
-        try {
-          await settingsService.updatePrinterConfig(config)
-          set({ printerConfig: config, isPrinterLoading: false })
-          toast.success('Printer configuration updated successfully')
-        } catch (error: any) {
-          set({ isPrinterLoading: false })
-          throw error
-        }
-      },
 
       // AI Config Actions
       loadAIConfig: async () => {

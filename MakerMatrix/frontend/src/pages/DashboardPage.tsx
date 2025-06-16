@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboardStore } from '@/store/dashboardStore'
 import LoadingScreen from '@/components/ui/LoadingScreen'
+import RecentActivity from '@/components/dashboard/RecentActivity'
 
 const DashboardPage = () => {
   const { stats, isLoading, error, loadStats, refreshStats, clearError } = useDashboardStore()
@@ -75,8 +76,8 @@ const DashboardPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
-          <p className="text-text-secondary mt-2">
+          <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
+          <p className="text-secondary mt-2">
             Welcome to MakerMatrix - Battle With Bytes Inventory System
           </p>
         </div>
@@ -120,16 +121,16 @@ const DashboardPage = () => {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-text-secondary group-hover:text-primary transition-colors">
+                <p className="text-sm font-medium text-secondary group-hover:text-primary transition-colors">
                   {stat.title}
                 </p>
-                <p className="text-2xl font-bold text-text-primary group-hover:text-primary transition-colors">
+                <p className="text-2xl font-bold text-primary group-hover:text-primary transition-colors">
                   {stat.value}
                 </p>
                 {stat.change && (
                   <div className="flex items-center mt-2">
                     <span
-                      className="text-sm font-medium text-text-muted"
+                      className="text-sm font-medium text-muted"
                     >
                       {stat.change}
                     </span>
@@ -149,23 +150,8 @@ const DashboardPage = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.4 }}
-        className="card"
       >
-        <div className="card-header">
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold text-text-primary">
-              Recent Activity
-            </h2>
-          </div>
-        </div>
-        <div className="card-content">
-          <div className="text-center py-8">
-            <Activity className="w-12 h-12 text-text-muted mx-auto mb-4" />
-            <p className="text-text-secondary">No recent activity to display</p>
-            <p className="text-sm text-text-muted mt-2">Activity will appear here as you use the system</p>
-          </div>
-        </div>
+        <RecentActivity limit={10} refreshInterval={30000} />
       </motion.div>
 
       {/* Quick Actions */}
@@ -176,7 +162,7 @@ const DashboardPage = () => {
         className="card"
       >
         <div className="card-header">
-          <h2 className="text-xl font-semibold text-text-primary">
+          <h2 className="text-xl font-semibold text-primary">
             Quick Actions
           </h2>
         </div>

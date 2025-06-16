@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from typing import Dict, Any, List
 from pydantic import BaseModel
 from MakerMatrix.services.csv_import_service import csv_import_service, CSVImportService
@@ -85,15 +85,16 @@ async def preview_csv(
 
 @router.post("/import", response_model=CSVImportResponse)
 async def import_csv(
-    request: CSVImportRequest,
+    csv_request: CSVImportRequest,
+    http_request: Request,
     current_user: UserModel = Depends(require_permission("parts:create"))
 ):
     """Import parts from CSV file with order tracking"""
     try:
         # Parse CSV to parts data
         parts_data, parsing_errors = csv_import_service.parse_csv_to_parts(
-            request.csv_content, 
-            request.parser_type
+            csv_request.csv_content, 
+            csv_request.parser_type
         )
         
         if parsing_errors:
@@ -111,12 +112,34 @@ async def import_csv(
         success_parts, failed_parts = await csv_import_service.import_parts_with_order(
             parts_data,
             part_service,
-            request.order_info
+            csv_request.order_info
         )
         
         # Add parsing errors to failed parts if any
         if parsing_errors:
             failed_parts.extend([f"Parsing error: {error}" for error in parsing_errors])
+        
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_activity(
+                action="imported",
+                entity_type="csv",
+                entity_name=f"CSV import: {len(success_parts)} parts",
+                details={
+                    "parser_type": csv_request.parser_type,
+                    "total_parts": len(parts_data),
+                    "success_count": len(success_parts),
+                    "failed_count": len(failed_parts),
+                    "success_parts": success_parts[:10],  # First 10 for brevity
+                    "has_parsing_errors": len(parsing_errors) > 0
+                },
+                user=current_user,
+                request=http_request
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log CSV import activity: {e}")
         
         logger.info(f"CSV import completed: {len(success_parts)} success, {len(failed_parts)} failed")
         

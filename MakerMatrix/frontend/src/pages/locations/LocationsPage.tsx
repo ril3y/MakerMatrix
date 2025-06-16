@@ -99,11 +99,11 @@ const LocationsPage = () => {
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
             <MapPin className="w-6 h-6" />
             Locations
           </h1>
-          <p className="text-text-secondary mt-1">
+          <p className="text-secondary mt-1">
             Manage storage locations and hierarchies
           </p>
         </div>
@@ -125,7 +125,7 @@ const LocationsPage = () => {
       >
         <div className="flex gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
             <input
               type="text"
               placeholder="Search locations..."
@@ -159,8 +159,8 @@ const LocationsPage = () => {
           <div className="flex items-center gap-3">
             <Building className="w-8 h-8 text-primary" />
             <div>
-              <p className="text-sm text-text-secondary">Total Locations</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.total}</p>
+              <p className="text-sm text-secondary">Total Locations</p>
+              <p className="text-2xl font-bold text-primary">{stats.total}</p>
             </div>
           </div>
         </div>
@@ -168,8 +168,8 @@ const LocationsPage = () => {
           <div className="flex items-center gap-3">
             <MapPin className="w-8 h-8 text-secondary" />
             <div>
-              <p className="text-sm text-text-secondary">Active Locations</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.active}</p>
+              <p className="text-sm text-secondary">Active Locations</p>
+              <p className="text-2xl font-bold text-primary">{stats.active}</p>
             </div>
           </div>
         </div>
@@ -177,8 +177,8 @@ const LocationsPage = () => {
           <div className="flex items-center gap-3">
             <FolderTree className="w-8 h-8 text-accent" />
             <div>
-              <p className="text-sm text-text-secondary">Root Locations</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.root}</p>
+              <p className="text-sm text-secondary">Root Locations</p>
+              <p className="text-2xl font-bold text-primary">{stats.root}</p>
             </div>
           </div>
         </div>
@@ -203,11 +203,11 @@ const LocationsPage = () => {
           transition={{ delay: 0.2 }}
           className="card p-6 text-center"
         >
-          <MapPin className="w-16 h-16 text-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-text-primary mb-2">
+          <MapPin className="w-16 h-16 text-muted mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-primary mb-2">
             {searchTerm ? 'No locations found' : 'No locations yet'}
           </h3>
-          <p className="text-text-secondary">
+          <p className="text-secondary">
             {searchTerm ? 'Try adjusting your search terms' : 'Click "Add Location" to create your first location'}
           </p>
         </motion.div>
@@ -221,30 +221,30 @@ const LocationsPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left p-4 text-text-secondary font-medium">Name</th>
-                  <th className="text-left p-4 text-text-secondary font-medium">Type</th>
-                  <th className="text-left p-4 text-text-secondary font-medium">Parent</th>
-                  <th className="text-left p-4 text-text-secondary font-medium">Description</th>
-                  <th className="text-right p-4 text-text-secondary font-medium">Actions</th>
+                <tr className="border-b border-border">
+                  <th className="text-left p-4 text-secondary font-medium">Name</th>
+                  <th className="text-left p-4 text-secondary font-medium">Type</th>
+                  <th className="text-left p-4 text-secondary font-medium">Parent</th>
+                  <th className="text-left p-4 text-secondary font-medium">Description</th>
+                  <th className="text-right p-4 text-secondary font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLocations.map((location) => (
-                  <tr key={location.id} className="border-b border-gray-700 hover:bg-gray-800 transition-colors">
+                  <tr key={location.id} className="border-b border-border hover:bg-background-secondary transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-primary" />
-                        <span className="font-medium text-text-primary">{location.name}</span>
+                        <span className="font-medium text-primary">{location.name}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-text-secondary">
+                    <td className="p-4 text-secondary">
                       {location.location_type || 'General'}
                     </td>
-                    <td className="p-4 text-text-secondary">
+                    <td className="p-4 text-secondary">
                       {location.parent?.name || '-'}
                     </td>
-                    <td className="p-4 text-text-secondary">
+                    <td className="p-4 text-secondary">
                       {location.description || '-'}
                     </td>
                     <td className="p-4">
@@ -338,30 +338,30 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
         return (
           <div key={location.id}>
             <div 
-              className="flex items-center justify-between p-2 rounded hover:bg-gray-800 transition-colors group"
+              className="flex items-center justify-between p-2 rounded hover:bg-background-secondary transition-colors group"
               style={{ paddingLeft: `${level * 24 + 8}px` }}
             >
               <div className="flex items-center gap-2 flex-1">
                 {hasChildren && (
                   <button
                     onClick={() => toggleExpanded(location.id.toString())}
-                    className="p-1 hover:bg-gray-700 rounded transition-colors"
+                    className="p-1 hover:bg-background-tertiary rounded transition-colors"
                   >
                     {isExpanded ? (
-                      <ChevronDown className="w-4 h-4 text-text-secondary" />
+                      <ChevronDown className="w-4 h-4 text-secondary" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-text-secondary" />
+                      <ChevronRight className="w-4 h-4 text-secondary" />
                     )}
                   </button>
                 )}
                 {!hasChildren && <div className="w-6" />}
                 <MapPin className="w-4 h-4 text-primary" />
-                <span className="font-medium text-text-primary">{location.name}</span>
-                <span className="text-sm text-text-secondary ml-2">
+                <span className="font-medium text-primary">{location.name}</span>
+                <span className="text-sm text-secondary ml-2">
                   ({location.location_type || 'General'})
                 </span>
                 {location.description && (
-                  <span className="text-sm text-text-muted ml-2">- {location.description}</span>
+                  <span className="text-sm text-muted ml-2">- {location.description}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from starlette.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -10,6 +10,8 @@ from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.location_service import LocationService
 from MakerMatrix.dependencies import oauth2_scheme
+from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.models.user_models import UserModel
 
 
 class LocationCreateRequest(BaseModel):
@@ -61,13 +63,20 @@ async def get_location(
 
 
 @router.put("/update_location/{location_id}", response_model=ResponseSchema[LocationModel])
-async def update_location(location_id: str, location_data: LocationUpdate) -> ResponseSchema[LocationModel]:
+async def update_location(
+    location_id: str, 
+    location_data: LocationUpdate,
+    request: Request,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[LocationModel]:
     """
     Update a location's fields. This endpoint can update any combination of name, description, parent_id, and location_type.
     
     Args:
         location_id: The ID of the location to update
         location_data: The fields to update (name, description, parent_id, location_type)
+        request: FastAPI request object for activity logging
+        current_user: Current authenticated user for activity logging
         
     Returns:
         ResponseSchema: A response containing the updated location data
@@ -76,6 +85,26 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
         # Convert the Pydantic model to a dict and remove None values
         update_data = {k: v for k, v in location_data.model_dump().items() if v is not None}
         updated_location = LocationService.update_location(location_id, update_data)
+        
+        # Log activity to database for recent activity widget
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            
+            # Create changes dict from the update data
+            changes = {k: v for k, v in location_data.model_dump().items() if v is not None}
+            
+            await activity_service.log_location_updated(
+                location_id=location_id,
+                location_name=updated_location.name,
+                changes=changes,
+                user=current_user,
+                request=request
+            )
+        except Exception as activity_error:
+            print(f"Failed to log location update activity: {activity_error}")
+            # Don't fail the main operation if activity logging fails
+        
         return ResponseSchema(
             status="success",
             message="Location updated successfully",
@@ -90,7 +119,11 @@ async def update_location(location_id: str, location_data: LocationUpdate) -> Re
 
 
 @router.post("/add_location")
-async def add_location(location_data: LocationCreateRequest, token: str = Depends(oauth2_scheme)):
+async def add_location(
+    location_data: LocationCreateRequest, 
+    request: Request,
+    current_user: UserModel = Depends(get_current_user)
+):
     try:
         # Check if a location with the same name and parent_id already exists
         existing_location = None
@@ -113,6 +146,19 @@ async def add_location(location_data: LocationCreateRequest, token: str = Depend
             
         location = LocationService.add_location(location_data.model_dump())
         print(f"[DEBUG] Location created successfully: {location.id}")
+        
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_location_created(
+                location_id=location.id,
+                location_name=location.name,
+                user=current_user,
+                request=request
+            )
+        except Exception as e:
+            print(f"Failed to log location creation activity: {e}")
         
         # Create response data manually to avoid serialization issues
         response_data = {
@@ -214,9 +260,29 @@ async def preview_location_delete(location_id: str) -> ResponseSchema:
 
 
 @router.delete("/delete_location/{location_id}")
-async def delete_location(location_id: str) -> ResponseSchema:
+async def delete_location(
+    location_id: str,
+    request: Request,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema:
     try:
         response = LocationService.delete_location(location_id)
+        
+        # Log activity to database for recent activity widget
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            
+            await activity_service.log_location_deleted(
+                location_id=location_id,
+                location_name=response['data']['deleted_location_name'],
+                user=current_user,
+                request=request
+            )
+        except Exception as activity_error:
+            print(f"Failed to log location deletion activity: {activity_error}")
+            # Don't fail the main operation if activity logging fails
+        
         return ResponseSchema(
             status=response['status'],
             message=response['message'],

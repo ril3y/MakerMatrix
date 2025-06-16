@@ -1,0 +1,149 @@
+/* Enhanced Theme System with Full Color Palette */
+
+/* Base color variables for all themes */
+:root {
+  /* Background colors for light mode */
+  --background-primary: #ffffff;
+  --background-secondary: #f9fafb;
+  --background-tertiary: #f3f4f6;
+  --background-elevated: #ffffff;
+  
+  /* Text colors for light mode */
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --text-inverse: #ffffff;
+  
+  /* Border colors */
+  --border-primary: #e5e7eb;
+  --border-secondary: #d1d5db;
+  --border-muted: #f3f4f6;
+  
+  /* Status colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  
+  /* Typography */
+  --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Dark mode color overrides */
+:root.dark {
+  /* Background colors for dark mode */
+  --background-primary: #0f172a;
+  --background-secondary: #1e293b;
+  --background-tertiary: #334155;
+  --background-elevated: #1e293b;
+  
+  /* Text colors for dark mode - improved contrast */
+  --text-primary: #ffffff;
+  --text-secondary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-inverse: #0f172a;
+  
+  /* Border colors for dark mode */
+  --border-primary: #334155;
+  --border-secondary: #475569;
+  --border-muted: #334155;
+}
+
+/* Default Matrix Theme - Cyberpunk/Tech */
+:root[data-theme="default"],
+.theme-default {
+  --primary: #00ff9d;
+  --primary-dark: #00cc7d;
+  --primary-light: #33ffa8;
+  --primary-rgb: 0, 255, 157;
+  --font-family-primary: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-family-display: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Arctic Blue Theme - Clean/Modern */
+:root[data-theme="blue"],
+.theme-blue {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --primary-light: #60a5fa;
+  --primary-rgb: 59, 130, 246;
+  --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Nebula Purple Theme - Creative/Artistic */
+:root[data-theme="purple"],
+.theme-purple {
+  --primary: #8b5cf6;
+  --primary-dark: #7c3aed;
+  --primary-light: #a78bfa;
+  --primary-rgb: 139, 92, 246;
+  --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-display: 'Playfair Display', serif;
+}
+
+/* Sunset Orange Theme - Warm/Friendly */
+:root[data-theme="orange"],
+.theme-orange {
+  --primary: #f59e0b;
+  --primary-dark: #d97706;
+  --primary-light: #fbbf24;
+  --primary-rgb: 245, 158, 11;
+  --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Monolith Gray Theme - Minimal/Professional */
+:root[data-theme="gray"],
+.theme-gray {
+  --primary: #6b7280;
+  --primary-dark: #4b5563;
+  --primary-light: #9ca3af;
+  --primary-rgb: 107, 114, 128;
+  --font-family-primary: 'system-ui', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-display: 'system-ui', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Enhanced theme-aware utility classes */
+.bg-theme-primary { background-color: var(--background-primary) !important; }
+.bg-theme-secondary { background-color: var(--background-secondary) !important; }
+.bg-theme-tertiary { background-color: var(--background-tertiary) !important; }
+.bg-theme-elevated { background-color: var(--background-elevated) !important; }
+
+.text-theme-primary { color: var(--text-primary) !important; }
+.text-theme-secondary { color: var(--text-secondary) !important; }
+.text-theme-muted { color: var(--text-muted) !important; }
+.text-theme-inverse { color: var(--text-inverse) !important; }
+
+.border-theme-primary { border-color: var(--border-primary) !important; }
+.border-theme-secondary { border-color: var(--border-secondary) !important; }
+.border-theme-muted { border-color: var(--border-muted) !important; }
+
+/* Primary color utilities */
+.bg-primary { background-color: var(--primary) !important; }
+.bg-primary-dark { background-color: var(--primary-dark) !important; }
+.bg-primary-light { background-color: var(--primary-light) !important; }
+.bg-primary-10 { background-color: rgba(var(--primary-rgb), 0.1) !important; }
+.bg-primary-20 { background-color: rgba(var(--primary-rgb), 0.2) !important; }
+.text-primary-accent { color: var(--primary) !important; }
+.border-primary { border-color: var(--primary) !important; }
+.border-primary-20 { border-color: rgba(var(--primary-rgb), 0.2) !important; }
+.ring-primary { --tw-ring-color: var(--primary) !important; }
+.ring-primary-20 { --tw-ring-color: rgba(var(--primary-rgb), 0.2) !important; }
+
+/* Status color utilities */
+.text-success { color: var(--success) !important; }
+.text-warning { color: var(--warning) !important; }
+.text-error { color: var(--error) !important; }
+.text-info { color: var(--info) !important; }
+.bg-success { background-color: var(--success) !important; }
+.bg-warning { background-color: var(--warning) !important; }
+.bg-error { background-color: var(--error) !important; }
+.bg-info { background-color: var(--info) !important; }
+
+/* Typography utilities */
+.font-theme-primary { font-family: var(--font-family-primary) !important; }
+.font-theme-mono { font-family: var(--font-family-mono) !important; }
+.font-theme-display { font-family: var(--font-family-display) !important; }

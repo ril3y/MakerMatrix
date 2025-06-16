@@ -138,9 +138,11 @@ class TasksService {
     return apiClient.get(`${this.baseUrl}/worker/status`)
   }
 
-  // Quick task creation methods
-  async createQuickTask(taskType: 'csv-enrichment' | 'price-update' | 'database-cleanup', data: any): Promise<{ status: string; data: Task }> {
-    return apiClient.post(`${this.baseUrl}/quick/${taskType}`, data)
+  // Quick task creation methods  
+  async createQuickTask(taskType: 'csv-enrichment' | 'price-update' | 'database-cleanup' | 'bulk-enrichment', data: any): Promise<{ status: string; data: Task }> {
+    // Convert kebab-case to snake_case for backend
+    const backendTaskType = taskType.replace(/-/g, '_')
+    return apiClient.post(`${this.baseUrl}/quick/${backendTaskType}`, data)
   }
 
   async createCSVEnrichmentTask(enrichmentData: any): Promise<{ status: string; data: Task }> {
@@ -162,7 +164,7 @@ class TasksService {
     capabilities?: string[]
     force_refresh?: boolean
   }): Promise<{ status: string; data: Task }> {
-    return apiClient.post(`${this.baseUrl}/quick/part-enrichment`, enrichmentData)
+    return apiClient.post(`${this.baseUrl}/quick/part_enrichment`, enrichmentData)
   }
 
   async createDatasheetFetchTask(fetchData: {
@@ -170,7 +172,7 @@ class TasksService {
     part_number?: string
     supplier: string
   }): Promise<{ status: string; data: Task }> {
-    return apiClient.post(`${this.baseUrl}/quick/datasheet-fetch`, fetchData)
+    return apiClient.post(`${this.baseUrl}/quick/datasheet_fetch`, fetchData)
   }
 
   async createImageFetchTask(fetchData: {
@@ -178,7 +180,7 @@ class TasksService {
     part_number?: string
     supplier: string
   }): Promise<{ status: string; data: Task }> {
-    return apiClient.post(`${this.baseUrl}/quick/image-fetch`, fetchData)
+    return apiClient.post(`${this.baseUrl}/quick/image_fetch`, fetchData)
   }
 
   async createBulkEnrichmentTask(enrichmentData: {
@@ -187,7 +189,7 @@ class TasksService {
     capabilities?: string[]
     batch_size?: number
   }): Promise<{ status: string; data: Task }> {
-    return apiClient.post(`${this.baseUrl}/quick/bulk-enrichment`, enrichmentData)
+    return apiClient.post(`${this.baseUrl}/quick/bulk_enrichment`, enrichmentData)
   }
 
   // Supplier capabilities methods

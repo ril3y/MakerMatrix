@@ -83,11 +83,11 @@ const CategoriesPage = () => {
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
             <Tag className="w-6 h-6" />
             Categories
           </h1>
-          <p className="text-text-secondary mt-1">
+          <p className="text-secondary mt-1">
             Organize parts with categories and tags
           </p>
         </div>
@@ -109,7 +109,7 @@ const CategoriesPage = () => {
       >
         <div className="flex gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
             <input
               type="text"
               placeholder="Search categories..."
@@ -136,8 +136,8 @@ const CategoriesPage = () => {
           <div className="flex items-center gap-3">
             <Tags className="w-8 h-8 text-primary" />
             <div>
-              <p className="text-sm text-text-secondary">Total Categories</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.total}</p>
+              <p className="text-sm text-secondary">Total Categories</p>
+              <p className="text-2xl font-bold text-primary">{stats.total}</p>
             </div>
           </div>
         </div>
@@ -145,8 +145,8 @@ const CategoriesPage = () => {
           <div className="flex items-center gap-3">
             <Hash className="w-8 h-8 text-secondary" />
             <div>
-              <p className="text-sm text-text-secondary">Active Categories</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.active}</p>
+              <p className="text-sm text-secondary">Active Categories</p>
+              <p className="text-2xl font-bold text-primary">{stats.active}</p>
             </div>
           </div>
         </div>
@@ -154,8 +154,8 @@ const CategoriesPage = () => {
           <div className="flex items-center gap-3">
             <Tag className="w-8 h-8 text-accent" />
             <div>
-              <p className="text-sm text-text-secondary">Most Used</p>
-              <p className="text-xl font-bold text-text-primary">{stats.mostUsed}</p>
+              <p className="text-sm text-secondary">Most Used</p>
+              <p className="text-xl font-bold text-primary">{stats.mostUsed}</p>
             </div>
           </div>
         </div>
@@ -169,7 +169,7 @@ const CategoriesPage = () => {
           transition={{ delay: 0.175 }}
           className="card p-4"
         >
-          <h3 className="text-lg font-semibold text-text-primary mb-4">All Categories</h3>
+          <h3 className="text-lg font-semibold text-primary mb-4">All Categories</h3>
           <div className="flex flex-wrap gap-2">
             {categories.slice(0, 10).map((category) => (
               <span
@@ -182,7 +182,7 @@ const CategoriesPage = () => {
               </span>
             ))}
             {categories.length > 10 && (
-              <span className="px-3 py-1 text-text-secondary text-sm">
+              <span className="px-3 py-1 text-secondary text-sm">
                 +{categories.length - 10} more
               </span>
             )}
@@ -209,11 +209,11 @@ const CategoriesPage = () => {
           transition={{ delay: 0.2 }}
           className="card p-6 text-center"
         >
-          <Tag className="w-16 h-16 text-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-text-primary mb-2">
+          <Tag className="w-16 h-16 text-muted mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-primary mb-2">
             {searchTerm ? 'No categories found' : 'No categories yet'}
           </h3>
-          <p className="text-text-secondary">
+          <p className="text-secondary">
             {searchTerm ? 'Try adjusting your search terms' : 'Click "Add Category" to create your first category'}
           </p>
         </motion.div>
@@ -227,29 +227,29 @@ const CategoriesPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left p-4 text-text-secondary font-medium">Name</th>
-                  <th className="text-left p-4 text-text-secondary font-medium">Description</th>
-                  <th className="text-center p-4 text-text-secondary font-medium">Parts Count</th>
-                  <th className="text-right p-4 text-text-secondary font-medium">Actions</th>
+                <tr className="border-b border-border">
+                  <th className="text-left p-4 text-secondary font-medium">Name</th>
+                  <th className="text-left p-4 text-secondary font-medium">Description</th>
+                  <th className="text-center p-4 text-secondary font-medium">Parts Count</th>
+                  <th className="text-right p-4 text-secondary font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedCategories.map((category) => (
-                  <tr key={category.id} className="border-b border-gray-700 hover:bg-gray-800 transition-colors">
+                  <tr key={category.id} className="border-b border-border hover:bg-background-secondary transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Tag className="w-4 h-4 text-primary" />
-                        <span className="font-medium text-text-primary">{category.name}</span>
+                        <span className="font-medium text-primary">{category.name}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-text-secondary">
+                    <td className="p-4 text-secondary">
                       {category.description || '-'}
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Package className="w-4 h-4 text-text-muted" />
-                        <span className="text-text-secondary">-</span>
+                        <Package className="w-4 h-4 text-muted" />
+                        <span className="text-secondary">-</span>
                       </div>
                     </td>
                     <td className="p-4">

@@ -1,0 +1,240 @@
+/* Compact Mode Styles */
+.compact-mode {
+  /* Reduce padding and margins */
+  --spacing-sm: 0.25rem;
+  --spacing-md: 0.5rem;
+  --spacing-lg: 0.75rem;
+  --spacing-xl: 1rem;
+  --spacing-2xl: 1.5rem;
+  
+  /* Smaller font sizes */
+  font-size: 0.875rem;
+}
+
+/* Global font size reductions */
+.compact-mode h1 { @apply text-lg font-semibold; }
+.compact-mode h2 { @apply text-base font-semibold; }
+.compact-mode h3 { @apply text-sm font-semibold; }
+.compact-mode h4 { @apply text-xs font-semibold; }
+.compact-mode p { @apply text-xs; }
+.compact-mode span { @apply text-xs; }
+.compact-mode div { @apply text-xs; }
+
+/* Button compact styles */
+.compact-mode .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  height: 1.75rem;
+}
+
+.compact-mode .btn-sm {
+  padding: 0.125rem 0.375rem;
+  font-size: 0.75rem;
+  height: 1.5rem;
+}
+
+.compact-mode .btn-primary {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  height: 1.75rem;
+}
+
+.compact-mode .btn-secondary {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  height: 1.75rem;
+}
+
+/* Card compact styles */
+.compact-mode .card {
+  @apply p-3;
+}
+
+.compact-mode .card-header {
+  @apply p-3 pb-1;
+}
+
+.compact-mode .card-content {
+  @apply p-3 pt-1;
+}
+
+/* Table compact styles */
+.compact-mode .table-head {
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+.compact-mode .table-cell {
+  padding: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.compact-mode table th {
+  height: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.compact-mode table td {
+  padding: 0.25rem;
+  font-size: 0.75rem;
+}
+
+/* Form compact styles */
+.compact-mode .input {
+  height: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.compact-mode .input-sm {
+  height: 1.25rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.75rem;
+}
+
+.compact-mode .label {
+  font-size: 0.75rem;
+}
+
+.compact-mode input {
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+.compact-mode select {
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+.compact-mode textarea {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Navigation compact styles */
+.compact-mode nav {
+  @apply py-1;
+}
+
+.compact-mode .nav-item {
+  @apply px-2 py-1 text-xs;
+}
+
+/* Sidebar compact styles */
+.compact-mode .sidebar-item {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  height: 1.75rem;
+}
+
+/* Icon sizes */
+.compact-mode .w-5 {
+  width: 1rem;
+}
+
+.compact-mode .h-5 {
+  height: 1rem;
+}
+
+.compact-mode .w-6 {
+  width: 1rem;
+}
+
+.compact-mode .h-6 {
+  height: 1rem;
+}
+
+.compact-mode .w-8 {
+  width: 1.5rem;
+}
+
+.compact-mode .h-8 {
+  height: 1.5rem;
+}
+
+/* Dashboard and card specific */
+.compact-mode .dashboard-card {
+  @apply p-2;
+}
+
+.compact-mode .dashboard-card h3 {
+  @apply text-sm;
+}
+
+.compact-mode .dashboard-card p {
+  @apply text-xs;
+}
+
+/* Modal compact styles */
+.compact-mode .modal-content {
+  @apply p-3;
+}
+
+.compact-mode .modal-header {
+  @apply p-3 pb-2;
+}
+
+.compact-mode .modal-body {
+  @apply p-3 py-2;
+}
+
+.compact-mode .modal-footer {
+  @apply p-3 pt-2;
+}
+
+/* Spacing utilities for compact mode */
+.compact-mode .space-y-1 > * + * {
+  margin-top: 0.125rem;
+}
+
+.compact-mode .space-y-2 > * + * {
+  margin-top: 0.25rem;
+}
+
+.compact-mode .space-y-3 > * + * {
+  margin-top: 0.375rem;
+}
+
+.compact-mode .space-y-4 > * + * {
+  margin-top: 0.5rem;
+}
+
+.compact-mode .space-y-6 > * + * {
+  margin-top: 0.75rem;
+}
+
+.compact-mode .space-y-8 > * + * {
+  margin-top: 1rem;
+}
+
+/* Specific component compact styles */
+.compact-mode .settings-tab {
+  @apply px-2 py-1 text-xs;
+}
+
+.compact-mode .dashboard-card {
+  @apply p-3;
+}
+
+.compact-mode .parts-table-row {
+  @apply py-1;
+}
+
+.compact-mode .sidebar-item {
+  @apply px-2 py-1 text-xs;
+}
+
+/* Responsive compact adjustments */
+@media (max-width: 768px) {
+  .compact-mode .btn {
+    @apply px-1.5 py-0.5 text-xs;
+  }
+  
+  .compact-mode .card {
+    @apply p-2;
+  }
+}

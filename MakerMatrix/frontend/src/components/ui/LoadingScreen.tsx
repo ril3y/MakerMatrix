@@ -22,7 +22,7 @@ const LoadingScreen = () => {
           />
         </div>
         <motion.p
-          className="text-text-secondary text-sm font-mono"
+          className="text-secondary text-sm font-mono"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}

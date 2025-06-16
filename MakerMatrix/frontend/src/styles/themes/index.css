@@ -1,0 +1,23 @@
+/* Default theme variables for fallback */
+:root {
+  --primary: #00ff9d;
+  --primary-dark: #00cc7d;
+  --primary-light: #33ffa8;
+  --primary-rgb: 0, 255, 157;
+}
+
+/* Import all theme files */
+@import './default.css';
+@import './blue.css';
+@import './purple.css';
+@import './orange.css';
+@import './gray.css';
+
+/* Global theme utilities that work with all themes */
+@layer utilities {
+  /* Selection color */
+  ::selection {
+    background-color: rgba(var(--primary-rgb), 0.2);
+    color: var(--primary);
+  }
+}

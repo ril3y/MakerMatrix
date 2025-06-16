@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye } from 'lucide-react'
+import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
@@ -7,6 +7,7 @@ import { Part, Datasheet } from '@/types/parts'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
 import PartEnrichmentModal from '@/components/parts/PartEnrichmentModal'
+import PrinterModal from '@/components/printer/PrinterModal'
 
 const PartDetailsPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -17,6 +18,7 @@ const PartDetailsPage = () => {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [selectedDatasheet, setSelectedDatasheet] = useState<Datasheet | null>(null)
   const [enrichmentModalOpen, setEnrichmentModalOpen] = useState(false)
+  const [printerModalOpen, setPrinterModalOpen] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -127,11 +129,11 @@ const PartDetailsPage = () => {
     return (
       <div className="space-y-6">
         <div className="text-center py-8">
-          <Package className="w-16 h-16 text-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-text-primary mb-2">
+          <Package className="w-16 h-16 text-muted mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-primary mb-2">
             Part Not Found
           </h3>
-          <p className="text-text-secondary mb-4">
+          <p className="text-secondary mb-4">
             The requested part could not be found.
           </p>
           <button 
@@ -161,11 +163,11 @@ const PartDetailsPage = () => {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
               <Package className="w-6 h-6" />
               {part.name}
             </h1>
-            <p className="text-text-secondary mt-1">
+            <p className="text-secondary mt-1">
               Part Details
             </p>
           </div>
@@ -174,6 +176,13 @@ const PartDetailsPage = () => {
           <button onClick={handleEnrich} className="btn btn-primary flex items-center gap-2">
             <Zap className="w-4 h-4" />
             Enrich
+          </button>
+          <button 
+            onClick={() => setPrinterModalOpen(true)} 
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <Printer className="w-4 h-4" />
+            Print Label
           </button>
           <button onClick={handleEdit} className="btn btn-secondary flex items-center gap-2">
             <Edit className="w-4 h-4" />
@@ -194,7 +203,7 @@ const PartDetailsPage = () => {
         className="card"
       >
         <div className="card-header">
-          <h2 className="text-lg font-semibold text-text-primary">Basic Information</h2>
+          <h2 className="text-lg font-semibold text-primary">Basic Information</h2>
         </div>
         <div className="card-content">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -212,8 +221,8 @@ const PartDetailsPage = () => {
                       target.nextElementSibling?.classList.remove('hidden');
                     }}
                   />
-                  <div className="hidden w-full h-full bg-bg-secondary rounded-lg border border-border flex items-center justify-center">
-                    <div className="text-center text-text-muted">
+                  <div className="hidden w-full h-full bg-background-secondary rounded-lg border border-border flex items-center justify-center">
+                    <div className="text-center text-muted">
                       <Image className="w-8 h-8 mx-auto mb-2" />
                       <p className="text-sm">Image not available</p>
                     </div>
@@ -225,25 +234,25 @@ const PartDetailsPage = () => {
             {/* Basic Info Grid */}
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${part.image_url ? 'lg:col-span-3' : 'lg:col-span-4'}`}>
             <div className="flex items-start gap-3">
-              <Hash className="w-5 h-5 text-text-muted mt-0.5" />
+              <Hash className="w-5 h-5 text-muted mt-0.5" />
               <div>
-                <p className="text-sm text-text-secondary">Part Number</p>
-                <p className="font-semibold text-text-primary">{part.part_number || 'Not set'}</p>
+                <p className="text-sm text-secondary">Part Number</p>
+                <p className="font-semibold text-primary">{part.part_number || 'Not set'}</p>
               </div>
             </div>
             
             <div className="flex items-start gap-3">
-              <Box className="w-5 h-5 text-text-muted mt-0.5" />
+              <Box className="w-5 h-5 text-muted mt-0.5" />
               <div>
-                <p className="text-sm text-text-secondary">Quantity</p>
+                <p className="text-sm text-secondary">Quantity</p>
                 <p className={`font-semibold ${
                   part.minimum_quantity && part.quantity <= part.minimum_quantity
                     ? 'text-red-400'
-                    : 'text-text-primary'
+                    : 'text-primary'
                 }`}>
                   {part.quantity}
                   {part.minimum_quantity && (
-                    <span className="text-xs text-text-muted ml-2">
+                    <span className="text-xs text-muted ml-2">
                       (Min: {part.minimum_quantity})
                     </span>
                   )}
@@ -252,21 +261,21 @@ const PartDetailsPage = () => {
             </div>
 
             <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-text-muted mt-0.5" />
+              <MapPin className="w-5 h-5 text-muted mt-0.5" />
               <div>
-                <p className="text-sm text-text-secondary">Location</p>
-                <p className="font-semibold text-text-primary">
+                <p className="text-sm text-secondary">Location</p>
+                <p className="font-semibold text-primary">
                   {part.location?.name || 'Not assigned'}
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Tag className="w-5 h-5 text-text-muted mt-0.5" />
+              <Tag className="w-5 h-5 text-muted mt-0.5" />
               <div>
-                <p className="text-sm text-text-secondary">Supplier</p>
+                <p className="text-sm text-secondary">Supplier</p>
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-text-primary">{part.supplier || 'Not set'}</p>
+                  <p className="font-semibold text-primary">{part.supplier || 'Not set'}</p>
                   {part.supplier_url && (
                     <a
                       href={part.supplier_url}
@@ -282,18 +291,18 @@ const PartDetailsPage = () => {
             </div>
 
             <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-text-muted mt-0.5" />
+              <Calendar className="w-5 h-5 text-muted mt-0.5" />
               <div>
-                <p className="text-sm text-text-secondary">Created</p>
-                <p className="font-semibold text-text-primary">{formatDate(part.created_at)}</p>
+                <p className="text-sm text-secondary">Created</p>
+                <p className="font-semibold text-primary">{formatDate(part.created_at)}</p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-text-muted mt-0.5" />
+              <Calendar className="w-5 h-5 text-muted mt-0.5" />
               <div>
-                <p className="text-sm text-text-secondary">Last Updated</p>
-                <p className="font-semibold text-text-primary">{formatDate(part.updated_at)}</p>
+                <p className="text-sm text-secondary">Last Updated</p>
+                <p className="font-semibold text-primary">{formatDate(part.updated_at)}</p>
               </div>
             </div>
             </div>
@@ -310,7 +319,7 @@ const PartDetailsPage = () => {
           className="card"
         >
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-text-primary">Categories</h2>
+            <h2 className="text-lg font-semibold text-primary">Categories</h2>
           </div>
           <div className="card-content">
             <div className="flex flex-wrap gap-2">
@@ -336,10 +345,10 @@ const PartDetailsPage = () => {
           className="card"
         >
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-text-primary">Description</h2>
+            <h2 className="text-lg font-semibold text-primary">Description</h2>
           </div>
           <div className="card-content">
-            <p className="text-text-secondary">{part.description}</p>
+            <p className="text-secondary">{part.description}</p>
           </div>
         </motion.div>
       )}
@@ -353,7 +362,7 @@ const PartDetailsPage = () => {
           className="card"
         >
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
               <FileText className="w-5 h-5" />
               Datasheets
               <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
@@ -372,11 +381,11 @@ const PartDetailsPage = () => {
                     <div className="flex items-center gap-2">
                       <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
                       <div className="min-w-0">
-                        <h3 className="font-medium text-text-primary truncate">
+                        <h3 className="font-medium text-primary truncate">
                           {datasheet.title || datasheet.original_filename || datasheet.filename}
                         </h3>
                         {datasheet.supplier && (
-                          <p className="text-xs text-text-secondary">{datasheet.supplier}</p>
+                          <p className="text-xs text-secondary">{datasheet.supplier}</p>
                         )}
                       </div>
                     </div>
@@ -390,22 +399,22 @@ const PartDetailsPage = () => {
                   </div>
 
                   {datasheet.description && (
-                    <p className="text-sm text-text-secondary mb-3 line-clamp-2">
+                    <p className="text-sm text-secondary mb-3 line-clamp-2">
                       {datasheet.description}
                     </p>
                   )}
 
                   <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-xs text-text-muted">
+                    <div className="flex justify-between text-xs text-muted">
                       <span>Size:</span>
                       <span>{formatFileSize(datasheet.file_size)}</span>
                     </div>
-                    <div className="flex justify-between text-xs text-text-muted">
+                    <div className="flex justify-between text-xs text-muted">
                       <span>Added:</span>
                       <span>{formatDate(datasheet.created_at)}</span>
                     </div>
                     {datasheet.source_url && (
-                      <div className="flex justify-between text-xs text-text-muted">
+                      <div className="flex justify-between text-xs text-muted">
                         <span>Source:</span>
                         <a
                           href={datasheet.source_url}
@@ -431,7 +440,7 @@ const PartDetailsPage = () => {
                       </button>
                       <button
                         onClick={() => downloadDatasheet(datasheet)}
-                        className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors flex items-center justify-center"
+                        className="px-3 py-2 bg-background-tertiary hover:bg-background-secondary text-primary rounded text-sm transition-colors flex items-center justify-center"
                         title="Download"
                       >
                         <Download className="w-4 h-4" />
@@ -439,7 +448,7 @@ const PartDetailsPage = () => {
                     </div>
                   ) : (
                     <div className="text-center py-2">
-                      <p className="text-sm text-text-muted">
+                      <p className="text-sm text-muted">
                         {datasheet.download_error 
                           ? `Download failed: ${datasheet.download_error}`
                           : 'Download pending...'
@@ -462,7 +471,7 @@ const PartDetailsPage = () => {
         className="card"
       >
         <div className="card-header">
-          <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
             <Info className="w-5 h-5" />
             Properties & Technical Data
             {part.additional_properties && (
@@ -477,19 +486,19 @@ const PartDetailsPage = () => {
             <>
               {/* Quick Stats Summary */}
               <div className="mb-6 p-4 bg-background-secondary/20 rounded-lg border border-border/30">
-                <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
                   <Zap className="w-4 h-4" />
                   Quick Overview
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-700 dark:text-gray-300">Total Properties:</span>
-                    <span className="ml-2 font-semibold text-text-primary">{Object.keys(part.additional_properties).length}</span>
+                    <span className="text-secondary">Total Properties:</span>
+                    <span className="ml-2 font-semibold text-primary">{Object.keys(part.additional_properties).length}</span>
                   </div>
                   {part.additional_properties.description && (
                     <div className="col-span-2 md:col-span-3">
-                      <span className="text-gray-700 dark:text-gray-300">Description:</span>
-                      <span className="ml-2 text-text-primary">{String(part.additional_properties.description).substring(0, 100)}...</span>
+                      <span className="text-secondary">Description:</span>
+                      <span className="ml-2 text-primary">{String(part.additional_properties.description).substring(0, 100)}...</span>
                     </div>
                   )}
                 </div>
@@ -499,9 +508,9 @@ const PartDetailsPage = () => {
             </>
           ) : (
             <div className="text-center py-8">
-              <Info className="w-12 h-12 text-text-muted mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium text-text-primary mb-2">No Additional Properties</h3>
-              <p className="text-text-secondary">
+              <Info className="w-12 h-12 text-muted mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-medium text-primary mb-2">No Additional Properties</h3>
+              <p className="text-secondary">
                 This part doesn't have enriched properties yet. Properties are added during CSV import with enrichment.
               </p>
             </div>
@@ -509,10 +518,10 @@ const PartDetailsPage = () => {
           
           {/* Debug info - remove in production */}
           <details className="mt-4 p-3 bg-background-secondary/30 dark:bg-black rounded border">
-            <summary className="cursor-pointer text-sm font-medium text-text-secondary">
+            <summary className="cursor-pointer text-sm font-medium text-secondary">
               Debug: Raw Properties Data
             </summary>
-            <pre className="mt-2 text-xs text-text-muted dark:text-green-400 overflow-x-auto">
+            <pre className="mt-2 text-xs text-muted overflow-x-auto">
               {JSON.stringify(part.additional_properties, null, 2)}
             </pre>
           </details>
@@ -537,6 +546,19 @@ const PartDetailsPage = () => {
         onClose={() => setEnrichmentModalOpen(false)}
         part={part}
         onPartUpdated={handlePartUpdated}
+      />
+
+      {/* Printer Modal */}
+      <PrinterModal
+        isOpen={printerModalOpen}
+        onClose={() => setPrinterModalOpen(false)}
+        partData={{
+          part_name: part.name,
+          part_number: part.part_number,
+          location: part.location,
+          category: part.category,
+          quantity: part.quantity?.toString()
+        }}
       />
     </div>
   )
@@ -689,7 +711,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
           <p className="text-xs text-gray-700 dark:text-gray-300 font-medium mb-1 uppercase tracking-wide">
             {formatKey(key)}
           </p>
-          <div className="font-medium text-text-primary text-sm break-words">
+          <div className="font-medium text-primary text-sm break-words">
             {formatValue(value, key)}
           </div>
           {/* Show raw key for debugging */}
@@ -754,7 +776,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
       className="card"
     >
       <div className="card-header">
-        <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
           <Info className="w-5 h-5" />
           Part Properties & Specifications
         </h2>
@@ -772,7 +794,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
                 className={`flex items-center gap-2 px-4 py-2 rounded-t-lg border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? 'bg-primary/10 text-primary border-primary'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-text-primary border-transparent hover:bg-background-secondary/50'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-primary border-transparent hover:bg-background-secondary/50'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -791,7 +813,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Zap className="w-4 h-4 text-primary" />
-                <h3 className="font-medium text-text-primary">Technical Specifications</h3>
+                <h3 className="font-medium text-primary">Technical Specifications</h3>
               </div>
               {renderPropertyGrid(organizedProps.technical)}
             </div>
@@ -801,7 +823,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Settings className="w-4 h-4 text-primary" />
-                <h3 className="font-medium text-text-primary">Component-Specific Data</h3>
+                <h3 className="font-medium text-primary">Component-Specific Data</h3>
               </div>
               {renderPropertyGrid(organizedProps.component)}
             </div>
@@ -811,7 +833,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Globe className="w-4 h-4 text-primary" />
-                <h3 className="font-medium text-text-primary">Supplier Information</h3>
+                <h3 className="font-medium text-primary">Supplier Information</h3>
               </div>
               {renderPropertyGrid(organizedProps.supplier)}
             </div>
@@ -821,7 +843,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <BookOpen className="w-4 h-4 text-primary" />
-                <h3 className="font-medium text-text-primary">Data Enrichment Information</h3>
+                <h3 className="font-medium text-primary">Data Enrichment Information</h3>
               </div>
               {renderPropertyGrid(organizedProps.enrichment)}
             </div>
@@ -831,7 +853,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Clock className="w-4 h-4 text-primary" />
-                <h3 className="font-medium text-text-primary">Import Information</h3>
+                <h3 className="font-medium text-primary">Import Information</h3>
               </div>
               {renderPropertyGrid(organizedProps.import)}
             </div>
@@ -841,7 +863,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Info className="w-4 h-4 text-primary" />
-                <h3 className="font-medium text-text-primary">Other Properties</h3>
+                <h3 className="font-medium text-primary">Other Properties</h3>
               </div>
               {renderPropertyGrid(organizedProps.other)}
             </div>
@@ -849,7 +871,7 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
 
           {/* Show message if no properties in selected tab */}
           {tabs.find(tab => tab.id === activeTab)?.count === 0 && (
-            <div className="text-center py-8 text-text-muted">
+            <div className="text-center py-8 text-muted">
               <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No properties available in this category</p>
               <p className="text-sm mt-1">{tabs.find(tab => tab.id === activeTab)?.description}</p>

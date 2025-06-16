@@ -1,0 +1,490 @@
+"""
+Unit tests for the printer manager service.
+"""
+import pytest
+import asyncio
+from unittest.mock import Mock, AsyncMock, patch
+from datetime import datetime
+
+from MakerMatrix.services.printer_manager_service import (
+    PrinterManagerService, 
+    PrintJob,
+    get_printer_manager,
+    initialize_default_printers
+)
+from MakerMatrix.printers.drivers.mock.driver import MockPrinter
+from MakerMatrix.printers.base import PrinterStatus, PrintJobResult, TestResult
+
+
+@pytest.mark.asyncio
+class TestPrinterManagerService:
+    """Test the printer manager service."""
+    
+    @pytest.fixture
+    def manager(self):
+        """Create a fresh printer manager."""
+        return PrinterManagerService()
+    
+    @pytest.fixture
+    def mock_printer(self):
+        """Create mock printer instance."""
+        return MockPrinter(
+            printer_id="mock_test",
+            name="Mock Test Printer",
+            model="MockQL-800",
+            backend="mock",
+            identifier="mock://test"
+        )
+    
+    @pytest.fixture
+    def brother_printer(self):
+        """Create Brother QL printer instance."""
+        from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
+        return BrotherQLModern(
+            printer_id="brother_test",
+            name="Brother Test Printer", 
+            model="QL-800",
+            backend="network",
+            identifier="tcp://192.168.1.100:9100",
+            dpi=300,
+            scaling_factor=1.0
+        )
+    
+    def test_manager_initialization(self, manager):
+        """Test manager initialization."""
+        assert len(manager.printers) == 0
+        assert len(manager.print_jobs) == 0
+        assert manager.default_printer_id is None
+    
+    async def test_register_mock_printer(self, manager, mock_printer):
+        """Test registering a mock printer."""
+        success = await manager.register_printer(mock_printer)
+        
+        assert success is True
+        assert "mock_test" in manager.printers
+        assert manager.default_printer_id == "mock_test"
+        
+        printer = await manager.get_printer("mock_test")
+        assert printer is not None
+        info = await printer.get_info()
+        assert info.printer_id == "mock_test"
+        assert isinstance(printer, MockPrinter)
+    
+    def test_register_brother_ql_printer(self, manager, brother_config):
+        """Test registering a Brother QL printer."""
+        success = manager.register_printer(brother_config)
+        
+        assert success is True
+        assert "brother_test" in manager.printers
+        assert manager.default_printer_id == "brother_test"
+        
+        printer = manager.get_printer("brother_test")
+        assert printer is not None
+        assert printer.model == "QL-800"
+    
+    def test_register_invalid_driver(self, manager):
+        """Test registering printer with invalid driver."""
+        invalid_config = PrinterConfig(
+            printer_id="invalid",
+            name="Invalid Printer",
+            driver_type="InvalidDriver",
+            model="Unknown",
+            backend="invalid",
+            identifier="invalid://test"
+        )
+        
+        success = manager.register_printer(invalid_config)
+        assert success is False
+        assert "invalid" not in manager.printers
+    
+    def test_unregister_printer(self, manager, mock_config):
+        """Test unregistering a printer."""
+        manager.register_printer(mock_config)
+        assert "mock_test" in manager.printers
+        
+        success = manager.unregister_printer("mock_test")
+        assert success is True
+        assert "mock_test" not in manager.printers
+        assert manager.default_printer_id is None
+    
+    def test_unregister_nonexistent_printer(self, manager):
+        """Test unregistering a printer that doesn't exist."""
+        success = manager.unregister_printer("nonexistent")
+        assert success is False
+    
+    def test_get_printer_by_id(self, manager, mock_config, brother_config):
+        """Test getting printer by ID."""
+        manager.register_printer(mock_config)
+        manager.register_printer(brother_config)
+        
+        mock_printer = manager.get_printer("mock_test")
+        assert mock_printer is not None
+        assert mock_printer.printer_id == "mock_test"
+        
+        brother_printer = manager.get_printer("brother_test")
+        assert brother_printer is not None
+        assert brother_printer.printer_id == "brother_test"
+    
+    def test_get_default_printer(self, manager, mock_config):
+        """Test getting default printer."""
+        manager.register_printer(mock_config)
+        
+        default_printer = manager.get_default_printer()
+        assert default_printer is not None
+        assert default_printer.printer_id == "mock_test"
+        
+        # Test with no printer ID
+        same_printer = manager.get_printer()
+        assert same_printer == default_printer
+    
+    def test_set_default_printer(self, manager, mock_config, brother_config):
+        """Test setting default printer."""
+        manager.register_printer(mock_config)
+        manager.register_printer(brother_config)
+        
+        # Initially mock is default
+        assert manager.default_printer_id == "mock_test"
+        
+        # Change default to brother
+        success = manager.set_default_printer("brother_test")
+        assert success is True
+        assert manager.default_printer_id == "brother_test"
+        
+        # Test with invalid ID
+        success = manager.set_default_printer("invalid")
+        assert success is False
+        assert manager.default_printer_id == "brother_test"
+    
+    def test_list_printers(self, manager, mock_config, brother_config):
+        """Test listing printers."""
+        # Empty list initially
+        printers = manager.list_printers()
+        assert len(printers) == 0
+        
+        # Add printers
+        manager.register_printer(mock_config)
+        manager.register_printer(brother_config)
+        
+        printers = manager.list_printers()
+        assert len(printers) == 2
+        
+        printer_ids = [p.id for p in printers]
+        assert "mock_test" in printer_ids
+        assert "brother_test" in printer_ids
+        
+        # Check default flag
+        mock_printer_info = next(p for p in printers if p.id == "mock_test")
+        assert mock_printer_info.is_default is True
+    
+    def test_list_printers_enabled_only(self, manager, mock_config):
+        """Test listing only enabled printers."""
+        # Disable the printer
+        mock_config.enabled = False
+        manager.register_printer(mock_config)
+        
+        # Should be empty when filtering enabled only
+        enabled_printers = manager.list_printers(enabled_only=True)
+        assert len(enabled_printers) == 0
+        
+        # Should show when not filtering
+        all_printers = manager.list_printers(enabled_only=False)
+        assert len(all_printers) == 1
+    
+    async def test_get_printer_status(self, manager, mock_config):
+        """Test getting printer status."""
+        manager.register_printer(mock_config)
+        
+        status = await manager.get_printer_status("mock_test")
+        assert status is not None
+        assert isinstance(status, PrinterStatus)
+        
+        # Test default printer
+        default_status = await manager.get_printer_status()
+        assert default_status == status
+        
+        # Test invalid printer
+        invalid_status = await manager.get_printer_status("invalid")
+        assert invalid_status is None
+    
+    async def test_get_all_printer_statuses(self, manager, mock_config, brother_config):
+        """Test getting all printer statuses."""
+        manager.register_printer(mock_config)
+        manager.register_printer(brother_config)
+        
+        statuses = await manager.get_all_printer_statuses()
+        
+        assert "mock_test" in statuses
+        assert "brother_test" in statuses
+        assert len(statuses) == 2
+    
+    async def test_test_printer_connection(self, manager, mock_config):
+        """Test testing printer connection."""
+        manager.register_printer(mock_config)
+        
+        result = await manager.test_printer_connection("mock_test")
+        assert result is not None
+        assert isinstance(result, TestResult)
+        assert result.success is True
+    
+    async def test_test_all_printers(self, manager, mock_config, brother_config):
+        """Test testing all printer connections."""
+        manager.register_printer(mock_config)
+        manager.register_printer(brother_config)
+        
+        results = await manager.test_all_printers()
+        
+        assert "mock_test" in results
+        assert "brother_test" in results
+        assert len(results) == 2
+        
+        # Mock printer should succeed
+        assert results["mock_test"].success is True
+    
+    async def test_route_print_job(self, manager, mock_config):
+        """Test routing a print job."""
+        from PIL import Image
+        
+        manager.register_printer(mock_config)
+        
+        # Create test image
+        test_image = Image.new('RGB', (100, 50), 'white')
+        
+        job = await manager.route_print_job(
+            job_type="text",
+            printer_id="mock_test",
+            image=test_image,
+            label_size="12",
+            copies=1
+        )
+        
+        assert job.job_id.startswith("job_")
+        assert job.printer_id == "mock_test"
+        assert job.job_type == "text"
+        assert job.status == "completed"
+        assert job.result is not None
+        assert job.result.success is True
+    
+    async def test_route_print_job_default_printer(self, manager, mock_config):
+        """Test routing print job to default printer."""
+        from PIL import Image
+        
+        manager.register_printer(mock_config)
+        test_image = Image.new('RGB', (100, 50), 'white')
+        
+        # Don't specify printer_id, should use default
+        job = await manager.route_print_job(
+            job_type="qr_code",
+            image=test_image,
+            label_size="12"
+        )
+        
+        assert job.printer_id == "mock_test"
+        assert job.status == "completed"
+    
+    async def test_route_print_job_no_printer(self, manager):
+        """Test routing print job when no printer available."""
+        from PIL import Image
+        
+        test_image = Image.new('RGB', (100, 50), 'white')
+        
+        job = await manager.route_print_job(
+            job_type="text",
+            image=test_image,
+            label_size="12"
+        )
+        
+        assert job.status == "failed"
+        assert "No printer available" in job.error
+    
+    async def test_route_print_job_invalid_type(self, manager, mock_config):
+        """Test routing print job with invalid type."""
+        from PIL import Image
+        
+        manager.register_printer(mock_config)
+        test_image = Image.new('RGB', (100, 50), 'white')
+        
+        job = await manager.route_print_job(
+            job_type="invalid_type",
+            image=test_image,
+            label_size="12"
+        )
+        
+        assert job.status == "failed"
+        assert "Unknown job type" in job.error
+    
+    def test_get_print_job(self, manager):
+        """Test getting print job by ID."""
+        # Create a job manually for testing
+        job = PrintJob(
+            job_id="test_job_123",
+            printer_id="test_printer",
+            job_type="text",
+            status="completed",
+            created_at=datetime.utcnow()
+        )
+        manager.print_jobs["test_job_123"] = job
+        
+        retrieved_job = manager.get_print_job("test_job_123")
+        assert retrieved_job == job
+        
+        # Test nonexistent job
+        nonexistent = manager.get_print_job("nonexistent")
+        assert nonexistent is None
+    
+    def test_list_print_jobs(self, manager):
+        """Test listing print jobs."""
+        # Create multiple jobs
+        for i in range(5):
+            job = PrintJob(
+                job_id=f"job_{i}",
+                printer_id="test_printer",
+                job_type="text",
+                status="completed",
+                created_at=datetime.utcnow()
+            )
+            manager.print_jobs[f"job_{i}"] = job
+        
+        jobs = manager.list_print_jobs(limit=3)
+        assert len(jobs) == 3
+        
+        # Test filtering by printer
+        jobs_filtered = manager.list_print_jobs(printer_id="test_printer")
+        assert len(jobs_filtered) == 5
+        
+        jobs_no_match = manager.list_print_jobs(printer_id="other_printer")
+        assert len(jobs_no_match) == 0
+    
+    def test_get_supported_label_sizes(self, manager, mock_config):
+        """Test getting supported label sizes."""
+        manager.register_printer(mock_config)
+        
+        sizes = manager.get_supported_label_sizes("mock_test")
+        assert len(sizes) > 0
+        
+        size_names = [s.name for s in sizes]
+        assert "12" in size_names
+        assert "29" in size_names
+    
+    async def test_get_printer_capabilities(self, manager, mock_config):
+        """Test getting printer capabilities."""
+        manager.register_printer(mock_config)
+        
+        capabilities = await manager.get_printer_capabilities("mock_test")
+        assert len(capabilities) > 0
+    
+    def test_get_printer_config(self, manager, mock_config):
+        """Test getting printer configuration."""
+        manager.register_printer(mock_config)
+        
+        config = manager.get_printer_config("mock_test")
+        assert config == mock_config
+        
+        invalid_config = manager.get_printer_config("invalid")
+        assert invalid_config is None
+    
+    def test_update_printer_config(self, manager, mock_config):
+        """Test updating printer configuration."""
+        manager.register_printer(mock_config)
+        
+        # Update name
+        success = manager.update_printer_config("mock_test", name="Updated Name")
+        assert success is True
+        assert manager.configs["mock_test"].name == "Updated Name"
+        
+        # Update enabled status
+        success = manager.update_printer_config("mock_test", enabled=False)
+        assert success is True
+        assert manager.configs["mock_test"].enabled is False
+        
+        # Test invalid printer
+        success = manager.update_printer_config("invalid", name="Test")
+        assert success is False
+    
+    def test_clear_completed_jobs(self, manager):
+        """Test clearing completed jobs."""
+        from datetime import timedelta
+        
+        # Create old completed job
+        old_job = PrintJob(
+            job_id="old_job",
+            printer_id="test",
+            job_type="text",
+            status="completed",
+            created_at=datetime.utcnow() - timedelta(hours=25),
+            completed_at=datetime.utcnow() - timedelta(hours=25)
+        )
+        
+        # Create recent job
+        recent_job = PrintJob(
+            job_id="recent_job",
+            printer_id="test",
+            job_type="text", 
+            status="completed",
+            created_at=datetime.utcnow(),
+            completed_at=datetime.utcnow()
+        )
+        
+        manager.print_jobs["old_job"] = old_job
+        manager.print_jobs["recent_job"] = recent_job
+        
+        # Clear jobs older than 24 hours
+        cleared_count = manager.clear_completed_jobs(older_than_hours=24)
+        
+        assert cleared_count == 1
+        assert "old_job" not in manager.print_jobs
+        assert "recent_job" in manager.print_jobs
+    
+    def test_get_manager_stats(self, manager, mock_config, brother_config):
+        """Test getting manager statistics."""
+        manager.register_printer(mock_config)
+        manager.register_printer(brother_config)
+        
+        # Add some jobs
+        for i in range(3):
+            job = PrintJob(
+                job_id=f"job_{i}",
+                printer_id="mock_test",
+                job_type="text",
+                status="completed" if i < 2 else "failed",
+                created_at=datetime.utcnow()
+            )
+            manager.print_jobs[f"job_{i}"] = job
+        
+        stats = manager.get_manager_stats()
+        
+        assert stats["total_printers"] == 2
+        assert stats["enabled_printers"] == 2
+        assert stats["default_printer"] == "mock_test"
+        assert stats["total_jobs"] == 3
+        assert stats["job_statuses"]["completed"] == 2
+        assert stats["job_statuses"]["failed"] == 1
+        assert "MockPrinter" in stats["supported_drivers"]
+        assert "BrotherQLModern" in stats["supported_drivers"]
+
+
+class TestPrinterManagerGlobalFunctions:
+    """Test global printer manager functions."""
+    
+    def test_get_printer_manager(self):
+        """Test getting global printer manager."""
+        manager = get_printer_manager()
+        assert isinstance(manager, PrinterManagerService)
+        
+        # Should return same instance
+        manager2 = get_printer_manager()
+        assert manager is manager2
+    
+    def test_initialize_default_printers(self):
+        """Test initializing default printers."""
+        manager = get_printer_manager()
+        initial_count = len(manager.printers)
+        
+        initialize_default_printers()
+        
+        # Should have added at least mock printer
+        assert len(manager.printers) > initial_count
+        assert "mock_default" in manager.printers
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

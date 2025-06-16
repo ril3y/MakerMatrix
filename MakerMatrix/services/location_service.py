@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Optional, Dict, List, Set
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
@@ -11,6 +12,9 @@ from MakerMatrix.repositories.custom_exceptions import (
     InvalidReferenceError
 )
 from MakerMatrix.schemas.location_delete_response import LocationDeleteResponse
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class LocationService:
@@ -41,8 +45,19 @@ class LocationService:
     def add_location(location_data: Dict[str, Any]) -> LocationModel:
         session = next(get_session())
         try:
-            return LocationService.location_repo.add_location(session, location_data)
+            location_name = location_data.get("name", "Unknown")
+            parent_id = location_data.get("parent_id")
+            location_type = location_data.get("location_type", "Unknown")
+            
+            logger.info(f"Attempting to create new location: {location_name} (type: {location_type})")
+            if parent_id:
+                logger.debug(f"Creating location '{location_name}' with parent ID: {parent_id}")
+            
+            result = LocationService.location_repo.add_location(session, location_data)
+            logger.info(f"Successfully created location: {location_name} (ID: {result.id})")
+            return result
         except Exception as e:
+            logger.error(f"Failed to create location '{location_data.get('name', 'Unknown')}': {e}")
             raise ValueError(f"Failed to add location: {str(e)}")
 
     @staticmethod
@@ -62,10 +77,56 @@ class LocationService:
         """
         session = next(get_session())
         try:
-            return LocationService.location_repo.update_location(session, location_id, location_data)
+            logger.info(f"Attempting to update location: {location_id}")
+            
+            # Get the current location to show before/after changes
+            query_model = LocationQueryModel(id=location_id)
+            current_location = LocationService.location_repo.get_location(session, query_model)
+            
+            if not current_location:
+                logger.error(f"Location update failed: Location with ID '{location_id}' not found")
+                raise ResourceNotFoundError(
+                    status="error", 
+                    message=f"Location with ID '{location_id}' not found",
+                    data=None
+                )
+            
+            # Log current state and planned changes
+            logger.debug(f"Current location state: '{current_location.name}' (ID: {location_id})")
+            updated_fields = []
+            
+            for field, new_value in location_data.items():
+                if hasattr(current_location, field):
+                    old_value = getattr(current_location, field)
+                    if old_value != new_value:
+                        if field == "name":
+                            logger.info(f"Updating location name (ID: {location_id}): '{old_value}' → '{new_value}'")
+                            updated_fields.append(f"name: '{old_value}' → '{new_value}'")
+                        elif field == "description":
+                            logger.info(f"Updating location description for '{current_location.name}' (ID: {location_id})")
+                            updated_fields.append(f"description updated")
+                        elif field == "parent_id":
+                            logger.info(f"Updating parent for location '{current_location.name}' (ID: {location_id}): {old_value} → {new_value}")
+                            updated_fields.append(f"parent: {old_value} → {new_value}")
+                        elif field == "location_type":
+                            logger.info(f"Updating type for location '{current_location.name}' (ID: {location_id}): '{old_value}' → '{new_value}'")
+                            updated_fields.append(f"type: '{old_value}' → '{new_value}'")
+                        else:
+                            logger.info(f"Updating {field} for location '{current_location.name}' (ID: {location_id}): {old_value} → {new_value}")
+                            updated_fields.append(f"{field}: {old_value} → {new_value}")
+            
+            result = LocationService.location_repo.update_location(session, location_id, location_data)
+            
+            if updated_fields:
+                logger.info(f"Successfully updated location '{result.name}' (ID: {location_id}). Changes: {', '.join(updated_fields)}")
+            else:
+                logger.info(f"No changes made to location '{result.name}' (ID: {location_id})")
+            
+            return result
         except ResourceNotFoundError as rnfe:
             raise rnfe  # Re-raise the ResourceNotFoundError to be handled by the route
         except Exception as e:
+            logger.error(f"Failed to update location {location_id}: {e}")
             raise ValueError(f"Failed to update location: {str(e)}")
 
     @staticmethod
@@ -147,23 +208,33 @@ class LocationService:
     def delete_location(location_id: str) -> Dict:
         session = next(get_session())
 
+        logger.info(f"Attempting to delete location: {location_id}")
+        
         query_model = LocationQueryModel(id=location_id)
         location = LocationRepository.get_location(session, location_query=query_model)
 
         if not location:
+            logger.error(f"Location deletion failed: Location with ID '{location_id}' not found")
             return {
                 "status": "error",
                 "message": f"Location {location_id} not found",
                 "data": None
             }
 
+        # Log location details before deletion
+        location_name = location.name
+        location_type = getattr(location, 'location_type', 'Unknown')
+        logger.info(f"Deleting location: '{location_name}' (ID: {location_id}, type: {location_type})")
+
         # Delete location and its children
         LocationRepository.delete_location(session, location)
 
         # Debug: Verify parts with NULL location_id
         orphaned_parts = session.query(PartModel).filter(PartModel.location_id == None).all()
-        print(f"Orphaned Parts: {orphaned_parts}")
+        if orphaned_parts:
+            logger.info(f"Location deletion resulted in {len(orphaned_parts)} orphaned parts")
 
+        logger.info(f"Successfully deleted location: '{location_name}' (ID: {location_id})")
         return {
             "status": "success",
             "message": f"Deleted location_id: {location_id} and its children",

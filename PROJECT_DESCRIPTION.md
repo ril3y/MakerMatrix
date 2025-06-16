@@ -76,7 +76,7 @@ MakerMatrix/
 - **Modular Parser System**: Easy to add new CSV formats
 - **Auto-Population**: Extract order date/number from filenames
 
-### 7. Advanced Part Enrichment System
+### 7. Advanced Task-Based Enrichment System
 - **Multi-Vendor Support**: Parse data from major suppliers
   - LCSC: Electronic components with specifications, datasheets, and EasyEDA integration
   - Mouser: Component data, images, pricing, and availability
@@ -89,11 +89,15 @@ MakerMatrix/
   - Real-time pricing and stock information
   - Detailed technical specifications
   - Component validation and verification
-- **Background Task System**: Asynchronous enrichment processing
-  - Real-time progress tracking with WebSocket updates
-  - Task queue management with priority levels
-  - Retry logic for failed enrichment attempts
-  - Bulk enrichment for multiple parts simultaneously
+- **Comprehensive Background Task System**: Production-ready asynchronous processing
+  - **Task Security Framework**: Role-based permissions (USER, POWER_USER, ADMIN, SYSTEM)
+  - **Enhanced Parser Architecture**: Supplier capabilities system with modular design
+  - **Task Queue Management**: Priority levels, retry logic, and concurrent task handling
+  - **Real-time Progress Tracking**: WebSocket updates with detailed step information
+  - **Individual Part Enrichment**: UI integration with "Enrich" button on part details
+  - **Bulk Operations**: Process multiple parts simultaneously with batch optimization
+  - **Database Safety**: Proper session management and transaction isolation
+  - **API Integration**: RESTful endpoints for task creation, monitoring, and management
 
 ## API Endpoints
 
@@ -139,6 +143,34 @@ MakerMatrix/
 - `POST /printer/config` - Configure printer settings
 - `GET /printer/current_printer` - Get active configuration
 
+### Background Task Management
+- `GET /api/tasks/` - List tasks with filtering and pagination
+- `POST /api/tasks/` - Create custom background task
+- `GET /api/tasks/{task_id}` - Get specific task details
+- `POST /api/tasks/{task_id}/cancel` - Cancel running task
+- `POST /api/tasks/{task_id}/retry` - Retry failed task
+- `GET /api/tasks/stats/summary` - Get task system statistics
+- `GET /api/tasks/worker/status` - Get task worker status
+- `POST /api/tasks/worker/start` - Start task worker (admin)
+- `POST /api/tasks/worker/stop` - Stop task worker (admin)
+
+### Quick Task Creation
+- `POST /api/tasks/quick/part_enrichment` - Enrich individual part
+- `POST /api/tasks/quick/datasheet_fetch` - Fetch part datasheet
+- `POST /api/tasks/quick/image_fetch` - Fetch part images
+- `POST /api/tasks/quick/bulk_enrichment` - Bulk enrich multiple parts
+- `POST /api/tasks/quick/csv_enrichment` - Enrich CSV imported parts
+- `POST /api/tasks/quick/price_update` - Update part prices
+- `POST /api/tasks/quick/database_cleanup` - Database maintenance
+
+### Task System Capabilities
+- `GET /api/tasks/capabilities/suppliers` - Get all supplier capabilities
+- `GET /api/tasks/capabilities/suppliers/{supplier_name}` - Get specific supplier capabilities
+- `GET /api/tasks/capabilities/find/{capability_type}` - Find suppliers with capability
+- `GET /api/tasks/security/permissions` - Get user task permissions
+- `GET /api/tasks/security/limits` - Get user task usage limits
+- `POST /api/tasks/security/validate` - Validate task creation
+
 ## Database Schema
 
 ### Core Tables
@@ -180,6 +212,15 @@ MakerMatrix/
   - Last order info (date, price, order number)
   - Pricing statistics (lowest, highest, average)
   - Total order count per part
+
+### Task System Tables
+- **TaskModel**: Background task management
+  - Task type, status, priority, and progress tracking
+  - Input/output data storage with JSON fields
+  - User ownership and security context
+  - Retry logic and timeout handling
+  - Related entity tracking (part, order, etc.)
+  - Dependency management between tasks
 
 ## Security Features
 
@@ -239,6 +280,13 @@ MakerMatrix/
 - CSV order import system with auto-detection
 - Order tracking and pricing history
 - Multi-vendor CSV parser framework
+- **Task-Based Enrichment System**: Full production implementation
+  - Individual part enrichment via UI
+  - Background task processing with WebSocket progress
+  - Role-based task security and permissions
+  - API endpoints for task management and monitoring
+  - Enhanced parser integration with supplier capabilities
+  - Proper database session management and error handling
 
 ### 🚧 In Development
 - Database migration system

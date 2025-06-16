@@ -150,7 +150,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
       {loadingData ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-text-secondary mt-2">Loading...</p>
+          <p className="text-secondary mt-2">Loading...</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -202,8 +202,8 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
           {/* Preview of full path */}
           {formData.parent_id && (
             <div className="p-3 bg-background-secondary rounded-md">
-              <p className="text-sm text-text-secondary mb-1">Full path will be:</p>
-              <p className="text-sm font-medium text-text-primary">
+              <p className="text-sm text-secondary mb-1">Full path will be:</p>
+              <p className="text-sm font-medium text-primary">
                 {(() => {
                   const parent = parentLocations.find(loc => loc.id === formData.parent_id)
                   if (parent) {

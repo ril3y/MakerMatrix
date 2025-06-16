@@ -1,0 +1,141 @@
+/* MakerMatrix Default Green Theme */
+:root[data-theme="default"],
+.theme-default {
+  --primary: #00ff9d;
+  --primary-dark: #00cc7d;
+  --primary-light: #33ffa8;
+  --primary-rgb: 0, 255, 157;
+  
+  /* Background colors */
+  --bg-primary: #f8fcf9;
+  --bg-secondary: #f0faf4;
+  --bg-tertiary: #e6f7ed;
+  --bg-accent: #dcf4e6;
+}
+
+/* Override Tailwind classes for theme colors */
+.theme-default .bg-primary,
+:root[data-theme="default"] .bg-primary { 
+  background-color: #00ff9d !important; 
+}
+
+.theme-default .bg-primary-dark,
+:root[data-theme="default"] .bg-primary-dark { 
+  background-color: #00cc7d !important; 
+}
+
+.theme-default .bg-primary-10,
+:root[data-theme="default"] .bg-primary-10 { 
+  background-color: rgba(0, 255, 157, 0.1) !important; 
+}
+
+.theme-default .bg-primary-20,
+:root[data-theme="default"] .bg-primary-20 { 
+  background-color: rgba(0, 255, 157, 0.2) !important; 
+}
+
+.theme-default .text-primary-accent,
+:root[data-theme="default"] .text-primary-accent { 
+  color: #00ff9d !important; 
+}
+
+.theme-default .border-primary,
+:root[data-theme="default"] .border-primary { 
+  border-color: #00ff9d !important; 
+}
+
+.theme-default .border-primary-20,
+:root[data-theme="default"] .border-primary-20 { 
+  border-color: rgba(0, 255, 157, 0.2) !important; 
+}
+
+.theme-default .ring-primary-20,
+:root[data-theme="default"] .ring-primary-20 { 
+  --tw-ring-color: rgba(0, 255, 157, 0.2) !important; 
+}
+
+/* Background color overrides */
+.theme-default .bg-background-primary,
+:root[data-theme="default"] .bg-background-primary { 
+  background-color: #f8fcf9 !important; 
+}
+
+.theme-default .bg-background-secondary,
+:root[data-theme="default"] .bg-background-secondary { 
+  background-color: #f0faf4 !important; 
+}
+
+.theme-default .bg-background-tertiary,
+:root[data-theme="default"] .bg-background-tertiary { 
+  background-color: #e6f7ed !important; 
+}
+
+/* Light mode overrides */
+.theme-default:not(.dark) .bg-white,
+:root[data-theme="default"]:not(.dark) .bg-white { 
+  background-color: #f8fcf9 !important; 
+}
+
+.theme-default:not(.dark) .bg-gray-50,
+:root[data-theme="default"]:not(.dark) .bg-gray-50 { 
+  background-color: #f0faf4 !important; 
+}
+
+.theme-default:not(.dark) .bg-gray-100,
+:root[data-theme="default"]:not(.dark) .bg-gray-100 { 
+  background-color: #e6f7ed !important; 
+}
+
+.theme-default:not(.dark) .bg-gray-200,
+:root[data-theme="default"]:not(.dark) .bg-gray-200 { 
+  background-color: #dcf4e6 !important; 
+}
+
+/* Dark mode overrides */
+.theme-default.dark .bg-gray-900,
+:root[data-theme="default"].dark .bg-gray-900 { 
+  background-color: #064e3b !important; 
+}
+
+.theme-default.dark .bg-gray-800,
+:root[data-theme="default"].dark .bg-gray-800 { 
+  background-color: #065f46 !important; 
+}
+
+.theme-default.dark .bg-gray-700,
+:root[data-theme="default"].dark .bg-gray-700 { 
+  background-color: #047857 !important; 
+}
+
+/* Text colors for light mode */
+.theme-default:not(.dark) .text-gray-900,
+:root[data-theme="default"]:not(.dark) .text-gray-900 { 
+  color: #064e3b !important; 
+}
+
+.theme-default:not(.dark) .text-gray-700,
+:root[data-theme="default"]:not(.dark) .text-gray-700 { 
+  color: #065f46 !important; 
+}
+
+/* Text colors for dark mode */
+.theme-default.dark .text-gray-100,
+:root[data-theme="default"].dark .text-gray-100 { 
+  color: #dcfce7 !important; 
+}
+
+.theme-default.dark .text-gray-200,
+:root[data-theme="default"].dark .text-gray-200 { 
+  color: #bbf7d0 !important; 
+}
+
+/* Border colors */
+.theme-default:not(.dark) .border-gray-200,
+:root[data-theme="default"]:not(.dark) .border-gray-200 { 
+  border-color: #bbf7d0 !important; 
+}
+
+.theme-default.dark .border-gray-700,
+:root[data-theme="default"].dark .border-gray-700 { 
+  border-color: #047857 !important; 
+}

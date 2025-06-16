@@ -1,5 +1,5 @@
 from typing import Dict, Optional, List, Any
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette import status
 
 from MakerMatrix.models.models import PartModel, AdvancedPartSearch
@@ -12,6 +12,7 @@ from MakerMatrix.services.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
 from MakerMatrix.services.part_service import PartService
+from MakerMatrix.dependencies.auth import get_current_user
 
 router = APIRouter()
 
@@ -21,13 +22,30 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
-async def add_part(part: PartCreate) -> ResponseSchema[PartResponse]:
+async def add_part(
+    part: PartCreate, 
+    request: Request,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[PartResponse]:
     try:
         # Convert PartCreate to dict and include category_names
         part_data = part.model_dump()
         
         # Process to add part
         response = PartService.add_part(part_data)
+
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_part_created(
+                part_id=response["data"]["id"],
+                part_name=response["data"]["part_name"],
+                user=current_user,
+                request=request
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log part creation activity: {e}")
 
         # noinspection PyArgumentList
         return ResponseSchema(
@@ -74,7 +92,9 @@ async def get_part_counts():
 
 
 @router.delete("/delete_part", response_model=ResponseSchema[Dict[str, Any]])
-def delete_part(
+async def delete_part(
+        request: Request,
+        current_user: UserModel = Depends(get_current_user),
         part_id: Optional[str] = Query(None, description="Part ID"),
         part_name: Optional[str] = Query(None, description="Part Name"),
         part_number: Optional[str] = Query(None, description="Part Number")
@@ -85,27 +105,58 @@ def delete_part(
     Raises HTTP 404 if the part is not found.
     """
     try:
+        # Validate that at least one identifier is provided
+        if not part_id and not part_name and not part_number:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one identifier (part_id, part_name, or part_number) must be provided"
+            )
+        
         # Retrieve part using details
         part = PartService.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
+        
+        if not part:
+            identifier = part_id or part_name or part_number
+            raise HTTPException(
+                status_code=404,
+                detail=f"Part not found with the provided identifier: {identifier}"
+            )
 
-        # if part is None:
-        #     raise HTTPException(
-        #         status_code=400,
-        #         detail="At least one identifier (part_id, part_name, or part_number) must be provided."
-        #     )
+        # Store part info for activity logging before deletion
+        part_info = {
+            "id": part['id'],
+            "name": part['part_name']
+        }
 
         # Perform the deletion using the actual part ID
         response = PartService.delete_part(part['id'])
 
+        # Log activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_part_deleted(
+                part_id=part_info["id"],
+                part_name=part_info["name"],
+                user=current_user,
+                request=request
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log part deletion activity: {e}")
+
+        # Convert PartResponse to dict for the response
+        part_response_obj = PartResponse.model_validate(response["data"])
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
-            data=PartResponse.model_validate(response["data"])
+            data=part_response_obj.model_dump()
         )
 
+    except HTTPException:
+        # Re-raise HTTPExceptions (like our 400 and 404 errors)
+        raise
     except ResourceNotFoundError as rnfe:
         raise HTTPException(status_code=404, detail=rnfe.message)
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete part: {str(e)}")
 
@@ -184,17 +235,51 @@ async def get_all_parts():
 
 
 @router.put("/update_part/{part_id}", response_model=ResponseSchema[PartResponse])
-async def update_part(part_id: str, part_data: PartUpdate) -> ResponseSchema[PartResponse]:
+async def update_part(
+    part_id: str, 
+    part_data: PartUpdate,
+    request: Request,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[PartResponse]:
     try:
+        # Capture original data for change tracking
+        original_part = PartService.get_part_by_id(part_id)
+        
         # Use part_id from the path
         response = PartService.update_part(part_id, part_data)
 
         if response["status"] == "error":
             raise HTTPException(status_code=404, detail=response["message"])
 
+        # Log activity with changes
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            
+            # Track what changed
+            changes = {}
+            update_dict = part_data.model_dump(exclude_unset=True)
+            if original_part:
+                original_dict = original_part.to_dict()
+                for key, new_value in update_dict.items():
+                    if key in original_dict and original_dict[key] != new_value:
+                        changes[key] = {
+                            "from": original_dict[key],
+                            "to": new_value
+                        }
+            
+            await activity_service.log_part_updated(
+                part_id=response["data"]["id"],
+                part_name=response["data"]["part_name"],
+                changes=changes,
+                user=current_user,
+                request=request
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log part update activity: {e}")
+
         # noinspection PyArgumentList
         return ResponseSchema(
-
             status="success",
             message="Part updated successfully.",
             data=PartResponse.model_validate(response["data"])

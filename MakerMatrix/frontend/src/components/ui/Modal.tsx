@@ -37,16 +37,16 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalProps) =>
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`relative w-full ${sizeClasses[size]} bg-background border border-border rounded-lg shadow-xl`}
+              className={`relative w-full ${sizeClasses[size]} bg-theme-elevated border border-theme-primary rounded-lg shadow-xl`}
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-border">
-                <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
+              <div className="flex items-center justify-between p-6 border-b border-theme-primary">
+                <h2 className="text-xl font-semibold text-primary">{title}</h2>
                 <button
                   onClick={onClose}
-                  className="p-1 rounded-md hover:bg-background-secondary transition-colors"
+                  className="p-1 rounded-md hover:bg-theme-secondary transition-colors"
                 >
-                  <X className="w-5 h-5 text-text-secondary" />
+                  <X className="w-5 h-5 text-secondary" />
                 </button>
               </div>
 

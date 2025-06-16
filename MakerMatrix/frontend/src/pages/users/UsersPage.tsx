@@ -73,11 +73,11 @@ const UsersPage = () => {
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
             <Users className="w-6 h-6" />
             Users
           </h1>
-          <p className="text-text-secondary mt-1">
+          <p className="text-secondary mt-1">
             Manage user accounts and permissions
           </p>
         </div>
@@ -99,7 +99,7 @@ const UsersPage = () => {
       >
         <div className="flex gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
             <input
               type="text"
               placeholder="Search users..."
@@ -126,8 +126,8 @@ const UsersPage = () => {
           <div className="flex items-center gap-3">
             <Users className="w-8 h-8 text-primary" />
             <div>
-              <p className="text-sm text-text-secondary">Total Users</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.total}</p>
+              <p className="text-sm text-secondary">Total Users</p>
+              <p className="text-2xl font-bold text-primary">{stats.total}</p>
             </div>
           </div>
         </div>
@@ -135,8 +135,8 @@ const UsersPage = () => {
           <div className="flex items-center gap-3">
             <UserCheck className="w-8 h-8 text-green-500" />
             <div>
-              <p className="text-sm text-text-secondary">Active Users</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.active}</p>
+              <p className="text-sm text-secondary">Active Users</p>
+              <p className="text-2xl font-bold text-primary">{stats.active}</p>
             </div>
           </div>
         </div>
@@ -144,8 +144,8 @@ const UsersPage = () => {
           <div className="flex items-center gap-3">
             <UserX className="w-8 h-8 text-red-500" />
             <div>
-              <p className="text-sm text-text-secondary">Inactive Users</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.inactive}</p>
+              <p className="text-sm text-secondary">Inactive Users</p>
+              <p className="text-2xl font-bold text-primary">{stats.inactive}</p>
             </div>
           </div>
         </div>
@@ -153,8 +153,8 @@ const UsersPage = () => {
           <div className="flex items-center gap-3">
             <Shield className="w-8 h-8 text-accent" />
             <div>
-              <p className="text-sm text-text-secondary">Admins</p>
-              <p className="text-2xl font-bold text-text-primary">{stats.admins}</p>
+              <p className="text-sm text-secondary">Admins</p>
+              <p className="text-2xl font-bold text-primary">{stats.admins}</p>
             </div>
           </div>
         </div>
@@ -168,30 +168,30 @@ const UsersPage = () => {
         className="card overflow-hidden"
       >
         <div className="p-4 border-b border-border">
-          <h3 className="text-lg font-semibold text-text-primary">Users</h3>
+          <h3 className="text-lg font-semibold text-primary">Users</h3>
         </div>
         
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="text-text-secondary mt-2">Loading users...</p>
+            <p className="text-secondary mt-2">Loading users...</p>
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="p-8 text-center">
-            <Users className="w-12 h-12 text-text-muted mx-auto mb-2" />
-            <p className="text-text-secondary">No users found</p>
+            <Users className="w-12 h-12 text-muted mx-auto mb-2" />
+            <p className="text-secondary">No users found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-background-secondary">
                 <tr>
-                  <th className="text-left py-3 px-4 font-medium text-text-secondary">User</th>
-                  <th className="text-left py-3 px-4 font-medium text-text-secondary">Email</th>
-                  <th className="text-left py-3 px-4 font-medium text-text-secondary">Roles</th>
-                  <th className="text-left py-3 px-4 font-medium text-text-secondary">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-text-secondary">Created</th>
-                  <th className="text-center py-3 px-4 font-medium text-text-secondary">Actions</th>
+                  <th className="text-left py-3 px-4 font-medium text-secondary">User</th>
+                  <th className="text-left py-3 px-4 font-medium text-secondary">Email</th>
+                  <th className="text-left py-3 px-4 font-medium text-secondary">Roles</th>
+                  <th className="text-left py-3 px-4 font-medium text-secondary">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-secondary">Created</th>
+                  <th className="text-center py-3 px-4 font-medium text-secondary">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,10 +204,10 @@ const UsersPage = () => {
                             {user.username.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <span className="font-medium text-text-primary">{user.username}</span>
+                        <span className="font-medium text-primary">{user.username}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-text-secondary">{user.email}</td>
+                    <td className="py-3 px-4 text-secondary">{user.email}</td>
                     <td className="py-3 px-4">
                       <div className="flex flex-wrap gap-1">
                         {user.roles.map((role) => (
@@ -229,7 +229,7 @@ const UsersPage = () => {
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-text-secondary">
+                    <td className="py-3 px-4 text-secondary">
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-4">
@@ -250,7 +250,7 @@ const UsersPage = () => {
                           className="p-1 rounded hover:bg-background-secondary"
                           title="Edit user"
                         >
-                          <Edit className="w-4 h-4 text-text-secondary" />
+                          <Edit className="w-4 h-4 text-secondary" />
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id)}

@@ -139,105 +139,8 @@ async def get_my_tasks(
         raise HTTPException(status_code=500, detail=f"Failed to get user tasks: {str(e)}")
 
 
-@router.get("/{task_id}", response_model=Dict[str, Any])
-async def get_task(
-    task_id: str,
-    current_user: UserModel = Depends(require_permission("tasks:read"))
-):
-    """Get a specific task by ID"""
-    try:
-        task = await task_service.get_task(task_id)
-        
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        
-        return {
-            "status": "success",
-            "data": task.to_dict()
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get task {task_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get task: {str(e)}")
-
-
-@router.put("/{task_id}", response_model=Dict[str, Any])
-async def update_task(
-    task_id: str,
-    update_request: UpdateTaskRequest,
-    current_user: UserModel = Depends(require_permission("tasks:update"))
-):
-    """Update a task"""
-    try:
-        task = await task_service.update_task(task_id, update_request)
-        
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        
-        logger.info(f"Updated task {task_id} by user {current_user.username}")
-        
-        return {
-            "status": "success",
-            "message": "Task updated successfully",
-            "data": task.to_dict()
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to update task {task_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to update task: {str(e)}")
-
-
-@router.post("/{task_id}/cancel", response_model=Dict[str, Any])
-async def cancel_task(
-    task_id: str,
-    current_user: UserModel = Depends(require_permission("tasks:update"))
-):
-    """Cancel a running or pending task"""
-    try:
-        success = await task_service.cancel_task(task_id)
-        
-        if not success:
-            raise HTTPException(status_code=404, detail="Task not found or cannot be cancelled")
-        
-        logger.info(f"Cancelled task {task_id} by user {current_user.username}")
-        
-        return {
-            "status": "success",
-            "message": "Task cancelled successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to cancel task {task_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to cancel task: {str(e)}")
-
-
-@router.post("/{task_id}/retry", response_model=Dict[str, Any])
-async def retry_task(
-    task_id: str,
-    current_user: UserModel = Depends(require_permission("tasks:update"))
-):
-    """Retry a failed task"""
-    try:
-        success = await task_service.retry_task(task_id)
-        
-        if not success:
-            raise HTTPException(status_code=400, detail="Task cannot be retried (not failed or max retries reached)")
-        
-        logger.info(f"Retried task {task_id} by user {current_user.username}")
-        
-        return {
-            "status": "success",
-            "message": "Task retry scheduled successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to retry task {task_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to retry task: {str(e)}")
-
+# IMPORTANT: Place all specific routes BEFORE parameterized routes like /{task_id}
+# This ensures FastAPI matches the specific paths first
 
 @router.get("/types/available", response_model=Dict[str, Any])
 async def get_available_task_types(
@@ -389,7 +292,7 @@ async def get_worker_status(
 
 
 # Task creation shortcuts for common operations
-@router.post("/quick/csv-enrichment", response_model=Dict[str, Any])
+@router.post("/quick/csv_enrichment", response_model=Dict[str, Any])
 async def create_csv_enrichment_task(
     enrichment_data: Dict[str, Any],
     current_user: UserModel = Depends(require_permission("tasks:create"))
@@ -420,13 +323,14 @@ async def create_csv_enrichment_task(
         raise HTTPException(status_code=500, detail=f"Failed to create CSV enrichment task: {str(e)}")
 
 
-@router.post("/quick/part-enrichment", response_model=Dict[str, Any])
+@router.post("/quick/part_enrichment", response_model=Dict[str, Any])
 async def create_part_enrichment_task(
     enrichment_data: Dict[str, Any],
     current_user: UserModel = Depends(require_permission("tasks:create"))
 ):
     """Quick create part enrichment task"""
     try:
+        logger.info(f"Received part enrichment request: {enrichment_data}")
         part_id = enrichment_data.get('part_id')
         supplier = enrichment_data.get('supplier', 'Unknown')
         
@@ -454,7 +358,7 @@ async def create_part_enrichment_task(
         raise HTTPException(status_code=500, detail=f"Failed to create part enrichment task: {str(e)}")
 
 
-@router.post("/quick/datasheet-fetch", response_model=Dict[str, Any])
+@router.post("/quick/datasheet_fetch", response_model=Dict[str, Any])
 async def create_datasheet_fetch_task(
     fetch_data: Dict[str, Any],
     current_user: UserModel = Depends(require_permission("tasks:create"))
@@ -485,7 +389,7 @@ async def create_datasheet_fetch_task(
         raise HTTPException(status_code=500, detail=f"Failed to create datasheet fetch task: {str(e)}")
 
 
-@router.post("/quick/image-fetch", response_model=Dict[str, Any])
+@router.post("/quick/image_fetch", response_model=Dict[str, Any])
 async def create_image_fetch_task(
     fetch_data: Dict[str, Any],
     current_user: UserModel = Depends(require_permission("tasks:create"))
@@ -516,7 +420,7 @@ async def create_image_fetch_task(
         raise HTTPException(status_code=500, detail=f"Failed to create image fetch task: {str(e)}")
 
 
-@router.post("/quick/bulk-enrichment", response_model=Dict[str, Any])
+@router.post("/quick/bulk_enrichment", response_model=Dict[str, Any])
 async def create_bulk_enrichment_task(
     enrichment_data: Dict[str, Any],
     current_user: UserModel = Depends(require_permission("tasks:create"))
@@ -546,7 +450,7 @@ async def create_bulk_enrichment_task(
         raise HTTPException(status_code=500, detail=f"Failed to create bulk enrichment task: {str(e)}")
 
 
-@router.post("/quick/price-update", response_model=Dict[str, Any])
+@router.post("/quick/price_update", response_model=Dict[str, Any])
 async def create_price_update_task(
     update_data: Dict[str, Any],
     current_user: UserModel = Depends(require_permission("tasks:create"))
@@ -573,7 +477,7 @@ async def create_price_update_task(
         raise HTTPException(status_code=500, detail=f"Failed to create price update task: {str(e)}")
 
 
-@router.post("/quick/database-cleanup", response_model=Dict[str, Any])
+@router.post("/quick/database_cleanup", response_model=Dict[str, Any])
 async def create_database_cleanup_task(
     cleanup_options: Dict[str, Any],
     current_user: UserModel = Depends(require_permission("tasks:create"))
@@ -816,3 +720,104 @@ async def validate_task_creation_security(
     except Exception as e:
         logger.error(f"Failed to validate task creation: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to validate task creation: {str(e)}")
+
+
+# PARAMETERIZED ROUTES MUST COME LAST to avoid conflicts
+@router.get("/{task_id}", response_model=Dict[str, Any])
+async def get_task(
+    task_id: str,
+    current_user: UserModel = Depends(require_permission("tasks:read"))
+):
+    """Get a specific task by ID"""
+    try:
+        task = await task_service.get_task(task_id)
+        
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        return {
+            "status": "success",
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get task {task_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get task: {str(e)}")
+
+
+@router.put("/{task_id}", response_model=Dict[str, Any])
+async def update_task(
+    task_id: str,
+    update_request: UpdateTaskRequest,
+    current_user: UserModel = Depends(require_permission("tasks:update"))
+):
+    """Update a task"""
+    try:
+        task = await task_service.update_task(task_id, update_request)
+        
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        logger.info(f"Updated task {task_id} by user {current_user.username}")
+        
+        return {
+            "status": "success",
+            "message": "Task updated successfully",
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update task {task_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update task: {str(e)}")
+
+
+@router.post("/{task_id}/cancel", response_model=Dict[str, Any])
+async def cancel_task(
+    task_id: str,
+    current_user: UserModel = Depends(require_permission("tasks:update"))
+):
+    """Cancel a running or pending task"""
+    try:
+        success = await task_service.cancel_task(task_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Task not found or cannot be cancelled")
+        
+        logger.info(f"Cancelled task {task_id} by user {current_user.username}")
+        
+        return {
+            "status": "success",
+            "message": "Task cancelled successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to cancel task {task_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to cancel task: {str(e)}")
+
+
+@router.post("/{task_id}/retry", response_model=Dict[str, Any])
+async def retry_task(
+    task_id: str,
+    current_user: UserModel = Depends(require_permission("tasks:update"))
+):
+    """Retry a failed task"""
+    try:
+        success = await task_service.retry_task(task_id)
+        
+        if not success:
+            raise HTTPException(status_code=400, detail="Task cannot be retried (not failed or max retries reached)")
+        
+        logger.info(f"Retried task {task_id} by user {current_user.username}")
+        
+        return {
+            "status": "success",
+            "message": "Task retry scheduled successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retry task {task_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to retry task: {str(e)}")

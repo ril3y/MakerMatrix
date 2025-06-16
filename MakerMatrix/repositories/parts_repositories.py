@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy import func, or_, delete
@@ -9,6 +10,9 @@ from sqlmodel import Session, select
 
 from MakerMatrix.models.models import PartModel, CategoryModel, AdvancedPartSearch
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, InvalidReferenceError
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 # noinspection PyTypeChecker
@@ -236,29 +240,37 @@ class PartRepository:
 
     @staticmethod
     def update_part(session: Session, part: PartModel) -> PartModel:
+        logger.debug(f"[REPO] Attempting to update part in database: {part.part_name} (ID: {part.id})")
+        
         # Validate location_id if provided
         if part.location_id:
+            logger.debug(f"[REPO] Validating location_id: {part.location_id}")
             from MakerMatrix.models.models import LocationModel
             location = session.exec(
                 select(LocationModel).where(LocationModel.id == part.location_id)
             ).first()
             if not location:
+                logger.error(f"[REPO] Location validation failed: Location with ID '{part.location_id}' does not exist")
                 raise InvalidReferenceError(
                     status="error",
                     message=f"Location with ID '{part.location_id}' does not exist",
                     data={"location_id": part.location_id}
                 )
+            logger.debug(f"[REPO] Location validation successful: {location.name}")
         
         try:
             session.add(part)
             session.commit()
             session.refresh(part)
+            logger.debug(f"[REPO] Successfully updated part in database: {part.part_name} (ID: {part.id})")
             return part
 
         except ResourceNotFoundError as rnfe:
+            logger.error(f"[REPO] Resource not found during part update: {rnfe}")
             raise rnfe
 
         except Exception as e:
+            logger.error(f"[REPO] Database error during part update for '{part.id}': {e}")
             session.rollback()
             raise RuntimeError(f"Failed to update part with id '{part.id}': {str(e)}")
 

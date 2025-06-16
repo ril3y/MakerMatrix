@@ -76,7 +76,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
         {/* Custom LCSC fields could go here */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
+            <label className="block text-sm font-medium text-primary mb-2">
               LCSC Order ID
               {orderInfo.order_number && (
                 <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
@@ -92,7 +92,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
+            <label className="block text-sm font-medium text-primary mb-2">
               Order Date
               {orderInfo.order_date && orderInfo.order_date !== new Date().toISOString().split('T')[0] && (
                 <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
@@ -109,7 +109,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Import Notes
           </label>
           <textarea
@@ -129,11 +129,11 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-text-primary mb-2 flex items-center justify-center gap-2">
+          <h3 className="text-lg font-semibold text-primary mb-2 flex items-center justify-center gap-2">
             <Upload className="w-5 h-5" />
             Import LCSC Order Parts
           </h3>
-          <p className="text-text-secondary">
+          <p className="text-secondary">
             Upload LCSC order CSV files to automatically add parts to your inventory with order tracking
           </p>
         </div>
@@ -145,7 +145,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
         {loading && (
           <div className="text-center py-4">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
-            <p className="text-text-secondary mt-2">Analyzing LCSC CSV file...</p>
+            <p className="text-secondary mt-2">Analyzing LCSC CSV file...</p>
           </div>
         )}
 
@@ -162,7 +162,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
             {/* Detection Results */}
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-medium text-text-primary">LCSC File Analysis</h4>
+                <h4 className="font-medium text-primary">LCSC File Analysis</h4>
                 <div className="flex items-center gap-2">
                   {previewData.is_supported ? (
                     <span className="flex items-center gap-1 text-accent">
@@ -180,7 +180,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <div className="text-sm text-text-secondary mb-2">
+                  <div className="text-sm text-secondary mb-2">
                     File Information
                   </div>
                   <div className="space-y-1">
@@ -191,7 +191,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
                 </div>
 
                 <div>
-                  <div className="text-sm text-text-secondary mb-2">
+                  <div className="text-sm text-secondary mb-2">
                     Key Columns Found
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -201,7 +201,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
                       </span>
                     ))}
                     {previewData.headers.length > 4 && (
-                      <span className="text-xs text-text-muted">
+                      <span className="text-xs text-muted">
                         +{previewData.headers.length - 4} more
                       </span>
                     )}
@@ -228,7 +228,7 @@ export class CSVImportLCSC extends BaseCSVImportComponent {
 
             {/* Order Information */}
             <div className="card p-4">
-              <h4 className="font-medium text-text-primary mb-4">LCSC Order Information</h4>
+              <h4 className="font-medium text-primary mb-4">LCSC Order Information</h4>
               {this.renderCustomOrderFields()}
             </div>
 

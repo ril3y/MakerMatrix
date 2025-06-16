@@ -22,11 +22,11 @@ const UnauthorizedPage = () => {
           <ShieldOff className="w-12 h-12 text-destructive" />
         </motion.div>
 
-        <h1 className="text-4xl font-bold text-text-primary mb-4">
+        <h1 className="text-4xl font-bold text-primary mb-4">
           403 - Access Denied
         </h1>
         
-        <p className="text-lg text-text-secondary mb-8">
+        <p className="text-lg text-secondary mb-8">
           You don't have permission to access this resource in the Battle With Bytes system.
         </p>
 
@@ -36,7 +36,7 @@ const UnauthorizedPage = () => {
           transition={{ delay: 0.2 }}
           className="bg-bg-secondary rounded-lg p-6 mb-8"
         >
-          <div className="flex items-center justify-center gap-3 text-text-secondary">
+          <div className="flex items-center justify-center gap-3 text-secondary">
             <Lock className="w-5 h-5" />
             <p className="text-sm">
               This area requires elevated permissions. Please contact your system administrator
@@ -65,7 +65,7 @@ const UnauthorizedPage = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className="mt-12 text-sm text-text-muted"
+          className="mt-12 text-sm text-muted"
         >
           <p>Error Code: BWB-403</p>
           <p className="mt-1">

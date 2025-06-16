@@ -121,7 +121,7 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
 
         {/* Character count */}
         <div className="text-right">
-          <span className={`text-xs ${formData.name.length > 40 ? 'text-orange-500' : 'text-text-secondary'}`}>
+          <span className={`text-xs ${formData.name.length > 40 ? 'text-orange-500' : 'text-secondary'}`}>
             {formData.name.length}/50 characters
           </span>
         </div>
@@ -129,7 +129,7 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
         {/* Suggested categories */}
         {availableSuggestions.length > 0 && (
           <div className="space-y-3">
-            <label className="text-sm font-medium text-text-primary">Quick Select</label>
+            <label className="text-sm font-medium text-primary">Quick Select</label>
             <div className="flex flex-wrap gap-2">
               {availableSuggestions.slice(0, 8).map((suggestion) => (
                 <button
@@ -142,7 +142,7 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
                 </button>
               ))}
             </div>
-            <p className="text-xs text-text-secondary">
+            <p className="text-xs text-secondary">
               Click a suggestion to use it, or type your own category name
             </p>
           </div>
@@ -151,10 +151,10 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
         {/* Preview */}
         {formData.name.trim() && (
           <div className="p-3 bg-background-secondary rounded-md">
-            <p className="text-sm text-text-secondary mb-1">Preview:</p>
+            <p className="text-sm text-secondary mb-1">Preview:</p>
             <div className="flex items-center gap-2">
               <Tag className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-text-primary">
+              <span className="text-sm font-medium text-primary">
                 {formData.name.trim()}
               </span>
             </div>

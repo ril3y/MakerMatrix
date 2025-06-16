@@ -245,23 +245,20 @@ Natural Language Examples:
             damping: 25,
             stiffness: 300
           }}
-          className="fixed top-0 left-0 right-0 z-50 shadow-2xl"
+          className="fixed top-0 left-0 right-0 z-50 shadow-2xl bg-theme-primary/95 backdrop-blur-lg border-b-2 border-primary/50"
           style={{
-            height: '300px',
-            background: 'rgba(17, 24, 39, 0.95)',
-            backdropFilter: 'blur(8px)',
-            borderBottom: '2px solid rgba(139, 92, 246, 0.5)'
+            height: '300px'
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
-              <span className="text-sm text-purple-400 font-mono">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-theme-secondary">
+              <span className="text-sm text-primary-accent font-mono">
                 MakerMatrix Console {isProcessing && '(Processing...)'}
               </span>
               <button
                 onClick={() => setIsVisible(false)}
-                className="text-gray-400 hover:text-white text-sm"
+                className="text-theme-secondary hover:text-theme-primary text-sm"
               >
                 Press ~ or ESC to close
               </button>
@@ -272,26 +269,26 @@ Natural Language Examples:
               <div className="flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar">
                 {history.map((entry, index) => (
                   <div key={index} className={`mb-1 whitespace-pre-wrap ${
-                    entry.type === 'input' ? 'text-white' : 
-                    entry.type === 'error' ? 'text-red-400' : 'text-green-400'
+                    entry.type === 'input' ? 'text-theme-primary' : 
+                    entry.type === 'error' ? 'text-error' : 'text-success'
                   }`}>
                     {entry.content}
                   </div>
                 ))}
                 {isProcessing && (
-                  <div className="text-yellow-400 mb-1">Processing...</div>
+                  <div className="text-warning mb-1">Processing...</div>
                 )}
               </div>
               
               {/* Input line */}
-              <div className="border-t border-gray-700 p-4 flex items-center font-mono text-sm">
-                <span className="text-purple-400 mr-2">makermatrix&gt;</span>
+              <div className="border-t border-theme-secondary p-4 flex items-center font-mono text-sm">
+                <span className="text-primary-accent mr-2">makermatrix&gt;</span>
                 <input 
                   type="text" 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 bg-transparent border-none outline-none text-white"
+                  className="flex-1 bg-transparent border-none outline-none text-theme-primary"
                   placeholder="Type a command or ask in natural language..."
                   autoFocus={isVisible}
                   disabled={isProcessing}

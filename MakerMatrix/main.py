@@ -10,8 +10,8 @@ import os
 
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
-    parts_routes, locations_routes, categories_routes, printer_routes,
-    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes
+    parts_routes, locations_routes, categories_routes, printer_routes, modern_printer_routes, preview_routes,
+    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes, activity_routes
 )
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -21,6 +21,7 @@ from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_a
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.services.task_service import task_service
 from MakerMatrix.services.websocket_service import start_ping_task
+from MakerMatrix.services.printer_manager_service import initialize_default_printers
 
 
 @asynccontextmanager
@@ -45,6 +46,22 @@ async def lifespan(app: FastAPI):
     print("Starting WebSocket ping task...")
     asyncio.create_task(start_ping_task())
     print("WebSocket service started!")
+    
+    # Initialize default printers
+    print("Initializing default printers...")
+    await initialize_default_printers()
+    print("Default printers initialized!")
+    
+    # Restore printers from database
+    print("Restoring printers from database...")
+    try:
+        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        persistence_service = get_printer_persistence_service()
+        restored_printers = await persistence_service.restore_printers_from_database()
+        print(f"Restored {len(restored_printers)} printers from database: {restored_printers}")
+    except Exception as e:
+        print(f"Failed to restore printers from database: {e}")
+        # Don't fail startup if printer restoration fails
     
     yield  # App continues running
     
@@ -111,9 +128,19 @@ task_permissions = {
     "/worker/status": "tasks:read",
     "/stats/summary": "tasks:read",
     "/types/available": "tasks:read",
-    "/quick/csv-enrichment": "tasks:create",
-    "/quick/price-update": "tasks:create", 
-    "/quick/database-cleanup": "tasks:create"
+    "/quick/csv_enrichment": "tasks:create",
+    "/quick/price_update": "tasks:create", 
+    "/quick/database_cleanup": "tasks:create",
+    "/quick/part_enrichment": "tasks:create",
+    "/quick/datasheet_fetch": "tasks:create",
+    "/quick/image_fetch": "tasks:create",
+    "/quick/bulk_enrichment": "tasks:create",
+    "/capabilities/suppliers": "tasks:read",
+    "/capabilities/suppliers/{supplier_name}": "tasks:read",
+    "/capabilities/find/{capability_type}": "tasks:read",
+    "/security/permissions": "tasks:create",
+    "/security/limits": "tasks:create",
+    "/security/validate": "tasks:create"
 }
 
 # Define paths that should be excluded from authentication
@@ -128,6 +155,8 @@ secure_all_routes(parts_routes.router, permissions=parts_permissions)
 secure_all_routes(locations_routes.router, permissions=locations_permissions, exclude_paths=["/get_all_locations"])
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
 secure_all_routes(printer_routes.router)
+secure_all_routes(modern_printer_routes.router)
+secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts"])
 # Don't secure auth routes - they need to be accessible without authentication
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
@@ -145,6 +174,8 @@ app.include_router(parts_routes.router, prefix="/parts", tags=["parts"])
 app.include_router(locations_routes.router, prefix="/locations", tags=["locations"])
 app.include_router(categories_routes.router, prefix="/categories", tags=["categories"])
 app.include_router(printer_routes.router, prefix="/printer", tags=["printer"])
+app.include_router(modern_printer_routes.router, prefix="/printer", tags=["printer"])
+app.include_router(preview_routes.router, tags=["Label Preview"])
 app.include_router(utility_routes.router, prefix="/utility", tags=["utility"])
 app.include_router(auth_routes.router, tags=["Authentication"])
 app.include_router(user_routes.router, prefix="/users", tags=["Users"])
@@ -152,6 +183,7 @@ app.include_router(role_routes.router, prefix="/roles", tags=["Roles"])
 app.include_router(ai_routes.router, prefix="/ai", tags=["AI Configuration"])
 app.include_router(csv_routes.router, prefix="/api/csv", tags=["CSV Import"])
 app.include_router(task_routes.router, prefix="/api/tasks", tags=["Background Tasks"])
+app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity Log"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
 app.include_router(static_routes.router, tags=["Static Files"])
 

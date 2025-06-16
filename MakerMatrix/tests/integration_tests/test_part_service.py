@@ -136,6 +136,272 @@ def test_add_existing_part(admin_token):
     assert "already exists" in str(response_json).lower()
 
 
+def test_delete_part_by_id(admin_token):
+    """Test deleting a part by ID"""
+    # First, add a part to delete
+    part_data = {
+        "part_number": "DELETE-TEST-001",
+        "part_name": "Delete Test Part",
+        "quantity": 10,
+        "description": "Part for delete testing",
+        "location_id": None,
+        "category_names": [],
+        "supplier": "Test Supplier"
+    }
+    
+    add_response = client.post(
+        "/parts/add_part",
+        json=part_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert add_response.status_code == 200
+    part_id = add_response.json()["data"]["id"]
+    
+    # Now delete the part by ID
+    delete_response = client.delete(
+        f"/parts/delete_part?part_id={part_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    # Verify successful deletion
+    assert delete_response.status_code == 200
+    delete_data = delete_response.json()
+    assert delete_data["status"] == "success"
+    assert "deleted" in delete_data["message"].lower()
+    
+    # Verify the response data structure (this is what caught our bug!)
+    assert "data" in delete_data
+    assert isinstance(delete_data["data"], dict)  # Should be dict, not PartResponse object
+    assert delete_data["data"]["id"] == part_id
+    assert delete_data["data"]["part_name"] == "Delete Test Part"
+
+
+def test_delete_part_by_name(admin_token):
+    """Test deleting a part by name"""
+    # First, add a part to delete
+    part_data = {
+        "part_number": "DELETE-TEST-002",
+        "part_name": "Delete Test Part By Name",
+        "quantity": 15,
+        "description": "Part for delete by name testing",
+        "location_id": None,
+        "category_names": [],
+        "supplier": "Test Supplier"
+    }
+    
+    add_response = client.post(
+        "/parts/add_part",
+        json=part_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert add_response.status_code == 200
+    
+    # Delete by part name
+    delete_response = client.delete(
+        "/parts/delete_part?part_name=Delete Test Part By Name",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    # Verify successful deletion
+    assert delete_response.status_code == 200
+    delete_data = delete_response.json()
+    assert delete_data["status"] == "success"
+    assert isinstance(delete_data["data"], dict)
+    assert delete_data["data"]["part_name"] == "Delete Test Part By Name"
+
+
+def test_delete_part_by_part_number(admin_token):
+    """Test deleting a part by part number"""
+    # First, add a part to delete
+    part_data = {
+        "part_number": "DELETE-TEST-003",
+        "part_name": "Delete Test Part By Number",
+        "quantity": 20,
+        "description": "Part for delete by part number testing",
+        "location_id": None,
+        "category_names": [],
+        "supplier": "Test Supplier"
+    }
+    
+    add_response = client.post(
+        "/parts/add_part",
+        json=part_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert add_response.status_code == 200
+    
+    # Delete by part number
+    delete_response = client.delete(
+        "/parts/delete_part?part_number=DELETE-TEST-003",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    # Verify successful deletion
+    assert delete_response.status_code == 200
+    delete_data = delete_response.json()
+    assert delete_data["status"] == "success"
+    assert isinstance(delete_data["data"], dict)
+    assert delete_data["data"]["part_number"] == "DELETE-TEST-003"
+
+
+def test_delete_nonexistent_part(admin_token):
+    """Test deleting a part that doesn't exist"""
+    delete_response = client.delete(
+        "/parts/delete_part?part_id=nonexistent-id",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    # Should return 404 for nonexistent part
+    assert delete_response.status_code == 404
+
+
+def test_delete_part_no_identifier(admin_token):
+    """Test delete endpoint with no identifiers provided"""
+    delete_response = client.delete(
+        "/parts/delete_part",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    # Should return 400 for missing identifier
+    assert delete_response.status_code == 400
+
+
+def test_delete_part_unauthenticated():
+    """Test delete endpoint without authentication"""
+    delete_response = client.delete("/parts/delete_part?part_id=test-id")
+    
+    # Should return 401 for unauthenticated request
+    assert delete_response.status_code == 401
+
+
+def test_update_part_categories(admin_token):
+    """Test updating part categories - this would have caught our category assignment bug!"""
+    # First, create some categories to use
+    categories_to_create = ["Electronics", "Microcontrollers", "Communication"]
+    created_categories = []
+    
+    for cat_name in categories_to_create:
+        try:
+            cat_data = {"name": cat_name}
+            cat_response = client.post(
+                "/categories/add_category",
+                json=cat_data,
+                headers={"Authorization": f"Bearer {admin_token}"}
+            )
+            if cat_response.status_code == 200:
+                created_categories.append(cat_name)
+        except:
+            # Category might already exist, that's fine
+            created_categories.append(cat_name)
+    
+    # Create a part with initial categories
+    part_data = {
+        "part_number": "UPDATE-CAT-TEST-001",
+        "part_name": "ESP32 Category Test",
+        "quantity": 5,
+        "description": "Part for testing category updates",
+        "category_names": ["Electronics"],  # Start with one category
+        "supplier": "Test Supplier"
+    }
+    
+    add_response = client.post(
+        "/parts/add_part",
+        json=part_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert add_response.status_code == 200
+    part_id = add_response.json()["data"]["id"]
+    
+    # Verify initial categories
+    get_response = client.get(
+        f"/parts/get_part?part_id={part_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert get_response.status_code == 200
+    initial_part = get_response.json()["data"]
+    assert len(initial_part["categories"]) == 1
+    assert initial_part["categories"][0]["name"] == "Electronics"
+    
+    # Now update the part to add more categories
+    update_data = {
+        "category_names": ["Electronics", "Microcontrollers", "Communication"]
+    }
+    
+    update_response = client.put(
+        f"/parts/update_part/{part_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    # This is where our bug would be caught!
+    assert update_response.status_code == 200
+    update_result = update_response.json()
+    assert update_result["status"] == "success"
+    
+    # Verify response data structure is correct
+    assert "data" in update_result
+    assert isinstance(update_result["data"], dict)  # Should be dict, not object
+    assert update_result["data"]["id"] == part_id
+    
+    # Verify the categories were actually updated
+    get_updated_response = client.get(
+        f"/parts/get_part?part_id={part_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert get_updated_response.status_code == 200
+    updated_part = get_updated_response.json()["data"]
+    
+    # Should now have 3 categories
+    assert len(updated_part["categories"]) == 3
+    category_names = [cat["name"] for cat in updated_part["categories"]]
+    assert "Electronics" in category_names
+    assert "Microcontrollers" in category_names
+    assert "Communication" in category_names
+
+
+def test_update_part_remove_all_categories(admin_token):
+    """Test removing all categories from a part"""
+    # Create a part with categories
+    part_data = {
+        "part_number": "REMOVE-CAT-TEST-001",
+        "part_name": "Remove Categories Test",
+        "quantity": 3,
+        "description": "Part for testing category removal",
+        "category_names": ["Electronics", "Tools"],
+        "supplier": "Test Supplier"
+    }
+    
+    add_response = client.post(
+        "/parts/add_part",
+        json=part_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert add_response.status_code == 200
+    part_id = add_response.json()["data"]["id"]
+    
+    # Remove all categories
+    update_data = {
+        "category_names": []  # Empty array to remove all categories
+    }
+    
+    update_response = client.put(
+        f"/parts/update_part/{part_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    assert update_response.status_code == 200
+    
+    # Verify categories were removed
+    get_response = client.get(
+        f"/parts/get_part?part_id={part_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert get_response.status_code == 200
+    updated_part = get_response.json()["data"]
+    assert len(updated_part["categories"]) == 0
+
+
 def test_add_part_with_invalid_data(admin_token):
     with TestClient(app) as client:
         token = admin_token

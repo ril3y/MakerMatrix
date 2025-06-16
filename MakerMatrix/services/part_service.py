@@ -92,25 +92,41 @@ class PartService:
         """
         session = next(get_session())
         try:
+            logger.info(f"Attempting to update quantity to {new_quantity} for part (ID: {part_id}, PN: {part_number}, MPN: {manufacturer_pn})")
+            
             # Attempt to find the part using the provided identifier
             found_part = None
+            identifier_type = None
+            identifier_value = None
+            
             if part_id:
                 found_part = PartService.part_repo.get_part_by_id(session, part_id)
+                identifier_type = "ID"
+                identifier_value = part_id
             elif part_number:
                 found_part = PartService.part_repo.get_part_by_part_number(session, part_number)
+                identifier_type = "part number"
+                identifier_value = part_number
             elif manufacturer_pn:
                 # Example method if it exists in your repository:
                 found_part = PartService.part_repo.get_part_by_manufacturer_pn(session, manufacturer_pn)
+                identifier_type = "manufacturer part number"
+                identifier_value = manufacturer_pn
             else:
+                logger.error("Quantity update failed: At least one of part_id, part_number, or manufacturer_pn must be provided")
                 raise ValueError("At least one of part_id, part_number, or manufacturer_pn must be provided.")
 
             if not found_part:
-                logger.error("Part not found using provided details.")
+                logger.error(f"Quantity update failed: Part not found using {identifier_type} '{identifier_value}'")
                 return False
+
+            # Log old quantity before update
+            old_quantity = found_part.quantity
+            logger.info(f"Updating quantity for part '{found_part.part_name}' (ID: {found_part.id}): {old_quantity} → {new_quantity}")
 
             # Update the quantity using a hypothetical repo method
             PartService.part_repo.update_quantity(session, found_part.id, new_quantity)
-            logger.info(f"Updated quantity for part '{found_part.part_name}' to {new_quantity}.")
+            logger.info(f"Successfully updated quantity for part '{found_part.part_name}' to {new_quantity}")
             return True
 
         except Exception as e:
@@ -125,19 +141,28 @@ class PartService:
         """
         session = next(get_session())
         try:
+            logger.info(f"Attempting to delete part: {part_id}")
+            
             # Ensure the part exists before deletion
             part = PartService.part_repo.get_part_by_id(session, part_id)
 
             if not part:
+                logger.error(f"Part deletion failed: Part with ID '{part_id}' not found")
                 raise ResourceNotFoundError(
                     status="error",
                     message=f"Part with ID '{part_id}' not found.",
                     data=None
                 )
 
+            # Log part details before deletion
+            part_name = part.part_name
+            part_categories = [getattr(cat, 'name', str(cat)) for cat in part.categories] if part.categories else []
+            logger.info(f"Deleting part: '{part_name}' (ID: {part_id}) with categories: {part_categories}")
+
             # Perform deletion
             deleted_part = PartService.part_repo.delete_part(session, part_id)
 
+            logger.info(f"Successfully deleted part: '{part_name}' (ID: {part_id})")
             return {
                 "status": "success",
                 "message": f"Part with ID '{part_id}' was deleted.",
@@ -186,32 +211,47 @@ class PartService:
         """
         session = next(get_session())
         try:
+            part_name = part_data.get("part_name")
+            logger.info(f"Attempting to create new part: {part_name}")
+            
             # Validate required fields
-            if not part_data.get("part_name"):
+            if not part_name:
+                logger.error("Part creation failed: Part name is required")
                 raise ValueError("Part name is required")
 
             # Check if the part already exists by its name
             try:
-                part_exists = PartRepository.get_part_by_name(session, part_data["part_name"])
+                part_exists = PartRepository.get_part_by_name(session, part_name)
                 # If we get here, the part exists
+                logger.warning(f"Part creation failed: Part with name '{part_name}' already exists")
                 raise PartAlreadyExistsError(
                     status="error",
-                    message=f"Part with name '{part_data['part_name']}' already exists",
+                    message=f"Part with name '{part_name}' already exists",
                     data=part_exists.model_dump()
                 )
             except ResourceNotFoundError:
                 # Part doesn't exist, which is what we want for creating a new part
+                logger.debug(f"Part name validation passed: '{part_name}' is unique")
                 pass
 
+            # Clean up location_id - convert empty string to None
+            location_id = part_data.get("location_id")
+            if location_id == "":
+                part_data["location_id"] = None
+                location_id = None
+            
             # Verify that the location exists, but only if a location_id is provided
-            if part_data.get("location_id"):
-                location = LocationService.get_location(LocationQueryModel(id=part_data["location_id"]))
+            if location_id:
+                logger.debug(f"Validating location_id: {location_id}")
+                location = LocationService.get_location(LocationQueryModel(id=location_id))
                 if not location:
+                    logger.error(f"Part creation failed: Location with id '{location_id}' does not exist")
                     raise ResourceNotFoundError(
                         status="error",
-                        message=f"Location with id '{part_data['location_id']}' does not exist.",
+                        message=f"Location with id '{location_id}' does not exist.",
                         data=None
                     )
+                logger.debug(f"Location validation successful for part '{part_name}'")
 
             try:
                 # Handle categories first
@@ -219,6 +259,7 @@ class PartService:
                 categories = []
 
                 if category_names:
+                    logger.debug(f"Processing {len(category_names)} categories for part '{part_name}': {category_names}")
                     for name in category_names:
                         # Try to get existing category
                         category = session.exec(
@@ -227,19 +268,26 @@ class PartService:
 
                         if not category:
                             # Create new category if it doesn't exist
+                            logger.debug(f"Creating new category: {name}")
                             category = CategoryModel(name=name)
                             session.add(category)
                             session.flush()  # Flush to get the ID but don't commit yet
+                        else:
+                            logger.debug(f"Using existing category: {name}")
 
                         categories.append(category)
+                    
+                    logger.info(f"Assigned {len(categories)} categories to part '{part_name}': {[getattr(cat, 'name', str(cat)) for cat in categories]}")
 
                 # Extract datasheets data before creating the part
                 datasheets_data = part_data.pop("datasheets", [])
+                if datasheets_data:
+                    logger.debug(f"Processing {len(datasheets_data)} datasheets for part '{part_name}'")
                 
-                part_data["categories"] = categories
-                # Create the part with the prepared categories
+                # Create the part without categories first
                 new_part = PartModel(**part_data)
-                #new_part.categories = categories
+                # Then assign categories after creation
+                new_part.categories = categories
 
                 # Add the part via repository
                 part_obj = PartRepository.add_part(session, new_part)
@@ -254,14 +302,16 @@ class PartService:
                     
                     session.commit()  # Commit datasheets
                     session.refresh(part_obj)  # Refresh to get updated datasheets
+                    logger.info(f"Added {len(datasheets_data)} datasheets to part '{part_name}'")
                 
+                logger.info(f"Successfully created part: {part_name} (ID: {part_obj.id}) with {len(categories)} categories")
                 return {
                     "status": "success",
                     "message": "Part added successfully",
                     "data": part_obj.to_dict()
                 }
             except Exception as e:
-                logger.error(f"Failed to create part: {e}")
+                logger.error(f"Failed to create part '{part_name}': {e}")
                 raise ValueError(f"Failed to create part: {e}")
 
         except Exception as e:
@@ -420,36 +470,77 @@ class PartService:
     def update_part(part_id: str, part_update: PartUpdate) -> Dict[str, Any]:
         try:
             session = next(get_session())
+            logger.info(f"Attempting to update part: {part_id}")
+            
             part = PartRepository.get_part_by_id(session, part_id)
             if not part:
+                logger.error(f"Part not found for update: {part_id}")
                 raise ResourceNotFoundError(resource="Part", resource_id=part_id)
+
+            # Log current state before update
+            logger.debug(f"Current part state before update: {part.part_name} (ID: {part_id})")
 
             # Update only the provided fields
             update_data = part_update.model_dump(exclude_unset=True)
+            updated_fields = []
+            
             for key, value in update_data.items():
                 if key == "category_names" and value is not None:
                     # Special handling for categories
+                    old_categories = [getattr(cat, 'name', str(cat)) for cat in part.categories] if part.categories else []
                     categories = handle_categories(session, value)
                     part.categories.clear()  # Clear existing categories
                     part.categories.extend(categories)  # Add new categories
+                    new_categories = [getattr(cat, 'name', str(cat)) for cat in categories]
+                    logger.info(f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}")
+                    updated_fields.append(f"categories: {old_categories} → {new_categories}")
                 elif hasattr(part, key):
                     try:
+                        old_value = getattr(part, key)
                         setattr(part, key, value)
+                        
+                        # Log specific field updates with meaningful messages
+                        if key == "location_id":
+                            old_location = old_value
+                            new_location = value
+                            logger.info(f"Updated location for part '{part.part_name}' (ID: {part_id}): {old_location} → {new_location}")
+                            updated_fields.append(f"location: {old_location} → {new_location}")
+                        elif key == "quantity":
+                            logger.info(f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}")
+                            updated_fields.append(f"quantity: {old_value} → {value}")
+                        elif key == "minimum_quantity":
+                            logger.info(f"Updated minimum quantity for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}")
+                            updated_fields.append(f"minimum_quantity: {old_value} → {value}")
+                        elif key == "part_name":
+                            logger.info(f"Updated part name (ID: {part_id}): '{old_value}' → '{value}'")
+                            updated_fields.append(f"name: '{old_value}' → '{value}'")
+                        elif key == "supplier":
+                            logger.info(f"Updated supplier for part '{part.part_name}' (ID: {part_id}): '{old_value}' → '{value}'")
+                            updated_fields.append(f"supplier: '{old_value}' → '{value}'")
+                        elif key == "description":
+                            logger.info(f"Updated description for part '{part.part_name}' (ID: {part_id})")
+                            updated_fields.append(f"description updated")
+                        else:
+                            logger.info(f"Updated {key} for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}")
+                            updated_fields.append(f"{key}: {old_value} → {value}")
+                            
                     except AttributeError as e:
-                        print(f"Skipping read-only or problematic attribute '{key}': {e}")
+                        logger.warning(f"Skipping read-only or problematic attribute '{key}' for part {part_id}: {e}")
 
             # Pass the updated part to the repository for the actual update
             updated_part = PartRepository.update_part(session, part)
+            
             if update_data:
+                logger.info(f"Successfully updated part '{updated_part.part_name}' (ID: {part_id}). Changes: {', '.join(updated_fields)}")
                 return {"status": "success", "message": "Part updated successfully", "data": updated_part.to_dict()}
             else:
-                # TODO: What should we do if no updates were made?
-                # What if we return None
-                return {"status": "success", "message": "No updates provided", "data": updated_part}
+                logger.info(f"No updates provided for part '{part.part_name}' (ID: {part_id})")
+                return {"status": "success", "message": "No updates provided", "data": updated_part.to_dict()}
 
         except ResourceNotFoundError:
             raise
         except Exception as e:
+            logger.error(f"Failed to update part {part_id}: {e}")
             session.rollback()
             raise ValueError(f"Failed to update part with ID {part_id}: {e}")
 
