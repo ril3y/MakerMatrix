@@ -99,6 +99,28 @@ MakerMatrix/
   - **Database Safety**: Proper session management and transaction isolation
   - **API Integration**: RESTful endpoints for task creation, monitoring, and management
 
+### 8. Modular Supplier Integration Architecture (Planned)
+- **Separated API Client Layer**: Clean separation between API communication and data parsing
+  - Base API client interface with REST, GraphQL, and web scraping support
+  - Supplier-specific clients (LCSC, Mouser, DigiKey, BoltDepot)
+  - Standardized request/response handling with comprehensive error management
+  - Rate limiting, retry logic, and timeout handling built into client layer
+- **User-Managed Supplier Configuration**: Frontend interface for API key management
+  - Encrypted credential storage with secure key management
+  - Per-supplier configuration (API endpoints, rate limits, capabilities)
+  - Real-time connection testing and validation
+  - Import/export configuration for backup and deployment
+- **Dependency Injection Architecture**: Testable and maintainable parser system
+  - Service container pattern for component registration
+  - Interface-based design for easy mocking and testing
+  - Configurable enrichment pipelines with supplier fallbacks
+  - Plugin architecture for custom supplier integration
+- **Enhanced Testing Framework**: Comprehensive test coverage for all components
+  - Mocked API responses for deterministic unit testing
+  - Integration test suite with configurable real API testing
+  - Performance testing for rate limiting and bulk operations
+  - Security testing for credential management and data validation
+
 ## API Endpoints
 
 ### Parts Management
@@ -171,6 +193,20 @@ MakerMatrix/
 - `GET /api/tasks/security/limits` - Get user task usage limits
 - `POST /api/tasks/security/validate` - Validate task creation
 
+### Supplier Configuration Management (Planned)
+- `GET /api/config/suppliers` - Get all supplier configurations
+- `POST /api/config/suppliers` - Create new supplier configuration
+- `GET /api/config/suppliers/{supplier_name}` - Get specific supplier config
+- `PUT /api/config/suppliers/{supplier_name}` - Update supplier configuration
+- `DELETE /api/config/suppliers/{supplier_name}` - Remove supplier configuration
+- `POST /api/config/suppliers/{supplier_name}/test` - Test supplier API connection
+- `GET /api/config/suppliers/{supplier_name}/capabilities` - Get supplier capabilities
+- `POST /api/config/credentials` - Store encrypted API credentials
+- `PUT /api/config/credentials/{supplier_name}` - Update supplier credentials
+- `DELETE /api/config/credentials/{supplier_name}` - Remove supplier credentials
+- `POST /api/config/import` - Import supplier configurations from file
+- `GET /api/config/export` - Export supplier configurations
+
 ## Database Schema
 
 ### Core Tables
@@ -221,6 +257,28 @@ MakerMatrix/
   - Retry logic and timeout handling
   - Related entity tracking (part, order, etc.)
   - Dependency management between tasks
+
+### Supplier Configuration Tables (Planned)
+- **SupplierConfigModel**: Supplier service configuration
+  - Supplier name, API type (REST/GraphQL/scraping), base URL
+  - Rate limiting configuration and timeout settings
+  - Custom headers and request parameters
+  - Capability definitions and feature flags
+  - User ownership and access control
+
+- **SupplierCredentialsModel**: Encrypted API credentials
+  - Supplier name with foreign key to SupplierConfigModel
+  - Encrypted API keys, secret keys, and authentication tokens
+  - Username/password for basic auth or web scraping
+  - Credential rotation tracking and expiration dates
+  - AES-256 encryption with user-specific salt
+
+- **EnrichmentProfileModel**: User-defined enrichment workflows
+  - Profile name and description for reusable configurations
+  - Supplier priority order and fallback chains
+  - Capability selection (datasheet, image, pricing, specs)
+  - Custom field mappings and data transformation rules
+  - Default profile designation per user/organization
 
 ## Security Features
 

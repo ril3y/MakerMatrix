@@ -7,7 +7,18 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:visual": "playwright test tests/visual",
+    "test:all": "npm run test:run && npm run test:e2e",
+    "playwright:install": "playwright install"
   },
   "dependencies": {
     "@babel/runtime": "^7.27.6",
@@ -32,18 +43,31 @@
     "zustand": "^4.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/react": "^14.1.0",
+    "@testing-library/user-event": "^14.5.0",
+    "@types/node": "^24.0.3",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
+    "@types/testing-library__jest-dom": "^6.0.0",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
     "@vitejs/plugin-react": "^4.1.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
     "autoprefixer": "^10.4.16",
+    "axe-core": "^4.8.0",
     "eslint": "^8.53.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.4",
+    "jsdom": "^23.0.0",
+    "msw": "^2.0.0",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
+    "ts-unused-exports": "^11.0.1",
     "typescript": "^5.2.2",
-    "vite": "^4.5.0"
+    "vite": "^4.5.0",
+    "vitest": "^1.0.0"
   }
 }

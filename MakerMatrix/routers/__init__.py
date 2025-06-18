@@ -15,7 +15,10 @@ from . import (
     static_routes,
     task_routes,
     websocket_routes,
-    analytics_routes
+    analytics_routes,
+    activity_routes,
+    supplier_config_routes,
+    supplier_routes
 )
 
 __all__ = [
@@ -34,5 +37,8 @@ __all__ = [
     "static_routes",
     "task_routes",
     "websocket_routes",
-    "analytics_routes"
+    "analytics_routes",
+    "activity_routes",
+    "supplier_config_routes",
+    "supplier_routes"
 ]

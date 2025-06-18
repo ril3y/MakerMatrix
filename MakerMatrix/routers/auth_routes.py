@@ -110,9 +110,15 @@ async def login(request: Request):
     return response
 
 
-@router.post("/auth/mobile-login", response_model=ResponseSchema[Token])
-async def mobile_login(login_request: LoginRequest) -> ResponseSchema[Token]:
-    """JSON-only login endpoint for mobile and API clients."""
+class MobileToken(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+    expires_in: int  # seconds until expiration
+
+@router.post("/auth/mobile-login", response_model=ResponseSchema[MobileToken])
+async def mobile_login(login_request: LoginRequest) -> ResponseSchema[MobileToken]:
+    """JSON-only login endpoint for mobile and API clients with refresh token."""
     print(f"[DEBUG] /auth/mobile-login: using username={login_request.username}")
     
     user = auth_service.authenticate_user(login_request.username, login_request.password)
@@ -137,9 +143,56 @@ async def mobile_login(login_request: LoginRequest) -> ResponseSchema[Token]:
     return ResponseSchema(
         status="success",
         message="Login successful",
-        data=Token(access_token=access_token, token_type="bearer")
+        data=MobileToken(
+            access_token=access_token, 
+            refresh_token=refresh_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60  # Convert to seconds
+        )
     )
 
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/auth/mobile-refresh", response_model=ResponseSchema[Token])
+async def mobile_refresh_token(refresh_request: RefreshRequest) -> ResponseSchema[Token]:
+    """Mobile-friendly token refresh endpoint using JSON body instead of cookies."""
+    try:
+        payload = auth_service.verify_token(refresh_request.refresh_token)
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+            )
+
+        user = user_repository.get_user_by_username(username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+
+        # Create new access token
+        access_token = auth_service.create_access_token(
+            data={
+                "sub": username,
+                "password_change_required": user.password_change_required
+            }
+        )
+
+        return ResponseSchema(
+            status="success",
+            message="Token refreshed successfully",
+            data=Token(access_token=access_token, token_type="bearer")
+        )
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
 
 @router.post("/auth/refresh")
 async def refresh_token(refresh_token: Optional[str] = Cookie(None)) -> JSONResponse:

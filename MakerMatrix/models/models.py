@@ -11,6 +11,7 @@ from sqlalchemy.dialects.sqlite import JSON
 from datetime import datetime
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
 from MakerMatrix.models.task_models import TaskModel
+from MakerMatrix.models.supplier_config_models import SupplierConfigModel, SupplierCredentialsModel, EnrichmentProfileModel
 
 # Association table to link PartModel and CategoryModel
 # Association table to link PartModel and CategoryModel
@@ -321,7 +322,9 @@ class PartOrderSummary(SQLModel, table=True):
     """Summary table for part order information"""
     
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    part_id: str = Field(foreign_key="partmodel.id", unique=True)  # One-to-one relationship
+    part_id: str = Field(
+        sa_column=Column(String, ForeignKey("partmodel.id", ondelete="CASCADE"), unique=True)
+    )  # One-to-one relationship with cascade delete
     
     # Order summary information
     last_ordered_date: Optional[datetime] = None

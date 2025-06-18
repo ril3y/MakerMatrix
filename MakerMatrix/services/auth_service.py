@@ -5,11 +5,12 @@ from fastapi import HTTPException, status
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.models.user_models import UserModel
 
-# These should be moved to environment variables in production
-SECRET_KEY = "your-secret-key-keep-it-secret"  # Change this!
+# Configuration - can be overridden with environment variables
+import os
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-keep-it-secret")  # Change this!
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "480"))  # 8 hours default (mobile-friendly)
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
 class AuthService:

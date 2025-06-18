@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 python -m MakerMatrix.main
 ```
-Application runs on `http://localhost:57891` with Swagger UI at `/docs`.
+Application runs on `http://localhost:8080` with Swagger UI at `/docs`.
 
 #### Frontend Development Server
 ```bash
@@ -41,8 +41,9 @@ pytest MakerMatrix/unit_tests/test_parts_repository.py
 ```
 
 ### Virtual Environment
-- Use `venv_test` to run python
+- Use `venv_test` to run python (fresh venv with all dependencies)
 - Always use the venv_test for running python
+- Includes aiohttp for async HTTP requests and supplier API clients
 
 ### Database Setup
 - Database is created automatically on first run
@@ -115,7 +116,7 @@ if parser and parser.supports_capability(CapabilityType.FETCH_PRICING):
 
 ### Coding Guidelines
 - Always use pytest to test code
-- Make sure we update tests if we need to make them simpler, we don't keep creating new files
+- We never create any test by individual tests in the @MakerMatrix/tests/ dir and use pytest
 - Use task-based architecture for long-running operations (enrichment, CSV processing)
 - Implement proper progress tracking with WebSocket updates for user feedback
 - Follow role-based security patterns for task creation and management

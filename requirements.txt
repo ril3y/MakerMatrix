@@ -5,6 +5,9 @@ requests==2.32.3
 websockets==13.1
 beautifulsoup4==4.12.2
 mouser==0.1.5
+aiohttp>=3.9.0
+digikey-api>=1.0.0
+python-dotenv>=1.0.0
 pandas>=2.3.0
 openpyxl>=3.1.5
 xlrd>=2.0.2

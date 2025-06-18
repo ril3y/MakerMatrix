@@ -14,6 +14,11 @@ class PartCreate(BaseModel):
     image_url: Optional[str] = None
     additional_properties: Optional[dict] = {}
     category_names: Optional[List[str]] = []
+    
+    # Enrichment parameters
+    auto_enrich: Optional[bool] = False
+    enrichment_supplier: Optional[str] = None
+    enrichment_capabilities: Optional[List[str]] = []
 
     @model_validator(mode='before')
     def check_part_identifiers(cls, values):

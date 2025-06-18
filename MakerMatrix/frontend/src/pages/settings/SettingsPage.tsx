@@ -8,6 +8,7 @@ import ImportSelector from '@/components/import/ImportSelector'
 import TasksManagement from '@/components/tasks/TasksManagement'
 import ThemeSelector from '@/components/ui/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
+import { SupplierConfigPage } from '@/pages/suppliers/SupplierConfigPage'
 
 const SettingsPage = () => {
   const { isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode } = useTheme()
@@ -390,6 +391,7 @@ const SettingsPage = () => {
             { id: 'import', label: 'Import/Export', icon: ImportIcon },
             { id: 'tasks', label: 'Background Tasks', icon: Activity },
             { id: 'ai', label: 'AI Helper', icon: Bot },
+            { id: 'suppliers', label: 'Suppliers', icon: Globe },
             { id: 'printer', label: 'Printers', icon: Printer },
             { id: 'database', label: 'Database', icon: Database },
             { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -1408,6 +1410,19 @@ const SettingsPage = () => {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'suppliers' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-primary mb-4 flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              Supplier Configuration
+            </h3>
+            <div className="text-sm text-secondary mb-4">
+              Manage supplier API configurations, credentials, and enrichment capabilities
+            </div>
+            <SupplierConfigPage />
           </div>
         )}
 

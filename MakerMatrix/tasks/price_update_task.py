@@ -9,7 +9,13 @@ from MakerMatrix.models.task_models import TaskModel
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.parsers.enhanced_parser import get_enhanced_parser
-from MakerMatrix.parsers.supplier_capabilities import CapabilityType
+try:
+    from MakerMatrix.parsers.supplier_capabilities import CapabilityType
+except ImportError:
+    # Fallback if the old parser system is not available
+    from enum import Enum
+    class CapabilityType(Enum):
+        FETCH_PRICING = "fetch_pricing"
 from sqlmodel import select
 import logging
 

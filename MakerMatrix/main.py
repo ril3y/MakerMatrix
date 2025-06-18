@@ -11,7 +11,8 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, modern_printer_routes, preview_routes,
-    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, websocket_routes, analytics_routes, activity_routes
+    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, 
+    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes
 )
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -143,6 +144,44 @@ task_permissions = {
     "/security/validate": "tasks:create"
 }
 
+supplier_config_permissions = {
+    "/suppliers": {
+        "GET": "supplier_config:read",
+        "POST": "supplier_config:create"
+    },
+    "/suppliers/{supplier_name}": {
+        "GET": "supplier_config:read",
+        "PUT": "supplier_config:update",
+        "DELETE": "supplier_config:delete"
+    },
+    "/suppliers/{supplier_name}/test": "supplier_config:read",
+    "/suppliers/{supplier_name}/capabilities": "supplier_config:read",
+    "/credentials": "supplier_config:credentials",
+    "/credentials/{supplier_name}": "supplier_config:credentials",
+    "/import": "supplier_config:import",
+    "/export": "supplier_config:export",
+    "/initialize-defaults": "supplier_config:create"
+}
+
+supplier_permissions = {
+    "/": "suppliers:read",
+    "/info": "suppliers:read",
+    "/{supplier_name}/info": "suppliers:read",
+    "/{supplier_name}/credentials-schema": "suppliers:read",
+    "/{supplier_name}/config-schema": "suppliers:read",
+    "/{supplier_name}/capabilities": "suppliers:read",
+    "/{supplier_name}/env-defaults": "suppliers:read",
+    "/{supplier_name}/test": "suppliers:use",
+    "/{supplier_name}/oauth/authorization-url": "suppliers:use",
+    "/{supplier_name}/oauth/exchange": "suppliers:use",
+    "/{supplier_name}/search": "suppliers:use",
+    "/{supplier_name}/bulk-search": "suppliers:use",
+    "/{supplier_name}/part/{part_number}": "suppliers:use",
+    "/{supplier_name}/part/{part_number}/datasheet": "suppliers:use",
+    "/{supplier_name}/part/{part_number}/pricing": "suppliers:use",
+    "/{supplier_name}/part/{part_number}/stock": "suppliers:use"
+}
+
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
     "/login",
@@ -165,6 +204,8 @@ secure_all_routes(role_routes.router)
 secure_all_routes(ai_routes.router)
 secure_all_routes(csv_routes.router, permissions=csv_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
+secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
+secure_all_routes(supplier_routes.router, permissions=supplier_permissions)
 secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
 
@@ -185,6 +226,8 @@ app.include_router(role_routes.router, prefix="/roles", tags=["Roles"])
 app.include_router(ai_routes.router, prefix="/ai", tags=["AI Configuration"])
 app.include_router(csv_routes.router, prefix="/api/csv", tags=["CSV Import"])
 app.include_router(task_routes.router, prefix="/api/tasks", tags=["Background Tasks"])
+app.include_router(supplier_config_routes.router, tags=["Supplier Configuration"])
+app.include_router(supplier_routes.router, tags=["Suppliers"])
 app.include_router(analytics_routes.router, tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
@@ -229,4 +272,4 @@ if __name__ == "__main__":
         print(f"Error loading configuration: {e}")
 
     # Start the FastAPI server
-    uvicorn.run(app, host='0.0.0.0', port=57891)
+    uvicorn.run(app, host='0.0.0.0', port=8080)

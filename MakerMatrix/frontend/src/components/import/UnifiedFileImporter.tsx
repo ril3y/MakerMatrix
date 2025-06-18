@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Upload, RefreshCw, AlertCircle, Package, FileText } from 'lucide-react'
+import { Upload, RefreshCw, AlertCircle, Package, FileText, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ImportResult } from './hooks/useOrderImport'
 import { apiClient } from '@/services/api'
+import CSVEnrichmentProgressModal from './CSVEnrichmentProgressModal'
 
 interface UnifiedFileImporterProps {
   uploadedFile: File
@@ -20,53 +21,23 @@ interface OrderInfo {
   notes?: string
 }
 
-// Function to extract order info from supplier filename formats
-const extractOrderInfoFromFilename = (filename: string, parserType: string): Partial<OrderInfo> => {
-  if (parserType === 'lcsc') {
-    // LCSC filename pattern: LCSC_Exported__20241222_232703.csv
-    const lcscMatch = filename.match(/^LCSC_Exported__(\d{8})_(\d{6})\.csv$/i)
-    if (lcscMatch) {
-      const [, dateStr, timeStr] = lcscMatch
-      
-      try {
-        // Convert YYYYMMDD to YYYY-MM-DD
-        const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
-        
-        // Validate date format
-        const date = new Date(formattedDate)
-        if (date.toISOString().split('T')[0] === formattedDate) {
-          return {
-            order_date: formattedDate,
-            order_number: timeStr, // Use time as order number
-            notes: `Auto-extracted from filename: ${filename}`
-          }
-        }
-      } catch (error) {
-        console.warn('Invalid date in LCSC filename:', dateStr)
-      }
-    }
-  } else if (parserType === 'digikey') {
-    // DigiKey filename pattern: DK_PRODUCTS_88269818.csv
-    const digikeyMatch = filename.match(/^DK_PRODUCTS_(\d+)\.csv$/i)
-    if (digikeyMatch) {
-      const [, orderNumber] = digikeyMatch
-      
+// Function to extract order info from filename using API
+const extractOrderInfoFromFilename = async (filename: string, parserType: string): Promise<Partial<OrderInfo>> => {
+  try {
+    const response = await apiClient.post('/api/csv/extract-filename-info', {
+      filename: filename,
+      parser_type: parserType
+    })
+    
+    if (response.status === 'success' && response.data) {
       return {
-        order_number: orderNumber,
-        notes: `Auto-extracted order number from filename: ${filename}`
+        order_date: response.data.order_date,
+        order_number: response.data.order_number,
+        notes: response.data.notes || `Auto-extracted from filename: ${filename}`
       }
     }
-  } else if (parserType === 'mouser') {
-    // Mouser filename pattern: 269268390.xls (just the order number)
-    const mouserMatch = filename.match(/^(\d+)\.xls$/i)
-    if (mouserMatch) {
-      const [, orderNumber] = mouserMatch
-      
-      return {
-        order_number: orderNumber,
-        notes: `Auto-extracted order number from filename: ${filename}`
-      }
-    }
+  } catch (error) {
+    console.warn('Failed to extract order info from filename:', error)
   }
   
   return {}
@@ -88,28 +59,35 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
     notes: ''
   })
   const [showPreview, setShowPreview] = useState(false)
+  const [showEnrichmentModal, setShowEnrichmentModal] = useState(false)
+  const [enrichmentTaskId, setEnrichmentTaskId] = useState<string | null>(null)
+  const [importedPartsCount, setImportedPartsCount] = useState(0)
 
   // Auto-extract order info from filename when component mounts or file changes
   useEffect(() => {
-    if (uploadedFile && parserType) {
-      const extractedInfo = extractOrderInfoFromFilename(uploadedFile.name, parserType)
-      if (Object.keys(extractedInfo).length > 0) {
-        setOrderInfo(prev => ({
-          // Only override if the field is empty
-          order_number: prev.order_number || extractedInfo.order_number || '',
-          order_date: prev.order_date === new Date().toISOString().split('T')[0] ? 
-            (extractedInfo.order_date || prev.order_date) : prev.order_date,
-          notes: prev.notes || extractedInfo.notes || ''
-        }))
-        
-        // Show a toast notification
-        if (extractedInfo.order_date && extractedInfo.order_number) {
-          toast.success(`Auto-extracted order info: ${extractedInfo.order_date} (${extractedInfo.order_number})`)
-        } else if (extractedInfo.order_number) {
-          toast.success(`Auto-extracted order number: ${extractedInfo.order_number}`)
+    const extractInfo = async () => {
+      if (uploadedFile && parserType) {
+        const extractedInfo = await extractOrderInfoFromFilename(uploadedFile.name, parserType)
+        if (Object.keys(extractedInfo).length > 0) {
+          setOrderInfo(prev => ({
+            // Only override if the field is empty
+            order_number: prev.order_number || extractedInfo.order_number || '',
+            order_date: prev.order_date === new Date().toISOString().split('T')[0] ? 
+              (extractedInfo.order_date || prev.order_date) : prev.order_date,
+            notes: prev.notes || extractedInfo.notes || ''
+          }))
+          
+          // Show a toast notification
+          if (extractedInfo.order_date && extractedInfo.order_number) {
+            toast.success(`Auto-extracted order info: ${extractedInfo.order_date} (${extractedInfo.order_number})`)
+          } else if (extractedInfo.order_number) {
+            toast.success(`Auto-extracted order number: ${extractedInfo.order_number}`)
+          }
         }
       }
     }
+    
+    extractInfo()
   }, [uploadedFile, parserType])
 
   const handleImport = async () => {
@@ -145,7 +123,25 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
           failed_parts: result.data.failures || []
         }
 
-        toast.success(`Import completed: ${result.data.successful_imports || 0} parts imported successfully`)
+        const successfulImports = result.data.successful_imports || 0
+        setImportedPartsCount(successfulImports)
+        
+        // Debug logging
+        console.log('CSV Import Result:', result.data)
+        console.log('Enrichment Task ID:', result.data.enrichment_task_id)
+        console.log('Has enrichment_task_id:', !!result.data.enrichment_task_id)
+        
+        // Check if enrichment task was created
+        if (result.data.enrichment_task_id) {
+          console.log('Setting enrichment task ID:', result.data.enrichment_task_id)
+          setEnrichmentTaskId(result.data.enrichment_task_id)
+          console.log('Setting showEnrichmentModal to true')
+          setShowEnrichmentModal(true)
+          toast.success(`Import completed: ${successfulImports} parts imported. Starting enrichment...`)
+        } else {
+          toast.success(`Import completed: ${successfulImports} parts imported successfully`)
+        }
+        
         onImportComplete?.(importResult)
       } else {
         throw new Error(result.message || 'Import failed')
@@ -369,6 +365,15 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
           </div>
         </div>
       )}
+      
+      {/* CSV Enrichment Progress Modal */}
+      <CSVEnrichmentProgressModal
+        isOpen={showEnrichmentModal}
+        onClose={() => setShowEnrichmentModal(false)}
+        enrichmentTaskId={enrichmentTaskId || undefined}
+        importedPartsCount={importedPartsCount}
+        fileName={uploadedFile?.name || 'Unknown'}
+      />
     </div>
   )
 }

@@ -509,18 +509,58 @@ async def create_database_cleanup_task(
 async def get_supplier_capabilities(
     current_user: UserModel = Depends(require_permission("tasks:read"))
 ):
-    """Get enrichment capabilities for all suppliers"""
+    """Get enrichment capabilities for all suppliers using new supplier configuration system"""
     try:
-        from MakerMatrix.parsers.supplier_capabilities import get_all_supplier_capabilities
+        from MakerMatrix.services.supplier_config_service import SupplierConfigService
         
-        capabilities = get_all_supplier_capabilities()
+        supplier_service = SupplierConfigService()
+        all_suppliers = supplier_service.get_all_supplier_configs()
+        
+        capabilities_data = {}
+        for supplier_dict in all_suppliers:
+            # all_suppliers returns dictionaries, not model objects
+            supplier_name = supplier_dict.get("supplier_name")
+            enabled = supplier_dict.get("enabled", False)
+            
+            if enabled:
+                try:
+                    # Get the actual model object for configured capabilities
+                    supplier_config = supplier_service.get_supplier_config(supplier_name)
+                    configured_capabilities = supplier_config.get_capabilities()
+                    
+                    # Optionally get client capabilities for comparison
+                    client_capabilities = []
+                    try:
+                        credentials = supplier_service.get_supplier_credentials(supplier_name, decrypt=True)
+                        client = supplier_service._create_api_client(supplier_config, credentials)
+                        client_capabilities = client.get_supported_capabilities()
+                    except Exception as e:
+                        logger.debug(f"Could not get client capabilities for {supplier_name}: {e}")
+                    
+                    capabilities_data[supplier_name] = {
+                        "enabled": True,
+                        "capabilities": configured_capabilities,  # Use configured capabilities
+                        "client_capabilities": client_capabilities,  # For debugging/validation
+                        "supplier_name": supplier_name,
+                        "base_url": supplier_dict.get("base_url"),
+                        "capabilities_match": set(client_capabilities) == set(configured_capabilities)
+                    }
+                except Exception as e:
+                    capabilities_data[supplier_name] = {
+                        "enabled": False,
+                        "error": str(e),
+                        "capabilities": []
+                    }
+            else:
+                capabilities_data[supplier_name] = {
+                    "enabled": False,
+                    "capabilities": [],
+                    "supplier_name": supplier_name
+                }
         
         return {
             "status": "success",
-            "data": {
-                supplier_name: caps.get_capabilities_summary()
-                for supplier_name, caps in capabilities.items()
-            }
+            "data": capabilities_data
         }
     except Exception as e:
         logger.error(f"Failed to get supplier capabilities: {e}", exc_info=True)
@@ -532,18 +572,60 @@ async def get_supplier_capability(
     supplier_name: str,
     current_user: UserModel = Depends(require_permission("tasks:read"))
 ):
-    """Get enrichment capabilities for a specific supplier"""
+    """Get enrichment capabilities for a specific supplier using new system"""
     try:
-        from MakerMatrix.parsers.supplier_capabilities import get_supplier_capabilities
+        from MakerMatrix.services.supplier_config_service import SupplierConfigService
         
-        capabilities = get_supplier_capabilities(supplier_name)
-        if not capabilities:
+        supplier_service = SupplierConfigService()
+        
+        try:
+            supplier_config = supplier_service.get_supplier_config(supplier_name.upper())
+        except Exception:
             raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
         
-        return {
-            "status": "success",
-            "data": capabilities.get_capabilities_summary()
-        }
+        if not supplier_config.enabled:
+            return {
+                "status": "success",
+                "data": {
+                    "supplier_name": supplier_name,
+                    "enabled": False,
+                    "capabilities": []
+                }
+            }
+        
+        try:
+            # Get configured capabilities from user settings
+            configured_capabilities = supplier_config.get_capabilities()
+            
+            # Optionally get client capabilities for comparison/validation
+            client_capabilities = []
+            try:
+                credentials = supplier_service.get_supplier_credentials(supplier_name.upper(), decrypt=True)
+                client = supplier_service._create_api_client(supplier_config, credentials)
+                client_capabilities = client.get_supported_capabilities()
+            except Exception as e:
+                logger.warning(f"Could not get client capabilities for {supplier_name}: {e}")
+            
+            return {
+                "status": "success",
+                "data": {
+                    "supplier_name": supplier_name,
+                    "enabled": True,
+                    "capabilities": configured_capabilities,  # Use configured capabilities
+                    "client_capabilities": client_capabilities,  # Include client capabilities for debugging
+                    "base_url": supplier_config.base_url
+                }
+            }
+        except Exception as e:
+            return {
+                "status": "success",
+                "data": {
+                    "supplier_name": supplier_name,
+                    "enabled": False,
+                    "capabilities": [],
+                    "error": str(e)
+                }
+            }
     except HTTPException:
         raise
     except Exception as e:
@@ -556,23 +638,50 @@ async def find_suppliers_with_capability(
     capability_type: str,
     current_user: UserModel = Depends(require_permission("tasks:read"))
 ):
-    """Find suppliers that support a specific capability"""
+    """Find suppliers that support a specific capability using new system"""
     try:
-        from MakerMatrix.parsers.supplier_capabilities import find_suppliers_with_capability, CapabilityType
+        from MakerMatrix.services.supplier_config_service import SupplierConfigService
         
-        try:
-            capability = CapabilityType(capability_type)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid capability type: {capability_type}")
+        # Valid capability types from BaseSupplierClient
+        valid_capabilities = [
+            "fetch_datasheet",
+            "fetch_image", 
+            "fetch_pricing",
+            "fetch_stock",
+            "fetch_specifications",
+            "fetch_details"
+        ]
         
-        suppliers = find_suppliers_with_capability(capability)
+        if capability_type not in valid_capabilities:
+            raise HTTPException(status_code=400, detail=f"Invalid capability type: {capability_type}. Valid options: {valid_capabilities}")
+        
+        supplier_service = SupplierConfigService()
+        all_suppliers = supplier_service.get_all_supplier_configs()
+        
+        supporting_suppliers = []
+        for supplier_dict in all_suppliers:
+            # all_suppliers returns dictionaries, not model objects
+            supplier_name = supplier_dict.get("supplier_name")
+            enabled = supplier_dict.get("enabled", False)
+            
+            if enabled:
+                try:
+                    # Get the actual model object for API client creation
+                    supplier_config = supplier_service.get_supplier_config(supplier_name)
+                    credentials = supplier_service.get_supplier_credentials(supplier_name, decrypt=True)
+                    client = supplier_service._create_api_client(supplier_config, credentials)
+                    
+                    if capability_type in client.get_supported_capabilities():
+                        supporting_suppliers.append(supplier_name)
+                except Exception:
+                    continue  # Skip suppliers that can't be initialized
         
         return {
             "status": "success",
             "data": {
                 "capability": capability_type,
-                "suppliers": suppliers,
-                "count": len(suppliers)
+                "suppliers": supporting_suppliers,
+                "count": len(supporting_suppliers)
             }
         }
     except HTTPException:

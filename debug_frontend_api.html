@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Frontend API</title>
+</head>
+<body>
+    <h1>Debug Frontend API Response</h1>
+    <button onclick="testAPI()">Test Capabilities API</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function testAPI() {
+            const output = document.getElementById('output');
+            
+            try {
+                // First login
+                const loginResponse = await fetch('http://localhost:8080/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'username=admin&password=Admin123!'
+                });
+                
+                if (!loginResponse.ok) {
+                    output.textContent = `Login failed: ${loginResponse.status}`;
+                    return;
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+                
+                // Then test capabilities
+                const capResponse = await fetch('http://localhost:8080/api/tasks/capabilities/suppliers', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!capResponse.ok) {
+                    output.textContent = `Capabilities failed: ${capResponse.status}`;
+                    return;
+                }
+                
+                const capData = await capResponse.json();
+                output.textContent = JSON.stringify(capData, null, 2);
+                
+                // Log LCSC specifically
+                if (capData.data && capData.data.LCSC) {
+                    console.log('LCSC capabilities:', capData.data.LCSC.capabilities);
+                }
+                
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import { partsService } from '@/services/parts.service'
 import { Part, Datasheet } from '@/types/parts'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
+import PDFViewer from '@/components/ui/PDFViewer'
 import PartEnrichmentModal from '@/components/parts/PartEnrichmentModal'
 import PrinterModal from '@/components/printer/PrinterModal'
 import { analyticsService } from '@/services/analytics.service'
@@ -19,6 +20,8 @@ const PartDetailsPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [selectedDatasheet, setSelectedDatasheet] = useState<Datasheet | null>(null)
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('')
   const [enrichmentModalOpen, setEnrichmentModalOpen] = useState(false)
   const [printerModalOpen, setPrinterModalOpen] = useState(false)
   const [priceTrends, setPriceTrends] = useState<any[]>([])
@@ -97,8 +100,16 @@ const PartDetailsPage = () => {
   }
 
   const getDatasheetUrl = (datasheet: Datasheet) => {
-    const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'
-    return `${API_BASE_URL}/static/datasheets/${datasheet.filename}`
+    // In development, use the vite proxy. In production, use the configured API URL
+    const isDevelopment = (import.meta as any).env?.DEV
+    if (isDevelopment) {
+      // Use relative URL so it goes through Vite proxy
+      return `/static/datasheets/${datasheet.filename}`
+    } else {
+      // Production: use full API URL
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
+      return `${API_BASE_URL}/static/datasheets/${datasheet.filename}`
+    }
   }
 
   const downloadDatasheet = (datasheet: Datasheet) => {
@@ -114,6 +125,11 @@ const PartDetailsPage = () => {
   const viewDatasheet = (datasheet: Datasheet) => {
     setSelectedDatasheet(datasheet)
     setPdfViewerOpen(true)
+  }
+
+  const openPDFPreview = (url: string) => {
+    setPdfPreviewUrl(url)
+    setPdfPreviewOpen(true)
   }
 
   const formatFileSize = (bytes?: number) => {
@@ -372,7 +388,7 @@ const PartDetailsPage = () => {
       )}
 
       {/* Datasheets Section */}
-      {part.datasheets && part.datasheets.length > 0 && (
+      {((part.datasheets && part.datasheets.length > 0) || part.additional_properties?.datasheet_url) && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -384,13 +400,14 @@ const PartDetailsPage = () => {
               <FileText className="w-5 h-5" />
               Datasheets
               <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
-                {part.datasheets.length} file{part.datasheets.length !== 1 ? 's' : ''}
+                {(part.datasheets?.length || 0) + (part.additional_properties?.datasheet_url ? 1 : 0)} file{((part.datasheets?.length || 0) + (part.additional_properties?.datasheet_url ? 1 : 0)) !== 1 ? 's' : ''}
               </span>
             </h2>
           </div>
           <div className="card-content">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {part.datasheets.map((datasheet) => (
+              {/* Existing downloaded datasheets */}
+              {part.datasheets?.map((datasheet) => (
                 <div
                   key={datasheet.id}
                   className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors"
@@ -476,6 +493,62 @@ const PartDetailsPage = () => {
                   )}
                 </div>
               ))}
+              
+              {/* Enriched datasheet URL from additional_properties */}
+              {part.additional_properties?.datasheet_url && (
+                <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-primary truncate">
+                          Supplier Datasheet
+                        </h3>
+                        <p className="text-xs text-secondary">
+                          {part.supplier || 'Unknown Supplier'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="px-2 py-1 rounded text-xs bg-blue-500/10 text-blue-400">
+                      Online
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-secondary mb-3 line-clamp-2">
+                    Official datasheet from supplier website
+                  </p>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-xs text-muted">
+                      <span>Source:</span>
+                      <span>Supplier API</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted">
+                      <span>Type:</span>
+                      <span>External Link</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openPDFPreview(part.additional_properties.datasheet_url)}
+                      className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Preview PDF
+                    </button>
+                    <a
+                      href={part.additional_properties.datasheet_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 bg-background-tertiary hover:bg-background-secondary text-primary rounded text-sm transition-colors flex items-center justify-center"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -537,10 +610,10 @@ const PartDetailsPage = () => {
           {/* Debug info - remove in production */}
           <details className="mt-4 p-3 bg-background-secondary/30 dark:bg-black rounded border">
             <summary className="cursor-pointer text-sm font-medium text-secondary">
-              Debug: Raw Properties Data
+              Debug: Complete Part Model Data
             </summary>
             <pre className="mt-2 text-xs text-muted overflow-x-auto">
-              {JSON.stringify(part.additional_properties, null, 2)}
+              {JSON.stringify(part, null, 2)}
             </pre>
           </details>
         </div>
@@ -687,6 +760,15 @@ const PartDetailsPage = () => {
           quantity: part.quantity?.toString() || '0'
         }}
       />
+
+      {/* PDF Preview Modal for Supplier Datasheets */}
+      {pdfPreviewOpen && pdfPreviewUrl && (
+        <PDFViewer
+          fileUrl={pdfPreviewUrl}
+          fileName={`${part?.name || 'Part'} - Datasheet.pdf`}
+          onClose={() => setPdfPreviewOpen(false)}
+        />
+      )}
     </div>
   )
 }

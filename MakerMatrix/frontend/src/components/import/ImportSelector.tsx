@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ChevronDown, Upload, CheckCircle, AlertCircle, File, X } from 'lucide-react'
 import UnifiedFileImporter from './UnifiedFileImporter'
@@ -29,31 +29,56 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
+  const [parsers, setParsers] = useState<any[]>([])
+  const [isLoadingParsers, setIsLoadingParsers] = useState<boolean>(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const parsers = [
-    { 
-      id: 'lcsc', 
-      name: 'LCSC Electronics', 
-      description: 'Chinese electronics distributor (CSV)',
-      color: 'bg-blue-500',
-      supported: true
-    },
-    { 
-      id: 'digikey', 
-      name: 'DigiKey', 
-      description: 'Major electronics distributor (CSV)',
-      color: 'bg-red-500',
-      supported: true
-    },
-    { 
-      id: 'mouser', 
-      name: 'Mouser Electronics', 
-      description: 'Global electronics distributor (XLS format)',
-      color: 'bg-green-500',
-      supported: true
+  // Load available suppliers dynamically from API
+  useEffect(() => {
+    const loadAvailableSuppliers = async () => {
+      try {
+        setIsLoadingParsers(true)
+        const response = await apiClient.get('/api/csv/available-suppliers')
+        if (response.status === 'success') {
+          setParsers(response.data)
+        } else {
+          console.error('Failed to load suppliers:', response.message)
+          toast.error('Failed to load available suppliers')
+        }
+      } catch (error) {
+        console.error('Error loading suppliers:', error)
+        toast.error('Error loading available suppliers')
+        // Fallback to hardcoded suppliers
+        setParsers([
+          { 
+            id: 'lcsc', 
+            name: 'LCSC Electronics', 
+            description: 'Chinese electronics distributor (CSV)',
+            color: 'bg-blue-500',
+            supported: true
+          },
+          { 
+            id: 'digikey', 
+            name: 'DigiKey', 
+            description: 'Major electronics distributor (CSV)',
+            color: 'bg-red-500',
+            supported: true
+          },
+          { 
+            id: 'mouser', 
+            name: 'Mouser Electronics', 
+            description: 'Global electronics distributor (XLS format)',
+            color: 'bg-green-500',
+            supported: true
+          }
+        ])
+      } finally {
+        setIsLoadingParsers(false)
+      }
     }
-  ]
+
+    loadAvailableSuppliers()
+  }, [])
 
   const selectedParserInfo = parsers.find(p => p.id === selectedParser)
 
@@ -220,7 +245,10 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                     Drop your order file here or click to browse
                   </p>
                   <p className="text-sm text-secondary">
-                    Supports CSV, XLS, and XLSX files from LCSC, DigiKey, Mouser, and more
+                    {isLoadingParsers 
+                      ? 'Loading available suppliers...' 
+                      : `Supports CSV, XLS, and XLSX files from ${parsers.map(p => p.name).join(', ')}, and more`
+                    }
                   </p>
                 </div>
               </div>
@@ -243,8 +271,11 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                   value={selectedParser}
                   onChange={(e) => setSelectedParser(e.target.value)}
                   className="input w-full appearance-none pr-10"
+                  disabled={isLoadingParsers}
                 >
-                  <option value="">Select a parser...</option>
+                  <option value="">
+                    {isLoadingParsers ? 'Loading suppliers...' : 'Select a parser...'}
+                  </option>
                   {parsers.map((parser) => (
                     <option key={parser.id} value={parser.id} disabled={!parser.supported}>
                       {parser.name} - {parser.description}
@@ -334,7 +365,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
               <p className="text-secondary">
                 We're working on adding support for {selectedParserInfo?.name} imports.
                 <br />
-                For now, try LCSC, DigiKey, or Mouser imports.
+                For now, try other available supplier imports.
               </p>
             </div>
           )}

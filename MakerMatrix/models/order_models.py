@@ -72,7 +72,10 @@ class OrderItemModel(SQLModel, table=True):
     
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     order_id: str = Field(foreign_key="ordermodel.id")
-    part_id: Optional[str] = Field(default=None, foreign_key="partmodel.id")
+    part_id: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String, ForeignKey("partmodel.id", ondelete="SET NULL"))
+    )
     
     # Part information (stored even if part doesn't exist in inventory yet)
     supplier_part_number: str = Field(index=True)

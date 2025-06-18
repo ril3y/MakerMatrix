@@ -45,6 +45,7 @@ class PartService:
         # The order relationships are already loaded in the repository methods
         return part
 
+
     #####
     @staticmethod
     def get_part_by_details(
@@ -172,6 +173,11 @@ class PartService:
         except ResourceNotFoundError as rnfe:
             raise rnfe  # Propagate known error
 
+        except ValueError as ve:
+            # Handle user-friendly constraint errors from repository
+            logger.error(f"Part deletion constraint error: {ve}")
+            raise ve  # Propagate the user-friendly error message
+
         except Exception as e:
             logger.error(f"Failed to delete part {part_id}: {e}")
             raise ValueError(f"Failed to delete part {part_id}: {str(e)}")
@@ -195,10 +201,14 @@ class PartService:
         """
         session = next(get_session())
         try:
-            return PartService.part_repo.clear_all_parts(session)
+            result = PartService.part_repo.clear_all_parts(session)
+            logger.info(f"Clear all parts result: {result}")
+            return result
         except Exception as e:
             logger.error(f"Failed to clear all parts: {e}")
-            return None
+            raise e
+        finally:
+            session.close()
 
 
     #####

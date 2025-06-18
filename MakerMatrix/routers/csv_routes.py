@@ -5,6 +5,7 @@ import os
 from MakerMatrix.services.csv_import_service import csv_import_service, CSVImportService
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.services.order_service import order_service
+from MakerMatrix.services.parser_client_registry import get_all_enrichment_mappings, get_enrichment_capabilities, validate_mapping, supports_enrichment
 from MakerMatrix.dependencies.auth import require_permission
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
@@ -50,7 +51,7 @@ class CSVImportResponse(BaseModel):
 
 @router.get("/supported-types", response_model=ResponseSchema[List[Dict[str, Any]]])
 async def get_supported_types():
-    """Get list of supported CSV file types"""
+    """Get list of supported CSV file types using dynamic parser registry"""
     try:
         types = csv_import_service.get_supported_types()
         return ResponseSchema(
@@ -61,6 +62,46 @@ async def get_supported_types():
     except Exception as e:
         logger.error(f"Error getting supported types: {e}")
         raise HTTPException(status_code=500, detail="Failed to get supported types")
+
+
+@router.get("/available-suppliers", response_model=ResponseSchema[List[Dict[str, Any]]])
+async def get_available_suppliers():
+    """Get list of available suppliers from dynamic registry"""
+    try:
+        from MakerMatrix.clients.suppliers.supplier_registry import get_available_suppliers, get_supplier_capabilities
+        
+        suppliers = []
+        for supplier_name in get_available_suppliers():
+            capabilities = get_supplier_capabilities(supplier_name)
+            suppliers.append({
+                "id": supplier_name.lower(),
+                "name": supplier_name,
+                "description": f"{supplier_name} electronics supplier",
+                "color": _get_supplier_color(supplier_name),
+                "supported": True,
+                "capabilities": capabilities
+            })
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Found {len(suppliers)} available suppliers",
+            data=suppliers
+        )
+    except Exception as e:
+        logger.error(f"Error getting available suppliers: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get available suppliers")
+
+
+def _get_supplier_color(supplier_name: str) -> str:
+    """Get a color for the supplier based on name"""
+    color_map = {
+        "LCSC": "bg-blue-500",
+        "DIGIKEY": "bg-red-500", 
+        "MOUSER": "bg-green-500",
+        "ARROW": "bg-purple-500",
+        "FARNELL": "bg-orange-500"
+    }
+    return color_map.get(supplier_name.upper(), "bg-gray-500")
 
 
 @router.post("/preview", response_model=ResponseSchema[Dict[str, Any]])
@@ -101,10 +142,30 @@ async def import_csv(
 ):
     """Import parts from CSV file with order tracking"""
     try:
-        # Parse CSV to parts data
+        # Get user's enrichment settings
+        from MakerMatrix.database.db import get_session
+        from sqlmodel import select
+        
+        session = next(get_session())
+        try:
+            config = session.exec(
+                select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
+            ).first()
+            
+            if not config:
+                config = CSVImportConfigModel(id="default")
+                session.add(config)
+                session.commit()
+                session.refresh(config)
+        finally:
+            session.close()
+        
+        # Parse CSV to parts data with user's enrichment settings
+        enable_enrichment = config.enable_enrichment and supports_enrichment(csv_request.parser_type)
         parts_data, parsing_errors = csv_import_service.parse_csv_to_parts(
             csv_request.csv_content, 
-            csv_request.parser_type
+            csv_request.parser_type,
+            enable_enrichment=enable_enrichment
         )
         
         if parsing_errors:
@@ -124,7 +185,7 @@ async def import_csv(
         
         # Import parts with order tracking
         part_service = PartService()
-        success_parts, failed_parts = await csv_import_service.import_parts_with_order(
+        success_parts, failed_parts, imported_part_ids = await csv_import_service.import_parts_with_order(
             parts_data,
             part_service,
             csv_request.order_info
@@ -158,16 +219,33 @@ async def import_csv(
         
         logger.info(f"CSV import completed: {len(success_parts)} success, {len(failed_parts)} failed")
         
+        # Create enrichment task if enrichment is enabled and we have successful imports
+        response_data = {
+            "total_rows": len(parts_data),
+            "successful_imports": len(success_parts),
+            "failed_imports": len(failed_parts),
+            "imported_parts": success_parts,
+            "failures": failed_parts
+        }
+        
+        if enable_enrichment and imported_part_ids:
+            try:
+                from MakerMatrix.services.task_service import create_csv_enrichment_task
+                enrichment_task = await create_csv_enrichment_task(
+                    imported_part_ids,
+                    csv_request.parser_type,
+                    current_user.id
+                )
+                response_data["enrichment_task_id"] = enrichment_task.id
+                logger.info(f"Created enrichment task {enrichment_task.id} for {len(success_parts)} imported parts")
+            except Exception as e:
+                logger.error(f"Failed to create enrichment task: {e}")
+                # Don't fail the entire import if enrichment task creation fails
+        
         return ResponseSchema(
             status="success",
             message=f"CSV import completed: {len(success_parts)} parts imported successfully",
-            data={
-                "total_rows": len(parts_data),
-                "successful_imports": len(success_parts),
-                "failed_imports": len(failed_parts),
-                "imported_parts": success_parts,
-                "failures": failed_parts
-            }
+            data=response_data
         )
         
     except Exception as e:
@@ -182,9 +260,30 @@ async def parse_csv_only(
 ):
     """Parse CSV content into parts data without importing"""
     try:
+        # Get user's enrichment settings
+        from MakerMatrix.database.db import get_session
+        from sqlmodel import select
+        
+        session = next(get_session())
+        try:
+            config = session.exec(
+                select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
+            ).first()
+            
+            if not config:
+                config = CSVImportConfigModel(id="default")
+                session.add(config)
+                session.commit()
+                session.refresh(config)
+        finally:
+            session.close()
+        
+        # Parse CSV with user's enrichment settings
+        enable_enrichment = config.enable_enrichment and supports_enrichment(request.parser_type)
         parts_data, errors = csv_import_service.parse_csv_to_parts(
             request.csv_content, 
-            request.parser_type
+            request.parser_type,
+            enable_enrichment=enable_enrichment
         )
         
         return {
@@ -252,6 +351,8 @@ class CSVConfigRequest(BaseModel):
     overwrite_existing_files: bool = False
     download_timeout_seconds: int = 30
     show_progress: bool = True
+    enable_enrichment: bool = True
+    auto_create_enrichment_tasks: bool = True
 
 
 @router.get("/config", response_model=ResponseSchema[Dict[str, Any]])
@@ -314,6 +415,8 @@ async def update_csv_import_config(
             config.overwrite_existing_files = config_request.overwrite_existing_files
             config.download_timeout_seconds = config_request.download_timeout_seconds
             config.show_progress = config_request.show_progress
+            config.enable_enrichment = config_request.enable_enrichment
+            config.auto_create_enrichment_tasks = config_request.auto_create_enrichment_tasks
             
             session.add(config)
             session.commit()
@@ -395,10 +498,12 @@ async def import_csv_with_progress(
         
         import_service = CSVImportService(download_config=parsing_config)
         
-        # Parse CSV (no downloads during this phase)
+        # Parse CSV with user's enrichment settings (no downloads during this phase)
+        enable_enrichment = config.enable_enrichment and supports_enrichment(request.parser_type)
         parts_data, parsing_errors = import_service.parse_csv_to_parts(
             request.csv_content, 
-            request.parser_type
+            request.parser_type,
+            enable_enrichment=enable_enrichment
         )
         
         # Now create the import service with the real config for actual import
@@ -521,13 +626,16 @@ async def preview_file(
             preview_data = csv_import_service.preview_csv(csv_content)
         else:
             # For XLS files, use the new XLS parser
-            from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
-            xls_parser = MouserXLSParser()
-            
-            if xls_parser.can_parse(file_content=content, filename=file.filename):
-                preview_data = xls_parser.get_preview_data(file_content=content)
-            else:
-                raise HTTPException(status_code=400, detail="Unsupported XLS file format")
+            try:
+                from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
+                xls_parser = MouserXLSParser()
+                
+                if xls_parser.can_parse(file_content=content, filename=file.filename):
+                    preview_data = xls_parser.get_preview_data(file_content=content)
+                else:
+                    raise HTTPException(status_code=400, detail="Unsupported XLS file format")
+            except ImportError:
+                raise HTTPException(status_code=400, detail="XLS parser not available - CSV only mode")
         
         # Transform to match expected format
         response_data = {
@@ -605,9 +713,30 @@ async def import_file(
             }
             order_info['supplier'] = parser_to_supplier.get(effective_parser_type, 'Unknown')
             
+            # Get user's enrichment settings
+            from MakerMatrix.database.db import get_session
+            from sqlmodel import select
+            
+            session = next(get_session())
+            try:
+                config = session.exec(
+                    select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
+                ).first()
+                
+                if not config:
+                    config = CSVImportConfigModel(id="default")
+                    session.add(config)
+                    session.commit()
+                    session.refresh(config)
+            finally:
+                session.close()
+            
+            # Parse with user's enrichment settings
+            enable_enrichment = config.enable_enrichment and supports_enrichment(effective_parser_type)
             parts_data, parsing_errors = csv_import_service.parse_csv_to_parts(
                 csv_content, 
-                effective_parser_type
+                effective_parser_type,
+                enable_enrichment=enable_enrichment
             )
             
             if parsing_errors:
@@ -624,7 +753,7 @@ async def import_file(
             else:
                 # Import parts with order tracking
                 part_service = PartService()
-                success_parts, failed_parts = await csv_import_service.import_parts_with_order(
+                success_parts, failed_parts, imported_part_ids = await csv_import_service.import_parts_with_order(
                     parts_data,
                     part_service,
                     order_info
@@ -641,29 +770,53 @@ async def import_file(
                     "imported_parts": success_parts,
                     "failures": failed_parts
                 }
+                
+                # Create enrichment task if enrichment is enabled and we have successful imports
+                logger.info(f"Enrichment check: enable_enrichment={enable_enrichment}, imported_part_ids_count={len(imported_part_ids) if imported_part_ids else 0}")
+                if enable_enrichment and imported_part_ids:
+                    try:
+                        logger.info(f"Creating enrichment task for {len(imported_part_ids)} parts with supplier {effective_parser_type}")
+                        from MakerMatrix.services.task_service import create_csv_enrichment_task
+                        enrichment_task = await create_csv_enrichment_task(
+                            imported_part_ids,
+                            effective_parser_type,
+                            current_user.id
+                        )
+                        result["enrichment_task_id"] = enrichment_task.id
+                        logger.info(f"✅ Created enrichment task {enrichment_task.id} for {len(success_parts)} imported parts")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to create enrichment task: {e}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        # Don't fail the entire import if enrichment task creation fails
+                else:
+                    logger.info(f"❌ No enrichment task created: enable_enrichment={enable_enrichment}, imported_part_ids={bool(imported_part_ids)}")
         else:
             # For XLS files, use the new XLS parser
-            from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
-            xls_parser = MouserXLSParser()
-            
-            if not xls_parser.can_parse(file_content=content, filename=file.filename):
-                raise HTTPException(status_code=400, detail="Unsupported XLS file format")
-            
-            # Parse the XLS file
-            parsing_result = xls_parser.parse_content(content)
-            
-            if not parsing_result.success:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Failed to parse XLS file: {parsing_result.error_message}"
-                )
-            
-            # Convert XLS parsing result to parts_data format
-            parts_data = parsing_result.parts
+            try:
+                from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
+                xls_parser = MouserXLSParser()
+                
+                if not xls_parser.can_parse(file_content=content, filename=file.filename):
+                    raise HTTPException(status_code=400, detail="Unsupported XLS file format")
+                
+                # Parse the XLS file
+                parsing_result = xls_parser.parse_content(content)
+                
+                if not parsing_result.success:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Failed to parse XLS file: {parsing_result.error_message}"
+                    )
+                
+                # Convert XLS parsing result to parts_data format
+                parts_data = parsing_result.parts
+            except ImportError:
+                raise HTTPException(status_code=400, detail="XLS parser not available - CSV only mode")
             
             # Merge parser's order_info with user-provided order_info
             # User input takes precedence, parser provides defaults for missing values
-            if parsing_result.order_info:
+            if hasattr(locals(), 'parsing_result') and parsing_result.order_info:
                 # Start with parser-extracted order_info as defaults
                 merged_order_info = parsing_result.order_info.copy()
                 
@@ -692,7 +845,7 @@ async def import_file(
             else:
                 # Import parts with order tracking using the same method as CSV
                 part_service = PartService()
-                success_parts, failed_parts = await csv_import_service.import_parts_with_order(
+                success_parts, failed_parts, imported_part_ids = await csv_import_service.import_parts_with_order(
                     parts_data,
                     part_service,
                     order_info
@@ -746,3 +899,121 @@ async def import_file(
     except Exception as e:
         logger.error(f"Error importing file: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to import file: {str(e)}")
+
+
+# ============================================================================
+# ENRICHMENT INTEGRATION ENDPOINTS
+# ============================================================================
+
+@router.get("/parsers/enrichment-capabilities", response_model=ResponseSchema[Dict[str, Dict[str, Any]]])
+async def get_all_parser_enrichment_capabilities():
+    """
+    Get enrichment capabilities for all CSV parsers
+    
+    Returns comprehensive information about which parsers support enrichment
+    and what capabilities are available for each.
+    """
+    try:
+        mappings = get_all_enrichment_mappings()
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved enrichment capabilities for {len(mappings)} parsers",
+            data=mappings
+        )
+    except Exception as e:
+        logger.error(f"Error getting parser enrichment capabilities: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/parsers/{parser_type}/enrichment-capabilities", response_model=ResponseSchema[Dict[str, Any]])
+async def get_parser_enrichment_capabilities(parser_type: str):
+    """
+    Get enrichment capabilities for a specific parser type
+    
+    Args:
+        parser_type: CSV parser type (e.g., 'lcsc', 'digikey', 'mouser')
+        
+    Returns:
+        Parser enrichment information including capabilities and client availability
+    """
+    try:
+        if not supports_enrichment(parser_type):
+            return ResponseSchema(
+                status="success",
+                message=f"Parser '{parser_type}' does not support enrichment",
+                data={
+                    "parser_type": parser_type,
+                    "supports_enrichment": False,
+                    "capabilities": [],
+                    "client_available": False
+                }
+            )
+        
+        capabilities = get_enrichment_capabilities(parser_type)
+        validation = validate_mapping(parser_type)
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved enrichment capabilities for {parser_type}",
+            data={
+                "parser_type": parser_type,
+                "supports_enrichment": True,
+                "capabilities": capabilities,
+                "client_available": validation['client_exists'],
+                "validation": validation
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error getting enrichment capabilities for {parser_type}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/parsers/{parser_type}/validate-enrichment", response_model=ResponseSchema[Dict[str, Any]])
+async def validate_parser_enrichment_mapping(parser_type: str):
+    """
+    Validate that a parser's enrichment mapping is working correctly
+    
+    Args:
+        parser_type: CSV parser type to validate
+        
+    Returns:
+        Detailed validation results including parser existence, client availability, etc.
+    """
+    try:
+        validation_result = validate_mapping(parser_type)
+        
+        status = "success" if not validation_result['errors'] else "warning"
+        message = f"Validation completed for {parser_type}"
+        if validation_result['errors']:
+            message += f" with {len(validation_result['errors'])} issues"
+        
+        return ResponseSchema(
+            status=status,
+            message=message,
+            data=validation_result
+        )
+    except Exception as e:
+        logger.error(f"Error validating enrichment mapping for {parser_type}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/enrichment/supported-parsers", response_model=ResponseSchema[List[str]])
+async def get_enrichment_supported_parsers():
+    """
+    Get list of parser types that support enrichment
+    
+    Returns:
+        List of parser type names that have working enrichment clients
+    """
+    try:
+        from MakerMatrix.services.parser_client_registry import parser_client_registry
+        supported_parsers = parser_client_registry.get_parsers_with_enrichment()
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Found {len(supported_parsers)} parsers with enrichment support",
+            data=supported_parsers
+        )
+    except Exception as e:
+        logger.error(f"Error getting enrichment-supported parsers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

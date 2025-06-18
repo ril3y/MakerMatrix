@@ -1,0 +1,350 @@
+name: Frontend Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'MakerMatrix/frontend/**'
+      - '.github/workflows/frontend-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'MakerMatrix/frontend/**'
+      - '.github/workflows/frontend-tests.yml'
+
+jobs:
+  # Unit and Integration Tests
+  unit-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: MakerMatrix/frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: MakerMatrix/frontend
+      run: npm ci
+
+    - name: Run linting
+      working-directory: MakerMatrix/frontend
+      run: npm run lint
+
+    - name: Run type checking
+      working-directory: MakerMatrix/frontend
+      run: npx tsc --noEmit
+
+    - name: Run unit tests
+      working-directory: MakerMatrix/frontend
+      run: npm run test:run
+
+    - name: Run tests with coverage
+      working-directory: MakerMatrix/frontend
+      run: npm run test:coverage
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: MakerMatrix/frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # End-to-End Tests
+  e2e-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      # We'll start the backend manually using Python
+      python:
+        image: python:3.11
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: MakerMatrix/frontend/package-lock.json
+
+    - name: Install Python dependencies
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install frontend dependencies
+      working-directory: MakerMatrix/frontend
+      run: npm ci
+
+    - name: Install Playwright browsers
+      working-directory: MakerMatrix/frontend
+      run: npx playwright install --with-deps
+
+    - name: Start backend server
+      run: |
+        source venv_test/bin/activate
+        python -m uvicorn MakerMatrix.main:app --host 0.0.0.0 --port 57891 &
+        sleep 10
+        curl --retry 5 --retry-delay 5 --retry-connrefused http://localhost:57891/docs
+
+    - name: Build frontend for E2E
+      working-directory: MakerMatrix/frontend
+      run: npm run build
+
+    - name: Start frontend server
+      working-directory: MakerMatrix/frontend
+      run: |
+        npm run preview &
+        sleep 5
+        curl --retry 5 --retry-delay 5 --retry-connrefused http://localhost:4173
+
+    - name: Run E2E tests
+      working-directory: MakerMatrix/frontend
+      run: npm run test:e2e
+      env:
+        BASE_URL: http://localhost:4173
+
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: playwright-report
+        path: MakerMatrix/frontend/playwright-report/
+        retention-days: 30
+
+  # Visual Regression Tests
+  visual-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: MakerMatrix/frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: MakerMatrix/frontend
+      run: npm ci
+
+    - name: Install Playwright browsers
+      working-directory: MakerMatrix/frontend
+      run: npx playwright install --with-deps
+
+    - name: Run visual regression tests
+      working-directory: MakerMatrix/frontend
+      run: npm run test:visual
+
+    - name: Upload visual test results
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: visual-test-results
+        path: MakerMatrix/frontend/test-results/
+        retention-days: 30
+
+  # Accessibility Tests
+  accessibility-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: MakerMatrix/frontend/package-lock.json
+
+    - name: Install Python dependencies
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install frontend dependencies
+      working-directory: MakerMatrix/frontend
+      run: npm ci
+
+    - name: Install Playwright browsers
+      working-directory: MakerMatrix/frontend
+      run: npx playwright install --with-deps
+
+    - name: Start backend server
+      run: |
+        source venv_test/bin/activate
+        python -m uvicorn MakerMatrix.main:app --host 0.0.0.0 --port 57891 &
+        sleep 10
+
+    - name: Start frontend server
+      working-directory: MakerMatrix/frontend
+      run: |
+        npm run dev &
+        sleep 10
+
+    - name: Run accessibility tests
+      working-directory: MakerMatrix/frontend
+      run: |
+        # Create accessibility test script
+        npx playwright test --grep "accessibility" --reporter=html
+
+    - name: Upload accessibility test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: accessibility-report
+        path: MakerMatrix/frontend/playwright-report/
+        retention-days: 30
+
+  # Bundle Size Analysis
+  bundle-analysis:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: MakerMatrix/frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: MakerMatrix/frontend
+      run: npm ci
+
+    - name: Build application
+      working-directory: MakerMatrix/frontend
+      run: npm run build
+
+    - name: Analyze bundle size
+      working-directory: MakerMatrix/frontend
+      run: |
+        npm install -g bundlesize
+        npx bundlesize
+
+    - name: Comment bundle size
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read bundle analysis results
+          const distPath = 'MakerMatrix/frontend/dist/assets';
+          if (fs.existsSync(distPath)) {
+            const files = fs.readdirSync(distPath);
+            const jsFiles = files.filter(f => f.endsWith('.js'));
+            const cssFiles = files.filter(f => f.endsWith('.css'));
+            
+            let comment = '## Bundle Size Analysis\n\n';
+            comment += '### JavaScript Files\n';
+            jsFiles.forEach(file => {
+              const size = fs.statSync(path.join(distPath, file)).size;
+              comment += `- ${file}: ${(size / 1024).toFixed(2)} KB\n`;
+            });
+            
+            comment += '\n### CSS Files\n';
+            cssFiles.forEach(file => {
+              const size = fs.statSync(path.join(distPath, file)).size;
+              comment += `- ${file}: ${(size / 1024).toFixed(2)} KB\n`;
+            });
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
+
+  # Performance Tests
+  performance-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: MakerMatrix/frontend/package-lock.json
+
+    - name: Install Python dependencies
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install frontend dependencies
+      working-directory: MakerMatrix/frontend
+      run: npm ci
+
+    - name: Build application
+      working-directory: MakerMatrix/frontend
+      run: npm run build
+
+    - name: Start servers
+      run: |
+        source venv_test/bin/activate
+        python -m uvicorn MakerMatrix.main:app --host 0.0.0.0 --port 57891 &
+        cd MakerMatrix/frontend && npm run preview &
+        sleep 15
+
+    - name: Run Lighthouse CI
+      working-directory: MakerMatrix/frontend
+      run: |
+        npm install -g @lhci/cli
+        lhci autorun
+      env:
+        LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+    - name: Upload Lighthouse results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: lighthouse-report
+        path: MakerMatrix/frontend/.lighthouseci/
+        retention-days: 30

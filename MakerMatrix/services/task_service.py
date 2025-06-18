@@ -343,8 +343,83 @@ class TaskService:
             # Remove from running tasks
             if task.id in self.running_tasks:
                 del self.running_tasks[task.id]
-    
 
 
 # Global task service instance
 task_service = TaskService()
+
+
+async def create_csv_enrichment_task(
+    imported_part_ids: List[str], 
+    supplier: str, 
+    user_id: str
+) -> TaskModel:
+    """Create a CSV enrichment task for imported parts"""
+    from MakerMatrix.repositories.parts_repositories import PartRepository
+    from MakerMatrix.models.models import engine
+    from sqlmodel import Session
+    
+    # Prepare enrichment queue by fetching part data
+    enrichment_queue = []
+    
+    with Session(engine) as session:
+        part_repo = PartRepository(engine)
+        
+        for part_id in imported_part_ids:
+            try:
+                part = part_repo.get_part_by_id(session, part_id)
+                if part:
+                    # Convert part to dict format expected by the task
+                    part_data = {
+                        'part_id': part.id,
+                        'part_name': part.part_name,
+                        'part_number': part.part_number,
+                        'supplier': part.supplier,
+                        'description': part.description,
+                        'additional_properties': part.additional_properties or {}
+                    }
+                    
+                    # Set enrichment source and capabilities
+                    if not part_data['additional_properties'].get('enrichment_source'):
+                        part_data['additional_properties']['enrichment_source'] = supplier.upper()
+                    
+                    # Get actual capabilities supported by the supplier
+                    from MakerMatrix.services.supplier_config_service import SupplierConfigService
+                    try:
+                        supplier_service = SupplierConfigService()
+                        supplier_config = supplier_service.get_supplier_config(supplier.upper())
+                        available_capabilities = supplier_config.get_capabilities()
+                        part_data['additional_properties']['available_capabilities'] = available_capabilities
+                        logger.info(f"Using capabilities for {supplier}: {available_capabilities}")
+                    except Exception as e:
+                        logger.warning(f"Failed to get capabilities for {supplier}, using defaults: {e}")
+                        # Fallback to standard enrichment capabilities
+                        part_data['additional_properties']['available_capabilities'] = [
+                            "fetch_datasheet", 
+                            "fetch_image", 
+                            "fetch_pricing", 
+                            "fetch_specifications"
+                        ]
+                    
+                    enrichment_queue.append({
+                        'part_id': part_id,
+                        'part_data': part_data
+                    })
+            except Exception as e:
+                logger.error(f"Failed to prepare part {part_id} for enrichment: {e}")
+    
+    task_request = CreateTaskRequest(
+        task_type=TaskType.CSV_ENRICHMENT,
+        name=f"CSV Import Enrichment - {supplier}",
+        description=f"Enrich {len(enrichment_queue)} parts imported from {supplier} CSV",
+        priority=TaskPriority.NORMAL,
+        input_data={
+            "enrichment_queue": enrichment_queue
+        },
+        created_by_user_id=user_id,
+        max_retries=2,
+        timeout_seconds=3600  # 1 hour timeout for large CSV imports
+    )
+    
+    task = await task_service.create_task(task_request)
+    return task

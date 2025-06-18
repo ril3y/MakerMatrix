@@ -46,7 +46,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
       setLoading(true)
       const printers = await settingsService.getAvailablePrinters()
       setAvailablePrinters(printers)
-      
+
       if (printers.length > 0 && !selectedPrinter) {
         setSelectedPrinter(printers[0].printer_id)
         await loadPrinterInfo(printers[0].printer_id)
@@ -62,11 +62,11 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
     try {
       const info = await settingsService.getPrinterInfo(printerId)
       setPrinterInfo(info)
-      
+
       if (info.supported_sizes && info.supported_sizes.length > 0) {
-        const defaultSize = info.supported_sizes.find((s: any) => s.name === '12mm') || 
-                           info.supported_sizes.find((s: any) => s.name === '12') || 
-                           info.supported_sizes[0]
+        const defaultSize = info.supported_sizes.find((s: any) => s.name === '12mm') ||
+          info.supported_sizes.find((s: any) => s.name === '12') ||
+          info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
     } catch (error) {
@@ -87,21 +87,21 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
       category: 'Electronics',
       quantity: '10'
     }
-    
+
     let processed = template
-    
+
     // Replace standard placeholders
     Object.entries(data).forEach(([key, value]) => {
       processed = processed.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value || ''))
     })
-    
+
     // Handle QR code placeholders
     const qrMatch = processed.match(/\{qr=([^}]+)\}/)
     if (qrMatch) {
       const qrDataKey = qrMatch[1]
       processed = processed.replace(/\{qr=[^}]+\}/g, `[QR:${data[qrDataKey as keyof typeof data] || qrDataKey}]`)
     }
-    
+
     return processed
   }
 
@@ -125,7 +125,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
           quantity: '10'
         }
       }
-      
+
       const blob = await settingsService.previewAdvancedLabel(requestData)
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
@@ -136,7 +136,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
 
   const printLabel = async () => {
     if (!selectedPrinter) return
-    
+
     try {
       const requestData = {
         printer_id: selectedPrinter,
@@ -157,7 +157,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
           quantity: '10'
         }
       }
-      
+
       const result = await settingsService.printAdvancedLabel(requestData)
       if (result.success) {
         toast.success('✅ Label printed successfully!')
@@ -172,7 +172,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
 
   const testConnection = async () => {
     if (!selectedPrinter) return
-    
+
     try {
       const result = await settingsService.testPrinterConnection(selectedPrinter)
       if (result.success) {
@@ -262,7 +262,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
                   <label className="block text-sm font-medium text-primary mb-2">
                     Label Size
                   </label>
-                  <select 
+                  <select
                     className="input w-full"
                     value={selectedLabelSize}
                     onChange={(e) => setSelectedLabelSize(e.target.value)}
@@ -294,7 +294,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
               {/* Options */}
               <div className="bg-background-secondary rounded-lg p-3 space-y-3">
                 <h5 className="font-medium text-primary">Options</h5>
-                
+
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -370,7 +370,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
       mx-auto                   /* keep horizontally centred */
       block                     /* needed for mx-auto on an <img> */
     "
-    style={{ transformOrigin: 'center' }} /* stay centred vertically */
+                      style={{ transformOrigin: 'center' }} /* stay centred vertically */
                     />
                     <p className="text-sm text-secondary mt-2">Label Preview</p>
                   </div>

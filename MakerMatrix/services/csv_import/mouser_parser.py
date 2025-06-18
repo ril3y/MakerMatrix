@@ -57,7 +57,7 @@ class MouserParser(BaseCSVParser):
                 'part_name': manufacturer_part_number,
                 'part_number': manufacturer_part_number,
                 'quantity': quantity,
-                'supplier': 'Mouser',
+                'supplier': self.get_supplier_name(),
                 'supplier_url': f"https://www.mouser.com/ProductDetail/{mouser_part_number}",
                 'additional_properties': {
                     'mouser_part_number': mouser_part_number,
@@ -66,7 +66,7 @@ class MouserParser(BaseCSVParser):
                     'unit_price': unit_price,
                     'extended_price': extended_price,
                     'currency': 'USD',
-                    'import_source': 'Mouser CSV'
+                    'import_source': f'{self.get_supplier_name()} CSV'
                 }
             }
             

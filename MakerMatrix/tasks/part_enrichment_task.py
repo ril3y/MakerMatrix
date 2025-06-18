@@ -63,42 +63,30 @@ class PartEnrichmentTask(BaseTask):
                 
                 await self._update_task_progress(task, 40, f"Found part: {part.part_name}")
                 
-                # For now, let's do a simple enrichment simulation
-                # In the future, this would integrate with the enhanced parsers
+                # Use the real enrichment task handlers
                 await self._update_task_progress(task, 60, f"Enriching data from {supplier}...")
                 
-                # Simulate enrichment work
-                await asyncio.sleep(2)
+                # Create enrichment handlers with download configuration
+                part_repository = PartRepository(engine)
+                part_service = PartService()
+                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
                 
-                await self._update_task_progress(task, 80, "Updating part data...")
+                # Progress callback for enrichment
+                async def progress_callback(percentage, step):
+                    await self._update_task_progress(task, 60 + int(percentage * 0.2), step)
                 
-                # Update part with enrichment timestamp
-                # Create a new dict to ensure SQLModel detects the change
-                current_props = part.additional_properties or {}
-                updated_props = current_props.copy()
-                updated_props['last_enrichment'] = {
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'supplier': supplier,
-                    'task_id': task.id
+                # Run actual enrichment
+                enrichment_result = await enrichment_handlers.handle_part_enrichment(task, progress_callback)
+                
+                await self._update_task_progress(task, 90, "Enrichment completed")
+                
+                # The enrichment handlers already update the part, so we don't need to do it again
+                # Just update the task result
+                return {
+                    "status": "success",
+                    "message": f"Successfully enriched part {part.part_name} using {supplier}",
+                    "enrichment_result": enrichment_result
                 }
-                
-                # Assign the new dict to force SQLModel to detect the change
-                part.additional_properties = updated_props
-                
-                # Save changes
-                session.add(part)
-                session.commit()
-            
-            # Final progress update
-            await self._update_task_progress(task, 100, "Enrichment completed successfully")
-            
-            return {
-                'status': 'success',
-                'part_id': part_id,
-                'supplier': supplier,
-                'enriched_fields': ['last_enrichment'],
-                'message': f"Successfully enriched part {part_id} from {supplier}"
-            }
                 
         except Exception as e:
             error_msg = f"Part enrichment failed: {str(e)}"
@@ -142,7 +130,7 @@ class DatasheetFetchTask(BaseTask):
             with Session(engine) as session:
                 part_repository = PartRepository(engine)
                 part_service = PartService()
-                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)
+                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
                 
                 async def progress_callback(percentage: int, step: str):
                     await self._update_task_progress(task, percentage, step)
@@ -195,7 +183,7 @@ class ImageFetchTask(BaseTask):
             with Session(engine) as session:
                 part_repository = PartRepository(engine)
                 part_service = PartService()
-                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)
+                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
                 
                 async def progress_callback(percentage: int, step: str):
                     await self._update_task_progress(task, percentage, step)
@@ -248,7 +236,7 @@ class BulkEnrichmentTask(BaseTask):
             with Session(engine) as session:
                 part_repository = PartRepository(engine)
                 part_service = PartService()
-                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)
+                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
                 
                 async def progress_callback(percentage: int, step: str):
                     await self._update_task_progress(task, percentage, step)

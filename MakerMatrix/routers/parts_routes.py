@@ -12,7 +12,11 @@ from MakerMatrix.services.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
 from MakerMatrix.services.part_service import PartService
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.dependencies.auth import get_current_user, require_permission
+from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.clients.suppliers.supplier_registry import get_available_suppliers
+from MakerMatrix.services.task_service import task_service
+from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority
 
 router = APIRouter()
 
@@ -31,16 +35,77 @@ async def add_part(
         # Convert PartCreate to dict and include category_names
         part_data = part.model_dump()
         
+        # Extract enrichment parameters before processing
+        auto_enrich = part_data.pop('auto_enrich', False)
+        enrichment_supplier = part_data.pop('enrichment_supplier', None)
+        enrichment_capabilities = part_data.pop('enrichment_capabilities', [])
+        
         # Process to add part
         response = PartService.add_part(part_data)
+        created_part = response["data"]
+        part_id = created_part["id"]
+
+        # Handle automatic enrichment if requested
+        enrichment_message = ""
+        if auto_enrich and enrichment_supplier:
+            try:
+                # Validate supplier exists
+                available_suppliers = get_available_suppliers()
+                if enrichment_supplier not in available_suppliers:
+                    enrichment_message = f" Warning: Supplier '{enrichment_supplier}' not configured on backend."
+                else:
+                    # Check if supplier is properly configured
+                    supplier_config_service = SupplierConfigService()
+                    try:
+                        supplier_config_service.get_supplier_config(enrichment_supplier)
+                        
+                        # Create enrichment task
+                        enrichment_data = {
+                            'part_id': part_id,
+                            'supplier': enrichment_supplier,
+                            'capabilities': enrichment_capabilities or ['fetch_datasheet', 'fetch_image', 'fetch_pricing']
+                        }
+                        
+                        task_request = CreateTaskRequest(
+                            task_type=TaskType.PART_ENRICHMENT,
+                            name=f"QR Part Enrichment - {created_part.get('part_name', 'Unknown')}",
+                            description=f"Auto-enrich part from {enrichment_supplier} (QR code scan)",
+                            priority=TaskPriority.HIGH,
+                            input_data=enrichment_data,
+                            related_entity_type="part",
+                            related_entity_id=part_id
+                        )
+                        
+                        enrichment_task = await task_service.create_task(task_request, user_id=current_user.id)
+                        enrichment_message = f" Enrichment task created (ID: {enrichment_task.id})."
+                        
+                        # Wait for enrichment to complete and return enriched part
+                        # Note: This is a simplified approach - in production you might want to use WebSocket or polling
+                        import asyncio
+                        enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task.id, timeout=30)
+                        if enriched_part:
+                            created_part = enriched_part
+                            enrichment_message = f" Part successfully enriched from {enrichment_supplier}."
+                        else:
+                            enrichment_message = f" Enrichment task started but did not complete within timeout."
+                            
+                    except ResourceNotFoundError:
+                        enrichment_message = f" Warning: Supplier '{enrichment_supplier}' not properly configured."
+                    except Exception as e:
+                        logger.error(f"Enrichment task creation failed: {e}")
+                        enrichment_message = f" Warning: Enrichment failed - {str(e)}"
+                        
+            except Exception as e:
+                logger.error(f"Enrichment process failed: {e}")
+                enrichment_message = f" Warning: Enrichment failed - {str(e)}"
 
         # Log activity
         try:
             from MakerMatrix.services.activity_service import get_activity_service
             activity_service = get_activity_service()
             await activity_service.log_part_created(
-                part_id=response["data"]["id"],
-                part_name=response["data"]["part_name"],
+                part_id=part_id,
+                part_name=created_part.get("part_name"),
                 user=current_user,
                 request=request
             )
@@ -50,8 +115,8 @@ async def add_part(
         # noinspection PyArgumentList
         return ResponseSchema(
             status=response["status"],
-            message=response["message"],
-            data=PartResponse.model_validate(response["data"])
+            message=response["message"] + enrichment_message,
+            data=PartResponse.model_validate(created_part)
         )
     except PartAlreadyExistsError as pae:
         raise HTTPException(
@@ -559,8 +624,10 @@ async def get_part_suggestions(
 
 
 @router.delete("/clear_all", response_model=ResponseSchema[Dict[str, Any]])
-async def clear_all_parts() -> ResponseSchema[Dict[str, Any]]:
-    """Clear all parts from the database - USE WITH CAUTION\!"""
+async def clear_all_parts(
+    current_user: UserModel = Depends(require_permission("admin"))
+) -> ResponseSchema[Dict[str, Any]]:
+    """Clear all parts from the database - USE WITH CAUTION! (Admin only)"""
     try:
         result = PartService.clear_all_parts()
         return ResponseSchema(
@@ -574,3 +641,50 @@ async def clear_all_parts() -> ResponseSchema[Dict[str, Any]]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to clear all parts: {str(e)}"
         )
+
+
+async def _wait_for_enrichment_completion(part_id: str, task_id: str, timeout: int = 30) -> Optional[Dict[str, Any]]:
+    """
+    Wait for enrichment task to complete and return the enriched part data.
+    
+    Args:
+        part_id: The part ID to check for enrichment
+        task_id: The enrichment task ID to monitor
+        timeout: Maximum time to wait in seconds
+        
+    Returns:
+        Enriched part data if successful, None if timeout or failure
+    """
+    import asyncio
+    from MakerMatrix.models.task_models import TaskStatus
+    
+    start_time = asyncio.get_event_loop().time()
+    
+    while (asyncio.get_event_loop().time() - start_time) < timeout:
+        try:
+            # Check task status
+            task = await task_service.get_task(task_id)
+            
+            if task.status == TaskStatus.COMPLETED:
+                # Task completed, fetch the enriched part
+                response = PartService.get_part_by_id(part_id)
+                if response["status"] == "success":
+                    return response["data"]
+                else:
+                    logger.error(f"Failed to fetch enriched part {part_id}: {response.get('message')}")
+                    return None
+                    
+            elif task.status in [TaskStatus.FAILED, TaskStatus.CANCELLED]:
+                logger.warning(f"Enrichment task {task_id} failed or was cancelled")
+                return None
+                
+            # Task still running, wait a bit
+            await asyncio.sleep(1)
+            
+        except Exception as e:
+            logger.error(f"Error checking enrichment task status: {e}")
+            return None
+            
+    # Timeout reached
+    logger.warning(f"Enrichment task {task_id} did not complete within {timeout} seconds")
+    return None

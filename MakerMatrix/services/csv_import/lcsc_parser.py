@@ -4,7 +4,7 @@ import logging
 import requests
 import re
 from MakerMatrix.api.easyeda import EasyedaApi
-from MakerMatrix.parsers.lcsc_parser import get_nested_value
+from MakerMatrix.parsers.enhanced_lcsc_parser_v2 import get_nested_value
 from MakerMatrix.services.file_download_service import file_download_service
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class LCSCParser(BaseCSVParser):
                 'part_name': manufacturer_part_number,
                 'part_number': manufacturer_part_number,
                 'quantity': quantity,
-                'supplier': 'LCSC',
+                'supplier': self.get_supplier_name(),
                 'supplier_url': f"https://www.lcsc.com/product-detail/{lcsc_part_number}.html",
                 'additional_properties': {
                     'lcsc_part_number': lcsc_part_number,
@@ -87,7 +87,7 @@ class LCSCParser(BaseCSVParser):
                     'rohs': rohs,
                     'min_order_qty': min_order_qty,
                     'currency': 'USD',
-                    'import_source': 'LCSC CSV'
+                    'import_source': f'{self.get_supplier_name()} CSV'
                 }
             }
             
@@ -98,7 +98,7 @@ class LCSCParser(BaseCSVParser):
             if lcsc_part_number:
                 part_data['additional_properties']['lcsc_part_number'] = lcsc_part_number
                 part_data['additional_properties']['needs_enrichment'] = True
-                part_data['additional_properties']['enrichment_source'] = 'LCSC'
+                part_data['additional_properties']['enrichment_source'] = self.get_supplier_name()
                 
                 # Only do API enrichment during preview mode - NEVER during normal parsing
                 if self.enrich_only_mode:
@@ -193,7 +193,7 @@ class LCSCParser(BaseCSVParser):
                 return {
                     'order_date': formatted_date,
                     'order_number': time_str,  # Use the time as order number
-                    'supplier': 'LCSC'
+                    'supplier': self.get_supplier_name()
                 }
             except ValueError:
                 # Invalid date format
@@ -825,7 +825,7 @@ class LCSCParser(BaseCSVParser):
             download_result = download_service.download_datasheet(
                 url=datasheet_url,
                 part_number=part_number,
-                supplier='LCSC',
+                supplier=self.get_supplier_name(),
                 file_uuid=file_uuid
             )
             
@@ -837,7 +837,7 @@ class LCSCParser(BaseCSVParser):
                     'file_extension': download_result['extension'],
                     'file_size': download_result['size'],
                     'source_url': datasheet_url,
-                    'supplier': 'LCSC',
+                    'supplier': self.get_supplier_name(),
                     'manufacturer': part_data['additional_properties'].get('manufacturer', ''),
                     'title': f"Datasheet for {part_number}",
                     'description': f"Datasheet downloaded from LCSC for part {lcsc_part_number}",
@@ -871,7 +871,7 @@ class LCSCParser(BaseCSVParser):
                     'file_extension': '.pdf',
                     'file_size': None,
                     'source_url': datasheet_url,
-                    'supplier': 'LCSC',
+                    'supplier': self.get_supplier_name(),
                     'manufacturer': part_data['additional_properties'].get('manufacturer', ''),
                     'title': f"Datasheet for {part_number}",
                     'description': f"Failed to download datasheet from LCSC for part {lcsc_part_number}",
@@ -898,7 +898,7 @@ class LCSCParser(BaseCSVParser):
                     'file_extension': '.pdf',
                     'file_size': None,
                     'source_url': datasheet_url,
-                    'supplier': 'LCSC',
+                    'supplier': self.get_supplier_name(),
                     'manufacturer': part_data['additional_properties'].get('manufacturer', ''),
                     'title': f"Datasheet for {part_data.get('part_number', lcsc_part_number)}",
                     'description': f"Error downloading datasheet from LCSC for part {lcsc_part_number}",

@@ -62,7 +62,7 @@ class DigikeyParser(BaseCSVParser):
                 'part_name': part_name,
                 'part_number': manufacturer_part_number if manufacturer_part_number else supplier_part_number,
                 'quantity': quantity,
-                'supplier': 'DigiKey',
+                'supplier': self.get_supplier_name(),
                 'supplier_url': f"https://www.digikey.com/en/products/detail/{supplier_part_number}",
                 'additional_properties': {
                     'supplier_part_number': supplier_part_number,
@@ -72,7 +72,7 @@ class DigikeyParser(BaseCSVParser):
                     'customer_reference': customer_reference,
                     'backorder': backorder,
                     'currency': 'USD',
-                    'import_source': 'DigiKey CSV'
+                    'import_source': f'{self.get_supplier_name()} CSV'
                 }
             }
             

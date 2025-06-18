@@ -83,6 +83,29 @@ class BaseCSVParser(ABC):
         """
         return None
     
+    def get_supplier_name(self) -> str:
+        """Get the supplier name for this parser type
+        
+        Returns:
+            Supplier name with proper capitalization
+        """
+        # Map parser types to supplier names with proper capitalization
+        supplier_name_mapping = {
+            'lcsc': 'LCSC',
+            'digikey': 'DigiKey', 
+            'mouser': 'Mouser',
+            'tme': 'TME',
+            'arrow': 'Arrow',
+            'avnet': 'Avnet',
+            'element14': 'Element14',
+            'farnell': 'Farnell',
+            'newark': 'Newark',
+            'rs': 'RS Components'
+        }
+        
+        # Return mapped name or capitalize the parser type as fallback
+        return supplier_name_mapping.get(self.parser_type.lower(), self.parser_type.title())
+    
     def get_info(self) -> Dict[str, Any]:
         """Get parser information for API responses"""
         return {
@@ -90,7 +113,8 @@ class BaseCSVParser(ABC):
             "name": self.name,
             "description": self.description,
             "required_columns": self.required_columns,
-            "sample_columns": self.sample_columns
+            "sample_columns": self.sample_columns,
+            "supplier_name": self.get_supplier_name()
         }
     
     # Utility methods that subclasses can use

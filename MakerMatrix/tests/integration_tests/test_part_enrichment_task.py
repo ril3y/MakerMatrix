@@ -142,7 +142,7 @@ async def test_part_enrichment_task_progress_updates():
         test_part = PartModel(
             part_name="Test Capacitor", 
             part_number="CAP-001-TEST",
-            part_vendor="Digikey"
+            part_vendor="DigiKey"
         )
         session.add(test_part)
         session.commit()
@@ -157,7 +157,7 @@ async def test_part_enrichment_task_progress_updates():
             priority=TaskPriority.NORMAL,
             input_data=json.dumps({
                 "part_id": test_part_id,
-                "supplier": "Digikey"
+                "supplier": "DigiKey"
             })
         )
         

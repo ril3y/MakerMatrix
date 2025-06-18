@@ -20,6 +20,10 @@ class CSVImportConfigModel(SQLModel, table=True):
     # Import settings
     show_progress: bool = Field(default=True)
     
+    # Enrichment settings
+    enable_enrichment: bool = Field(default=True)
+    auto_create_enrichment_tasks: bool = Field(default=True)
+    
     # Additional settings as JSON
     additional_settings: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
@@ -34,6 +38,8 @@ class CSVImportConfigModel(SQLModel, table=True):
             "overwrite_existing_files": self.overwrite_existing_files,
             "download_timeout_seconds": self.download_timeout_seconds,
             "show_progress": self.show_progress,
+            "enable_enrichment": self.enable_enrichment,
+            "auto_create_enrichment_tasks": self.auto_create_enrichment_tasks,
             "additional_settings": self.additional_settings or {}
         }
     
@@ -46,6 +52,8 @@ class CSVImportConfigModel(SQLModel, table=True):
             overwrite_existing_files=data.get("overwrite_existing_files", False),
             download_timeout_seconds=data.get("download_timeout_seconds", 30),
             show_progress=data.get("show_progress", True),
+            enable_enrichment=data.get("enable_enrichment", True),
+            auto_create_enrichment_tasks=data.get("auto_create_enrichment_tasks", True),
             additional_settings=data.get("additional_settings", {})
         )
 

@@ -7,6 +7,7 @@ A responsive TUI application to manage both backend and frontend development ser
 import asyncio
 import json
 import os
+import psutil
 import re
 import signal
 import socket
@@ -74,6 +75,7 @@ class EnhancedServerManager:
         self.search_term = ""
         self.search_mode = False
         self.filtered_logs = []
+        self.auto_scroll = True  # Track if we should auto-scroll to new logs
         
         # Performance tracking
         self.force_redraw = True
@@ -82,20 +84,14 @@ class EnhancedServerManager:
         
         # URLs and paths - updated for network access
         self.local_ip = self._get_local_ip()
-        self.backend_url = f"http://{self.local_ip}:57891"
+        self.backend_port = 8080
+        self.backend_url = f"http://{self.local_ip}:{self.backend_port}"
         self.frontend_url = f"http://{self.local_ip}:5173"
         self.project_root = Path(__file__).parent
         self.frontend_path = self.project_root / "MakerMatrix" / "frontend"
         self.log_file_path = self.project_root / "dev_manager.log"
         
-        # Dashboard stats - removed user authentication
-        self.stats = {
-            "parts_count": 0,
-            "locations_count": 0,
-            "categories_count": 0,
-            "last_updated": None
-        }
-        self.stats_error = None
+        # Dashboard stats removed
         
         # Threading locks
         self.log_lock = threading.RLock()
@@ -103,6 +99,11 @@ class EnhancedServerManager:
         # Initialize enhanced logging
         self._init_log_file()
         self.log_message("system", f"Enhanced Development Manager initialized on {self.local_ip}", "SUCCESS")
+        
+        # Auto-kill any stale processes on startup
+        self.log_message("system", "Checking for stale processes on startup...", "INFO")
+        self._kill_stale_processes(self.backend_port, "backend")
+        self._kill_stale_processes(5173, "frontend")
     
     def _get_local_ip(self):
         """Get the local IP address for network access"""
@@ -114,6 +115,18 @@ class EnhancedServerManager:
         except Exception:
             return "localhost"
     
+    def _find_available_port(self, preferred_port: int) -> int:
+        """Find an available port, starting with the preferred port"""
+        for port in range(preferred_port, preferred_port + 100):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(('0.0.0.0', port))
+                    return port
+            except OSError:
+                continue
+        # If no port found in range, return preferred port anyway
+        return preferred_port
+    
     def _init_log_file(self):
         """Initialize the log file with session header"""
         try:
@@ -123,6 +136,63 @@ class EnhancedServerManager:
                 f.write(f"{'='*80}\n\n")
         except Exception as e:
             print(f"Warning: Could not initialize log file: {e}")
+    
+    def _find_processes_on_port(self, port: int) -> List[psutil.Process]:
+        """Find all processes listening on a specific port"""
+        processes = []
+        try:
+            # Use system command as fallback for better compatibility
+            import subprocess
+            result = subprocess.run(['lsof', '-t', f'-i:{port}'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                pids = [int(pid.strip()) for pid in result.stdout.strip().split('\n') if pid.strip()]
+                for pid in pids:
+                    try:
+                        proc = psutil.Process(pid)
+                        processes.append(proc)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        continue
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            # Fallback to psutil method if lsof is not available
+            try:
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        for conn in proc.net_connections():
+                            if conn.laddr.port == port and conn.status == psutil.CONN_LISTEN:
+                                processes.append(proc)
+                                break
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        continue
+            except Exception as e:
+                self.log_message("system", f"Error scanning for processes on port {port}: {e}", "WARN")
+        return processes
+    
+    def _kill_stale_processes(self, port: int, service_name: str):
+        """Kill any processes running on the specified port"""
+        processes = self._find_processes_on_port(port)
+        if not processes:
+            return
+        
+        for proc in processes:
+            try:
+                proc_info = f"PID:{proc.pid} ({proc.name()})"
+                self.log_message("system", f"Found stale {service_name} process {proc_info} on port {port}", "WARN")
+                
+                # Try graceful termination first
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                    self.log_message("system", f"Gracefully terminated stale {service_name} process {proc_info}", "SUCCESS")
+                except psutil.TimeoutExpired:
+                    # Force kill if graceful termination fails
+                    proc.kill()
+                    self.log_message("system", f"Force killed stale {service_name} process {proc_info}", "WARN")
+                    
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                self.log_message("system", f"Could not kill process {proc_info}: {e}", "ERROR")
+            except Exception as e:
+                self.log_message("system", f"Unexpected error killing process {proc_info}: {e}", "ERROR")
     
     def _write_to_log_file(self, log_entry: LogEntry):
         """Write a log entry to the file"""
@@ -156,6 +226,13 @@ class EnhancedServerManager:
             # Update filtered logs if search is active
             if self.search_term:
                 self._update_filtered_logs()
+            
+            # Don't auto-scroll if user has manually scrolled up
+            # Only auto-scroll if they're at the bottom (scroll_position == 0)
+            if self.scroll_position == 0:
+                self.auto_scroll = True
+            else:
+                self.auto_scroll = False
     
     def _update_filtered_logs(self):
         """Update filtered logs based on current search term"""
@@ -179,6 +256,9 @@ class EnhancedServerManager:
                 self.log_message("backend", "Backend already running", "WARN")
                 return
             
+            # Kill any stale processes on backend port
+            self._kill_stale_processes(self.backend_port, "backend")
+            
             self.log_message("backend", "Starting FastAPI backend server...", "INFO")
             
             # Use venv_test Python if available
@@ -186,7 +266,7 @@ class EnhancedServerManager:
             python_exe = str(venv_python) if venv_python.exists() else sys.executable
             
             self.backend_process = subprocess.Popen(
-                [python_exe, "-m", "uvicorn", "MakerMatrix.main:app", "--host", "0.0.0.0", "--port", "57891", "--reload"],
+                [python_exe, "-m", "uvicorn", "MakerMatrix.main:app", "--host", "0.0.0.0", "--port", str(self.backend_port), "--reload"],
                 cwd=self.project_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -219,6 +299,9 @@ class EnhancedServerManager:
             if not self.frontend_path.exists():
                 self.log_message("frontend", f"Frontend path not found: {self.frontend_path}", "ERROR")
                 return
+            
+            # Kill any stale processes on frontend port
+            self._kill_stale_processes(5173, "frontend")
             
             self.log_message("frontend", "Starting React development server...", "INFO")
             
@@ -319,7 +402,6 @@ class EnhancedServerManager:
             # Process ended
             if service == "backend":
                 self.backend_status = "Stopped"
-                self.stats_error = "Backend offline"
             else:
                 self.frontend_status = "Stopped"
     
@@ -411,37 +493,6 @@ class EnhancedServerManager:
         except Exception as e:
             self.log_message("frontend", f"Failed to build frontend: {e}", "ERROR")
     
-    def fetch_dashboard_stats(self):
-        """Fetch dashboard statistics (removed user authentication)"""
-        if self.backend_status != "Running":
-            return
-            
-        try:
-            # Get basic counts - use localhost for internal API calls
-            api_url = "http://localhost:57891/utility/get_counts"
-            response = requests.get(api_url, timeout=3)
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("status") == "success" and "data" in data:
-                    counts_data = data["data"]
-                    self.stats.update({
-                        "parts_count": counts_data.get("parts", 0),
-                        "locations_count": counts_data.get("locations", 0),
-                        "categories_count": counts_data.get("categories", 0),
-                        "last_updated": datetime.now().strftime("%H:%M:%S")
-                    })
-                    self.stats_error = None
-                else:
-                    self.stats_error = "Invalid API response"
-            else:
-                self.stats_error = f"API Error {response.status_code}"
-                
-        except requests.exceptions.ConnectionError:
-            self.stats_error = "Backend not reachable"
-        except requests.exceptions.Timeout:
-            self.stats_error = "API timeout"
-        except Exception as e:
-            self.stats_error = f"API Error: {str(e)[:25]}..."
     
     def get_current_logs(self) -> List[LogEntry]:
         """Get current logs based on view and search"""
@@ -507,19 +558,6 @@ class EnhancedServerManager:
         with self.term.location(0, 2):
             print(self.term.clear_eol + status_line)
         
-        # Stats line
-        if self.stats_error:
-            stats_line = f"📊 Dashboard: {self.term.red}{self.stats_error}{self.term.normal}"
-        elif self.stats["last_updated"]:
-            stats_line = (f"📊 Parts: {self.term.cyan}{self.stats['parts_count']}{self.term.normal} | "
-                         f"Locations: {self.term.cyan}{self.stats['locations_count']}{self.term.normal} | "
-                         f"Categories: {self.term.cyan}{self.stats['categories_count']}{self.term.normal} | "
-                         f"Updated: {self.term.yellow}{self.stats['last_updated']}{self.term.normal}")
-        else:
-            stats_line = f"📊 Dashboard: {self.term.yellow}Waiting for backend...{self.term.normal}"
-        
-        with self.term.location(0, 3):
-            print(self.term.clear_eol + stats_line)
     
     def draw_controls(self):
         """Draw enhanced controls"""
@@ -530,7 +568,7 @@ class EnhancedServerManager:
         controls = [
             f"{self.term.green}1{self.term.normal}:Start Backend  {self.term.green}2{self.term.normal}:Stop Backend   {self.term.green}3{self.term.normal}:Start Frontend  {self.term.green}4{self.term.normal}:Stop Frontend  {self.term.green}5{self.term.normal}:Both",
             f"{self.term.green}6{self.term.normal}:Stop All      {self.term.green}7{self.term.normal}:Restart BE     {self.term.green}8{self.term.normal}:Restart FE      {self.term.green}9{self.term.normal}:Build Frontend",
-            f"{self.term.green}v{self.term.normal}:Switch View   {self.term.green}e{self.term.normal}:Errors Only    {self.term.green}r{self.term.normal}:Refresh Stats  {self.term.green}c{self.term.normal}:Clear Logs     {self.term.green}s{self.term.normal}:Search",
+            f"{self.term.green}v{self.term.normal}:Switch View   {self.term.green}e{self.term.normal}:Errors Only    {self.term.green}c{self.term.normal}:Clear Logs     {self.term.green}s{self.term.normal}:Search        {self.term.green}a{self.term.normal}:Auto-scroll",
             f"{self.term.green}↑↓/jk{self.term.normal}:Scroll     {self.term.green}PgUp/PgDn{self.term.normal}:Fast     {self.term.green}Home/End{self.term.normal}:Top/Bottom  {self.term.green}Esc{self.term.normal}:Exit Search {self.term.green}q{self.term.normal}:Quit"
         ]
         
@@ -561,7 +599,8 @@ class EnhancedServerManager:
             logs = self.get_current_logs()
             if logs and available_height > 0:
                 max_scroll = max(0, len(logs) - available_height)
-                scroll_indicator = f" | Scroll: {self.term.yellow}{self.scroll_position}/{max_scroll}{self.term.normal}"
+                auto_scroll_icon = "🔄" if self.auto_scroll else "📍"
+                scroll_indicator = f" | {auto_scroll_icon} Scroll: {self.term.yellow}{self.scroll_position}/{max_scroll}{self.term.normal}"
             else:
                 scroll_indicator = ""
             
@@ -622,6 +661,7 @@ class EnhancedServerManager:
             self.all_logs.clear()
             self.filtered_logs.clear()
             self.scroll_position = 0
+            self.auto_scroll = True  # Reset to auto-scroll after clearing
         self.log_message("system", "Logs cleared", "INFO")
     
     def handle_input(self, key):
@@ -667,48 +707,72 @@ class EnhancedServerManager:
             current_idx = views.index(self.selected_view)
             self.selected_view = views[(current_idx + 1) % len(views)]
             self.scroll_position = 0
+            self.auto_scroll = True  # Reset to auto-scroll when changing views
             self.search_term = ""
             self.filtered_logs = []
         elif key == 'e':
             # Quick shortcut to errors view
             self.selected_view = "errors"
             self.scroll_position = 0
+            self.auto_scroll = True  # Reset to auto-scroll when changing views
             self.search_term = ""
             self.filtered_logs = []
-        elif key == 'r':
-            threading.Thread(target=self.fetch_dashboard_stats, daemon=True).start()
         elif key == 'c':
             self.clear_logs()
         elif key == 's':
             self.search_mode = True
             self.search_term = ""
+        elif key == 'a':
+            # Toggle auto-scroll
+            self.auto_scroll = not self.auto_scroll
+            status = "enabled" if self.auto_scroll else "disabled"
+            self.log_message("system", f"Auto-scroll {status}", "INFO")
         elif key.name == 'KEY_ESCAPE':
             self.search_term = ""
             self.filtered_logs = []
             self.scroll_position = 0
+            self.auto_scroll = True  # Reset to auto-scroll when clearing search
         elif key.name == 'KEY_UP' or key == 'k':  # Also support 'k' for vim-like scrolling
             logs = self.get_current_logs()
             available_height = max(5, self.term.height - 11 - 2)
             max_scroll = max(0, len(logs) - available_height)
             self.scroll_position = min(self.scroll_position + 1, max_scroll)
+            # User manually scrolled up, disable auto-scroll
+            self.auto_scroll = False
         elif key.name == 'KEY_DOWN' or key == 'j':  # Also support 'j' for vim-like scrolling
             self.scroll_position = max(self.scroll_position - 1, 0)
+            # If user scrolled to bottom, re-enable auto-scroll
+            if self.scroll_position == 0:
+                self.auto_scroll = True
+            else:
+                self.auto_scroll = False
         elif key.name == 'KEY_PGUP':
             logs = self.get_current_logs()
             available_height = max(5, self.term.height - 11 - 2)
             max_scroll = max(0, len(logs) - available_height)
             page_size = max(1, available_height // 2)
             self.scroll_position = min(self.scroll_position + page_size, max_scroll)
+            # User manually scrolled up, disable auto-scroll
+            self.auto_scroll = False
         elif key.name == 'KEY_PGDN':
             available_height = max(5, self.term.height - 11 - 2)
             page_size = max(1, available_height // 2)
             self.scroll_position = max(self.scroll_position - page_size, 0)
+            # If user scrolled to bottom, re-enable auto-scroll
+            if self.scroll_position == 0:
+                self.auto_scroll = True
+            else:
+                self.auto_scroll = False
         elif key.name == 'KEY_HOME':
             logs = self.get_current_logs()
             available_height = max(5, self.term.height - 11 - 2)
             self.scroll_position = max(0, len(logs) - available_height)
+            # User manually scrolled up, disable auto-scroll
+            self.auto_scroll = False
         elif key.name == 'KEY_END':
             self.scroll_position = 0
+            # User went to bottom, re-enable auto-scroll
+            self.auto_scroll = True
     
     def cleanup(self):
         """Enhanced cleanup"""
@@ -743,11 +807,9 @@ class EnhancedServerManager:
                     # Always update logs (most dynamic part)
                     self.draw_logs()
                     
-                    # Fetch stats periodically
-                    stats_timer += 1
-                    if stats_timer >= 40 and self.backend_status == "Running":  # Every ~10 seconds
-                        threading.Thread(target=self.fetch_dashboard_stats, daemon=True).start()
-                        stats_timer = 0
+                    # Stats fetching disabled to reduce log clutter
+                    # Use 'r' key to manually refresh if needed
+                    pass
                     
                     # Very responsive input handling
                     key = self.term.inkey(timeout=0.1)
@@ -780,14 +842,15 @@ Usage: python dev_manager.py
   9: Build frontend for production      
   
   v: Switch log view (All/Backend/Frontend/Errors)
-  e: Quick jump to Errors Only view    r: Refresh dashboard stats
-  c: Clear all logs                     s: Enter search mode
+  e: Quick jump to Errors Only view    c: Clear all logs  
+  s: Enter search mode
   ESC: Exit search/clear filter         q: Quit application
   
   ↑↓: Scroll through logs               PgUp/PgDn: Fast scroll
   Home: Jump to oldest logs             End: Jump to newest logs
 
 🚀 Enhanced Features:
+  • Auto-kill stale processes on ports 57891 & 5173 at startup
   • Real-time server status monitoring with better error detection
   • Enhanced log management with 5000+ entry buffer
   • Advanced search and filtering capabilities  
@@ -795,11 +858,11 @@ Usage: python dev_manager.py
   • Improved scrolling with Home/End navigation
   • Better performance with selective screen updates
   • Comprehensive file logging with timestamps
-  • No authentication requirements for API calls
+  • Lightweight with no API polling
   • Color-coded log levels and HMR detection
 
 📋 Requirements:
-  - blessed package: pip install blessed
+  - blessed package: pip install blessed requests psutil
   - Node.js and npm for frontend
   - Python environment with MakerMatrix dependencies
 
@@ -811,9 +874,10 @@ Usage: python dev_manager.py
     try:
         import blessed
         import requests
+        import psutil
     except ImportError as e:
         print(f"❌ Error: Missing dependency: {e}")
-        print("📦 Install with: pip install blessed requests")
+        print("📦 Install with: pip install blessed requests psutil")
         sys.exit(1)
     
     manager = EnhancedServerManager()
@@ -833,3 +897,4 @@ Usage: python dev_manager.py
 
 if __name__ == "__main__":
     main()
+    

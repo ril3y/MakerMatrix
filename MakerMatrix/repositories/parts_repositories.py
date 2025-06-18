@@ -86,13 +86,84 @@ class PartRepository:
     @staticmethod
     def delete_part(session: Session, part_id: str) -> Optional[PartModel]:
         """
-        Delete a part by ID. Raises ResourceNotFoundError if the part doesn't exist.
+        Delete a part by ID with proper cleanup of dependent records.
+        Explicitly handles foreign key relationships since ORM cascade may not work.
+        Raises ResourceNotFoundError if the part doesn't exist.
         Returns the deleted part.
         """
+        from sqlalchemy.exc import IntegrityError
+        from sqlalchemy import text
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Get the part first (will raise ResourceNotFoundError if not found)
         part = PartRepository.get_part_by_id(session, part_id)
-        session.delete(part)
-        session.commit()
-        return part
+        
+        try:
+            # Manual cleanup of dependent records to ensure proper deletion
+            # Handle all foreign key relationships explicitly since some have NO ACTION
+            
+            # 1. Clear many-to-many category relationships (partcategorylink)
+            if part.categories:
+                num_categories = len(part.categories)
+                part.categories.clear()
+                logger.info(f"Cleared {num_categories} category relationships for part {part_id}")
+            
+            # 2. Delete datasheet files (datasheetmodel) 
+            if hasattr(part, 'datasheets') and part.datasheets:
+                num_datasheets = len(part.datasheets)
+                for datasheet in part.datasheets:
+                    session.delete(datasheet)
+                logger.info(f"Deleted {num_datasheets} datasheet(s) for part {part_id}")
+            
+            # 3. Delete PartOrderSummary records (should CASCADE but be explicit)
+            from MakerMatrix.models.models import PartOrderSummary
+            order_summaries = session.exec(
+                select(PartOrderSummary).where(PartOrderSummary.part_id == part_id)
+            ).all()
+            for summary in order_summaries:
+                session.delete(summary)
+                logger.info(f"Deleted order summary for part {part_id}")
+            
+            # 4. Update OrderItem records to set part_id to NULL (should SET NULL but be explicit)
+            from MakerMatrix.models.order_models import OrderItemModel
+            order_items = session.exec(
+                select(OrderItemModel).where(OrderItemModel.part_id == part_id)
+            ).all()
+            for item in order_items:
+                item.part_id = None
+                session.add(item)
+                logger.info(f"Cleared part reference in order item {item.id}")
+            
+            # 5. Delete PartOrderLink records (partorderlink)
+            from MakerMatrix.models.order_models import PartOrderLink
+            part_order_links = session.exec(
+                select(PartOrderLink).where(PartOrderLink.part_id == part_id)
+            ).all()
+            for link in part_order_links:
+                session.delete(link)
+                logger.info(f"Deleted part-order link for part {part_id}")
+            
+            # 6. Flush changes to database before deleting the part
+            session.flush()
+            
+            # 7. Now delete the part itself
+            session.delete(part)
+            session.commit()
+            logger.info(f"Successfully deleted part {part_id} and all dependent records")
+            return part
+            
+        except Exception as e:
+            session.rollback()
+            error_msg = str(e)
+            logger.error(f"Failed to delete part {part_id}: {error_msg}")
+            
+            # Still provide helpful error information
+            if isinstance(e, IntegrityError) and "FOREIGN KEY constraint failed" in error_msg:
+                raise ValueError(f"Cannot delete part '{part.part_name}' due to database constraint issues. This may indicate corrupt foreign key relationships.")
+            else:
+                raise ValueError(f"Failed to delete part '{part.part_name}': {str(e)}")
 
     @staticmethod
     def get_child_location_ids(session: Session, location_id: str) -> List[str]:
@@ -111,7 +182,10 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location)
+                joinedload(PartModel.location),
+                selectinload(PartModel.datasheets),
+                selectinload(PartModel.order_items),
+                selectinload(PartModel.order_summary)
             )
             .where(PartModel.part_number == part_number)
         ).first()
@@ -129,7 +203,10 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location)
+                joinedload(PartModel.location),
+                selectinload(PartModel.datasheets),
+                selectinload(PartModel.order_items),
+                selectinload(PartModel.order_summary)
             )
             .where(PartModel.id == part_id)
         ).first()
@@ -149,7 +226,10 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location)
+                joinedload(PartModel.location),
+                selectinload(PartModel.datasheets),
+                selectinload(PartModel.order_items),
+                selectinload(PartModel.order_summary)
             )
             .where(PartModel.part_name == part_name)
         ).first()
@@ -562,12 +642,47 @@ class PartRepository:
     @staticmethod
     def clear_all_parts(session: Session) -> Dict[str, Any]:
         """Clear all parts from the database - USE WITH CAUTION!"""
+        from sqlmodel import text
         try:
             # Get count before deletion
             count_before = session.exec(select(func.count()).select_from(PartModel)).one()
             
-            # Delete all parts using SQLModel syntax
+            # Temporarily disable foreign key constraints
+            session.exec(text("PRAGMA foreign_keys = OFF"))
+            
+            # Delete all related records in sequence
+            deleted_records = {}
+            
+            # Delete part-category links
+            result = session.exec(text("DELETE FROM partcategorylink"))
+            deleted_records['part_category_links'] = result.rowcount
+            
+            # Delete datasheet records
+            result = session.exec(text("DELETE FROM datasheetmodel"))
+            deleted_records['datasheets'] = result.rowcount
+            
+            # Delete part order summaries
+            result = session.exec(text("DELETE FROM partordersummary"))
+            deleted_records['part_order_summaries'] = result.rowcount
+            
+            # Delete part order links
+            result = session.exec(text("DELETE FROM partorderlink"))
+            deleted_records['part_order_links'] = result.rowcount
+            
+            # Delete order items that reference parts (set part_id to NULL instead of deleting)
+            result = session.exec(text("UPDATE orderitemmodel SET part_id = NULL WHERE part_id IS NOT NULL"))
+            deleted_records['order_item_part_references'] = result.rowcount
+            
+            # Delete activity logs related to parts
+            result = session.exec(text("DELETE FROM activitylogmodel WHERE entity_type = 'part'"))
+            deleted_records['activity_logs'] = result.rowcount
+            
+            # Finally, delete all parts
             session.exec(delete(PartModel))
+            
+            # Re-enable foreign key constraints
+            session.exec(text("PRAGMA foreign_keys = ON"))
+            
             session.commit()
             
             # Verify deletion
@@ -576,8 +691,14 @@ class PartRepository:
             return {
                 "parts_deleted": count_before,
                 "parts_remaining": count_after,
+                "related_records_deleted": deleted_records,
                 "success": True
             }
         except Exception as e:
+            # Re-enable foreign keys even on error
+            try:
+                session.exec(text("PRAGMA foreign_keys = ON"))
+            except:
+                pass
             session.rollback()
             raise Exception(f"Failed to clear all parts: {str(e)}")

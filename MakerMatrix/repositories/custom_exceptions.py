@@ -59,3 +59,13 @@ class InvalidReferenceError(Exception):
         self.message = message
         self.data = data
         super().__init__(message)
+
+
+class SupplierConfigAlreadyExistsError(Exception):
+    """Custom exception to be raised when a supplier configuration already exists."""
+
+    def __init__(self, message: str, status: str = "error", data=None):
+        self.status = status
+        self.message = message
+        self.data = data
+        super().__init__(message)

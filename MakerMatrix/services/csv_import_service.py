@@ -2,8 +2,9 @@ import csv
 import io
 from typing import List, Dict, Any, Optional, Tuple, Callable
 from MakerMatrix.services.part_service import PartService
-from MakerMatrix.services.csv_import import DigikeyParser, LCSCParser, MouserParser, BaseCSVParser
-from MakerMatrix.parsers.mouser_xls_parser import MouserXLSParser
+from MakerMatrix.services.csv_import.parser_registry import get_all_parsers, get_parser_class, create_parser, get_all_parser_info
+from MakerMatrix.services.csv_import.base_parser import BaseCSVParser
+from MakerMatrix.services.parser_client_registry import parser_client_registry, supports_enrichment, prepare_part_for_enrichment
 from MakerMatrix.models.csv_import_config_model import ImportProgressModel
 import logging
 import asyncio
@@ -24,25 +25,16 @@ class CSVImportService:
             'download_timeout_seconds': 30
         }
         
-        # Register all available parsers with download config - disable downloads during parsing
+        # Dynamic parser discovery with download config - disable downloads during parsing
         parsing_config = self.download_config.copy()
         parsing_config['download_datasheets'] = False  # Disable during parsing
         parsing_config['download_images'] = False      # Disable during parsing
         
-        self.parsers: List[BaseCSVParser] = [
-            DigikeyParser(),
-            LCSCParser(download_config=parsing_config),
-            MouserParser(),
-            MouserXLSParser(),
-        ]
+        # Get all available parsers dynamically from registry
+        self.parsers: List[BaseCSVParser] = get_all_parsers(download_config=parsing_config)
         
         # Also create preview parsers (for CSV preview without downloads)
-        self.preview_parsers: List[BaseCSVParser] = [
-            DigikeyParser(),
-            LCSCParser(download_config={'download_datasheets': False, 'download_images': False}),
-            MouserParser(),
-            MouserXLSParser(),
-        ]
+        self.preview_parsers: List[BaseCSVParser] = get_all_parsers(download_config={'download_datasheets': False, 'download_images': False})
         
         # Set preview parsers to enrich-only mode
         for parser in self.preview_parsers:
@@ -52,6 +44,10 @@ class CSVImportService:
         # Create lookup for parsers by type
         self.parser_lookup = {parser.parser_type: parser for parser in self.parsers}
         self.preview_parser_lookup = {parser.parser_type: parser for parser in self.preview_parsers}
+        
+        # Log discovered parsers
+        parser_types = [parser.parser_type for parser in self.parsers]
+        logger.info(f"Discovered {len(self.parsers)} CSV parsers: {', '.join(parser_types)}")
         
         # Progress tracking
         self.current_progress: Optional[ImportProgressModel] = None
@@ -95,10 +91,21 @@ class CSVImportService:
         return self.parser_lookup.get(parser_type)
 
     def register_parser(self, parser: BaseCSVParser):
-        """Register a new parser (for adding custom parsers)"""
+        """Register a new parser (for adding custom parsers dynamically)"""
         if parser.parser_type not in self.parser_lookup:
             self.parsers.append(parser)
             self.parser_lookup[parser.parser_type] = parser
+            
+            # Also add to preview parsers
+            if parser.parser_type not in self.preview_parser_lookup:
+                # Create a preview version with downloads disabled
+                preview_parser = create_parser(parser.parser_type, download_config={'download_datasheets': False, 'download_images': False})
+                if preview_parser:
+                    if hasattr(preview_parser, 'enrich_only_mode'):
+                        preview_parser.enrich_only_mode = True
+                    self.preview_parsers.append(preview_parser)
+                    self.preview_parser_lookup[parser.parser_type] = preview_parser
+            
             logger.info(f"Registered new CSV parser: {parser.name}")
 
     def extract_order_info_from_filename(self, filename: str) -> Optional[Dict[str, Any]]:
@@ -186,8 +193,18 @@ class CSVImportService:
                 "validation_errors": [str(e)]
             }
 
-    def parse_csv_to_parts(self, csv_content: str, parser_type: str) -> Tuple[List[Dict[str, Any]], List[str]]:
-        """Parse CSV content into standardized part data using specified parser"""
+    def parse_csv_to_parts(self, csv_content: str, parser_type: str, enable_enrichment: bool = False) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """
+        Parse CSV content into standardized part data using specified parser
+        
+        Args:
+            csv_content: Raw CSV content to parse
+            parser_type: Type of parser to use (e.g., 'lcsc', 'digikey', 'mouser')
+            enable_enrichment: Whether to prepare parts for enrichment
+            
+        Returns:
+            Tuple of (parts_data, errors)
+        """
         parts_data = []
         errors = []
         
@@ -196,6 +213,13 @@ class CSVImportService:
         if not parser:
             errors.append(f"Unsupported parser type: {parser_type}")
             return parts_data, errors
+        
+        # Check enrichment capabilities
+        enrichment_supported = supports_enrichment(parser_type)
+        if enable_enrichment and enrichment_supported:
+            logger.info(f"Enrichment enabled for {parser_type} - parts will be prepared for enrichment")
+        elif enable_enrichment and not enrichment_supported:
+            logger.warning(f"Enrichment requested for {parser_type} but no enrichment client available")
         
         try:
             csv_file = io.StringIO(csv_content)
@@ -214,6 +238,12 @@ class CSVImportService:
                     
                     if part_data:
                         part_data['source_row'] = row_num
+                        
+                        # Prepare for enrichment if enabled and supported
+                        if enable_enrichment and enrichment_supported:
+                            part_data = prepare_part_for_enrichment(parser_type, part_data)
+                            logger.debug(f"Prepared part {part_data.get('part_name', 'Unknown')} for enrichment")
+                        
                         # Convert any Decimal objects to floats
                         part_data = self._convert_decimals_to_floats(part_data)
                         parts_data.append(part_data)
@@ -222,13 +252,19 @@ class CSVImportService:
                     logger.error(f"CSV parsing error on row {row_num}: {str(e)}", exc_info=True)
                     errors.append(f"Row {row_num}: {str(e)}")
             
+            # Log enrichment summary
+            if enable_enrichment and enrichment_supported and parts_data:
+                enrichment_ready_parts = sum(1 for part in parts_data 
+                                           if part.get('additional_properties', {}).get('supports_enrichment', False))
+                logger.info(f"Parsed {len(parts_data)} parts from {parser_type}, {enrichment_ready_parts} ready for enrichment")
+            
         except Exception as e:
             errors.append(f"CSV parsing error: {str(e)}")
         
         return parts_data, errors
 
     async def import_parts_with_order(self, parts_data: List[Dict[str, Any]], part_service: PartService, 
-                                    order_info: Dict[str, Any], progress_callback: Callable = None) -> Tuple[List[str], List[str]]:
+                                    order_info: Dict[str, Any], progress_callback: Callable = None) -> Tuple[List[str], List[str], List[str]]:
         """Import parsed parts data and create order tracking"""
         from MakerMatrix.models.order_models import OrderModel, OrderItemModel, CreateOrderRequest, CreateOrderItemRequest
         from MakerMatrix.models.models import PartOrderSummary
@@ -239,6 +275,7 @@ class CSVImportService:
         
         success_parts = []
         failed_parts = []
+        imported_part_ids = []  # Track part IDs for enrichment
         total_parts = len(parts_data)
         
         # Initialize progress
@@ -420,6 +457,7 @@ class CSVImportService:
                         await order_service.link_order_item_to_part(order_item.id, existing_part['id'])
                         
                         success_parts.append(f"Updated {part_data['part_name']}: quantity {existing_part['quantity']} → {new_quantity}")
+                        imported_part_ids.append(existing_part['id'])
                         
                         # Update progress
                         if progress_callback:
@@ -461,6 +499,7 @@ class CSVImportService:
                                         await order_service.link_order_item_to_part(order_item.id, existing_part['id'])
                                         
                                         success_parts.append(f"Updated {part_data['part_name']}: quantity {existing_part['quantity'] - part_data['quantity']} → {new_quantity}")
+                                        imported_part_ids.append(existing_part['id'])
                                         
                                         # Update progress
                                         if progress_callback:
@@ -510,6 +549,7 @@ class CSVImportService:
                         await order_service.link_order_item_to_part(order_item.id, new_part_id)
                         
                         success_parts.append(f"Added {part_data['part_name']}: {part_data['quantity']} units")
+                        imported_part_ids.append(new_part_id)
                         
                         # Update progress
                         if progress_callback:
@@ -555,7 +595,7 @@ class CSVImportService:
                     'is_downloading': False
                 })
         
-        return success_parts, failed_parts
+        return success_parts, failed_parts, imported_part_ids
 
     async def import_parts_with_progress(
         self, 
@@ -677,6 +717,7 @@ class CSVImportService:
                         part_service.update_part(existing_part.id, update_data)
                         await order_service.link_order_item_to_part(order_item.id, existing_part.id)
                         success_parts.append(f"Updated {part_name}: quantity {existing_part.quantity} → {new_quantity}")
+                        imported_part_ids.append(existing_part.id)
                         
                         # Add to enrichment queue if needed (for existing parts too)
                         if part_data.get('additional_properties', {}).get('needs_enrichment'):
@@ -692,6 +733,7 @@ class CSVImportService:
                             new_part_id = new_part_result['data']['id']
                             await order_service.link_order_item_to_part(order_item.id, new_part_id)
                             success_parts.append(f"Added {part_name}: {part_data['quantity']} units")
+                            imported_part_ids.append(new_part_id)
                             
                             # Add to enrichment queue if needed
                             if part_data.get('additional_properties', {}).get('needs_enrichment'):
@@ -718,6 +760,7 @@ class CSVImportService:
                                             part_service.update_part(existing_part.id, update_data)
                                             await order_service.link_order_item_to_part(order_item.id, existing_part.id)
                                             success_parts.append(f"Updated existing {part_name}: quantity {existing_part.quantity} → {new_quantity}")
+                                            imported_part_ids.append(existing_part.id)
                                         else:
                                             raise add_error
                                 except Exception as recovery_error:
@@ -801,7 +844,7 @@ class CSVImportService:
             if progress_callback:
                 progress_callback(self.current_progress)
         
-        return success_parts, failed_parts
+        return success_parts, failed_parts, imported_part_ids
 
     async def _enrich_part_data(self, part_data: Dict[str, Any]):
         """Enrich part data after import (API calls, etc.)"""

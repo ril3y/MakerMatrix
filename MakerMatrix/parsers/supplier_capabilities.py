@@ -307,23 +307,53 @@ class DigiKeyCapabilities(SupplierCapabilities):
         }
 
 
-# Registry of all available supplier capabilities
-SUPPLIER_CAPABILITIES_REGISTRY = {
-    "LCSC": LCSCCapabilities(),
-    "Mouser": MouserCapabilities(),
-    "Bolt Depot": BoltDepotCapabilities(),
-    "DigiKey": DigiKeyCapabilities(),
-}
+# Dynamic registry using supplier registry system
+def _build_dynamic_capabilities_registry() -> Dict[str, SupplierCapabilities]:
+    """Build capabilities registry dynamically using supplier registry"""
+    registry = {}
+    
+    try:
+        from MakerMatrix.clients.suppliers.supplier_registry import get_available_suppliers, get_supplier_capabilities
+        
+        # Get all available suppliers from the dynamic registry
+        for supplier_name in get_available_suppliers():
+            capabilities_list = get_supplier_capabilities(supplier_name)
+            
+            if capabilities_list:
+                # Create a dynamic SupplierCapabilities instance
+                capabilities = SupplierCapabilities(
+                    name=supplier_name,
+                    supported_operations={
+                        cap: True for cap in capabilities_list
+                    }
+                )
+                registry[supplier_name] = capabilities
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to build dynamic capabilities registry: {e}")
+        
+        # Fallback to legacy hardcoded registry
+        registry = {
+            "LCSC": LCSCCapabilities(),
+            "Mouser": MouserCapabilities(),
+            "Bolt Depot": BoltDepotCapabilities(),
+            "DigiKey": DigiKeyCapabilities(),
+        }
+    
+    return registry
 
 
+# Dynamic registry - rebuilt on each access to pick up new suppliers
 def get_supplier_capabilities(supplier_name: str) -> Optional[SupplierCapabilities]:
-    """Get capabilities for a specific supplier"""
-    return SUPPLIER_CAPABILITIES_REGISTRY.get(supplier_name)
+    """Get capabilities for a specific supplier using dynamic registry"""
+    registry = _build_dynamic_capabilities_registry()
+    return registry.get(supplier_name)
 
 
 def get_all_supplier_capabilities() -> Dict[str, SupplierCapabilities]:
-    """Get capabilities for all suppliers"""
-    return SUPPLIER_CAPABILITIES_REGISTRY.copy()
+    """Get capabilities for all suppliers using dynamic registry"""
+    return _build_dynamic_capabilities_registry()
 
 
 def find_suppliers_with_capability(capability: CapabilityType) -> List[str]:
