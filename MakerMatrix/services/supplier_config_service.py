@@ -581,7 +581,19 @@ class SupplierConfigService(CredentialEncryptionMixin):
             
             # Try to create the client
             logger.debug(f"Creating {supplier_class.__name__} with params: {list(client_params.keys())}")
-            return supplier_class(**client_params)
+            client = supplier_class(**client_params)
+            
+            # If this is a BaseSupplier, configure it with credentials and config
+            from MakerMatrix.suppliers.base import BaseSupplier
+            if isinstance(client, BaseSupplier):
+                config_dict = {
+                    'base_url': config.base_url,
+                    'search_option': config.custom_parameters.get('search_option') if config.custom_parameters else None,
+                    'search_with_your_signup_language': config.custom_parameters.get('search_with_your_signup_language') if config.custom_parameters else None,
+                }
+                client.configure(credentials or {}, config_dict)
+            
+            return client
             
         except Exception as e:
             logger.debug(f"Failed to create {supplier_class.__name__} client: {e}")

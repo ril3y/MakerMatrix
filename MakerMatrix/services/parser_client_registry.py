@@ -216,26 +216,26 @@ class ParserClientRegistry:
     @classmethod
     def prepare_part_for_enrichment(cls, parser_type: str, part_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Prepare part data for enrichment by adding enrichment metadata
+        Prepare part data for enrichment by adding minimal enrichment metadata
         
         Args:
             parser_type: CSV parser type
             part_data: Part data dictionary to enhance
             
         Returns:
-            Enhanced part data with enrichment metadata
+            Enhanced part data with lean enrichment metadata
         """
         if cls.supports_enrichment(parser_type):
             if 'additional_properties' not in part_data:
                 part_data['additional_properties'] = {}
             
+            # Store only essential enrichment metadata
             part_data['additional_properties'].update({
-                'supports_enrichment': True,
-                'enrichment_source': parser_type,
-                'enrichment_supplier': cls.PARSER_CLIENT_MAPPING.get(parser_type.lower()),
-                'available_capabilities': cls.get_enrichment_capabilities(parser_type),
                 'needs_enrichment': True,
-                'enrichment_prepared_at': datetime.utcnow().isoformat()
+                'enrichment_source': parser_type,
+                'enrichment_supplier': cls.PARSER_CLIENT_MAPPING.get(parser_type.lower())
+                # Removed verbose fields: available_capabilities, enrichment_prepared_at, supports_enrichment
+                # These create unnecessary bloat and can be determined dynamically
             })
         
         return part_data

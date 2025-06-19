@@ -38,6 +38,7 @@ class SupplierConfigCreate(BaseModel):
     api_type: str = Field(default="rest", max_length=50)
     base_url: str = Field(..., max_length=500)
     api_version: Optional[str] = Field(None, max_length=50)
+    api_documentation_url: Optional[str] = Field(None, max_length=500)
     rate_limit_per_minute: Optional[int] = Field(None, gt=0)
     timeout_seconds: int = Field(default=30, gt=0)
     max_retries: int = Field(default=3, ge=0)
@@ -72,6 +73,7 @@ class SupplierConfigUpdate(BaseModel):
     api_type: Optional[str] = Field(None, max_length=50)
     base_url: Optional[str] = Field(None, max_length=500)
     api_version: Optional[str] = Field(None, max_length=50)
+    api_documentation_url: Optional[str] = Field(None, max_length=500)
     rate_limit_per_minute: Optional[int] = Field(None, gt=0)
     timeout_seconds: Optional[int] = Field(None, gt=0)
     max_retries: Optional[int] = Field(None, ge=0)
@@ -488,7 +490,7 @@ async def store_credentials(
             data={
                 "supplier_name": supplier_name,
                 "credentials_id": creds_model.id,
-                "encrypted": True
+                "encrypted": "true"
             }
         )
         
@@ -536,7 +538,7 @@ async def update_credentials(
             data={
                 "supplier_name": supplier_name,
                 "credentials_id": creds_model.id,
-                "updated": True
+                "updated": "true"
             }
         )
         
@@ -568,7 +570,7 @@ async def delete_credentials(
         return ResponseSchema(
             status="success",
             message=f"Deleted credentials for {supplier_name}",
-            data={"supplier_name": supplier_name, "deleted": True}
+            data={"supplier_name": supplier_name, "deleted": "true"}
         )
         
     except ResourceNotFoundError as e:

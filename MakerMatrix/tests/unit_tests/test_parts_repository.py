@@ -14,7 +14,7 @@ from MakerMatrix.repositories.custom_exceptions import (
 )
 from MakerMatrix.models.models import PartModel, CategoryModel, LocationModel, AdvancedPartSearch
 from sqlmodel import select
-from MakerMatrix.unit_tests.test_database import create_test_db, create_test_db_with_data
+from MakerMatrix.tests.unit_tests.test_database import create_test_db, create_test_db_with_data
 
 
 class TestPartRepositoryNew:

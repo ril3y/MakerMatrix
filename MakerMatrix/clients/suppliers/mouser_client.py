@@ -82,9 +82,9 @@ class MouserClient(BaseAPIClient, BaseSupplierClient):
         self.logger = logging.getLogger(f"{__name__}.MouserClient")
         
         # Rate limiting
-        self._last_request_time = 0
+        self._last_request_time = 0.0
         self._request_count = 0
-        self._rate_limit_window = 60  # 1 minute
+        self._rate_limit_window = 60.0  # 1 minute
         
         self.logger.info(f"Mouser API client initialized")
     
@@ -92,14 +92,26 @@ class MouserClient(BaseAPIClient, BaseSupplierClient):
         """Enforce rate limiting for Mouser API"""
         current_time = datetime.utcnow().timestamp()
         
+        # Initialize if needed
+        if not hasattr(self, '_last_request_time') or self._last_request_time is None:
+            self._last_request_time = 0.0
+        if not hasattr(self, '_request_count') or self._request_count is None:
+            self._request_count = 0
+        
+        # Ensure types are correct
+        self._last_request_time = float(self._last_request_time)
+        self._request_count = int(self._request_count)
+        rate_limit_per_minute = int(self.rate_limit_per_minute)
+        rate_limit_window = float(self._rate_limit_window)
+        
         # Reset counter if window has passed
-        if current_time - self._last_request_time > self._rate_limit_window:
+        if current_time - self._last_request_time > rate_limit_window:
             self._request_count = 0
             self._last_request_time = current_time
         
         # Check rate limit
-        if self._request_count >= self.rate_limit_per_minute:
-            wait_time = self._rate_limit_window - (current_time - self._last_request_time)
+        if self._request_count >= rate_limit_per_minute:
+            wait_time = rate_limit_window - (current_time - self._last_request_time)
             if wait_time > 0:
                 self.logger.warning(f"Rate limit reached, waiting {wait_time:.2f} seconds")
                 await asyncio.sleep(wait_time)

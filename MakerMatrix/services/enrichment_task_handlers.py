@@ -171,22 +171,19 @@ class EnrichmentTaskHandlers:
                 
                 completed += 1
                 
-            # Update part with enrichment results
+            # Update part with enrichment results - store minimal metadata only
             if enrichment_results:
-                # Save enrichment results to part
+                # Save only essential enrichment metadata to part
                 if not part.additional_properties:
                     part.additional_properties = {}
                 
-                if 'enrichment_results' not in part.additional_properties:
-                    part.additional_properties['enrichment_results'] = {}
-                
-                # Clean enrichment results by removing verbose source metadata to reduce duplication
-                clean_enrichment_results = self._clean_enrichment_results(enrichment_results)
-                part.additional_properties['enrichment_results'].update(clean_enrichment_results)
+                # Store only essential enrichment metadata instead of full results
+                enrichment_metadata = self._create_enrichment_metadata(enrichment_results)
+                part.additional_properties.update(enrichment_metadata)
                 part.additional_properties['last_enrichment'] = datetime.utcnow().isoformat()
                 
                 # Update specific part fields based on enrichment data (without duplication)
-                await self._update_part_from_enrichment_results(part, clean_enrichment_results)
+                await self._update_part_from_enrichment_results(part, enrichment_results)
                 
                 # Update the part in database using a fresh session to avoid conflicts
                 from MakerMatrix.database.db import engine
@@ -267,48 +264,43 @@ class EnrichmentTaskHandlers:
         else:
             return data
     
-    def _clean_enrichment_results(self, enrichment_results):
+    def _create_enrichment_metadata(self, enrichment_results):
         """
-        Clean enrichment results by removing redundant source metadata and verbose fields
-        to reduce data duplication and storage size.
+        Create minimal enrichment metadata instead of storing full results.
+        Only store essential information that's actually used by the application.
         """
-        clean_results = {}
+        metadata = {}
+        
+        # Track what capabilities were successfully enriched
+        successful_capabilities = []
         
         for capability, result in enrichment_results.items():
-            if isinstance(result, dict):
-                # Create a clean copy without verbose metadata
-                clean_result = {}
+            if isinstance(result, dict) and result.get('success'):
+                successful_capabilities.append(capability)
                 
-                # Keep essential fields
-                essential_fields = [
-                    'success', 'status', 'part_number', 'error_message', 'warnings',
-                    # Datasheet fields
-                    'datasheet_url', 'datasheet_filename', 'datasheet_size_bytes', 'download_verified',
-                    # Image fields  
-                    'images', 'primary_image_url',
-                    # Pricing fields
-                    'unit_price', 'currency', 'price_breaks', 'minimum_order_quantity',
-                    # Stock fields
-                    'quantity_available', 'availability_status', 'lead_time_days',
-                    # Specifications fields
-                    'specifications', 'electrical_characteristics', 'mechanical_characteristics',
-                    # Details fields
-                    'manufacturer', 'manufacturer_part_number', 'product_description', 'package_type'
-                ]
-                
-                for field in essential_fields:
-                    if field in result:
-                        clean_result[field] = result[field]
-                
-                # Remove verbose source metadata (supplier, api_endpoint, enriched_at, api_version)
-                # These are not needed for normal operations and create significant duplication
-                
-                clean_results[capability] = clean_result
-            else:
-                # If not a dict, keep as-is
-                clean_results[capability] = result
+                # Store only essential capability-specific metadata
+                if capability == 'fetch_datasheet' and result.get('datasheet_url'):
+                    # Don't store datasheet_url here - it's handled in _update_part_from_enrichment_results
+                    metadata['has_datasheet'] = True
+                elif capability == 'fetch_image' and result.get('primary_image_url'):
+                    # Don't store image URLs here - they're stored in part.image_url or local paths
+                    metadata['has_image'] = True
+                elif capability == 'fetch_pricing' and result.get('unit_price'):
+                    # Store only current unit price for quick access
+                    metadata['unit_price'] = result.get('unit_price')
+                    metadata['currency'] = result.get('currency', 'USD')
+                elif capability == 'fetch_stock' and result.get('quantity_available') is not None:
+                    # Store only current stock for quick access
+                    metadata['stock_quantity'] = result.get('quantity_available')
+                elif capability == 'fetch_details':
+                    # Store manufacturer info if not already in main fields
+                    if result.get('manufacturer'):
+                        metadata['manufacturer'] = result.get('manufacturer')
         
-        return clean_results
+        # Don't store capabilities list - this is supplier config data, not part data
+        # Capabilities can be queried dynamically from supplier when needed
+        
+        return metadata
     
     async def _update_part_from_enrichment_results(self, part, enrichment_results):
         """Update part fields based on enrichment results using standardized schemas"""
@@ -375,7 +367,7 @@ class EnrichmentTaskHandlers:
                     if primary_image_url:
                         part.image_url = primary_image_url
                         
-                        # Download image file if configured
+                        # Download image file if configured and update part.image_url to local path
                         if self.download_config.get('download_images', False):
                             logger.info(f"Downloading image file for part {part.part_name}")
                             try:
@@ -393,24 +385,14 @@ class EnrichmentTaskHandlers:
                                 )
                                 
                                 if download_result:
-                                    # Update part with local file information
-                                    if not part.additional_properties:
-                                        part.additional_properties = {}
-                                    part.additional_properties['image_filename'] = download_result['filename']
-                                    part.additional_properties['image_local_path'] = f"/static/images/{download_result['filename']}"
-                                    part.additional_properties['image_downloaded'] = True
-                                    part.additional_properties['image_size'] = download_result['size']
+                                    # Update part.image_url to use local path instead of external URL
+                                    part.image_url = f"/static/images/{download_result['filename']}"
                                     logger.info(f"✅ Successfully downloaded image: {download_result['filename']} ({download_result['size']} bytes)")
+                                    logger.info(f"✅ Updated part.image_url to local path: {part.image_url}")
                                 else:
-                                    if not part.additional_properties:
-                                        part.additional_properties = {}
-                                    part.additional_properties['image_downloaded'] = False
-                                    logger.warning(f"❌ Failed to download image from {primary_image_url}")
+                                    logger.warning(f"❌ Failed to download image from {primary_image_url}, keeping external URL")
                                     
                             except Exception as e:
-                                if not part.additional_properties:
-                                    part.additional_properties = {}
-                                part.additional_properties['image_downloaded'] = False
                                 logger.error(f"❌ Error downloading image: {e}")
                     else:
                         # Fallback to first image in images list
@@ -420,7 +402,7 @@ class EnrichmentTaskHandlers:
                             if isinstance(first_image, dict) and 'url' in first_image:
                                 part.image_url = first_image['url']
                                 
-                                # Download image file if configured
+                                # Download image file if configured and update part.image_url to local path
                                 if self.download_config.get('download_images', False):
                                     logger.info(f"Downloading image file for part {part.part_name} (from images list)")
                                     try:
@@ -438,49 +420,19 @@ class EnrichmentTaskHandlers:
                                         )
                                         
                                         if download_result:
-                                            # Update part with local file information
-                                            if not part.additional_properties:
-                                                part.additional_properties = {}
-                                            part.additional_properties['image_filename'] = download_result['filename']
-                                            part.additional_properties['image_local_path'] = f"/static/images/{download_result['filename']}"
-                                            part.additional_properties['image_downloaded'] = True
-                                            part.additional_properties['image_size'] = download_result['size']
+                                            # Update part.image_url to use local path instead of external URL
+                                            part.image_url = f"/static/images/{download_result['filename']}"
                                             logger.info(f"✅ Successfully downloaded image: {download_result['filename']} ({download_result['size']} bytes)")
+                                            logger.info(f"✅ Updated part.image_url to local path: {part.image_url}")
                                         else:
-                                            if not part.additional_properties:
-                                                part.additional_properties = {}
-                                            part.additional_properties['image_downloaded'] = False
-                                            logger.warning(f"❌ Failed to download image from {first_image['url']}")
+                                            logger.warning(f"❌ Failed to download image from {first_image['url']}, keeping external URL")
                                             
                                     except Exception as e:
-                                        if not part.additional_properties:
-                                            part.additional_properties = {}
-                                        part.additional_properties['image_downloaded'] = False
                                         logger.error(f"❌ Error downloading image: {e}")
             
-            # Update pricing information from PricingEnrichmentResponse
-            if 'fetch_pricing' in enrichment_results:
-                pricing_data = enrichment_results['fetch_pricing']
-                if isinstance(pricing_data, dict) and pricing_data.get('success'):
-                    unit_price = pricing_data.get('unit_price')
-                    if unit_price:
-                        # Store pricing in additional_properties (quick access only)
-                        if not part.additional_properties:
-                            part.additional_properties = {}
-                        part.additional_properties['unit_price'] = unit_price
-                        # Note: Full pricing data is in enrichment_results.fetch_pricing (no duplication)
+            # Pricing information is handled in _create_enrichment_metadata - no additional storage needed
             
-            # Update stock information from StockEnrichmentResponse
-            if 'fetch_stock' in enrichment_results:
-                stock_data = enrichment_results['fetch_stock']
-                if isinstance(stock_data, dict) and stock_data.get('success'):
-                    # Extract key stock values for quick access (no full duplication)
-                    if not part.additional_properties:
-                        part.additional_properties = {}
-                    quantity_available = stock_data.get('quantity_available')
-                    if quantity_available is not None:
-                        part.additional_properties['stock_quantity'] = quantity_available
-                    # Note: Full stock data is in enrichment_results.fetch_stock (no duplication)
+            # Stock information is handled in _create_enrichment_metadata - no additional storage needed
             
             # Update details information from DetailsEnrichmentResponse
             if 'fetch_details' in enrichment_results:
@@ -521,19 +473,7 @@ class EnrichmentTaskHandlers:
                     # Extract key specification values for quick access (no full duplication)
                     if not part.additional_properties:
                         part.additional_properties = {}
-                    # Note: Full specifications data is in enrichment_results.fetch_specifications (no duplication)
-                    
-                    # Extract manufacturer from specifications if available and store in additional_properties
-                    specifications = specs_data.get('specifications', [])
-                    for spec in specifications:
-                        if isinstance(spec, dict) and spec.get('name', '').lower() == 'manufacturer':
-                            manufacturer_value = spec.get('value')
-                            if manufacturer_value:
-                                if not part.additional_properties:
-                                    part.additional_properties = {}
-                                # Only update if not already set
-                                if not part.additional_properties.get('manufacturer'):
-                                    part.additional_properties['manufacturer'] = manufacturer_value
+                    # Specifications information is handled in _create_enrichment_metadata - no additional storage needed
             
             # Fallback: Update description from additional_properties if main description is still placeholder
             if part.additional_properties and hasattr(part, 'description'):
@@ -565,30 +505,28 @@ class EnrichmentTaskHandlers:
             # Don't fail the entire enrichment if field updates fail
     
     def _optimize_part_data_storage(self, part):
-        """Optimize part data storage by removing redundant duplicates"""
+        """Clean up duplicate data in additional_properties after enrichment"""
         if not part.additional_properties:
             return
             
         try:
-            # Remove duplicate URLs if they match the main fields
-            if part.image_url and part.additional_properties.get('enrichment_results', {}).get('fetch_image', {}).get('primary_image_url') == part.image_url:
-                # Keep the enrichment result for audit trail but note it's duplicated in main field
-                if 'fetch_image' in part.additional_properties.get('enrichment_results', {}):
-                    part.additional_properties['enrichment_results']['fetch_image']['_note'] = "primary_image_url duplicated in part.image_url"
+            # Remove description from additional_properties if it matches part.description
+            if (part.description and 
+                part.additional_properties.get('description') == part.description):
+                del part.additional_properties['description']
+                logger.debug("Removed duplicate description from additional_properties")
             
-            # Remove duplicate datasheet URLs
-            datasheet_url = part.additional_properties.get('datasheet_url')
-            enrichment_datasheet = part.additional_properties.get('enrichment_results', {}).get('fetch_datasheet', {}).get('datasheet_url')
-            if datasheet_url and enrichment_datasheet == datasheet_url:
-                if 'fetch_datasheet' in part.additional_properties.get('enrichment_results', {}):
-                    part.additional_properties['enrichment_results']['fetch_datasheet']['_note'] = "datasheet_url duplicated in additional_properties.datasheet_url"
-            
-            # Clean up redundant description storage if main description was updated
-            if part.description and len(part.description.strip()) > 10:
-                stored_desc = part.additional_properties.get('description')
-                if stored_desc == part.description:
-                    # Mark as duplicated rather than removing (for audit purposes)
-                    part.additional_properties['_description_note'] = "description duplicated in part.description field"
+            # Remove any external image URLs that were replaced with local paths
+            image_url = part.image_url
+            if image_url and image_url.startswith('/static/images/'):
+                # Remove any external image URL references that are now obsolete
+                keys_to_remove = []
+                for key in part.additional_properties:
+                    if 'image' in key.lower() and 'http' in str(part.additional_properties.get(key, '')):
+                        keys_to_remove.append(key)
+                for key in keys_to_remove:
+                    del part.additional_properties[key]
+                    logger.debug(f"Removed obsolete external image reference: {key}")
                     
         except Exception as e:
             logger.debug(f"Error optimizing part data storage: {e}")

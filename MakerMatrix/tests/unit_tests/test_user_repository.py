@@ -13,7 +13,7 @@ from MakerMatrix.repositories.custom_exceptions import (
     InvalidReferenceError
 )
 from MakerMatrix.models.user_models import UserModel, RoleModel
-from MakerMatrix.unit_tests.test_database import create_test_db, create_test_db_with_data
+from MakerMatrix.tests.unit_tests.test_database import create_test_db, create_test_db_with_data
 from passlib.hash import pbkdf2_sha256
 
 

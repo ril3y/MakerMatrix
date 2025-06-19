@@ -57,6 +57,15 @@ class LCSCSupplier(BaseSupplier):
                 default_value="6.4.19.5",
                 description="EasyEDA API version",
                 help_text="Version parameter for EasyEDA API compatibility"
+            ),
+            FieldDefinition(
+                name="custom_headers",
+                label="Custom Headers",
+                field_type=FieldType.TEXTAREA,
+                required=False,
+                default_value="User-Agent: Mozilla/5.0 (compatible; MakerMatrix/1.0)\nAccept-Language: en-US,en;q=0.9",
+                description="Additional HTTP headers (one per line, format: Header-Name: value)",
+                help_text="Example: User-Agent: YourApp/1.0. LCSC may require browser-like headers for scraping."
             )
         ]
     
@@ -67,12 +76,23 @@ class LCSCSupplier(BaseSupplier):
     
     def _get_headers(self) -> Dict[str, str]:
         """Get standard headers for EasyEDA API calls"""
-        return {
+        headers = {
             "Accept-Encoding": "gzip, deflate",
             "Accept": "application/json, text/javascript, */*; q=0.01",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "User-Agent": "MakerMatrix/1.0 (easyeda2kicad compatible)"
         }
+        
+        # Add custom headers from configuration
+        custom_headers_text = self._config.get("custom_headers", "")
+        if custom_headers_text and custom_headers_text.strip():
+            for line in custom_headers_text.strip().split('\n'):
+                line = line.strip()
+                if ':' in line:
+                    header_name, header_value = line.split(':', 1)
+                    headers[header_name.strip()] = header_value.strip()
+        
+        return headers
     
     async def authenticate(self) -> bool:
         """No authentication required for EasyEDA public API"""
@@ -367,5 +387,5 @@ class LCSCSupplier(BaseSupplier):
             return None
     
     def get_rate_limit_delay(self) -> float:
-        """EasyEDA API - reasonable rate limiting, 2 seconds between requests"""
-        return 2.0
+        """EasyEDA API - 60 calls per minute = 1 second between requests"""
+        return 1.0

@@ -36,6 +36,7 @@ class SupplierConfigModel(SQLModel, table=True):
     api_type: str = Field(max_length=50, default="rest")  # "rest", "graphql", "scraping"
     base_url: str = Field(max_length=500)
     api_version: Optional[str] = Field(default=None, max_length=50)
+    api_documentation_url: Optional[str] = Field(default=None, max_length=500)
     
     # Rate limiting and timeouts
     rate_limit_per_minute: Optional[int] = Field(default=None, gt=0)
@@ -143,6 +144,7 @@ class SupplierConfigModel(SQLModel, table=True):
             "api_type": self.api_type,
             "base_url": self.base_url,
             "api_version": self.api_version,
+            "api_documentation_url": self.api_documentation_url,
             "rate_limit_per_minute": self.rate_limit_per_minute,
             "timeout_seconds": self.timeout_seconds,
             "max_retries": self.max_retries,

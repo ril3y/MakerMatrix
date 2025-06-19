@@ -27,23 +27,23 @@ class MouserSupplier(BaseSupplier):
         return SupplierInfo(
             name="mouser",
             display_name="Mouser Electronics",
-            description="Electronic component distributor with comprehensive inventory and global shipping",
+            description="Global electronic component distributor offering instant API access with keyword/part number search, up to 50 results per call. Provides comprehensive data including availability, pricing (4 price breaks), datasheets, images, specifications, and lifecycle status.",
             website_url="https://www.mouser.com",
-            api_documentation_url="https://api.mouser.com/api/docs/ui/index",
+            api_documentation_url="https://api.mouser.com/api/docs/V1",
             supports_oauth=False,
-            rate_limit_info="1000 requests per day for API key users"
+            rate_limit_info="30 calls per minute, 1000 calls per day (free tier with instant access)"
         )
     
     def get_capabilities(self) -> List[SupplierCapability]:
         return [
-            SupplierCapability.SEARCH_PARTS,
-            SupplierCapability.GET_PART_DETAILS,
-            SupplierCapability.FETCH_DATASHEET,
-            SupplierCapability.FETCH_IMAGE,
-            SupplierCapability.FETCH_PRICING,
-            SupplierCapability.FETCH_STOCK,
-            SupplierCapability.FETCH_SPECIFICATIONS,
-            SupplierCapability.PARAMETRIC_SEARCH
+            SupplierCapability.SEARCH_PARTS,           # Search by keyword/part number
+            SupplierCapability.GET_PART_DETAILS,       # Complete part information
+            SupplierCapability.FETCH_DATASHEET,        # Data Sheet URL
+            SupplierCapability.FETCH_IMAGE,            # Image URL
+            SupplierCapability.FETCH_PRICING,          # Pricing (up to 4 price breaks)
+            SupplierCapability.FETCH_STOCK,            # Availability
+            SupplierCapability.FETCH_SPECIFICATIONS,   # Product attributes, RoHS, lifecycle
+            SupplierCapability.PARAMETRIC_SEARCH       # Enhanced search capabilities
         ]
     
     def get_credential_schema(self) -> List[FieldDefinition]:
@@ -90,6 +90,15 @@ class MouserSupplier(BaseSupplier):
                 default_value=False,
                 description="Use language from your Mouser account",
                 help_text="If enabled, results will be in your account's language preference"
+            ),
+            FieldDefinition(
+                name="custom_headers",
+                label="Custom Headers",
+                field_type=FieldType.TEXTAREA,
+                required=False,
+                default_value="User-Agent: MyCompany/1.0\nX-Custom-Header: MyValue",
+                description="Additional HTTP headers (one per line, format: Header-Name: value)",
+                help_text="Example: User-Agent: YourApp/1.0. Useful for identification and debugging."
             )
         ]
     
@@ -99,10 +108,21 @@ class MouserSupplier(BaseSupplier):
     
     def _get_headers(self) -> Dict[str, str]:
         """Get standard headers for Mouser API calls"""
-        return {
+        headers = {
             "Accept": "application/json",
             "Content-Type": "application/json"
         }
+        
+        # Add custom headers from configuration
+        custom_headers_text = self._config.get("custom_headers", "")
+        if custom_headers_text and custom_headers_text.strip():
+            for line in custom_headers_text.strip().split('\n'):
+                line = line.strip()
+                if ':' in line:
+                    header_name, header_value = line.split(':', 1)
+                    headers[header_name.strip()] = header_value.strip()
+        
+        return headers
     
     async def authenticate(self) -> bool:
         """Test API key authentication"""
@@ -355,5 +375,5 @@ class MouserSupplier(BaseSupplier):
         return part_details.specifications if part_details else None
     
     def get_rate_limit_delay(self) -> float:
-        """Mouser rate limit: 1000 requests/day = ~86 seconds between requests for sustained use"""
-        return 90.0  # Conservative delay to avoid rate limiting
+        """Mouser rate limit: 30 calls per minute = 2 seconds between requests"""
+        return 2.0  # Conservative delay to stay under 30 calls/minute

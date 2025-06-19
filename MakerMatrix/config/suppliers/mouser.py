@@ -10,13 +10,13 @@ from typing import Dict, Any, List
 MOUSER_CONFIG: Dict[str, Any] = {
     "supplier_name": "Mouser",
     "display_name": "Mouser Electronics", 
-    "description": "Electronic component distributor with comprehensive inventory and global shipping",
+    "description": "Global electronic component distributor offering instant API access with keyword/part number search, up to 50 results per call. Provides comprehensive data including availability, pricing (4 price breaks), datasheets, images, specifications, and lifecycle status.",
     "api_type": "rest",
     "base_url": "https://api.mouser.com",
     "api_version": "v1",
     
-    # Rate limiting and timeouts
-    "rate_limit_per_minute": 1000,
+    # Rate limiting and timeouts  
+    "rate_limit_per_minute": 30,
     "timeout_seconds": 30,
     "max_retries": 3,
     "retry_backoff": 1.0,
@@ -28,6 +28,9 @@ MOUSER_CONFIG: Dict[str, Any] = {
     "supports_pricing": True,
     "supports_stock": True,
     "supports_specifications": True,
+    "supports_alternatives": True,
+    "supports_lifecycle_status": True,
+    "supports_part_validation": True,
     
     # Authentication requirements
     "auth_type": "api_key",
@@ -155,7 +158,7 @@ MOUSER_ERROR_CODES: Dict[str, str] = {
 # Configuration validation rules
 MOUSER_VALIDATION_RULES: Dict[str, Any] = {
     "api_key_format": r"^[A-Za-z0-9-]{30,50}$",
-    "max_requests_per_minute": 1000,
+    "max_requests_per_minute": 30,
     "supported_currencies": ["USD", "EUR", "GBP", "CAD"],
     "supported_regions": ["US", "EU", "APAC", "GLOBAL"]
 }

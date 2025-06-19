@@ -260,9 +260,28 @@ class PartModel(SQLModel, table=True):
             )
         ).all()
 
-    def to_dict(self) -> Dict[str, Any]:
-        """ Custom serialization method for PartModel """
-        base_dict = self.model_dump(exclude={"location", "order_items", "order_summary", "datasheets"})
+    def to_dict(self, include: List[str] = None) -> Dict[str, Any]:
+        """ 
+        Custom serialization method for PartModel 
+        
+        Args:
+            include: List of additional data to include. Options: 'orders', 'datasheets', 'all'
+        """
+        include = include or []
+        exclude_fields = {"location", "order_items", "order_summary", "datasheets"}
+        
+        # Determine what to include based on parameters
+        include_orders = 'orders' in include or 'all' in include
+        include_datasheets = 'datasheets' in include or 'all' in include
+        
+        # Adjust exclusions based on what we want to include
+        if include_orders:
+            exclude_fields.discard("order_items")
+            exclude_fields.discard("order_summary")
+        if include_datasheets:
+            exclude_fields.discard("datasheets")
+            
+        base_dict = self.model_dump(exclude=exclude_fields)
         # Always include categories, even if empty
         base_dict["categories"] = [
             {"id": category.id, "name": category.name, "description": category.description}
@@ -280,34 +299,37 @@ class PartModel(SQLModel, table=True):
         else:
             base_dict["location"] = None
         
-        # Include order summary information
-        if self.order_summary:
-            base_dict["order_summary"] = self.order_summary.to_dict()
-        else:
-            base_dict["order_summary"] = None
+        # Conditionally include order information
+        if include_orders:
+            # Include order summary information
+            if self.order_summary:
+                base_dict["order_summary"] = self.order_summary.to_dict()
+            else:
+                base_dict["order_summary"] = None
+            
+            # Include order history summary
+            if self.order_items:
+                base_dict["order_history"] = [
+                    {
+                        "order_id": item.order_id,
+                        "supplier": item.order.supplier if item.order else None,
+                        "order_date": item.order.order_date.isoformat() if item.order and item.order.order_date else None,
+                        "quantity_ordered": item.quantity_ordered,
+                        "quantity_received": item.quantity_received,
+                        "unit_price": float(item.unit_price) if item.unit_price else 0.0,
+                        "status": item.status
+                    }
+                    for item in self.order_items
+                ]
+            else:
+                base_dict["order_history"] = []
         
-        # Include order history summary
-        if self.order_items:
-            base_dict["order_history"] = [
-                {
-                    "order_id": item.order_id,
-                    "supplier": item.order.supplier if item.order else None,
-                    "order_date": item.order.order_date.isoformat() if item.order and item.order.order_date else None,
-                    "quantity_ordered": item.quantity_ordered,
-                    "quantity_received": item.quantity_received,
-                    "unit_price": float(item.unit_price) if item.unit_price else 0.0,
-                    "status": item.status
-                }
-                for item in self.order_items
-            ]
-        else:
-            base_dict["order_history"] = []
-        
-        # Include datasheet information
-        if hasattr(self, 'datasheets') and self.datasheets:
-            base_dict["datasheets"] = [datasheet.to_dict() for datasheet in self.datasheets]
-        else:
-            base_dict["datasheets"] = []
+        # Conditionally include datasheet information  
+        if include_datasheets:
+            if hasattr(self, 'datasheets') and self.datasheets:
+                base_dict["datasheets"] = [datasheet.to_dict() for datasheet in self.datasheets]
+            else:
+                base_dict["datasheets"] = []
         
         return base_dict
 

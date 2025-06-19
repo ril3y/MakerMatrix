@@ -385,12 +385,12 @@ class LCSCClient(BaseAPIClient, BaseSupplierClient):
                 # Try to get URL from lcsc_info, if not present, construct it
                 product_url = lcsc_info.get("url")
                 if not product_url and "number" in lcsc_info:
-                    # Construct LCSC product URL from part number
-                    product_url = f"https://www.lcsc.com/product-detail/{lcsc_info['number']}.html"
+                    # Use new LCSC URL format (without www, different path)
+                    product_url = f"https://lcsc.com/product/{lcsc_info['number']}"
                     self.logger.debug(f"Constructed LCSC product URL: {product_url}")
                 elif not product_url:
-                    # Fallback: construct from the lcsc_id parameter
-                    product_url = f"https://www.lcsc.com/product-detail/{lcsc_id}.html"
+                    # Fallback: construct from the lcsc_id parameter with new format
+                    product_url = f"https://lcsc.com/product/{lcsc_id}"
                     self.logger.debug(f"Fallback constructed LCSC product URL: {product_url}")
                 
                 if product_url:
@@ -449,7 +449,7 @@ class LCSCClient(BaseAPIClient, BaseSupplierClient):
                 'Upgrade-Insecure-Requests': '1',
             }
             
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 response = await client.get(product_url, headers=headers)
                 
                 if response.status_code != 200:
@@ -680,7 +680,7 @@ class LCSCClient(BaseAPIClient, BaseSupplierClient):
                 'Upgrade-Insecure-Requests': '1',
             }
             
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 response = await client.get(product_url, headers=headers)
                 
                 if response.status_code != 200:
@@ -751,7 +751,7 @@ class LCSCClient(BaseAPIClient, BaseSupplierClient):
         """
         try:
             # First try to get the actual part photo from LCSC product page
-            product_url = f"https://lcsc.com/product-detail/{lcsc_id}.html"
+            product_url = f"https://lcsc.com/product/{lcsc_id}"
             
             # Use proper async HTTP client with browser-like headers
             headers = {
@@ -763,7 +763,7 @@ class LCSCClient(BaseAPIClient, BaseSupplierClient):
                 'Upgrade-Insecure-Requests': '1',
             }
             
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 response = await client.get(product_url, headers=headers)
                 
                 if response.status_code == 200:

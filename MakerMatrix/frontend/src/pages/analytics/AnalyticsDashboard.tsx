@@ -157,13 +157,17 @@ const AnalyticsDashboard = () => {
     )
   }
 
-  // Prepare chart data
+  // Prepare chart data with safety checks for empty data
   const spendingTrendData = {
-    labels: summary.spending_trend.map(item => new Date(item.period).toLocaleDateString()),
+    labels: summary.spending_trend?.length > 0 
+      ? summary.spending_trend.map(item => new Date(item.period).toLocaleDateString())
+      : ['No Data'],
     datasets: [
       {
         label: 'Total Spent',
-        data: summary.spending_trend.map(item => item.total_spent),
+        data: summary.spending_trend?.length > 0 
+          ? summary.spending_trend.map(item => item.total_spent)
+          : [0],
         borderColor: 'rgb(99, 102, 241)',
         backgroundColor: 'rgba(99, 102, 241, 0.1)',
         fill: true,
@@ -173,10 +177,14 @@ const AnalyticsDashboard = () => {
   }
 
   const supplierSpendingData = {
-    labels: summary.spending_by_supplier.map(item => item.supplier),
+    labels: summary.spending_by_supplier?.length > 0 
+      ? summary.spending_by_supplier.map(item => item.supplier)
+      : ['No Data'],
     datasets: [
       {
-        data: summary.spending_by_supplier.map(item => item.total_spent),
+        data: summary.spending_by_supplier?.length > 0 
+          ? summary.spending_by_supplier.map(item => item.total_spent)
+          : [0],
         backgroundColor: [
           'rgba(99, 102, 241, 0.8)',
           'rgba(239, 68, 68, 0.8)',
@@ -190,11 +198,15 @@ const AnalyticsDashboard = () => {
   }
 
   const categorySpendingData = {
-    labels: summary.category_spending.slice(0, 5).map(item => item.category),
+    labels: summary.category_spending?.length > 0 
+      ? summary.category_spending.slice(0, 5).map(item => item.category)
+      : ['No Data'],
     datasets: [
       {
         label: 'Spending by Category',
-        data: summary.category_spending.slice(0, 5).map(item => item.total_spent),
+        data: summary.category_spending?.length > 0 
+          ? summary.category_spending.slice(0, 5).map(item => item.total_spent)
+          : [0],
         backgroundColor: 'rgba(99, 102, 241, 0.8)',
         borderColor: 'rgba(99, 102, 241, 1)',
         borderWidth: 1
@@ -316,7 +328,7 @@ const AnalyticsDashboard = () => {
             <div>
               <p className="text-sm text-secondary">Suppliers</p>
               <p className="text-2xl font-bold text-primary">
-                {summary.spending_by_supplier.length}
+                {summary.spending_by_supplier?.length || 0}
               </p>
               <p className="text-xs text-muted mt-1">
                 Active suppliers
@@ -467,16 +479,24 @@ const AnalyticsDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {summary.frequent_parts.map((part) => (
-                      <tr key={part.part_id}>
-                        <td className="font-medium text-primary">{part.name}</td>
-                        <td className="text-secondary">{part.part_number}</td>
-                        <td className="text-secondary">{part.current_quantity}</td>
-                        <td className="text-secondary">{part.total_orders}</td>
-                        <td className="text-secondary">{formatCurrency(part.average_price)}</td>
-                        <td className="text-secondary">{formatDate(part.last_order_date)}</td>
+                    {summary.frequent_parts?.length > 0 ? (
+                      summary.frequent_parts.map((part) => (
+                        <tr key={part.part_id}>
+                          <td className="font-medium text-primary">{part.name}</td>
+                          <td className="text-secondary">{part.part_number}</td>
+                          <td className="text-secondary">{part.current_quantity}</td>
+                          <td className="text-secondary">{part.total_orders}</td>
+                          <td className="text-secondary">{formatCurrency(part.average_price)}</td>
+                          <td className="text-secondary">{formatDate(part.last_order_date)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="text-center text-muted py-4">
+                          No order history available
+                        </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -490,26 +510,32 @@ const AnalyticsDashboard = () => {
                   Low Stock Alerts
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {summary.low_stock_parts.map((part) => (
-                    <div key={part.part_id} className="bg-error/5 border border-error/20 rounded-lg p-4">
-                      <h4 className="font-medium text-primary">{part.name}</h4>
-                      <p className="text-sm text-secondary mb-2">{part.part_number}</p>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted">Current:</span>
-                          <span className="text-error font-medium">{part.current_quantity}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted">Avg Order:</span>
-                          <span className="text-secondary">{Math.round(part.average_order_quantity)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted">Suggested:</span>
-                          <span className="text-success font-medium">{part.suggested_reorder_quantity}</span>
+                  {summary.low_stock_parts?.length > 0 ? (
+                    summary.low_stock_parts.map((part) => (
+                      <div key={part.part_id} className="bg-error/5 border border-error/20 rounded-lg p-4">
+                        <h4 className="font-medium text-primary">{part.name}</h4>
+                        <p className="text-sm text-secondary mb-2">{part.part_number}</p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted">Current:</span>
+                            <span className="text-error font-medium">{part.current_quantity}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted">Avg Order:</span>
+                            <span className="text-secondary">{Math.round(part.average_order_quantity)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted">Suggested:</span>
+                            <span className="text-success font-medium">{part.suggested_reorder_quantity}</span>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center text-muted py-4">
+                      No low stock alerts
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}

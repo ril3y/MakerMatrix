@@ -13,7 +13,7 @@ from MakerMatrix.repositories.custom_exceptions import (
     InvalidReferenceError
 )
 from MakerMatrix.models.models import CategoryModel, PartModel
-from MakerMatrix.unit_tests.test_database import create_test_db
+from MakerMatrix.tests.unit_tests.test_database import create_test_db
 from sqlmodel import select
 
 

@@ -28,7 +28,29 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
 
   const onDocumentLoadError = (error: Error) => {
     console.error('PDF load error:', error);
-    setError('Failed to load PDF document');
+    console.error('Failed URL:', fileUrl);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to load PDF document';
+    if (error.message?.includes('CORS')) {
+      errorMessage = 'CORS error: Cannot load external PDF due to security restrictions';
+    } else if (error.message?.includes('404')) {
+      errorMessage = 'PDF not found at the provided URL';
+    } else if (error.message?.includes('network')) {
+      errorMessage = 'Network error: Cannot reach the PDF source';
+    } else if (error.message?.includes('408')) {
+      errorMessage = 'Timeout while fetching PDF from external source';
+    } else if (error.message?.includes('502')) {
+      errorMessage = 'Failed to fetch PDF from external source';
+    } else if (error.message?.includes('403')) {
+      errorMessage = 'Access denied: Domain not allowed for PDF viewing';
+    } else if (fileUrl?.includes('proxy-pdf')) {
+      errorMessage = 'Failed to load PDF through proxy - the source may not be a valid PDF file';
+    } else if (fileUrl?.includes('lcsc.com') && !fileUrl.includes('.pdf')) {
+      errorMessage = 'This appears to be a webpage link, not a direct PDF URL';
+    }
+    
+    setError(errorMessage);
     setLoading(false);
   };
 

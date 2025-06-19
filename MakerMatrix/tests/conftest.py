@@ -2,7 +2,7 @@ import pytest
 import os
 import tempfile
 from sqlmodel import SQLModel, create_engine
-from MakerMatrix.models import user_models  # Ensure all models are registered
+from MakerMatrix.models import user_models, models  # Ensure all models are registered
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 from MakerMatrix.repositories.user_repository import UserRepository

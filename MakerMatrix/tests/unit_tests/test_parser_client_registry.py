@@ -222,14 +222,16 @@ class TestParserClientRegistry:
         
         enhanced_part = prepare_part_for_enrichment('lcsc', part_data)
         
-        # Verify enrichment metadata was added
+        # Verify lean enrichment metadata was added
         props = enhanced_part['additional_properties']
-        assert props['supports_enrichment'] == True
+        assert props['needs_enrichment'] == True
         assert props['enrichment_source'] == 'lcsc'
         assert props['enrichment_supplier'] == 'LCSC'
-        assert props['needs_enrichment'] == True
-        assert 'available_capabilities' in props
-        assert 'enrichment_prepared_at' in props
+        
+        # Verify bloat fields were NOT added (part of data cleanup)
+        assert 'supports_enrichment' not in props
+        assert 'available_capabilities' not in props
+        assert 'enrichment_prepared_at' not in props
         
         # Verify original data is preserved
         assert enhanced_part['part_name'] == 'Test Part'
@@ -244,10 +246,11 @@ class TestParserClientRegistry:
         
         enhanced_part = prepare_part_for_enrichment('unknown', part_data)
         
-        # Should not add enrichment metadata
+        # Should not add enrichment metadata for unsupported parsers
         props = enhanced_part.get('additional_properties', {})
-        assert props.get('supports_enrichment') != True
+        assert 'needs_enrichment' not in props
         assert 'enrichment_source' not in props
+        assert 'enrichment_supplier' not in props
     
     def test_prepare_part_for_enrichment_missing_additional_properties(self):
         """Test part preparation when additional_properties doesn't exist"""
@@ -257,11 +260,17 @@ class TestParserClientRegistry:
         
         enhanced_part = prepare_part_for_enrichment('lcsc', part_data)
         
-        # Should create additional_properties and add enrichment metadata
+        # Should create additional_properties and add lean enrichment metadata
         assert 'additional_properties' in enhanced_part
         props = enhanced_part['additional_properties']
-        assert props['supports_enrichment'] == True
+        assert props['needs_enrichment'] == True
         assert props['enrichment_source'] == 'lcsc'
+        assert props['enrichment_supplier'] == 'LCSC'
+        
+        # Verify bloat fields were NOT added
+        assert 'supports_enrichment' not in props
+        assert 'available_capabilities' not in props
+        assert 'enrichment_prepared_at' not in props
     
     @patch('MakerMatrix.services.parser_client_registry.supplier_registry')
     def test_get_enrichment_part_number_success(self, mock_supplier_registry):

@@ -370,7 +370,7 @@ class PartService:
         return PartService.part_repo.is_part_name_unique(part_name)
 
     @staticmethod
-    def get_part_by_part_number(part_number: str) -> dict[str, str | dict[str, Any]]:
+    def get_part_by_part_number(part_number: str, include: List[str] = None) -> dict[str, str | dict[str, Any]]:
         try:
             identifier = "part number"
             session = next(get_session())
@@ -385,7 +385,7 @@ class PartService:
                 return {
                     "status": "success",
                     "message": f"Part with {identifier} '{part_number}' found.",
-                    "data": part_with_orders.to_dict(),
+                    "data": part_with_orders.to_dict(include=include),
                 }
             
             raise ResourceNotFoundError(
@@ -398,12 +398,13 @@ class PartService:
             raise rnfe
 
     @staticmethod
-    def get_part_by_part_name(part_name: str) -> dict[str, str | dict[str, Any]]:
+    def get_part_by_part_name(part_name: str, include: List[str] = None) -> dict[str, str | dict[str, Any]]:
         """
         Get a part by its part name.
 
         Args:
             part_name (str): The name of the part to be retrieved.
+            include (List[str]): Optional list of additional data to include
 
         Returns:
             dict[str, str | dict[str, Any]]: A dictionary containing the status, message, and data of the found part.
@@ -422,7 +423,7 @@ class PartService:
                 return {
                     "status": "success",
                     "message": f"Part with {identifier} '{part_name}' found.",
-                    "data": part_with_orders.to_dict(),
+                    "data": part_with_orders.to_dict(include=include),
                 }
             
             raise ResourceNotFoundError(
@@ -435,7 +436,7 @@ class PartService:
             raise rnfe
 
     @staticmethod
-    def get_part_by_id(part_id: str) -> Dict[str, Any]:
+    def get_part_by_id(part_id: str, include: List[str] = None) -> Dict[str, Any]:
         try:
             # Use the get_session function to get a session
             identifier = "ID"
@@ -451,7 +452,7 @@ class PartService:
                 return {
                     "status": "success",
                     "message": f"Part with {identifier} '{part_id}' found.",
-                    "data": part_with_orders.to_dict(),
+                    "data": part_with_orders.to_dict(include=include),
                 }
 
             raise ResourceNotFoundError(

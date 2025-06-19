@@ -128,3 +128,16 @@ export const handleApiError = (error: any): string => {
   }
   return 'An unexpected error occurred'
 }
+
+// Helper function to get PDF proxy URL
+export const getPDFProxyUrl = (externalUrl: string): string => {
+  const isDevelopment = (import.meta as any).env?.DEV
+  
+  if (isDevelopment) {
+    // Use relative URL so it goes through Vite proxy
+    return `/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
+  } else {
+    // Production: use full API URL
+    return `${API_BASE_URL}/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
+  }
+}

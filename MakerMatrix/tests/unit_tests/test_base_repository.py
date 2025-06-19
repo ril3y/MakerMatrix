@@ -9,7 +9,7 @@ import pytest
 import uuid
 from sqlmodel import SQLModel, Field, create_engine, Session
 from MakerMatrix.repositories.base_repository import BaseRepository
-from MakerMatrix.unit_tests.test_database import create_test_db
+from MakerMatrix.tests.unit_tests.test_database import create_test_db
 from typing import Optional
 
 

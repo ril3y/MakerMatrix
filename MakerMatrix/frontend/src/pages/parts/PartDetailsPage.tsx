@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
 import { Part, Datasheet } from '@/types/parts'
+import { getPDFProxyUrl } from '@/services/api'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
 import PDFViewer from '@/components/ui/PDFViewer'
@@ -128,7 +129,9 @@ const PartDetailsPage = () => {
   }
 
   const openPDFPreview = (url: string) => {
-    setPdfPreviewUrl(url)
+    // Use the backend PDF proxy to avoid CORS issues
+    const proxyUrl = getPDFProxyUrl(url)
+    setPdfPreviewUrl(proxyUrl)
     setPdfPreviewOpen(true)
   }
 
@@ -790,21 +793,25 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
     Object.entries(properties).forEach(([key, value]) => {
       const lowerKey = key.toLowerCase()
       
+      // Component-specific data (check first to prioritize component categorization)
+      if (lowerKey.includes('component_') || key.startsWith('component_') ||
+          lowerKey.includes('package') || lowerKey.includes('footprint') || 
+          lowerKey.includes('mounting') || lowerKey.includes('form_factor') ||
+          lowerKey.includes('resistor_') || lowerKey.includes('capacitor_') || 
+          lowerKey.includes('inductor_') || lowerKey.includes('diode_') || 
+          lowerKey.includes('ic_') || lowerKey.includes('series') ||
+          (lowerKey.includes('type') && !lowerKey.includes('import') && !lowerKey.includes('file')) ||
+          (lowerKey.includes('value') && !lowerKey.includes('total') && !lowerKey.includes('inventory'))) {
+        organized.component[key] = value
+      }
       // Technical specifications (from EasyEDA API enrichment)
-      if (key.startsWith('spec_') || 
+      else if (key.startsWith('spec_') || 
           lowerKey.includes('voltage') || lowerKey.includes('capacitance') || 
           lowerKey.includes('resistance') || lowerKey.includes('tolerance') || 
           lowerKey.includes('temperature') || lowerKey.includes('rating') ||
           lowerKey.includes('frequency') || lowerKey.includes('power') ||
           lowerKey.includes('current') || lowerKey.includes('impedance')) {
         organized.technical[key] = value
-      }
-      // Component-specific data
-      else if (lowerKey.includes('resistor_') || lowerKey.includes('capacitor_') || 
-               lowerKey.includes('inductor_') || lowerKey.includes('diode_') || 
-               lowerKey.includes('ic_') || lowerKey.includes('package') ||
-               lowerKey.includes('footprint') || lowerKey.includes('mounting')) {
-        organized.component[key] = value
       }
       // Supplier and pricing information
       else if (lowerKey.includes('supplier') || lowerKey.includes('price') || 

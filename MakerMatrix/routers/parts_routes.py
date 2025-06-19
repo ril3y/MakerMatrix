@@ -255,16 +255,22 @@ async def get_all_parts(
 async def get_part(
         part_id: Optional[str] = Query(None),
         part_number: Optional[str] = Query(None),
-        part_name: Optional[str] = Query(None)
+        part_name: Optional[str] = Query(None),
+        include: Optional[str] = Query(None, description="Comma-separated list of additional data to include (orders, datasheets, all)")
 ) -> ResponseSchema[PartResponse]:
     try:
+        # Parse include parameter
+        include_list = []
+        if include:
+            include_list = [item.strip() for item in include.split(",")]
+        
         # Use the PartService to determine which parameter to use for fetching
         if part_id:
-            response = PartService.get_part_by_id(part_id)
+            response = PartService.get_part_by_id(part_id, include=include_list)
         elif part_number:
-            response = PartService.get_part_by_part_number(part_number)
+            response = PartService.get_part_by_part_number(part_number, include=include_list)
         elif part_name:
-            response = PartService.get_part_by_part_name(part_name)
+            response = PartService.get_part_by_part_name(part_name, include=include_list)
         else:
             # If no identifier is provided, return a 400 error
             raise HTTPException(

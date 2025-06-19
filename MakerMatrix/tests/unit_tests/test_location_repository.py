@@ -12,7 +12,7 @@ from MakerMatrix.repositories.custom_exceptions import (
     InvalidReferenceError
 )
 from MakerMatrix.models.models import LocationModel, LocationQueryModel, PartModel
-from MakerMatrix.unit_tests.test_database import create_test_db, create_test_db_with_data
+from MakerMatrix.tests.unit_tests.test_database import create_test_db, create_test_db_with_data
 from sqlmodel import select
 
 

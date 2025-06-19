@@ -6,8 +6,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Settings, TestTube, Upload, RefreshCw, AlertTriangle, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
-import { supplierService, SupplierConfig, ConnectionTestResult } from '../../services/supplier.service';
+import { Plus, Settings, Upload, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { supplierService, SupplierConfig } from '../../services/supplier.service';
+import { dynamicSupplierService } from '../../services/dynamic-supplier.service';
 import { DynamicAddSupplierModal } from './DynamicAddSupplierModal';
 import { EditSupplierModal } from './EditSupplierModal';
 import { ImportExportModal } from './ImportExportModal';
@@ -16,16 +17,15 @@ export const SupplierConfigPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<SupplierConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, ConnectionTestResult>>({});
-  const [testing, setTesting] = useState<Record<string, boolean>>({});
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<SupplierConfig | null>(null);
   const [showImportExport, setShowImportExport] = useState(false);
   
-  // UI states
-  const [showCredentialStatus, setShowCredentialStatus] = useState(false);
+  // Cache for credential requirements to avoid repeated API calls
+  const [credentialRequirements, setCredentialRequirements] = useState<Record<string, boolean>>({});
+  
 
   useEffect(() => {
     loadSuppliers();
@@ -37,6 +37,20 @@ export const SupplierConfigPage: React.FC = () => {
       setError(null);
       const data = await supplierService.getSuppliers();
       setSuppliers(data || []);
+      
+      // Load credential requirements for each supplier
+      const requirements: Record<string, boolean> = {};
+      for (const supplier of data || []) {
+        try {
+          const credentialSchema = await dynamicSupplierService.getCredentialSchema(supplier.supplier_name.toLowerCase());
+          requirements[supplier.supplier_name] = Array.isArray(credentialSchema) && credentialSchema.length > 0;
+        } catch (err) {
+          // If we can't get the schema, assume credentials are required
+          requirements[supplier.supplier_name] = true;
+        }
+      }
+      setCredentialRequirements(requirements);
+      
     } catch (err: any) {
       console.error('Error loading suppliers:', err);
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to load supplier configurations';
@@ -47,29 +61,6 @@ export const SupplierConfigPage: React.FC = () => {
     }
   };
 
-  const handleTestConnection = async (supplierName: string) => {
-    try {
-      setTesting(prev => ({ ...prev, [supplierName]: true }));
-      console.log(`Testing connection for supplier: ${supplierName}`);
-      const result = await supplierService.testConnection(supplierName);
-      console.log(`Test result for ${supplierName}:`, result);
-      setTestResults(prev => ({ ...prev, [supplierName]: result }));
-    } catch (err: any) {
-      console.error(`Test failed for ${supplierName}:`, err);
-      setTestResults(prev => ({ 
-        ...prev, 
-        [supplierName]: {
-          supplier_name: supplierName,
-          success: false,
-          test_duration_seconds: 0,
-          tested_at: new Date().toISOString(),
-          error_message: err.response?.data?.detail || 'Connection test failed'
-        }
-      }));
-    } finally {
-      setTesting(prev => ({ ...prev, [supplierName]: false }));
-    }
-  };
 
   const handleToggleEnabled = async (supplier: SupplierConfig) => {
     try {
@@ -90,12 +81,6 @@ export const SupplierConfigPage: React.FC = () => {
     try {
       await supplierService.deleteSupplier(supplierName);
       await loadSuppliers();
-      // Clear test results for deleted supplier
-      setTestResults(prev => {
-        const newResults = { ...prev };
-        delete newResults[supplierName];
-        return newResults;
-      });
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to delete supplier configuration');
     }
@@ -110,23 +95,29 @@ export const SupplierConfigPage: React.FC = () => {
       return <XCircle className="w-5 h-5 text-gray-400" />;
     }
 
-    const testResult = testResults[supplier.supplier_name];
-    if (!testResult) {
-      return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+    // Check if this supplier requires credentials
+    const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true;
+    
+    if (!requiresCredentials) {
+      return <CheckCircle className="w-5 h-5 text-green-500" />; // Public API, no credentials needed
     }
 
-    return testResult.success ? 
+    return supplier.has_credentials ? 
       <CheckCircle className="w-5 h-5 text-green-500" /> : 
-      <XCircle className="w-5 h-5 text-red-500" />;
+      <AlertTriangle className="w-5 h-5 text-yellow-500" />;
   };
 
   const getStatusText = (supplier: SupplierConfig) => {
     if (!supplier.enabled) return 'Disabled';
     
-    const testResult = testResults[supplier.supplier_name];
-    if (!testResult) return 'Not tested';
+    // Check if this supplier requires credentials
+    const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true;
     
-    return testResult.success ? 'Connected' : 'Connection failed';
+    if (!requiresCredentials) {
+      return 'Configured'; // Public API, no credentials needed
+    }
+    
+    return supplier.has_credentials ? 'Configured' : 'Needs credentials';
   };
 
   if (loading && suppliers.length === 0) {
@@ -195,16 +186,7 @@ export const SupplierConfigPage: React.FC = () => {
 
         {/* Header Info */}
         <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowCredentialStatus(!showCredentialStatus)}
-                className="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 text-sm rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-              >
-                {showCredentialStatus ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-                Show Credentials Status
-              </button>
-            </div>
+          <div className="flex items-center justify-end">
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {filteredSuppliers.length} supplier{filteredSuppliers.length !== 1 ? 's' : ''}
             </span>
@@ -257,14 +239,6 @@ export const SupplierConfigPage: React.FC = () => {
                     </div>
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={() => handleTestConnection(supplier.supplier_name)}
-                        disabled={testing[supplier.supplier_name]}
-                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
-                        title="Test Connection"
-                      >
-                        <TestTube className={`w-4 h-4 ${testing[supplier.supplier_name] ? 'animate-pulse' : ''}`} />
-                      </button>
-                      <button
                         onClick={() => setEditingSupplier(supplier)}
                         className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                         title="Edit Configuration"
@@ -306,16 +280,6 @@ export const SupplierConfigPage: React.FC = () => {
                       </span>
                     </div>
 
-                    {showCredentialStatus && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Credentials:</span>
-                        <span className={`text-sm font-medium ${
-                          supplier.has_credentials ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
-                        }`}>
-                          {supplier.has_credentials ? 'Configured' : 'Not Set'}
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   {/* Capabilities */}
@@ -332,41 +296,6 @@ export const SupplierConfigPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Test Results */}
-                  {testResults[supplier.supplier_name] && (
-                    <div className={`mt-4 p-3 border rounded-md ${
-                      testResults[supplier.supplier_name].success 
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                    }`}>
-                      <div className="flex">
-                        {testResults[supplier.supplier_name].success ? (
-                          <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
-                        )}
-                        <div className="ml-2">
-                          <h4 className={`text-sm font-medium ${
-                            testResults[supplier.supplier_name].success 
-                              ? 'text-green-800 dark:text-green-200'
-                              : 'text-red-800 dark:text-red-200'
-                          }`}>
-                            Connection Test {testResults[supplier.supplier_name].success ? 'Successful' : 'Failed'}
-                          </h4>
-                          <p className={`text-sm mt-1 ${
-                            testResults[supplier.supplier_name].success 
-                              ? 'text-green-700 dark:text-green-300'
-                              : 'text-red-700 dark:text-red-300'
-                          }`}>
-                            {testResults[supplier.supplier_name].success 
-                              ? `Connected successfully in ${testResults[supplier.supplier_name].test_duration_seconds.toFixed(2)}s`
-                              : (testResults[supplier.supplier_name].error_message || 'Unknown error occurred')
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Actions */}
                   <div className="mt-6 flex items-center justify-end">
