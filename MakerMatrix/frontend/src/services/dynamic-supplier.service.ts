@@ -83,6 +83,14 @@ export class DynamicSupplierService {
   }
 
   /**
+   * Get list of configured and enabled suppliers (for dropdowns)
+   */
+  async getConfiguredSuppliers(): Promise<Array<{id: string; name: string; description: string; configured: boolean; enabled: boolean}>> {
+    const response = await apiClient.get('/api/suppliers/configured');
+    return response.data.data;
+  }
+
+  /**
    * Get information about all suppliers
    */
   async getAllSuppliersInfo(): Promise<Record<string, SupplierInfo>> {

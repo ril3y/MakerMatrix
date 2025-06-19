@@ -59,28 +59,21 @@ class MouserSupplier(BaseSupplier):
         ]
     
     def get_configuration_schema(self) -> List[FieldDefinition]:
+        """Safe configuration schema - only expose user-relevant parameters"""
         return [
             FieldDefinition(
-                name="base_url",
-                label="API Base URL",
-                field_type=FieldType.URL,
-                required=False,
-                default_value="https://api.mouser.com/api/v1",
-                description="Mouser API base URL",
-                help_text="Default URL should work for most users"
-            ),
-            FieldDefinition(
                 name="search_option",
-                label="Search Option",
+                label="Search Behavior",
                 field_type=FieldType.SELECT,
                 required=False,
                 default_value="None",
-                description="Search behavior option",
+                description="How to perform part number searches",
                 options=[
-                    {"value": "None", "label": "Default search"},
-                    {"value": "ManufacturerPartNumber", "label": "Manufacturer part number only"},
+                    {"value": "None", "label": "Default search (recommended)"},
+                    {"value": "ManufacturerPartNumber", "label": "Exact manufacturer part number only"},
                     {"value": "KeywordSearchInclude", "label": "Include description keywords"},
-                ]
+                ],
+                help_text="Default search works best for most use cases"
             ),
             FieldDefinition(
                 name="search_with_your_signup_language",
@@ -88,17 +81,18 @@ class MouserSupplier(BaseSupplier):
                 field_type=FieldType.BOOLEAN,
                 required=False,
                 default_value=False,
-                description="Use language from your Mouser account",
-                help_text="If enabled, results will be in your account's language preference"
+                description="Use the language preference from your Mouser account",
+                help_text="Enable if you need results in your account's configured language"
             ),
             FieldDefinition(
-                name="custom_headers",
-                label="Custom Headers",
-                field_type=FieldType.TEXTAREA,
+                name="request_timeout",
+                label="Request Timeout (seconds)",
+                field_type=FieldType.NUMBER,
                 required=False,
-                default_value="User-Agent: MyCompany/1.0\nX-Custom-Header: MyValue",
-                description="Additional HTTP headers (one per line, format: Header-Name: value)",
-                help_text="Example: User-Agent: YourApp/1.0. Useful for identification and debugging."
+                default_value=30,
+                description="API request timeout in seconds",
+                validation={"min": 5, "max": 120},
+                help_text="Increase if you experience timeout errors (5-120 seconds)"
             )
         ]
     

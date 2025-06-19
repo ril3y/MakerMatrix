@@ -309,25 +309,33 @@ class DigiKeyCapabilities(SupplierCapabilities):
 
 # Dynamic registry using supplier registry system
 def _build_dynamic_capabilities_registry() -> Dict[str, SupplierCapabilities]:
-    """Build capabilities registry dynamically using supplier registry"""
+    """Build capabilities registry dynamically using new supplier registry"""
     registry = {}
     
     try:
-        from MakerMatrix.clients.suppliers.supplier_registry import get_available_suppliers, get_supplier_capabilities
+        from MakerMatrix.suppliers.registry import get_available_suppliers, get_supplier
         
-        # Get all available suppliers from the dynamic registry
+        # Get all available suppliers from the new registry
         for supplier_name in get_available_suppliers():
-            capabilities_list = get_supplier_capabilities(supplier_name)
-            
-            if capabilities_list:
-                # Create a dynamic SupplierCapabilities instance
-                capabilities = SupplierCapabilities(
-                    name=supplier_name,
-                    supported_operations={
-                        cap: True for cap in capabilities_list
-                    }
-                )
-                registry[supplier_name] = capabilities
+            try:
+                supplier = get_supplier(supplier_name)
+                capabilities = supplier.get_capabilities()
+                capability_names = [cap.name.lower() for cap in capabilities]
+                
+                if capability_names:
+                    # Create a dynamic SupplierCapabilities instance
+                    capabilities_obj = SupplierCapabilities(
+                        name=supplier_name,
+                        supported_operations={
+                            cap: True for cap in capability_names
+                        }
+                    )
+                    registry[supplier_name] = capabilities_obj
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to get capabilities for supplier {supplier_name}: {e}")
+                continue
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)

@@ -6,9 +6,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Settings, Upload, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Settings, Upload, AlertTriangle, CheckCircle, XCircle, Activity, Clock } from 'lucide-react';
 import { supplierService, SupplierConfig } from '../../services/supplier.service';
 import { dynamicSupplierService } from '../../services/dynamic-supplier.service';
+import { rateLimitService, SupplierRateLimitData } from '../../services/rate-limit.service';
 import { DynamicAddSupplierModal } from './DynamicAddSupplierModal';
 import { EditSupplierModal } from './EditSupplierModal';
 import { ImportExportModal } from './ImportExportModal';
@@ -26,9 +27,14 @@ export const SupplierConfigPage: React.FC = () => {
   // Cache for credential requirements to avoid repeated API calls
   const [credentialRequirements, setCredentialRequirements] = useState<Record<string, boolean>>({});
   
+  // Rate limit data
+  const [rateLimitData, setRateLimitData] = useState<Record<string, SupplierRateLimitData>>({});
+  const [loadingRateLimits, setLoadingRateLimits] = useState(false);
+  
 
   useEffect(() => {
     loadSuppliers();
+    loadRateLimitData();
   }, []);
 
   const loadSuppliers = async () => {
@@ -61,6 +67,25 @@ export const SupplierConfigPage: React.FC = () => {
     }
   };
 
+  const loadRateLimitData = async () => {
+    try {
+      setLoadingRateLimits(true);
+      const rateLimits = await rateLimitService.getAllSupplierUsage();
+      
+      // Convert array to object for easier lookup
+      const rateLimitMap: Record<string, SupplierRateLimitData> = {};
+      rateLimits.forEach(data => {
+        rateLimitMap[data.supplier_name.toLowerCase()] = data;
+      });
+      
+      setRateLimitData(rateLimitMap);
+    } catch (err: any) {
+      console.error('Error loading rate limit data:', err);
+      // Don't show error for rate limits as it's supplementary data
+    } finally {
+      setLoadingRateLimits(false);
+    }
+  };
 
   const handleToggleEnabled = async (supplier: SupplierConfig) => {
     try {
@@ -279,6 +304,47 @@ export const SupplierConfigPage: React.FC = () => {
                         {supplier.capabilities.length}
                       </span>
                     </div>
+
+                    {/* Rate Limit Information */}
+                    {rateLimitData[supplier.supplier_name.toLowerCase()] && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            <Activity className="w-3 h-3 inline mr-1" />
+                            API Usage:
+                          </span>
+                          <span className="text-sm">
+                            {rateLimitData[supplier.supplier_name.toLowerCase()].stats_24h.total_requests} calls (24h)
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            <Clock className="w-3 h-3 inline mr-1" />
+                            Rate Limit:
+                          </span>
+                          <div className="text-right">
+                            {Object.entries(rateLimitData[supplier.supplier_name.toLowerCase()].usage_percentage).map(([period, percentage]) => (
+                              <div key={period} className="text-xs">
+                                <span className={rateLimitService.getUsageColor(percentage)}>
+                                  {rateLimitService.formatUsagePercentage(percentage)}
+                                </span>
+                                <span className="text-gray-400 ml-1">
+                                  {period.replace('per_', '')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {loadingRateLimits && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Rate Limits:</span>
+                        <span className="text-xs text-gray-400">Loading...</span>
+                      </div>
+                    )}
 
                   </div>
 

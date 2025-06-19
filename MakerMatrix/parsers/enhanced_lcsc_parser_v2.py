@@ -13,8 +13,8 @@ from MakerMatrix.lib.required_input import RequiredInput
 from MakerMatrix.parts.parts import Part
 from MakerMatrix.parsers.enhanced_parser import EnhancedParser, EnrichmentResult
 from MakerMatrix.parsers.supplier_capabilities import CapabilityType
-from MakerMatrix.clients.suppliers.lcsc_client import LCSCClient
-from MakerMatrix.clients.base_client import BaseAPIClient
+from MakerMatrix.suppliers.base import BaseSupplier
+from MakerMatrix.suppliers.registry import get_supplier
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +36,17 @@ class EnhancedLcscParserV2(EnhancedParser):
     more testable and maintainable.
     """
     
-    def __init__(self, api_client: Optional[BaseAPIClient] = None):
+    def __init__(self, supplier: Optional[BaseSupplier] = None):
         """
         Initialize parser with dependency injection
         
         Args:
-            api_client: API client for LCSC/EasyEDA (defaults to LCSCClient)
+            supplier: LCSC supplier instance (defaults to registry LCSC supplier)
         """
         super().__init__(pattern=re.compile(r"(\w+):([^,']+)"), supplier_name="LCSC")
         
-        # Use provided client or create default
-        self.api_client = api_client or LCSCClient()
+        # Use provided supplier or get default from registry
+        self.supplier = supplier or get_supplier("lcsc")
         
         # Part instance will be created when needed, avoiding abstract class instantiation
         self._part_config = {
@@ -83,18 +83,8 @@ class EnhancedLcscParserV2(EnhancedParser):
         try:
             self.logger.info(f"Fetching datasheet for LCSC part: {part_number}")
             
-            # Use the injected API client to get component data
-            if isinstance(self.api_client, LCSCClient):
-                component_data = await self.api_client.get_component_info(part_number.upper())
-            else:
-                # Fallback for generic API clients
-                response = await self.api_client.get(f"api/products/{part_number.upper()}/components")
-                if not response.success:
-                    raise Exception(f"API request failed: {response.error_message}")
-                component_data = response.data
-            
-            # Parse the response to extract datasheet URL
-            datasheet_url = self._extract_datasheet_url(component_data, part_number)
+            # Use the supplier to fetch datasheet directly
+            datasheet_url = await self.supplier.fetch_datasheet(part_number.upper())
             
             if datasheet_url:
                 return EnrichmentResult(
@@ -127,17 +117,17 @@ class EnhancedLcscParserV2(EnhancedParser):
         try:
             self.logger.info(f"Fetching pricing for LCSC part: {part_number}")
             
-            # Get component data via API client
-            if isinstance(self.api_client, LCSCClient):
-                component_data = await self.api_client.get_component_info(part_number.upper())
-            else:
-                response = await self.api_client.get(f"api/products/{part_number.upper()}/components")
-                if not response.success:
-                    raise Exception(f"API request failed: {response.error_message}")
-                component_data = response.data
+            # Get part details and extract pricing information
+            part_details = await self.supplier.get_part_details(part_number.upper())
+            if not part_details:
+                raise Exception("Part not found")
             
-            # Parse pricing data
-            pricing_data = self._extract_pricing_data(component_data, part_number)
+            # Extract pricing from part details
+            pricing_data = {
+                'part_number': part_number,
+                'supplier': 'LCSC',
+                'pricing': part_details.pricing if part_details.pricing else []
+            }
             
             if pricing_data:
                 return EnrichmentResult(
@@ -165,17 +155,18 @@ class EnhancedLcscParserV2(EnhancedParser):
         try:
             self.logger.info(f"Fetching stock for LCSC part: {part_number}")
             
-            # Get component data via API client
-            if isinstance(self.api_client, LCSCClient):
-                component_data = await self.api_client.get_component_info(part_number.upper())
-            else:
-                response = await self.api_client.get(f"api/products/{part_number.upper()}/components")
-                if not response.success:
-                    raise Exception(f"API request failed: {response.error_message}")
-                component_data = response.data
+            # Get part details and extract stock information
+            part_details = await self.supplier.get_part_details(part_number.upper())
+            if not part_details:
+                raise Exception("Part not found")
             
-            # Parse stock data
-            stock_info = self._extract_stock_data(component_data, part_number)
+            # Extract stock info from part details
+            stock_info = {
+                'part_number': part_number,
+                'supplier': 'LCSC',
+                'stock_level': part_details.stock_quantity or 0,
+                'availability': 'in_stock' if part_details.stock_quantity and part_details.stock_quantity > 0 else 'unknown'
+            }
             
             return EnrichmentResult(
                 CapabilityType.FETCH_STOCK,
@@ -196,17 +187,8 @@ class EnhancedLcscParserV2(EnhancedParser):
         try:
             self.logger.info(f"Fetching image for LCSC part: {part_number}")
             
-            # Get component data via API client
-            if isinstance(self.api_client, LCSCClient):
-                component_data = await self.api_client.get_component_info(part_number.upper())
-                # Also try direct image URL method
-                image_url = await self.api_client.get_component_image_url(part_number.upper())
-            else:
-                response = await self.api_client.get(f"api/products/{part_number.upper()}/components")
-                if not response.success:
-                    raise Exception(f"API request failed: {response.error_message}")
-                component_data = response.data
-                image_url = self._extract_image_url(component_data, part_number)
+            # Use the supplier to fetch image directly
+            image_url = await self.supplier.fetch_image(part_number.upper())
             
             if image_url:
                 return EnrichmentResult(
@@ -239,17 +221,8 @@ class EnhancedLcscParserV2(EnhancedParser):
         try:
             self.logger.info(f"Fetching specifications for LCSC part: {part_number}")
             
-            # Get component data via API client
-            if isinstance(self.api_client, LCSCClient):
-                component_data = await self.api_client.get_component_info(part_number.upper())
-            else:
-                response = await self.api_client.get(f"api/products/{part_number.upper()}/components")
-                if not response.success:
-                    raise Exception(f"API request failed: {response.error_message}")
-                component_data = response.data
-            
-            # Parse specifications
-            specifications = self._extract_specifications(component_data, part_number)
+            # Use the supplier to fetch specifications directly
+            specifications = await self.supplier.fetch_specifications(part_number.upper())
             
             if specifications:
                 return EnrichmentResult(

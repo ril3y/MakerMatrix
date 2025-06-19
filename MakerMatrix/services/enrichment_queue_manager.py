@@ -19,6 +19,7 @@ from MakerMatrix.schemas.websocket_schemas import (
     create_enrichment_progress_message,
     create_notification_message,
     create_toast_message,
+    create_rate_limit_update_message,
     WebSocketEventType
 )
 
@@ -386,7 +387,7 @@ class EnrichmentQueueManager:
                                 current_capability=capability,
                                 task_id=task.id
                             )
-                            await self.websocket_manager.broadcast_to_all(message.dict())
+                            await self.websocket_manager.broadcast_to_all(message.model_dump())
                         except Exception as e:
                             logger.warning(f"Failed to broadcast enrichment progress: {e}")
                     
@@ -432,7 +433,7 @@ class EnrichmentQueueManager:
                             duration=5000
                         )
                     
-                    await self.websocket_manager.broadcast_to_all(message.dict())
+                    await self.websocket_manager.broadcast_to_all(message.model_dump())
                 except Exception as e:
                     logger.warning(f"Failed to broadcast completion notification: {e}")
             
@@ -461,7 +462,7 @@ class EnrichmentQueueManager:
                 queue_size=queue.queue_size
             )
             
-            await self.websocket_manager.broadcast_to_all(message.dict())
+            await self.websocket_manager.broadcast_to_all(message.model_dump())
         except Exception as e:
             logger.warning(f"Failed to broadcast queue status: {e}")
     

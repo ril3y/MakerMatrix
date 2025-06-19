@@ -18,7 +18,7 @@ from MakerMatrix.services.parser_client_registry import (
     validate_mapping,
     prepare_part_for_enrichment
 )
-from MakerMatrix.clients.suppliers.base_supplier_client import BaseSupplierClient
+from MakerMatrix.suppliers.base import BaseSupplier
 
 
 class TestParserClientRegistry:
@@ -365,7 +365,7 @@ class TestParserClientRegistryIntegration:
     
     def test_real_supplier_registry_integration(self):
         """Test integration with real supplier registry"""
-        from MakerMatrix.clients.suppliers.supplier_registry import get_available_suppliers
+        from MakerMatrix.suppliers.registry import get_available_suppliers
         
         available_suppliers = get_available_suppliers()
         mapped_suppliers = list(ParserClientRegistry.PARSER_CLIENT_MAPPING.values())

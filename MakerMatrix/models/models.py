@@ -12,6 +12,11 @@ from datetime import datetime
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
 from MakerMatrix.models.task_models import TaskModel
 from MakerMatrix.models.supplier_config_models import SupplierConfigModel, SupplierCredentialsModel, EnrichmentProfileModel
+from MakerMatrix.models.rate_limiting_models import (
+    SupplierRateLimitModel, 
+    SupplierUsageTrackingModel, 
+    SupplierUsageSummaryModel
+)
 
 # Association table to link PartModel and CategoryModel
 # Association table to link PartModel and CategoryModel

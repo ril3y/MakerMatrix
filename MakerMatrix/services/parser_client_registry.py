@@ -11,8 +11,8 @@ import logging
 from datetime import datetime
 
 from MakerMatrix.services.csv_import.parser_registry import csv_parser_registry
-from MakerMatrix.clients.suppliers.supplier_registry import supplier_registry
-from MakerMatrix.clients.suppliers.base_supplier_client import BaseSupplierClient
+from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
+from MakerMatrix.suppliers.base import BaseSupplier
 from MakerMatrix.services.csv_import.base_parser import BaseCSVParser
 
 logger = logging.getLogger(__name__)
@@ -43,22 +43,22 @@ class ParserClientRegistry:
     ]
     
     @classmethod
-    def get_enrichment_client(cls, parser_type: str) -> Optional[BaseSupplierClient]:
+    def get_enrichment_client(cls, parser_type: str) -> Optional[BaseSupplier]:
         """
-        Get the enrichment client for a given parser type
+        Get the enrichment supplier for a given parser type
         
         Args:
             parser_type: CSV parser type (e.g., 'lcsc', 'digikey')
             
         Returns:
-            Supplier client instance or None if no mapping exists
+            Supplier instance or None if no mapping exists
         """
         supplier_name = cls.PARSER_CLIENT_MAPPING.get(parser_type.lower())
         if supplier_name:
             try:
-                return supplier_registry.create_supplier_client(supplier_name)
+                return get_supplier(supplier_name.lower())
             except Exception as e:
-                logger.warning(f"Failed to create supplier client {supplier_name} for parser {parser_type}: {e}")
+                logger.warning(f"Failed to create supplier {supplier_name} for parser {parser_type}: {e}")
                 return None
         return None
     
@@ -88,12 +88,20 @@ class ParserClientRegistry:
         Returns:
             List of enrichment capability names
         """
-        client = cls.get_enrichment_client(parser_type)
-        if client:
+        supplier = cls.get_enrichment_client(parser_type)
+        if supplier:
             try:
-                client_capabilities = client.get_supported_capabilities()
-                # Return intersection of client capabilities and CSV-relevant capabilities
-                return [cap for cap in client_capabilities if cap in cls.DEFAULT_CSV_ENRICHMENT_CAPABILITIES]
+                # New supplier system has capabilities as SupplierCapability enum
+                capabilities = supplier.get_capabilities()
+                capability_names = []
+                
+                # Map capabilities to string names for CSV enrichment
+                for cap in capabilities:
+                    cap_name = cap.name.lower()  # e.g., FETCH_DATASHEET -> fetch_datasheet
+                    if cap_name in cls.DEFAULT_CSV_ENRICHMENT_CAPABILITIES:
+                        capability_names.append(cap_name)
+                
+                return capability_names
             except Exception as e:
                 logger.warning(f"Failed to get capabilities for {parser_type}: {e}")
                 return []
@@ -205,13 +213,9 @@ class ParserClientRegistry:
         Returns:
             Supplier-specific part number or None if not found
         """
-        client = cls.get_enrichment_client(parser_type)
-        if client and hasattr(client, 'get_supplier_part_number'):
-            try:
-                return client.get_supplier_part_number(part_data)
-            except Exception as e:
-                logger.warning(f"Failed to extract part number for {parser_type}: {e}")
-        return None
+        # For CSV imports, typically use the part_number field directly
+        # since CSV parsers extract supplier-specific part numbers
+        return part_data.get('part_number') or part_data.get('supplier_part_number')
     
     @classmethod
     def prepare_part_for_enrichment(cls, parser_type: str, part_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -246,8 +250,8 @@ parser_client_registry = ParserClientRegistry()
 
 
 # Convenience functions for easy imports
-def get_enrichment_client(parser_type: str) -> Optional[BaseSupplierClient]:
-    """Get enrichment client for parser type"""
+def get_enrichment_client(parser_type: str) -> Optional[BaseSupplier]:
+    """Get enrichment supplier for parser type"""
     return parser_client_registry.get_enrichment_client(parser_type)
 
 

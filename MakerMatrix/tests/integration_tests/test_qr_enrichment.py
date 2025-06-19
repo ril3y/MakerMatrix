@@ -109,7 +109,7 @@ class TestQREnrichmentIntegration:
         assert "not configured on backend" in result["message"]
 
     @pytest.mark.integration 
-    @patch('MakerMatrix.clients.suppliers.supplier_registry.get_available_suppliers')
+    @patch('MakerMatrix.suppliers.registry.get_available_suppliers')
     @patch('MakerMatrix.services.supplier_config_service.SupplierConfigService.get_supplier_config')
     @patch('MakerMatrix.services.task_service.get_task_service')
     def test_qr_part_creation_with_enrichment_success(
@@ -164,7 +164,7 @@ class TestQREnrichmentIntegration:
             assert call_args.priority == TaskPriority.HIGH
 
     @pytest.mark.integration
-    @patch('MakerMatrix.clients.suppliers.supplier_registry.get_available_suppliers')
+    @patch('MakerMatrix.suppliers.registry.get_available_suppliers')
     @patch('MakerMatrix.services.supplier_config_service.SupplierConfigService.get_supplier_config')
     def test_qr_part_creation_supplier_not_configured(
         self,
@@ -188,7 +188,7 @@ class TestQREnrichmentIntegration:
         assert "not properly configured" in result["message"]
 
     @pytest.mark.integration
-    @patch('MakerMatrix.clients.suppliers.supplier_registry.get_available_suppliers')
+    @patch('MakerMatrix.suppliers.registry.get_available_suppliers')
     @patch('MakerMatrix.services.supplier_config_service.SupplierConfigService.get_supplier_config')
     @patch('MakerMatrix.services.task_service.get_task_service')
     def test_qr_part_creation_enrichment_timeout(

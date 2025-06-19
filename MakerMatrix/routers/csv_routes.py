@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, UploadFile, File
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 import os
 from MakerMatrix.services.csv_import_service import csv_import_service, CSVImportService
+from MakerMatrix.services.enhanced_import_service import EnhancedImportService
+from MakerMatrix.services.enrichment_queue_manager import EnrichmentPriority
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.services.order_service import order_service
 from MakerMatrix.services.parser_client_registry import get_all_enrichment_mappings, get_enrichment_capabilities, validate_mapping, supports_enrichment
@@ -28,8 +30,20 @@ class FilenameExtractionRequest(BaseModel):
 
 class CSVImportRequest(BaseModel):
     csv_content: str
-    parser_type: str
-    order_info: Dict[str, Any]
+
+class EnhancedImportRequest(BaseModel):
+    csv_content: Optional[str] = None
+    file_path: Optional[str] = None
+    parser_type: Optional[str] = None
+    order_info: Optional[Dict[str, Any]] = None
+    enrichment_enabled: bool = True
+    enrichment_priority: str = "normal"  # normal, high, urgent, low
+
+class BulkEnrichmentRequest(BaseModel):
+    part_ids: List[str]
+    supplier_name: Optional[str] = None
+    capabilities: Optional[List[str]] = None
+    priority: str = "normal"
 
 # Response models
 class CSVPreviewResponse(BaseModel):
@@ -66,21 +80,29 @@ async def get_supported_types():
 
 @router.get("/available-suppliers", response_model=ResponseSchema[List[Dict[str, Any]]])
 async def get_available_suppliers():
-    """Get list of available suppliers from dynamic registry"""
+    """Get list of available suppliers from new supplier registry"""
     try:
-        from MakerMatrix.clients.suppliers.supplier_registry import get_available_suppliers, get_supplier_capabilities
+        from MakerMatrix.suppliers.registry import get_available_suppliers, get_supplier
         
         suppliers = []
         for supplier_name in get_available_suppliers():
-            capabilities = get_supplier_capabilities(supplier_name)
-            suppliers.append({
-                "id": supplier_name.lower(),
-                "name": supplier_name,
-                "description": f"{supplier_name} electronics supplier",
-                "color": _get_supplier_color(supplier_name),
-                "supported": True,
-                "capabilities": capabilities
-            })
+            try:
+                supplier = get_supplier(supplier_name)
+                capabilities = supplier.get_capabilities()
+                capability_names = [cap.name.lower() for cap in capabilities]
+                
+                suppliers.append({
+                    "id": supplier_name.lower(),
+                    "name": supplier_name,
+                    "description": f"{supplier_name} electronics supplier",
+                    "color": _get_supplier_color(supplier_name),
+                    "supported": True,
+                    "capabilities": capability_names
+                })
+            except Exception as e:
+                # If we can't get supplier info, skip it
+                logger.warning(f"Failed to get info for supplier {supplier_name}: {e}")
+                continue
         
         return ResponseSchema(
             status="success",
@@ -1017,3 +1039,245 @@ async def get_enrichment_supported_parsers():
     except Exception as e:
         logger.error(f"Error getting enrichment-supported parsers: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# ENHANCED IMPORT SERVICE ENDPOINTS
+# ============================================================================
+
+@router.post("/enhanced-import", response_model=ResponseSchema[Dict[str, Any]])
+async def enhanced_import_with_enrichment(
+    request: EnhancedImportRequest,
+    current_user: UserModel = Depends(require_permission("parts:create"))
+):
+    """
+    Enhanced CSV/XLS import with intelligent enrichment and rate limiting
+    
+    This endpoint provides:
+    - Rate-limited supplier API calls
+    - Intelligent enrichment queue management
+    - Real-time WebSocket progress updates
+    - Priority-based task processing
+    """
+    try:
+        logger.info(f"Starting enhanced import for user {current_user.username}")
+        
+        # Convert priority string to enum
+        priority_map = {
+            "low": EnrichmentPriority.LOW,
+            "normal": EnrichmentPriority.NORMAL,
+            "high": EnrichmentPriority.HIGH,
+            "urgent": EnrichmentPriority.URGENT
+        }
+        enrichment_priority = priority_map.get(request.enrichment_priority.lower(), EnrichmentPriority.NORMAL)
+        
+        # Initialize enhanced import service
+        enhanced_service = EnhancedImportService()
+        
+        # TODO: Set WebSocket broadcast function when WebSocket manager is available
+        # enhanced_service.set_websocket_broadcast(websocket_manager.broadcast)
+        
+        # Perform enhanced import
+        result = await enhanced_service.import_csv_with_enrichment(
+            csv_content=request.csv_content,
+            file_path=request.file_path,
+            parser_type=request.parser_type,
+            order_info=request.order_info,
+            enrichment_enabled=request.enrichment_enabled,
+            enrichment_priority=enrichment_priority,
+            user_id=current_user.id
+        )
+        
+        return ResponseSchema(
+            status="success" if result["success"] else "error",
+            message=result["message"],
+            data=result["data"]
+        )
+        
+    except Exception as e:
+        logger.error(f"Enhanced import failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Enhanced import failed: {str(e)}")
+
+
+@router.post("/enhanced-import-file", response_model=ResponseSchema[Dict[str, Any]])
+async def enhanced_import_file_with_enrichment(
+    file: UploadFile = File(...),
+    parser_type: Optional[str] = None,
+    order_number: Optional[str] = None,
+    order_date: Optional[str] = None,
+    notes: Optional[str] = None,
+    enrichment_enabled: bool = True,
+    enrichment_priority: str = "normal",
+    current_user: UserModel = Depends(require_permission("parts:create"))
+):
+    """
+    Enhanced file upload import with enrichment
+    
+    Supports CSV and XLS files with automatic format detection and enrichment.
+    """
+    try:
+        logger.info(f"Starting enhanced file import: {file.filename}")
+        
+        # Validate file type
+        allowed_extensions = ['.csv', '.xls', '.xlsx']
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type {file_extension}. Supported: {', '.join(allowed_extensions)}"
+            )
+        
+        # Read file content
+        content = await file.read()
+        csv_content = None
+        
+        # Convert to CSV format if needed
+        if file_extension == '.csv':
+            csv_content = content.decode('utf-8')
+        else:
+            # Convert XLS to CSV
+            try:
+                import pandas as pd
+                df = pd.read_excel(content)
+                csv_content = df.to_csv(index=False)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Failed to process XLS file: {str(e)}")
+        
+        # Prepare order info
+        order_info = {}
+        if order_number:
+            order_info["order_number"] = order_number
+        if order_date:
+            order_info["order_date"] = order_date
+        if notes:
+            order_info["notes"] = notes
+        
+        # Convert priority
+        priority_map = {
+            "low": EnrichmentPriority.LOW,
+            "normal": EnrichmentPriority.NORMAL,
+            "high": EnrichmentPriority.HIGH,
+            "urgent": EnrichmentPriority.URGENT
+        }
+        enrichment_priority_enum = priority_map.get(enrichment_priority.lower(), EnrichmentPriority.NORMAL)
+        
+        # Initialize enhanced import service
+        enhanced_service = EnhancedImportService()
+        
+        # Perform enhanced import
+        result = await enhanced_service.import_csv_with_enrichment(
+            csv_content=csv_content,
+            parser_type=parser_type,
+            order_info=order_info,
+            enrichment_enabled=enrichment_enabled,
+            enrichment_priority=enrichment_priority_enum,
+            user_id=current_user.id
+        )
+        
+        return ResponseSchema(
+            status="success" if result["success"] else "error",
+            message=result["message"],
+            data=result["data"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Enhanced file import failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Enhanced file import failed: {str(e)}")
+
+
+@router.post("/bulk-enrich", response_model=ResponseSchema[Dict[str, Any]])
+async def bulk_enrich_existing_parts(
+    request: BulkEnrichmentRequest,
+    current_user: UserModel = Depends(require_permission("parts:update"))
+):
+    """
+    Bulk enrich existing parts with supplier data
+    
+    Uses the intelligent enrichment queue with rate limiting to enrich
+    multiple parts without overwhelming supplier APIs.
+    """
+    try:
+        logger.info(f"Starting bulk enrichment for {len(request.part_ids)} parts")
+        
+        if len(request.part_ids) > 100:
+            raise HTTPException(status_code=400, detail="Bulk enrichment limited to 100 parts at once")
+        
+        # Convert priority
+        priority_map = {
+            "low": EnrichmentPriority.LOW,
+            "normal": EnrichmentPriority.NORMAL,
+            "high": EnrichmentPriority.HIGH,
+            "urgent": EnrichmentPriority.URGENT
+        }
+        enrichment_priority = priority_map.get(request.priority.lower(), EnrichmentPriority.NORMAL)
+        
+        # Initialize enhanced import service
+        enhanced_service = EnhancedImportService()
+        
+        # Perform bulk enrichment
+        result = await enhanced_service.enrich_existing_parts(
+            part_ids=request.part_ids,
+            supplier_name=request.supplier_name,
+            capabilities=request.capabilities,
+            priority=enrichment_priority
+        )
+        
+        return ResponseSchema(
+            status="success" if result["success"] else "error",
+            message=result["message"],
+            data=result["data"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Bulk enrichment failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Bulk enrichment failed: {str(e)}")
+
+
+@router.get("/enrichment-queue/status", response_model=ResponseSchema[Dict[str, Any]])
+async def get_enrichment_queue_status(
+    current_user: UserModel = Depends(require_permission("parts:read"))
+):
+    """
+    Get current enrichment queue status across all suppliers
+    """
+    try:
+        enhanced_service = EnhancedImportService()
+        result = await enhanced_service.get_enrichment_queue_status()
+        
+        return ResponseSchema(
+            status="success" if result["success"] else "error",
+            message="Retrieved enrichment queue status",
+            data=result["data"] if result["success"] else {"error": result["message"]}
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get enrichment queue status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get queue status: {str(e)}")
+
+
+@router.post("/enrichment-queue/cancel", response_model=ResponseSchema[Dict[str, Any]])
+async def cancel_enrichment_tasks(
+    task_ids: List[str],
+    current_user: UserModel = Depends(require_permission("parts:update"))
+):
+    """
+    Cancel specific enrichment tasks
+    """
+    try:
+        enhanced_service = EnhancedImportService()
+        result = await enhanced_service.cancel_enrichment_tasks(task_ids)
+        
+        return ResponseSchema(
+            status="success" if result["success"] else "error",
+            message=result["message"],
+            data=result["data"]
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to cancel enrichment tasks: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel tasks: {str(e)}")

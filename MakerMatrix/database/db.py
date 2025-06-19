@@ -3,6 +3,7 @@ from typing import Generator
 
 from sqlmodel import Session, SQLModel
 from MakerMatrix.models.models import engine
+from MakerMatrix.models.rate_limiting_models import *  # Import rate limiting models
 from sqlalchemy import inspect, event
 
 # Database URL for backup and utility operations

@@ -32,6 +32,8 @@ from .exceptions import SupplierError, SupplierConfigurationError, SupplierAuthe
 from . import digikey
 from . import lcsc  
 from . import mouser
+from . import mcmaster_carr
+from . import bolt_depot
 
 __all__ = [
     'BaseSupplier',

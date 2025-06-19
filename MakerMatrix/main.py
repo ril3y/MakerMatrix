@@ -12,7 +12,7 @@ from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, modern_printer_routes, preview_routes,
     utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, 
-    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes
+    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, rate_limit_routes
 )
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -52,6 +52,18 @@ async def lifespan(app: FastAPI):
     print("Initializing default printers...")
     await initialize_default_printers()
     print("Default printers initialized!")
+    
+    # Initialize rate limiting system
+    print("Initializing rate limiting system...")
+    try:
+        from MakerMatrix.services.rate_limit_service import RateLimitService
+        from MakerMatrix.models.models import engine
+        rate_limit_service = RateLimitService(engine)
+        await rate_limit_service.initialize_default_limits()
+        print("Rate limiting system initialized!")
+    except Exception as e:
+        print(f"Failed to initialize rate limiting: {e}")
+        # Don't fail startup if rate limiting initialization fails
     
     # Restore printers from database
     print("Restoring printers from database...")
@@ -109,10 +121,21 @@ categories_permissions = {
 
 csv_permissions = {
     "/import": "parts:create",
+    "/import-file": "parts:create",
+    "/import/with-progress": "parts:create",
+    "/import/progress": "parts:read",
     "/preview": "parts:read",
+    "/preview-file": "parts:read",
     "/extract-filename-info": "parts:read",
     "/supported-types": "parts:read",
-    "/parse": "parts:read"
+    "/available-suppliers": "parts:read",
+    "/parse": "parts:read",
+    "/config": "parts:read",
+    "/parsers/{parser_type}/info": "parts:read",
+    "/parsers/enrichment-capabilities": "parts:read",
+    "/parsers/{parser_type}/enrichment-capabilities": "parts:read",
+    "/parsers/{parser_type}/validate-enrichment": "parts:read",
+    "/enrichment/supported-parsers": "parts:read"
 }
 
 task_permissions = {
@@ -182,6 +205,14 @@ supplier_permissions = {
     "/{supplier_name}/part/{part_number}/stock": "suppliers:use"
 }
 
+rate_limit_permissions = {
+    "/suppliers": "rate_limits:read",
+    "/suppliers/{supplier_name}": "rate_limits:read",
+    "/suppliers/{supplier_name}/status": "rate_limits:read",
+    "/summary": "rate_limits:read",
+    "/initialize": "rate_limits:admin"
+}
+
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
     "/login",
@@ -206,6 +237,7 @@ secure_all_routes(csv_routes.router, permissions=csv_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
 secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
 secure_all_routes(supplier_routes.router, permissions=supplier_permissions)
+secure_all_routes(rate_limit_routes.router, permissions=rate_limit_permissions)
 secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
 
@@ -228,6 +260,7 @@ app.include_router(csv_routes.router, prefix="/api/csv", tags=["CSV Import"])
 app.include_router(task_routes.router, prefix="/api/tasks", tags=["Background Tasks"])
 app.include_router(supplier_config_routes.router, tags=["Supplier Configuration"])
 app.include_router(supplier_routes.router, tags=["Suppliers"])
+app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
 app.include_router(analytics_routes.router, tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])

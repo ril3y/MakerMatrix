@@ -89,6 +89,134 @@ async def get_available_suppliers(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get suppliers: {str(e)}")
 
+@router.get("/dropdown", response_model=ResponseSchema[List[Dict[str, Any]]])
+async def get_suppliers_for_dropdown(
+    current_user: UserModel = Depends(get_current_user)
+):
+    """
+    Get suppliers formatted for dropdown selection (configured and enabled only)
+    
+    Returns suppliers that are:
+    - Available in the supplier registry
+    - Properly configured with credentials (if applicable)
+    - Currently enabled
+    """
+    try:
+        from MakerMatrix.services.supplier_config_service import SupplierConfigService
+        
+        supplier_service = SupplierConfigService()
+        
+        # Get all available suppliers from registry
+        available_suppliers = SupplierRegistry.get_available_suppliers()
+        
+        # Get configured suppliers
+        configured_suppliers = supplier_service.get_all_supplier_configs(enabled_only=True)
+        configured_names = {config["supplier_name"].lower() for config in configured_suppliers}
+        
+        dropdown_suppliers = []
+        
+        for supplier_name in available_suppliers:
+            try:
+                # Get supplier instance
+                supplier = SupplierRegistry.get_supplier(supplier_name)
+                supplier_info = supplier.get_supplier_info()
+                
+                # Check if supplier is configured and enabled
+                is_configured = supplier_name.lower() in configured_names
+                
+                # For dropdown, show all suppliers but mark configuration status
+                dropdown_suppliers.append({
+                    "id": supplier_name.lower(),
+                    "name": supplier_info.display_name,
+                    "description": supplier_info.description,
+                    "configured": is_configured,
+                    "enabled": is_configured,  # Only enabled if configured
+                    "requires_config": len(supplier.get_credential_schema()) > 0,
+                    "rate_limit_info": supplier_info.rate_limit_info if supplier_info.rate_limit_info else "No rate limits",
+                    "capabilities_count": len(supplier.get_capabilities())
+                })
+                
+            except Exception as e:
+                # Add basic info for suppliers that can't be instantiated
+                dropdown_suppliers.append({
+                    "id": supplier_name.lower(),
+                    "name": supplier_name.title(),
+                    "description": f"{supplier_name} electronics supplier",
+                    "configured": False,
+                    "enabled": False,
+                    "requires_config": True,
+                    "rate_limit_info": "Configuration required",
+                    "capabilities_count": 0
+                })
+        
+        # Sort by name for consistent ordering
+        dropdown_suppliers.sort(key=lambda x: x["name"])
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Found {len(dropdown_suppliers)} suppliers for dropdown",
+            data=dropdown_suppliers
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get dropdown suppliers: {str(e)}")
+
+@router.get("/configured", response_model=ResponseSchema[List[Dict[str, Any]]])
+async def get_configured_suppliers_only(
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get list of configured and enabled suppliers only"""
+    try:
+        from MakerMatrix.services.supplier_config_service import SupplierConfigService
+        
+        supplier_service = SupplierConfigService()
+        
+        # Get only enabled and configured suppliers
+        configured_suppliers = supplier_service.get_all_supplier_configs(enabled_only=True)
+        
+        # Enhance with supplier registry information
+        enhanced_suppliers = []
+        for config in configured_suppliers:
+            try:
+                supplier_name = config["supplier_name"]
+                supplier = SupplierRegistry.get_supplier(supplier_name.lower())
+                supplier_info = supplier.get_supplier_info()
+                
+                enhanced_suppliers.append({
+                    "id": supplier_name.lower(),
+                    "name": supplier_info.display_name,
+                    "description": supplier_info.description,
+                    "configured": True,
+                    "enabled": config.get("enabled", True),
+                    "rate_limit_info": supplier_info.rate_limit_info,
+                    "capabilities": [cap.value for cap in supplier.get_capabilities()],
+                    "last_tested": config.get("last_tested_at"),
+                    "test_status": config.get("test_status")
+                })
+                
+            except Exception as e:
+                # Fallback to basic config info
+                enhanced_suppliers.append({
+                    "id": config["supplier_name"].lower(),
+                    "name": config.get("display_name", config["supplier_name"]),
+                    "description": config.get("description", ""),
+                    "configured": True,
+                    "enabled": config.get("enabled", True),
+                    "rate_limit_info": "Unknown",
+                    "capabilities": [],
+                    "last_tested": config.get("last_tested_at"),
+                    "test_status": config.get("test_status", "unknown")
+                })
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Found {len(enhanced_suppliers)} configured suppliers",
+            data=enhanced_suppliers
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get configured suppliers: {str(e)}")
+
 @router.get("/info", response_model=ResponseSchema[Dict[str, SupplierInfoResponse]])
 async def get_all_suppliers_info(
     current_user: UserModel = Depends(get_current_user)
@@ -300,19 +428,65 @@ async def test_supplier_connection(
     config_request: SupplierConfigurationRequest,
     current_user: UserModel = Depends(get_current_user)
 ):
-    """Test connection to a supplier with provided credentials/config"""
+    """Test connection to a supplier with provided credentials/config (rate limited)"""
+    from MakerMatrix.services.rate_limit_service import RateLimitService
+    from MakerMatrix.models.models import engine
+    import time
+    
+    # Initialize rate limiting service
+    rate_limit_service = RateLimitService(engine)
+    
     try:
         supplier = SupplierRegistry.get_supplier(supplier_name)
         supplier.configure(config_request.credentials, config_request.config)
         
-        result = await supplier.test_connection()
+        # Use rate limiting for the connection test
+        async with rate_limit_service.rate_limited_request(supplier_name.upper(), "connection_test") as rate_ctx:
+            if not rate_ctx.allowed:
+                rate_status = rate_ctx.rate_status
+                return ResponseSchema(
+                    status="warning",
+                    message=f"Rate limit exceeded for {supplier_name}. Please wait {rate_status['retry_after_seconds']} seconds.",
+                    data={
+                        "success": False,
+                        "rate_limited": True,
+                        "rate_limit_info": rate_status,
+                        "retry_after": rate_status['retry_after_seconds']
+                    }
+                )
+            
+            # Record the start time for response time tracking
+            start_time = time.time()
+            
+            try:
+                result = await supplier.test_connection()
+                
+                # Calculate response time
+                response_time = int((time.time() - start_time) * 1000)
+                await rate_ctx.record_success(response_time)
+                
+                # Add rate limit info to the response
+                rate_status = await rate_limit_service.check_rate_limit(supplier_name.upper())
+                result["rate_limit_info"] = {
+                    "current_usage": rate_status.get("current_usage", {}),
+                    "limits": rate_status.get("limits", {}),
+                    "usage_percentage": rate_status.get("usage_percentage", {})
+                }
+                
+                return ResponseSchema(
+                    status="success" if result.get("success") else "error",
+                    message=result.get("message", "Connection test completed"),
+                    data=result
+                )
+                
+            except Exception as test_error:
+                # Record the failure with response time
+                response_time = int((time.time() - start_time) * 1000)
+                await rate_ctx.record_failure(str(test_error))
+                raise test_error
+                
         await supplier.close()  # Clean up
         
-        return ResponseSchema(
-            status="success" if result.get("success") else "error",
-            message=result.get("message", "Connection test completed"),
-            data=result
-        )
     except SupplierNotFoundError:
         raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
     except SupplierConfigurationError as e:

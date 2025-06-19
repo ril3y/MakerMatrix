@@ -3,6 +3,7 @@ import os
 import tempfile
 from sqlmodel import SQLModel, create_engine
 from MakerMatrix.models import user_models, models  # Ensure all models are registered
+from MakerMatrix.models.rate_limiting_models import *  # Import rate limiting models
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 from MakerMatrix.repositories.user_repository import UserRepository
@@ -39,3 +40,30 @@ def init_db():
         os.unlink(test_db_path)
     except FileNotFoundError:
         pass
+
+@pytest.fixture
+def engine():
+    """Create a test engine for individual tests"""
+    test_db_fd, test_db_path = tempfile.mkstemp(suffix='.db')
+    os.close(test_db_fd)
+    
+    test_sqlite_url = f"sqlite:///{test_db_path}"
+    test_engine = create_engine(test_sqlite_url, echo=False)
+    
+    # Create all tables including rate limiting models
+    SQLModel.metadata.create_all(test_engine)
+    
+    yield test_engine
+    
+    # Clean up
+    try:
+        os.unlink(test_db_path)
+    except FileNotFoundError:
+        pass
+
+@pytest.fixture
+def memory_engine():
+    """Create an in-memory test engine for fast tests"""
+    test_engine = create_engine("sqlite:///:memory:", echo=False)
+    SQLModel.metadata.create_all(test_engine)
+    return test_engine

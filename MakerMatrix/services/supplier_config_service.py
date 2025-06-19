@@ -23,8 +23,8 @@ from MakerMatrix.repositories.custom_exceptions import (
     SupplierConfigAlreadyExistsError,
     InvalidReferenceError
 )
-from MakerMatrix.clients.base_client import BaseAPIClient
-from MakerMatrix.clients.suppliers.supplier_registry import get_supplier_class, get_available_suppliers
+from MakerMatrix.suppliers.base import BaseSupplier
+from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
 from MakerMatrix.config.suppliers import get_default_supplier_configs
 
 logger = logging.getLogger(__name__)
@@ -407,8 +407,8 @@ class SupplierConfigService(CredentialEncryptionMixin):
         credentials = self.get_supplier_credentials(supplier_name, decrypt=True)
         
         try:
-            # Create API client for testing
-            client = self._create_api_client(config, credentials)
+            # Create supplier instance for testing
+            supplier = self._create_api_client(config, credentials)
             
             # Test connection
             start_time = datetime.utcnow()
@@ -416,7 +416,15 @@ class SupplierConfigService(CredentialEncryptionMixin):
             error_message = None
             
             try:
-                success = await client.test_connection()
+                # New supplier system returns dict with test results
+                test_result = await supplier.test_connection()
+                if isinstance(test_result, dict):
+                    success = test_result.get("success", False)
+                    if not success:
+                        error_message = test_result.get("message", "Connection test failed")
+                else:
+                    # Fallback for old-style boolean response
+                    success = bool(test_result)
             except Exception as e:
                 error_message = str(e)
             
@@ -457,45 +465,37 @@ class SupplierConfigService(CredentialEncryptionMixin):
                 "tested_at": datetime.utcnow().isoformat()
             }
     
-    def _create_api_client(self, config: SupplierConfigModel, credentials: Optional[Dict[str, str]] = None) -> BaseAPIClient:
+    def _create_api_client(self, config: SupplierConfigModel, credentials: Optional[Dict[str, str]] = None) -> BaseSupplier:
         """
-        Create API client instance for supplier using dynamic registry
+        Create supplier instance using new supplier registry
         
         Args:
             config: Supplier configuration
             credentials: Decrypted credentials
             
         Returns:
-            Configured API client
+            Configured supplier instance
         """
-        # Try to get supplier class from dynamic registry first
-        supplier_class = get_supplier_class(config.supplier_name)
+        # Get supplier from new registry
+        supplier = get_supplier(config.supplier_name.lower())
         
-        if supplier_class:
-            # Use intelligent client creation with multiple strategies
-            client = self._create_supplier_client_intelligently(supplier_class, config, credentials)
-            if client:
-                return client
-            else:
-                logger.error(f"Failed to create {config.supplier_name} client using registry")
-                # Continue to fallback
+        # Configure the supplier with credentials and config
+        config_dict = {
+            'base_url': config.base_url,
+            'request_timeout': config.timeout_seconds,
+            'max_retries': config.max_retries,
+            'rate_limit_per_minute': config.rate_limit_per_minute,
+        }
         
-        # Fallback to generic REST client for unknown suppliers
-        logger.warning(f"Supplier {config.supplier_name} not found in registry, using generic REST client")
-        from MakerMatrix.clients.rest_client import RESTClient
+        # Add custom parameters if available
+        if config.custom_parameters:
+            config_dict.update(config.custom_parameters)
         
-        api_key = None
-        if credentials:
-            api_key = credentials.get('api_key')
+        # Configure the supplier
+        supplier.configure(credentials or {}, config_dict)
         
-        return RESTClient(
-            base_url=config.base_url,
-            api_key=api_key,
-            timeout=config.timeout_seconds,
-            max_retries=config.max_retries,
-            rate_limit_per_minute=config.rate_limit_per_minute,
-            custom_headers=config.get_custom_headers()
-        )
+        self.logger.info(f"Successfully created {config.supplier_name} supplier instance")
+        return supplier
     
     def initialize_default_suppliers(self) -> List[SupplierConfigModel]:
         """
@@ -521,83 +521,6 @@ class SupplierConfigService(CredentialEncryptionMixin):
         
         return created_configs
     
-    def _create_supplier_client_intelligently(self, supplier_class, config: SupplierConfigModel, credentials: Optional[Dict[str, str]] = None):
-        """
-        Create supplier client with intelligent parameter handling for different client types
-        
-        Args:
-            supplier_class: Supplier client class from registry
-            config: Supplier configuration
-            credentials: Decrypted credentials
-            
-        Returns:
-            Supplier client instance or None if creation fails
-        """
-        import inspect
-        
-        # Get the constructor signature to understand what parameters it accepts
-        try:
-            sig = inspect.signature(supplier_class.__init__)
-            param_names = list(sig.parameters.keys())[1:]  # Skip 'self'
-            
-            # Build parameter dict based on what the client accepts
-            client_params = {}
-            
-            # Standard parameters that most clients accept
-            if 'timeout' in param_names:
-                client_params['timeout'] = config.timeout_seconds
-            if 'max_retries' in param_names:
-                client_params['max_retries'] = config.max_retries
-            if 'rate_limit_per_minute' in param_names:
-                client_params['rate_limit_per_minute'] = config.rate_limit_per_minute
-            if 'custom_headers' in param_names:
-                client_params['custom_headers'] = config.get_custom_headers()
-                
-            # Add base_url only if the client accepts it (detected dynamically)
-            if 'base_url' in param_names and config.base_url:
-                client_params['base_url'] = config.base_url
-            
-            # Handle credentials based on client requirements - use dynamic parameter detection
-            if credentials:
-                # Map all possible credential fields to constructor parameters
-                credential_mapping = {
-                    'api_key': ['api_key', 'client_id'],  # api_key can map to either
-                    'client_secret': ['client_secret', 'secret_key'],
-                    'secret_key': ['secret_key', 'client_secret'],
-                    'username': ['username'],
-                    'password': ['password'],
-                    'oauth_token': ['oauth_token', 'access_token'],
-                    'refresh_token': ['refresh_token']
-                }
-                
-                # Try to map credentials to constructor parameters
-                for cred_key, cred_value in credentials.items():
-                    if cred_value and cred_key in credential_mapping:
-                        # Try each possible parameter name for this credential
-                        for param_name in credential_mapping[cred_key]:
-                            if param_name in param_names:
-                                client_params[param_name] = cred_value
-                                break  # Use first matching parameter
-            
-            # Try to create the client
-            logger.debug(f"Creating {supplier_class.__name__} with params: {list(client_params.keys())}")
-            client = supplier_class(**client_params)
-            
-            # If this is a BaseSupplier, configure it with credentials and config
-            from MakerMatrix.suppliers.base import BaseSupplier
-            if isinstance(client, BaseSupplier):
-                config_dict = {
-                    'base_url': config.base_url,
-                    'search_option': config.custom_parameters.get('search_option') if config.custom_parameters else None,
-                    'search_with_your_signup_language': config.custom_parameters.get('search_with_your_signup_language') if config.custom_parameters else None,
-                }
-                client.configure(credentials or {}, config_dict)
-            
-            return client
-            
-        except Exception as e:
-            logger.debug(f"Failed to create {supplier_class.__name__} client: {e}")
-            return None
     
     def export_supplier_configs(self, include_credentials: bool = False) -> Dict[str, Any]:
         """

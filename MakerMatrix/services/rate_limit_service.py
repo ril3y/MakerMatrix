@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timedelta, timezone
-from sqlmodel import Session, select, func, and_, or_
+from sqlmodel import Session, select, func, and_, or_, delete
 from contextlib import asynccontextmanager
 
 from MakerMatrix.models.rate_limiting_models import (
@@ -181,15 +181,15 @@ class RateLimitService:
         if self.websocket_manager:
             try:
                 rate_status = await self.check_rate_limit(supplier_name, endpoint_type)
-                if rate_status.get("allowed"):
+                if rate_status.get("allowed") and "current_usage" in rate_status:
                     message = create_rate_limit_update_message(
                         supplier_name=supplier_name,
                         current_usage=rate_status["current_usage"],
                         limits=rate_status["limits"],
-                        next_reset=rate_status["next_reset"],
+                        next_reset=rate_status.get("next_reset", {}),
                         queue_size=0  # TODO: Add queue size tracking
                     )
-                    await self.websocket_manager.broadcast_to_all(message.dict())
+                    await self.websocket_manager.broadcast_to_all(message.model_dump())
             except Exception as e:
                 logger.warning(f"Failed to broadcast rate limit update: {e}")
     
@@ -268,10 +268,10 @@ class RateLimitService:
             if count and count > 0:
                 # Delete old records
                 session.exec(
-                    select(SupplierUsageTrackingModel).where(
+                    delete(SupplierUsageTrackingModel).where(
                         SupplierUsageTrackingModel.request_timestamp < cutoff_date
                     )
-                ).delete()
+                )
                 session.commit()
                 
                 logger.info(f"Cleaned up {count} old usage tracking records")

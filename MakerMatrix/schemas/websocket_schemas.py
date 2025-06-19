@@ -158,7 +158,7 @@ def create_import_progress_message(
             current_step=current_step,
             parts_processed=parts_processed,
             total_parts=total_parts
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -187,7 +187,7 @@ def create_enrichment_progress_message(
             capabilities_total=capabilities_total,
             progress_percentage=progress,
             current_capability=current_capability
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -215,7 +215,7 @@ def create_rate_limit_update_message(
             usage_percentage=usage_percentage,
             next_reset=next_reset,
             queue_size=queue_size
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -237,7 +237,7 @@ def create_notification_message(
             message=message,
             duration=duration,
             actions=actions
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -249,13 +249,17 @@ def create_toast_message(
     correlation_id: Optional[str] = None
 ) -> WebSocketMessage:
     """Create a toast message"""
+    # Build ToastData kwargs, excluding None values to use defaults
+    toast_kwargs = {
+        "level": level,
+        "message": message,
+        "position": position
+    }
+    if duration is not None:
+        toast_kwargs["duration"] = duration
+    
     return WebSocketMessage(
         type=WebSocketEventType.TOAST,
         correlation_id=correlation_id,
-        data=ToastData(
-            level=level,
-            message=message,
-            duration=duration,
-            position=position
-        ).dict()
+        data=ToastData(**toast_kwargs).model_dump()
     )

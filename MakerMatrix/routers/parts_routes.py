@@ -14,7 +14,7 @@ from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericP
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.dependencies.auth import get_current_user, require_permission
 from MakerMatrix.services.supplier_config_service import SupplierConfigService
-from MakerMatrix.clients.suppliers.supplier_registry import get_available_suppliers
+from MakerMatrix.suppliers.registry import get_available_suppliers
 from MakerMatrix.services.task_service import task_service
 from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority
 
