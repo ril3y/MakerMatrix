@@ -118,9 +118,17 @@ class EnrichmentTaskHandlers:
             if not capabilities:
                 return {"message": "No enrichment capabilities available for this supplier"}
             
-            # Create API client for the supplier
+            # Create new supplier instance 
+            from MakerMatrix.suppliers.registry import get_supplier
+            
+            client = get_supplier(supplier.lower())
+            if not client:
+                raise ValueError(f"Supplier implementation not found for: {supplier}")
+            
+            # Configure the supplier with credentials and config
             credentials = supplier_service.get_supplier_credentials(supplier.upper(), decrypt=True)
-            client = supplier_service._create_api_client(supplier_config, credentials)
+            config = supplier_config.custom_parameters or {}
+            client.configure(credentials or {}, config)
             
             # Progress tracking
             total_capabilities = len(capabilities)
@@ -140,30 +148,35 @@ class EnrichmentTaskHandlers:
                     # Use the appropriate part number for the supplier
                     part_number = self._get_supplier_part_number(part, supplier)
                     
+                    result_data = None
                     if capability == 'fetch_datasheet':
-                        result = await client.enrich_part_datasheet(part_number)
+                        result_data = await client.fetch_datasheet(part_number)
                     elif capability == 'fetch_image':
-                        result = await client.enrich_part_image(part_number)
+                        result_data = await client.fetch_image(part_number)
                     elif capability == 'fetch_pricing':
-                        result = await client.enrich_part_pricing(part_number)
+                        result_data = await client.fetch_pricing(part_number)
                     elif capability == 'fetch_stock':
-                        result = await client.enrich_part_stock(part_number)
+                        result_data = await client.fetch_stock(part_number)
                     elif capability == 'fetch_details':
-                        result = await client.enrich_part_details(part_number)
+                        result_data = await client.get_part_details(part_number)
                     elif capability == 'fetch_specifications':
-                        result = await client.enrich_part_specifications(part_number)
+                        result_data = await client.fetch_specifications(part_number)
                     else:
                         continue
                     
-                    if result.success:
-                        # Convert Pydantic model to dict for storage, handling datetime serialization
-                        result_dict = result.model_dump()
-                        enrichment_results[capability] = self._serialize_for_json(result_dict)
+                    if result_data is not None:
+                        # Store the enrichment result
+                        enrichment_results[capability] = self._serialize_for_json(result_data)
                         successful_enrichments.append(capability)
                         logger.info(f"Successfully enriched {capability} for part {part.part_name}")
+                        
+                        # Update the part with the enrichment data
+                        await self._update_part_from_enrichment(part, capability, {
+                            capability.replace('fetch_', ''): result_data
+                        })
                     else:
-                        failed_enrichments.append({"capability": capability, "error": result.error_message})
-                        logger.warning(f"Failed to enrich {capability} for part {part.part_name}: {result.error_message}")
+                        failed_enrichments.append({"capability": capability, "error": "No data returned"})
+                        logger.warning(f"Failed to enrich {capability} for part {part.part_name}: No data returned")
                         
                 except Exception as e:
                     failed_enrichments.append({"capability": capability, "error": str(e)})
@@ -571,9 +584,17 @@ class EnrichmentTaskHandlers:
             if not supplier_config.enabled:
                 raise ValueError(f"Supplier {supplier} is not enabled")
             
-            # Create API client for the supplier
+            # Create new supplier instance 
+            from MakerMatrix.suppliers.registry import get_supplier
+            
+            client = get_supplier(supplier.lower())
+            if not client:
+                raise ValueError(f"Supplier implementation not found for: {supplier}")
+            
+            # Configure the supplier with credentials and config
             credentials = supplier_service.get_supplier_credentials(supplier.upper(), decrypt=True)
-            client = supplier_service._create_api_client(supplier_config, credentials)
+            config = supplier_config.custom_parameters or {}
+            client.configure(credentials or {}, config)
             
             if progress_callback:
                 await progress_callback(25, "Fetching datasheet information")
@@ -732,9 +753,17 @@ class EnrichmentTaskHandlers:
             if not supplier_config.enabled:
                 raise ValueError(f"Supplier {supplier} is not enabled")
             
-            # Create API client for the supplier
+            # Create new supplier instance 
+            from MakerMatrix.suppliers.registry import get_supplier
+            
+            client = get_supplier(supplier.lower())
+            if not client:
+                raise ValueError(f"Supplier implementation not found for: {supplier}")
+            
+            # Configure the supplier with credentials and config
             credentials = supplier_service.get_supplier_credentials(supplier.upper(), decrypt=True)
-            client = supplier_service._create_api_client(supplier_config, credentials)
+            config = supplier_config.custom_parameters or {}
+            client.configure(credentials or {}, config)
             
             if progress_callback:
                 await progress_callback(25, "Fetching image information")
@@ -859,59 +888,71 @@ class EnrichmentTaskHandlers:
             raise
     
     async def _update_part_from_enrichment(self, part, capability_name: str, enrichment_data: Dict[str, Any]):
-        """Update part fields based on enrichment results using standardized schemas"""
+        """Update part fields based on enrichment results using new supplier format"""
         try:
             if capability_name == 'fetch_datasheet':
-                if 'datasheet_url' in enrichment_data:
+                # enrichment_data contains {'datasheet': 'url'}
+                if 'datasheet' in enrichment_data and enrichment_data['datasheet']:
                     if not part.additional_properties:
                         part.additional_properties = {}
-                    part.additional_properties['datasheet_url'] = enrichment_data['datasheet_url']
+                    part.additional_properties['datasheet_url'] = enrichment_data['datasheet']
             
             elif capability_name == 'fetch_image':
-                if 'primary_image_url' in enrichment_data:
-                    part.image_url = enrichment_data['primary_image_url']
+                # enrichment_data contains {'image': 'url'}
+                if 'image' in enrichment_data and enrichment_data['image']:
+                    part.image_url = enrichment_data['image']
             
             elif capability_name == 'fetch_pricing':
-                if not part.additional_properties:
-                    part.additional_properties = {}
-                part.additional_properties['pricing_data'] = enrichment_data
-                
-                # Update price if available
-                if 'unit_price' in enrichment_data:
-                    part.price = float(enrichment_data['unit_price'])
+                # enrichment_data contains {'pricing': [...]}
+                if 'pricing' in enrichment_data and enrichment_data['pricing']:
+                    if not part.additional_properties:
+                        part.additional_properties = {}
+                    part.additional_properties['pricing_data'] = enrichment_data['pricing']
+                    
+                    # Update unit price if available (first price break)
+                    pricing = enrichment_data['pricing']
+                    if isinstance(pricing, list) and pricing:
+                        first_price = pricing[0]
+                        if isinstance(first_price, dict) and 'price' in first_price:
+                            part.price = float(first_price['price'])
+            
+            elif capability_name == 'fetch_stock':
+                # enrichment_data contains {'stock': number}
+                if 'stock' in enrichment_data and enrichment_data['stock'] is not None:
+                    part.quantity = int(enrichment_data['stock'])
             
             elif capability_name == 'fetch_specifications':
-                if not part.additional_properties:
-                    part.additional_properties = {}
-                part.additional_properties['specifications'] = enrichment_data
-                
-                # Update specific fields if available
-                if 'specifications' in enrichment_data:
-                    specs = enrichment_data['specifications']
-                    for spec in specs:
-                        if isinstance(spec, dict) and spec.get('name') == 'manufacturer':
-                            part.manufacturer = spec.get('value')
+                # enrichment_data contains {'specifications': {...}}
+                if 'specifications' in enrichment_data and enrichment_data['specifications']:
+                    if not part.additional_properties:
+                        part.additional_properties = {}
+                    part.additional_properties['specifications'] = enrichment_data['specifications']
             
             elif capability_name == 'fetch_details':
-                # Update basic fields from details enrichment
-                if 'product_description' in enrichment_data:
-                    part.description = enrichment_data['product_description']
-                if 'manufacturer' in enrichment_data:
-                    part.manufacturer = enrichment_data['manufacturer']
-                if 'manufacturer_part_number' in enrichment_data:
-                    part.manufacturer_part_number = enrichment_data['manufacturer_part_number']
-                
-                # Update additional properties
-                if not part.additional_properties:
-                    part.additional_properties = {}
-                part.additional_properties['details_data'] = enrichment_data
+                # enrichment_data contains {'details': PartSearchResult}
+                if 'details' in enrichment_data and enrichment_data['details']:
+                    details = enrichment_data['details']
+                    # Handle PartSearchResult object
+                    if hasattr(details, 'description') and details.description:
+                        part.description = details.description
+                    if hasattr(details, 'manufacturer') and details.manufacturer:
+                        part.manufacturer = details.manufacturer  
+                    if hasattr(details, 'manufacturer_part_number') and details.manufacturer_part_number:
+                        part.manufacturer_part_number = details.manufacturer_part_number
+                    if hasattr(details, 'category') and details.category:
+                        part.category = details.category
+                    
+                    # Store additional data
+                    if not part.additional_properties:
+                        part.additional_properties = {}
+                    part.additional_properties['details_data'] = self._serialize_for_json(details)
             
         except Exception as e:
             logger.error(f"Error updating part from enrichment {capability_name}: {e}", exc_info=True)
     
     def _get_supplier_part_number(self, part, supplier: str) -> str:
         """
-        Get the appropriate part number for a specific supplier using dynamic registry
+        Get the appropriate part number for a specific supplier using new supplier system
         
         Args:
             part: Part model instance
@@ -924,31 +965,36 @@ class EnrichmentTaskHandlers:
             return part.part_number
         
         try:
-            # Use the supplier registry to get the client class
-            from MakerMatrix.clients.suppliers.supplier_registry import get_supplier_class
+            # Use the new supplier system
+            from MakerMatrix.suppliers.registry import get_supplier
             
-            supplier_class = get_supplier_class(supplier)
-            if supplier_class:
-                # Create a temporary instance to use the part number extraction method
-                temp_client = supplier_class()
+            supplier_instance = get_supplier(supplier.lower())
+            if supplier_instance:
+                # For our new suppliers, the part number is typically stored in part_number
+                # or can be extracted from additional_properties
                 
-                # Convert part to dictionary format
-                part_data = {
-                    'part_number': part.part_number,
-                    'additional_properties': part.additional_properties or {}
-                }
+                # Check if it's a supplier-specific part number first
+                if hasattr(part, 'supplier_part_number') and part.supplier_part_number:
+                    return part.supplier_part_number
                 
-                # Use the supplier's own method to extract their part number
-                supplier_part_number = temp_client.get_supplier_part_number(part_data)
-                if supplier_part_number:
-                    logger.debug(f"Using {supplier} part number: {supplier_part_number}")
-                    return supplier_part_number
+                # Check additional properties for supplier-specific part numbers
+                if part.additional_properties:
+                    supplier_key = f"{supplier.lower()}_part_number"
+                    if supplier_key in part.additional_properties:
+                        return part.additional_properties[supplier_key]
+                
+                # Use manufacturer part number as fallback
+                if hasattr(part, 'manufacturer_part_number') and part.manufacturer_part_number:
+                    return part.manufacturer_part_number
+                    
+                logger.debug(f"Using part number for {supplier}: {part.part_number}")
+                return part.part_number
         
         except Exception as e:
-            logger.warning(f"Failed to get supplier part number using registry for {supplier}: {e}")
+            logger.warning(f"Failed to get supplier part number using new supplier system for {supplier}: {e}")
         
-        # Fallback to manufacturer part number
-        logger.debug(f"Using manufacturer part number for {supplier}: {part.part_number}")
+        # Fallback to part number
+        logger.debug(f"Using fallback part number for {supplier}: {part.part_number}")
         return part.part_number
 
 

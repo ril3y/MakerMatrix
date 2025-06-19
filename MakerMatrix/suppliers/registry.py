@@ -84,3 +84,24 @@ def register_supplier(name: str):
         SupplierRegistry.register(name, supplier_class)
         return supplier_class
     return decorator
+
+
+# Convenience functions for easier access
+def get_supplier(name: str) -> BaseSupplier:
+    """Get an instance of the specified supplier"""
+    return SupplierRegistry.get_supplier(name)
+
+
+def get_available_suppliers() -> List[str]:
+    """Get list of all available supplier names"""
+    return SupplierRegistry.get_available_suppliers()
+
+
+def get_supplier_info(name: str) -> SupplierInfo:
+    """Get information about a specific supplier"""
+    return SupplierRegistry.get_supplier_info(name)
+
+
+def get_all_supplier_info() -> Dict[str, SupplierInfo]:
+    """Get information about all registered suppliers"""
+    return SupplierRegistry.get_all_supplier_info()
