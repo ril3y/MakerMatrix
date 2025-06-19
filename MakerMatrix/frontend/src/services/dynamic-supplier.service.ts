@@ -86,8 +86,22 @@ export class DynamicSupplierService {
    * Get list of configured and enabled suppliers (for dropdowns)
    */
   async getConfiguredSuppliers(): Promise<Array<{id: string; name: string; description: string; configured: boolean; enabled: boolean}>> {
-    const response = await apiClient.get('/api/suppliers/configured');
-    return response.data.data;
+    try {
+      const response = await apiClient.get('/api/suppliers/configured');
+      
+      // Handle different response formats
+      if (response && response.data && Array.isArray(response.data)) {
+        return response.data;
+      } else if (response && response.data && response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      } else {
+        console.warn('Unexpected response format for configured suppliers:', response);
+        return [];
+      }
+    } catch (error) {
+      console.error('Failed to fetch configured suppliers:', error);
+      return [];
+    }
   }
 
   /**
