@@ -1,6 +1,6 @@
 import logging
 from http.client import HTTPException
-from typing import List, Optional, Any, Dict, Coroutine
+from typing import List, Optional, Any, Dict
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -10,7 +10,7 @@ from typing import Optional, TYPE_CHECKING
 from MakerMatrix.models.models import CategoryModel, LocationQueryModel, AdvancedPartSearch
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, PartAlreadyExistsError
 from MakerMatrix.repositories.parts_repositories import PartRepository, handle_categories
-from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
+from MakerMatrix.models.models import PartModel
 from MakerMatrix.models.models import engine  # Import the engine from db.py
 from MakerMatrix.database.db import get_session
 from MakerMatrix.schemas.part_create import PartUpdate

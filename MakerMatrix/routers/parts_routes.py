@@ -10,7 +10,7 @@ from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.category_service import CategoryService
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.models.models import PartModel, UpdateQuantityRequest, GenericPartQuery
+from MakerMatrix.models.models import PartModel
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.dependencies.auth import get_current_user, require_permission
 from MakerMatrix.services.supplier_config_service import SupplierConfigService

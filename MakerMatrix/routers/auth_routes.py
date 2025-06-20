@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Body, Request, Form
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Body, Request
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from MakerMatrix.services.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from MakerMatrix.repositories.user_repository import UserRepository

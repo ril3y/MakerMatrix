@@ -1,0 +1,54 @@
+[tool.vulture]
+min_confidence = 80
+exclude = [
+    "venv_test/",
+    "venv_test_new/",
+    "*.pyc",
+    "__pycache__/",
+    "node_modules/",
+    "dist/",
+    "coverage/",
+    ".pytest_cache/",
+    ".git/"
+]
+
+# Configuration for ignoring false positives
+# Add paths to files with intentional unused code
+ignore_names = [
+    # Test fixtures that appear unused but are used by pytest
+    "setup_*",
+    "clean_*",
+    "sample_*",
+    "*_fixture",
+    # Common test variables
+    "client",
+    "session",
+    # Database engine parameter used in event handlers
+    "connection_record",
+    # Imports that are re-exported
+    "LabelData",
+    "PydanticField",
+    "EnrichmentProfileModel",
+    "DateTime",
+    "Boolean",
+    "Integer",
+    "Text",
+    "relationship",
+    "Form",
+    "OAuth2PasswordRequestForm",
+    "GenericPartQuery",
+    "UpdateQuantityRequest",
+    "Coroutine",
+    "user_models",
+    "pytest_asyncio",
+    "get_all_suppliers_info",
+    "TaskSecurityError",
+    "AsyncGenerator"
+]
+
+# Paths to ignore completely
+ignore_decorators = [
+    "@pytest.fixture",
+    "@app.middleware",
+    "@app.on_event"
+]

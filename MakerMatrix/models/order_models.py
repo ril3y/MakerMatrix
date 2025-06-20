@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List
 from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.dialects.sqlite import JSON
-from sqlalchemy import ForeignKey, String, DateTime, Numeric
+from sqlalchemy import ForeignKey, String, Numeric
 from datetime import datetime
 import uuid
 from pydantic import ConfigDict, field_serializer

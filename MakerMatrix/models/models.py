@@ -5,7 +5,6 @@ from sqlalchemy import create_engine, ForeignKey, String, or_, cast, UniqueConst
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import SQLModel, Field, Relationship, Session, select
 import uuid
-from pydantic import Field as PydanticField
 from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.dialects.sqlite import JSON
 from datetime import datetime

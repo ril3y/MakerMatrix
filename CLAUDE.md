@@ -124,3 +124,120 @@ if parser and parser.supports_capability(CapabilityType.FETCH_PRICING):
 
 ### Printer Testing Notes
 - only use 12mm tape for printer tests
+
+### Dead Code Analysis and Cleanup
+
+#### Overview
+The project uses automated dead code detection to identify unused code that can be safely removed to improve maintainability and reduce codebase size.
+
+#### Tools Used
+- **Python**: `vulture` - Static analysis tool for finding unused Python code
+- **TypeScript/React**: `ts-unused-exports` - Finds unused exports in TypeScript projects
+
+#### Running Dead Code Analysis
+
+##### Automated Analysis (Recommended)
+```bash
+# Run comprehensive dead code analysis for both Python and TypeScript
+python scripts/dead_code_analysis.py
+```
+
+This script will:
+1. Run vulture analysis on Python code with configured filters
+2. Run ts-unused-exports analysis on TypeScript/React code
+3. Generate a comprehensive report with findings
+4. Provide recommendations for cleanup
+
+##### Manual Analysis Commands
+
+**Python Analysis:**
+```bash
+# Basic vulture analysis
+source venv_test/bin/activate && vulture MakerMatrix/ --config vulture.toml
+
+# With specific confidence level and sorting
+source venv_test/bin/activate && vulture MakerMatrix/ --min-confidence 80 --sort-by-size
+```
+
+**TypeScript Analysis:**
+```bash
+# From frontend directory
+cd MakerMatrix/frontend
+npx ts-unused-exports tsconfig.json --excludePathsFromReport="node_modules;dist;coverage;__tests__;tests"
+```
+
+#### Configuration Files
+
+**Python (vulture.toml):**
+- Located at project root
+- Configures minimum confidence level (80%)
+- Excludes virtual environments, cache directories
+- Defines ignore patterns for false positives
+- Specifies common test fixture patterns to ignore
+
+**TypeScript (.ts-unused-exports.json):**
+- Located in MakerMatrix/frontend/
+- Excludes test files and directories
+- Allows unused enums and types (common in TypeScript)
+- Defines specific files/exports to ignore (public APIs, re-exports)
+
+#### False Positives and Considerations
+
+**Common False Positives:**
+- Test fixtures used by pytest (setup_*, clean_*, sample_*)
+- Code used in decorators or middleware (@app.middleware, @pytest.fixture)
+- Dynamic imports or string-based imports
+- Public API exports meant for external use
+- Code used in configuration files
+- Database event handlers (connection_record parameter)
+
+**Before Removing Code:**
+1. **Review carefully** - Ensure code isn't used dynamically
+2. **Check tests** - Run full test suite after removal
+3. **Verify imports** - Check for string-based or dynamic imports
+4. **Consider API** - Don't remove public API exports
+5. **Check configuration** - Some code may be used in config files
+
+#### Cleanup Process
+
+1. **Generate Report:**
+   ```bash
+   python scripts/dead_code_analysis.py
+   ```
+
+2. **Review Findings:**
+   - Check `dead_code_analysis_report.md` for detailed results
+   - Identify genuine dead code vs. false positives
+
+3. **Remove Dead Code:**
+   - Start with high-confidence items (90%+ confidence)
+   - Remove unused imports first (safer)
+   - Remove unused functions/classes after careful review
+
+4. **Test After Removal:**
+   ```bash
+   # Run full test suite
+   pytest
+   
+   # Run frontend tests
+   cd MakerMatrix/frontend && npm test
+   ```
+
+5. **Update Configuration:**
+   - Add new false positives to `vulture.toml` or `.ts-unused-exports.json`
+   - Commit configuration updates separately
+
+#### Integration with Development Workflow
+
+**Pre-commit Checks:**
+Consider adding dead code analysis to pre-commit hooks for large refactoring PRs.
+
+**Regular Maintenance:**
+- Run dead code analysis monthly or before major releases
+- Include in CI/CD pipeline for long-running feature branches
+- Review findings during code review process
+
+**Documentation Updates:**
+- Update this section when new tools or patterns are added
+- Document any project-specific false positive patterns
+- Keep configuration files in sync with project structure changes
