@@ -209,6 +209,18 @@ class PartModel(SQLModel, table=True):
     )
 
     image_url: Optional[str] = None
+    
+    # Flexible pricing fields (all optional - not all parts have pricing)
+    unit_price: Optional[float] = Field(default=None, description="Primary unit price (typically for qty=1)")
+    currency: Optional[str] = Field(default=None, max_length=3, description="Currency code (USD, EUR, etc.)")
+    pricing_data: Optional[Dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Complete pricing structure - flexible format per supplier"
+    )
+    last_price_update: Optional[datetime] = Field(default=None, description="When pricing was last updated")
+    price_source: Optional[str] = Field(default=None, description="Source of pricing data (supplier name)")
+    
     additional_properties: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
         sa_column=Column(JSON)

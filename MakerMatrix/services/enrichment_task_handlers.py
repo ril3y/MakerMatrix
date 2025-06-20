@@ -443,8 +443,15 @@ class EnrichmentTaskHandlers:
                                     except Exception as e:
                                         logger.error(f"❌ Error downloading image: {e}")
             
-            # Pricing information is handled in _create_enrichment_metadata - no additional storage needed
-            
+            # Update pricing information using standardized pricing schema
+            if 'fetch_pricing' in enrichment_results:
+                pricing_data = enrichment_results['fetch_pricing']
+                logger.info(f"Processing pricing enrichment result: {pricing_data}")
+                if isinstance(pricing_data, dict) and pricing_data.get('success'):
+                    # Get supplier name from context
+                    supplier_name = enrichment_results.get('supplier') or getattr(part, 'supplier', None) or getattr(part, 'part_vendor', None)
+                    await self._update_standardized_pricing(part, pricing_data, supplier_name)
+                    
             # Stock information is handled in _create_enrichment_metadata - no additional storage needed
             
             # Update details information from DetailsEnrichmentResponse
@@ -509,6 +516,9 @@ class EnrichmentTaskHandlers:
                         part.description = enriched_desc
                     else:
                         logger.info("No suitable fallback description found in additional_properties")
+            
+            # Handle category auto-creation from enriched data
+            await self._handle_category_auto_creation(part, enrichment_results)
             
             # Optimize data storage - reduce duplication in additional_properties
             self._optimize_part_data_storage(part)
@@ -909,12 +919,8 @@ class EnrichmentTaskHandlers:
                         part.additional_properties = {}
                     part.additional_properties['pricing_data'] = enrichment_data['pricing']
                     
-                    # Update unit price if available (first price break)
-                    pricing = enrichment_data['pricing']
-                    if isinstance(pricing, list) and pricing:
-                        first_price = pricing[0]
-                        if isinstance(first_price, dict) and 'price' in first_price:
-                            part.price = float(first_price['price'])
+                    # Pricing data is stored in additional_properties['pricing_data']
+                    # No direct 'price' field on PartModel - pricing is stored as structured data
             
             elif capability_name == 'fetch_stock':
                 # enrichment_data contains {'stock': number}
@@ -996,6 +1002,152 @@ class EnrichmentTaskHandlers:
         # Fallback to part number
         logger.debug(f"Using fallback part number for {supplier}: {part.part_number}")
         return part.part_number
+    
+    async def _handle_category_auto_creation(self, part, enrichment_results):
+        """Auto-create categories from enriched data and add them to the part"""
+        try:
+            logger.info(f"Checking for category data in enrichment results for part {part.part_name}")
+            
+            categories_to_add = []
+            
+            # Check fetch_details for category information
+            if 'fetch_details' in enrichment_results:
+                details_data = enrichment_results['fetch_details']
+                if isinstance(details_data, dict) and details_data.get('success'):
+                    # Look for category in the details data
+                    category = details_data.get('category')
+                    if category and isinstance(category, str) and category.strip():
+                        categories_to_add.append(category.strip())
+                        logger.info(f"Found category from fetch_details: {category}")
+            
+            # Check fetch_specifications for category information  
+            if 'fetch_specifications' in enrichment_results:
+                specs_data = enrichment_results['fetch_specifications']
+                if isinstance(specs_data, dict) and specs_data.get('success'):
+                    specifications = specs_data.get('specifications', {})
+                    if isinstance(specifications, dict):
+                        # Look for category in specifications
+                        category = specifications.get('Category') or specifications.get('category')
+                        if category and isinstance(category, str) and category.strip():
+                            categories_to_add.append(category.strip())
+                            logger.info(f"Found category from specifications: {category}")
+            
+            # Check if category is directly in additional_properties from supplier data
+            if hasattr(part, 'additional_properties') and part.additional_properties:
+                category = part.additional_properties.get('Category') or part.additional_properties.get('category')
+                if category and isinstance(category, str) and category.strip():
+                    categories_to_add.append(category.strip())
+                    logger.info(f"Found category from additional_properties: {category}")
+            
+            # Remove duplicates and empty categories
+            unique_categories = list(set([cat for cat in categories_to_add if cat and cat.strip()]))
+            
+            if unique_categories:
+                logger.info(f"Processing {len(unique_categories)} categories for auto-creation: {unique_categories}")
+                
+                # Auto-create categories and add them to the part
+                from MakerMatrix.database.db import engine
+                from sqlalchemy.orm import Session
+                from MakerMatrix.models.models import CategoryModel
+                from MakerMatrix.repositories.category_repositories import CategoryRepository
+                
+                with Session(engine) as session:
+                    category_repo = CategoryRepository(engine)
+                    
+                    for category_name in unique_categories:
+                        try:
+                            # Check if category already exists
+                            existing_category = None
+                            try:
+                                existing_category = category_repo.get_category_by_name(session, category_name)
+                                logger.info(f"Category '{category_name}' already exists with ID: {existing_category.id}")
+                            except Exception:
+                                # Category doesn't exist, create it
+                                logger.info(f"Creating new category: {category_name}")
+                                new_category = category_repo.create_category(session, {
+                                    "name": category_name,
+                                    "description": f"Auto-created from enrichment data for {part.part_name}"
+                                })
+                                existing_category = new_category
+                                logger.info(f"Successfully created category '{category_name}' with ID: {new_category.id}")
+                            
+                            # Add category to part if not already associated
+                            if existing_category:
+                                # Get fresh part instance in this session
+                                fresh_part = session.query(PartModel).filter(PartModel.id == part.id).first()
+                                if fresh_part:
+                                    # Check if category is already associated with part
+                                    category_already_associated = any(
+                                        cat.id == existing_category.id for cat in fresh_part.categories
+                                    )
+                                    
+                                    if not category_already_associated:
+                                        fresh_part.categories.append(existing_category)
+                                        session.commit()
+                                        logger.info(f"Successfully associated part '{part.part_name}' with category '{category_name}'")
+                                    else:
+                                        logger.info(f"Part '{part.part_name}' already associated with category '{category_name}'")
+                                else:
+                                    logger.error(f"Could not find part {part.id} in fresh session")
+                                    
+                        except Exception as e:
+                            logger.error(f"Error processing category '{category_name}': {e}")
+                            session.rollback()
+                            continue
+            else:
+                logger.info(f"No categories found in enrichment data for part {part.part_name}")
+                
+        except Exception as e:
+            logger.error(f"Error in category auto-creation for part {part.part_name}: {e}")
+            # Don't fail the entire enrichment if category creation fails
+    
+    async def _update_standardized_pricing(self, part, pricing_data, supplier_name):
+        """
+        Update part pricing using the standardized pricing schema.
+        All suppliers must convert their pricing data to StandardPricing format.
+        """
+        try:
+            from MakerMatrix.schemas.pricing_schemas import convert_generic_pricing_data
+            from datetime import datetime
+            
+            logger.info(f"Converting supplier pricing data to standardized format for part {part.part_name}")
+            
+            # Extract raw pricing data from supplier response
+            raw_pricing = None
+            if 'pricing' in pricing_data:
+                raw_pricing = pricing_data['pricing']
+            elif 'price_breaks' in pricing_data:
+                raw_pricing = pricing_data['price_breaks']
+            elif 'unit_price' in pricing_data:
+                raw_pricing = pricing_data['unit_price']
+            elif 'price' in pricing_data:
+                raw_pricing = pricing_data['price']
+            else:
+                logger.warning(f"No recognizable pricing data found in: {pricing_data.keys()}")
+                return
+            
+            # Convert to standardized pricing format
+            standard_pricing = convert_generic_pricing_data(raw_pricing, supplier=supplier_name)
+            
+            if standard_pricing:
+                # Update PartModel pricing fields
+                part.unit_price = standard_pricing.unit_price
+                part.currency = standard_pricing.currency
+                part.pricing_data = standard_pricing.to_dict()
+                part.last_price_update = datetime.utcnow()
+                part.price_source = supplier_name
+                
+                logger.info(f"✅ Successfully updated standardized pricing for part {part.part_name}")
+                logger.info(f"   - Pricing type: {standard_pricing.pricing_type}")
+                logger.info(f"   - Unit price: {standard_pricing.unit_price} {standard_pricing.currency}")
+                if standard_pricing.price_breaks:
+                    logger.info(f"   - Price breaks: {len(standard_pricing.price_breaks)} tiers")
+            else:
+                logger.warning(f"Failed to convert pricing data to standardized format for part {part.part_name}")
+                
+        except Exception as e:
+            logger.error(f"Error updating standardized pricing for part {part.part_name}: {e}")
+            # Don't fail enrichment if pricing update fails
 
 
 # Task handler registry

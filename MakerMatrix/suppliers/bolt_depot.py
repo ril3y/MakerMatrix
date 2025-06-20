@@ -413,10 +413,50 @@ class BoltDepotSupplier(BaseSupplier):
         
         return ", ".join(description_parts) if description_parts else "Fastener"
     
-    async def fetch_pricing(self, supplier_part_number: str) -> Optional[List[Dict[str, Any]]]:
-        """Fetch current pricing for a Bolt Depot part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.pricing if part_details else None
+    async def fetch_pricing(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
+        """Fetch current pricing for a Bolt Depot part using standardized format"""
+        try:
+            from MakerMatrix.schemas.pricing_schemas import create_quantity_breaks, create_no_pricing
+            
+            part_details = await self.get_part_details(supplier_part_number)
+            if not part_details or not part_details.pricing:
+                return {
+                    "success": False,
+                    "error": "No pricing data available",
+                    "pricing": create_no_pricing().to_dict()
+                }
+            
+            # Convert Bolt Depot pricing format to standardized format
+            pricing_data = part_details.pricing
+            if isinstance(pricing_data, list) and len(pricing_data) > 0:
+                # Convert to standardized quantity breaks format
+                standard_pricing = create_quantity_breaks(
+                    price_breaks=pricing_data,
+                    currency="USD",
+                    supplier="Bolt Depot"
+                )
+                
+                return {
+                    "success": True,
+                    "pricing": standard_pricing.to_dict(),
+                    "unit_price": standard_pricing.unit_price,
+                    "currency": standard_pricing.currency,
+                    "price_breaks": [{"quantity": pb.quantity, "price": pb.price} for pb in standard_pricing.price_breaks]
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "Invalid pricing format",
+                    "pricing": create_no_pricing().to_dict()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching standardized pricing for {supplier_part_number}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "pricing": create_no_pricing().to_dict()
+            }
     
     async def fetch_stock(self, supplier_part_number: str) -> Optional[int]:
         """Stock information not available from web scraping"""

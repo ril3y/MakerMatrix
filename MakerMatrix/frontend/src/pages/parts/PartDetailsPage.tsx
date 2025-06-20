@@ -251,7 +251,7 @@ const PartDetailsPage = () => {
                   <img
                     src={part.image_url}
                     alt={part.name}
-                    className="w-full h-full object-cover rounded-lg border border-border"
+                    className="w-full h-full object-contain rounded-lg border border-border bg-white"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
@@ -854,6 +854,110 @@ const EnhancedPropertiesSection = ({ part }: { part: Part }) => {
 
   const formatValue = (value: any, key: string) => {
     if (typeof value === 'object') {
+      // Special handling for specifications object
+      if (key.toLowerCase() === 'specifications' && value && typeof value === 'object') {
+        return (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-primary">Technical Specifications</div>
+            <div className="bg-background-secondary rounded-lg p-3">
+              <div className="grid grid-cols-1 gap-2">
+                {Object.entries(value).map(([specKey, specValue]) => (
+                  <div key={specKey} className="flex justify-between py-1 border-b border-border last:border-b-0">
+                    <span className="text-sm font-medium text-secondary">{specKey}:</span>
+                    <span className="text-sm text-primary">{String(specValue)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+      
+      // Special handling for standardized pricing data
+      if (key.toLowerCase() === 'pricing_data' && value && typeof value === 'object') {
+        const pricingType = value.pricing_type
+        const currency = value.currency || 'USD'
+        
+        return (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-primary flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Pricing Information
+            </div>
+            <div className="bg-background-secondary rounded-lg p-3">
+              {pricingType === 'no_pricing' && (
+                <div className="text-sm text-secondary text-center py-2">
+                  No pricing information available
+                </div>
+              )}
+              
+              {pricingType === 'single_price' && value.unit_price && (
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-primary">
+                    ${Number(value.unit_price).toFixed(2)} {currency}
+                  </div>
+                  <div className="text-xs text-secondary">Per unit</div>
+                </div>
+              )}
+              
+              {pricingType === 'quantity_breaks' && value.price_breaks && (
+                <div className="space-y-2">
+                  <div className="text-xs text-secondary mb-2">Quantity pricing tiers:</div>
+                  {value.price_breaks.map((priceBreak: any, index: number) => (
+                    <div key={index} className="flex justify-between py-1 border-b border-border last:border-b-0">
+                      <span className="text-sm text-secondary">
+                        {priceBreak.quantity === 1 ? '1+' : `${priceBreak.quantity.toLocaleString()}+`}:
+                      </span>
+                      <span className="text-sm font-medium text-primary">
+                        ${Number(priceBreak.price).toFixed(2)} {currency}
+                      </span>
+                    </div>
+                  ))}
+                  {value.unit_price && (
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <div className="text-xs text-secondary">Best unit price: ${Number(value.unit_price).toFixed(2)} {currency}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {value.supplier && (
+                <div className="mt-2 pt-2 border-t border-border text-xs text-secondary">
+                  Source: {value.supplier}
+                  {value.last_updated && (
+                    <span className="ml-2">• Updated: {new Date(value.last_updated).toLocaleDateString()}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      }
+      
+      // Legacy handling for pricing data array (for backward compatibility)
+      if (key.toLowerCase().includes('pricing') && Array.isArray(value)) {
+        return (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-primary">Legacy Pricing Information</div>
+            <div className="bg-background-secondary rounded-lg p-3">
+              <div className="grid grid-cols-1 gap-2">
+                {value.map((priceInfo, index) => (
+                  <div key={index} className="flex justify-between py-1 border-b border-border last:border-b-0">
+                    <span className="text-sm text-secondary">
+                      {priceInfo.quantity === 1 ? '1 piece' : `${priceInfo.quantity.toLocaleString()} pieces`}:
+                    </span>
+                    <span className="text-sm font-medium text-primary">
+                      ${priceInfo.price} {priceInfo.currency}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+      
+      // Generic object display for other objects
       return (
         <details className="group">
           <summary className="cursor-pointer text-primary hover:text-primary-dark">

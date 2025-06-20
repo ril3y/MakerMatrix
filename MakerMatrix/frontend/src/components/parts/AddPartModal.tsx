@@ -7,6 +7,7 @@ import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
 import { utilityService } from '@/services/utility.service'
 import { DynamicSupplierService } from '@/services/dynamic-supplier.service'
+import { tasksService } from '@/services/tasks.service'
 import { CreatePartRequest } from '@/types/parts'
 import { Location, Category } from '@/types/parts'
 import toast from 'react-hot-toast'
@@ -176,8 +177,27 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         additional_properties: Object.keys(properties).length > 0 ? properties : undefined
       }
 
-      await partsService.createPart(submitData)
+      const createdPart = await partsService.createPart(submitData)
       toast.success('Part created successfully')
+      
+      // Auto-enrich if supplier is specified
+      if (formData.supplier && formData.supplier.trim()) {
+        try {
+          console.log(`Auto-enriching part ${createdPart.id} with supplier ${formData.supplier}`)
+          const enrichmentTask = await tasksService.createPartEnrichmentTask({
+            part_id: createdPart.id,
+            supplier: formData.supplier.trim(),
+            capabilities: ['fetch_datasheet', 'fetch_image', 'fetch_pricing', 'fetch_specifications'],
+            force_refresh: false
+          })
+          toast.success(`Enrichment task created: ${enrichmentTask.data.name}`)
+          console.log('Enrichment task created:', enrichmentTask.data)
+        } catch (error) {
+          console.error('Failed to create enrichment task:', error)
+          toast.error('Part created but enrichment failed to start')
+        }
+      }
+      
       onSuccess()
       handleClose()
     } catch (error: any) {
