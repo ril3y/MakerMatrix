@@ -471,14 +471,14 @@ const PartDetailsPage = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => viewDatasheet(datasheet)}
-                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
                       >
                         <Eye className="w-4 h-4" />
                         View
                       </button>
                       <button
                         onClick={() => downloadDatasheet(datasheet)}
-                        className="px-3 py-2 bg-background-tertiary hover:bg-background-secondary text-primary rounded text-sm transition-colors flex items-center justify-center"
+                        className="btn btn-secondary text-sm flex items-center justify-center"
                         title="Download"
                       >
                         <Download className="w-4 h-4" />
@@ -535,7 +535,7 @@ const PartDetailsPage = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openPDFPreview(part.additional_properties.datasheet_url)}
-                      className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
                     >
                       <Eye className="w-4 h-4" />
                       Preview PDF
@@ -544,7 +544,7 @@ const PartDetailsPage = () => {
                       href={part.additional_properties.datasheet_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-2 bg-background-tertiary hover:bg-background-secondary text-primary rounded text-sm transition-colors flex items-center justify-center"
+                      className="btn btn-secondary text-sm flex items-center justify-center"
                       title="Open in new tab"
                     >
                       <ExternalLink className="w-4 h-4" />
