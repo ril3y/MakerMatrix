@@ -255,7 +255,7 @@ class CSVImportService:
             # Log enrichment summary
             if enable_enrichment and enrichment_supported and parts_data:
                 enrichment_ready_parts = sum(1 for part in parts_data 
-                                           if part.get('additional_properties', {}).get('supports_enrichment', False))
+                                           if part.get('additional_properties', {}).get('needs_enrichment', False))
                 logger.info(f"Parsed {len(parts_data)} parts from {parser_type}, {enrichment_ready_parts} ready for enrichment")
             
         except Exception as e:

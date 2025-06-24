@@ -281,9 +281,14 @@ C17513,0805W8F1001T5E,UNI-ROYAL(Uniroyal Elec),1kΩ Resistor,50,0.02,1.00'''
             props_without = part_without.get('additional_properties', {})
             props_with = part_with.get('additional_properties', {})
             
-            assert props_without.get('supports_enrichment') != True
-            assert props_with.get('supports_enrichment') == True
+            # Parts without enrichment should not have enrichment metadata
+            assert props_without.get('needs_enrichment') != True
+            assert props_without.get('enrichment_source') is None
+            
+            # Parts with enrichment should have enrichment metadata
+            assert props_with.get('needs_enrichment') == True
             assert props_with.get('enrichment_source') == 'lcsc'
+            assert props_with.get('enrichment_supplier') == 'LCSC'
     
     @pytest.mark.integration
     def test_parser_client_registry_integration(self):

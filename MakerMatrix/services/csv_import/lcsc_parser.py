@@ -97,8 +97,6 @@ class LCSCParser(BaseCSVParser):
             # Store LCSC part number for later enrichment (don't do API calls during parsing)
             if lcsc_part_number:
                 part_data['additional_properties']['lcsc_part_number'] = lcsc_part_number
-                part_data['additional_properties']['needs_enrichment'] = True
-                part_data['additional_properties']['enrichment_source'] = self.get_supplier_name()
                 
                 # Only do API enrichment during preview mode - NEVER during normal parsing
                 if self.enrich_only_mode:
