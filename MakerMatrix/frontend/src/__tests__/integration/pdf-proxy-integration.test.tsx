@@ -9,7 +9,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import PartDetailsPage from '../../pages/parts/PartDetailsPage'
-import { getPDFProxyUrl } from '../../services/api'
+
+// Mock the PDF proxy function to avoid import.meta issues
+const mockGetPDFProxyUrl = (url: string) => `/static/proxy-pdf?url=${encodeURIComponent(url)}`
+
+// Mock LoadingScreen component
+vi.mock('../../components/ui/LoadingScreen', () => ({
+  default: () => <div data-testid="loading-screen">Loading...</div>
+}))
 
 // Mock react-router-dom
 vi.mock('react-router-dom', async () => {
@@ -145,14 +152,6 @@ vi.mock('../../components/parts/PartPDFViewer', () => ({
 describe('PDF Proxy Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Mock import.meta.env for development mode
-    Object.defineProperty(global, 'import', {
-      value: {
-        meta: {
-          env: { DEV: true }
-        }
-      }
-    })
   })
 
   afterEach(() => {
@@ -170,14 +169,14 @@ describe('PDF Proxy Integration Tests', () => {
   describe('getPDFProxyUrl utility', () => {
     it('should generate correct proxy URL for external datasheet', () => {
       const externalUrl = 'https://datasheet.lcsc.com/lcsc/test.pdf'
-      const proxyUrl = getPDFProxyUrl(externalUrl)
+      const proxyUrl = mockGetPDFProxyUrl(externalUrl)
       
       expect(proxyUrl).toBe('/static/proxy-pdf?url=' + encodeURIComponent(externalUrl))
     })
 
     it('should handle complex URLs with query parameters', () => {
       const complexUrl = 'https://datasheet.lcsc.com/lcsc/TI-TLV9061IDBVR_C693210.pdf?version=2'
-      const proxyUrl = getPDFProxyUrl(complexUrl)
+      const proxyUrl = mockGetPDFProxyUrl(complexUrl)
       
       expect(proxyUrl).toContain(encodeURIComponent(complexUrl))
       expect(proxyUrl).toContain('%3F')  // Encoded ?

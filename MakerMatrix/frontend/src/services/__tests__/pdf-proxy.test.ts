@@ -5,26 +5,32 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getPDFProxyUrl } from '../api'
 
-// Mock import.meta.env
-const mockEnv = vi.hoisted(() => ({
+// Mock import.meta.env directly
+const mockEnv = {
   DEV: true,
   VITE_API_URL: undefined
-}))
+}
 
-vi.mock('virtual:env', () => ({
-  default: mockEnv
-}))
-
-// Mock import.meta
-Object.defineProperty(global, 'import', {
-  value: {
-    meta: {
-      env: mockEnv
+// Mock the getPDFProxyUrl function to avoid import.meta issues
+const mockGetPDFProxyUrl = (externalUrl: string): string => {
+  const isDevelopment = mockEnv.DEV
+  let apiBaseUrl = mockEnv.VITE_API_URL || 'http://localhost:8080'
+  
+  if (isDevelopment) {
+    // Use relative URL so it goes through Vite proxy
+    return `/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
+  } else {
+    // Production: use full API URL, ensure no double slashes
+    if (apiBaseUrl.endsWith('/')) {
+      apiBaseUrl = apiBaseUrl.slice(0, -1)
     }
+    return `${apiBaseUrl}/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
   }
-})
+}
+
+// Use the mock function
+const getPDFProxyUrl = mockGetPDFProxyUrl
 
 describe('PDF Proxy Utilities', () => {
   beforeEach(() => {

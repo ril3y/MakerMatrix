@@ -288,8 +288,10 @@ describe('AddLocationModal - Core Functionality', () => {
       await waitFor(() => {
         expect(mockLocationsService.createLocation).toHaveBeenCalledWith({
           name: 'Component Drawer',
-          type: 'drawer',
-          parent_id: 'loc-2'
+          location_type: 'drawer',
+          parent_id: 'loc-2',
+          emoji: undefined,
+          image_url: undefined
         })
       })
     })
