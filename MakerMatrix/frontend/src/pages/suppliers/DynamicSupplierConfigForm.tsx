@@ -40,6 +40,47 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
     loadSupplierData();
   }, [supplierName]);
 
+  const reloadSchemasWithConfig = async (currentConfig: Record<string, any>) => {
+    try {
+      setLoading(true);
+      const { dynamicSupplierService } = await import('../../services/dynamic-supplier.service');
+
+      console.log('Reloading schemas with current config:', currentConfig);
+      
+      // Use the new context-aware schema endpoints
+      const [credSchema, configSchema] = await Promise.all([
+        dynamicSupplierService.getCredentialSchemaWithConfig(supplierName, credentials, currentConfig),
+        dynamicSupplierService.getConfigurationSchemaWithConfig(supplierName, credentials, currentConfig)
+      ]);
+
+      console.log('Reloaded credential schema:', credSchema);
+      console.log('Reloaded config schema:', configSchema);
+
+      // Ensure schemas are arrays
+      const safeCredSchema = Array.isArray(credSchema) ? credSchema : [];
+      const safeConfigSchema = Array.isArray(configSchema) ? configSchema : [];
+      
+      setCredentialFields(safeCredSchema);
+      setConfigFields(safeConfigSchema);
+
+      // Keep existing config values but add any new default values for new fields
+      const updatedConfig = { ...currentConfig };
+      safeConfigSchema.forEach(field => {
+        if (!(field.name in updatedConfig) && field.default_value !== undefined) {
+          updatedConfig[field.name] = field.default_value;
+        }
+      });
+      
+      setConfig(updatedConfig);
+      onConfigChange(updatedConfig);
+
+    } catch (error) {
+      console.error('Failed to reload schemas:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadSupplierData = async () => {
     try {
       setLoading(true);
@@ -113,6 +154,13 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
     const newConfig = { ...config, [fieldName]: value };
     setConfig(newConfig);
     onConfigChange(newConfig);
+    
+    // For certain fields that affect schema structure, reload schemas
+    // This handles dynamic schema changes like McMaster-Carr's mode selector
+    if (fieldName === 'mode') {
+      console.log(`Configuration field '${fieldName}' changed to '${value}', reloading schemas...`);
+      reloadSchemasWithConfig(newConfig);
+    }
   };
 
   const renderField = (field: FieldDefinition, value: any, onChange: (value: any) => void) => {

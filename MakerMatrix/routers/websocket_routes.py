@@ -62,6 +62,52 @@ async def websocket_tasks_endpoint(
         websocket_manager.disconnect(websocket)
 
 
+@router.websocket("/ws/general")
+async def websocket_general_endpoint(
+    websocket: WebSocket,
+    token: Optional[str] = Query(None)
+):
+    """WebSocket endpoint for general activity updates"""
+    user = None
+    
+    # Try to authenticate user if token provided (optional for general updates)
+    if token:
+        try:
+            user = await get_current_user_from_token(token)
+        except Exception as e:
+            logger.warning(f"General WebSocket authentication failed: {e}")
+    
+    user_id = user.id if user else None
+    
+    try:
+        await websocket_manager.connect(websocket, "general", user_id)
+        
+        while True:
+            # Wait for messages from client
+            data = await websocket.receive_text()
+            
+            try:
+                message = json.loads(data)
+                await handle_general_websocket_message(websocket, message, user)
+            except json.JSONDecodeError:
+                await websocket_manager.send_to_connection(websocket, {
+                    "type": "error",
+                    "message": "Invalid JSON format"
+                })
+            except Exception as e:
+                logger.error(f"Error handling general WebSocket message: {e}")
+                await websocket_manager.send_to_connection(websocket, {
+                    "type": "error", 
+                    "message": "Internal server error"
+                })
+                
+    except WebSocketDisconnect:
+        websocket_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"General WebSocket error: {e}")
+        websocket_manager.disconnect(websocket)
+
+
 @router.websocket("/ws/admin") 
 async def websocket_admin_endpoint(
     websocket: WebSocket,
@@ -139,6 +185,31 @@ async def handle_task_websocket_message(websocket: WebSocket, message: dict, use
             "type": "task_unsubscription", 
             "task_id": task_id,
             "status": "unsubscribed"
+        })
+    
+    elif message_type == "get_connection_info":
+        stats = websocket_manager.get_connection_stats()
+        await websocket_manager.send_to_connection(websocket, {
+            "type": "connection_info",
+            "data": stats
+        })
+
+
+async def handle_general_websocket_message(websocket: WebSocket, message: dict, user: UserModel = None):
+    """Handle incoming general WebSocket messages"""
+    message_type = message.get("type")
+    
+    if message_type == "ping":
+        await websocket_manager.send_to_connection(websocket, {
+            "type": "pong",
+            "timestamp": message.get("timestamp")
+        })
+    
+    elif message_type == "subscribe_activities":
+        # Subscribe to activity updates
+        await websocket_manager.send_to_connection(websocket, {
+            "type": "activity_subscription",
+            "status": "subscribed"
         })
     
     elif message_type == "get_connection_info":

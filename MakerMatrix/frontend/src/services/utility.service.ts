@@ -15,10 +15,9 @@ class UtilityService {
       },
     })
 
-    // Return the full image URL
+    // Return the full image URL - backend handles extension lookup
     const imageId = response.image_id
-    const fileExtension = file.name.split('.').pop() || 'png'
-    return `/utility/get_image/${imageId}.${fileExtension}`
+    return `/utility/get_image/${imageId}`
   }
 }
 

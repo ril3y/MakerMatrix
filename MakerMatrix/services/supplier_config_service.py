@@ -25,7 +25,6 @@ from MakerMatrix.repositories.custom_exceptions import (
 )
 from MakerMatrix.suppliers.base import BaseSupplier
 from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
-from MakerMatrix.config.suppliers import get_default_supplier_configs
 
 logger = logging.getLogger(__name__)
 
@@ -46,21 +45,47 @@ class SupplierConfigService(CredentialEncryptionMixin):
         self.default_suppliers = self._load_default_supplier_configs()
     
     def _load_default_supplier_configs(self) -> Dict[str, Dict[str, Any]]:
-        """Load default supplier configurations from config files"""
+        """Load default supplier configurations from new supplier registry"""
         try:
-            configs = get_default_supplier_configs()
+            available_suppliers = get_available_suppliers()
             supplier_dict = {}
             
-            for config in configs:
-                supplier_name = config["supplier_name"]
-                supplier_dict[supplier_name] = config
+            for supplier_name in available_suppliers:
+                try:
+                    supplier = get_supplier(supplier_name)
+                    info = supplier.get_supplier_info()
+                    
+                    # Create default config from supplier info
+                    config = {
+                        "supplier_name": supplier_name.upper(),
+                        "display_name": info.display_name,
+                        "description": info.description,
+                        "api_type": "rest",
+                        "base_url": getattr(info, 'website_url', 'https://example.com'),
+                        "api_version": "v1",
+                        "rate_limit_per_minute": 60,
+                        "timeout_seconds": 30,
+                        "max_retries": 3,
+                        "retry_backoff": 1.0,
+                        "enabled": True,
+                        "supports_datasheet": False,
+                        "supports_image": False,
+                        "supports_pricing": False,
+                        "supports_stock": False,
+                        "supports_specifications": False
+                    }
+                    
+                    supplier_dict[supplier_name.upper()] = config
+                    
+                except Exception as e:
+                    self.logger.warning(f"Failed to load supplier {supplier_name}: {e}")
+                    continue
                 
-            self.logger.info(f"Loaded {len(supplier_dict)} default supplier configurations")
+            self.logger.info(f"Loaded {len(supplier_dict)} default supplier configurations from registry")
             return supplier_dict
             
         except Exception as e:
-            self.logger.error(f"Error loading default supplier configurations: {e}")
-            # No hardcoded fallback - use empty dict to rely on dynamic supplier registry
+            self.logger.error(f"Error loading supplier configurations from registry: {e}")
             return {}
     
     def create_supplier_config(self, config_data: Dict[str, Any], user_id: Optional[str] = None) -> SupplierConfigModel:
@@ -341,6 +366,8 @@ class SupplierConfigService(CredentialEncryptionMixin):
         """
         Get credentials for a supplier
         
+        First tries to get from encrypted database storage, then falls back to environment variables.
+        
         Args:
             supplier_name: Name of the supplier
             decrypt: Whether to decrypt the credentials
@@ -357,6 +384,13 @@ class SupplierConfigService(CredentialEncryptionMixin):
             ).first()
             
             if not config:
+                # Still check environment variables even if config doesn't exist
+                self.logger.warning(f"Supplier configuration '{supplier_name}' not found in database, checking environment variables")
+                from MakerMatrix.utils.env_credentials import get_supplier_credentials_from_env
+                env_creds = get_supplier_credentials_from_env(supplier_name)
+                if env_creds:
+                    self.logger.info(f"Using environment credentials for {supplier_name}")
+                    return env_creds
                 raise ResourceNotFoundError("error", f"Supplier configuration '{supplier_name}' not found")
             
             creds = session.query(SupplierCredentialsModel).filter(
@@ -364,13 +398,20 @@ class SupplierConfigService(CredentialEncryptionMixin):
             ).first()
             
             if not creds:
+                # No database credentials, try environment variables
+                self.logger.info(f"No database credentials found for {supplier_name}, checking environment variables")
+                from MakerMatrix.utils.env_credentials import get_supplier_credentials_from_env
+                env_creds = get_supplier_credentials_from_env(supplier_name)
+                if env_creds:
+                    self.logger.info(f"Using environment credentials for {supplier_name}")
+                    return env_creds
                 return None
             
             if not decrypt:
                 # Return metadata only
                 return creds.to_dict(include_encrypted=False)
             
-            # Decrypt credentials
+            # Try to decrypt database credentials
             encrypted_fields = {
                 'api_key_encrypted': creds.api_key_encrypted,
                 'secret_key_encrypted': creds.secret_key_encrypted,
@@ -384,9 +425,21 @@ class SupplierConfigService(CredentialEncryptionMixin):
             encrypted_fields = {k: v for k, v in encrypted_fields.items() if v}
             
             if encrypted_fields:
-                decrypted_creds = self.decrypt_credentials_dict(encrypted_fields, creds.salt)
-                self.logger.debug(f"Decrypted {len(decrypted_creds)} credential fields for {supplier_name}")
-                return decrypted_creds
+                try:
+                    decrypted_creds = self.decrypt_credentials_dict(encrypted_fields, creds.salt)
+                    self.logger.debug(f"Decrypted {len(decrypted_creds)} credential fields for {supplier_name}")
+                    return decrypted_creds
+                except Exception as e:
+                    # Decryption failed, fall back to environment variables
+                    self.logger.warning(f"Failed to decrypt credentials for {supplier_name}: {e}. Trying environment variables.")
+                    from MakerMatrix.utils.env_credentials import get_supplier_credentials_from_env
+                    env_creds = get_supplier_credentials_from_env(supplier_name)
+                    if env_creds:
+                        self.logger.info(f"Using environment credentials for {supplier_name} after decryption failure")
+                        return env_creds
+                    else:
+                        self.logger.warning(f"No environment credentials found for {supplier_name}, supplier will not work")
+                        return None
             
             return {}
     
@@ -491,8 +544,22 @@ class SupplierConfigService(CredentialEncryptionMixin):
         if config.custom_parameters:
             config_dict.update(config.custom_parameters)
         
-        # Configure the supplier
-        supplier.configure(credentials or {}, config_dict)
+        # Check if supplier requires credentials by looking at its schema
+        try:
+            credential_schema = supplier.get_credential_schema()
+            required_creds = [field for field in credential_schema if field.required]
+            
+            if required_creds and not credentials:
+                self.logger.warning(f"Supplier {config.supplier_name} requires credentials but none provided")
+                # Still configure - some suppliers (like McMaster scraper mode) can work without creds
+            
+            # Configure the supplier
+            supplier.configure(credentials or {}, config_dict)
+            
+        except Exception as e:
+            self.logger.warning(f"Error checking credential requirements for {config.supplier_name}: {e}")
+            # Still try to configure
+            supplier.configure(credentials or {}, config_dict)
         
         self.logger.info(f"Successfully created {config.supplier_name} supplier instance")
         return supplier

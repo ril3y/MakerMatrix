@@ -106,6 +106,8 @@ class LocationModel(SQLModel, table=True):
     description: Optional[str] = None
     parent_id: Optional[str] = Field(default=None, foreign_key="locationmodel.id")
     location_type: str = Field(default="standard")
+    image_url: Optional[str] = None
+    emoji: Optional[str] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -143,7 +145,9 @@ class LocationModel(SQLModel, table=True):
             "name": self.name,
             "description": self.description,
             "parent_id": self.parent_id,
-            "location_type": self.location_type
+            "location_type": self.location_type,
+            "image_url": self.image_url,
+            "emoji": self.emoji
         }
         
         # Safely include parent if loaded and available
@@ -169,7 +173,9 @@ class LocationModel(SQLModel, table=True):
                         "name": child.name,
                         "description": child.description,
                         "parent_id": child.parent_id,
-                        "location_type": child.location_type
+                        "location_type": child.location_type,
+                        "image_url": child.image_url,
+                        "emoji": child.emoji
                     }
                     base_dict["children"].append(child_dict)
         except Exception:
@@ -184,6 +190,8 @@ class LocationUpdate(SQLModel):
     description: Optional[str] = None
     parent_id: Optional[str] = None
     location_type: Optional[str] = None
+    image_url: Optional[str] = None
+    emoji: Optional[str] = None
 
 
 # PartModel
@@ -209,9 +217,24 @@ class PartModel(SQLModel, table=True):
 
     image_url: Optional[str] = None
     
-    # Flexible pricing fields (all optional - not all parts have pricing)
+    # === STANDARDIZED CORE FIELDS FOR UI CONSISTENCY ===
+    
+    # Universal Part Identification (critical for any UI)
+    manufacturer: Optional[str] = Field(default=None, index=True, description="Component manufacturer")
+    manufacturer_part_number: Optional[str] = Field(default=None, index=True, description="Manufacturer's part number")
+    
+    # Component Classification (helps UI organize and display parts)
+    component_type: Optional[str] = Field(default=None, index=True, description="Standardized component type (resistor, capacitor, etc.)")
+    package: Optional[str] = Field(default=None, index=True, description="Physical package (0603, SOIC-8, etc.)")
+    mounting_type: Optional[str] = Field(default=None, description="Mounting type (SMT, through_hole, etc.)")
+    
+    # Compliance and Status (important for sourcing decisions)
+    rohs_status: Optional[str] = Field(default=None, description="RoHS compliance status (compliant, non_compliant, etc.)")
+    lifecycle_status: Optional[str] = Field(default=None, description="Part lifecycle status (active, obsolete, nrnd, etc.)")
+    
+    # === ENHANCED PRICING FIELDS (improved from existing) ===
     unit_price: Optional[float] = Field(default=None, description="Primary unit price (typically for qty=1)")
-    currency: Optional[str] = Field(default=None, max_length=3, description="Currency code (USD, EUR, etc.)")
+    currency: Optional[str] = Field(default="USD", max_length=3, description="Currency code (USD, EUR, etc.)")
     pricing_data: Optional[Dict[str, Any]] = Field(
         default=None,
         sa_column=Column(JSON),
@@ -220,9 +243,20 @@ class PartModel(SQLModel, table=True):
     last_price_update: Optional[datetime] = Field(default=None, description="When pricing was last updated")
     price_source: Optional[str] = Field(default=None, description="Source of pricing data (supplier name)")
     
+    # === STOCK TRACKING ===
+    stock_quantity: Optional[int] = Field(default=None, description="Supplier stock level")
+    last_stock_update: Optional[datetime] = Field(default=None, description="When stock was last checked")
+    
+    # === ENRICHMENT TRACKING ===
+    last_enrichment_date: Optional[datetime] = Field(default=None, description="Last successful enrichment")
+    enrichment_source: Optional[str] = Field(default=None, description="Which supplier enriched this part")
+    data_quality_score: Optional[float] = Field(default=None, description="Data completeness score (0.0-1.0)")
+    
+    # === STANDARDIZED FLEXIBLE STORAGE ===
     additional_properties: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
-        sa_column=Column(JSON)
+        sa_column=Column(JSON),
+        description="Standardized additional properties using schemas.part_data_standards structure"
     )
 
     categories: List["CategoryModel"] = Relationship(
@@ -348,6 +382,132 @@ class PartModel(SQLModel, table=True):
                 base_dict["datasheets"] = []
         
         return base_dict
+    
+    # === UI CONVENIENCE METHODS FOR STANDARDIZED DATA ===
+    
+    def get_display_name(self) -> str:
+        """Get the best display name for UI (manufacturer + part number preferred)"""
+        if self.manufacturer and self.manufacturer_part_number:
+            return f"{self.manufacturer} {self.manufacturer_part_number}"
+        elif self.manufacturer_part_number:
+            return self.manufacturer_part_number
+        elif self.part_number:
+            return self.part_number
+        else:
+            return self.part_name
+    
+    def get_standardized_additional_properties(self) -> Dict[str, Any]:
+        """Get additional properties structured according to part_data_standards"""
+        from MakerMatrix.schemas.part_data_standards import StandardizedAdditionalProperties
+        
+        if not self.additional_properties:
+            return StandardizedAdditionalProperties().to_dict()
+        
+        try:
+            return StandardizedAdditionalProperties.from_dict(self.additional_properties).to_dict()
+        except Exception:
+            # If data doesn't conform to standard, return as-is
+            return self.additional_properties
+    
+    def get_specifications_dict(self) -> Dict[str, Any]:
+        """Get technical specifications as flat dictionary for UI display"""
+        std_props = self.get_standardized_additional_properties()
+        return std_props.get('specifications', {})
+    
+    def get_supplier_data(self, supplier_name: str = None) -> Dict[str, Any]:
+        """Get supplier-specific data (defaults to primary supplier)"""
+        supplier = supplier_name or self.supplier
+        if not supplier:
+            return {}
+        
+        std_props = self.get_standardized_additional_properties()
+        supplier_data = std_props.get('supplier_data', {})
+        return supplier_data.get(supplier.lower(), {})
+    
+    def has_datasheet(self) -> bool:
+        """Check if part has a datasheet available"""
+        # Check if we have datasheets in relationships
+        if hasattr(self, 'datasheets') and self.datasheets:
+            return True
+        
+        # Check standardized metadata flag
+        std_props = self.get_standardized_additional_properties()
+        metadata = std_props.get('metadata', {})
+        return metadata.get('has_datasheet', False)
+    
+    def get_datasheet_url(self) -> Optional[str]:
+        """Get datasheet URL from standardized supplier data"""
+        std_props = self.get_standardized_additional_properties()
+        supplier_data = std_props.get('supplier_data', {})
+        
+        # Check all suppliers for datasheet URL
+        for supplier_name, supplier_info in supplier_data.items():
+            if isinstance(supplier_info, dict):
+                datasheet_url = supplier_info.get('datasheet_url')
+                if datasheet_url:
+                    return datasheet_url
+        
+        return None
+    
+    def has_complete_identification(self) -> bool:
+        """Check if part has complete manufacturer identification"""
+        return bool(self.manufacturer and self.manufacturer_part_number)
+    
+    def needs_enrichment(self) -> bool:
+        """Determine if part needs enrichment based on data completeness"""
+        # Never been enriched
+        if not self.last_enrichment_date:
+            return True
+        
+        # Missing critical identification
+        if not self.has_complete_identification():
+            return True
+        
+        # Missing component classification
+        if not self.component_type:
+            return True
+        
+        # Explicitly marked as needing enrichment
+        std_props = self.get_standardized_additional_properties()
+        metadata = std_props.get('metadata', {})
+        return metadata.get('needs_enrichment', False)
+    
+    def update_data_quality_score(self):
+        """Calculate and update data quality score based on field completeness"""
+        # Core fields scoring (60% weight)
+        core_fields = [
+            self.manufacturer,
+            self.manufacturer_part_number,
+            self.component_type,
+            self.package,
+            self.description,
+            self.image_url
+        ]
+        core_score = sum(1 for field in core_fields if field is not None) / len(core_fields)
+        
+        # Pricing data (20% weight)
+        pricing_score = 1.0 if self.unit_price is not None else 0.0
+        
+        # Additional properties/specifications (20% weight)
+        specs = self.get_specifications_dict()
+        spec_score = min(len(specs) / 5, 1.0) if specs else 0.0  # Up to 5 specs for full score
+        
+        # Overall weighted score
+        self.data_quality_score = (core_score * 0.6 + pricing_score * 0.2 + spec_score * 0.2)
+    
+    def get_enrichment_status(self) -> Dict[str, Any]:
+        """Get comprehensive enrichment status for UI display"""
+        return {
+            'last_enrichment': self.last_enrichment_date.isoformat() if self.last_enrichment_date else None,
+            'enrichment_source': self.enrichment_source,
+            'data_quality_score': self.data_quality_score,
+            'needs_enrichment': self.needs_enrichment(),
+            'has_datasheet': self.has_datasheet(),
+            'has_image': bool(self.image_url),
+            'has_pricing': bool(self.unit_price),
+            'has_stock_info': bool(self.stock_quantity is not None),
+            'has_complete_id': self.has_complete_identification()
+        }
 
     @model_validator(mode='before')
     @classmethod

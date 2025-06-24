@@ -48,6 +48,21 @@ class WebSocketEventType(str, Enum):
     # General notifications
     NOTIFICATION = "notification"
     TOAST = "toast"
+    
+    # Generic entity events (covers all entity types: parts, locations, categories, etc.)
+    ENTITY_CREATED = "entity_created"
+    ENTITY_UPDATED = "entity_updated" 
+    ENTITY_DELETED = "entity_deleted"
+    
+    # Special action events
+    ENTITY_PRINTED = "entity_printed"      # For labels, documents, etc.
+    ENTITY_IMPORTED = "entity_imported"    # For CSV imports, etc.
+    ENTITY_EXPORTED = "entity_exported"    # For exports
+    ENTITY_TESTED = "entity_tested"        # For printer tests, etc.
+    
+    # User session events
+    USER_LOGIN = "user_login"
+    USER_LOGOUT = "user_logout"
 
 
 class WebSocketMessage(BaseModel):
@@ -134,6 +149,31 @@ class ConnectionStatusData(BaseModel):
     server_time: datetime = Field(default_factory=datetime.utcnow)
 
 
+class EntityEventData(BaseModel):
+    """Generic entity event data for all CRUD operations"""
+    # Entity identification
+    entity_type: str = Field(description="Type of entity (part, location, category, printer, user, etc.)")
+    entity_id: str = Field(description="Unique identifier of the entity")
+    entity_name: str = Field(description="Human-readable name of the entity")
+    
+    # Action information
+    action: str = Field(description="Action performed (created, updated, deleted, printed, etc.)")
+    
+    # User and timing
+    user_id: Optional[str] = Field(default=None, description="ID of user who performed the action")
+    username: Optional[str] = Field(default=None, description="Username of user who performed the action")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Change details (for updates)
+    changes: Optional[Dict[str, Any]] = Field(default=None, description="What fields changed (before/after values)")
+    
+    # Additional context
+    details: Dict[str, Any] = Field(default_factory=dict, description="Additional action-specific details")
+    
+    # Full entity data (optional, for frontend caching)
+    entity_data: Optional[Dict[str, Any]] = Field(default=None, description="Complete entity data after the action")
+
+
 # Helper functions for creating common messages
 
 def create_import_progress_message(
@@ -188,6 +228,25 @@ def create_enrichment_progress_message(
             progress_percentage=progress,
             current_capability=current_capability
         ).model_dump()
+    )
+
+
+def create_rate_limit_event(
+    supplier_name: str,
+    current_usage: Dict[str, int],
+    limits: Dict[str, int],
+    next_reset: Dict[str, datetime],
+    queue_size: Optional[int] = None,
+    correlation_id: Optional[str] = None
+) -> WebSocketMessage:
+    """Create a rate limit event message (alias for create_rate_limit_update_message)"""
+    return create_rate_limit_update_message(
+        supplier_name=supplier_name,
+        current_usage=current_usage,
+        limits=limits,
+        next_reset=next_reset,
+        queue_size=queue_size,
+        correlation_id=correlation_id
     )
 
 
@@ -262,4 +321,157 @@ def create_toast_message(
         type=WebSocketEventType.TOAST,
         correlation_id=correlation_id,
         data=ToastData(**toast_kwargs).model_dump()
+    )
+
+
+def create_entity_event_message(
+    action: str,
+    entity_type: str,
+    entity_id: str,
+    entity_name: str,
+    user_id: Optional[str] = None,
+    username: Optional[str] = None,
+    changes: Optional[Dict[str, Any]] = None,
+    details: Optional[Dict[str, Any]] = None,
+    entity_data: Optional[Dict[str, Any]] = None,
+    correlation_id: Optional[str] = None
+) -> WebSocketMessage:
+    """Create a generic entity event message"""
+    
+    # Map action to event type
+    event_type_map = {
+        "created": WebSocketEventType.ENTITY_CREATED,
+        "updated": WebSocketEventType.ENTITY_UPDATED,
+        "deleted": WebSocketEventType.ENTITY_DELETED,
+        "printed": WebSocketEventType.ENTITY_PRINTED,
+        "imported": WebSocketEventType.ENTITY_IMPORTED,
+        "exported": WebSocketEventType.ENTITY_EXPORTED,
+        "tested": WebSocketEventType.ENTITY_TESTED,
+        "logged_in": WebSocketEventType.USER_LOGIN,
+        "logged_out": WebSocketEventType.USER_LOGOUT,
+    }
+    
+    event_type = event_type_map.get(action, WebSocketEventType.ENTITY_UPDATED)
+    
+    return WebSocketMessage(
+        type=event_type,
+        correlation_id=correlation_id,
+        data=EntityEventData(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            action=action,
+            user_id=user_id,
+            username=username,
+            changes=changes,
+            details=details or {},
+            entity_data=entity_data
+        ).model_dump()
+    )
+
+
+# Convenience functions for common entity operations
+
+def create_part_created_message(
+    part_id: str,
+    part_name: str,
+    user_id: Optional[str] = None,
+    username: Optional[str] = None,
+    part_data: Optional[Dict[str, Any]] = None,
+    correlation_id: Optional[str] = None
+) -> WebSocketMessage:
+    """Create a part created message"""
+    return create_entity_event_message(
+        action="created",
+        entity_type="part",
+        entity_id=part_id,
+        entity_name=part_name,
+        user_id=user_id,
+        username=username,
+        entity_data=part_data,
+        correlation_id=correlation_id
+    )
+
+
+def create_part_updated_message(
+    part_id: str,
+    part_name: str,
+    changes: Dict[str, Any],
+    user_id: Optional[str] = None,
+    username: Optional[str] = None,
+    part_data: Optional[Dict[str, Any]] = None,
+    correlation_id: Optional[str] = None
+) -> WebSocketMessage:
+    """Create a part updated message"""
+    return create_entity_event_message(
+        action="updated",
+        entity_type="part",
+        entity_id=part_id,
+        entity_name=part_name,
+        user_id=user_id,
+        username=username,
+        changes=changes,
+        entity_data=part_data,
+        correlation_id=correlation_id
+    )
+
+
+def create_part_deleted_message(
+    part_id: str,
+    part_name: str,
+    user_id: Optional[str] = None,
+    username: Optional[str] = None,
+    correlation_id: Optional[str] = None
+) -> WebSocketMessage:
+    """Create a part deleted message"""
+    return create_entity_event_message(
+        action="deleted",
+        entity_type="part",
+        entity_id=part_id,
+        entity_name=part_name,
+        user_id=user_id,
+        username=username,
+        correlation_id=correlation_id
+    )
+
+
+def create_location_created_message(
+    location_id: str,
+    location_name: str,
+    user_id: Optional[str] = None,
+    username: Optional[str] = None,
+    location_data: Optional[Dict[str, Any]] = None,
+    correlation_id: Optional[str] = None
+) -> WebSocketMessage:
+    """Create a location created message"""
+    return create_entity_event_message(
+        action="created",
+        entity_type="location",
+        entity_id=location_id,
+        entity_name=location_name,
+        user_id=user_id,
+        username=username,
+        entity_data=location_data,
+        correlation_id=correlation_id
+    )
+
+
+def create_category_created_message(
+    category_id: str,
+    category_name: str,
+    user_id: Optional[str] = None,
+    username: Optional[str] = None,
+    category_data: Optional[Dict[str, Any]] = None,
+    correlation_id: Optional[str] = None
+) -> WebSocketMessage:
+    """Create a category created message"""
+    return create_entity_event_message(
+        action="created",
+        entity_type="category",
+        entity_id=category_id,
+        entity_name=category_name,
+        user_id=user_id,
+        username=username,
+        entity_data=category_data,
+        correlation_id=correlation_id
     )

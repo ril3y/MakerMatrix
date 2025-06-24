@@ -47,7 +47,7 @@ class LCSCSupplier(BaseSupplier):
         # No credentials required for LCSC/EasyEDA public API
         return []
     
-    def get_configuration_schema(self) -> List[FieldDefinition]:
+    def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         return [
             FieldDefinition(
                 name="api_version",

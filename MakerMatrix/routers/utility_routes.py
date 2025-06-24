@@ -35,11 +35,21 @@ async def serve_index_html():
 
 @router.get("/get_image/{image_id}")
 async def get_image(image_id: str):
+    # First try with the image_id as-is (might include extension)
     file_path = f"uploaded_images/{image_id}"
     if os.path.exists(file_path):
         return FileResponse(file_path)
-    else:
-        raise HTTPException(status_code=404, detail="Image not found")
+    
+    # If not found, try to find the file with any extension
+    import glob
+    pattern = f"uploaded_images/{image_id}.*"
+    matching_files = glob.glob(pattern)
+    
+    if matching_files:
+        # Return the first matching file
+        return FileResponse(matching_files[0])
+    
+    raise HTTPException(status_code=404, detail="Image not found")
 
 
 @router.get("/get_counts")

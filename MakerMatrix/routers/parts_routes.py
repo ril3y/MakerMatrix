@@ -57,7 +57,12 @@ async def add_part(
                     # Check if supplier is properly configured
                     supplier_config_service = SupplierConfigService()
                     try:
-                        supplier_config_service.get_supplier_config(enrichment_supplier)
+                        # Try enrichment_supplier as-is first, then try uppercase version
+                        try:
+                            supplier_config_service.get_supplier_config(enrichment_supplier)
+                        except ResourceNotFoundError:
+                            # Try uppercase version for backward compatibility
+                            supplier_config_service.get_supplier_config(enrichment_supplier.upper())
                         
                         # Create enrichment task
                         enrichment_data = {
@@ -141,7 +146,7 @@ async def add_part(
 
 
 @router.get("/get_part_counts", response_model=ResponseSchema[int])
-async def get_part_counts():
+async def get_part_counts() -> ResponseSchema[int]:
     try:
         response = PartService.get_part_counts()
         return ResponseSchema(
@@ -297,7 +302,7 @@ async def get_part(
 
 
 @router.get("/all_parts/")
-async def get_all_parts():
+async def get_all_parts() -> ResponseSchema[List[PartResponse]]:
     try:
         parts = PartService.get_all_parts()
         return parts

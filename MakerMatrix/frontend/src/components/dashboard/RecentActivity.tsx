@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Clock, Activity as ActivityIcon, RefreshCw } from 'lucide-react'
 import { activityService, Activity } from '@/services/activity.service'
+import { generalWebSocket, EntityEventData } from '@/services/websocket.service'
 import toast from 'react-hot-toast'
 
 interface RecentActivityProps {
@@ -37,15 +38,61 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
     await fetchActivities()
   }
 
+  // Handle real-time activity updates via WebSocket
+  const handleEntityEvent = useCallback((data: EntityEventData) => {
+    // Convert WebSocket entity event to Activity format
+    const newActivity: Activity = {
+      id: `${data.entity_id}-${Date.now()}`, // Generate temporary ID
+      action: data.action,
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      entity_name: data.entity_name,
+      username: data.username || 'system',
+      timestamp: data.timestamp,
+      details: data.details || {}
+    }
+
+    // Add to the beginning of activities list
+    setActivities(prev => {
+      const newActivities = [newActivity, ...prev]
+      // Keep only the specified limit
+      return newActivities.slice(0, limit)
+    })
+
+    // Update last updated time
+    setLastUpdated(new Date())
+
+    // Show toast notification for new activities
+    const entityDisplayName = activityService.formatEntityType(data.entity_type)
+    const actionDisplayName = activityService.formatActivityAction(data.action)
+    toast.success(`${actionDisplayName} ${entityDisplayName}: ${data.entity_name}`)
+  }, [limit])
+
   useEffect(() => {
     fetchActivities()
 
-    // Set up auto-refresh if interval is provided
+    // Set up WebSocket listeners for real-time updates
+    generalWebSocket.onEntityCreated(handleEntityEvent)
+    generalWebSocket.onEntityUpdated(handleEntityEvent)
+    generalWebSocket.onEntityDeleted(handleEntityEvent)
+
+    // Set up auto-refresh if interval is provided (as fallback)
+    let interval: NodeJS.Timeout | null = null
     if (refreshInterval > 0) {
-      const interval = setInterval(fetchActivities, refreshInterval)
-      return () => clearInterval(interval)
+      interval = setInterval(fetchActivities, refreshInterval)
     }
-  }, [limit, refreshInterval])
+
+    return () => {
+      // Cleanup WebSocket listeners
+      generalWebSocket.off('entity_created', handleEntityEvent)
+      generalWebSocket.off('entity_updated', handleEntityEvent)
+      generalWebSocket.off('entity_deleted', handleEntityEvent)
+      
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+  }, [limit, refreshInterval, handleEntityEvent])
 
   if (loading && activities.length === 0) {
     return (

@@ -2,7 +2,7 @@
 Preview routes for generating label previews without printing.
 """
 import base64
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
@@ -11,6 +11,7 @@ from MakerMatrix.services.preview_service import PreviewService, PreviewManager
 from MakerMatrix.printers.drivers.mock.driver import MockPrinter
 from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
 from MakerMatrix.models.models import engine
+from MakerMatrix.schemas.response import ResponseSchema
 
 
 router = APIRouter(prefix="/api/preview", tags=["Label Preview"])
@@ -69,7 +70,7 @@ def get_preview_manager():
 
 
 @router.get("/printers")
-async def get_available_printers():
+async def get_available_printers() -> Dict[str, Any]:
     """Get list of available printers for preview."""
     manager = get_preview_manager()
     return {
@@ -79,7 +80,7 @@ async def get_available_printers():
 
 
 @router.get("/labels/sizes")
-async def get_label_sizes(printer_id: Optional[str] = None):
+async def get_label_sizes(printer_id: Optional[str] = None) -> Dict[str, Any]:
     """Get available label sizes for preview."""
     try:
         manager = get_preview_manager()
@@ -239,7 +240,7 @@ async def preview_combined_label(part_id: str, custom_text: Optional[str] = None
 
 
 @router.get("/validate/size/{label_size}")
-async def validate_label_size(label_size: str, printer_id: Optional[str] = None):
+async def validate_label_size(label_size: str, printer_id: Optional[str] = None) -> Dict[str, Any]:
     """Validate if a label size is supported."""
     try:
         manager = get_preview_manager()

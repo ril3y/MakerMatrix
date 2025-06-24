@@ -367,7 +367,7 @@ class TestPrinterErrorHandling:
         
         set_printer_service(None)
     
-    def test_print_with_error_simulation(self, error_printer_service, test_part, admin_token):
+    def test_print_with_error_simulation(self, _error_printer_service, test_part, admin_token):
         """Test printing with simulated printer errors."""
         part_id = test_part["data"]["id"]
         

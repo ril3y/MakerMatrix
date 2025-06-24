@@ -16,14 +16,15 @@ class FileDownloadService:
     def __init__(self, download_config=None):
         self.base_path = Path(__file__).parent.parent / "static"
         self.datasheets_path = self.base_path / "datasheets"
-        self.images_path = self.base_path / "images"
+        # All images now use uploaded_images directory for consistency
+        self.uploaded_images_path = Path(__file__).parent.parent / "uploaded_images"
         
         # Store download configuration
         self.download_config = download_config or {}
         
         # Create directories if they don't exist
         self.datasheets_path.mkdir(parents=True, exist_ok=True)
-        self.images_path.mkdir(parents=True, exist_ok=True)
+        self.uploaded_images_path.mkdir(parents=True, exist_ok=True)
         
         # Common headers for requests
         self.headers = {
@@ -130,13 +131,9 @@ class FileDownloadService:
             return None
     
     def download_image(self, url: str, part_number: str, supplier: str = "") -> Optional[Dict[str, Any]]:
-        """Download component image and return file info"""
+        """Download component image and return file info with UUID-based storage"""
         try:
             logger.info(f"Downloading image for {part_number} from {url}")
-            
-            # Generate safe filename
-            safe_part_number = self._sanitize_filename(part_number)
-            safe_supplier = self._sanitize_filename(supplier) if supplier else "unknown"
             
             # Determine file extension from URL
             parsed_url = urlparse(url)
@@ -155,8 +152,10 @@ class FileDownloadService:
             elif 'webp' in url.lower():
                 extension = '.webp'
             
-            filename = f"{safe_supplier}_{safe_part_number}_image{extension}"
-            file_path = self.images_path / filename
+            # Always use UUID-based filename for consistency
+            image_uuid = str(uuid.uuid4())
+            filename = f"{image_uuid}{extension}"
+            file_path = self.uploaded_images_path / filename
             
             # Check if file already exists
             if file_path.exists():
@@ -164,6 +163,7 @@ class FileDownloadService:
                 return {
                     'filename': filename,
                     'file_path': str(file_path),
+                    'image_uuid': image_uuid,
                     'url': url,
                     'size': file_path.stat().st_size,
                     'exists': True
@@ -212,6 +212,7 @@ class FileDownloadService:
             return {
                 'filename': filename,
                 'file_path': str(file_path),
+                'image_uuid': image_uuid,
                 'url': url,
                 'size': file_size,
                 'exists': False
@@ -235,25 +236,26 @@ class FileDownloadService:
             filename = filename[:100]
         return filename
     
-    def get_file_url(self, filename: str, file_type: str = 'image') -> str:
-        """Generate URL for serving static files"""
-        if file_type == 'image':
-            return f"/static/images/{filename}"
-        elif file_type == 'datasheet':
-            return f"/static/datasheets/{filename}"
-        else:
-            return f"/static/{filename}"
+    def get_image_url(self, image_uuid: str) -> str:
+        """Generate URL for serving images via utility API"""
+        return f"/utility/get_image/{image_uuid}"
+    
+    def get_datasheet_url(self, filename: str) -> str:
+        """Generate URL for serving datasheets via static route"""
+        return f"/static/datasheets/{filename}"
     
     def cleanup_old_files(self, days_old: int = 30):
         """Clean up files older than specified days"""
         import time
         cutoff_time = time.time() - (days_old * 24 * 60 * 60)
         
-        for directory in [self.datasheets_path, self.images_path]:
-            for file_path in directory.glob("*"):
-                if file_path.is_file() and file_path.stat().st_mtime < cutoff_time:
-                    logger.info(f"Removing old file: {file_path}")
-                    file_path.unlink()
+        # Only cleanup datasheets and uploaded_images (new unified image storage)
+        for directory in [self.datasheets_path, self.uploaded_images_path]:
+            if directory.exists():
+                for file_path in directory.glob("*"):
+                    if file_path.is_file() and file_path.stat().st_mtime < cutoff_time:
+                        logger.info(f"Removing old file: {file_path}")
+                        file_path.unlink()
 
 
 # Function to get file download service with optional config

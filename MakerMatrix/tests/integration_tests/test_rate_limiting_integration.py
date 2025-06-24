@@ -11,16 +11,15 @@ from unittest.mock import patch, AsyncMock
 
 from MakerMatrix.services.rate_limit_service import RateLimitService
 from MakerMatrix.suppliers.registry import get_supplier
-from MakerMatrix.database.connection import get_engine
+from MakerMatrix.models.models import engine
 from MakerMatrix.models.rate_limiting_models import SupplierRateLimitModel
-from MakerMatrix.schemas.websocket_schemas import create_rate_limit_event
 from sqlalchemy.orm import Session
 
 
 @pytest.fixture
 async def rate_limit_service():
     """Create rate limit service for testing"""
-    engine = get_engine()
+    # Use the global engine instance
     service = RateLimitService(engine)
     await service._initialize_default_limits()
     return service
@@ -201,7 +200,7 @@ class TestRateLimitingIntegration:
         status_before = await rate_limit_service.check_rate_limit("MOUSER", "datasheet")
         
         # Create new service instance (simulating restart)
-        engine = get_engine()
+        # Use the global engine instance
         new_service = RateLimitService(engine)
         
         # Usage should be persisted
@@ -211,7 +210,7 @@ class TestRateLimitingIntegration:
     
     async def test_rate_limit_configuration_updates(self, rate_limit_service):
         """Test that rate limit configuration updates work correctly"""
-        engine = get_engine()
+        # Use the global engine instance
         
         # Update rate limits for Mouser
         with Session(engine) as session:

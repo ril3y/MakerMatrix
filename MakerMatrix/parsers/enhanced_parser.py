@@ -409,10 +409,12 @@ def get_enhanced_parser(supplier_name: str) -> Optional[EnhancedParser]:
                     await progress_callback(progress=50, step="Fetching image")
                     await progress_callback(progress=100, step="Image retrieved")
                 
+                import uuid
+                mock_uuid = str(uuid.uuid4())
                 return {
                     "success": True,
-                    "image_url": f"https://example.com/{supplier_name}/image_{part.name if hasattr(part, 'name') else 'unknown'}.jpg",
-                    "file_path": f"/static/images/{supplier_name}_image.jpg"
+                    "image_url": f"/utility/get_image/{mock_uuid}",
+                    "file_path": f"/uploaded_images/{mock_uuid}.jpg"
                 }
             
             async def fetch_pricing(self, part, progress_callback=None):

@@ -115,9 +115,32 @@ export class SettingsService {
     return response
   }
 
+  async updatePrinter(printerId: string, printerData: {
+    name: string
+    driver_type: string
+    model: string
+    backend: string
+    identifier: string
+    dpi: number
+    scaling_factor: number
+  }): Promise<any> {
+    const response = await apiClient.put<any>(`/printer/printers/${printerId}`, printerData)
+    return response
+  }
+
+  async deletePrinter(printerId: string): Promise<any> {
+    const response = await apiClient.delete<any>(`/printer/printers/${printerId}`)
+    return response
+  }
+
   async getSupportedDrivers(): Promise<any[]> {
     const response = await apiClient.get<ApiResponse<{drivers: any[]}>>('/printer/drivers')
     return response.data?.drivers || []
+  }
+
+  async getDriverInfo(driverType: string): Promise<any> {
+    const response = await apiClient.get<ApiResponse<any>>(`/printer/drivers/${driverType}`)
+    return response.data!
   }
 
   async testPrinterSetup(printerData: any): Promise<any> {
@@ -125,8 +148,18 @@ export class SettingsService {
     return response.data!
   }
 
-  async discoverPrinters(): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>('/printer/discover')
+  async startPrinterDiscovery(): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>('/printer/discover/start')
+    return response.data!
+  }
+
+  async getPrinterDiscoveryStatus(taskId: string): Promise<any> {
+    const response = await apiClient.get<ApiResponse<any>>(`/printer/discover/status/${taskId}`)
+    return response.data!
+  }
+
+  async getLatestPrinterDiscovery(): Promise<any> {
+    const response = await apiClient.get<ApiResponse<any>>('/printer/discover/latest')
     return response.data!
   }
 

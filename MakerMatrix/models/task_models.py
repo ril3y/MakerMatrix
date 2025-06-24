@@ -36,14 +36,17 @@ class TaskType(str, Enum):
     
     # Enrichment task types
     PART_ENRICHMENT = "part_enrichment"
-    DATASHEET_FETCH = "datasheet_fetch"
-    IMAGE_FETCH = "image_fetch"
-    PRICING_FETCH = "pricing_fetch"
-    STOCK_FETCH = "stock_fetch"
-    SPECIFICATIONS_FETCH = "specifications_fetch"
+    DATASHEET_FETCH = "fetch_datasheet"
+    IMAGE_FETCH = "fetch_image"
+    PRICING_FETCH = "fetch_pricing"
+    STOCK_FETCH = "fetch_stock"
+    SPECIFICATIONS_FETCH = "fetch_specifications"
     PART_VALIDATION_ENRICHMENT = "part_validation_enrichment"
     SUPPLIER_DATA_SYNC = "supplier_data_sync"
     BULK_ENRICHMENT = "bulk_enrichment"
+    
+    # Printer management task types
+    PRINTER_DISCOVERY = "printer_discovery"
 
 
 class TaskModel(SQLModel, table=True):

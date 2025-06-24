@@ -10,6 +10,7 @@ import PartPDFViewer from '@/components/parts/PartPDFViewer'
 import PDFViewer from '@/components/ui/PDFViewer'
 import PartEnrichmentModal from '@/components/parts/PartEnrichmentModal'
 import PrinterModal from '@/components/printer/PrinterModal'
+import PartImage from '@/components/parts/PartImage'
 import { analyticsService } from '@/services/analytics.service'
 import { Line } from 'react-chartjs-2'
 
@@ -245,31 +246,20 @@ const PartDetailsPage = () => {
         <div className="card-content">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Image Thumbnail */}
-            {part.image_url && (
-              <div className="lg:col-span-1">
-                <div className="aspect-square w-full max-w-48 mx-auto lg:mx-0">
-                  <img
-                    src={part.image_url}
-                    alt={part.name}
-                    className="w-full h-full object-contain rounded-lg border border-border bg-white"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                  <div className="hidden w-full h-full bg-background-secondary rounded-lg border border-border flex items-center justify-center">
-                    <div className="text-center text-muted">
-                      <Image className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-sm">Image not available</p>
-                    </div>
-                  </div>
-                </div>
+            <div className="lg:col-span-1">
+              <div className="aspect-square w-full max-w-48 mx-auto lg:mx-0">
+                <PartImage 
+                  imageUrl={part.image_url}
+                  partName={part.name}
+                  size="xl"
+                  showFallback={true}
+                  className="w-full h-full object-contain bg-white"
+                />
               </div>
-            )}
+            </div>
             
             {/* Basic Info Grid */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${part.image_url ? 'lg:col-span-3' : 'lg:col-span-4'}`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:col-span-3">
             <div className="flex items-start gap-3">
               <Hash className="w-5 h-5 text-muted mt-0.5" />
               <div>
@@ -760,7 +750,9 @@ const PartDetailsPage = () => {
           part_number: part.part_number || '',
           location: part.location?.name || '',
           category: part.categories?.[0]?.name || '',
-          quantity: part.quantity?.toString() || '0'
+          quantity: part.quantity?.toString() || '0',
+          description: part.description || '',
+          additional_properties: part.additional_properties || {}
         }}
       />
 

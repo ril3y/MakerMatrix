@@ -11,7 +11,7 @@ from MakerMatrix.lib.required_input import RequiredInput
 from MakerMatrix.parts.parts import Part
 from MakerMatrix.parsers.enhanced_parser import EnhancedParser, EnrichmentResult
 from MakerMatrix.parsers.supplier_capabilities import CapabilityType
-from MakerMatrix.api.easyeda import EasyedaApi
+from MakerMatrix.services.easyeda_service import EasyedaApi
 
 
 logger = logging.getLogger(__name__)

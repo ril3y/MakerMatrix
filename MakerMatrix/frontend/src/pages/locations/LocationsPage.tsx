@@ -233,8 +233,21 @@ const LocationsPage = () => {
                 {filteredLocations.map((location) => (
                   <tr key={location.id} className="border-b border-border hover:bg-background-secondary transition-colors">
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-primary" />
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          {location.emoji && (
+                            <span className="text-lg">{location.emoji}</span>
+                          )}
+                          {location.image_url ? (
+                            <img
+                              src={location.image_url}
+                              alt={location.name}
+                              className="w-8 h-8 object-cover rounded border border-border"
+                            />
+                          ) : !location.emoji ? (
+                            <MapPin className="w-4 h-4 text-primary" />
+                          ) : null}
+                        </div>
                         <span className="font-medium text-primary">{location.name}</span>
                       </div>
                     </td>
@@ -355,7 +368,20 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                   </button>
                 )}
                 {!hasChildren && <div className="w-6" />}
-                <MapPin className="w-4 h-4 text-primary" />
+                <div className="flex items-center gap-2">
+                  {location.emoji && (
+                    <span className="text-lg">{location.emoji}</span>
+                  )}
+                  {location.image_url ? (
+                    <img
+                      src={location.image_url}
+                      alt={location.name}
+                      className="w-4 h-4 object-cover rounded border border-border"
+                    />
+                  ) : !location.emoji ? (
+                    <MapPin className="w-4 h-4 text-primary" />
+                  ) : null}
+                </div>
                 <span className="font-medium text-primary">{location.name}</span>
                 <span className="text-sm text-secondary ml-2">
                   ({location.location_type || 'General'})

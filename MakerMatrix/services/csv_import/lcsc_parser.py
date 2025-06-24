@@ -3,7 +3,7 @@ from .base_parser import BaseCSVParser
 import logging
 import requests
 import re
-from MakerMatrix.api.easyeda import EasyedaApi
+from MakerMatrix.services.easyeda_service import EasyedaApi
 from MakerMatrix.parsers.enhanced_lcsc_parser_v2 import get_nested_value
 from MakerMatrix.services.file_download_service import file_download_service
 
@@ -859,7 +859,7 @@ class LCSCParser(BaseCSVParser):
                 part_data['additional_properties']['datasheet_exists'] = download_result['exists']
                 
                 # Generate URL for serving the file
-                datasheet_local_url = download_service.get_file_url(download_result['filename'], 'datasheet')
+                datasheet_local_url = download_service.get_datasheet_url(download_result['filename'])
                 part_data['additional_properties']['datasheet_local_url'] = datasheet_local_url
                 
                 logger.info(f"Datasheet download completed for {part_number}: {download_result['filename']} (UUID: {file_uuid})")
@@ -1042,7 +1042,7 @@ class LCSCParser(BaseCSVParser):
                     part_data['additional_properties']['image_source_url'] = image_url
                     
                     # Generate URL for serving the file and update the part's image_url
-                    image_local_url = download_service.get_file_url(download_result['filename'], 'image')
+                    image_local_url = download_service.get_image_url(download_result['image_uuid'])
                     part_data['additional_properties']['image_local_url'] = image_local_url
                     part_data['image_url'] = image_local_url  # Update the main image_url field
                     

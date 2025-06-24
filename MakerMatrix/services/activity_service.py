@@ -77,26 +77,24 @@ class ActivityService:
             return None
     
     async def _broadcast_activity(self, activity: ActivityLogModel):
-        """Broadcast activity to connected WebSocket clients."""
+        """Broadcast activity to connected WebSocket clients using standardized schemas."""
         try:
             from MakerMatrix.services.websocket_service import broadcast_message
+            from MakerMatrix.schemas.websocket_schemas import create_entity_event_message
             
-            # Format activity for broadcast
-            activity_data = {
-                "type": "activity",
-                "data": {
-                    "id": activity.id,
-                    "action": activity.action,
-                    "entity_type": activity.entity_type,
-                    "entity_id": activity.entity_id,
-                    "entity_name": activity.entity_name,
-                    "username": activity.username,
-                    "timestamp": activity.timestamp.isoformat(),
-                    "details": activity.details
-                }
-            }
+            # Create standardized WebSocket message
+            ws_message = create_entity_event_message(
+                action=activity.action,
+                entity_type=activity.entity_type,
+                entity_id=activity.entity_id or "",
+                entity_name=activity.entity_name or "",
+                user_id=activity.user_id,
+                username=activity.username,
+                details=activity.details or {}
+            )
             
-            await broadcast_message(activity_data)
+            # Broadcast to general connections (for activity monitoring)
+            await broadcast_message(ws_message.model_dump(), connection_types=["general"])
             
         except Exception as e:
             print(f"Failed to broadcast activity: {e}")
@@ -230,6 +228,41 @@ class ActivityService:
             entity_type="printer",
             entity_id=printer_id,
             entity_name=printer_name,
+            user=user,
+            request=request
+        )
+    
+    async def log_printer_updated(self, printer_id: str, printer_name: str, changes: Dict[str, Any], user: Optional[UserModel] = None, request: Optional[Request] = None):
+        """Log printer update activity."""
+        return await self.log_activity(
+            action="updated",
+            entity_type="printer",
+            entity_id=printer_id,
+            entity_name=printer_name,
+            details={"changes": changes},
+            user=user,
+            request=request
+        )
+    
+    async def log_printer_deleted(self, printer_id: str, printer_name: str, user: Optional[UserModel] = None, request: Optional[Request] = None):
+        """Log printer deletion activity."""
+        return await self.log_activity(
+            action="deleted",
+            entity_type="printer",
+            entity_id=printer_id,
+            entity_name=printer_name,
+            user=user,
+            request=request
+        )
+    
+    async def log_printer_tested(self, printer_id: str, printer_name: str, test_result: bool, user: Optional[UserModel] = None, request: Optional[Request] = None):
+        """Log printer test activity."""
+        return await self.log_activity(
+            action="tested",
+            entity_type="printer",
+            entity_id=printer_id,
+            entity_name=printer_name,
+            details={"test_success": test_result},
             user=user,
             request=request
         )

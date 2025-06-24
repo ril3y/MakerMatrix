@@ -187,6 +187,50 @@ export class DynamicSupplierService {
   }
 
   /**
+   * Get credential schema for a supplier with current configuration context
+   */
+  async getCredentialSchemaWithConfig(supplierName: string, credentials: Record<string, any>, config: Record<string, any>): Promise<FieldDefinition[]> {
+    try {
+      const response = await apiClient.post(`/api/suppliers/${supplierName}/credentials-schema-with-config`, {
+        credentials,
+        config
+      });
+      console.log(`getCredentialSchemaWithConfig(${supplierName}) response:`, response);
+      
+      if (response && response.data) {
+        return Array.isArray(response.data) ? response.data : [];
+      }
+      
+      return [];
+    } catch (error) {
+      console.error(`Failed to get credential schema with config for ${supplierName}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get configuration schema for a supplier with current configuration context
+   */
+  async getConfigurationSchemaWithConfig(supplierName: string, credentials: Record<string, any>, config: Record<string, any>): Promise<FieldDefinition[]> {
+    try {
+      const response = await apiClient.post(`/api/suppliers/${supplierName}/config-schema-with-config`, {
+        credentials,
+        config
+      });
+      console.log(`getConfigurationSchemaWithConfig(${supplierName}) response:`, response);
+      
+      if (response && response.data) {
+        return Array.isArray(response.data) ? response.data : [];
+      }
+      
+      return [];
+    } catch (error) {
+      console.error(`Failed to get configuration schema with config for ${supplierName}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get capabilities for a supplier
    */
   async getSupplierCapabilities(supplierName: string): Promise<string[]> {

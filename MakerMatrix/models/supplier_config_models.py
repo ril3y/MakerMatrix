@@ -55,6 +55,9 @@ class SupplierConfigModel(SQLModel, table=True):
     supports_lifecycle_status: bool = Field(default=False)
     supports_part_validation: bool = Field(default=False)
     
+    # Capabilities (stored as JSON list - flexible and extensible)
+    capabilities: Optional[str] = Field(default=None)  # JSON array of capability strings
+    
     # Custom headers and parameters (stored as JSON)
     custom_headers: Optional[str] = Field(default=None)  # JSON string
     custom_parameters: Optional[str] = Field(default=None)  # JSON string
@@ -99,7 +102,17 @@ class SupplierConfigModel(SQLModel, table=True):
         self.custom_parameters = json.dumps(parameters) if parameters else None
     
     def get_capabilities(self) -> List[str]:
-        """Get list of supported capabilities based on configuration flags"""
+        """Get list of supported capabilities - uses flexible JSON list if available, fallback to boolean flags"""
+        # Priority 1: Use flexible capabilities list if set
+        if self.capabilities:
+            try:
+                caps = json.loads(self.capabilities)
+                if isinstance(caps, list):
+                    return caps
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        # Fallback: Build from boolean flags for backward compatibility
         capabilities = []
         if self.supports_datasheet:
             capabilities.append("fetch_datasheet")
@@ -119,11 +132,24 @@ class SupplierConfigModel(SQLModel, table=True):
             capabilities.append("validate_part_number")
         
         # Always include fetch_details if any other capability is supported
-        # Details enrichment is typically available whenever basic part info is accessible
         if capabilities:
             capabilities.append("fetch_details")
             
         return capabilities
+    
+    def set_capabilities(self, capabilities: List[str]) -> None:
+        """Set capabilities as JSON list - modern flexible approach"""
+        self.capabilities = json.dumps(capabilities) if capabilities else None
+        
+        # Also update boolean flags for backward compatibility
+        self.supports_datasheet = "fetch_datasheet" in capabilities
+        self.supports_image = "fetch_image" in capabilities
+        self.supports_pricing = "fetch_pricing" in capabilities
+        self.supports_stock = "fetch_stock" in capabilities
+        self.supports_specifications = "fetch_specifications" in capabilities
+        self.supports_alternatives = "fetch_alternatives" in capabilities
+        self.supports_lifecycle_status = "fetch_lifecycle_status" in capabilities
+        self.supports_part_validation = "validate_part_number" in capabilities
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses"""

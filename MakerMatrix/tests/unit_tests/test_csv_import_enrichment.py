@@ -378,7 +378,7 @@ TEST001,Test Part,10'''
         
         with patch('MakerMatrix.services.csv_import_service.supports_enrichment', return_value=True), \
              patch('MakerMatrix.services.csv_import_service.prepare_part_for_enrichment', 
-                   side_effect=lambda pt, pd: pd):
+                   side_effect=lambda _, pd: pd):
             
             service.parse_csv_to_parts(csv_content, "test", enable_enrichment=True)
         

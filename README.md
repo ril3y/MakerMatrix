@@ -57,6 +57,43 @@ This server provides a RESTful API for managing an inventory of parts.  It allow
      DATABASE_URL=sqlite:///part_inventory.db
      ```
 
+6. (Optional) Configure supplier API credentials:
+
+   Supplier API keys and credentials can be configured using environment variables. Add them to your `.env` file or set them in your shell environment.
+
+   **Environment Variable Naming Convention:**
+   ```
+   {SUPPLIER_NAME}_{CREDENTIAL_TYPE}
+   ```
+
+   **Supported Suppliers and Credentials:**
+
+   **McMaster-Carr (Official API):**
+   ```bash
+   MCMASTER_CARR_USERNAME=your_api_username
+   MCMASTER_CARR_PASSWORD=your_api_password
+   MCMASTER_CARR_CLIENT_CERT_PATH=/path/to/your/certificate.p12
+   MCMASTER_CARR_CLIENT_CERT_PASSWORD=certificate_password
+   ```
+   *Note: McMaster-Carr API access requires approval. Contact eCommerce@mcmaster.com*
+
+   **Mouser Electronics:**
+   ```bash
+   MOUSER_API_KEY=your_mouser_api_key
+   ```
+
+   **DigiKey:**
+   ```bash
+   DIGIKEY_CLIENT_ID=your_digikey_client_id
+   DIGIKEY_CLIENT_SECRET=your_digikey_client_secret
+   ```
+
+   **LCSC:**
+   ```bash
+   LCSC_API_KEY=your_lcsc_api_key
+   ```
+
+   If no credentials are provided, suppliers will operate in limited mode (search only, no enrichment).
 
 ### Running the Server
 

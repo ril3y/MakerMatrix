@@ -358,8 +358,19 @@ class PrinterManagerService:
         
         # Replace text placeholders
         processed_text = text_template
-        for key, value in data.items():
-            processed_text = processed_text.replace(f'{{{key}}}', str(value or ''))
+        
+        # First, flatten additional_properties if present
+        flattened_data = data.copy()
+        if 'additional_properties' in data and isinstance(data['additional_properties'], dict):
+            # Add additional_properties fields to the main data dict
+            for key, value in data['additional_properties'].items():
+                if key not in flattened_data:  # Don't overwrite existing fields
+                    flattened_data[key] = value
+        
+        # Now replace all placeholders with flattened data
+        for key, value in flattened_data.items():
+            if key != 'additional_properties':  # Skip the nested object itself
+                processed_text = processed_text.replace(f'{{{key}}}', str(value or ''))
         
         # Create base image
         image = Image.new('RGB', (width, height), 'white')
@@ -370,7 +381,7 @@ class PrinterManagerService:
             qr_size = min(height - 20, width // 3)  # QR takes up to 1/3 of width
             
             # Generate QR code
-            qr_data = data.get(qr_matches[0] if qr_matches else 'part_number', 'NO_DATA')
+            qr_data = flattened_data.get(qr_matches[0] if qr_matches else 'part_number', 'NO_DATA')
             qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=1, border=1)
             qr.add_data(str(qr_data))
             qr.make(fit=True)

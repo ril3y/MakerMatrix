@@ -6,7 +6,7 @@ and inventory insights.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query, HTTPException
 
@@ -30,7 +30,7 @@ async def get_spending_by_supplier(
     end_date: Optional[datetime] = Query(None, description="End date for analysis"),
     limit: int = Query(10, ge=1, le=50, description="Maximum number of suppliers"),
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get spending breakdown by supplier."""
     try:
         logger.info(f"User {current_user.username} requesting spending by supplier")
@@ -56,7 +56,7 @@ async def get_spending_trend(
     period: str = Query("month", regex="^(day|week|month|year)$", description="Time period"),
     lookback_periods: int = Query(6, ge=1, le=24, description="Number of periods to look back"),
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get spending trend over time."""
     try:
         logger.info(f"User {current_user.username} requesting spending trend by {period}")
@@ -81,7 +81,7 @@ async def get_part_order_frequency(
     limit: int = Query(20, ge=1, le=100, description="Maximum number of parts"),
     min_orders: int = Query(2, ge=1, description="Minimum number of orders to include"),
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get most frequently ordered parts."""
     try:
         logger.info(f"User {current_user.username} requesting part order frequency")
@@ -107,7 +107,7 @@ async def get_price_trends(
     supplier: Optional[str] = Query(None, description="Filter by supplier"),
     limit: int = Query(50, ge=1, le=200, description="Maximum number of data points"),
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get price trends for parts."""
     try:
         logger.info(f"User {current_user.username} requesting price trends")
@@ -132,7 +132,7 @@ async def get_price_trends(
 async def get_low_stock_parts(
     threshold_multiplier: float = Query(1.5, ge=0.1, le=5.0, description="Threshold multiplier for average order quantity"),
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get parts that are low in stock based on order history."""
     try:
         logger.info(f"User {current_user.username} requesting low stock parts")
@@ -156,7 +156,7 @@ async def get_spending_by_category(
     start_date: Optional[datetime] = Query(None, description="Start date for analysis"),
     end_date: Optional[datetime] = Query(None, description="End date for analysis"),
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get spending breakdown by category."""
     try:
         logger.info(f"User {current_user.username} requesting spending by category")
@@ -179,7 +179,7 @@ async def get_spending_by_category(
 @router.get("/inventory/value", response_model=ResponseSchema)
 async def get_inventory_value(
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[Dict[str, Any]]:
     """Calculate total inventory value based on average prices."""
     try:
         logger.info(f"User {current_user.username} requesting inventory value")
@@ -199,7 +199,7 @@ async def get_inventory_value(
 @router.get("/dashboard/summary", response_model=ResponseSchema)
 async def get_dashboard_summary(
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[Dict[str, Any]]:
     """Get summary analytics for dashboard."""
     try:
         logger.info(f"User {current_user.username} requesting dashboard summary")

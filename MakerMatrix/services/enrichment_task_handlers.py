@@ -1,6 +1,7 @@
 """
 Task handlers for enrichment operations.
 These handlers integrate the supplier configuration system with the task system.
+Now includes standardized data mapping for consistent UI display across suppliers.
 """
 
 import asyncio
@@ -14,18 +15,21 @@ from MakerMatrix.models.models import PartModel, DatasheetModel
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.services.supplier_data_mapper import SupplierDataMapper
+from MakerMatrix.suppliers.base import PartSearchResult
 
 
 logger = logging.getLogger(__name__)
 
 
 class EnrichmentTaskHandlers:
-    """Handlers for enrichment task operations"""
+    """Handlers for enrichment task operations with standardized data mapping"""
     
     def __init__(self, part_repository: PartRepository, part_service: PartService, download_config=None):
         self.part_repository = part_repository
         self.part_service = part_service
         self.download_config = download_config or self._get_csv_import_config()
+        self.data_mapper = SupplierDataMapper()
     
     def _get_csv_import_config(self) -> dict:
         """Get current CSV import configuration for download settings"""
@@ -51,6 +55,79 @@ class EnrichmentTaskHandlers:
             'overwrite_existing_files': False,
             'download_timeout_seconds': 30
         }
+    
+    def _convert_enrichment_to_part_search_result(
+        self, 
+        part: PartModel, 
+        enrichment_results: Dict[str, Any], 
+        supplier_name: str
+    ) -> Optional[PartSearchResult]:
+        """
+        Convert enrichment results to PartSearchResult for standardized data mapping.
+        This allows us to use the SupplierDataMapper with enrichment data.
+        """
+        try:
+            # Extract data from enrichment results
+            datasheet_url = None
+            image_url = None
+            pricing = None
+            stock_quantity = None
+            specifications = {}
+            additional_data = {}
+            
+            # Process each enrichment result
+            for capability, result_data in enrichment_results.items():
+                if not isinstance(result_data, dict) or not result_data.get('success'):
+                    continue
+                    
+                if capability == 'fetch_datasheet' and result_data.get('datasheet_url'):
+                    datasheet_url = result_data['datasheet_url']
+                    
+                elif capability == 'fetch_image':
+                    if result_data.get('primary_image_url'):
+                        image_url = result_data['primary_image_url']
+                    elif result_data.get('images') and len(result_data['images']) > 0:
+                        first_image = result_data['images'][0]
+                        if isinstance(first_image, dict) and 'url' in first_image:
+                            image_url = first_image['url']
+                            
+                elif capability == 'fetch_pricing' and result_data.get('pricing'):
+                    pricing = result_data['pricing']
+                    
+                elif capability == 'fetch_stock' and result_data.get('quantity_available') is not None:
+                    stock_quantity = result_data['quantity_available']
+                    
+                elif capability == 'fetch_specifications' and result_data.get('specifications'):
+                    specifications.update(result_data['specifications'])
+                    
+                elif capability == 'fetch_details':
+                    # Add any additional details to additional_data
+                    for key, value in result_data.items():
+                        if key not in ['success']:
+                            additional_data[key] = value
+            
+            # Create PartSearchResult from enrichment data and existing part data
+            return PartSearchResult(
+                supplier_part_number=part.part_number or part.manufacturer_part_number or part.part_name,
+                manufacturer=part.manufacturer or additional_data.get('manufacturer'),
+                manufacturer_part_number=part.manufacturer_part_number or additional_data.get('manufacturer_part_number'),
+                description=part.description or additional_data.get('product_description') or additional_data.get('description'),
+                category=additional_data.get('category'),
+                datasheet_url=datasheet_url,
+                image_url=image_url,
+                pricing=pricing,
+                stock_quantity=stock_quantity,
+                specifications=specifications,
+                additional_data={
+                    **additional_data,
+                    'enrichment_source': supplier_name,
+                    'enrichment_timestamp': datetime.utcnow().isoformat()
+                }
+            )
+            
+        except Exception as e:
+            logger.warning(f"Failed to convert enrichment results to PartSearchResult: {e}")
+            return None
     
     async def handle_part_enrichment(self, task: TaskModel, progress_callback=None) -> Dict[str, Any]:
         """
@@ -184,19 +261,39 @@ class EnrichmentTaskHandlers:
                 
                 completed += 1
                 
-            # Update part with enrichment results - store minimal metadata only
+            # Update part with enrichment results using standardized data mapping
             if enrichment_results:
-                # Save only essential enrichment metadata to part
-                if not part.additional_properties:
-                    part.additional_properties = {}
+                logger.info(f"Processing enrichment results using standardized data mapping for part {part.part_name}")
                 
-                # Store only essential enrichment metadata instead of full results
-                enrichment_metadata = self._create_enrichment_metadata(enrichment_results)
-                part.additional_properties.update(enrichment_metadata)
-                part.additional_properties['last_enrichment'] = datetime.utcnow().isoformat()
+                # Convert enrichment results to PartSearchResult for standardized mapping
+                part_search_result = self._convert_enrichment_to_part_search_result(
+                    part, enrichment_results, supplier
+                )
                 
-                # Update specific part fields based on enrichment data (without duplication)
-                await self._update_part_from_enrichment_results(part, enrichment_results)
+                if part_search_result:
+                    # Use SupplierDataMapper to get standardized part data
+                    standardized_data = self.data_mapper.map_supplier_result_to_part_data(
+                        part_search_result, 
+                        supplier,
+                        list(enrichment_results.keys())
+                    )
+                    
+                    # Update part with standardized data
+                    await self._apply_standardized_data_to_part(part, standardized_data)
+                    logger.info(f"✅ Applied standardized data mapping for part {part.part_name}")
+                else:
+                    # Fallback to legacy enrichment result processing
+                    logger.warning(f"Could not convert to PartSearchResult, using legacy processing for part {part.part_name}")
+                    if not part.additional_properties:
+                        part.additional_properties = {}
+                    
+                    # Store only essential enrichment metadata instead of full results
+                    enrichment_metadata = self._create_enrichment_metadata(enrichment_results)
+                    part.additional_properties.update(enrichment_metadata)
+                    part.additional_properties['last_enrichment'] = datetime.utcnow().isoformat()
+                    
+                    # Update specific part fields based on enrichment data (without duplication)
+                    await self._update_part_from_enrichment_results(part, enrichment_results)
                 
                 # Update the part in database using a fresh session to avoid conflicts
                 from MakerMatrix.database.db import engine
@@ -235,12 +332,13 @@ class EnrichmentTaskHandlers:
                             
                             fresh_session.commit()
                             
-                            # Verify the save
+                            # Verify the save using standardized structure
                             fresh_session.refresh(fresh_part)
-                            if fresh_part.additional_properties.get('datasheet_url'):
-                                logger.info(f"✅ Successfully saved datasheet URL: {fresh_part.additional_properties['datasheet_url']}")
+                            datasheet_url = fresh_part.get_datasheet_url()
+                            if datasheet_url:
+                                logger.info(f"✅ Successfully saved datasheet URL: {datasheet_url}")
                             else:
-                                logger.error(f"❌ Datasheet URL not found after save. Keys: {list(fresh_part.additional_properties.keys())}")
+                                logger.info(f"ℹ️ No datasheet URL found in standardized structure. Keys: {list(fresh_part.additional_properties.keys())}")
                             
                             logger.info(f"Successfully updated part {part.part_name} with enrichment data")
                         else:
@@ -265,6 +363,154 @@ class EnrichmentTaskHandlers:
         except Exception as e:
             logger.error(f"Error in part enrichment task: {e}", exc_info=True)
             raise
+    
+    async def _apply_standardized_data_to_part(self, part: PartModel, standardized_data: Dict[str, Any]):
+        """
+        Apply standardized data mapping to part using the SupplierDataMapper results.
+        This ensures consistent data storage across all suppliers.
+        """
+        try:
+            logger.info(f"Applying standardized data to part {part.part_name}")
+            
+            # Update core standardized fields
+            core_fields = [
+                'manufacturer', 'manufacturer_part_number', 'component_type', 
+                'package', 'mounting_type', 'rohs_status', 'lifecycle_status',
+                'unit_price', 'currency', 'stock_quantity', 'last_stock_update',
+                'pricing_data', 'last_price_update', 'price_source',
+                'last_enrichment_date', 'enrichment_source', 'data_quality_score'
+            ]
+            
+            updated_fields = []
+            for field in core_fields:
+                if field in standardized_data:
+                    old_value = getattr(part, field, None)
+                    new_value = standardized_data[field]
+                    
+                    # Only update if the new value is different and not None
+                    if new_value is not None and old_value != new_value:
+                        setattr(part, field, new_value)
+                        updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
+            
+            # Update image URL if provided
+            if standardized_data.get('image_url') and part.image_url != standardized_data['image_url']:
+                old_url = part.image_url
+                part.image_url = standardized_data['image_url']
+                updated_fields.append(f"image_url: '{old_url}' -> '{standardized_data['image_url']}'")
+            
+            # Update description if it's better than what we have
+            if standardized_data.get('description'):
+                current_desc = part.description or ""
+                new_desc = standardized_data['description']
+                
+                # Update if current description is empty or just a part identifier
+                part_identifiers = [part.part_number, part.part_name, part.manufacturer_part_number]
+                is_placeholder = (
+                    not current_desc.strip() or 
+                    current_desc.strip() in [pi for pi in part_identifiers if pi] or
+                    len(current_desc.strip()) < 10
+                )
+                
+                if is_placeholder and len(new_desc.strip()) > 10:
+                    part.description = new_desc
+                    updated_fields.append(f"description: '{current_desc}' -> '{new_desc}'")
+            
+            # Update additional_properties with standardized structure
+            if standardized_data.get('additional_properties'):
+                part.additional_properties = standardized_data['additional_properties']
+                updated_fields.append("additional_properties: updated with standardized structure")
+            
+            # Handle file downloads if configured
+            await self._handle_file_downloads_from_standardized_data(part, standardized_data)
+            
+            if updated_fields:
+                logger.info(f"Updated standardized fields for part {part.part_name}:")
+                for field_update in updated_fields:
+                    logger.info(f"  - {field_update}")
+            else:
+                logger.info(f"No field updates needed for part {part.part_name} (data already current)")
+                
+        except Exception as e:
+            logger.error(f"Error applying standardized data to part {part.part_name}: {e}")
+            # Don't fail enrichment if standardized data application fails
+    
+    async def _handle_file_downloads_from_standardized_data(self, part: PartModel, standardized_data: Dict[str, Any]):
+        """Handle datasheet and image downloads from standardized data"""
+        try:
+            # Check for datasheet URL in standardized additional_properties
+            additional_props = standardized_data.get('additional_properties', {})
+            supplier_data = additional_props.get('supplier_data', {})
+            metadata = additional_props.get('metadata', {})
+            
+            # Handle datasheet download using standardized structure
+            if metadata.get('has_datasheet') and self.download_config.get('download_datasheets', False):
+                # Find datasheet URL in standardized supplier data
+                datasheet_url = None
+                for supplier_name, supplier_info in supplier_data.items():
+                    if isinstance(supplier_info, dict):
+                        datasheet_url = supplier_info.get('datasheet_url')
+                        if datasheet_url:
+                            break
+                
+                if datasheet_url:
+                    logger.info(f"Downloading datasheet for part {part.part_name} from standardized data")
+                    try:
+                        from MakerMatrix.services.file_download_service import get_file_download_service
+                        file_service = get_file_download_service(self.download_config)
+                        
+                        part_number = part.part_number or part.manufacturer_part_number or part.part_name
+                        supplier = standardized_data.get('enrichment_source', 'Unknown')
+                        
+                        download_result = file_service.download_datasheet(
+                            url=datasheet_url,
+                            part_number=part_number,
+                            supplier=supplier
+                        )
+                        
+                        if download_result:
+                            # Update additional_properties with download info
+                            if not part.additional_properties:
+                                part.additional_properties = {}
+                            part.additional_properties.update({
+                                'datasheet_filename': download_result['filename'],
+                                'datasheet_local_path': f"/static/datasheets/{download_result['filename']}",
+                                'datasheet_downloaded': True,
+                                'datasheet_size': download_result['size'],
+                                'datasheet_file_uuid': download_result['file_uuid']
+                            })
+                            logger.info(f"✅ Downloaded datasheet: {download_result['filename']}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error downloading datasheet from standardized data: {e}")
+            
+            # Handle image download
+            if metadata.get('has_image') and self.download_config.get('download_images', False):
+                image_url = standardized_data.get('image_url')
+                if image_url and image_url.startswith('http'):
+                    logger.info(f"Downloading image for part {part.part_name} from standardized data")
+                    try:
+                        from MakerMatrix.services.file_download_service import get_file_download_service
+                        file_service = get_file_download_service(self.download_config)
+                        
+                        part_number = part.part_number or part.manufacturer_part_number or part.part_name
+                        supplier = standardized_data.get('enrichment_source', 'Unknown')
+                        
+                        download_result = file_service.download_image(
+                            url=image_url,
+                            part_number=part_number,
+                            supplier=supplier
+                        )
+                        
+                        if download_result:
+                            # Update part.image_url to local path
+                            part.image_url = f"/utility/get_image/{download_result['image_uuid']}"
+                            logger.info(f"✅ Downloaded image and updated URL to: {part.image_url}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error downloading image from standardized data: {e}")
+                        
+        except Exception as e:
+            logger.error(f"Error handling file downloads from standardized data: {e}")
     
     def _serialize_for_json(self, data):
         """Convert data to JSON-serializable format, handling datetime objects"""
@@ -326,11 +572,21 @@ class EnrichmentTaskHandlers:
                     datasheet_url = datasheet_data.get('datasheet_url')
                     logger.info(f"Found datasheet URL to save: {datasheet_url}")
                     if datasheet_url:
-                        # Store datasheet URL in additional_properties
+                        # Store datasheet URL in standardized supplier data structure
+                        std_props = part.get_standardized_additional_properties()
+                        supplier_data = std_props.get('supplier_data', {})
+                        
+                        # Update supplier data with datasheet URL
+                        supplier_key = part.supplier.lower() if part.supplier else 'unknown'
+                        if supplier_key not in supplier_data:
+                            supplier_data[supplier_key] = {}
+                        supplier_data[supplier_key]['datasheet_url'] = datasheet_url
+                        
+                        # Update additional_properties with standardized structure
                         if not part.additional_properties:
                             part.additional_properties = {}
-                        part.additional_properties['datasheet_url'] = datasheet_url
-                        logger.info(f"Saved datasheet URL to part: {datasheet_url}")
+                        part.additional_properties['supplier_data'] = supplier_data
+                        logger.info(f"Saved datasheet URL to standardized supplier data: {datasheet_url}")
                         
                         # Download datasheet file if configured
                         if self.download_config.get('download_datasheets', False):
@@ -398,10 +654,10 @@ class EnrichmentTaskHandlers:
                                 )
                                 
                                 if download_result:
-                                    # Update part.image_url to use local path instead of external URL
-                                    part.image_url = f"/static/images/{download_result['filename']}"
+                                    # Update part.image_url to use utility API endpoint with UUID
+                                    part.image_url = f"/utility/get_image/{download_result['image_uuid']}"
                                     logger.info(f"✅ Successfully downloaded image: {download_result['filename']} ({download_result['size']} bytes)")
-                                    logger.info(f"✅ Updated part.image_url to local path: {part.image_url}")
+                                    logger.info(f"✅ Updated part.image_url to: {part.image_url}")
                                 else:
                                     logger.warning(f"❌ Failed to download image from {primary_image_url}, keeping external URL")
                                     
@@ -433,10 +689,10 @@ class EnrichmentTaskHandlers:
                                         )
                                         
                                         if download_result:
-                                            # Update part.image_url to use local path instead of external URL
-                                            part.image_url = f"/static/images/{download_result['filename']}"
+                                            # Update part.image_url to use utility API endpoint with UUID
+                                            part.image_url = f"/utility/get_image/{download_result['image_uuid']}"
                                             logger.info(f"✅ Successfully downloaded image: {download_result['filename']} ({download_result['size']} bytes)")
-                                            logger.info(f"✅ Updated part.image_url to local path: {part.image_url}")
+                                            logger.info(f"✅ Updated part.image_url to: {part.image_url}")
                                         else:
                                             logger.warning(f"❌ Failed to download image from {first_image['url']}, keeping external URL")
                                             
@@ -617,9 +873,20 @@ class EnrichmentTaskHandlers:
             
             # Update part if part_id was provided and download the datasheet
             if part and result.success and result.datasheet_url:
+                # Store datasheet URL in standardized supplier data structure
+                std_props = part.get_standardized_additional_properties()
+                supplier_data = std_props.get('supplier_data', {})
+                
+                # Update supplier data with datasheet URL
+                supplier_key = supplier.lower() if supplier else 'unknown'
+                if supplier_key not in supplier_data:
+                    supplier_data[supplier_key] = {}
+                supplier_data[supplier_key]['datasheet_url'] = result.datasheet_url
+                
+                # Update additional_properties with standardized structure
                 if not part.additional_properties:
                     part.additional_properties = {}
-                part.additional_properties['datasheet_url'] = result.datasheet_url
+                part.additional_properties['supplier_data'] = supplier_data
                 
                 if progress_callback:
                     await progress_callback(80, "Downloading datasheet file...")
@@ -903,9 +1170,20 @@ class EnrichmentTaskHandlers:
             if capability_name == 'fetch_datasheet':
                 # enrichment_data contains {'datasheet': 'url'}
                 if 'datasheet' in enrichment_data and enrichment_data['datasheet']:
+                    # Store datasheet URL in standardized supplier data structure
+                    std_props = part.get_standardized_additional_properties()
+                    supplier_data = std_props.get('supplier_data', {})
+                    
+                    # Update supplier data with datasheet URL
+                    supplier_key = part.supplier.lower() if part.supplier else 'unknown'
+                    if supplier_key not in supplier_data:
+                        supplier_data[supplier_key] = {}
+                    supplier_data[supplier_key]['datasheet_url'] = enrichment_data['datasheet']
+                    
+                    # Update additional_properties with standardized structure
                     if not part.additional_properties:
                         part.additional_properties = {}
-                    part.additional_properties['datasheet_url'] = enrichment_data['datasheet']
+                    part.additional_properties['supplier_data'] = supplier_data
             
             elif capability_name == 'fetch_image':
                 # enrichment_data contains {'image': 'url'}

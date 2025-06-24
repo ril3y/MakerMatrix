@@ -13,6 +13,7 @@ from MakerMatrix.models.models import engine
 from MakerMatrix.printers.base import PrinterNotFoundError, PrinterError, PrintJobResult
 from MakerMatrix.dependencies.auth import get_current_user
 from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.schemas.response import ResponseSchema
 
 
 router = APIRouter()
@@ -73,7 +74,7 @@ async def print_qr_code_for_part(
     printer_id: Optional[str] = None,
     current_user: UserModel = Depends(get_current_user),
     printer_service: ModernPrinterService = Depends(get_printer_service)
-):
+) -> PrintResponse:
     """Print QR code for a specific part by ID."""
     try:
         # Get the part using session
@@ -103,7 +104,7 @@ async def print_part_name(
     printer_id: Optional[str] = None,
     current_user: UserModel = Depends(get_current_user),
     printer_service: ModernPrinterService = Depends(get_printer_service)
-):
+) -> PrintResponse:
     """Print part name as text label for a specific part by ID."""
     try:
         # Get the part using session
@@ -132,7 +133,7 @@ async def print_text_label(
     request: TextPrintRequest,
     current_user: UserModel = Depends(get_current_user),
     printer_service: ModernPrinterService = Depends(get_printer_service)
-):
+) -> PrintResponse:
     """Print a text label."""
     try:
         result = await printer_service.print_text_label(
@@ -158,7 +159,7 @@ async def print_qr_and_text_combined(
     request: QRTextPrintRequest,
     current_user: UserModel = Depends(get_current_user),
     printer_service: ModernPrinterService = Depends(get_printer_service)
-):
+) -> PrintResponse:
     """Print combined QR code and text label."""
     try:
         # Extract QR data and text from label_data
@@ -199,7 +200,7 @@ async def print_qr_and_text_combined(
 async def list_printers(
     current_user: UserModel = Depends(get_current_user),
     printer_service: ModernPrinterService = Depends(get_printer_service)
-):
+) -> Dict[str, Any]:
     """List all available printers."""
     try:
         printers = printer_service.list_printers()
@@ -218,7 +219,12 @@ async def list_printers(
                 "capabilities": [cap.value for cap in info.capabilities]
             })
         
-        return {"printers": printer_infos}
+        from MakerMatrix.schemas.response import ResponseSchema
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved {len(printer_infos)} printers",
+            data=printer_infos
+        ).dict()
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -229,16 +235,21 @@ async def get_printer_status(
     printer_id: str,
     current_user: UserModel = Depends(get_current_user),
     printer_service: ModernPrinterService = Depends(get_printer_service)
-):
+) -> Dict[str, Any]:
     """Get the status of a specific printer."""
     try:
         printer = printer_service.get_printer(printer_id)
         status = await printer.get_status()
         
-        return {
-            "printer_id": printer_id,
-            "status": status.value
-        }
+        from MakerMatrix.schemas.response import ResponseSchema
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved status for printer {printer_id}",
+            data={
+                "printer_id": printer_id,
+                "status": status.value
+            }
+        ).dict()
         
     except PrinterNotFoundError as e:
         raise _handle_printer_error(e)
@@ -251,19 +262,24 @@ async def test_printer(
     printer_id: str,
     current_user: UserModel = Depends(get_current_user),
     printer_service: ModernPrinterService = Depends(get_printer_service)
-):
+) -> PrintResponse:
     """Test connectivity to a specific printer."""
     try:
         printer = printer_service.get_printer(printer_id)
         test_result = await printer.test_connection()
         
-        return {
-            "printer_id": printer_id,
-            "success": test_result.success,
-            "response_time_ms": test_result.response_time_ms,
-            "message": test_result.message,
-            "error": test_result.error
-        }
+        from MakerMatrix.schemas.response import ResponseSchema
+        return ResponseSchema(
+            status="success" if test_result.success else "warning",
+            message=f"Connection test {'successful' if test_result.success else 'failed'} for {printer_id}",
+            data={
+                "printer_id": printer_id,
+                "success": test_result.success,
+                "response_time_ms": test_result.response_time_ms,
+                "message": test_result.message,
+                "error": test_result.error
+            }
+        ).dict()
         
     except PrinterNotFoundError as e:
         raise _handle_printer_error(e)

@@ -457,6 +457,50 @@ async def get_supplier_config_fields(
         )
 
 
+@router.get("/suppliers/{supplier_name}/config-options", response_model=ResponseSchema[List[Dict[str, Any]]])
+async def get_supplier_config_options(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get all configuration options for a supplier (e.g., sandbox vs production for DigiKey)"""
+    try:
+        service = SupplierConfigService()
+        
+        # Get the supplier instance to call get_configuration_options()
+        try:
+            supplier_config = service.get_supplier_config(supplier_name.upper())
+        except ResourceNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Supplier '{supplier_name}' not found"
+            )
+        
+        # Create supplier instance to get configuration options
+        credentials = service.get_supplier_credentials(supplier_name.upper(), decrypt=True)
+        supplier_instance = service._create_api_client(supplier_config, credentials)
+        
+        # Get all configuration options from the supplier
+        config_options = supplier_instance.get_configuration_options()
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved configuration options for {supplier_name}",
+            data={
+                "supplier_name": supplier_name,
+                "options": config_options
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving config options for {supplier_name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve configuration options: {str(e)}"
+        )
+
+
 # Credential Management Routes
 
 @router.post("/credentials", response_model=ResponseSchema[Dict[str, str]])

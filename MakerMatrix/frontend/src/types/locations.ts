@@ -4,6 +4,8 @@ export interface Location {
   description?: string
   parent_id?: string
   location_type: string
+  image_url?: string
+  emoji?: string
   parent?: Location
   children?: Location[]
   parts_count?: number
@@ -14,6 +16,8 @@ export interface CreateLocationRequest {
   description?: string
   parent_id?: string
   location_type?: string
+  image_url?: string
+  emoji?: string
 }
 
 export interface UpdateLocationRequest {
@@ -22,6 +26,8 @@ export interface UpdateLocationRequest {
   description?: string
   parent_id?: string
   location_type?: string
+  image_url?: string
+  emoji?: string
 }
 
 export interface LocationPath {

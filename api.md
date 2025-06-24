@@ -70,6 +70,7 @@ Model for tracking part storage locations.
 | `description` | `str` | Location description |
 | `parent_id` | `str` | Parent location ID (for hierarchy) |
 | `location_type` | `str` | Location type (default: "standard") |
+| `image_url` | `str` | URL to location image (for visual identification) |
 | `parent` | `LocationModel` | Parent location |
 | `children` | `List[LocationModel]` | Child locations |
 | `parts` | `List[PartModel]` | Parts at this location |
@@ -436,9 +437,14 @@ Add a new location.
   "name": "string",
   "description": "string",
   "parent_id": "uuid",
-  "location_type": "standard"
+  "location_type": "standard",
+  "image_url": "string"
 }
 ```
+
+**Image Upload Workflow:**
+1. First upload image using `POST /utility/upload_image`
+2. Use returned image URL in `image_url` field: `/utility/get_image/{image_id}.{extension}`
 
 #### GET /locations/get_location
 Get location by ID or name.
@@ -449,6 +455,17 @@ Get location by ID or name.
 
 #### PUT /locations/update_location/{location_id}
 Update location information.
+
+**Request Body:**
+```json
+{
+  "name": "string",
+  "description": "string",
+  "parent_id": "uuid",
+  "location_type": "standard",
+  "image_url": "string"
+}
+```
 
 #### GET /locations/get_location_details/{location_id}
 Get detailed location information including children.

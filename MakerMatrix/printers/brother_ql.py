@@ -125,7 +125,7 @@ class BrotherQL(AbstractPrinter):
         self.qlr = BrotherQLRaster(self.model)
 
     def _resize_and_print(self, image: Image.Image, label: str = '12', rotate: str = '0',
-                          max_length_inches: float = None, print_settings: PrintSettings = None):
+                          print_settings: PrintSettings = None):
         """Convert the provided image to printer instructions and send it."""
         try:
             print(f"[DEBUG] Starting _resize_and_print() with label: {label}, rotate: {rotate}")

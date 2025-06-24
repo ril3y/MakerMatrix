@@ -55,7 +55,7 @@ class TestPDFProxy:
             async def mock_aenter():
                 return mock_client_instance
                 
-            async def mock_aexit(exc_type, exc_val, exc_tb):
+            async def mock_aexit(_, __, ___):
                 return None
                 
             mock_client.return_value.__aenter__ = mock_aenter

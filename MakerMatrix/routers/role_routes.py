@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Body
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.schemas.response import ResponseSchema
@@ -28,7 +28,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 @router.post("/add_role", response_model=ResponseSchema)
-async def create_role(role_data: RoleCreate):
+async def create_role(role_data: RoleCreate) -> ResponseSchema[Dict[str, Any]]:
     try:
         role = user_repository.create_role(
             name=role_data.name,
@@ -48,7 +48,7 @@ async def create_role(role_data: RoleCreate):
 
 
 @router.get("/by-name/{name}", response_model=ResponseSchema)
-async def get_role_by_name(name: str):
+async def get_role_by_name(name: str) -> ResponseSchema[Dict[str, Any]]:
     role = user_repository.get_role_by_name(name)
     if not role:
         raise HTTPException(
@@ -63,7 +63,7 @@ async def get_role_by_name(name: str):
 
 
 @router.get("/{role_id}", response_model=ResponseSchema)
-async def get_role(role_id: str):
+async def get_role(role_id: str) -> ResponseSchema[Dict[str, Any]]:
     role = user_repository.get_role_by_id(role_id)
     if not role:
         raise HTTPException(
@@ -78,7 +78,7 @@ async def get_role(role_id: str):
 
 
 @router.put("/{role_id}", response_model=ResponseSchema)
-async def update_role(role_id: str, role_data: RoleUpdate):
+async def update_role(role_id: str, role_data: RoleUpdate) -> ResponseSchema[Dict[str, Any]]:
     try:
         role = user_repository.update_role(
             role_id=role_id,
@@ -103,7 +103,7 @@ async def update_role(role_id: str, role_data: RoleUpdate):
 
 
 @router.delete("/{role_id}", response_model=ResponseSchema)
-async def delete_role(role_id: str):
+async def delete_role(role_id: str) -> ResponseSchema[Optional[Dict[str, Any]]]:
     if user_repository.delete_role(role_id):
         return ResponseSchema(
             status="success",

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Save, MapPin } from 'lucide-react'
+import { Save, MapPin, Upload, X, Image } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
+import EmojiPicker from '@/components/ui/EmojiPicker'
 import { locationsService } from '@/services/locations.service'
-import { CreateLocationRequest, Location } from '@/types/parts'
+import { utilityService } from '@/services/utility.service'
+import { CreateLocationRequest, Location } from '@/types/locations'
 import toast from 'react-hot-toast'
 
 interface AddLocationModalProps {
@@ -15,7 +17,7 @@ interface AddLocationModalProps {
 const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps) => {
   const [formData, setFormData] = useState<CreateLocationRequest>({
     name: '',
-    type: '',
+    location_type: '',
     parent_id: ''
   })
 
@@ -23,6 +25,10 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
 
   const locationTypes = [
     { value: 'warehouse', label: 'Warehouse' },
@@ -52,6 +58,37 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
     } finally {
       setLoadingData(false)
     }
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    setImageFile(file)
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removeImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
   }
 
   const validate = (): boolean => {
@@ -84,10 +121,27 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
     try {
       setLoading(true)
 
+      // Handle image upload first if there's an image
+      let imageUrl = ''
+      if (imageFile) {
+        try {
+          setUploadingImage(true)
+          const uploadResult = await utilityService.uploadImage(imageFile)
+          imageUrl = `/utility/get_image/${uploadResult.image_id}.${imageFile.name.split('.').pop()}`
+        } catch (error) {
+          toast.error('Failed to upload image')
+          return
+        } finally {
+          setUploadingImage(false)
+        }
+      }
+
       const submitData: CreateLocationRequest = {
         name: formData.name.trim(),
-        type: formData.type || undefined,
-        parent_id: formData.parent_id || undefined
+        location_type: formData.location_type || undefined,
+        parent_id: formData.parent_id || undefined,
+        image_url: imageUrl || undefined,
+        emoji: selectedEmoji || undefined
       }
 
       await locationsService.createLocation(submitData)
@@ -104,10 +158,13 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
   const handleClose = () => {
     setFormData({
       name: '',
-      type: '',
+      location_type: '',
       parent_id: ''
     })
     setErrors({})
+    setImageFile(null)
+    setImagePreview(null)
+    setSelectedEmoji(null)
     onClose()
   }
 
@@ -167,8 +224,8 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
           <FormField label="Location Type" description="What type of storage location is this?">
             <select
               className="input w-full"
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              value={formData.location_type}
+              onChange={(e) => setFormData({ ...formData, location_type: e.target.value })}
             >
               <option value="">Select a type</option>
               {locationTypes.map((type) => (
@@ -224,6 +281,66 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
               </p>
             </div>
           )}
+
+          {/* Image Upload */}
+          <FormField label="Location Image" description="Add an image to help identify this location (optional)">
+            <div className="space-y-4">
+              {imagePreview ? (
+                <div className="relative inline-block">
+                  <img
+                    src={imagePreview}
+                    alt="Location preview"
+                    className="w-32 h-32 object-cover rounded-lg border border-border"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 transition-colors"
+                    disabled={uploadingImage}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="location-image-upload"
+                    disabled={uploadingImage}
+                  />
+                  <label
+                    htmlFor="location-image-upload"
+                    className="cursor-pointer flex flex-col items-center gap-2"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="text-sm text-secondary">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-secondary" />
+                        <span className="text-sm text-primary">Click to upload an image</span>
+                        <span className="text-xs text-secondary">PNG, JPG, GIF up to 5MB</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+          </FormField>
+
+          {/* Emoji Picker */}
+          <FormField label="Location Emoji" description="Choose an emoji to help identify this location (optional)">
+            <EmojiPicker
+              value={selectedEmoji || undefined}
+              onChange={setSelectedEmoji}
+              placeholder="Click to select an emoji..."
+            />
+          </FormField>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-border">

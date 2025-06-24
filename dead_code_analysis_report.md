@@ -1,18 +1,18 @@
 
 # Dead Code Analysis Report
-Generated: 2025-06-20 08:43:01
+Generated: 2025-06-23 21:37:43
 
 ## Python Dead Code Analysis (vulture)
 Analysis failed
 
 ## TypeScript Dead Code Analysis (ts-unused-exports)  
-24 modules with unused exports
+26 modules with unused exports
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/components/import/index.ts: ImportSelector, ImportSettings, FileUpload, ImportProgress, FilePreview, LCSCImporter, DigiKeyImporter, MouserImporter, useOrderImport, FilePreviewData, ImportResult, OrderInfo, ImportProgressType, UseOrderImportProps
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/components/layouts/index.ts: MainLayout, AuthLayout
-/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/components/ui/Tooltip.tsx: default
+/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/components/printer/PrinterInterface.tsx: default
+/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/components/ui/Button.tsx: Button, ButtonProps
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/hooks/useAuth.ts: useAuth, useRequireRole, useRequirePermission
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/lib/axios.ts: default, apiClient
-/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/pages/suppliers/GenericConfigForm.tsx: GenericConfigForm
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/pages/suppliers/index.ts: SupplierConfigPage, AddSupplierModal, EditSupplierModal, CredentialsModal, ImportExportModal
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/services/activity.service.ts: ActivityListResponse, ActivityStats, ActivityService
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/services/ai.service.ts: AICommandResponse, AIProcessRequest
@@ -27,10 +27,12 @@ Analysis failed
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/services/tasks.service.ts: CreateTaskRequest, WorkerStatus, TaskStats, TaskType
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/services/users.service.ts: UsersService
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/services/utility.service.ts: ImageUploadResponse
+/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/services/websocket.service.ts: WebSocketMessage, WebSocketEventHandler, WebSocketService
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/store/settingsStore.ts: useSettingsStore
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/types/auth.ts: Role, Permission
-/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/types/parts.ts: UpdateLocationRequest, UpdateCategoryRequest
+/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/types/parts.ts: CreateLocationRequest, UpdateLocationRequest, UpdateCategoryRequest
 /home/ril3y/MakerMatrix/MakerMatrix/frontend/src/types/settings.ts: CSVImportConfig, CSVImportConfigUpdate, ImportProgress
+/home/ril3y/MakerMatrix/MakerMatrix/frontend/src/utils/image.utils.ts: isNewImageFormat, isLegacyImageFormat, getFallbackImageUrl
 
 
 ## Recommendations

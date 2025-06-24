@@ -7,7 +7,6 @@ Supports part search, pricing, stock, datasheets, and comprehensive part data.
 
 from typing import List, Dict, Any, Optional
 import aiohttp
-import urllib.parse
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
@@ -58,7 +57,7 @@ class MouserSupplier(BaseSupplier):
             )
         ]
     
-    def get_configuration_schema(self) -> List[FieldDefinition]:
+    def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """Safe configuration schema - only expose user-relevant parameters"""
         return [
             FieldDefinition(

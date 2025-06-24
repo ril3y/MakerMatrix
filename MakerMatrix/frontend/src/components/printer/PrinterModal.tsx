@@ -7,16 +7,20 @@ import toast from 'react-hot-toast'
 interface PrinterModalProps {
   isOpen: boolean
   onClose: () => void
+  title?: string
+  showTestMode?: boolean
   partData?: {
-    part_name: string
-    part_number: string
+    part_name?: string
+    part_number?: string
     location?: string
     category?: string
     quantity?: string
+    description?: string
+    additional_properties?: Record<string, any>
   }
 }
 
-const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
+const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = false, partData }: PrinterModalProps) => {
   const [availablePrinters, setAvailablePrinters] = useState<any[]>([])
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
   const [printerInfo, setPrinterInfo] = useState<any>(null)
@@ -85,15 +89,31 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
       part_number: 'TP-001',
       location: 'A1-B2',
       category: 'Electronics',
-      quantity: '10'
+      quantity: '10',
+      description: 'Test part description',
+      additional_properties: {}
     }
 
     let processed = template
 
     // Replace standard placeholders
     Object.entries(data).forEach(([key, value]) => {
-      processed = processed.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value || ''))
+      if (key !== 'additional_properties') {
+        processed = processed.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value || ''))
+      }
     })
+
+    // Handle additional_properties placeholders (e.g., {additional_properties.manufacturer})
+    if (data.additional_properties && typeof data.additional_properties === 'object') {
+      Object.entries(data.additional_properties).forEach(([key, value]) => {
+        // Support both formats: {additional_properties.key} and {key} for direct access
+        processed = processed.replace(new RegExp(`\\{additional_properties\\.${key}\\}`, 'g'), String(value || ''))
+        // Also support direct access to additional_properties fields
+        if (!data.hasOwnProperty(key)) {
+          processed = processed.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value || ''))
+        }
+      })
+    }
 
     // Handle QR code placeholders
     const qrMatch = processed.match(/\{qr=([^}]+)\}/)
@@ -122,7 +142,9 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
           part_number: 'TP-001',
           location: 'A1-B2',
           category: 'Electronics',
-          quantity: '10'
+          quantity: '10',
+          description: 'Test part description',
+          additional_properties: {}
         }
       }
 
@@ -154,7 +176,9 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
           part_number: 'TP-001',
           location: 'A1-B2',
           category: 'Electronics',
-          quantity: '10'
+          quantity: '10',
+          description: 'Test part description',
+          additional_properties: {}
         }
       }
 
@@ -197,7 +221,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
         <div className="flex items-center justify-between mb-6">
           <h4 className="text-xl font-semibold text-primary flex items-center gap-2">
             <Printer className="w-5 h-5" />
-            Print Label {partData && `- ${partData.part_name}`}
+            {title} {partData && `- ${partData.part_name}`}
           </h4>
           <button
             onClick={onClose}
@@ -252,7 +276,7 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
                   placeholder="Use {part_name}, {part_number}, {qr=part_number}, etc."
                 />
                 <p className="text-xs text-secondary mt-1">
-                  Available: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{qr=data}'}
+                  Available: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}, {'{qr=data}'}, and any additional_properties fields
                 </p>
               </div>
 
@@ -328,14 +352,16 @@ const PrinterModal = ({ isOpen, onClose, partData }: PrinterModalProps) => {
 
               {/* Action Buttons */}
               <div className="flex gap-2">
-                <button
-                  onClick={testConnection}
-                  className="btn btn-secondary flex items-center gap-2 flex-1"
-                  disabled={!selectedPrinter}
-                >
-                  <TestTube className="w-4 h-4" />
-                  Test
-                </button>
+                {showTestMode && (
+                  <button
+                    onClick={testConnection}
+                    className="btn btn-secondary flex items-center gap-2 flex-1"
+                    disabled={!selectedPrinter}
+                  >
+                    <TestTube className="w-4 h-4" />
+                    Test
+                  </button>
+                )}
                 <button
                   onClick={generatePreview}
                   className="btn btn-secondary flex items-center gap-2 flex-1"

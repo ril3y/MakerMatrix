@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, Depends, Request
 from starlette.responses import JSONResponse
@@ -20,12 +20,14 @@ class LocationCreateRequest(BaseModel):
     description: Optional[str] = None
     parent_id: Optional[str] = None
     location_type: str = "standard"
+    image_url: Optional[str] = None
+    emoji: Optional[str] = None
 
 router = APIRouter()
 
 
 @router.get("/get_all_locations")
-async def get_all_locations():
+async def get_all_locations() -> ResponseSchema[List[Dict[str, Any]]]:
     try:
         locations = LocationService.get_all_locations()
         # noinspection PyArgumentList
@@ -42,7 +44,7 @@ async def get_all_locations():
 async def get_location(
     location_id: Optional[str] = None, 
     name: Optional[str] = None
-):
+) -> ResponseSchema[Dict[str, Any]]:
     try:
         if not location_id and not name:
             raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
@@ -123,7 +125,7 @@ async def add_location(
     location_data: LocationCreateRequest, 
     request: Request,
     current_user: UserModel = Depends(get_current_user)
-):
+) -> ResponseSchema[Dict[str, Any]]:
     try:
         # Check if a location with the same name and parent_id already exists
         existing_location = None
@@ -191,7 +193,7 @@ async def add_location(
 
 
 @router.get("/get_location_details/{location_id}")
-async def get_location_details(location_id: str):
+async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any]]:
     """
     Get detailed information about a location, including its children.
 
@@ -216,7 +218,7 @@ async def get_location_details(location_id: str):
 
 
 @router.get("/get_location_path/{location_id}", response_model=ResponseSchema)
-async def get_location_path(location_id: str):
+async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get the full path from a location to its root.
     
     Args:
@@ -295,7 +297,7 @@ async def delete_location(
 
 
 @router.delete("/cleanup-locations")
-async def cleanup_locations():
+async def cleanup_locations() -> ResponseSchema[Dict[str, Any]]:
     """
     Clean up locations by removing those with invalid parent IDs and their descendants.
     
@@ -317,7 +319,7 @@ async def cleanup_locations():
 
 
 @router.get("/preview-delete/{location_id}")
-async def preview_delete(location_id: str):
+async def preview_delete(location_id: str) -> ResponseSchema[Dict[str, Any]]:
     """
     DEPRECATED: Use /preview-location-delete/{location_id} instead.
     Preview what will be affected when deleting a location.

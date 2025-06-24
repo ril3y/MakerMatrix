@@ -42,7 +42,9 @@ class RateLimitService:
         self._default_limits = {
             "mouser": {"per_minute": 30, "per_hour": 1000, "per_day": 1000},
             "lcsc": {"per_minute": 60, "per_hour": 3600, "per_day": 10000},
-            "digikey": {"per_minute": 100, "per_hour": 6000, "per_day": 10000}
+            "digikey": {"per_minute": 100, "per_hour": 6000, "per_day": 10000},
+            "mcmaster-carr": {"per_minute": 24, "per_hour": 1000, "per_day": 5000},  # Conservative limits for both API and scraper
+            "bolt-depot": {"per_minute": 20, "per_hour": 800, "per_day": 2000}  # Conservative for web scraping
         }
     
     async def initialize_default_limits(self):

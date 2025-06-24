@@ -7,7 +7,6 @@ part details, pricing, and specifications from product pages.
 
 from typing import List, Dict, Any, Optional
 import aiohttp
-import urllib.parse
 import re
 from bs4 import BeautifulSoup
 from decimal import Decimal
@@ -52,7 +51,7 @@ class BoltDepotSupplier(BaseSupplier):
         # No credentials required for public web scraping
         return []
     
-    def get_configuration_schema(self) -> List[FieldDefinition]:
+    def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         return [
             FieldDefinition(
                 name="base_url",

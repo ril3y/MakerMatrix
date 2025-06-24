@@ -43,7 +43,11 @@ ignore_names = [
     "pytest_asyncio",
     "get_all_suppliers_info",
     "TaskSecurityError",
-    "AsyncGenerator"
+    "AsyncGenerator",
+    # Abstract method parameters
+    "print_config",
+    # Pytest parametrize parameters that may not be directly used in test body
+    "expected_error"
 ]
 
 # Paths to ignore completely

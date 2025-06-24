@@ -374,6 +374,94 @@ async def get_supplier_capabilities(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get capabilities: {str(e)}")
 
+@router.post("/{supplier_name}/credentials-schema-with-config", response_model=ResponseSchema[List[FieldDefinitionResponse]])
+async def get_supplier_credential_schema_with_config(
+    supplier_name: str,
+    config_request: SupplierConfigurationRequest,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get the credential fields required by a supplier with current configuration context"""
+    try:
+        supplier = SupplierRegistry.get_supplier(supplier_name)
+        
+        # Configure the supplier with current values to get context-aware schema
+        supplier.configure(
+            credentials=config_request.credentials or {},
+            config=config_request.config or {}
+        )
+        
+        schema = supplier.get_credential_schema()
+        
+        response_data = [
+            FieldDefinitionResponse(
+                name=field.name,
+                label=field.label,
+                field_type=field.field_type.value,
+                required=field.required,
+                description=field.description,
+                placeholder=field.placeholder,
+                help_text=field.help_text,
+                default_value=field.default_value,
+                options=field.options,
+                validation=field.validation
+            )
+            for field in schema
+        ]
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved credential schema for {supplier_name} with config context",
+            data=response_data
+        )
+    except SupplierNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get credential schema: {str(e)}")
+
+@router.post("/{supplier_name}/config-schema-with-config", response_model=ResponseSchema[List[FieldDefinitionResponse]])
+async def get_supplier_config_schema_with_config(
+    supplier_name: str,
+    config_request: SupplierConfigurationRequest,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get the configuration fields supported by a supplier with current configuration context"""
+    try:
+        supplier = SupplierRegistry.get_supplier(supplier_name)
+        
+        # Configure the supplier with current values to get context-aware schema
+        supplier.configure(
+            credentials=config_request.credentials or {},
+            config=config_request.config or {}
+        )
+        
+        schema = supplier.get_configuration_schema()
+        
+        response_data = [
+            FieldDefinitionResponse(
+                name=field.name,
+                label=field.label,
+                field_type=field.field_type.value,
+                required=field.required,
+                description=field.description,
+                placeholder=field.placeholder,
+                help_text=field.help_text,
+                default_value=field.default_value,
+                options=field.options,
+                validation=field.validation
+            )
+            for field in schema
+        ]
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved configuration schema for {supplier_name} with config context",
+            data=response_data
+        )
+    except SupplierNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get configuration schema: {str(e)}")
+
 @router.get("/{supplier_name}/env-defaults", response_model=ResponseSchema[Dict[str, Any]])
 async def get_supplier_env_defaults(
     supplier_name: str,
