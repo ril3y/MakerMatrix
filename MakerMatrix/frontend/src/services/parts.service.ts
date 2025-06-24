@@ -97,7 +97,7 @@ export class PartsService {
             // Skip category update to prevent corruption
             categoryNames = undefined
           }
-        } else if (typeof firstCategory === 'object' && firstCategory.name) {
+        } else if (typeof firstCategory === 'object' && (firstCategory as any).name) {
           // Categories are already Category objects, extract names
           categoryNames = updateData.categories.map((cat: any) => cat.name)
         }

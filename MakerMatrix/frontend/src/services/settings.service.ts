@@ -7,8 +7,8 @@ export type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 export class SettingsService {
   // Modern Printer Configuration
   async getAvailablePrinters(): Promise<any[]> {
-    const response = await apiClient.get<{printers: any[]}>('/printer/printers')
-    return response.printers || []
+    const response = await apiClient.get<{data: any[]}>('/printer/printers')
+    return response.data || []
   }
 
   async getPrinterInfo(printerId: string): Promise<any> {
@@ -37,7 +37,7 @@ export class SettingsService {
   }
 
   async previewLabel(text: string, labelSize: string = "12"): Promise<Blob> {
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'}/printer/preview/text`, {
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/printer/preview/text`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ export class SettingsService {
     }
     data?: any
   }): Promise<Blob> {
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'}/printer/preview/advanced`, {
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/printer/preview/advanced`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -194,7 +194,7 @@ export class SettingsService {
 
   async downloadDatabaseBackup(): Promise<void> {
     // This will trigger a file download
-    const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'
+    const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
     const response = await fetch(`${baseURL}/utility/backup/download`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -218,7 +218,7 @@ export class SettingsService {
 
   async exportDataJSON(): Promise<void> {
     // This will trigger a file download
-    const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:57891'
+    const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
     const response = await fetch(`${baseURL}/utility/backup/export`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`

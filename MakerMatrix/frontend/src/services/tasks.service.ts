@@ -209,7 +209,7 @@ class TasksService {
   }
 
   // Task monitoring utilities
-  async pollTaskProgress(taskId: string, callback: (task: Task) => void, intervalMs: number = 1000): Promise<() => void> {
+  pollTaskProgress(taskId: string, callback: (task: Task) => void, intervalMs: number = 1000): () => void {
     const poll = async () => {
       try {
         const response = await this.getTask(taskId)

@@ -1,4 +1,4 @@
-import { getToken } from './auth'
+import { authStore } from '../store/authStore'
 
 export interface WebSocketMessage {
   type: string
@@ -41,7 +41,7 @@ export class WebSocketService {
       }
 
       this.isConnecting = true
-      const token = getToken()
+      const token = localStorage.getItem('auth_token')
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const wsUrl = `${protocol}//${window.location.host}${this.endpoint}${token ? `?token=${token}` : ''}`
 
