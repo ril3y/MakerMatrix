@@ -25,6 +25,9 @@ class TestAnalyticsService:
     def mock_session(self):
         """Create mock database session."""
         session = MagicMock()
+        # Make the session work as a context manager
+        session.__enter__ = MagicMock(return_value=session)
+        session.__exit__ = MagicMock(return_value=None)
         return session
     
     def test_get_spending_by_supplier(self, analytics_service, mock_session):
@@ -45,7 +48,8 @@ class TestAnalyticsService:
         
         mock_session.query.return_value = mock_query
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_spending_by_supplier(limit=10)
         
         assert len(result) == 3
@@ -74,7 +78,8 @@ class TestAnalyticsService:
         
         mock_session.query.return_value = mock_query
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             analytics_service.get_spending_by_supplier(
                 start_date=start_date,
                 end_date=end_date
@@ -86,9 +91,9 @@ class TestAnalyticsService:
     def test_get_spending_trend_monthly(self, analytics_service, mock_session):
         """Test monthly spending trend calculation."""
         mock_results = [
-            Mock(period=datetime(2024, 1, 1), total_spent=1000.0, order_count=5),
-            Mock(period=datetime(2024, 2, 1), total_spent=1500.0, order_count=7),
-            Mock(period=datetime(2024, 3, 1), total_spent=800.0, order_count=4)
+            Mock(period="2024-01", total_spent=1000.0, order_count=5),
+            Mock(period="2024-02", total_spent=1500.0, order_count=7),
+            Mock(period="2024-03", total_spent=800.0, order_count=4)
         ]
         
         mock_query = Mock()
@@ -99,11 +104,12 @@ class TestAnalyticsService:
         
         mock_session.query.return_value = mock_query
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_spending_trend(period='month', lookback_periods=6)
         
         assert len(result) == 3
-        assert result[0]["period"] == "2024-01-01T00:00:00"
+        assert result[0]["period"] == "2024-01-01"
         assert result[0]["total_spent"] == 1000.0
         assert result[0]["order_count"] == 5
     
@@ -121,7 +127,8 @@ class TestAnalyticsService:
             
             mock_session.query.return_value = mock_query
             
-            with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+            with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+                mock_session_class.return_value = mock_session
                 analytics_service.get_spending_trend(period=period)
             
             # Should not raise an error
@@ -159,7 +166,8 @@ class TestAnalyticsService:
         
         mock_session.query.return_value = mock_query
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_part_order_frequency(limit=20, min_orders=5)
         
         assert len(result) == 2
@@ -200,7 +208,8 @@ class TestAnalyticsService:
         
         mock_session.query.return_value = mock_query
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_price_trends(part_id=1, limit=50)
         
         assert len(result) == 2
@@ -251,7 +260,8 @@ class TestAnalyticsService:
         
         mock_session.query.return_value = mock_query
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_low_stock_parts(threshold_multiplier=1.5)
         
         assert len(result) == 2
@@ -278,7 +288,8 @@ class TestAnalyticsService:
         
         mock_session.query.return_value = mock_query
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_category_spending()
         
         assert len(result) == 3
@@ -309,7 +320,8 @@ class TestAnalyticsService:
         # Configure session to return different queries
         mock_session.query.side_effect = [mock_query1, mock_query2]
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_inventory_value()
         
         assert result["total_value"] == 5000.0
@@ -332,7 +344,8 @@ class TestAnalyticsService:
         
         mock_session.query.side_effect = [mock_query1, mock_query2]
         
-        with patch('MakerMatrix.services.analytics_service.Session', return_value=mock_session):
+        with patch('MakerMatrix.services.analytics_service.Session') as mock_session_class:
+            mock_session_class.return_value = mock_session
             result = analytics_service.get_inventory_value()
         
         assert result["total_value"] == 0
