@@ -4,7 +4,6 @@ from . import (
     locations_routes, 
     categories_routes,
     printer_routes,
-    modern_printer_routes,
     preview_routes,
     utility_routes,
     auth_routes,
@@ -19,7 +18,8 @@ from . import (
     activity_routes,
     supplier_config_routes,
     supplier_routes,
-    rate_limit_routes
+    rate_limit_routes,
+    enrichment_routes
 )
 
 __all__ = [
@@ -27,7 +27,6 @@ __all__ = [
     "locations_routes", 
     "categories_routes",
     "printer_routes",
-    "modern_printer_routes",
     "preview_routes",
     "utility_routes",
     "auth_routes",
@@ -42,5 +41,6 @@ __all__ = [
     "activity_routes",
     "supplier_config_routes",
     "supplier_routes",
-    "rate_limit_routes"
+    "rate_limit_routes",
+    "enrichment_routes"
 ]

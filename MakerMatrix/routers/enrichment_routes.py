@@ -14,8 +14,8 @@ from ..models.user_models import UserModel
 from ..schemas.response import ResponseSchema
 from ..services.task_service import task_service
 from ..models.task_models import TaskType, TaskPriority
-from ..parsers.capabilities import CapabilityType
-from ..parsers.enhanced_parsers import get_enhanced_parser
+from ..parsers.supplier_capabilities import CapabilityType
+from ..parsers.enhanced_parser import get_enhanced_parser
 from ..suppliers import SupplierRegistry
 
 router = APIRouter(prefix="/api/enrichment", tags=["enrichment"])
