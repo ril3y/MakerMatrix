@@ -18,7 +18,7 @@ from ..parsers.supplier_capabilities import CapabilityType
 from ..parsers.enhanced_parser import get_enhanced_parser
 from ..suppliers import SupplierRegistry
 
-router = APIRouter(tags=["enrichment"])
+router = APIRouter(tags=["Enrichment"])
 
 # ========== Request/Response Models ==========
 

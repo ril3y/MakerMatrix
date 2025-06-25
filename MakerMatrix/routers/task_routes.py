@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["tasks"])
+router = APIRouter(tags=["Background Tasks"])
 
 
 @router.post("/", response_model=Dict[str, Any])
