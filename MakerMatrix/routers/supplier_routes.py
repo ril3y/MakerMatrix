@@ -21,7 +21,7 @@ from ..suppliers.exceptions import (
 )
 from ..schemas.response import ResponseSchema
 
-router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
+router = APIRouter()
 
 # ========== Request/Response Models ==========
 
