@@ -270,7 +270,7 @@ app.include_router(supplier_routes.router, tags=["Suppliers"])
 app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
 app.include_router(analytics_routes.router, tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
-app.include_router(enrichment_routes.router, tags=["Enrichment"])
+app.include_router(enrichment_routes.router, prefix="/api/enrichment", tags=["Enrichment"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
 app.include_router(static_routes.router, tags=["Static Files"])
 

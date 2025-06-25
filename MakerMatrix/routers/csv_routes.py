@@ -22,7 +22,7 @@ from ..services.order_service import order_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/csv", tags=["Import"])
+router = APIRouter(tags=["Import"])
 
 # ========== Request/Response Models ==========
 
