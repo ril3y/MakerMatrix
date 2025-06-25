@@ -1,8 +1,5 @@
 """
-CSV Enrichment Task - DEPRECATED: Use FileImportEnrichmentTask instead
-
-This task is kept for backward compatibility but new code should use FileImportEnrichmentTask
-which supports multiple file formats (CSV, XLS, etc.)
+File Import Enrichment Task - Enriches parts imported from files (CSV, XLS, etc.) with additional data using real supplier APIs
 """
 
 import asyncio
@@ -18,11 +15,8 @@ from MakerMatrix.database.db import get_session
 logger = logging.getLogger(__name__)
 
 
-class CSVEnrichmentTask(BaseTask):
-    """DEPRECATED: Task for enriching parts imported from CSV files using real supplier APIs
-    
-    Use FileImportEnrichmentTask instead which supports multiple file formats.
-    """
+class FileImportEnrichmentTask(BaseTask):
+    """Task for enriching parts imported from any file type (CSV, XLS, etc.) using real supplier APIs"""
     
     def __init__(self, task_service=None):
         super().__init__(task_service)
@@ -32,18 +26,18 @@ class CSVEnrichmentTask(BaseTask):
     
     @property
     def task_type(self) -> str:
-        return "csv_enrichment"
+        return "file_import_enrichment"
     
     @property
     def name(self) -> str:
-        return "CSV Enrichment"
+        return "File Import Enrichment"
     
     @property
     def description(self) -> str:
-        return "Enrich parts imported from CSV with real supplier data including datasheets, images, and specifications"
+        return "Enrich parts imported from files (CSV, XLS, etc.) with real supplier data including datasheets, images, and specifications"
     
     async def execute(self, task: TaskModel) -> Dict[str, Any]:
-        """Execute CSV enrichment task using real supplier APIs"""
+        """Execute file import enrichment task using real supplier APIs"""
         input_data = self.get_input_data(task)
         enrichment_queue = input_data.get('enrichment_queue', [])
         
@@ -113,7 +107,7 @@ class CSVEnrichmentTask(BaseTask):
         }
         
         self.log_info(
-            f"CSV enrichment complete: {len(enriched_parts)} successful, {len(failed_parts)} failed", 
+            f"File import enrichment complete: {len(enriched_parts)} successful, {len(failed_parts)} failed", 
             task
         )
         
@@ -137,7 +131,7 @@ class CSVEnrichmentTask(BaseTask):
             # Create a mock task for the part enrichment handler
             enrichment_task = TaskModel(
                 task_type=TaskType.PART_ENRICHMENT,
-                name=f"CSV Part Enrichment - {part_data.get('part_name', part_id)}",
+                name=f"File Import Part Enrichment - {part_data.get('part_name', part_id)}",
                 status=task.status
             )
             

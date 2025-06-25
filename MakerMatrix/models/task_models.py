@@ -23,7 +23,11 @@ class TaskPriority(str, Enum):
 
 
 class TaskType(str, Enum):
-    CSV_ENRICHMENT = "csv_enrichment"
+    # Import and processing tasks
+    FILE_IMPORT_ENRICHMENT = "file_import_enrichment"  # Replaces CSV_ENRICHMENT - handles CSV, XLS, etc.
+    CSV_ENRICHMENT = "csv_enrichment"  # Deprecated - kept for backward compatibility
+    
+    # General maintenance tasks
     PRICE_UPDATE = "price_update"
     DATABASE_CLEANUP = "database_cleanup"
     FILE_DOWNLOAD = "file_download"
@@ -35,15 +39,19 @@ class TaskType(str, Enum):
     REPORT_GENERATION = "report_generation"
     
     # Enrichment task types
-    PART_ENRICHMENT = "part_enrichment"
+    PART_ENRICHMENT = "part_enrichment"  # Enrich a single part with all available data
+    BULK_ENRICHMENT = "bulk_enrichment"  # Enrich multiple parts
+    
+    # Specific enrichment capabilities (usually part of PART_ENRICHMENT)
     DATASHEET_FETCH = "fetch_datasheet"
     IMAGE_FETCH = "fetch_image"
     PRICING_FETCH = "fetch_pricing"
     STOCK_FETCH = "fetch_stock"
     SPECIFICATIONS_FETCH = "fetch_specifications"
+    
+    # Other enrichment-related tasks
     PART_VALIDATION_ENRICHMENT = "part_validation_enrichment"
     SUPPLIER_DATA_SYNC = "supplier_data_sync"
-    BULK_ENRICHMENT = "bulk_enrichment"
     
     # Printer management task types
     PRINTER_DISCOVERY = "printer_discovery"

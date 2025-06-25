@@ -893,7 +893,8 @@ const TasksManagement: React.FC = () => {
             onChange={(e) => setTypeFilter(e.target.value)}
           >
             <option value="all">All Types</option>
-            <option value="csv_enrichment">CSV Enrichment</option>
+            <option value="file_import_enrichment">File Import Enrichment</option>
+            <option value="csv_enrichment">CSV Enrichment (Deprecated)</option>
             <option value="bulk_enrichment">Bulk Enrichment</option>
             <option value="part_enrichment">Part Enrichment</option>
             <option value="price_update">Price Update</option>

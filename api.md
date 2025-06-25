@@ -625,7 +625,10 @@ Quick create image fetch task.
 Quick create bulk enrichment task.
 
 #### POST /tasks/quick/csv_enrichment
-Quick create CSV enrichment task.
+Quick create CSV enrichment task (DEPRECATED - use file_import_enrichment).
+
+#### POST /tasks/quick/file_import_enrichment
+Quick create file import enrichment task (supports CSV, XLS, etc.).
 
 #### POST /tasks/quick/price_update
 Quick create price update task.

@@ -192,6 +192,17 @@ class TasksService {
     return apiClient.post(`${this.baseUrl}/quick/bulk_enrichment`, enrichmentData)
   }
 
+  async createFileImportEnrichmentTask(enrichmentData: {
+    enrichment_queue: Array<{
+      part_id: string
+      part_data: any
+    }>
+    file_type?: string
+    supplier?: string
+  }): Promise<{ status: string; data: Task }> {
+    return apiClient.post(`${this.baseUrl}/quick/file_import_enrichment`, enrichmentData)
+  }
+
   // Supplier capabilities methods
   async getSupplierCapabilities(): Promise<{ status: string; data: Record<string, any> }> {
     return apiClient.get(`${this.baseUrl}/capabilities/suppliers`)
@@ -354,8 +365,14 @@ class TasksService {
       },
       csvEnrichment: {
         task_type: 'csv_enrichment',
-        name: 'CSV Import Enrichment',
-        description: 'Enrich parts imported from CSV files',
+        name: 'CSV Import Enrichment (Deprecated)',
+        description: 'Enrich parts imported from CSV files - Use File Import Enrichment instead',
+        priority: 'normal'
+      },
+      fileImportEnrichment: {
+        task_type: 'file_import_enrichment',
+        name: 'File Import Enrichment',
+        description: 'Enrich parts imported from files (CSV, XLS, etc.)',
         priority: 'normal'
       }
     }
