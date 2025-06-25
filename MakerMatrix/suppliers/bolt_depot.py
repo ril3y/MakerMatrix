@@ -14,7 +14,7 @@ import logging
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo
+    PartSearchResult, SupplierInfo, CapabilityRequirement
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -46,6 +46,16 @@ class BoltDepotSupplier(BaseSupplier):
             SupplierCapability.FETCH_IMAGE,            # Extract product images
             SupplierCapability.FETCH_SPECIFICATIONS,   # Extract product details table
         ]
+
+    def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
+        """Bolt Depot uses web scraping, so no credentials required for any capability"""
+        return {
+            capability: CapabilityRequirement(
+                capability=capability,
+                required_credentials=[]
+            )
+            for capability in self.get_capabilities()
+        }
     
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for public web scraping
@@ -123,6 +133,12 @@ class BoltDepotSupplier(BaseSupplier):
     
     async def test_connection(self) -> Dict[str, Any]:
         """Test connection to Bolt Depot website"""
+        if not self._configured:
+            return {
+                "success": False,
+                "message": "Supplier not configured. Call .configure() before testing.",
+                "details": {"error": "Unconfigured supplier"}
+            }
         try:
             session = await self._get_session()
             headers = self._get_headers()

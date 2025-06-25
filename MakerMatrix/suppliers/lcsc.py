@@ -132,6 +132,12 @@ class LCSCSupplier(BaseSupplier):
     
     async def test_connection(self) -> Dict[str, Any]:
         """Test connection to EasyEDA API"""
+        if not self._configured:
+            return {
+                "success": False,
+                "message": "Supplier not configured. Call .configure() before testing.",
+                "details": {"error": "Unconfigured supplier"}
+            }
         try:
             # Test with a known LCSC part (resistor)
             test_lcsc_id = "C25804"  # Common 10K resistor

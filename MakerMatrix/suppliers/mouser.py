@@ -10,7 +10,7 @@ import aiohttp
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo
+    PartSearchResult, SupplierInfo, CapabilityRequirement
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -44,6 +44,17 @@ class MouserSupplier(BaseSupplier):
             SupplierCapability.FETCH_SPECIFICATIONS,   # Product attributes, RoHS, lifecycle
             SupplierCapability.PARAMETRIC_SEARCH       # Enhanced search capabilities
         ]
+
+    def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
+        """Define what credentials each capability needs"""
+        api_key_req = ["api_key"]
+        return {
+            capability: CapabilityRequirement(
+                capability=capability,
+                required_credentials=api_key_req
+            )
+            for capability in self.get_capabilities()
+        }
     
     def get_credential_schema(self) -> List[FieldDefinition]:
         return [

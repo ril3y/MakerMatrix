@@ -16,7 +16,7 @@ import logging
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo
+    PartSearchResult, SupplierInfo, CapabilityRequirement
 )
 from .exceptions import (
     SupplierConfigurationError, SupplierAuthenticationError,
@@ -64,6 +64,17 @@ class McMasterCarrSupplier(BaseSupplier):
             SupplierCapability.PARAMETRIC_SEARCH
             # Note: FETCH_PRICING and FETCH_STOCK not implemented yet
         ]
+
+    def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
+        """Define what credentials each capability needs"""
+        all_creds_req = ["username", "password", "client_cert_path", "client_cert_password"]
+        return {
+            capability: CapabilityRequirement(
+                capability=capability,
+                required_credentials=all_creds_req
+            )
+            for capability in self.get_capabilities()
+        }
     
     def get_credential_schema(self) -> List[FieldDefinition]:
         return [
@@ -291,7 +302,7 @@ class McMasterCarrSupplier(BaseSupplier):
             logger.error(f"Authentication failed: {str(e)}")
             return False
     
-    async def test_connection(self, credentials: Dict[str, str]) -> Dict[str, Any]:
+    async def test_connection(self, credentials: Dict[str, str] = None) -> Dict[str, Any]:
         """Test connection to McMaster-Carr API"""
         try:
             # Test authentication
