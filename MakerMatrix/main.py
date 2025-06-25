@@ -11,7 +11,7 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
-    utility_routes, auth_routes, user_routes, role_routes, ai_routes, import_routes, static_routes, task_routes, 
+    utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes, 
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, rate_limit_routes,
     enrichment_routes
 )
@@ -234,8 +234,7 @@ secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts"])
 # Don't secure auth routes - they need to be accessible without authentication
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
-secure_all_routes(user_routes.router)
-secure_all_routes(role_routes.router)
+secure_all_routes(user_management_routes.router)
 secure_all_routes(ai_routes.router)
 secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
@@ -251,25 +250,23 @@ public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
 
 # Include routers
 app.include_router(parts_routes.router, prefix="/api/parts", tags=["parts"])
-app.include_router(locations_routes.router, prefix="/locations", tags=["locations"])
-app.include_router(categories_routes.router, prefix="/categories", tags=["categories"])
-app.include_router(printer_routes.router, prefix="/printer", tags=["printer"])
-app.include_router(preview_routes.router, tags=["Label Preview"])
-app.include_router(utility_routes.router, prefix="/utility", tags=["utility"])
+app.include_router(locations_routes.router, prefix="/api/locations", tags=["locations"])
+app.include_router(categories_routes.router, prefix="/api/categories", tags=["categories"])
+app.include_router(printer_routes.router, prefix="/api/printer", tags=["printer"])
+app.include_router(preview_routes.router, prefix="/api/preview", tags=["Label Preview"])
+app.include_router(utility_routes.router, prefix="/api/utility", tags=["utility"])
 app.include_router(auth_routes.router, tags=["Authentication"])
-app.include_router(user_routes.router, prefix="/users", tags=["Users"])
-app.include_router(role_routes.router, prefix="/roles", tags=["Roles"])
-app.include_router(ai_routes.router, prefix="/ai", tags=["AI Configuration"])
+app.include_router(user_management_routes.router, prefix="/api/users", tags=["Users"])
+app.include_router(ai_routes.router, prefix="/api/ai", tags=["AI Configuration"])
 app.include_router(import_routes.router, prefix="/api/import")
 app.include_router(task_routes.router, prefix="/api/tasks")
-app.include_router(supplier_config_routes.router, tags=["Supplier Configuration"])
-app.include_router(supplier_routes.router, tags=["Suppliers"])
+app.include_router(supplier_config_routes.router, prefix="/api/suppliers/config", tags=["Supplier Configuration"])
+app.include_router(supplier_routes.router, prefix="/api/suppliers", tags=["Suppliers"])
 app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
-app.include_router(analytics_routes.router, tags=["Analytics"])
+app.include_router(analytics_routes.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(enrichment_routes.router, prefix="/api/enrichment")
 app.include_router(websocket_routes.router, tags=["WebSocket"])
-app.include_router(static_routes.router, tags=["Static Files"])
 
 # Static file serving for React frontend
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
