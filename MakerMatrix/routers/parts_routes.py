@@ -301,13 +301,7 @@ async def get_part(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/all_parts/")
-async def get_all_parts() -> ResponseSchema[List[PartResponse]]:
-    try:
-        parts = PartService.get_all_parts()
-        return parts
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Duplicate endpoint removed - use /get_all_parts instead
 
 
 @router.put("/update_part/{part_id}", response_model=ResponseSchema[PartResponse])

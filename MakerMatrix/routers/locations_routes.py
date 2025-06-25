@@ -346,16 +346,4 @@ async def cleanup_locations() -> ResponseSchema[Dict[str, Any]]:
         )
 
 
-@router.get("/preview-delete/{location_id}")
-async def preview_delete(location_id: str) -> ResponseSchema[Dict[str, Any]]:
-    """
-    DEPRECATED: Use /preview-location-delete/{location_id} instead.
-    Preview what will be affected when deleting a location.
-    
-    Args:
-        location_id: The ID of the location to preview deletion for
-        
-    Returns:
-        JSONResponse: A JSON response containing the preview information.
-    """
-    return await preview_location_delete(location_id)
+# Deprecated endpoint removed - use /preview-location-delete/{location_id} instead

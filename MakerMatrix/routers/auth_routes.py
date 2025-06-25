@@ -266,29 +266,4 @@ async def logout() -> JSONResponse:
     return response
 
 
-@router.post("/users/register")
-async def register_user(user_data: UserCreate) -> ResponseSchema:
-    try:
-        # Hash the password
-        hashed_password = user_repository.get_password_hash(user_data.password)
-        
-        # Create the user
-        user = user_repository.create_user(
-            username=user_data.username,
-            email=user_data.email,
-            hashed_password=hashed_password,
-            roles=user_data.roles
-        )
-
-        return ResponseSchema(
-            status="success",
-            message="User registered successfully",
-            data=user.to_dict()
-        )
-
-    except ValueError as e:
-        return ResponseSchema(
-            status="error",
-            message=str(e),
-            data=None
-        ) 
+# Registration endpoint removed - use /users/register in user_routes.py instead 
