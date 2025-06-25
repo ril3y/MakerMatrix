@@ -23,7 +23,7 @@ def handle_categories(session: Session, category_names: List[str]) -> List[Categ
         if not category:
             category = CategoryModel(name=name)
             session.add(category)
-            session.commit()
+            session.flush()  # Use flush instead of commit to maintain transaction integrity
             session.refresh(category)
         categories.append(category)
     return categories

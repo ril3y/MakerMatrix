@@ -43,12 +43,29 @@ export class WebSocketService {
       this.isConnecting = true
       const token = localStorage.getItem('auth_token')
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsUrl = `${protocol}//${window.location.host}${this.endpoint}${token ? `?token=${token}` : ''}`
+      
+      // Handle development environment where frontend might be on different port
+      let host = window.location.host
+      const currentPort = window.location.port
+      console.log(`🔍 Current port: ${currentPort}`)
+      
+      if (currentPort === '5173' || currentPort === '3000') {
+        // Development: frontend on 5173/3000, backend likely on 8080
+        host = window.location.hostname + ':8080'
+        console.log(`🔧 Development mode detected, redirecting to backend: ${host}`)
+      }
+      
+      const wsUrl = `${protocol}//${host}${this.endpoint}${token ? `?token=${token}` : ''}`
+
+      console.log(`🔗 Attempting WebSocket connection to: ${wsUrl}`)
+      console.log(`🔑 Auth token available: ${!!token}`)
+      console.log(`📍 Endpoint: ${this.endpoint}`)
+      console.log(`🏠 Host resolved to: ${host}`)
 
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected')
+        console.log(`✅ WebSocket connected to ${this.endpoint}`)
         this.isConnecting = false
         this.reconnectAttempts = 0
         this.sendMessage({ type: 'subscribe_activities' })
@@ -56,21 +73,27 @@ export class WebSocketService {
       }
 
       this.ws.onclose = (event) => {
-        console.log('WebSocket disconnected:', event.code, event.reason)
+        console.log(`❌ WebSocket disconnected from ${this.endpoint}:`, event.code, event.reason)
+        console.log(`🔍 Close event details:`, { 
+          code: event.code, 
+          reason: event.reason, 
+          wasClean: event.wasClean 
+        })
         this.isConnecting = false
         this.ws = null
         
         if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
           setTimeout(() => {
             this.reconnectAttempts++
-            console.log(`Reconnecting... attempt ${this.reconnectAttempts}`)
+            console.log(`🔄 Reconnecting to ${this.endpoint}... attempt ${this.reconnectAttempts}`)
             this.connect()
           }, this.reconnectInterval * this.reconnectAttempts)
         }
       }
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
+        console.error(`❌ WebSocket error on ${this.endpoint}:`, error)
+        console.log(`🔍 Error details:`, error)
         this.isConnecting = false
         reject(error)
       }
@@ -78,6 +101,7 @@ export class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
+          console.log(`📨 WebSocket message on ${this.endpoint}:`, message)
           this.handleMessage(message)
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)

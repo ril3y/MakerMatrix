@@ -181,6 +181,56 @@ def test_task_types_endpoint(auth_token):
     assert "part_enrichment" in task_type_names
 
 
+def test_get_tasks_endpoint(auth_token):
+    """Test the main GET /api/tasks endpoint that was returning 404"""
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    
+    # Test the main tasks endpoint that was showing 404 in logs
+    response = client.get("/api/tasks", headers=headers, allow_redirects=True)
+    
+    print(f"Response status: {response.status_code}")
+    print(f"Response URL: {response.url}")
+    
+    # Should work now with our redirect fix
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert data["status"] == "success"
+    assert "data" in data
+    assert isinstance(data["data"], list)
+    
+    # Should have pagination info
+    assert "total" in data
+    assert "limit" in data
+    assert "offset" in data
+    
+    print(f"GET /api/tasks working correctly: {len(data['data'])} tasks returned")
+
+
+def test_get_tasks_with_filters(auth_token):
+    """Test the tasks endpoint with various query parameters"""
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    
+    # Test with various query parameters that might be used by frontend
+    test_params = [
+        {"limit": 10},
+        {"offset": 0},
+        {"order_by": "created_at"},
+        {"order_desc": True},
+        {"limit": 5, "offset": 0}
+    ]
+    
+    for params in test_params:
+        response = client.get("/api/tasks", headers=headers, params=params)
+        assert response.status_code == 200, f"Failed with params: {params}"
+        
+        data = response.json()
+        assert data["status"] == "success"
+        assert "data" in data
+        
+    print("All task filter variations working correctly")
+
+
 if __name__ == "__main__":
     # Run tests if executed directly
     pytest.main([__file__, "-v"])

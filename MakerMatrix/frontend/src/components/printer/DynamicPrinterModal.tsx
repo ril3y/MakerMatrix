@@ -173,7 +173,10 @@ const DynamicPrinterModal = ({ isOpen, onClose, mode, existingPrinter, onSuccess
       
       setTestResult(result)
       
-      if (result.success) {
+      // Check for success based on mode - edit mode returns nested data structure
+      const isSuccess = mode === 'edit' ? result.data?.success : result.success
+      
+      if (isSuccess) {
         toast.success('✅ Connection test successful!')
         // Apply recommendations if any (only for setup tests)
         if (mode === 'add' && result.recommendations) {
@@ -183,7 +186,10 @@ const DynamicPrinterModal = ({ isOpen, onClose, mode, existingPrinter, onSuccess
           }))
         }
       } else {
-        toast.error(`❌ Connection test failed: ${result.message}`)
+        const errorMessage = mode === 'edit' 
+          ? (result.data?.error || result.message || 'Connection test failed')
+          : (result.message || 'Connection test failed')
+        toast.error(`❌ Connection test failed: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Test failed:', error)
@@ -597,14 +603,20 @@ const DynamicPrinterModal = ({ isOpen, onClose, mode, existingPrinter, onSuccess
                 
                 {testResult && (
                   <div className={`p-3 rounded-lg text-sm ${
-                    testResult.success 
+                    (mode === 'edit' ? testResult.data?.success : testResult.success)
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
                       : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                   }`}>
                     <p className="font-medium">
-                      {testResult.success ? '✅ Connection Successful' : '❌ Connection Failed'}
+                      {(mode === 'edit' ? testResult.data?.success : testResult.success) ? '✅ Connection Successful' : '❌ Connection Failed'}
                     </p>
-                    <p>{testResult.message}</p>
+                    <p>{mode === 'edit' 
+                      ? (testResult.data?.message || testResult.message || 'Test completed')
+                      : (testResult.message || 'Test completed')
+                    }</p>
+                    {mode === 'edit' && testResult.data?.response_time_ms && (
+                      <p className="text-xs mt-1">Response time: {testResult.data.response_time_ms.toFixed(2)}ms</p>
+                    )}
                     {testResult.recommendations && (
                       <div className="mt-2">
                         <p className="font-medium">Recommendations:</p>

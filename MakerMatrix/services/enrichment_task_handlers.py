@@ -9,9 +9,10 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from sqlmodel import select
+from sqlmodel import select, Session
 from MakerMatrix.models.task_models import TaskModel, TaskStatus, TaskType
-from MakerMatrix.models.models import PartModel, DatasheetModel
+from MakerMatrix.models.models import PartModel, DatasheetModel, CategoryModel
+from MakerMatrix.services.category_service import CategoryService
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.part_service import PartService
 from MakerMatrix.services.supplier_config_service import SupplierConfigService
@@ -28,6 +29,7 @@ class EnrichmentTaskHandlers:
     def __init__(self, part_repository: PartRepository, part_service: PartService, download_config=None):
         self.part_repository = part_repository
         self.part_service = part_service
+        self.supplier_config_service = SupplierConfigService()
         self.download_config = download_config or self._get_csv_import_config()
         self.data_mapper = SupplierDataMapper()
     
@@ -188,8 +190,11 @@ class EnrichmentTaskHandlers:
                     raise ValueError(f"Capabilities not supported by {supplier}: {invalid_caps}")
                 capabilities = requested_capabilities
             else:
-                # Use recommended capabilities (datasheet and image for LCSC)
-                recommended = ['fetch_datasheet', 'fetch_image', 'fetch_pricing', 'fetch_stock']
+                # Use recommended capabilities based on supplier
+                if supplier.upper() == 'LCSC':
+                    recommended = ['fetch_datasheet', 'fetch_image', 'fetch_specifications']
+                else:
+                    recommended = ['fetch_datasheet', 'fetch_image', 'fetch_pricing', 'fetch_stock']
                 capabilities = [cap for cap in recommended if cap in available_capabilities]
             
             if not capabilities:
@@ -1224,7 +1229,32 @@ class EnrichmentTaskHandlers:
                     if hasattr(details, 'manufacturer_part_number') and details.manufacturer_part_number:
                         part.manufacturer_part_number = details.manufacturer_part_number
                     if hasattr(details, 'category') and details.category:
-                        part.category = details.category
+                        # Handle category assignment properly using the many-to-many relationship
+                        try:
+                            category_service = CategoryService(self.part_repository.engine)
+                            # Try to find existing category or create new one
+                            existing_categories = category_service.get_all_categories()
+                            category_name = str(details.category).strip()
+                            
+                            # Find or create the category
+                            category = None
+                            for cat in existing_categories:
+                                if cat.name.lower() == category_name.lower():
+                                    category = cat
+                                    break
+                            
+                            if not category:
+                                # Create new category
+                                from MakerMatrix.schemas.category_schemas import CategoryCreate
+                                category_data = CategoryCreate(name=category_name)
+                                category = category_service.add_category(category_data)
+                            
+                            # Add category to part if not already associated
+                            if category and category not in part.categories:
+                                part.categories.append(category)
+                                
+                        except Exception as cat_error:
+                            logger.warning(f"Failed to assign category '{details.category}' to part {part.part_name}: {cat_error}")
                     
                     # Store additional data
                     if not part.additional_properties:

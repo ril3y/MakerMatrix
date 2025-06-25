@@ -6,6 +6,7 @@ Provides CRUD operations, validation, and integration with encryption service.
 """
 
 import logging
+import json
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
@@ -55,6 +56,9 @@ class SupplierConfigService(CredentialEncryptionMixin):
                     supplier = get_supplier(supplier_name)
                     info = supplier.get_supplier_info()
                     
+                    # Get actual capabilities from the supplier instance
+                    capabilities = [cap.value for cap in supplier.get_capabilities()]
+                    
                     # Create default config from supplier info
                     config = {
                         "supplier_name": supplier_name.upper(),
@@ -68,11 +72,14 @@ class SupplierConfigService(CredentialEncryptionMixin):
                         "max_retries": 3,
                         "retry_backoff": 1.0,
                         "enabled": True,
-                        "supports_datasheet": False,
-                        "supports_image": False,
-                        "supports_pricing": False,
-                        "supports_stock": False,
-                        "supports_specifications": False
+                        # Set capability flags based on actual supplier capabilities
+                        "supports_datasheet": 'fetch_datasheet' in capabilities,
+                        "supports_image": 'fetch_image' in capabilities,
+                        "supports_pricing": 'fetch_pricing' in capabilities,
+                        "supports_stock": 'fetch_stock' in capabilities,
+                        "supports_specifications": 'fetch_specifications' in capabilities,
+                        # Store full capabilities list as JSON
+                        "capabilities": json.dumps(capabilities)
                     }
                     
                     supplier_dict[supplier_name.upper()] = config

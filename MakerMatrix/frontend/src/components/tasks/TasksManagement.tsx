@@ -8,6 +8,8 @@ import {
 import toast from 'react-hot-toast'
 import { tasksService } from '@/services/tasks.service'
 import { partsService } from '@/services/parts.service'
+import { taskWebSocket } from '@/services/task-websocket.service'
+import CreateTaskModal from './CreateTaskModal'
 
 interface Task {
   id: string
@@ -61,25 +63,175 @@ const TasksManagement: React.FC = () => {
   // Console/monitoring
   const [consoleVisible, setConsoleVisible] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [consoleMessages, setConsoleMessages] = useState<Array<{
+    id: string
+    timestamp: string
+    type: 'info' | 'success' | 'warning' | 'error'
+    message: string
+    taskName?: string
+    taskId?: string
+  }>>([])
   const refreshInterval = useRef<NodeJS.Timeout | null>(null)
+  const messageCounter = useRef<number>(0)
+  
+  // Supplier configuration tracking
+  const [supplierConfigStatus, setSupplierConfigStatus] = useState<{
+    configured: string[]
+    partsWithoutSuppliers: number
+    unconfiguredSuppliers: string[]
+    totalParts: number
+  } | null>(null)
+
+  // Check supplier configuration status
+  const checkSupplierConfigStatus = async () => {
+    try {
+      // Get all parts and configured suppliers in parallel
+      const [allParts, configuredResponse] = await Promise.all([
+        partsService.getAll(),
+        fetch('/api/suppliers/configured', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+        })
+      ])
+      
+      const configuredSuppliers = configuredResponse.ok ? await configuredResponse.json() : { data: [] }
+      const configuredNames = new Set(
+        configuredSuppliers.data?.map((s: any) => {
+          // API returns 'name' field, but may also have 'supplier_name' or 'id'
+          const supplierName = s.name || s.supplier_name || s.id || '';
+          return supplierName.toUpperCase();
+        }) || []
+      )
+      
+      // Analyze parts
+      const supplierCounts = new Map<string, number>()
+      let partsWithoutSuppliers = 0
+      
+      allParts.forEach(part => {
+        if (part.supplier) {
+          supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+        } else {
+          partsWithoutSuppliers++
+        }
+      })
+      
+      const unconfiguredSuppliers = Array.from(supplierCounts.keys())
+        .filter(supplier => !configuredNames.has(supplier.toUpperCase()))
+      
+      setSupplierConfigStatus({
+        configured: Array.from(configuredNames),
+        partsWithoutSuppliers,
+        unconfiguredSuppliers,
+        totalParts: allParts.length
+      })
+    } catch (error) {
+      console.error('Failed to check supplier configuration status:', error)
+    }
+  }
+
+  // Function to add console message
+  const addConsoleMessage = (type: 'info' | 'success' | 'warning' | 'error', message: string, taskName?: string, taskId?: string) => {
+    messageCounter.current += 1
+    const newMessage = {
+      id: `msg-${messageCounter.current}-${Date.now()}`, // Truly unique ID
+      timestamp: new Date().toLocaleTimeString(),
+      type,
+      message,
+      taskName,
+      taskId
+    }
+    setConsoleMessages(prev => [...prev.slice(-49), newMessage]) // Keep last 50 messages
+  }
 
   useEffect(() => {
+    // Initial load
     loadTasks()
     loadWorkerStatus()
     loadTaskStats()
+    checkSupplierConfigStatus()
+
+    // Set up WebSocket event handlers
+    const handleTaskUpdate = (task: Task) => {
+      console.log('📡 Received task update:', task)
+      addConsoleMessage('info', `${task.current_step || 'Processing...'} (${task.progress_percentage}%)`, task.name, task.id)
+      
+      setTasks(prevTasks => {
+        const existingIndex = prevTasks.findIndex(t => t.id === task.id)
+        if (existingIndex >= 0) {
+          const newTasks = [...prevTasks]
+          newTasks[existingIndex] = task
+          console.log(`🔄 Updated task ${task.id} in state:`, task)
+          return newTasks
+        } else {
+          console.log(`➕ Added new task ${task.id} to state:`, task)
+          return [...prevTasks, task]
+        }
+      })
+    }
+
+    const handleTaskCreated = (task: Task) => {
+      console.log('🆕 Received task created:', task)
+      addConsoleMessage('success', 'Task created', task.name, task.id)
+      
+      setTasks(prevTasks => {
+        // Check if task already exists to avoid duplicates
+        if (!prevTasks.find(t => t.id === task.id)) {
+          return [...prevTasks, task]
+        }
+        return prevTasks
+      })
+      toast.success(`Task "${task.name}" created`)
+    }
+
+    const handleTaskDeleted = (taskId: string) => {
+      const deletedTask = tasks.find(t => t.id === taskId)
+      addConsoleMessage('warning', 'Task deleted', deletedTask?.name, taskId)
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId))
+      toast.info('Task deleted')
+    }
+
+    const handleWorkerStatusUpdate = (status: WorkerStatus) => {
+      const message = status.is_running ? 'Worker started' : 'Worker stopped'
+      addConsoleMessage('info', `${message} (${status.running_tasks_count} tasks running)`)
+      setWorkerStatus(status)
+    }
+
+    const handleTaskStatsUpdate = (stats: TaskStats) => {
+      setTaskStats(stats)
+    }
+
+    // Register WebSocket event handlers
+    taskWebSocket.onTaskUpdate(handleTaskUpdate)
+    taskWebSocket.onTaskCreated(handleTaskCreated)
+    taskWebSocket.onTaskDeleted(handleTaskDeleted)
+    taskWebSocket.onWorkerStatusUpdate(handleWorkerStatusUpdate)
+    taskWebSocket.onTaskStatsUpdate(handleTaskStatsUpdate)
+
+    // Log WebSocket connection status and add to console
+    console.log('🔗 Task WebSocket connection status:', taskWebSocket.connectionState)
+    console.log('🔗 Task WebSocket is connected:', taskWebSocket.isConnected)
     
-    if (autoRefresh) {
-      refreshInterval.current = setInterval(() => {
-        loadTasks()
-        loadWorkerStatus()
-        loadTaskStats()
-      }, 2000) // Refresh every 2 seconds
+    const connectionStatus = taskWebSocket.isConnected ? 'WebSocket connected' : 'WebSocket disconnected - using polling'
+    addConsoleMessage(taskWebSocket.isConnected ? 'success' : 'warning', connectionStatus)
+
+    // WebSocket automatically receives all task updates when connected to /ws/tasks
+
+    // Fallback polling if WebSocket is not connected and autoRefresh is enabled
+    let fallbackInterval: NodeJS.Timeout | null = null
+    if (autoRefresh && !taskWebSocket.isConnected) {
+      fallbackInterval = setInterval(() => {
+        if (!taskWebSocket.isConnected) {
+          loadTasks()
+          loadWorkerStatus()
+          loadTaskStats()
+        }
+      }, 2000) // Fallback polling every 2 seconds to catch fast tasks
     }
     
     return () => {
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current)
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval)
       }
+      // Note: We don't unsubscribe from WebSocket here as the service manages its own lifecycle
     }
   }, [autoRefresh])
 
@@ -105,10 +257,65 @@ const TasksManagement: React.FC = () => {
   const loadTasks = async () => {
     try {
       const response = await tasksService.getTasks()
-      setTasks(response.data || [])
-    } catch (error) {
+      const newTasks = response.data || []
+      
+      // Add console messages for task status changes detected via polling
+      if (tasks.length > 0) {
+        newTasks.forEach(newTask => {
+          const oldTask = tasks.find(t => t.id === newTask.id)
+          
+          if (!oldTask) {
+            // New task detected
+            addConsoleMessage('success', `Task discovered: ${newTask.status}`, newTask.name, newTask.id)
+            if (newTask.status === 'running') {
+              addConsoleMessage('info', 'Task is running...', newTask.name, newTask.id)
+            } else if (newTask.status === 'completed') {
+              const duration = newTask.started_at && newTask.completed_at ? 
+                formatDuration(newTask.started_at, newTask.completed_at) : 'instant'
+              addConsoleMessage('success', `Task completed in ${duration}`, newTask.name, newTask.id)
+            } else if (newTask.status === 'failed') {
+              addConsoleMessage('error', `Task failed: ${newTask.error_message || 'Unknown error'}`, newTask.name, newTask.id)
+            }
+          } else if (oldTask.status !== newTask.status) {
+            // Status change detected
+            const statusMessage = `Status: ${oldTask.status} → ${newTask.status}`
+            let messageType: 'info' | 'success' | 'warning' | 'error' = 'info'
+            
+            if (newTask.status === 'completed') {
+              messageType = 'success'
+              const duration = newTask.started_at && newTask.completed_at ? 
+                formatDuration(newTask.started_at, newTask.completed_at) : 'instant'
+              addConsoleMessage(messageType, `${statusMessage} (${duration})`, newTask.name, newTask.id)
+            } else if (newTask.status === 'failed') {
+              messageType = 'error'
+              addConsoleMessage(messageType, `${statusMessage}: ${newTask.error_message || 'Unknown error'}`, newTask.name, newTask.id)
+            } else if (newTask.status === 'running') {
+              addConsoleMessage('info', 'Task started running', newTask.name, newTask.id)
+            } else {
+              addConsoleMessage(messageType, statusMessage, newTask.name, newTask.id)
+            }
+          } else if (oldTask.progress_percentage !== newTask.progress_percentage && newTask.status === 'running') {
+            // Progress update
+            addConsoleMessage('info', `Progress: ${newTask.progress_percentage}% - ${newTask.current_step || 'Processing...'}`, newTask.name, newTask.id)
+          }
+        })
+        
+        // Check for deleted tasks
+        tasks.forEach(oldTask => {
+          if (!newTasks.find(t => t.id === oldTask.id)) {
+            addConsoleMessage('warning', 'Task removed from list', oldTask.name, oldTask.id)
+          }
+        })
+      } else if (newTasks.length > 0) {
+        // Initial load
+        addConsoleMessage('info', `Loaded ${newTasks.length} existing tasks`)
+      }
+      
+      setTasks(newTasks)
+    } catch (error: any) {
       console.error('Failed to load tasks:', error)
-      if (!tasks.length) { // Only show error if we don't have cached data
+      // Only show error toast if we don't have cached data and it's not a 404
+      if (!tasks.length && error?.response?.status !== 404) {
         toast.error('Failed to load tasks')
       }
     } finally {
@@ -120,8 +327,12 @@ const TasksManagement: React.FC = () => {
     try {
       const status = await tasksService.getWorkerStatus()
       setWorkerStatus(status.data)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load worker status:', error)
+      // Don't show toast for 404 errors to prevent spam
+      if (error?.response?.status !== 404) {
+        // Only log the error, don't show toast unless it's a serious error
+      }
     }
   }
 
@@ -129,8 +340,12 @@ const TasksManagement: React.FC = () => {
     try {
       const stats = await tasksService.getTaskStats()
       setTaskStats(stats.data)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load task stats:', error)
+      // Don't show toast for 404 errors to prevent spam
+      if (error?.response?.status !== 404) {
+        // Only log the error, don't show toast unless it's a serious error
+      }
     }
   }
 
@@ -219,7 +434,115 @@ const TasksManagement: React.FC = () => {
       
       switch (taskType) {
         case 'price-update':
-          taskData = { update_all: true }
+          try {
+            toast.loading('Checking parts for price updates...', { id: 'price-update-loading' })
+            const allParts = await partsService.getAll()
+            
+            if (allParts.length === 0) {
+              toast.dismiss('price-update-loading')
+              toast.error('No parts found for price updates')
+              return
+            }
+            
+            // Check suppliers for these parts
+            const supplierCounts = new Map<string, number>()
+            allParts.forEach(part => {
+              if (part.supplier) {
+                supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+              }
+            })
+            
+            toast.dismiss('price-update-loading')
+            
+            if (supplierCounts.size === 0) {
+              toast.error('No parts have suppliers assigned. Cannot update prices without supplier information.')
+              addConsoleMessage('error', 'Price update failed: No parts have suppliers assigned')
+              return
+            }
+            
+            // Show supplier breakdown
+            const supplierList = Array.from(supplierCounts.entries())
+              .map(([supplier, count]) => `${supplier}: ${count} parts`)
+              .join(', ')
+            
+            addConsoleMessage('info', `Found parts from suppliers: ${supplierList}`)
+            addConsoleMessage('warning', 'Note: Price updates require supplier configurations to be set up in Settings → Suppliers')
+            
+            // Check which suppliers are actually configured
+            try {
+              const token = localStorage.getItem('auth_token')
+              console.log('🔍 [DEBUG] Fetching configured suppliers...')
+              console.log('🔍 [DEBUG] Auth token available:', !!token)
+              console.log('🔍 [DEBUG] Auth token preview:', token ? `${token.substring(0, 20)}...` : 'null')
+              const response = await fetch('/api/suppliers/configured', {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              })
+              
+              console.log('🔍 [DEBUG] Response status:', response.status, response.statusText)
+              console.log('🔍 [DEBUG] Response headers:', Object.fromEntries(response.headers.entries()))
+              
+              // Check what we actually got back
+              const responseText = await response.text()
+              console.log('🔍 [DEBUG] Raw response text:', responseText.substring(0, 200))
+              
+              // Try to parse as JSON
+              let configuredSuppliers
+              try {
+                configuredSuppliers = JSON.parse(responseText)
+                console.log('🔍 [DEBUG] Parsed JSON successfully:', configuredSuppliers)
+              } catch (jsonError) {
+                console.error('🔍 [DEBUG] Failed to parse JSON:', jsonError)
+                console.log('🔍 [DEBUG] This means we got HTML instead of JSON - likely a routing error')
+                throw new Error('API returned HTML instead of JSON - check endpoint routing')
+              }
+              
+              if (response.ok) {
+                console.log('🔍 [DEBUG] Configured suppliers API response:', configuredSuppliers)
+                const configuredNames = new Set(configuredSuppliers.data?.map((s: any) => {
+                  // API returns 'name' field, but may also have 'supplier_name' or 'id'
+                  const supplierName = s.name || s.supplier_name || s.id || '';
+                  console.log(`🔍 [DEBUG] Supplier mapping: ${JSON.stringify(s)} -> "${supplierName.toUpperCase()}"`)
+                  return supplierName.toUpperCase();
+                }) || [])
+                console.log('🔍 [DEBUG] Configured supplier names:', Array.from(configuredNames))
+                
+                const unconfiguredSuppliers = Array.from(supplierCounts.keys())
+                  .filter(supplier => !configuredNames.has(supplier.toUpperCase()))
+                
+                if (unconfiguredSuppliers.length > 0) {
+                  addConsoleMessage('error', `Unconfigured suppliers detected: ${unconfiguredSuppliers.join(', ')}`)
+                  toast.error(`Cannot update prices - ${unconfiguredSuppliers.length} supplier(s) need configuration: ${unconfiguredSuppliers.join(', ')}`)
+                  addConsoleMessage('info', 'Please configure suppliers in Settings → Suppliers before attempting price updates')
+                  return // Stop task creation
+                } else {
+                  addConsoleMessage('success', 'All suppliers are configured for price updates')
+                }
+              } else {
+                addConsoleMessage('error', `Failed to check supplier configurations: ${response.status} ${response.statusText}`)
+                toast.error('Failed to verify supplier configurations. Please try again.')
+                return // Stop task creation if we can't verify
+              }
+            } catch (error) {
+              console.error('❌ [DEBUG] Error checking supplier configurations:', error)
+              console.error('❌ [DEBUG] Error details:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+              })
+              addConsoleMessage('error', `Error checking supplier configurations: ${error.message}`)
+              toast.error('Could not verify supplier configurations. Please check your connection and try again.')
+              return // Stop task creation if we can't verify
+            }
+            
+            taskData = { update_all: true }
+            toast.success(`Found ${allParts.length} parts for price updates from ${supplierCounts.size} suppliers`)
+          } catch (error) {
+            toast.dismiss('price-update-loading')
+            toast.error(`Failed to fetch parts: ${error.message}`)
+            return
+          }
           break
         case 'database-cleanup':
           taskData = { cleanup_type: 'full' }
@@ -233,11 +556,80 @@ const TasksManagement: React.FC = () => {
             const allParts = await partsService.getAll()
             const partIds = allParts.map(part => part.id).filter(id => id) // Filter out any null/undefined IDs
             
-            toast.dismiss('bulk-enrichment-loading')
-            
             if (partIds.length === 0) {
+              toast.dismiss('bulk-enrichment-loading')
               toast.error('No parts found to enrich')
               return
+            }
+            
+            // Check suppliers for these parts
+            const supplierCounts = new Map<string, number>()
+            allParts.forEach(part => {
+              if (part.supplier) {
+                supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+              }
+            })
+            
+            toast.dismiss('bulk-enrichment-loading')
+            
+            if (supplierCounts.size === 0) {
+              toast.error('No parts have suppliers assigned. Cannot enrich parts without supplier information.')
+              addConsoleMessage('error', 'Enrichment failed: No parts have suppliers assigned')
+              return
+            }
+            
+            // Show supplier breakdown
+            const supplierList = Array.from(supplierCounts.entries())
+              .map(([supplier, count]) => `${supplier}: ${count} parts`)
+              .join(', ')
+            
+            addConsoleMessage('info', `Found parts from suppliers: ${supplierList}`)
+            addConsoleMessage('warning', 'Note: Enrichment requires supplier configurations to be set up in Settings → Suppliers')
+            
+            // Check which suppliers are actually configured
+            let hasUnconfiguredSuppliers = false
+            try {
+              const response = await fetch('/api/suppliers/configured', {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                }
+              })
+              
+              if (response.ok) {
+                const configuredSuppliers = await response.json()
+                const configuredNames = new Set(configuredSuppliers.data?.map((s: any) => {
+                  // API returns 'name' field, but may also have 'supplier_name' or 'id'
+                  const supplierName = s.name || s.supplier_name || s.id || '';
+                  return supplierName.toUpperCase();
+                }) || [])
+                
+                const unconfiguredSuppliers = Array.from(supplierCounts.keys())
+                  .filter(supplier => !configuredNames.has(supplier.toUpperCase()))
+                
+                if (unconfiguredSuppliers.length > 0) {
+                  hasUnconfiguredSuppliers = true
+                  addConsoleMessage('error', `Unconfigured suppliers detected: ${unconfiguredSuppliers.join(', ')}`)
+                  toast.error(`Cannot enrich parts - ${unconfiguredSuppliers.length} supplier(s) need configuration: ${unconfiguredSuppliers.join(', ')}`)
+                  addConsoleMessage('info', 'Please configure suppliers in Settings → Suppliers before attempting enrichment')
+                  return // Stop task creation
+                } else {
+                  addConsoleMessage('success', 'All suppliers are configured for enrichment')
+                }
+              } else {
+                addConsoleMessage('error', `Failed to check supplier configurations: ${response.status} ${response.statusText}`)
+                toast.error('Failed to verify supplier configurations. Please try again.')
+                return // Stop task creation if we can't verify
+              }
+            } catch (error) {
+              console.error('❌ [DEBUG] Error checking supplier configurations:', error)
+              console.error('❌ [DEBUG] Error details:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+              })
+              addConsoleMessage('error', `Error checking supplier configurations: ${error.message}`)
+              toast.error('Could not verify supplier configurations. Please check your connection and try again.')
+              return // Stop task creation if we can't verify
             }
             
             taskData = { 
@@ -246,7 +638,7 @@ const TasksManagement: React.FC = () => {
               capabilities: ['fetch_pricing', 'fetch_datasheet', 'fetch_specifications'],
               force_refresh: false
             }
-            toast.success(`Found ${partIds.length} parts for enrichment`)
+            toast.success(`Found ${partIds.length} parts for enrichment from ${supplierCounts.size} suppliers`)
           } catch (error) {
             toast.dismiss('bulk-enrichment-loading')
             toast.error(`Failed to fetch parts: ${error.message}`)
@@ -255,9 +647,17 @@ const TasksManagement: React.FC = () => {
           break
       }
       
+      const taskName = taskType.split('-').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ') + ' Task'
+      
+      addConsoleMessage('info', `Creating ${taskName}...`)
       console.log('Creating task:', taskType, taskData)
+      
       const response = await tasksService.createQuickTask(taskType, taskData)
       console.log('Task creation response:', response)
+      
+      addConsoleMessage('success', `${taskName} created successfully`, taskName, response.data?.id)
       toast.success('Task created successfully')
       
       // Reload tasks and worker status
@@ -266,6 +666,10 @@ const TasksManagement: React.FC = () => {
       await loadTaskStats()
     } catch (error) {
       console.error('Failed to create task:', error)
+      const taskName = taskType.split('-').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ') + ' Task'
+      addConsoleMessage('error', `Failed to create ${taskName}: ${error.response?.data?.detail || error.message}`)
       toast.error(`Failed to create task: ${error.response?.data?.detail || error.message}`)
     }
   }
@@ -294,12 +698,41 @@ const TasksManagement: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${
+              taskWebSocket.isConnected ? 'bg-success' : 'bg-error'
+            }`}></span>
+            <span className="text-xs text-secondary">
+              {taskWebSocket.isConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'}
+            </span>
+          </div>
+          
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`btn btn-sm ${autoRefresh ? 'btn-primary' : 'btn-secondary'}`}
-            title={autoRefresh ? 'Disable auto-refresh' : 'Enable auto-refresh'}
+            title={autoRefresh ? 'Disable fallback refresh' : 'Enable fallback refresh'}
           >
-            <RefreshCw className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${autoRefresh && !taskWebSocket.isConnected ? 'animate-spin' : ''}`} />
+          </button>
+          
+          <button
+            onClick={() => {
+              console.log('🔄 Attempting to reconnect WebSocket...')
+              taskWebSocket.disconnect()
+              setTimeout(() => {
+                taskWebSocket.connect().then(() => {
+                  console.log('✅ WebSocket reconnected')
+                  toast.success('WebSocket reconnected')
+                }).catch((error) => {
+                  console.error('❌ WebSocket reconnection failed:', error)
+                  toast.error('WebSocket reconnection failed')
+                })
+              }, 1000)
+            }}
+            className="btn btn-secondary btn-sm"
+            title="Reconnect WebSocket"
+          >
+            🔄
           </button>
           
           <button
@@ -354,6 +787,46 @@ const TasksManagement: React.FC = () => {
               {workerStatus?.registered_handlers || 0}
             </div>
             <div className="text-sm text-secondary">Handlers</div>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Configuration Status Banner */}
+      {supplierConfigStatus && (
+        supplierConfigStatus.unconfiguredSuppliers.length > 0 || 
+        supplierConfigStatus.partsWithoutSuppliers > 0
+      ) && (
+        <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-warning mb-2">Supplier Configuration Required</h4>
+              <div className="space-y-2 text-sm">
+                {supplierConfigStatus.unconfiguredSuppliers.length > 0 && (
+                  <p>
+                    <span className="font-medium">{supplierConfigStatus.unconfiguredSuppliers.length} supplier(s)</span> need configuration: {' '}
+                    <span className="font-mono text-xs bg-warning/20 px-1 rounded">
+                      {supplierConfigStatus.unconfiguredSuppliers.join(', ')}
+                    </span>
+                  </p>
+                )}
+                {supplierConfigStatus.partsWithoutSuppliers > 0 && (
+                  <p>
+                    <span className="font-medium">{supplierConfigStatus.partsWithoutSuppliers} part(s)</span> have no supplier assigned
+                  </p>
+                )}
+                <p className="text-secondary">
+                  Configure suppliers in <span className="font-medium">Settings → Suppliers</span> to enable enrichment and price updates.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={checkSupplierConfigStatus}
+              className="btn btn-warning btn-sm ml-2"
+              title="Refresh supplier status"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
@@ -590,16 +1063,37 @@ const TasksManagement: React.FC = () => {
             </div>
             
             <div className="p-4 bg-background-primary dark:bg-black text-success font-mono text-sm min-h-[200px] max-h-[300px] overflow-y-auto custom-scrollbar">
-              {tasks.filter(t => t.status === 'running').map(task => (
-                <div key={task.id} className="mb-2">
-                  <span className="text-info">[{new Date().toLocaleTimeString()}]</span>
-                  <span className="text-warning"> {task.name}:</span>
-                  <span className="text-success"> {task.current_step || 'Running...'}</span>
-                  <span className="text-muted"> ({task.progress_percentage}%)</span>
-                </div>
-              ))}
-              {tasks.filter(t => t.status === 'running').length === 0 && (
-                <div className="text-muted">No running tasks to monitor...</div>
+              {consoleMessages.length === 0 ? (
+                <div className="text-muted">Task console initialized - waiting for activity...</div>
+              ) : (
+                consoleMessages.map((msg) => (
+                  <div key={msg.id} className="mb-1">
+                    <span className="text-info">[{msg.timestamp}]</span>
+                    <span className={`ml-2 ${
+                      msg.type === 'success' ? 'text-success' :
+                      msg.type === 'warning' ? 'text-warning' :
+                      msg.type === 'error' ? 'text-error' :
+                      'text-primary'
+                    }`}>
+                      {msg.taskName ? `${msg.taskName}: ${msg.message}` : msg.message}
+                    </span>
+                  </div>
+                ))
+              )}
+              
+              {/* Current running tasks section */}
+              {tasks.filter(t => t.status === 'running').length > 0 && (
+                <>
+                  <div className="text-accent mt-3 mb-1">--- Currently Running ---</div>
+                  {tasks.filter(t => t.status === 'running').map(task => (
+                    <div key={`running-${task.id}`} className="mb-1">
+                      <span className="text-info">[LIVE]</span>
+                      <span className="text-warning"> {task.name}:</span>
+                      <span className="text-success"> {task.current_step || 'Running...'}</span>
+                      <span className="text-muted"> ({task.progress_percentage}%)</span>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </motion.div>
@@ -688,6 +1182,16 @@ const TasksManagement: React.FC = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Create Task Modal */}
+      <CreateTaskModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onTaskCreated={() => {
+          loadTasks()
+          loadTaskStats()
+        }}
+      />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Palette, Check, Monitor, Sun, Moon, Laptop } from 'lucide-react'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface Theme {
   id: string
@@ -96,14 +97,21 @@ const themes: Theme[] = [
 ]
 
 interface ThemeSelectorProps {
-  currentTheme: string
-  onThemeChange: (themeId: string) => void
+  currentTheme?: string
+  onThemeChange?: (themeId: string) => void
 }
 
-const ThemeSelector = ({ currentTheme, onThemeChange }: ThemeSelectorProps) => {
+const ThemeSelector = ({ currentTheme: propCurrentTheme, onThemeChange: propOnThemeChange }: ThemeSelectorProps = {}) => {
+  const themeContext = useTheme()
+  const { currentTheme: contextTheme, setTheme } = themeContext || { currentTheme: 'default', setTheme: () => {} }
+  
+  // Use props if provided, otherwise use context
+  const currentTheme = propCurrentTheme ?? contextTheme
+  const onThemeChange = propOnThemeChange ?? setTheme
+  
   const [selectedTheme, setSelectedTheme] = useState(currentTheme)
 
-  // Update local state when currentTheme prop changes
+  // Update local state when currentTheme changes
   useEffect(() => {
     setSelectedTheme(currentTheme)
   }, [currentTheme])

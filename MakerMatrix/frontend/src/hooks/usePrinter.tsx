@@ -41,12 +41,12 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
   const loadPrinters = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await settingsService.getPrinters()
-      setAvailablePrinters(response.printers || [])
+      const printers = await settingsService.getAvailablePrinters()
+      setAvailablePrinters(printers || [])
       
       // Auto-select first printer if available
-      if (response.printers?.length > 0 && !selectedPrinter) {
-        setSelectedPrinter(response.printers[0].printer_id)
+      if (printers?.length > 0 && !selectedPrinter) {
+        setSelectedPrinter(printers[0].printer_id)
       }
     } catch (error) {
       toast.error('Failed to load printers')
@@ -188,12 +188,18 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       }
 
       const result = await settingsService.printAdvancedLabel(requestData)
-      if (result.success) {
+      
+      // Handle API response format: { status, message, data: { success, error, ... } }
+      const printData = result.data || result
+      const success = printData.success || result.status === 'success'
+      const errorMessage = printData.error || printData.message || result.message
+      
+      if (success) {
         toast.success('✅ Label printed successfully!')
         onPrintSuccess?.()
         return true
       } else {
-        toast.error(`❌ Print failed: ${result.error}`)
+        toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
         return false
       }
     } catch (error) {
@@ -211,11 +217,16 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
 
     try {
       const result = await settingsService.testPrinterConnection(selectedPrinter)
-      if (result.success) {
+      
+      // Check both the data.success field and top-level status
+      const isSuccess = result.data?.success || result.status === 'success'
+      const errorMessage = result.data?.error || result.data?.message || result.message || 'Unknown error'
+      
+      if (isSuccess) {
         toast.success('✅ Printer connection successful!')
         return true
       } else {
-        toast.error('❌ Connection test failed')
+        toast.error(`❌ Connection test failed: ${errorMessage}`)
         return false
       }
     } catch (error) {

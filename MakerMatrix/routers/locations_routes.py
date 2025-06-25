@@ -8,6 +8,7 @@ from MakerMatrix.models.models import LocationModel, LocationQueryModel
 from MakerMatrix.models.models import LocationUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
+from MakerMatrix.schemas.location_response import LocationResponse
 from MakerMatrix.services.location_service import LocationService
 from MakerMatrix.dependencies import oauth2_scheme
 from MakerMatrix.dependencies.auth import get_current_user
@@ -30,11 +31,38 @@ router = APIRouter()
 async def get_all_locations() -> ResponseSchema[List[Dict[str, Any]]]:
     try:
         locations = LocationService.get_all_locations()
+        # Convert LocationModel objects to dictionaries
+        location_data = []
+        for location in locations:
+            location_dict = {
+                "id": location.id,
+                "name": location.name,
+                "description": location.description,
+                "parent_id": location.parent_id,
+                "location_type": location.location_type,
+                "image_url": location.image_url,
+                "emoji": getattr(location, 'emoji', None),
+                "parts_count": len(location.parts) if location.parts else 0
+            }
+            # Add parent info if available
+            if location.parent:
+                location_dict["parent"] = {
+                    "id": location.parent.id,
+                    "name": location.parent.name
+                }
+            # Add children info if available
+            if hasattr(location, 'children') and location.children:
+                location_dict["children"] = [
+                    {"id": child.id, "name": child.name} 
+                    for child in location.children
+                ]
+            location_data.append(location_dict)
+        
         # noinspection PyArgumentList
         return ResponseSchema(
             status="success",
             message="All locations retrieved successfully",
-            data=locations
+            data=location_data
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,13 +92,13 @@ async def get_location(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/update_location/{location_id}", response_model=ResponseSchema[LocationModel])
+@router.put("/update_location/{location_id}")
 async def update_location(
     location_id: str, 
     location_data: LocationUpdate,
     request: Request,
     current_user: UserModel = Depends(get_current_user)
-) -> ResponseSchema[LocationModel]:
+) -> ResponseSchema[Dict[str, Any]]:
     """
     Update a location's fields. This endpoint can update any combination of name, description, parent_id, and location_type.
     

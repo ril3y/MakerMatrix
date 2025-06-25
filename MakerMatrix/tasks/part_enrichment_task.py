@@ -244,7 +244,25 @@ class BulkEnrichmentTask(BaseTask):
                 result = await enrichment_handlers.handle_bulk_enrichment(task, progress_callback)
                 session.commit()
             
-            await self._update_task_progress(task, 100, "Bulk enrichment completed")
+            # Check if the task should be considered failed
+            total_parts = result.get('total_parts', 0)
+            successful_count = result.get('successful_count', 0)
+            failed_count = result.get('failed_count', 0)
+            
+            if total_parts == 0:
+                await self._update_task_progress(task, 100, "No parts to enrich")
+            elif failed_count == total_parts:
+                # All parts failed - mark task as failed
+                error_msg = f"All {total_parts} parts failed enrichment"
+                await self._update_task_progress(task, 100, error_msg)
+                raise ValueError(error_msg)
+            elif failed_count > 0:
+                # Some parts failed - complete with warning
+                await self._update_task_progress(task, 100, f"Completed: {successful_count} successful, {failed_count} failed")
+            else:
+                # All parts succeeded
+                await self._update_task_progress(task, 100, f"Bulk enrichment completed successfully - {successful_count} parts enriched")
+            
             return result
                 
         except Exception as e:

@@ -157,7 +157,15 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
   }
 
   const printLabel = async () => {
-    if (!selectedPrinter) return
+    if (!selectedPrinter) {
+      toast.error('Please select a printer first')
+      return
+    }
+    
+    if (!selectedLabelSize) {
+      toast.error('Please select a label size')
+      return
+    }
 
     try {
       const requestData = {
@@ -183,14 +191,21 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       }
 
       const result = await settingsService.printAdvancedLabel(requestData)
-      if (result.success) {
+      
+      // Handle API response format: { status, message, data: { success, error, ... } }
+      const printData = result.data || result
+      const success = printData.success || result.status === 'success'
+      const errorMessage = printData.error || printData.message || result.message
+      
+      if (success) {
         toast.success('✅ Label printed successfully!')
         onClose()
       } else {
-        toast.error(`❌ Print failed: ${result.error}`)
+        toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
       }
     } catch (error) {
-      toast.error('Failed to print label')
+      console.error('Print error:', error)
+      toast.error(`Failed to print label: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -256,6 +271,9 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                   value={selectedPrinter}
                   onChange={(e) => handlePrinterChange(e.target.value)}
                 >
+                  {availablePrinters.length === 0 && (
+                    <option value="">No printers available</option>
+                  )}
                   {availablePrinters.map((printer) => (
                     <option key={printer.printer_id} value={printer.printer_id}>
                       {printer.name} ({printer.model})
@@ -291,11 +309,25 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                     value={selectedLabelSize}
                     onChange={(e) => setSelectedLabelSize(e.target.value)}
                   >
-                    {printerInfo?.supported_sizes?.map((size: any) => (
-                      <option key={size.name} value={size.name}>
-                        {size.name} - {size.width_mm}mm {size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}
-                      </option>
-                    ))}
+                    {printerInfo?.supported_sizes?.length > 0 ? (
+                      printerInfo.supported_sizes.map((size: any) => (
+                        <option key={size.name} value={size.name}>
+                          {size.name} - {size.width_mm}mm {size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}
+                        </option>
+                      ))
+                    ) : (
+                      // Fallback options when printer info is not available
+                      <>
+                        <option value="12mm">12mm - 12mm (continuous)</option>
+                        <option value="17mm">17mm - 17mm (continuous)</option>
+                        <option value="23mm">23mm - 23mm (continuous)</option>
+                        <option value="29mm">29mm - 29mm (continuous)</option>
+                        <option value="38mm">38mm - 38mm (continuous)</option>
+                        <option value="50mm">50mm - 50mm (continuous)</option>
+                        <option value="54mm">54mm - 54mm (continuous)</option>
+                        <option value="62mm">62mm - 62mm (continuous)</option>
+                      </>
+                    )}
                   </select>
                 </div>
 

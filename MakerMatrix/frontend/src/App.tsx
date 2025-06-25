@@ -18,6 +18,7 @@ import LocationsPage from '@/pages/locations/LocationsPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
 import UsersPage from '@/pages/users/UsersPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
+import TasksPage from '@/pages/tasks/TasksPage'
 import AnalyticsDashboard from '@/pages/analytics/AnalyticsDashboard'
 import UnauthorizedPage from '@/pages/UnauthorizedPage'
 import NotFoundPage from '@/pages/NotFoundPage'
@@ -76,6 +77,9 @@ function AppContent() {
               
               {/* Settings */}
               <Route path="/settings" element={<SettingsPage />} />
+              
+              {/* Tasks Management */}
+              <Route path="/tasks" element={<TasksPage />} />
               
               {/* Analytics */}
               <Route path="/analytics" element={<AnalyticsDashboard />} />

@@ -16,7 +16,8 @@ import {
   Terminal,
   CircuitBoard,
   Settings,
-  TrendingUp
+  TrendingUp,
+  Activity
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -62,6 +63,11 @@ const MainLayout: React.FC = () => {
       label: 'Analytics',
       path: '/analytics',
       icon: <TrendingUp className="w-5 h-5" />
+    },
+    {
+      label: 'Tasks',
+      path: '/tasks',
+      icon: <Activity className="w-5 h-5" />
     },
     {
       label: 'Settings',

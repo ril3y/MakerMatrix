@@ -14,6 +14,23 @@ vi.mock('./api', () => ({
 
 import { apiClient } from './api'
 
+const mockPart = {
+  id: '1',
+  part_name: 'Arduino Uno R3',
+  part_number: 'ARD-UNO-R3',
+  quantity: 10,
+  minimum_quantity: 5,
+  supplier: 'Arduino',
+  location_id: 'loc1',
+  image_url: 'http://example.com/image.jpg',
+  additional_properties: {
+    description: 'Arduino microcontroller board'
+  },
+  categories: [{ id: 'cat1', name: 'Microcontrollers' }],
+  location: { id: 'loc1', name: 'Shelf A1' },
+  datasheets: []
+}
+
 describe('PartsService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -21,7 +38,6 @@ describe('PartsService', () => {
 
   describe('getAllParts', () => {
     it('fetches parts with default pagination', async () => {
-      const mockPart = createMockPart()
       const mockResponse = {
         data: [mockPart],
         total_parts: 1

@@ -80,6 +80,10 @@ class TaskService:
             session.refresh(task)
             
             logger.info(f"Created task {task.id}: {task.name}")
+            
+            # Send WebSocket notification for task creation
+            asyncio.create_task(websocket_manager.broadcast_task_update(task.to_dict()))
+            
             return task
             
         finally:

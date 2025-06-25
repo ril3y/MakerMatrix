@@ -6,6 +6,7 @@ class CategoryResponse(BaseModel):
     id: Optional[str]
     name: str
     description: Optional[str] = None
+    part_count: Optional[int] = 0
 
     model_config = ConfigDict(from_attributes=True)
 

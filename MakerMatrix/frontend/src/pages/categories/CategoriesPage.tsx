@@ -249,7 +249,7 @@ const CategoriesPage = () => {
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Package className="w-4 h-4 text-muted" />
-                        <span className="text-secondary">-</span>
+                        <span className="text-secondary">{category.part_count || 0}</span>
                       </div>
                     </td>
                     <td className="p-4">

@@ -1,0 +1,16 @@
+
+> makermatrix-frontend@0.0.0 test:run
+> vitest run --reporter=json
+
+▲ [WARNING] Duplicate key "test:all" in object literal [duplicate-object-key]
+
+    package.json:23:4:
+      23 │     "test:all": "npm run test:run && npm run test:e2e",
+         ╵     ~~~~~~~~~~
+
+  The original key "test:all" is here:
+
+    package.json:22:4:
+      22 │     "test:all": "npm run test:crud && npm run test:integration",
+         ╵     ~~~~~~~~~~
+

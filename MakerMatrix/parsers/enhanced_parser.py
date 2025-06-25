@@ -449,6 +449,7 @@ def get_enhanced_parser(supplier_name: str) -> Optional[EnhancedParser]:
                     }
                 }
         
-        return MockParser()
+        # Don't return mock parsers for real operations - return None instead
+        return None
     
     return parser_registry.get_parser(supplier_name)

@@ -3,6 +3,7 @@ import { Save, MapPin, Upload, X, Image } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import EmojiPicker from '@/components/ui/EmojiPicker'
+import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import { locationsService } from '@/services/locations.service'
 import { utilityService } from '@/services/utility.service'
 import { CreateLocationRequest, Location } from '@/types/locations'
@@ -236,25 +237,14 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
             </select>
           </FormField>
 
-          <FormField 
-            label="Parent Location" 
+          <LocationTreeSelector
+            selectedLocationId={formData.parent_id}
+            onLocationSelect={(locationId) => setFormData({ ...formData, parent_id: locationId || '' })}
+            label="Parent Location"
             description="Select a parent location to create a hierarchy (optional)"
-          >
-            <select
-              className="input w-full"
-              value={formData.parent_id}
-              onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })}
-            >
-              <option value="">No parent (root level)</option>
-              {hierarchicalLocations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {'  '.repeat(location.level)}
-                  {location.level > 0 && '└ '}
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </FormField>
+            showAddButton={false}
+            compact={true}
+          />
 
           {/* Preview of full path */}
           {formData.parent_id && (

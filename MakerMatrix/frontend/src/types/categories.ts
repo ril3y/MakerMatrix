@@ -2,6 +2,7 @@ export interface Category {
   id: string
   name: string
   description?: string
+  part_count?: number
 }
 
 export interface CreateCategoryRequest {

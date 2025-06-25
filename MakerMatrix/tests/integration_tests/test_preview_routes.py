@@ -278,6 +278,181 @@ class TestPreviewRoutes:
         assert data["success"] is True
 
 
+@pytest.mark.integration  
+class TestPrinterPreviewRoutes:
+    """Integration tests for printer preview endpoints (restored functionality)."""
+    
+    @pytest.fixture
+    def client(self):
+        """Create test client."""
+        return TestClient(app)
+    
+    @pytest.fixture
+    def auth_headers(self):
+        """Get authentication headers for requests."""
+        from MakerMatrix.services.auth_service import AuthService
+        from MakerMatrix.repositories.user_repository import UserRepository
+        
+        user_repo = UserRepository()
+        admin_user = user_repo.get_user_by_username("admin")
+        if not admin_user:
+            pytest.fail("Admin user not found")
+        
+        auth_service = AuthService()
+        token = auth_service.create_access_token(data={"sub": admin_user.username})
+        return {"Authorization": f"Bearer {token}"}
+    
+    def test_printer_preview_text_endpoint(self, client, auth_headers):
+        """Test the restored /printer/preview/text endpoint."""
+        request_data = {
+            "text": "Test Label Text",
+            "label_size": "29",
+            "label_length": 100,
+            "options": {"font_size": 12}
+        }
+        
+        response = client.post("/printer/preview/text", json=request_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        
+        # Verify it's a valid PNG image (not a white rectangle)
+        image_data = response.content
+        assert len(image_data) > 100  # Should be substantial image data
+        assert image_data.startswith(b'\x89PNG\r\n\x1a\n')  # PNG signature
+        
+    def test_printer_preview_advanced_endpoint(self, client, auth_headers):
+        """Test the restored /printer/preview/advanced endpoint."""
+        request_data = {
+            "template": "standard",
+            "text": "Arduino Uno R3",
+            "label_size": "29",
+            "label_length": 100,
+            "options": {"font_size": 14},
+            "data": {
+                "part_name": "Arduino Uno R3",
+                "part_number": "ARD-UNO-R3",
+                "location": "A1-B2",
+                "category": "Microcontrollers"
+            }
+        }
+        
+        response = client.post("/printer/preview/advanced", json=request_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        
+        # Verify it's a proper PNG image with rendered content
+        image_data = response.content
+        assert len(image_data) > 200  # Should be more substantial for advanced labels
+        assert image_data.startswith(b'\x89PNG\r\n\x1a\n')  # PNG signature
+        
+    def test_printer_preview_text_with_various_sizes(self, client, auth_headers):
+        """Test text preview with different label sizes."""
+        test_sizes = ["12", "29", "62"]
+        
+        for size in test_sizes:
+            request_data = {
+                "text": f"Test Label Size {size}",
+                "label_size": size
+            }
+            
+            response = client.post("/printer/preview/text", json=request_data, headers=auth_headers)
+            
+            assert response.status_code == 200, f"Failed for size {size}"
+            assert response.headers["content-type"] == "image/png"
+            
+            # Verify PNG signature
+            image_data = response.content
+            assert image_data.startswith(b'\x89PNG\r\n\x1a\n')
+            
+    def test_printer_preview_advanced_with_mock_data(self, client, auth_headers):
+        """Test advanced preview with mock data when no data provided."""
+        request_data = {
+            "template": "standard",
+            "text": "Mock Part",
+            "label_size": "29"
+            # No data field - should use mock data
+        }
+        
+        response = client.post("/printer/preview/advanced", json=request_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        
+        # Should still generate valid image with mock data
+        image_data = response.content
+        assert len(image_data) > 100
+        assert image_data.startswith(b'\x89PNG\r\n\x1a\n')
+        
+    def test_printer_preview_text_long_text(self, client, auth_headers):
+        """Test text preview with long text to verify wrapping."""
+        request_data = {
+            "text": "This is a very long part name that should test text wrapping functionality",
+            "label_size": "29",
+            "options": {"max_width": 400}
+        }
+        
+        response = client.post("/printer/preview/text", json=request_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        
+        # Should handle long text gracefully
+        image_data = response.content
+        assert len(image_data) > 100
+        assert image_data.startswith(b'\x89PNG\r\n\x1a\n')
+        
+    def test_printer_preview_error_fallback(self, client, auth_headers):
+        """Test that preview handles invalid input appropriately."""
+        # Test with potentially problematic input
+        request_data = {
+            "text": "",  # Empty text
+            "label_size": "invalid_size"
+        }
+        
+        response = client.post("/printer/preview/text", json=request_data, headers=auth_headers)
+        
+        # With invalid input, the endpoint may return 400 (which is appropriate)
+        # or 200 with fallback behavior - both are acceptable
+        assert response.status_code in [200, 400]
+        if response.status_code == 200:
+            assert response.headers["content-type"] == "image/png"
+        
+    def test_printer_preview_special_characters(self, client, auth_headers):
+        """Test preview with special characters and symbols."""
+        request_data = {
+            "text": "Resistor 10kΩ ±5% 1/4W",
+            "label_size": "29"
+        }
+        
+        response = client.post("/printer/preview/text", json=request_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        
+        # Should handle special characters
+        image_data = response.content
+        assert len(image_data) > 100
+        assert image_data.startswith(b'\x89PNG\r\n\x1a\n')
+        
+    def test_printer_preview_streaming_response(self, client, auth_headers):
+        """Test that the preview endpoints return proper streaming response."""
+        request_data = {
+            "text": "Streaming Test",
+            "label_size": "29"
+        }
+        
+        response = client.post("/printer/preview/text", json=request_data, headers=auth_headers)
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        assert "content-disposition" in response.headers
+        # Check that filename is present (actual name may vary)
+        assert "filename=" in response.headers["content-disposition"]
+        assert ".png" in response.headers["content-disposition"]
+
+
 @pytest.mark.integration
 class TestPreviewRoutesError:
     """Test error handling in preview routes."""

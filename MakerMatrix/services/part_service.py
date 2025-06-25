@@ -270,24 +270,12 @@ class PartService:
 
                 if category_names:
                     logger.debug(f"Processing {len(category_names)} categories for part '{part_name}': {category_names}")
-                    for name in category_names:
-                        # Try to get existing category
-                        category = session.exec(
-                            select(CategoryModel).where(CategoryModel.name == name)
-                        ).first()
-
-                        if not category:
-                            # Create new category if it doesn't exist
-                            logger.debug(f"Creating new category: {name}")
-                            category = CategoryModel(name=name)
-                            session.add(category)
-                            session.flush()  # Flush to get the ID but don't commit yet
-                        else:
-                            logger.debug(f"Using existing category: {name}")
-
-                        categories.append(category)
+                    # Use the handle_categories function from the repository
+                    from MakerMatrix.repositories.parts_repositories import handle_categories
+                    categories = handle_categories(session, category_names)
                     
-                    logger.info(f"Assigned {len(categories)} categories to part '{part_name}': {[getattr(cat, 'name', f'Category-{getattr(cat, 'id', 'unknown')}') for cat in categories]}")
+                    category_names_for_log = [cat.name for cat in categories if hasattr(cat, 'name')]
+                    logger.info(f"Assigned {len(categories)} categories to part '{part_name}': {category_names_for_log}")
 
                 # Extract datasheets data before creating the part
                 datasheets_data = part_data.pop("datasheets", [])
@@ -301,18 +289,38 @@ class PartService:
                 }
                 
                 # Create part data dict with only valid fields
-                filtered_part_data = {
-                    key: value for key, value in part_data.items() 
-                    if key in valid_part_fields
-                }
+                filtered_part_data = {}
+                for key, value in part_data.items():
+                    if key in valid_part_fields:
+                        # Convert empty strings to None for optional fields
+                        if value == "" and key in ['location_id', 'image_url', 'description', 'part_number', 'supplier']:
+                            filtered_part_data[key] = None
+                        # Handle additional_properties - convert None/undefined to empty dict
+                        elif key == 'additional_properties' and value is None:
+                            filtered_part_data[key] = {}
+                        else:
+                            filtered_part_data[key] = value
                 
                 # Create the part without categories first
+                logger.debug(f"Creating PartModel with data: {filtered_part_data}")
                 new_part = PartModel(**filtered_part_data)
-                # Then assign categories after creation
-                new_part.categories = categories
 
-                # Add the part via repository
-                part_obj = PartRepository.add_part(session, new_part)
+                # Add the part to session and flush to get ID
+                session.add(new_part)
+                session.flush()  # Get the ID without committing
+                
+                # Now assign categories after the part has an ID
+                if categories:
+                    logger.debug(f"Assigning {len(categories)} categories to part")
+                    new_part.categories = categories
+                    session.flush()  # Flush category relationships
+                
+                # Commit everything
+                session.commit()
+                
+                # Refresh to get all relationships loaded
+                session.refresh(new_part, ['categories', 'location'])
+                part_obj = new_part
                 
                 # Create datasheet records if any
                 if datasheets_data:
@@ -347,8 +355,23 @@ class PartService:
                     "data": safe_part_dict
                 }
             except Exception as e:
-                logger.error(f"Failed to create part '{part_name}': {e}")
-                raise ValueError(f"Failed to create part: {e}")
+                error_msg = str(e)
+                logger.error(f"Raw error creating part '{part_name}': {e}")
+                logger.error(f"Error type: {type(e)}")
+                logger.error(f"Filtered part data was: {filtered_part_data}")
+                categories_debug = []
+                for cat in categories:
+                    try:
+                        categories_debug.append(f"Category(name={cat.name})")
+                    except:
+                        categories_debug.append("Category(invalid)")
+                logger.error(f"Categories were: {categories_debug}")
+                
+                # Clean up SQLAlchemy internal references from error message
+                if "_sa_instance_state" in error_msg:
+                    error_msg = "Database object creation error - invalid field or data type"
+                logger.error(f"Failed to create part '{part_name}': {error_msg}")
+                raise ValueError(f"Failed to create part: {error_msg}")
 
         except Exception as e:
             session.rollback()

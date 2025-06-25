@@ -17,6 +17,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:visual": "playwright test tests/visual",
+    "test:crud": "vitest run src/__tests__/api/crud.test.ts",
+    "test:integration": "vitest run src/__tests__/integration/crud-flow.test.tsx",
+    "test:all": "npm run test:crud && npm run test:integration",
     "test:all": "npm run test:run && npm run test:e2e",
     "playwright:install": "playwright install"
   },

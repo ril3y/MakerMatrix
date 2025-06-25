@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { Save, Package, Plus, X, Upload, Image } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
+import ImageUpload from '@/components/ui/ImageUpload'
+import CategorySelector from '@/components/ui/CategorySelector'
+import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
@@ -39,9 +42,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageUrl, setImageUrl] = useState<string>('')
 
   useEffect(() => {
     if (isOpen) {
@@ -104,63 +105,19 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     }
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please select an image file')
-        return
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size should be less than 5MB')
-        return
-      }
-
-      setImageFile(file)
-      
-      // Create preview
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const removeImage = () => {
-    setImageFile(null)
-    setImagePreview(null)
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('Form submitted', formData)
+    
     if (!validate()) {
+      console.log('Validation failed', errors)
       return
     }
 
     try {
       setLoading(true)
-
-      // Upload image first if there is one
-      let imageUrl: string | undefined
-      if (imageFile) {
-        try {
-          setUploadingImage(true)
-          imageUrl = await utilityService.uploadImage(imageFile)
-        } catch (error) {
-          console.error('Failed to upload image:', error)
-          toast.error('Failed to upload image')
-          setLoading(false)
-          setUploadingImage(false)
-          return
-        } finally {
-          setUploadingImage(false)
-        }
-      }
 
       // Prepare properties object
       const properties: Record<string, any> = {}
@@ -170,13 +127,20 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         }
       })
 
+      // Convert category IDs to category names
+      const categoryNames = selectedCategories.map(categoryId => {
+        const category = categories.find(cat => cat.id === categoryId)
+        return category?.name
+      }).filter(Boolean) as string[]
+
       const submitData: CreatePartRequest = {
         ...formData,
-        image_url: imageUrl,
-        categories: selectedCategories,
+        image_url: imageUrl || undefined,
+        categories: categoryNames,
         additional_properties: Object.keys(properties).length > 0 ? properties : undefined
       }
 
+      console.log('🚀 Creating part with data:', submitData)
       const createdPart = await partsService.createPart(submitData)
       toast.success('Part created successfully')
       
@@ -198,10 +162,19 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         }
       }
       
+      console.log('Part created successfully, calling onSuccess and handleClose')
       onSuccess()
       handleClose()
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create part')
+      console.error('Failed to create part:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
+      
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to create part'
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -222,8 +195,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setSelectedCategories([])
     setCustomProperties([])
     setErrors({})
-    setImageFile(null)
-    setImagePreview(null)
+    setImageUrl('')
     onClose()
   }
 
@@ -250,7 +222,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Add New Part" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="Add New Part" size="lg">
       {loadingData ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -300,20 +272,15 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               />
             </FormField>
 
-            <FormField label="Location" error={errors.location_id}>
-              <select
-                className="input w-full"
-                value={formData.location_id}
-                onChange={(e) => setFormData({ ...formData, location_id: e.target.value })}
-              >
-                <option value="">Select a location</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
-            </FormField>
+            <LocationTreeSelector
+              selectedLocationId={formData.location_id}
+              onLocationSelect={(locationId) => setFormData({ ...formData, location_id: locationId || '' })}
+              label="Location"
+              description="Select where this part will be stored"
+              error={errors.location_id}
+              showAddButton={false}
+              compact={true}
+            />
 
             <FormField label="Supplier" error={errors.supplier}>
               <select
@@ -342,66 +309,24 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           </FormField>
 
           {/* Image Upload */}
-          <FormField label="Part Image" description="Upload an image of the part (max 5MB)">
-            <div className="space-y-3">
-              {imagePreview ? (
-                <div className="relative">
-                  <img 
-                    src={imagePreview} 
-                    alt="Part preview" 
-                    className="w-32 h-32 object-cover rounded-lg border border-border"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-theme-secondary rounded-lg cursor-pointer hover:border-primary hover:bg-theme-secondary transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  {uploadingImage ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 text-theme-muted mb-2" />
-                      <span className="text-xs text-theme-muted">Upload Image</span>
-                    </>
-                  )}
-                </label>
-              )}
-            </div>
+          <FormField label="Part Image" description="Upload, drag & drop, or paste an image of the part (max 5MB)">
+            <ImageUpload
+              onImageUploaded={setImageUrl}
+              currentImageUrl={imageUrl}
+              placeholder="Upload part image"
+              className="w-full"
+            />
           </FormField>
 
           {/* Categories */}
-          <FormField label="Categories" description="Select categories that apply to this part">
-            <div className="border border-border rounded-md p-3 max-h-32 overflow-y-auto">
-              {categories.length > 0 ? (
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <label key={category.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(category.id)}
-                        onChange={() => toggleCategory(category.id)}
-                        className="rounded border-border"
-                      />
-                      <span className="text-sm text-primary">{category.name}</span>
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-secondary">No categories available</p>
-              )}
-            </div>
-          </FormField>
+          <CategorySelector
+            categories={categories}
+            selectedCategories={selectedCategories}
+            onToggleCategory={toggleCategory}
+            label="Categories"
+            description="Select categories that apply to this part"
+            layout="checkboxes"
+          />
 
           {/* Custom Properties */}
           <div className="space-y-3">

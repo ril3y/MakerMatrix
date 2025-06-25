@@ -635,10 +635,15 @@ const SettingsPage = () => {
                             onClick={async () => {
                               try {
                                 const result = await settingsService.testPrinterConnection(printer.printer_id)
-                                if (result.success) {
+                                
+                                // Check both the data.success field and top-level status
+                                const isSuccess = result.data?.success || result.status === 'success'
+                                const errorMessage = result.data?.error || result.data?.message || result.message || 'Unknown error'
+                                
+                                if (isSuccess) {
                                   toast.success('✅ Printer connection successful!')
                                 } else {
-                                  toast.error('❌ Connection test failed')
+                                  toast.error(`❌ Connection test failed: ${errorMessage}`)
                                 }
                               } catch (error) {
                                 toast.error('Failed to test printer connection')
@@ -772,6 +777,36 @@ const SettingsPage = () => {
                     <div className="text-sm opacity-70">Easy on eyes</div>
                   </div>
                 </button>
+              </div>
+            </div>
+
+            {/* Theme Selection Section */}
+            <div className="space-y-4 border-t border-border pt-6">
+              <h4 className="text-md font-medium text-primary">Color Theme</h4>
+              <p className="text-sm text-secondary mb-4">
+                Choose a color theme that suits your preference
+              </p>
+              <ThemeSelector />
+            </div>
+
+            {/* Compact Mode Section */}
+            <div className="space-y-4 border-t border-border pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-md font-medium text-primary">Compact Mode</h4>
+                  <p className="text-sm text-secondary">
+                    Reduce spacing and padding for more content density
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={isCompactMode}
+                    onChange={toggleCompactMode}
+                  />
+                  <div className="w-11 h-6 bg-background-tertiary peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
             </div>
           </div>

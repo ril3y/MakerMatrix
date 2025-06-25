@@ -41,10 +41,13 @@ class CategoryService:
                 raise ValueError("Failed to create category")
             
             logger.info(f"Successfully created category: {new_category.name} (ID: {new_category.id})")
+            cat_dict = new_category.model_dump()
+            # Add part count (new categories start with 0 parts)
+            cat_dict['part_count'] = 0
             return {
                 "status": "success",
                 "message": f"Category with name '{category_data.name}' created successfully",
-                "data": new_category.model_dump()
+                "data": cat_dict
             }
                 
         except CategoryAlreadyExistsError as cae:
@@ -82,10 +85,13 @@ class CategoryService:
                     data=None
                 )
             logger.info(f"Successfully retrieved category: {category.name} (ID: {category.id})")
+            cat_dict = category.model_dump()
+            # Add part count
+            cat_dict['part_count'] = len(category.parts) if hasattr(category, 'parts') else 0
             return {
                 "status": "success",
                 "message": f"Category with name '{category.name}' retrieved successfully",
-                "data": category.model_dump(),
+                "data": cat_dict,
             }
         except ResourceNotFoundError as rnfe:
             raise rnfe
@@ -137,10 +143,13 @@ class CategoryService:
                 raise ValueError("Failed to remove category")
             
             logger.info(f"Successfully removed category: {rm_cat.name} (ID: {rm_cat.id})")
+            cat_dict = rm_cat.model_dump()
+            # Add part count (usually 0 for removed categories)
+            cat_dict['part_count'] = 0
             return {
                 "status": "success",
                 "message": f"Category with name '{rm_cat.name}' removed",
-                "data": rm_cat.model_dump()
+                "data": cat_dict
             }
             
         except ResourceNotFoundError as rnfe:
@@ -194,10 +203,13 @@ class CategoryService:
             categories = CategoryRepository.get_all_categories(session)
             logger.info(f"Successfully retrieved {len(categories)} categories")
             
-            # Convert to list of dictionaries
+            # Convert to list of dictionaries with part counts
             categories_list = []
             for cat in categories:
-                categories_list.append(cat.model_dump())
+                cat_dict = cat.model_dump()
+                # Add part count
+                cat_dict['part_count'] = len(cat.parts) if hasattr(cat, 'parts') else 0
+                categories_list.append(cat_dict)
             
             return {
                 "status": "success",
@@ -275,10 +287,13 @@ class CategoryService:
             else:
                 logger.info(f"No changes made to category '{updated_category.name}' (ID: {category_id})")
             
+            cat_dict = updated_category.model_dump()
+            # Add part count
+            cat_dict['part_count'] = len(updated_category.parts) if hasattr(updated_category, 'parts') else 0
             return {
                 "status": "success",
                 "message": f"Category with ID '{category_id}' updated.",
-                "data": updated_category.model_dump()
+                "data": cat_dict
             }
         except ResourceNotFoundError as rnfe:
             raise rnfe

@@ -89,7 +89,6 @@ async def list_supported_drivers():
                 "recommended_scaling": 1.1,
                 "required_fields": ["identifier"],
                 "optional_fields": ["dpi", "scaling_factor"],
-                "supports_network_discovery": True,
                 "backend_options": {
                     "network": {
                         "identifier_format": "tcp://IP:PORT or IP",
@@ -117,7 +116,6 @@ async def list_supported_drivers():
                 "recommended_scaling": 1.0,
                 "required_fields": ["identifier", "baud_rate", "paper_width"],
                 "optional_fields": ["dpi", "scaling_factor", "cut_mode", "heat_setting"],
-                "supports_network_discovery": False,
                 "backend_options": {
                     "serial": {
                         "identifier_format": "COM port or /dev/ttyUSB*",
@@ -717,114 +715,7 @@ async def test_printer_setup(setup_data: dict):
         ).dict()
 
 
-@router.post("/discover/start")
-async def start_printer_discovery():
-    """Start a background task to discover available printers."""
-    try:
-        from MakerMatrix.services.task_service import task_service
-        from MakerMatrix.models.task_models import TaskType, CreateTaskRequest
-        
-        # Create a printer discovery task
-        task_request = CreateTaskRequest(
-            task_type=TaskType.PRINTER_DISCOVERY,
-            name="Printer Discovery",
-            description="Scan network and USB for available printers",
-            input_data={
-                "scan_network": True,
-                "scan_usb": True,
-                "network_ranges": ["192.168.1.0/24", "192.168.0.0/24", "10.0.0.0/24"],
-                "timeout_seconds": 30
-            }
-        )
-        task = await task_service.create_task(task_request)
-        
-        from MakerMatrix.schemas.response import ResponseSchema
-        return ResponseSchema(
-            status="success",
-            message="Printer discovery task started",
-            data={
-                "task_id": task.id,
-                "status": "started",
-                "estimated_duration": "30-60 seconds"
-            }
-        ).dict()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start discovery: {str(e)}")
-
-
-@router.get("/discover/status/{task_id}")
-async def get_discovery_status(task_id: str):
-    """Get the status of a printer discovery task."""
-    try:
-        from MakerMatrix.services.task_service import task_service
-        
-        task = await task_service.get_task(task_id)
-        if not task:
-            raise HTTPException(status_code=404, detail="Discovery task not found")
-        
-        from MakerMatrix.schemas.response import ResponseSchema
-        return ResponseSchema(
-            status="success",
-            message=f"Discovery task {task.status.value}",
-            data={
-                "task_id": task_id,
-                "status": task.status.value,
-                "progress": task.progress_percentage,
-                "current_step": task.current_step,
-                "discovered_printers": task.result_data.get("discovered_printers", []) if task.result_data else [],
-                "scan_info": task.result_data.get("scan_info", {}) if task.result_data else {}
-            }
-        ).dict()
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get discovery status: {str(e)}")
-
-
-@router.get("/discover/latest")
-async def get_latest_discovery():
-    """Get the results from the most recent printer discovery."""
-    try:
-        from MakerMatrix.services.task_service import task_service
-        from MakerMatrix.models.task_models import TaskStatus, TaskFilterRequest, TaskType
-        
-        # Find the most recent completed discovery task
-        filter_request = TaskFilterRequest(
-            task_type=[TaskType.PRINTER_DISCOVERY],
-            status=[TaskStatus.COMPLETED],
-            limit=1,
-            order_by="completed_at",
-            order_desc=True
-        )
-        tasks = await task_service.get_tasks(filter_request)
-        
-        from MakerMatrix.schemas.response import ResponseSchema
-        
-        if not tasks:
-            return ResponseSchema(
-                status="success",
-                message="No discovery results available",
-                data={
-                    "discovered_printers": [],
-                    "last_discovery": None
-                }
-            ).dict()
-        
-        latest_task = tasks[0]
-        return ResponseSchema(
-            status="success",
-            message="Retrieved latest discovery results",
-            data={
-                "discovered_printers": latest_task.result_data.get("discovered_printers", []) if latest_task.result_data else [],
-                "scan_info": latest_task.result_data.get("scan_info", {}) if latest_task.result_data else {},
-                "last_discovery": latest_task.completed_at.isoformat() if latest_task.completed_at else None,
-                "discovery_duration": latest_task.result_data.get("discovery_time_ms", 0) if latest_task.result_data else 0
-            }
-        ).dict()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get latest discovery: {str(e)}")
-
-
+# Discovery endpoints removed - caused issues with printer routing
 # Printing Endpoints
 @router.post("/print/text")
 async def print_text_label(
@@ -1031,6 +922,110 @@ async def print_advanced_label(
 # Note: Preview endpoints have been moved to /api/preview/* in preview_routes.py
 # This consolidates all preview functionality in one place with better API design
 
+@router.post("/preview/advanced")
+async def preview_advanced_label(request: AdvancedPreviewRequest):
+    """Generate preview of advanced label with template processing."""
+    try:
+        print(f"Advanced preview request: {request}")
+        
+        # Use data from request or create mock data for preview
+        data = request.data or {
+            'part_name': 'Test Part',
+            'part_number': 'TP-001', 
+            'location': 'A1-B2',
+            'category': 'Electronics',
+            'quantity': '10'
+        }
+        
+        # Try to use the printer manager for advanced label creation
+        try:
+            # Use the preview-specific label image creation method
+            label_image = await printer_manager._create_advanced_label_image_for_preview(
+                template=request.template,
+                data=data,
+                label_size=request.label_size,
+                label_length=request.label_length,
+                options=request.options
+            )
+            
+            # Convert PIL image to bytes for streaming
+            img_byte_arr = io.BytesIO()
+            label_image.save(img_byte_arr, format='PNG')
+            img_byte_arr.seek(0)
+            
+            return StreamingResponse(
+                img_byte_arr,
+                media_type="image/png",
+                headers={"Content-Disposition": "inline; filename=advanced_preview.png"}
+            )
+        except Exception as e:
+            print(f"Failed to use printer manager, falling back to simple preview: {e}")
+            # Fallback to simple text preview
+            size = (400, 200)
+            image = _generate_text_image_for_preview(request.text, size)
+            
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format='PNG')
+            img_byte_arr.seek(0)
+            
+            return StreamingResponse(
+                img_byte_arr,
+                media_type="image/png",
+                headers={"Content-Disposition": "inline; filename=advanced_preview.png"}
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in preview_advanced_label: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/preview/text")
+async def preview_text_label(request: PreviewRequest):
+    """Generate preview of text label."""
+    try:
+        if not request.text:
+            raise HTTPException(status_code=400, detail="Text is required for text preview")
+        
+        # Try to get default printer and use preview service
+        try:
+            default_printer = await printer_manager.get_printer()
+            if default_printer:
+                result = await preview_service.preview_text_label(
+                    text=request.text,
+                    label_size=request.label_size,
+                    printer=default_printer
+                )
+                
+                return StreamingResponse(
+                    io.BytesIO(result.image_data),
+                    media_type=f"image/{result.format}",
+                    headers={"Content-Disposition": "inline; filename=preview.png"}
+                )
+        except Exception as e:
+            print(f"Failed to use preview service, falling back to simple generation: {e}")
+        
+        # Fallback to simple image generation
+        size = (400, 200)
+        image = _generate_text_image_for_preview(request.text, size)
+        
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        
+        return StreamingResponse(
+            img_byte_arr,
+            media_type="image/png",
+            headers={"Content-Disposition": "inline; filename=preview.png"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 
@@ -1060,3 +1055,5 @@ def _generate_text_image_for_preview(text: str, size: tuple[int, int]):
     
     draw.text((x, y), text, fill='black', font=font)
     return image
+
+

@@ -66,7 +66,7 @@ def require_admin(current_user: UserModel = Depends(get_current_active_user)) ->
     )
 
 
-def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permissions: Dict[str, str] = None):
+def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permissions: Dict[str, Any] = None):
     """
     Apply authentication dependencies to all routes in a router.
     
@@ -74,6 +74,7 @@ def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permis
         router: The router to secure
         exclude_paths: List of path operations to exclude from authentication (e.g., ["/public-endpoint"])
         permissions: Dict mapping paths to required permissions (e.g., {"/admin-endpoint": "admin:access"})
+                    Can also map paths to dicts of HTTP methods to permissions
         
     Returns:
         The secured router
@@ -92,6 +93,11 @@ def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permis
     
     # Add the routes back with dependencies
     for route in original_routes:
+        # Skip non-endpoint routes (like Mount)
+        if not hasattr(route, 'path'):
+            router.routes.append(route)
+            continue
+            
         path = route.path
         
         # Skip excluded paths
@@ -101,8 +107,23 @@ def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permis
         
         # Check if this path needs specific permissions
         if path in permissions:
-            # Add permission-specific dependency
-            route.dependencies.append(Depends(require_permission(permissions[path])))
+            permission = permissions[path]
+            
+            # Handle method-specific permissions
+            if isinstance(permission, dict) and hasattr(route, 'methods'):
+                # Get the HTTP method for this route
+                methods = route.methods if hasattr(route, 'methods') else []
+                method = list(methods)[0] if methods else None
+                
+                if method in permission:
+                    # Add method-specific permission dependency
+                    route.dependencies.append(Depends(require_permission(permission[method])))
+                else:
+                    # Add general authentication dependency if method not specified
+                    route.dependencies.append(Depends(get_current_active_user))
+            else:
+                # Add permission-specific dependency
+                route.dependencies.append(Depends(require_permission(permission)))
         else:
             # Add general authentication dependency
             route.dependencies.append(Depends(get_current_active_user))

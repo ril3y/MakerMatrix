@@ -93,10 +93,19 @@ register_exception_handlers(app)
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "*"  # Fallback for all origins
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Define permissions for specific routes
@@ -283,6 +292,11 @@ if os.path.exists(frontend_dist_path):
     async def serve_frontend_routes(full_path: str):
         # Skip this route entirely for API paths - let FastAPI routing handle them
         if full_path.startswith(("parts/", "locations/", "categories/", "printer/", "utility/", "auth/", "users/", "roles/", "ai/", "api/", "static/", "docs", "redoc", "openapi.json")):
+            # Special case: if it's an API route without trailing slash, try redirecting
+            if full_path == "api/tasks":
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url="/api/tasks/", status_code=307)
+            
             # This will never actually be reached for properly mounted API routes
             # but provides a fallback for unmounted API-like paths
             from fastapi import HTTPException

@@ -246,16 +246,28 @@ class EnhancedImportService:
         
         # Check if parser type supports enrichment
         if not supports_enrichment(parser_type):
-            logger.info(f"Parser type '{parser_type}' does not support enrichment")
+            logger.info(f"Parser type '{parser_type}' does not support enrichment - supplier not configured or enabled")
+            
+            # Notify user that enrichment is disabled due to supplier configuration
+            await self._broadcast_message({
+                "type": "notification",
+                "data": {
+                    "title": "Enrichment Disabled",
+                    "message": f"Parts imported successfully, but enrichment is disabled because the {parser_type.upper()} supplier is not configured. To enable enrichment with additional part data, images, and datasheets, please configure the {parser_type.upper()} supplier in settings.",
+                    "level": "warning",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            })
+            
             return enrichment_results
         
-        # Get supplier for this parser type
+        # Get supplier for this parser type using direct name matching
+        supplier_name = parser_type.upper()  # e.g., 'lcsc' -> 'LCSC'
+        
         enrichment_supplier = get_enrichment_client(parser_type)
         if not enrichment_supplier:
-            logger.warning(f"No enrichment supplier available for parser type '{parser_type}'")
+            logger.warning(f"No enrichment supplier '{supplier_name}' available for parser type '{parser_type}'")
             return enrichment_results
-        
-        supplier_name = parser_type.upper()
         
         # Queue enrichment tasks for each part
         for i, part_data in enumerate(imported_parts):

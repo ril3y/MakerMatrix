@@ -1,5 +1,5 @@
 """
-Price Update Task - Updates part prices from supplier APIs using enhanced parsers
+Price Update Task - Updates part prices from supplier APIs using the modular supplier system
 """
 
 import asyncio
@@ -8,14 +8,9 @@ from .base_task import BaseTask
 from MakerMatrix.models.task_models import TaskModel
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import PartModel
-from MakerMatrix.parsers.enhanced_parser import get_enhanced_parser
-try:
-    from MakerMatrix.parsers.supplier_capabilities import CapabilityType
-except ImportError:
-    # Fallback if the old parser system is not available
-    from enum import Enum
-    class CapabilityType(Enum):
-        FETCH_PRICING = "fetch_pricing"
+from MakerMatrix.suppliers import SupplierRegistry
+from MakerMatrix.suppliers.base import SupplierCapability
+from MakerMatrix.services.supplier_config_service import SupplierConfigService
 from sqlmodel import select
 import logging
 
@@ -23,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class PriceUpdateTask(BaseTask):
-    """Task for updating part prices from supplier APIs using enhanced parsers"""
+    """Task for updating part prices from supplier APIs using the modular supplier system"""
     
     @property
     def task_type(self) -> str:
@@ -35,10 +30,10 @@ class PriceUpdateTask(BaseTask):
     
     @property
     def description(self) -> str:
-        return "Update part prices from supplier APIs using enhanced parsers"
+        return "Update part prices from supplier APIs"
     
     async def execute(self, task: TaskModel) -> Dict[str, Any]:
-        """Execute price update task using enhanced parsers"""
+        """Execute price update task using the modular supplier system"""
         input_data = self.get_input_data(task)
         update_all = input_data.get('update_all', False)
         part_ids = input_data.get('part_ids', [])
@@ -48,6 +43,8 @@ class PriceUpdateTask(BaseTask):
         
         # Get parts from database
         session = next(get_session())
+        config_service = SupplierConfigService(session)
+        
         try:
             if update_all:
                 await self.update_step(task, "Fetching all parts from database")
@@ -81,33 +78,65 @@ class PriceUpdateTask(BaseTask):
             total_processed = 0
             
             # Process each supplier's parts
-            for supplier, supplier_parts in parts_by_supplier.items():
-                await self.update_step(task, f"Processing {len(supplier_parts)} parts for {supplier}")
+            for supplier_name, supplier_parts in parts_by_supplier.items():
+                await self.update_step(task, f"Processing {len(supplier_parts)} parts for {supplier_name}")
                 
-                # Get enhanced parser for this supplier
-                parser = get_enhanced_parser(supplier)
-                if not parser:
-                    self.log_warning(f"No enhanced parser available for supplier: {supplier}", task)
+                # Check if supplier is available in the registry
+                if not SupplierRegistry.is_supplier_available(supplier_name):
+                    self.log_warning(f"Supplier not available in registry: {supplier_name}", task)
                     # Add all parts from this supplier to failed updates
                     for part in supplier_parts:
                         failed_updates.append({
                             'part_id': part.id,
-                            'part_name': part.name,
-                            'supplier': supplier,
-                            'error': f'No enhanced parser available for supplier {supplier}'
+                            'part_name': part.part_name,
+                            'supplier': supplier_name,
+                            'error': f'Supplier {supplier_name} not available in system'
                         })
                         total_processed += 1
                     continue
                 
-                # Check if supplier supports pricing capability
-                if not parser.supports_capability(CapabilityType.FETCH_PRICING):
-                    self.log_warning(f"Supplier {supplier} does not support pricing fetch", task)
+                # Get supplier instance
+                try:
+                    supplier = SupplierRegistry.get_supplier(supplier_name)
+                    
+                    # Check if supplier is configured
+                    config = await config_service.get_supplier_config(supplier_name)
+                    if not config or not config.is_configured:
+                        self.log_warning(f"Supplier {supplier_name} is not configured", task)
+                        for part in supplier_parts:
+                            failed_updates.append({
+                                'part_id': part.id,
+                                'part_name': part.part_name,
+                                'supplier': supplier_name,
+                                'error': f'Supplier {supplier_name} is not configured'
+                            })
+                            total_processed += 1
+                        continue
+                    
+                    # Configure the supplier with credentials
+                    supplier.configure(config.credentials, config.config)
+                    
+                    # Check if supplier supports pricing capability
+                    if SupplierCapability.FETCH_PRICING not in supplier.get_capabilities():
+                        self.log_warning(f"Supplier {supplier_name} does not support pricing fetch", task)
+                        for part in supplier_parts:
+                            failed_updates.append({
+                                'part_id': part.id,
+                                'part_name': part.part_name,
+                                'supplier': supplier_name,
+                                'error': f'Supplier {supplier_name} does not support pricing fetch'
+                            })
+                            total_processed += 1
+                        continue
+                    
+                except Exception as e:
+                    self.log_error(f"Failed to initialize supplier {supplier_name}: {str(e)}", task)
                     for part in supplier_parts:
                         failed_updates.append({
                             'part_id': part.id,
-                            'part_name': part.name,
-                            'supplier': supplier,
-                            'error': f'Supplier {supplier} does not support pricing fetch'
+                            'part_name': part.part_name,
+                            'supplier': supplier_name,
+                            'error': f'Failed to initialize supplier: {str(e)}'
                         })
                         total_processed += 1
                     continue
@@ -119,19 +148,26 @@ class PriceUpdateTask(BaseTask):
                         await self.update_progress(
                             task,
                             progress,
-                            f"Updating price for {part.name} ({supplier}) - {total_processed + 1}/{len(parts)}"
+                            f"Updating price for {part.part_name} ({supplier_name}) - {total_processed + 1}/{len(parts)}"
                         )
                         
-                        # Use enhanced parser to fetch pricing
-                        pricing_result = await parser.fetch_pricing(part)
+                        # Use supplier to fetch pricing
+                        pricing_data = await supplier.fetch_pricing(part.part_number)
                         
-                        if pricing_result.success and pricing_result.data:
+                        if pricing_data:
                             # Extract pricing information
                             old_price = part.price
-                            pricing_data = pricing_result.data
                             
-                            if 'unit_price' in pricing_data:
-                                new_price = float(pricing_data['unit_price'])
+                            # Pricing data is a list of price breaks
+                            # Find the price for quantity 1 or the lowest quantity
+                            unit_price = None
+                            if isinstance(pricing_data, list) and len(pricing_data) > 0:
+                                # Sort by quantity to find the lowest quantity price
+                                sorted_prices = sorted(pricing_data, key=lambda x: x.get('quantity', 1))
+                                unit_price = sorted_prices[0].get('price')
+                            
+                            if unit_price is not None:
+                                new_price = float(unit_price)
                                 
                                 # Update part price in database
                                 part.price = new_price
@@ -147,44 +183,52 @@ class PriceUpdateTask(BaseTask):
                                 
                                 updated_parts.append({
                                     'part_id': part.id,
-                                    'part_name': part.name,
-                                    'supplier': supplier,
+                                    'part_name': part.part_name,
+                                    'supplier': supplier_name,
                                     'old_price': old_price,
                                     'new_price': new_price,
-                                    'currency': pricing_data.get('currency', 'USD'),
+                                    'currency': sorted_prices[0].get('currency', 'USD'),
                                     'pricing_data': pricing_data
                                 })
                                 
-                                self.log_info(f"Updated price for {part.name}: {old_price} -> {new_price}", task)
+                                self.log_info(f"Updated price for {part.part_name}: {old_price} -> {new_price}", task)
                             else:
                                 failed_updates.append({
                                     'part_id': part.id,
-                                    'part_name': part.name,
-                                    'supplier': supplier,
+                                    'part_name': part.part_name,
+                                    'supplier': supplier_name,
                                     'error': 'No unit price found in pricing data'
                                 })
                         else:
                             failed_updates.append({
                                 'part_id': part.id,
-                                'part_name': part.name,
-                                'supplier': supplier,
-                                'error': pricing_result.error or 'Pricing fetch failed'
+                                'part_name': part.part_name,
+                                'supplier': supplier_name,
+                                'error': 'No pricing data returned from supplier'
                             })
                         
                         total_processed += 1
                         
                         # Rate limiting to avoid overwhelming APIs
-                        await self.sleep(0.1)
+                        # Use supplier-specific rate limit delay
+                        delay = supplier.get_rate_limit_delay()
+                        await self.sleep(delay)
                         
                     except Exception as e:
-                        self.log_error(f"Failed to update price for part {part.name}: {str(e)}", task, exc_info=True)
+                        self.log_error(f"Failed to update price for part {part.part_name}: {str(e)}", task, exc_info=True)
                         failed_updates.append({
                             'part_id': part.id,
-                            'part_name': part.name,
-                            'supplier': supplier,
+                            'part_name': part.part_name,
+                            'supplier': supplier_name,
                             'error': str(e)
                         })
                         total_processed += 1
+                
+                # Clean up supplier resources
+                try:
+                    await supplier.close()
+                except:
+                    pass
             
             await self.update_progress(task, 100, "Price update completed")
             

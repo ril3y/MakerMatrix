@@ -58,6 +58,7 @@ Model for organizing parts into categories.
 | `id` | `str` | UUID primary key |
 | `name` | `str` | Unique category name |
 | `description` | `str` | Category description |
+| `part_count` | `int` | Number of parts in this category (included in API responses) |
 | `parts` | `List[PartModel]` | Associated parts |
 
 #### LocationModel

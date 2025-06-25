@@ -20,17 +20,11 @@ logger = logging.getLogger(__name__)
 
 class ParserClientRegistry:
     """
-    Registry that maps CSV parsers to their corresponding enrichment clients
-    """
+    Registry for CSV parser to supplier enrichment integration
     
-    # Formal mapping between parser types and supplier client names
-    PARSER_CLIENT_MAPPING = {
-        # CSV Parser Type -> Supplier Client Name
-        'lcsc': 'LCSC',
-        'digikey': 'DIGIKEY', 
-        'mouser': 'MOUSER'
-        # Add new mappings here as parsers/clients are added
-    }
+    Uses direct name matching: if CSV parser is 'lcsc', looks for supplier named 'LCSC'
+    This eliminates the need for hardcoded mappings and makes the system more intuitive.
+    """
     
     # Enrichment capabilities that make sense for CSV import context
     DEFAULT_CSV_ENRICHMENT_CAPABILITIES = [
@@ -47,35 +41,64 @@ class ParserClientRegistry:
         """
         Get the enrichment supplier for a given parser type
         
+        Uses direct name matching: 'lcsc' parser -> 'LCSC' supplier
+        
         Args:
             parser_type: CSV parser type (e.g., 'lcsc', 'digikey')
             
         Returns:
-            Supplier instance or None if no mapping exists
+            Supplier instance or None if supplier doesn't exist
         """
-        supplier_name = cls.PARSER_CLIENT_MAPPING.get(parser_type.lower())
-        if supplier_name:
-            try:
-                return get_supplier(supplier_name.lower())
-            except Exception as e:
-                logger.warning(f"Failed to create supplier {supplier_name} for parser {parser_type}: {e}")
-                return None
-        return None
+        if not parser_type:
+            return None
+            
+        # Convert parser type to supplier name (e.g., 'lcsc' -> 'LCSC')
+        supplier_name = parser_type.upper()
+        
+        try:
+            return get_supplier(supplier_name.lower())
+        except Exception as e:
+            logger.debug(f"No supplier '{supplier_name}' available for parser '{parser_type}': {e}")
+            return None
     
     @classmethod
     def supports_enrichment(cls, parser_type: str) -> bool:
         """
         Check if a parser type supports enrichment
         
+        Simple logic: 
+        1. Convert parser type to supplier name (e.g., 'lcsc' -> 'LCSC')
+        2. Check if that supplier is configured and enabled in database
+        
         Args:
-            parser_type: CSV parser type
+            parser_type: CSV parser type (e.g., 'lcsc', 'digikey')
             
         Returns:
-            True if enrichment is supported
+            True if corresponding supplier is configured and enabled
         """
         if not parser_type:
             return False
-        return parser_type.lower() in cls.PARSER_CLIENT_MAPPING
+            
+        # Convert parser type to supplier name (e.g., 'lcsc' -> 'LCSC')
+        supplier_name = parser_type.upper()
+        
+        try:
+            from MakerMatrix.services.supplier_config_service import SupplierConfigService
+            supplier_service = SupplierConfigService()
+            config = supplier_service.get_supplier_config(supplier_name)
+            is_enabled = config.enabled
+            
+            if not is_enabled:
+                logger.info(f"Supplier '{supplier_name}' is configured but disabled - enrichment not available for '{parser_type}' CSV")
+            else:
+                logger.debug(f"Supplier '{supplier_name}' is configured and enabled - enrichment available for '{parser_type}' CSV")
+                
+            return is_enabled
+            
+        except Exception as e:
+            # ResourceNotFoundError or other errors mean supplier not configured
+            logger.info(f"Supplier '{supplier_name}' not configured in database - enrichment not available for '{parser_type}' CSV: {e}")
+            return False
     
     @classmethod
     def get_enrichment_capabilities(cls, parser_type: str) -> List[str]:
@@ -83,7 +106,7 @@ class ParserClientRegistry:
         Get available enrichment capabilities for a parser type
         
         Args:
-            parser_type: CSV parser type
+            parser_type: CSV parser type (e.g., 'lcsc', 'digikey')
             
         Returns:
             List of enrichment capability names
@@ -91,7 +114,7 @@ class ParserClientRegistry:
         supplier = cls.get_enrichment_client(parser_type)
         if supplier:
             try:
-                # New supplier system has capabilities as SupplierCapability enum
+                # Get capabilities from supplier instance
                 capabilities = supplier.get_capabilities()
                 capability_names = []
                 
