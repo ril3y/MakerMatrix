@@ -23,7 +23,8 @@ except ImportError:
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability, 
-    PartSearchResult, SupplierInfo, ConfigurationOption
+    PartSearchResult, SupplierInfo, ConfigurationOption,
+    CapabilityRequirement, ImportResult
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -50,7 +51,8 @@ class DigiKeySupplier(BaseSupplier):
             api_documentation_url="https://developer.digikey.com",
             supports_oauth=True,  # DigiKey requires OAuth for production API access
             rate_limit_info="1000 requests per hour for authenticated users",
-            supports_multiple_environments=True  # Supports both sandbox and production modes
+            supports_multiple_environments=True,  # Supports both sandbox and production modes
+            supported_file_types=["csv"]  # DigiKey supports CSV order exports
         )
     
     def get_capabilities(self) -> List[SupplierCapability]:
@@ -63,14 +65,60 @@ class DigiKeySupplier(BaseSupplier):
             SupplierCapability.FETCH_PRICING,
             SupplierCapability.FETCH_STOCK,
             SupplierCapability.FETCH_SPECIFICATIONS,
+            SupplierCapability.IMPORT_ORDERS  # CSV order import doesn't need API
         ]
         
-        # Only return capabilities if the digikey-api library is available
+        # Only return API capabilities if the digikey-api library is available
         if DIGIKEY_API_AVAILABLE:
             return base_capabilities
         else:
-            # If the library is not available, we can only do basic search
-            return [SupplierCapability.SEARCH_PARTS]
+            # If the library is not available, we can still import CSVs
+            return [SupplierCapability.IMPORT_ORDERS]
+    
+    def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
+        """Define what credentials each capability needs"""
+        return {
+            SupplierCapability.IMPORT_ORDERS: CapabilityRequirement(
+                capability=SupplierCapability.IMPORT_ORDERS,
+                required_credentials=[],  # No API key needed for CSV import
+                description="Import DigiKey order history from CSV exports"
+            ),
+            SupplierCapability.SEARCH_PARTS: CapabilityRequirement(
+                capability=SupplierCapability.SEARCH_PARTS,
+                required_credentials=["client_id", "client_secret"],
+                description="Search DigiKey catalog using API"
+            ),
+            SupplierCapability.GET_PART_DETAILS: CapabilityRequirement(
+                capability=SupplierCapability.GET_PART_DETAILS,
+                required_credentials=["client_id", "client_secret"],
+                description="Get detailed part information from API"
+            ),
+            SupplierCapability.FETCH_DATASHEET: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_DATASHEET,
+                required_credentials=["client_id", "client_secret"],
+                description="Download datasheets via API"
+            ),
+            SupplierCapability.FETCH_IMAGE: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_IMAGE,
+                required_credentials=["client_id", "client_secret"],
+                description="Get product images via API"
+            ),
+            SupplierCapability.FETCH_PRICING: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_PRICING,
+                required_credentials=["client_id", "client_secret"],
+                description="Get real-time pricing via API"
+            ),
+            SupplierCapability.FETCH_STOCK: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_STOCK,
+                required_credentials=["client_id", "client_secret"],
+                description="Get real-time stock levels via API"
+            ),
+            SupplierCapability.FETCH_SPECIFICATIONS: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_SPECIFICATIONS,
+                required_credentials=["client_id", "client_secret"],
+                description="Get technical specifications via API"
+            )
+        }
     
     def get_credential_schema(self) -> List[FieldDefinition]:
         return [
@@ -859,3 +907,172 @@ class DigiKeySupplier(BaseSupplier):
     def get_rate_limit_delay(self) -> float:
         """DigiKey rate limit: ~1000 requests/hour = ~3.6 seconds between requests"""
         return 4.0
+    
+    # ========== Order Import Implementation ==========
+    
+    def can_import_file(self, filename: str, file_content: bytes = None) -> bool:
+        """Check if this is a DigiKey CSV file"""
+        # Check file extension
+        if not filename.lower().endswith('.csv'):
+            return False
+        
+        # Check filename patterns
+        digikey_patterns = ['digikey', 'digi-key', 'weborder', 'salesorder']
+        if any(pattern in filename.lower() for pattern in digikey_patterns):
+            return True
+        
+        # Check content for DigiKey-specific patterns
+        if file_content:
+            try:
+                content_str = file_content.decode('utf-8', errors='ignore')[:2000]  # Check first 2KB
+                # Look for DigiKey-specific headers
+                digikey_indicators = [
+                    'Digi-Key Part Number',
+                    'Manufacturer Part Number',
+                    'Customer Reference',
+                    'DigiKey Part #',
+                    'Index,Quantity,Part Number,Manufacturer Part Number'
+                ]
+                return any(indicator in content_str for indicator in digikey_indicators)
+            except:
+                pass
+        
+        return False
+    
+    async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
+        """Import DigiKey order CSV file"""
+        if file_type.lower() != 'csv':
+            return ImportResult(
+                success=False,
+                error_message=f"DigiKey only supports CSV files, not {file_type}"
+            )
+        
+        try:
+            # Parse CSV content
+            import csv
+            import io
+            
+            content_str = file_content.decode('utf-8')
+            csv_reader = csv.DictReader(io.StringIO(content_str))
+            
+            parts = []
+            errors = []
+            
+            # Try to detect CSV format
+            headers = csv_reader.fieldnames or []
+            
+            # Format 1: Standard DigiKey export
+            if 'Digi-Key Part Number' in headers:
+                for row in csv_reader:
+                    try:
+                        part = {
+                            'supplier_part_number': row.get('Digi-Key Part Number', '').strip(),
+                            'manufacturer': row.get('Manufacturer', '').strip(),
+                            'manufacturer_part_number': row.get('Manufacturer Part Number', '').strip(),
+                            'description': row.get('Description', '').strip(),
+                            'quantity': int(row.get('Quantity', 0)),
+                            'unit_price': float(row.get('Unit Price', '0').replace('$', '').replace(',', '')),
+                            'extended_price': float(row.get('Extended Price', '0').replace('$', '').replace(',', '')),
+                            'supplier': 'DigiKey',
+                            'additional_properties': {
+                                'customer_reference': row.get('Customer Reference', ''),
+                                'backorder': row.get('Backorder', ''),
+                                'index': row.get('Index', '')
+                            }
+                        }
+                        if part['supplier_part_number']:
+                            parts.append(part)
+                    except Exception as e:
+                        errors.append(f"Error parsing row: {str(e)}")
+            
+            # Format 2: Alternative format
+            elif 'Part Number' in headers and 'Manufacturer Part Number' in headers:
+                for row in csv_reader:
+                    try:
+                        part = {
+                            'supplier_part_number': row.get('Part Number', '').strip(),
+                            'manufacturer': row.get('Manufacturer', '').strip(),
+                            'manufacturer_part_number': row.get('Manufacturer Part Number', '').strip(),
+                            'description': row.get('Description', '').strip(),
+                            'quantity': int(row.get('Quantity', 0)),
+                            'unit_price': float(row.get('Unit Price', '0').replace('$', '').replace(',', '')),
+                            'extended_price': float(row.get('Extended Price$', '0').replace('$', '').replace(',', '')),
+                            'supplier': 'DigiKey',
+                            'additional_properties': {
+                                'customer_reference': row.get('Customer Reference', '')
+                            }
+                        }
+                        if part['supplier_part_number']:
+                            parts.append(part)
+                    except Exception as e:
+                        errors.append(f"Error parsing row: {str(e)}")
+            else:
+                return ImportResult(
+                    success=False,
+                    error_message="Unrecognized DigiKey CSV format",
+                    warnings=[f"Headers found: {', '.join(headers[:10])}"]
+                )
+            
+            if not parts:
+                return ImportResult(
+                    success=False,
+                    error_message="No valid parts found in CSV",
+                    warnings=errors
+                )
+            
+            return ImportResult(
+                success=True,
+                imported_count=len(parts),
+                parts=parts,
+                parser_type='digikey',
+                warnings=errors if errors else []
+            )
+            
+        except Exception as e:
+            import traceback
+            return ImportResult(
+                success=False,
+                error_message=f"Error importing DigiKey CSV: {str(e)}",
+                warnings=[traceback.format_exc()]
+            )
+    
+    def get_import_file_preview(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
+        """Get preview of DigiKey CSV import"""
+        try:
+            import csv
+            import io
+            
+            content_str = file_content.decode('utf-8')
+            csv_reader = csv.DictReader(io.StringIO(content_str))
+            
+            headers = csv_reader.fieldnames or []
+            preview_rows = []
+            
+            # Get first 5 rows for preview
+            for i, row in enumerate(csv_reader):
+                if i >= 5:
+                    break
+                preview_rows.append(dict(row))
+            
+            # Count total rows
+            total_rows = len(preview_rows)
+            for _ in csv_reader:
+                total_rows += 1
+            
+            return {
+                "headers": headers,
+                "preview_rows": preview_rows,
+                "total_rows": total_rows,
+                "detected_supplier": "digikey",
+                "is_supported": True
+            }
+            
+        except Exception as e:
+            return {
+                "headers": [],
+                "preview_rows": [],
+                "total_rows": 0,
+                "detected_supplier": "digikey",
+                "is_supported": False,
+                "error": str(e)
+            }

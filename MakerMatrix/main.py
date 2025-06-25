@@ -13,7 +13,7 @@ from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
     utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, 
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, rate_limit_routes,
-    enrichment_routes, import_routes
+    enrichment_routes
 )
 from MakerMatrix.services.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -130,22 +130,11 @@ categories_permissions = {
 }
 
 csv_permissions = {
-    "/import": "parts:create",
-    "/import-file": "parts:create",
-    "/import/with-progress": "parts:create",
-    "/import/progress": "parts:read",
-    "/preview": "parts:read",
     "/preview-file": "parts:read",
-    "/extract-filename-info": "parts:read",
-    "/supported-types": "parts:read",
-    "/available-suppliers": "parts:read",
-    "/parse": "parts:read",
-    "/config": "parts:read",
-    "/parsers/{parser_type}/info": "parts:read",
-    "/parsers/enrichment-capabilities": "parts:read",
-    "/parsers/{parser_type}/enrichment-capabilities": "parts:read",
-    "/parsers/{parser_type}/validate-enrichment": "parts:read",
-    "/enrichment/supported-parsers": "parts:read"
+    "/import-file": "parts:create",
+    "/preview-text": "parts:read",
+    "/supported-suppliers": "parts:read",
+    "/config": "parts:read"
 }
 
 task_permissions = {
@@ -231,14 +220,6 @@ rate_limit_permissions = {
     "/initialize": "rate_limits:admin"
 }
 
-import_permissions = {
-    "/csv/preview": "parts:read",
-    "/csv/execute": "parts:create",
-    "/file/preview": "parts:read",
-    "/file/execute": "parts:create",
-    "/status/{import_id}": "parts:read",
-    "/parsers": "parts:read"
-}
 
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
@@ -267,7 +248,6 @@ secure_all_routes(rate_limit_routes.router, permissions=rate_limit_permissions)
 secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
 secure_all_routes(enrichment_routes.router, permissions=enrichment_permissions)
-secure_all_routes(import_routes.router, permissions=import_permissions)
 
 # Public routes that don't need authentication
 public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
@@ -291,7 +271,6 @@ app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["R
 app.include_router(analytics_routes.router, tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(enrichment_routes.router, tags=["Enrichment"])
-app.include_router(import_routes.router, tags=["Import"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
 app.include_router(static_routes.router, tags=["Static Files"])
 

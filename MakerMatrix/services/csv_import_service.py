@@ -962,6 +962,14 @@ class CSVImportService:
         if self.current_progress:
             return self.current_progress.to_dict()
         return None
+    
+    def detect_parser_type(self, csv_content: str) -> Optional[str]:
+        """Alias for detect_csv_type for compatibility"""
+        return self.detect_csv_type(csv_content)
+    
+    def get_available_parsers(self) -> List[str]:
+        """Get list of available parser types"""
+        return list(self.parser_lookup.keys())
 
 
 # Singleton instance

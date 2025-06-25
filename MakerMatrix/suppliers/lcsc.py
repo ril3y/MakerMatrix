@@ -12,7 +12,7 @@ import re
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo
+    PartSearchResult, SupplierInfo, CapabilityRequirement, ImportResult
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -32,7 +32,8 @@ class LCSCSupplier(BaseSupplier):
             website_url="https://www.lcsc.com",
             api_documentation_url="https://easyeda.com",
             supports_oauth=False,
-            rate_limit_info="Public API - reasonable rate limits apply"
+            rate_limit_info="Public API - reasonable rate limits apply",
+            supported_file_types=["csv"]
         )
     
     def get_capabilities(self) -> List[SupplierCapability]:
@@ -40,8 +41,39 @@ class LCSCSupplier(BaseSupplier):
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,
             SupplierCapability.FETCH_SPECIFICATIONS,
-            SupplierCapability.FETCH_IMAGE  # Added image support
+            SupplierCapability.FETCH_IMAGE,  # Added image support
+            SupplierCapability.IMPORT_ORDERS  # Can import CSV order files
         ]
+    
+    def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
+        """LCSC uses public API, so no credentials required for any capability"""
+        return {
+            SupplierCapability.IMPORT_ORDERS: CapabilityRequirement(
+                capability=SupplierCapability.IMPORT_ORDERS,
+                required_credentials=[],  # No credentials needed
+                description="Import LCSC order history from CSV files"
+            ),
+            SupplierCapability.GET_PART_DETAILS: CapabilityRequirement(
+                capability=SupplierCapability.GET_PART_DETAILS,
+                required_credentials=[],
+                description="Get part details using public EasyEDA API"
+            ),
+            SupplierCapability.FETCH_DATASHEET: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_DATASHEET,
+                required_credentials=[],
+                description="Fetch datasheet URLs from EasyEDA"
+            ),
+            SupplierCapability.FETCH_SPECIFICATIONS: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_SPECIFICATIONS,
+                required_credentials=[],
+                description="Fetch part specifications from EasyEDA"
+            ),
+            SupplierCapability.FETCH_IMAGE: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_IMAGE,
+                required_credentials=[],
+                description="Fetch part images from EasyEDA"
+            )
+        }
     
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for LCSC/EasyEDA public API
@@ -389,3 +421,131 @@ class LCSCSupplier(BaseSupplier):
     def get_rate_limit_delay(self) -> float:
         """EasyEDA API - 60 calls per minute = 1 second between requests"""
         return 1.0
+    
+    # ========== Order Import Implementation ==========
+    
+    def can_import_file(self, filename: str, file_content: bytes = None) -> bool:
+        """Check if this supplier can handle this file"""
+        # Check if file is CSV
+        if not filename.lower().endswith('.csv'):
+            return False
+        
+        # Check filename for LCSC patterns
+        lcsc_patterns = ['lcsc', 'bom_szlcsc', 'order_history']
+        if any(pattern in filename.lower() for pattern in lcsc_patterns):
+            return True
+        
+        # Check content for LCSC-specific patterns if provided
+        if file_content:
+            try:
+                content_str = file_content.decode('utf-8', errors='ignore')[:1000]  # Check first 1KB
+                # Look for LCSC-specific headers or patterns
+                lcsc_indicators = [
+                    'LCSC Part Number',
+                    'Customer NO.',
+                    'Product Remark',
+                    'Order NO.',
+                    'szlcsc.com'
+                ]
+                return any(indicator in content_str for indicator in lcsc_indicators)
+            except:
+                pass
+        
+        return False
+    
+    async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
+        """Import LCSC order CSV file"""
+        if file_type.lower() != 'csv':
+            return ImportResult(
+                success=False,
+                error_message=f"LCSC only supports CSV files, not {file_type}"
+            )
+        
+        try:
+            # Use the existing LCSC CSV parser logic
+            from ..parsers.lcsc_csv_parser import LCSCCSVParser
+            
+            parser = LCSCCSVParser()
+            # Convert bytes to string
+            csv_content = file_content.decode('utf-8')
+            
+            # Parse the CSV
+            parts_data, errors = parser.parse(csv_content)
+            
+            if not parts_data and errors:
+                return ImportResult(
+                    success=False,
+                    error_message="Failed to parse LCSC CSV: " + "; ".join(errors),
+                    warnings=errors
+                )
+            
+            # Extract order info if available
+            order_info = None
+            if hasattr(parser, 'extract_order_info'):
+                order_info = parser.extract_order_info(csv_content)
+            
+            # Convert parser results to standard format
+            import_parts = []
+            for part in parts_data:
+                # Map LCSC CSV fields to standard part format
+                import_part = {
+                    'supplier_part_number': part.get('LCSC Part Number', ''),
+                    'manufacturer': part.get('Manufacturer', ''),
+                    'manufacturer_part_number': part.get('MFR.Part Number', ''),
+                    'description': part.get('Description', ''),
+                    'quantity': int(part.get('Order Qty.', 0)),
+                    'unit_price': float(part.get('Unit Price(USD)', 0)),
+                    'extended_price': float(part.get('Subtotal(USD)', 0)),
+                    'supplier': 'LCSC',
+                    'additional_properties': {
+                        'customer_no': part.get('Customer NO.', ''),
+                        'product_remark': part.get('Product Remark', ''),
+                        'order_no': part.get('Order NO.', '')
+                    }
+                }
+                import_parts.append(import_part)
+            
+            return ImportResult(
+                success=True,
+                imported_count=len(import_parts),
+                parts=import_parts,
+                order_info=order_info,
+                parser_type='lcsc',
+                warnings=errors if errors else []
+            )
+            
+        except Exception as e:
+            import traceback
+            return ImportResult(
+                success=False,
+                error_message=f"Error importing LCSC CSV: {str(e)}",
+                warnings=[traceback.format_exc()]
+            )
+    
+    def get_import_file_preview(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
+        """Get a preview of LCSC CSV import"""
+        try:
+            from ..parsers.lcsc_csv_parser import LCSCCSVParser
+            
+            parser = LCSCCSVParser()
+            csv_content = file_content.decode('utf-8')
+            
+            # Get preview using parser
+            preview_data = parser.get_preview_data(csv_content)
+            
+            return {
+                "headers": preview_data.get('headers', []),
+                "preview_rows": preview_data.get('preview_rows', []),
+                "total_rows": preview_data.get('total_rows', 0),
+                "detected_supplier": "lcsc",
+                "is_supported": True
+            }
+        except Exception as e:
+            return {
+                "headers": [],
+                "preview_rows": [],
+                "total_rows": 0,
+                "detected_supplier": "lcsc",
+                "is_supported": False,
+                "error": str(e)
+            }

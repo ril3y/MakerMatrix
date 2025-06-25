@@ -105,3 +105,8 @@ def get_supplier_info(name: str) -> SupplierInfo:
 def get_all_supplier_info() -> Dict[str, SupplierInfo]:
     """Get information about all registered suppliers"""
     return SupplierRegistry.get_all_supplier_info()
+
+
+def get_supplier_registry() -> Dict[str, Type[BaseSupplier]]:
+    """Get the raw supplier registry (class references)"""
+    return SupplierRegistry._suppliers.copy()

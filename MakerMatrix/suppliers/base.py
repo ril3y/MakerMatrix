@@ -7,7 +7,7 @@ This ensures consistency and makes it easy to add new suppliers.
 
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Union, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
 import aiohttp
@@ -40,6 +40,7 @@ class SupplierCapability(Enum):
     FETCH_SPECIFICATIONS = "fetch_specifications"
     BULK_SEARCH = "bulk_search"
     PARAMETRIC_SEARCH = "parametric_search"
+    IMPORT_ORDERS = "import_orders"  # Import order files (CSV, XLS, etc.)
 
 @dataclass
 class FieldDefinition:
@@ -80,6 +81,41 @@ class ConfigurationOption:
     is_default: bool = False
     requirements: Optional[Dict[str, Any]] = None  # Additional requirements like OAuth setup
 
+@dataclass
+class CapabilityRequirement:
+    """Defines what credentials/config a capability requires"""
+    capability: SupplierCapability
+    required_credentials: List[str] = None  # e.g., ["api_key"], ["client_id", "client_secret"]
+    optional_credentials: List[str] = None  # Credentials that enhance but aren't required
+    description: str = ""
+    
+    def __post_init__(self):
+        if self.required_credentials is None:
+            self.required_credentials = []
+        if self.optional_credentials is None:
+            self.optional_credentials = []
+
+@dataclass
+class ImportResult:
+    """Result from importing an order file"""
+    success: bool
+    imported_count: int = 0
+    failed_count: int = 0
+    parts: List[Dict[str, Any]] = None  # List of part data dictionaries
+    failed_items: List[Dict[str, Any]] = None  # Failed items with error reasons
+    warnings: List[str] = None
+    order_info: Optional[Dict[str, Any]] = None  # Extracted order metadata
+    parser_type: Optional[str] = None  # Which parser was used
+    error_message: Optional[str] = None
+    
+    def __post_init__(self):
+        if self.parts is None:
+            self.parts = []
+        if self.failed_items is None:
+            self.failed_items = []
+        if self.warnings is None:
+            self.warnings = []
+
 @dataclass 
 class SupplierInfo:
     """Information about a supplier"""
@@ -91,6 +127,11 @@ class SupplierInfo:
     supports_oauth: bool = False
     rate_limit_info: Optional[str] = None
     supports_multiple_environments: bool = False
+    supported_file_types: List[str] = None  # e.g., ["csv", "xls", "xlsx"]
+    
+    def __post_init__(self):
+        if self.supported_file_types is None:
+            self.supported_file_types = []
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +236,11 @@ class BaseSupplier(ABC):
     @abstractmethod
     def get_capabilities(self) -> List[SupplierCapability]:
         """Get list of capabilities this supplier supports"""
+        pass
+    
+    @abstractmethod
+    def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
+        """Get requirements for each capability"""
         pass
     
     # ========== Schema Definitions ==========
@@ -495,6 +541,82 @@ class BaseSupplier(ABC):
             return None
         
         return await self._tracked_api_call("fetch_specifications", _impl)
+    
+    # ========== Order Import Features ==========
+    
+    async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
+        """Import order file (CSV, XLS, etc.) - usually requires no API key"""
+        async def _impl():
+            if SupplierCapability.IMPORT_ORDERS not in self.get_capabilities():
+                return ImportResult(
+                    success=False,
+                    error_message=f"{self.get_supplier_info().display_name} does not support order file imports"
+                )
+            # Subclasses should implement this
+            return ImportResult(
+                success=False,
+                error_message="Import not implemented for this supplier"
+            )
+        
+        return await self._tracked_api_call("import_orders", _impl)
+    
+    def can_import_file(self, filename: str, file_content: bytes = None) -> bool:
+        """Check if this supplier can handle this file"""
+        # Default implementation - check if IMPORT_ORDERS capability exists
+        # and file type is supported
+        if SupplierCapability.IMPORT_ORDERS not in self.get_capabilities():
+            return False
+        
+        # Check file extension
+        file_ext = filename.split('.')[-1].lower() if '.' in filename else ''
+        supported_types = self.get_supplier_info().supported_file_types
+        
+        if file_ext and supported_types and file_ext in supported_types:
+            return True
+        
+        # Subclasses should override for content-based detection
+        return False
+    
+    def get_import_file_preview(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
+        """Get a preview of what will be imported from a file"""
+        # Default implementation - subclasses should override
+        return {
+            "headers": [],
+            "preview_rows": [],
+            "total_rows": 0,
+            "detected_supplier": self.get_supplier_info().name
+        }
+    
+    # ========== Capability Checking ==========
+    
+    def is_capability_available(self, capability: SupplierCapability) -> bool:
+        """Check if a capability is available with current configuration"""
+        if capability not in self.get_capabilities():
+            return False
+        
+        requirements = self.get_capability_requirements().get(capability)
+        if not requirements:
+            return True  # No requirements means always available
+        
+        # Check if all required credentials are present
+        for cred in requirements.required_credentials:
+            if cred not in self._credentials or not self._credentials[cred]:
+                return False
+        
+        return True
+    
+    def get_missing_credentials_for_capability(self, capability: SupplierCapability) -> List[str]:
+        """Get list of missing credentials for a capability"""
+        requirements = self.get_capability_requirements().get(capability)
+        if not requirements:
+            return []
+        
+        missing = []
+        for cred in requirements.required_credentials:
+            if cred not in self._credentials or not self._credentials[cred]:
+                missing.append(cred)
+        
+        return missing
     
     # ========== Utility Methods ==========
     
