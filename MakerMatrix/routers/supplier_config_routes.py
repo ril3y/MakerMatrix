@@ -24,7 +24,7 @@ from MakerMatrix.models.user_models import UserModel
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/config", tags=["supplier-config"])
+router = APIRouter()
 security = HTTPBearer()
 
 
