@@ -291,217 +291,25 @@ async def get_worker_status(
         raise HTTPException(status_code=500, detail=f"Failed to get worker status: {str(e)}")
 
 
-# Task creation shortcuts for common operations
-@router.post("/quick/csv_enrichment", response_model=Dict[str, Any])
-async def create_csv_enrichment_task(
-    enrichment_data: Dict[str, Any],
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Quick create CSV enrichment task"""
-    try:
-        task_request = CreateTaskRequest(
-            task_type=TaskType.CSV_ENRICHMENT,
-            name=f"CSV Enrichment - {enrichment_data.get('import_id', 'Unknown')}",
-            description="Background enrichment for CSV imported parts",
-            priority=TaskPriority.NORMAL,
-            input_data=enrichment_data,
-            related_entity_type="csv_import",
-            related_entity_id=enrichment_data.get('import_id')
-        )
-        
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        logger.info(f"Created CSV enrichment task {task.id} for import {enrichment_data.get('import_id')}")
-        
-        return {
-            "status": "success",
-            "message": "CSV enrichment task created successfully",
-            "data": task.to_dict()
-        }
-    except Exception as e:
-        logger.error(f"Failed to create CSV enrichment task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create CSV enrichment task: {str(e)}")
+# Quick task endpoints removed - use enrichment_routes.py for enrichment tasks
 
 
-@router.post("/quick/part_enrichment", response_model=Dict[str, Any])
-async def create_part_enrichment_task(
-    enrichment_data: Dict[str, Any],
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Quick create part enrichment task"""
-    try:
-        logger.info(f"Received part enrichment request: {enrichment_data}")
-        part_id = enrichment_data.get('part_id')
-        supplier = enrichment_data.get('supplier', 'Unknown')
-        
-        task_request = CreateTaskRequest(
-            task_type=TaskType.PART_ENRICHMENT,
-            name=f"Part Enrichment - {part_id}",
-            description=f"Enrich part data from {supplier} supplier",
-            priority=TaskPriority.NORMAL,
-            input_data=enrichment_data,
-            related_entity_type="part",
-            related_entity_id=part_id
-        )
-        
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        logger.info(f"Created part enrichment task {task.id} for part {part_id}")
-        
-        return {
-            "status": "success",
-            "message": "Part enrichment task created successfully",
-            "data": task.to_dict()
-        }
-    except Exception as e:
-        logger.error(f"Failed to create part enrichment task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create part enrichment task: {str(e)}")
+# Removed - use /api/enrichment/tasks/part
 
 
-@router.post("/quick/datasheet_fetch", response_model=Dict[str, Any])
-async def create_datasheet_fetch_task(
-    fetch_data: Dict[str, Any],
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Quick create datasheet fetch task"""
-    try:
-        part_identifier = fetch_data.get('part_id', fetch_data.get('part_number', 'Unknown'))
-        
-        task_request = CreateTaskRequest(
-            task_type=TaskType.DATASHEET_FETCH,
-            name=f"Datasheet Fetch - {part_identifier}",
-            description="Fetch datasheet for part",
-            priority=TaskPriority.NORMAL,
-            input_data=fetch_data,
-            related_entity_type="part",
-            related_entity_id=fetch_data.get('part_id')
-        )
-        
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        return {
-            "status": "success",
-            "message": "Datasheet fetch task created successfully",
-            "data": task.to_dict()
-        }
-    except Exception as e:
-        logger.error(f"Failed to create datasheet fetch task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create datasheet fetch task: {str(e)}")
+# Removed - use /api/enrichment/tasks/part with datasheet capability
 
 
-@router.post("/quick/image_fetch", response_model=Dict[str, Any])
-async def create_image_fetch_task(
-    fetch_data: Dict[str, Any],
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Quick create image fetch task"""
-    try:
-        part_identifier = fetch_data.get('part_id', fetch_data.get('part_number', 'Unknown'))
-        
-        task_request = CreateTaskRequest(
-            task_type=TaskType.IMAGE_FETCH,
-            name=f"Image Fetch - {part_identifier}",
-            description="Fetch image for part",
-            priority=TaskPriority.NORMAL,
-            input_data=fetch_data,
-            related_entity_type="part",
-            related_entity_id=fetch_data.get('part_id')
-        )
-        
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        return {
-            "status": "success",
-            "message": "Image fetch task created successfully",
-            "data": task.to_dict()
-        }
-    except Exception as e:
-        logger.error(f"Failed to create image fetch task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create image fetch task: {str(e)}")
+# Removed - use /api/enrichment/tasks/part with image capability
 
 
-@router.post("/quick/bulk_enrichment", response_model=Dict[str, Any])
-async def create_bulk_enrichment_task(
-    enrichment_data: Dict[str, Any],
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Quick create bulk enrichment task"""
-    try:
-        part_count = len(enrichment_data.get('part_ids', []))
-        
-        task_request = CreateTaskRequest(
-            task_type=TaskType.BULK_ENRICHMENT,
-            name=f"Bulk Enrichment - {part_count} parts",
-            description=f"Bulk enrichment for {part_count} parts",
-            priority=TaskPriority.NORMAL,
-            input_data=enrichment_data,
-            timeout_seconds=3600  # 1 hour for bulk operations
-        )
-        
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        return {
-            "status": "success",
-            "message": "Bulk enrichment task created successfully",
-            "data": task.to_dict()
-        }
-    except Exception as e:
-        logger.error(f"Failed to create bulk enrichment task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create bulk enrichment task: {str(e)}")
+# Removed - use /api/enrichment/tasks/bulk
 
 
-@router.post("/quick/price_update", response_model=Dict[str, Any])
-async def create_price_update_task(
-    update_data: Dict[str, Any],
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Quick create price update task"""
-    try:
-        task_request = CreateTaskRequest(
-            task_type=TaskType.PRICE_UPDATE,
-            name="Price Update Task",
-            description="Update part prices from supplier APIs",
-            priority=TaskPriority.NORMAL,
-            input_data=update_data
-        )
-        
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        return {
-            "status": "success",
-            "message": "Price update task created successfully",
-            "data": task.to_dict()
-        }
-    except Exception as e:
-        logger.error(f"Failed to create price update task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create price update task: {str(e)}")
+# Removed - use /api/enrichment/tasks/part with pricing capability
 
 
-@router.post("/quick/database_cleanup", response_model=Dict[str, Any])
-async def create_database_cleanup_task(
-    cleanup_options: Dict[str, Any],
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Quick create database cleanup task"""
-    try:
-        task_request = CreateTaskRequest(
-            task_type=TaskType.DATABASE_CLEANUP,
-            name="Database Cleanup Task",
-            description="Clean up database and optimize performance",
-            priority=TaskPriority.LOW,
-            input_data=cleanup_options
-        )
-        
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        return {
-            "status": "success",
-            "message": "Database cleanup task created successfully",
-            "data": task.to_dict()
-        }
-    except Exception as e:
-        logger.error(f"Failed to create database cleanup task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create database cleanup task: {str(e)}")
+# Removed - database cleanup should use generic task creation
 
 
 # Enrichment capabilities endpoints moved to enrichment_routes.py

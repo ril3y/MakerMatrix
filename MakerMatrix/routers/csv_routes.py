@@ -202,19 +202,10 @@ async def import_csv(
             "failures": failed_parts
         }
         
-        if enable_enrichment and imported_part_ids:
-            try:
-                from MakerMatrix.services.task_service import create_csv_enrichment_task
-                enrichment_task = await create_csv_enrichment_task(
-                    imported_part_ids,
-                    csv_request.parser_type,
-                    current_user.id
-                )
-                response_data["enrichment_task_id"] = enrichment_task.id
-                logger.info(f"Created enrichment task {enrichment_task.id} for {len(success_parts)} imported parts")
-            except Exception as e:
-                logger.error(f"Failed to create enrichment task: {e}")
-                # Don't fail the entire import if enrichment task creation fails
+        # Task creation removed - use enrichment_routes.py to create enrichment tasks after import
+        # The frontend should:
+        # 1. Call this endpoint to import CSV
+        # 2. Use returned part_ids to create enrichment task via /api/enrichment/tasks/bulk
         
         return ResponseSchema(
             status="success",
@@ -705,12 +696,11 @@ async def import_file(
             finally:
                 session.close()
             
-            # Parse with user's enrichment settings
-            enable_enrichment = config.enable_enrichment and supports_enrichment(effective_parser_type)
+            # Parse CSV data
             parts_data, parsing_errors = csv_import_service.parse_csv_to_parts(
                 csv_content, 
                 effective_parser_type,
-                enable_enrichment=enable_enrichment
+                enable_enrichment=False  # Enrichment handled separately via enrichment routes
             )
             
             if parsing_errors:
@@ -745,26 +735,9 @@ async def import_file(
                     "failures": failed_parts
                 }
                 
-                # Create enrichment task if enrichment is enabled and we have successful imports
-                logger.info(f"Enrichment check: enable_enrichment={enable_enrichment}, imported_part_ids_count={len(imported_part_ids) if imported_part_ids else 0}")
-                if enable_enrichment and imported_part_ids:
-                    try:
-                        logger.info(f"Creating enrichment task for {len(imported_part_ids)} parts with supplier {effective_parser_type}")
-                        from MakerMatrix.services.task_service import create_csv_enrichment_task
-                        enrichment_task = await create_csv_enrichment_task(
-                            imported_part_ids,
-                            effective_parser_type,
-                            current_user.id
-                        )
-                        result["enrichment_task_id"] = enrichment_task.id
-                        logger.info(f"✅ Created enrichment task {enrichment_task.id} for {len(success_parts)} imported parts")
-                    except Exception as e:
-                        logger.error(f"❌ Failed to create enrichment task: {e}")
-                        import traceback
-                        logger.error(traceback.format_exc())
-                        # Don't fail the entire import if enrichment task creation fails
-                else:
-                    logger.info(f"❌ No enrichment task created: enable_enrichment={enable_enrichment}, imported_part_ids={bool(imported_part_ids)}")
+                # Task creation removed - use enrichment_routes.py to create enrichment tasks after import
+                # Return part_ids so frontend can create enrichment task if desired
+                result["imported_part_ids"] = imported_part_ids
         else:
             # For XLS files, use the new XLS parser
             try:

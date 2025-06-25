@@ -19,7 +19,8 @@ from . import (
     supplier_config_routes,
     supplier_routes,
     rate_limit_routes,
-    enrichment_routes
+    enrichment_routes,
+    import_routes
 )
 
 __all__ = [
@@ -42,5 +43,6 @@ __all__ = [
     "supplier_config_routes",
     "supplier_routes",
     "rate_limit_routes",
-    "enrichment_routes"
+    "enrichment_routes",
+    "import_routes"
 ]
