@@ -11,7 +11,7 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
-    utility_routes, auth_routes, user_routes, role_routes, ai_routes, csv_routes, static_routes, task_routes, 
+    utility_routes, auth_routes, user_routes, role_routes, ai_routes, import_routes, static_routes, task_routes, 
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, rate_limit_routes,
     enrichment_routes
 )
@@ -129,12 +129,9 @@ categories_permissions = {
     "/delete_all_categories": "categories:delete_all"
 }
 
-csv_permissions = {
-    "/preview-file": "parts:read",
-    "/import-file": "parts:create",
-    "/preview-text": "parts:read",
-    "/supported-suppliers": "parts:read",
-    "/config": "parts:read"
+import_permissions = {
+    "/file": "parts:create",
+    "/suppliers": "parts:read"
 }
 
 task_permissions = {
@@ -240,7 +237,7 @@ secure_all_routes(utility_routes.router, exclude_paths=["/get_counts"])
 secure_all_routes(user_routes.router)
 secure_all_routes(role_routes.router)
 secure_all_routes(ai_routes.router)
-secure_all_routes(csv_routes.router, permissions=csv_permissions)
+secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
 secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
 secure_all_routes(supplier_routes.router, permissions=supplier_permissions)
@@ -263,7 +260,7 @@ app.include_router(auth_routes.router, tags=["Authentication"])
 app.include_router(user_routes.router, prefix="/users", tags=["Users"])
 app.include_router(role_routes.router, prefix="/roles", tags=["Roles"])
 app.include_router(ai_routes.router, prefix="/ai", tags=["AI Configuration"])
-app.include_router(csv_routes.router, prefix="/api/csv")
+app.include_router(import_routes.router, prefix="/api/import")
 app.include_router(task_routes.router, prefix="/api/tasks")
 app.include_router(supplier_config_routes.router, tags=["Supplier Configuration"])
 app.include_router(supplier_routes.router, tags=["Suppliers"])
