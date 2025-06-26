@@ -44,6 +44,8 @@ class SupplierImportInfo(BaseModel):
     supported_file_types: List[str]
     import_available: bool
     missing_credentials: List[str] = Field(default_factory=list)
+    is_configured: bool = False
+    configuration_status: str = "not_configured"  # "configured", "not_configured", "partial"
 
 # ========== Endpoints ==========
 
@@ -76,7 +78,36 @@ async def import_file(
                 detail=f"{supplier_name} does not support file imports"
             )
         
-        # Check if import capability is available (credentials check)
+        # NEW: Check if supplier is configured in the system
+        try:
+            from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+            config_service = SupplierConfigService()
+            supplier_config = config_service.get_supplier_config(supplier_name)
+            
+            # Supplier must be configured and enabled
+            if not supplier_config or not supplier_config.get('enabled', False):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Supplier {supplier_name} is not configured or enabled. Please configure the supplier in Settings -> Suppliers before importing files."
+                )
+                
+        except ImportError:
+            # Fallback if config service not available
+            logger.warning("SupplierConfigService not available, skipping configuration check")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Error checking supplier configuration: {e}")
+            # For non-configured suppliers, check basic credentials
+            if not supplier.is_capability_available(SupplierCapability.IMPORT_ORDERS):
+                missing = supplier.get_missing_credentials_for_capability(SupplierCapability.IMPORT_ORDERS)
+                if missing:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"Supplier {supplier_name} is not configured. Please configure the supplier in Settings -> Suppliers before importing files."
+                    )
+        
+        # Check if import capability is available (credentials check)  
         if not supplier.is_capability_available(SupplierCapability.IMPORT_ORDERS):
             missing = supplier.get_missing_credentials_for_capability(SupplierCapability.IMPORT_ORDERS)
             raise HTTPException(
@@ -412,10 +443,26 @@ async def get_import_suppliers(
     """
     Get list of suppliers that support file imports.
     
-    Shows which suppliers can import files and what credentials they need.
+    Shows which suppliers can import files and what configuration they need.
     """
     try:
         suppliers_info = []
+        
+        # Get configured suppliers from database
+        configured_suppliers = {}
+        try:
+            from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+            config_service = SupplierConfigService()
+            configs = config_service.get_all_supplier_configs()
+            configured_suppliers = {
+                config['supplier_name'].lower(): config 
+                for config in configs 
+                if config.get('enabled', False)
+            }
+            logger.info(f"Found {len(configured_suppliers)} configured suppliers: {list(configured_suppliers.keys())}")
+        except Exception as e:
+            logger.warning(f"Could not load configured suppliers: {e}")
+            configured_suppliers = {}
         
         for supplier_name in get_available_suppliers():
             try:
@@ -427,16 +474,31 @@ async def get_import_suppliers(
                 
                 info = supplier.get_supplier_info()
                 
-                # Check what's needed for import
-                import_available = supplier.is_capability_available(SupplierCapability.IMPORT_ORDERS)
+                # Check if supplier is configured
+                is_configured = supplier_name.lower() in configured_suppliers
+                config_status = "configured" if is_configured else "not_configured"
+                
+                # Check basic import capability (file parsing)
+                import_capable = supplier.is_capability_available(SupplierCapability.IMPORT_ORDERS)
                 missing_creds = supplier.get_missing_credentials_for_capability(SupplierCapability.IMPORT_ORDERS)
+                
+                # Import available if: configured AND technically capable
+                # OR technically capable AND no credentials required
+                import_available = is_configured and import_capable
+                
+                # If not configured but no credentials needed, still allow import
+                if not is_configured and import_capable and len(missing_creds) == 0:
+                    import_available = True
+                    config_status = "partial"  # Can import but not fully configured
                 
                 suppliers_info.append(SupplierImportInfo(
                     name=supplier_name,
                     display_name=info.display_name,
                     supported_file_types=info.supported_file_types,
                     import_available=import_available,
-                    missing_credentials=missing_creds
+                    missing_credentials=missing_creds if not is_configured else [],
+                    is_configured=is_configured,
+                    configuration_status=config_status
                 ))
                 
             except Exception as e:

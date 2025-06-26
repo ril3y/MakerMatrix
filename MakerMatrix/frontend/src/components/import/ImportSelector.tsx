@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, ChevronDown, Upload, CheckCircle, AlertCircle, File, X } from 'lucide-react'
+import { FileText, ChevronDown, Upload, CheckCircle, AlertCircle, File, X, Settings } from 'lucide-react'
 import UnifiedFileImporter from './UnifiedFileImporter'
 import ImportSettings from './ImportSettings'
 import { ImportResult } from './hooks/useOrderImport'
@@ -12,10 +12,13 @@ interface ImportSelectorProps {
 }
 
 interface FilePreviewData {
+  filename: string
+  size: number
+  type: string
   detected_parser: string | null
   preview_rows: any[]
   headers: string[]
-  total_rows: number
+  total_rows: number | string
   is_supported: boolean
   validation_errors: string[]
   file_format: string
@@ -38,9 +41,88 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
     const loadAvailableSuppliers = async () => {
       try {
         setIsLoadingParsers(true)
-        const response = await apiClient.get('/api/csv/available-suppliers')
-        if (response.status === 'success') {
-          setParsers(response.data)
+        
+        // First check if there are any configured suppliers
+        let configuredSuppliers = []
+        try {
+          const configResponse = await apiClient.get('/api/suppliers/config/suppliers')
+          configuredSuppliers = configResponse.data?.data || []
+          console.log('Configured suppliers from DB:', configuredSuppliers)
+        } catch (configError) {
+          console.warn('Could not load configured suppliers, will use import suppliers only:', configError)
+        }
+        
+        // Get import capabilities
+        const response = await apiClient.get('/api/import/suppliers')
+        console.log('Import suppliers response:', response)
+        
+        if (response.data?.data || response.data) {
+          const importSuppliers = response.data?.data || response.data || []
+          console.log('Available import suppliers:', importSuppliers)
+          
+          let availableSuppliers = []
+          
+          if (configuredSuppliers.length > 0) {
+            // Filter by configured suppliers if we have any
+            const enabledSupplierNames = configuredSuppliers
+              .filter(config => config.enabled)
+              .map(config => config.supplier_name.toLowerCase())
+            
+            console.log('Enabled supplier names:', enabledSupplierNames)
+            
+            availableSuppliers = importSuppliers
+              .filter(supplier => 
+                enabledSupplierNames.includes(supplier.name.toLowerCase()) &&
+                supplier.import_available
+              )
+          } else {
+            // If no configured suppliers, show all available import suppliers
+            availableSuppliers = importSuppliers.filter(supplier => supplier.import_available)
+          }
+          
+          // Map to frontend format
+          const mappedSuppliers = availableSuppliers.map(supplier => {
+            let description = `${supplier.display_name} (${supplier.supported_file_types.join(', ').toUpperCase()})`
+            let color = 'bg-blue-500'
+            
+            // Add configuration status to description
+            if (supplier.is_configured) {
+              description += ' - Configured'
+              color = 'bg-green-500'
+            } else if (supplier.configuration_status === 'partial') {
+              description += ' - Partial (Import only)'
+              color = 'bg-yellow-500'
+            } else {
+              description += ' - Not configured'
+              color = 'bg-gray-500'
+            }
+            
+            return {
+              id: supplier.name,
+              name: supplier.display_name,
+              description,
+              color,
+              supported: supplier.import_available,
+              import_available: supplier.import_available,
+              missing_credentials: supplier.missing_credentials || [],
+              is_configured: supplier.is_configured || false,
+              configuration_status: supplier.configuration_status || 'not_configured'
+            }
+          })
+          
+          console.log('Final mapped suppliers:', mappedSuppliers)
+          
+          setParsers(mappedSuppliers)
+          
+          if (mappedSuppliers.length === 0) {
+            if (configuredSuppliers.length === 0) {
+              console.log('No suppliers configured at all')
+              toast.error('No suppliers are configured. Please configure suppliers in Settings.')
+            } else {
+              console.log('Suppliers configured but none available for import')
+              toast.error('Configured suppliers are not available for import. Check supplier configurations.')
+            }
+          }
         } else {
           console.error('Failed to load suppliers:', response.message)
           toast.error('Failed to load available suppliers')
@@ -53,23 +135,29 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
           { 
             id: 'lcsc', 
             name: 'LCSC Electronics', 
-            description: 'Chinese electronics distributor (CSV)',
+            description: 'LCSC Electronics (CSV)',
             color: 'bg-blue-500',
-            supported: true
+            supported: true,
+            import_available: true,
+            missing_credentials: []
           },
           { 
             id: 'digikey', 
             name: 'DigiKey', 
-            description: 'Major electronics distributor (CSV)',
+            description: 'DigiKey (CSV)',
             color: 'bg-red-500',
-            supported: true
+            supported: true,
+            import_available: true,
+            missing_credentials: []
           },
           { 
             id: 'mouser', 
             name: 'Mouser Electronics', 
-            description: 'Global electronics distributor (XLS format)',
+            description: 'Mouser Electronics (XLS)',
             color: 'bg-green-500',
-            supported: true
+            supported: true,
+            import_available: true,
+            missing_credentials: []
           }
         ])
       } finally {
@@ -80,7 +168,8 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
     loadAvailableSuppliers()
   }, [])
 
-  const selectedParserInfo = parsers.find(p => p.id === selectedParser)
+  const selectedParserInfo = parsers.find(p => p.id === selectedParser || p.name === selectedParser)
+  
 
   // File upload functions
   const handleFileSelect = async (file: File) => {
@@ -98,34 +187,106 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
     setUploadedFile(file)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
+      // Get file preview from backend API
+      let previewResponse
+      const fileName = file.name.toLowerCase()
+      
+      if (fileName.endsWith('.csv')) {
+        // Handle CSV files with text content
+        const fileContent = await file.text()
+        previewResponse = await apiClient.post('/api/import/preview', {
+          csv_content: fileContent
+        })
+      } else {
+        // Handle XLS files with file upload
+        const formData = new FormData()
+        formData.append('file', file)
+        previewResponse = await apiClient.post('/api/import/file', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+      }
 
-      const result = await apiClient.post('/api/csv/preview-file', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+      // Extract preview data from response
+      const previewData = previewResponse.data?.data || previewResponse.data || {}
+      
+      // Auto-detect parser from filename if not detected by backend
+      let suggestedParser = previewData.detected_parser || ''
+      if (!suggestedParser) {
+        const filename = file.name.toLowerCase()
+        if (filename.includes('lcsc')) {
+          suggestedParser = 'lcsc'
+        } else if (filename.includes('digikey') || filename.includes('dk_')) {
+          suggestedParser = 'digikey'  
+        } else if (filename.includes('mouser')) {
+          suggestedParser = 'mouser'
         }
+      }
+      
+      if (suggestedParser) {
+        setDetectedParser(suggestedParser)
+        setSelectedParser(suggestedParser)
+        setAutoDetected(true)
+        toast.success(`Auto-detected: ${parsers.find(p => p.id === suggestedParser)?.name || suggestedParser}`)
+      } else {
+        toast('File uploaded successfully, please select a parser type')
+      }
+      
+      // Set preview data from backend response
+      const fileExtension = file.name.toLowerCase().split('.').pop()
+      setFilePreview({
+        filename: file.name,
+        size: file.size,
+        type: file.type,
+        detected_parser: suggestedParser,
+        file_format: fileExtension?.toUpperCase() || 'Unknown',
+        total_rows: previewData.total_rows || 0,
+        headers: previewData.headers || [],
+        is_supported: previewData.is_supported !== false,
+        validation_errors: previewData.validation_errors || [],
+        preview_rows: previewData.preview_rows || []
       })
       
-      if (result.status === 'success') {
-        setFilePreview(result.data)
-        setDetectedParser(result.data.detected_parser || '')
-        setSelectedParser(result.data.detected_parser || '')
-        setAutoDetected(!!result.data.detected_parser)
-        
-        if (result.data.detected_parser) {
-          toast.success(`Auto-detected: ${parsers.find(p => p.id === result.data.detected_parser)?.name || result.data.detected_parser}`)
-        } else {
-          toast('File uploaded successfully, please select a parser type')
-        }
-      } else {
-        throw new Error(result.message || 'Failed to preview file')
+      if (previewData.validation_errors && previewData.validation_errors.length > 0) {
+        toast.error(`Validation issues: ${previewData.validation_errors[0]}`)
       }
+      
     } catch (error) {
       console.error('File preview error:', error)
-      toast.error(error instanceof Error ? error.message : 'Error processing file')
-      setUploadedFile(null)
-      setFilePreview(null)
+      toast.error('Failed to preview file')
+      
+      // Fallback to basic file info if preview fails
+      const filename = file.name.toLowerCase()
+      let suggestedParser = ''
+      
+      if (filename.includes('lcsc')) {
+        suggestedParser = 'lcsc'
+      } else if (filename.includes('digikey') || filename.includes('dk_')) {
+        suggestedParser = 'digikey'  
+      } else if (filename.includes('mouser')) {
+        suggestedParser = 'mouser'
+      }
+      
+      if (suggestedParser) {
+        setDetectedParser(suggestedParser)
+        setSelectedParser(suggestedParser)
+        setAutoDetected(true)
+      }
+      
+      // Set basic file info for preview
+      const fileExtension = file.name.toLowerCase().split('.').pop()
+      setFilePreview({
+        filename: file.name,
+        size: file.size,
+        type: file.type,
+        detected_parser: suggestedParser,
+        file_format: fileExtension?.toUpperCase() || 'Unknown',
+        total_rows: 'Error loading preview',
+        headers: [],
+        is_supported: !!suggestedParser,
+        validation_errors: ['Could not preview file content']
+      })
     } finally {
       setIsProcessing(false)
     }
@@ -174,9 +335,31 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         </p>
       </div>
 
-      {/* File Upload Area */}
-      <div className="card p-6">
-        <div 
+      {!isLoadingParsers && parsers.length === 0 ? (
+        <div className="card p-8 text-center">
+          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Settings className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            No Suppliers Configured
+          </h4>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            To import supplier order files, you need to configure at least one supplier first.
+            <br />
+            Supported suppliers include LCSC, DigiKey, Mouser, and more.
+          </p>
+          <a
+            href="/settings/suppliers"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Configure Suppliers
+          </a>
+        </div>
+      ) : (
+        <>
+          <div className="card p-6">
+            <div 
           className={`border-2 border-dashed rounded-lg p-8 transition-all cursor-pointer ${
             dragActive 
               ? 'border-primary bg-primary/5' 
@@ -273,19 +456,47 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                   className="input w-full appearance-none pr-10"
                   disabled={isLoadingParsers}
                 >
-                  <option value="">
+                  {/* All options have unique keys */}
+                  <option key="placeholder" value="">
                     {isLoadingParsers ? 'Loading suppliers...' : 'Select a parser...'}
                   </option>
-                  {parsers.map((parser) => (
-                    <option key={parser.id} value={parser.id} disabled={!parser.supported}>
-                      {parser.name} - {parser.description}
-                      {!parser.supported ? ' (Coming soon)' : ''}
+                  {parsers.map((parser, index) => (
+                    <option key={parser.id || `parser-${index}`} value={parser.id} disabled={!parser.import_available}>
+                      {parser.name}
+                      {!parser.import_available ? ' (Configuration required)' : ''}
                     </option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-secondary pointer-events-none" />
               </div>
             </div>
+
+            {/* Configuration Warning */}
+            {selectedParserInfo && !selectedParserInfo.is_configured && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3 flex-shrink-0" />
+                  <div>
+                    <h5 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                      {selectedParserInfo.configuration_status === 'partial' ? 'Partial Configuration' : 'Supplier Not Configured'}
+                    </h5>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                      {selectedParserInfo.configuration_status === 'partial' 
+                        ? `${selectedParserInfo.name} can import files but is not fully configured. You'll be able to import parts but won't have access to enrichment features like datasheet downloads or real-time pricing.`
+                        : `${selectedParserInfo.name} is not configured in your system. Please configure this supplier to access all features.`
+                      }
+                    </p>
+                    <a
+                      href="/settings/suppliers"
+                      className="inline-flex items-center px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-md transition-colors"
+                    >
+                      <Settings className="w-4 h-4 mr-1.5" />
+                      Configure Supplier
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* File Preview Info */}
             {filePreview && (
@@ -304,7 +515,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                   </div>
                   <div>
                     <span className="text-secondary">Columns:</span>
-                    <span className="text-primary ml-2 font-medium">{filePreview.headers.length}</span>
+                    <span className="text-primary ml-2 font-medium">{filePreview.headers?.length || 0}</span>
                   </div>
                   <div>
                     <span className="text-secondary">Supported:</span>
@@ -314,11 +525,11 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                   </div>
                 </div>
                 
-                {filePreview.validation_errors.length > 0 && (
+                {filePreview.validation_errors?.length > 0 && (
                   <div className="mt-3 p-3 bg-error/10 rounded border border-error/20">
                     <p className="text-sm text-error font-medium mb-1">Validation Issues:</p>
                     <ul className="text-sm text-error list-disc list-inside">
-                      {filePreview.validation_errors.map((error, index) => (
+                      {filePreview.validation_errors?.map((error, index) => (
                         <li key={index}>{error}</li>
                       ))}
                     </ul>
@@ -328,51 +539,67 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
             )}
           </div>
         )}
-      </div>
+          </div>
 
-      {/* Import Settings */}
-      <ImportSettings />
+          {/* Import Settings */}
+          <ImportSettings />
 
-      {/* Selected Parser Component */}
-      {uploadedFile && selectedParser && (
-        <motion.div
-          key={selectedParser}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {selectedParserInfo?.supported ? (
-            <UnifiedFileImporter
-              uploadedFile={uploadedFile}
-              filePreview={filePreview}
-              parserType={selectedParser}
-              parserName={selectedParserInfo.name}
-              description={selectedParserInfo.description}
-              onImportComplete={(result) => {
-                onImportComplete?.(result)
-                // Reset state after successful import
-                clearFile()
-              }}
-            />
-          ) : (
-            <div className="card p-8 text-center">
-              <div className="w-16 h-16 bg-text-muted/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="w-8 h-8 text-muted" />
-              </div>
-              <h4 className="text-lg font-medium text-primary mb-2">
-                {selectedParserInfo?.name} Import Coming Soon
-              </h4>
-              <p className="text-secondary">
-                We're working on adding support for {selectedParserInfo?.name} imports.
-                <br />
-                For now, try other available supplier imports.
-              </p>
-            </div>
+          {/* Selected Parser Component */}
+          {uploadedFile && selectedParser && (
+            <motion.div
+              key={selectedParser}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {selectedParserInfo?.supported ? (
+                <UnifiedFileImporter
+                  uploadedFile={uploadedFile}
+                  filePreview={filePreview}
+                  parserType={selectedParser}
+                  parserName={selectedParserInfo.name}
+                  description={selectedParserInfo.description}
+                  onImportComplete={(result) => {
+                    onImportComplete?.(result)
+                    // Reset state after successful import
+                    clearFile()
+                  }}
+                />
+              ) : (
+                <div className="border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-lg p-8 text-center">
+                  <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  </div>
+                  <h4 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">
+                    File Not Supported
+                  </h4>
+                  <p className="text-red-700 dark:text-red-300 mb-4">
+                    This file format is not supported by the {selectedParserInfo?.name} parser.
+                    <br />
+                    Please check the file format or try a different parser.
+                  </p>
+                  {selectedParserInfo && !selectedParserInfo.is_configured && (
+                    <div className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded border border-yellow-300 dark:border-yellow-700">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
+                        <strong>Note:</strong> {selectedParserInfo.name} is not configured in your system.
+                      </p>
+                      <a
+                        href="/settings/suppliers"
+                        className="inline-flex items-center px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        <Settings className="w-4 h-4 mr-1.5" />
+                        Configure {selectedParserInfo.name}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
           )}
-        </motion.div>
-      )}
 
-      {/* Instructions when no file is uploaded - removed redundant section */}
+          {/* Instructions when no file is uploaded - removed redundant section */}
+        </>
+      )}
     </div>
   )
 }
