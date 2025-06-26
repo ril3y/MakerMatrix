@@ -514,3 +514,81 @@ async def get_import_suppliers(
     except Exception as e:
         logger.error(f"Error getting import suppliers: {e}")
         raise HTTPException(status_code=500, detail="Failed to get suppliers")
+
+
+@router.post("/extract-filename-info")
+async def extract_filename_info(
+    request: Dict[str, str],
+    current_user: UserModel = Depends(get_current_user)
+):
+    """
+    Extract order information from filename patterns.
+    
+    Analyzes filename to detect supplier and extract order details.
+    """
+    try:
+        filename = request.get('filename', '')
+        if not filename:
+            raise HTTPException(status_code=400, detail="Filename is required")
+        
+        # Extract file info
+        filename_lower = filename.lower()
+        file_ext = filename.split('.')[-1].lower() if '.' in filename else ''
+        
+        # Detect supplier from filename patterns
+        detected_supplier = None
+        order_info = {}
+        
+        if 'lcsc' in filename_lower:
+            detected_supplier = 'lcsc'
+        elif 'digikey' in filename_lower or 'dk_' in filename_lower or 'digi-key' in filename_lower:
+            detected_supplier = 'digikey'
+        elif 'mouser' in filename_lower:
+            detected_supplier = 'mouser'
+        
+        # Extract order number patterns
+        import re
+        
+        # Common order number patterns
+        order_patterns = [
+            r'order[_-]?(\w+)',
+            r'ord[_-]?(\w+)', 
+            r'po[_-]?(\w+)',
+            r'(\d{8,})',  # 8+ digit numbers
+            r'([A-Z]{2,}\d{4,})',  # Letter prefix with numbers
+        ]
+        
+        for pattern in order_patterns:
+            match = re.search(pattern, filename_lower)
+            if match:
+                order_info['order_number'] = match.group(1).upper()
+                break
+        
+        # Extract date patterns (YYYYMMDD, YYYY-MM-DD, etc.)
+        date_patterns = [
+            r'(\d{4}[-_]?\d{2}[-_]?\d{2})',
+            r'(\d{2}[-_]?\d{2}[-_]?\d{4})',
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, filename)
+            if match:
+                order_info['order_date'] = match.group(1)
+                break
+        
+        return ResponseSchema(
+            status="success",
+            message="Filename info extracted",
+            data={
+                "detected_supplier": detected_supplier,
+                "file_type": file_ext.upper(),
+                "order_info": order_info,
+                "filename": filename
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error extracting filename info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract filename info: {str(e)}")

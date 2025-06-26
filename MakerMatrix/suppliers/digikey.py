@@ -8,6 +8,7 @@ Supports part search, pricing, stock, datasheets, and images.
 import os
 import json
 import base64
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import aiohttp
@@ -32,6 +33,8 @@ from .exceptions import (
     SupplierConnectionError, SupplierRateLimitError
 )
 
+logger = logging.getLogger(__name__)
+
 @register_supplier("digikey")
 class DigiKeySupplier(BaseSupplier):
     """DigiKey supplier implementation with OAuth2 support"""
@@ -52,7 +55,7 @@ class DigiKeySupplier(BaseSupplier):
             supports_oauth=True,  # DigiKey requires OAuth for production API access
             rate_limit_info="1000 requests per hour for authenticated users",
             supports_multiple_environments=True,  # Supports both sandbox and production modes
-            supported_file_types=["csv"]  # DigiKey supports CSV order exports
+            supported_file_types=["csv", "xls", "xlsx"]  # DigiKey supports CSV and Excel order exports
         )
     
     def get_capabilities(self) -> List[SupplierCapability]:
@@ -911,48 +914,95 @@ class DigiKeySupplier(BaseSupplier):
     # ========== Order Import Implementation ==========
     
     def can_import_file(self, filename: str, file_content: bytes = None) -> bool:
-        """Check if this is a DigiKey CSV file"""
+        """Check if this is a DigiKey CSV or Excel file"""
+        filename_lower = filename.lower()
+        
         # Check file extension
-        if not filename.lower().endswith('.csv'):
+        supported_extensions = ['.csv', '.xls', '.xlsx']
+        if not any(filename_lower.endswith(ext) for ext in supported_extensions):
             return False
         
         # Check filename patterns
-        digikey_patterns = ['digikey', 'digi-key', 'weborder', 'salesorder']
-        if any(pattern in filename.lower() for pattern in digikey_patterns):
+        digikey_patterns = ['digikey', 'digi-key', 'weborder', 'salesorder', 'dk_products']
+        if any(pattern in filename_lower for pattern in digikey_patterns):
             return True
         
         # Check content for DigiKey-specific patterns
         if file_content:
             try:
-                content_str = file_content.decode('utf-8', errors='ignore')[:2000]  # Check first 2KB
-                # Look for DigiKey-specific headers
-                digikey_indicators = [
-                    'Digi-Key Part Number',
-                    'Manufacturer Part Number',
-                    'Customer Reference',
-                    'DigiKey Part #',
-                    'Index,Quantity,Part Number,Manufacturer Part Number'
-                ]
-                return any(indicator in content_str for indicator in digikey_indicators)
-            except:
-                pass
+                # For Excel files, try to read first sheet
+                if filename_lower.endswith(('.xls', '.xlsx')):
+                    try:
+                        import pandas as pd
+                        import io
+                        df = pd.read_excel(io.BytesIO(file_content), nrows=5)  # Read first 5 rows
+                        
+                        # Check column headers for DigiKey patterns
+                        if not df.empty:
+                            headers = ' '.join(str(col).lower() for col in df.columns)
+                            digikey_indicators = [
+                                'digi-key part number', 'digikey part', 'customer reference',
+                                'manufacturer part number', 'part number', 'quantity'
+                            ]
+                            if any(indicator in headers for indicator in digikey_indicators):
+                                return True
+                    except Exception as e:
+                        logger.debug(f"Error reading Excel file for DigiKey detection: {e}")
+                
+                # For CSV files, check text content
+                else:
+                    content_str = file_content.decode('utf-8', errors='ignore')[:2000]  # Check first 2KB
+                    # Look for DigiKey-specific headers
+                    digikey_indicators = [
+                        'Digi-Key Part Number',
+                        'Manufacturer Part Number',
+                        'Customer Reference',
+                        'DigiKey Part #',
+                        'Index,Quantity,Part Number,Manufacturer Part Number'
+                    ]
+                    return any(indicator in content_str for indicator in digikey_indicators)
+            except Exception as e:
+                logger.debug(f"Error checking DigiKey file content: {e}")
         
         return False
     
     async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
-        """Import DigiKey order CSV file"""
-        if file_type.lower() != 'csv':
+        """Import DigiKey order CSV or Excel file"""
+        file_type_lower = file_type.lower()
+        
+        if file_type_lower not in ['csv', 'xls', 'xlsx']:
             return ImportResult(
                 success=False,
-                error_message=f"DigiKey only supports CSV files, not {file_type}"
+                error_message=f"DigiKey supports CSV and Excel files, not {file_type}"
             )
         
         try:
+            # Convert Excel files to CSV format for processing
+            if file_type_lower in ['xls', 'xlsx']:
+                try:
+                    import pandas as pd
+                    import io
+                    
+                    # Read Excel file
+                    df = pd.read_excel(io.BytesIO(file_content))
+                    
+                    # Convert to CSV string
+                    csv_content = df.to_csv(index=False)
+                    content_str = csv_content
+                    
+                except Exception as e:
+                    return ImportResult(
+                        success=False,
+                        error_message=f"Failed to read Excel file: {str(e)}"
+                    )
+            else:
+                # Handle CSV files
+                content_str = file_content.decode('utf-8')
+            
             # Parse CSV content
             import csv
             import io
             
-            content_str = file_content.decode('utf-8')
             csv_reader = csv.DictReader(io.StringIO(content_str))
             
             parts = []
@@ -966,6 +1016,7 @@ class DigiKeySupplier(BaseSupplier):
                 for row in csv_reader:
                     try:
                         part = {
+                            'part_name': row.get('Description', row.get('Manufacturer Part Number', '')).strip(),
                             'supplier_part_number': row.get('Digi-Key Part Number', '').strip(),
                             'manufacturer': row.get('Manufacturer', '').strip(),
                             'manufacturer_part_number': row.get('Manufacturer Part Number', '').strip(),
@@ -990,13 +1041,14 @@ class DigiKeySupplier(BaseSupplier):
                 for row in csv_reader:
                     try:
                         part = {
+                            'part_name': row.get('Description', row.get('Manufacturer Part Number', '')).strip(),
                             'supplier_part_number': row.get('Part Number', '').strip(),
                             'manufacturer': row.get('Manufacturer', '').strip(),
                             'manufacturer_part_number': row.get('Manufacturer Part Number', '').strip(),
                             'description': row.get('Description', '').strip(),
                             'quantity': int(row.get('Quantity', 0)),
                             'unit_price': float(row.get('Unit Price', '0').replace('$', '').replace(',', '')),
-                            'extended_price': float(row.get('Extended Price$', '0').replace('$', '').replace(',', '')),
+                            'extended_price': float(row.get('Extended Price', '0').replace('$', '').replace(',', '')),
                             'supplier': 'DigiKey',
                             'additional_properties': {
                                 'customer_reference': row.get('Customer Reference', '')
