@@ -5,20 +5,15 @@ Implements the LCSC (EasyEDA) API interface using the public EasyEDA API.
 No authentication required - uses the same API as the existing LCSC parser.
 """
 
-from typing import List, Dict, Any, Optional
-import aiohttp
-import asyncio
 import re
+from typing import List, Dict, Any, Optional
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
     PartSearchResult, SupplierInfo, CapabilityRequirement, ImportResult
 )
 from .registry import register_supplier
-from .exceptions import (
-    SupplierConfigurationError, SupplierAuthenticationError,
-    SupplierConnectionError, SupplierRateLimitError
-)
+
 
 @register_supplier("lcsc")
 class LCSCSupplier(BaseSupplier):
@@ -468,48 +463,80 @@ class LCSCSupplier(BaseSupplier):
             )
         
         try:
-            # Use the existing LCSC CSV parser logic
-            from ..parsers.lcsc_csv_parser import LCSCCSVParser
+            import csv
+            import io
             
-            parser = LCSCCSVParser()
             # Convert bytes to string
             csv_content = file_content.decode('utf-8')
             
-            # Parse the CSV
-            parts_data, errors = parser.parse(csv_content)
+            # Parse CSV using built-in csv module
+            csv_reader = csv.DictReader(io.StringIO(csv_content))
+            rows = list(csv_reader)
             
-            if not parts_data and errors:
+            if not rows:
                 return ImportResult(
                     success=False,
-                    error_message="Failed to parse LCSC CSV: " + "; ".join(errors),
-                    warnings=errors
+                    error_message="No data found in CSV file"
                 )
             
-            # Extract order info if available
+            # Extract order info from filename if available
             order_info = None
-            if hasattr(parser, 'extract_order_info'):
-                order_info = parser.extract_order_info(csv_content)
-            
-            # Convert parser results to standard format
-            import_parts = []
-            for part in parts_data:
-                # Map LCSC CSV fields to standard part format
-                import_part = {
-                    'supplier_part_number': part.get('LCSC Part Number', ''),
-                    'manufacturer': part.get('Manufacturer', ''),
-                    'manufacturer_part_number': part.get('MFR.Part Number', ''),
-                    'description': part.get('Description', ''),
-                    'quantity': int(part.get('Order Qty.', 0)),
-                    'unit_price': float(part.get('Unit Price(USD)', 0)),
-                    'extended_price': float(part.get('Subtotal(USD)', 0)),
-                    'supplier': 'LCSC',
-                    'additional_properties': {
-                        'customer_no': part.get('Customer NO.', ''),
-                        'product_remark': part.get('Product Remark', ''),
-                        'order_no': part.get('Order NO.', '')
+            if filename:
+                # LCSC filenames often contain date like LCSC_Exported__20241222_232708.csv
+                import re
+                date_match = re.search(r'(\d{8})_(\d{6})', filename)
+                if date_match:
+                    date_str = date_match.group(1)
+                    time_str = date_match.group(2)
+                    order_info = {
+                        'supplier': 'LCSC',
+                        'export_date': f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}",
+                        'export_time': f"{time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}"
                     }
-                }
-                import_parts.append(import_part)
+            
+            # Convert CSV rows to standard format
+            import_parts = []
+            warnings = []
+            
+            for idx, row in enumerate(rows):
+                try:
+                    # Skip rows with empty part numbers
+                    part_number = row.get('LCSC Part Number', '').strip()
+                    if not part_number:
+                        continue
+                    
+                    # Parse quantity (remove any minimum/multiple order info)
+                    qty_str = row.get('Order Qty.', '0').strip()
+                    quantity = int(float(qty_str)) if qty_str else 0
+                    
+                    # Parse prices - LCSC uses Unit Price($) and Order Price($)
+                    unit_price_str = row.get('Unit Price($)', row.get('Unit Price(USD)', '0')).strip()
+                    unit_price = float(unit_price_str) if unit_price_str else 0.0
+                    
+                    order_price_str = row.get('Order Price($)', row.get('Subtotal(USD)', '0')).strip()
+                    extended_price = float(order_price_str) if order_price_str else (unit_price * quantity)
+                    
+                    # Map LCSC CSV fields to standard part format
+                    import_part = {
+                        'part_name': row.get('Part Name', '').strip(),
+                        'supplier_part_number': part_number,
+                        'manufacturer': row.get('Manufacturer', '').strip(),
+                        'manufacturer_part_number': row.get('Manufacture Part Number', row.get('MFR.Part Number', '')).strip(),
+                        'description': row.get('Description', '').strip(),
+                        'quantity': quantity,
+                        'unit_price': unit_price,
+                        'extended_price': extended_price,
+                        'supplier': 'LCSC',
+                        'additional_properties': {
+                            'customer_no': row.get('Customer NO.', '').strip(),
+                            'package': row.get('Package', '').strip(),
+                            'rohs': row.get('RoHS', '').strip(),
+                            'min_mult_order_qty': row.get('Min\Mult Order Qty.', '').strip()
+                        }
+                    }
+                    import_parts.append(import_part)
+                except (ValueError, TypeError) as e:
+                    warnings.append(f"Row {idx + 2}: Error parsing data - {str(e)}")  # +2 for header and 0-index
             
             return ImportResult(
                 success=True,
@@ -517,7 +544,7 @@ class LCSCSupplier(BaseSupplier):
                 parts=import_parts,
                 order_info=order_info,
                 parser_type='lcsc',
-                warnings=errors if errors else []
+                warnings=warnings
             )
             
         except Exception as e:
@@ -531,18 +558,34 @@ class LCSCSupplier(BaseSupplier):
     def get_import_file_preview(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
         """Get a preview of LCSC CSV import"""
         try:
-            from ..parsers.lcsc_csv_parser import LCSCCSVParser
+            import csv
+            import io
             
-            parser = LCSCCSVParser()
             csv_content = file_content.decode('utf-8')
             
-            # Get preview using parser
-            preview_data = parser.get_preview_data(csv_content)
+            # Parse CSV to get headers and preview rows
+            csv_file = io.StringIO(csv_content)
+            csv_reader = csv.DictReader(csv_file)
+            headers = csv_reader.fieldnames or []
+            
+            # Get first 5 rows for preview
+            preview_rows = []
+            for i, row in enumerate(csv_reader):
+                if i >= 5:
+                    break
+                # Only include non-empty rows
+                if row.get('LCSC Part Number', '').strip():
+                    preview_rows.append(row)
+            
+            # Reset reader to count total rows
+            csv_file.seek(0)
+            csv_reader = csv.DictReader(csv_file)
+            total_rows = sum(1 for row in csv_reader if row.get('LCSC Part Number', '').strip())
             
             return {
-                "headers": preview_data.get('headers', []),
-                "preview_rows": preview_data.get('preview_rows', []),
-                "total_rows": preview_data.get('total_rows', 0),
+                "headers": headers,
+                "preview_rows": preview_rows,
+                "total_rows": total_rows,
                 "detected_supplier": "lcsc",
                 "is_supported": True
             }

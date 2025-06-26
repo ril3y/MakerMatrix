@@ -12,13 +12,14 @@ import logging
 import uuid
 from datetime import datetime
 
-from ..dependencies.auth import get_current_user
-from ..models.user_models import UserModel
-from ..schemas.response import ResponseSchema
-from ..suppliers.registry import get_supplier, get_available_suppliers
-from ..suppliers.base import SupplierCapability
-from ..services.part_service import PartService
-from ..services.order_service import order_service
+from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.schemas.response import ResponseSchema
+from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
+from MakerMatrix.suppliers.base import SupplierCapability
+from MakerMatrix.services.data.part_service import PartService
+from MakerMatrix.services.data.order_service import order_service
+from MakerMatrix.models.order_models import CreateOrderRequest
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +101,19 @@ async def import_file(
         # Import using supplier
         import_result = await supplier.import_order_file(content, file_type, filename)
         
+        logger.info(f"Supplier import result: success={import_result.success}, parts_count={len(import_result.parts) if import_result.parts else 0}")
+        
         if not import_result.success:
             raise HTTPException(
                 status_code=400,
                 detail=import_result.error_message or "Import failed"
+            )
+        
+        if not import_result.parts:
+            logger.warning(f"No parts found in {filename} for supplier {supplier_name}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"No parts found in file. Check that the file format matches {supplier_name} requirements."
             )
         
         # Create parts in database
@@ -129,36 +139,56 @@ async def import_file(
         order_id = None
         if order_info.get('order_number') or order_info.get('order_date'):
             try:
-                order = await order_service.create_order(
+                order_request = CreateOrderRequest(
                     order_number=order_info.get('order_number', f"IMP-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"),
                     supplier=order_info['supplier'],
                     order_date=order_info.get('order_date'),
-                    notes=order_info.get('notes', '')
+                    notes=order_info.get('notes', ''),
+                    import_source=f"File import: {filename}",
+                    status="imported"
                 )
+                order = await order_service.create_order(order_request)
                 order_id = order.id
             except Exception as e:
                 logger.warning(f"Failed to create order: {e}")
         
         # Import parts
-        for part_data in import_result.parts:
+        logger.info(f"Starting to import {len(import_result.parts)} parts")
+        for i, part_data in enumerate(import_result.parts):
             try:
+                logger.info(f"Processing part {i+1}/{len(import_result.parts)}: {part_data}")
+                
                 # Ensure supplier is set
                 if 'supplier' not in part_data:
                     part_data['supplier'] = supplier_name.upper()
                 
-                # Create part
-                created_part = await part_service.create_part(part_data)
-                part_ids.append(created_part.id)
+                # Create part using the correct method
+                logger.info(f"Creating part with data: {part_data}")
+                created_part_response = part_service.add_part(part_data)
+                logger.info(f"Part creation response: {created_part_response}")
+                if created_part_response.get('status') == 'success':
+                    created_part = created_part_response.get('data')
+                    if created_part and created_part.get('id'):
+                        part_ids.append(created_part['id'])
+                    else:
+                        logger.warning(f"Part created but no ID returned: {created_part_response}")
+                else:
+                    raise Exception(f"Failed to create part: {created_part_response.get('message', 'Unknown error')}")
                 
                 # Link to order if we have one
-                if order_id and created_part:
+                if order_id and created_part and created_part.get('id'):
                     try:
-                        await order_service.add_order_item(
-                            order_id=order_id,
-                            part_id=created_part.id,
-                            quantity=part_data.get('quantity', 1),
-                            unit_price=part_data.get('unit_price', 0)
+                        from MakerMatrix.models.order_models import CreateOrderItemRequest
+                        order_item_request = CreateOrderItemRequest(
+                            supplier_part_number=part_data.get('part_number', ''),
+                            manufacturer_part_number=part_data.get('manufacturer_part_number'),
+                            description=part_data.get('description', ''),
+                            manufacturer=part_data.get('manufacturer'),
+                            quantity_ordered=part_data.get('quantity', 1),
+                            unit_price=part_data.get('unit_price', 0.0),
+                            extended_price=part_data.get('quantity', 1) * part_data.get('unit_price', 0.0)
                         )
+                        await order_service.add_order_item(order_id, order_item_request)
                     except Exception as e:
                         logger.warning(f"Failed to link part to order: {e}")
                         
@@ -192,6 +222,187 @@ async def import_file(
     except Exception as e:
         logger.error(f"Error importing file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+
+@router.post("/preview")
+async def preview_csv_content(
+    csv_content: Dict[str, str],
+    current_user: UserModel = Depends(get_current_user)
+):
+    """
+    Preview CSV content without importing.
+    
+    Analyzes CSV text content and returns headers, row count, and preview data.
+    """
+    try:
+        content = csv_content.get('csv_content', '')
+        if not content:
+            raise HTTPException(status_code=400, detail="No CSV content provided")
+        
+        # Try to detect supplier from CSV content
+        detected_supplier = None
+        content_lower = content.lower()
+        
+        # Check for supplier-specific patterns in CSV headers/content
+        if 'lcsc part number' in content_lower or 'customer no.' in content_lower:
+            detected_supplier = 'lcsc'
+        elif 'digi-key part number' in content_lower or 'quantity available' in content_lower:
+            detected_supplier = 'digikey'
+        elif 'mouser part no' in content_lower or 'mouser part number' in content_lower:
+            detected_supplier = 'mouser'
+        
+        if detected_supplier:
+            try:
+                supplier = get_supplier(detected_supplier)
+                # Use supplier's preview method if available
+                if hasattr(supplier, 'get_import_file_preview'):
+                    preview_data = supplier.get_import_file_preview(
+                        content.encode('utf-8'), 'csv'
+                    )
+                    preview_data['detected_parser'] = detected_supplier
+                    return ResponseSchema(
+                        status="success",
+                        message="CSV preview generated",
+                        data=preview_data
+                    )
+            except Exception as e:
+                logger.warning(f"Error using supplier preview for {detected_supplier}: {e}")
+        
+        # Fallback to basic CSV parsing
+        import csv
+        import io
+        
+        csv_file = io.StringIO(content)
+        reader = csv.DictReader(csv_file)
+        headers = reader.fieldnames or []
+        
+        # Get preview rows
+        preview_rows = []
+        total_rows = 0
+        for i, row in enumerate(reader):
+            total_rows += 1
+            if i < 5:  # Only keep first 5 for preview
+                preview_rows.append(row)
+        
+        return ResponseSchema(
+            status="success",
+            message="CSV preview generated",
+            data={
+                "headers": headers,
+                "preview_rows": preview_rows,
+                "total_rows": total_rows,
+                "detected_parser": detected_supplier,
+                "is_supported": detected_supplier is not None
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error previewing CSV: {e}")
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+
+
+@router.post("/preview-file")
+async def preview_file_upload(
+    file: UploadFile = File(...),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """
+    Preview uploaded file without importing.
+    
+    Supports CSV and XLS files, returns headers, row count, and preview data.
+    """
+    try:
+        content = await file.read()
+        filename = file.filename or ''
+        file_type = filename.split('.')[-1].lower() if '.' in filename else ''
+        
+        # Try to auto-detect supplier from filename
+        detected_supplier = None
+        filename_lower = filename.lower()
+        
+        if 'lcsc' in filename_lower:
+            detected_supplier = 'lcsc'
+        elif 'digikey' in filename_lower or 'dk_' in filename_lower:
+            detected_supplier = 'digikey'
+        elif 'mouser' in filename_lower:
+            detected_supplier = 'mouser'
+        
+        # Try each supplier's preview method
+        for supplier_name in get_available_suppliers():
+            try:
+                supplier = get_supplier(supplier_name)
+                
+                # Check if supplier can handle this file
+                if hasattr(supplier, 'can_import_file') and supplier.can_import_file(filename, content):
+                    detected_supplier = supplier_name
+                    
+                    # Use supplier's preview method
+                    if hasattr(supplier, 'get_import_file_preview'):
+                        preview_data = supplier.get_import_file_preview(content, file_type)
+                        preview_data['detected_parser'] = detected_supplier
+                        return ResponseSchema(
+                            status="success",
+                            message="File preview generated",
+                            data=preview_data
+                        )
+                    break
+                    
+            except Exception as e:
+                logger.warning(f"Error checking supplier {supplier_name}: {e}")
+                continue
+        
+        # Fallback preview for CSV files
+        if file_type == 'csv':
+            import csv
+            import io
+            
+            try:
+                content_str = content.decode('utf-8')
+                csv_file = io.StringIO(content_str)
+                reader = csv.DictReader(csv_file)
+                headers = reader.fieldnames or []
+                
+                # Get preview rows
+                preview_rows = []
+                total_rows = 0
+                for i, row in enumerate(reader):
+                    total_rows += 1
+                    if i < 5:  # Only keep first 5 for preview
+                        preview_rows.append(row)
+                
+                return ResponseSchema(
+                    status="success",
+                    message="File preview generated",
+                    data={
+                        "headers": headers,
+                        "preview_rows": preview_rows,
+                        "total_rows": total_rows,
+                        "detected_parser": detected_supplier,
+                        "is_supported": detected_supplier is not None
+                    }
+                )
+            except UnicodeDecodeError:
+                raise HTTPException(status_code=400, detail="Unable to decode CSV file")
+        
+        # If we get here, we couldn't preview the file
+        return ResponseSchema(
+            status="error",
+            message="Unable to preview this file type",
+            data={
+                "headers": [],
+                "preview_rows": [],
+                "total_rows": 0,
+                "detected_parser": detected_supplier,
+                "is_supported": False,
+                "error": f"Unsupported file type: {file_type}"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error previewing file: {e}")
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
 
 
 @router.get("/suppliers", response_model=ResponseSchema[List[SupplierImportInfo]])
