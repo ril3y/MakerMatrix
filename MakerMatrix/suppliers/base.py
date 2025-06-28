@@ -748,8 +748,9 @@ class BaseSupplier(ABC):
             return True  # No requirements means always available
         
         # Check if all required credentials are present
+        credentials = self._credentials or {}
         for cred in requirements.required_credentials:
-            if cred not in self._credentials or not self._credentials[cred]:
+            if cred not in credentials or not credentials[cred]:
                 return False
         
         return True
@@ -761,8 +762,9 @@ class BaseSupplier(ABC):
             return []
         
         missing = []
+        credentials = self._credentials or {}
         for cred in requirements.required_credentials:
-            if cred not in self._credentials or not self._credentials[cred]:
+            if cred not in credentials or not credentials[cred]:
                 missing.append(cred)
         
         return missing

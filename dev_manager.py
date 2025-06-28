@@ -35,6 +35,9 @@ try:
             self.manager = manager
             self.last_restart = 0
             self.restart_delay = 2  # Minimum seconds between restarts
+            self.pending_restart = False
+            self.restart_timer = None
+            self.debounce_delay = 5  # Wait 5 seconds after last change before restarting
             
         def on_modified(self, event):
             if event.is_directory:
@@ -48,13 +51,6 @@ try:
             if '__pycache__' in event.src_path or '.pyc' in event.src_path:
                 return
                 
-            # Rate limiting to prevent multiple rapid restarts
-            current_time = time.time()
-            if current_time - self.last_restart < self.restart_delay:
-                return
-                
-            self.last_restart = current_time
-            
             # Get relative path for logging
             try:
                 rel_path = os.path.relpath(event.src_path, self.manager.project_root)
@@ -63,12 +59,59 @@ try:
                 
             self.manager.log_message("system", f"📝 Python file changed: {rel_path}", "CHANGE")
             
-            # Restart backend if it's running and auto-restart is enabled
+            # Only handle restart if backend is running and auto-restart is enabled
             if self.manager.backend_status == "Running" and self.manager.auto_restart_enabled:
-                self.manager.log_message("system", "🔄 Auto-restarting backend due to file change...", "INFO")
-                threading.Thread(target=self.manager.restart_backend, daemon=True).start()
+                self._schedule_restart()
             elif self.manager.backend_status == "Running" and not self.manager.auto_restart_enabled:
                 self.manager.log_message("system", "📁 File changed but auto-restart disabled (press 'r' to enable)", "INFO")
+            else:
+                self.manager.log_message("system", f"📁 File changed but no restart scheduled: backend_status='{self.manager.backend_status}', auto_restart_enabled={self.manager.auto_restart_enabled}", "INFO")
+        
+        def _schedule_restart(self):
+            """Schedule a debounced restart - waits for 5 seconds of quiet before restarting"""
+            # Cancel any existing timer
+            if self.restart_timer:
+                self.restart_timer.cancel()
+            
+            # If this is the first change in this batch, log it
+            if not self.pending_restart:
+                self.pending_restart = True
+                self.manager.log_message("system", f"⏱️ Restart scheduled in {self.debounce_delay} seconds (will wait for file changes to settle)", "INFO")
+            else:
+                self.manager.log_message("system", f"⏱️ Restart timer reset - waiting {self.debounce_delay} more seconds for changes to settle", "INFO")
+            
+            # Schedule the restart
+            self.restart_timer = threading.Timer(self.debounce_delay, self._execute_restart)
+            self.restart_timer.daemon = True
+            self.restart_timer.start()
+        
+        def _execute_restart(self):
+            """Execute the actual restart after debounce period"""
+            self.pending_restart = False
+            self.restart_timer = None
+            
+            # Log current status for debugging
+            self.manager.log_message("system", f"🔍 Restart check: backend_status='{self.manager.backend_status}', auto_restart_enabled={self.manager.auto_restart_enabled}", "INFO")
+            
+            # Double-check that backend is still running and auto-restart is still enabled
+            if self.manager.backend_status == "Running" and self.manager.auto_restart_enabled:
+                self.manager.log_message("system", "🔄 Debounce period complete - executing auto-restart now", "INFO")
+                try:
+                    # Use a separate thread for the actual restart to avoid blocking the timer
+                    threading.Thread(target=self.manager._safe_restart_backend, daemon=True).start()
+                except Exception as e:
+                    self.manager.log_message("system", f"❌ Failed to start restart thread: {e}", "ERROR")
+            else:
+                self.manager.log_message("system", f"⏹️ Restart cancelled - backend_status='{self.manager.backend_status}', auto_restart_enabled={self.manager.auto_restart_enabled}", "INFO")
+        
+        def cancel_pending_restart(self):
+            """Cancel any pending restart"""
+            if self.restart_timer:
+                self.restart_timer.cancel()
+                self.restart_timer = None
+            if self.pending_restart:
+                self.pending_restart = False
+                self.manager.log_message("system", "⏹️ Pending restart cancelled", "INFO")
 
 except ImportError:
     WATCHDOG_AVAILABLE = False
@@ -451,6 +494,10 @@ class EnhancedServerManager:
                     if "Application startup complete" in line or "Uvicorn running on" in line:
                         self.backend_status = "Running"
                         self.log_message("backend", "Backend started successfully!", "SUCCESS")
+                    elif "200 OK" in line and self.backend_status == "Error":
+                        # Backend is responding to requests, it's recovered from error state
+                        self.backend_status = "Running"
+                        self.log_message("backend", "Backend recovered - responding to requests", "SUCCESS")
                     elif any(error in line.upper() for error in ["CRITICAL", "FATAL", "TRACEBACK"]):
                         if not any(ignore in line.lower() for ignore in ["printer_config", "optional"]):
                             self.backend_status = "Error"
@@ -550,6 +597,50 @@ class EnhancedServerManager:
         self.stop_backend()
         time.sleep(1)
         self.start_backend()
+    
+    def _safe_restart_backend(self):
+        """Safe restart backend with better error handling and logging"""
+        try:
+            self.log_message("system", "🔄 Beginning safe backend restart...", "INFO")
+            
+            # First, check if backend is actually running
+            if self.backend_process and self.backend_process.poll() is None:
+                self.log_message("system", "Stopping backend process...", "INFO")
+                self.stop_backend()
+                
+                # Wait a bit longer to ensure clean shutdown
+                time.sleep(2)
+                
+                # Double-check that process is stopped
+                if self.backend_process and self.backend_process.poll() is None:
+                    self.log_message("system", "⚠️ Backend process still running, force killing...", "WARN")
+                    try:
+                        self.backend_process.kill()
+                        self.backend_process.wait(timeout=3)
+                    except Exception as e:
+                        self.log_message("system", f"❌ Error force killing backend: {e}", "ERROR")
+            else:
+                self.log_message("system", "Backend was not running, starting fresh...", "INFO")
+            
+            # Start the backend
+            self.log_message("system", "Starting backend process...", "INFO")
+            self.start_backend()
+            
+            # Give it a moment to start
+            time.sleep(1)
+            
+            if self.backend_status in ["Starting", "Running"]:
+                self.log_message("system", "✅ Backend restart completed successfully", "SUCCESS")
+            else:
+                self.log_message("system", f"⚠️ Backend restart may have failed - status: {self.backend_status}", "WARN")
+                
+        except Exception as e:
+            self.log_message("system", f"❌ Error during safe backend restart: {e}", "ERROR")
+            # Try a simple restart as fallback
+            try:
+                self.restart_backend()
+            except Exception as fallback_error:
+                self.log_message("system", f"❌ Fallback restart also failed: {fallback_error}", "ERROR")
     
     def restart_frontend(self):
         """Restart frontend server"""
@@ -683,7 +774,7 @@ class EnhancedServerManager:
             f"{self.term.green}1{self.term.normal}:Start Backend  {self.term.green}2{self.term.normal}:Stop Backend   {self.term.green}3{self.term.normal}:Start Frontend  {self.term.green}4{self.term.normal}:Stop Frontend  {self.term.green}5{self.term.normal}:Both",
             f"{self.term.green}6{self.term.normal}:Stop All      {self.term.green}7{self.term.normal}:Restart BE     {self.term.green}8{self.term.normal}:Restart FE      {self.term.green}9{self.term.normal}:Build Frontend",
             f"{self.term.green}H{self.term.normal}:HTTP Mode      {self.term.green}S{self.term.normal}:HTTPS Mode     {self.term.green}v{self.term.normal}:Switch View    {self.term.green}e{self.term.normal}:Errors Only    {self.term.green}c{self.term.normal}:Clear Logs     {self.term.green}s{self.term.normal}:Search",
-            f"{self.term.green}a{self.term.normal}:Auto-scroll   {self.term.green}r{self.term.normal}:Auto-restart({auto_restart_color}{auto_restart_status}{self.term.normal})   {self.term.green}↑↓/jk{self.term.normal}:Scroll     {self.term.green}Esc{self.term.normal}:Exit {self.term.green}q{self.term.normal}:Quit"
+            f"{self.term.green}a{self.term.normal}:Auto-scroll   {self.term.green}r{self.term.normal}:Auto-restart({auto_restart_color}{auto_restart_status}{self.term.normal})   {self.term.green}h{self.term.normal}:Health Check   {self.term.green}↑↓/jk{self.term.normal}:Scroll   {self.term.green}q{self.term.normal}:Quit"
         ]
         
         for i, control in enumerate(controls):
@@ -811,7 +902,7 @@ class EnhancedServerManager:
         elif key == '6':
             self.stop_all()
         elif key == '7':
-            threading.Thread(target=self.restart_backend, daemon=True).start()
+            threading.Thread(target=self._safe_restart_backend, daemon=True).start()
         elif key == '8':
             threading.Thread(target=self.restart_frontend, daemon=True).start()
         elif key == '9':
@@ -846,6 +937,9 @@ class EnhancedServerManager:
             self.auto_restart_enabled = not self.auto_restart_enabled
             status = "enabled" if self.auto_restart_enabled else "disabled"
             self.log_message("system", f"📁 Auto-restart {status}", "INFO")
+        elif key == 'h':
+            # Manual health check
+            self._check_backend_health()
         elif key.name == 'KEY_ESCAPE':
             self.search_term = ""
             self.filtered_logs = []
@@ -958,6 +1052,35 @@ class EnhancedServerManager:
         if was_running:
             time.sleep(0.5)
             self.start_backend()
+    
+    def _check_backend_health(self):
+        """Check backend health and update status accordingly"""
+        import requests
+        
+        self.log_message("system", "🏥 Checking backend health...", "INFO")
+        
+        try:
+            # Try to make a simple request to the backend
+            backend_url = "http://localhost:8080/api/utility/get_counts"
+            response = requests.get(backend_url, timeout=5)
+            
+            if response.status_code == 200:
+                if self.backend_status != "Running":
+                    self.backend_status = "Running"
+                    self.log_message("system", "✅ Backend health check passed - status updated to Running", "SUCCESS")
+                else:
+                    self.log_message("system", "✅ Backend health check passed - already Running", "SUCCESS")
+            else:
+                self.log_message("system", f"⚠️ Backend responded with status {response.status_code}", "WARN")
+                if self.backend_status == "Running":
+                    self.backend_status = "Error"
+                    
+        except requests.exceptions.RequestException as e:
+            self.log_message("system", f"❌ Backend health check failed: {str(e)}", "ERROR")
+            if self.backend_status == "Running":
+                self.backend_status = "Error"
+        except Exception as e:
+            self.log_message("system", f"❌ Health check error: {str(e)}", "ERROR")
     
     def cleanup(self):
         """Enhanced cleanup"""

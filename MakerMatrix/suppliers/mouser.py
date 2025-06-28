@@ -5,18 +5,23 @@ Implements the Mouser Electronics API interface using API key authentication.
 Supports part search, pricing, stock, datasheets, and comprehensive part data.
 """
 
+import os
+import logging
 from typing import List, Dict, Any, Optional
 import aiohttp
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo, CapabilityRequirement, ImportResult
+    PartSearchResult, SupplierInfo, ConfigurationOption,
+    CapabilityRequirement, ImportResult
 )
 from .registry import register_supplier
 from .exceptions import (
-    SupplierConfigurationError, SupplierAuthenticationError,
+    SupplierError, SupplierConfigurationError, SupplierAuthenticationError,
     SupplierConnectionError, SupplierRateLimitError
 )
+
+logger = logging.getLogger(__name__)
 
 @register_supplier("mouser")
 class MouserSupplier(BaseSupplier):
@@ -82,46 +87,142 @@ class MouserSupplier(BaseSupplier):
         ]
     
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
-        """Safe configuration schema - only expose user-relevant parameters"""
+        """
+        Default configuration schema - returns empty list since we use get_configuration_options() instead.
+        This method is kept for abstract class compliance.
+        """
+        return []
+    
+    def get_configuration_options(self) -> List[ConfigurationOption]:
+        """
+        Return configuration options for Mouser API.
+        Provides different configuration presets for various use cases.
+        """
         return [
-            FieldDefinition(
-                name="search_option",
-                label="Search Behavior",
-                field_type=FieldType.SELECT,
-                required=False,
-                default_value="None",
-                description="How to perform part number searches",
-                options=[
-                    {"value": "None", "label": "Default search (recommended)"},
-                    {"value": "ManufacturerPartNumber", "label": "Exact manufacturer part number only"},
-                    {"value": "KeywordSearchInclude", "label": "Include description keywords"},
+            ConfigurationOption(
+                name='standard',
+                label='Mouser Standard Configuration',
+                description='Standard configuration for Mouser API access with optimal search settings.',
+                schema=[
+                    FieldDefinition(
+                        name="search_option",
+                        label="Search Behavior",
+                        field_type=FieldType.SELECT,
+                        required=False,
+                        default_value="None",
+                        description="How to perform part number searches",
+                        options=[
+                            {"value": "None", "label": "Default search (recommended)"},
+                            {"value": "ManufacturerPartNumber", "label": "Exact manufacturer part number only"},
+                            {"value": "KeywordSearchInclude", "label": "Include description keywords"},
+                        ],
+                        help_text="Default search works best for most use cases"
+                    ),
+                    FieldDefinition(
+                        name="search_with_your_signup_language",
+                        label="Use Account Language",
+                        field_type=FieldType.BOOLEAN,
+                        required=False,
+                        default_value=False,
+                        description="Use the language preference from your Mouser account",
+                        help_text="Enable if you need results in your account's configured language"
+                    ),
+                    FieldDefinition(
+                        name="request_timeout",
+                        label="Request Timeout (seconds)",
+                        field_type=FieldType.NUMBER,
+                        required=False,
+                        default_value=30,
+                        description="API request timeout in seconds",
+                        validation={"min": 5, "max": 120},
+                        help_text="Increase if you experience timeout errors (5-120 seconds)"
+                    ),
+                    FieldDefinition(
+                        name="standard_info",
+                        label="Configuration Info",
+                        field_type=FieldType.INFO,
+                        required=False,
+                        description="Standard Mouser API configuration",
+                        help_text="This configuration provides balanced settings for most use cases. API key required for all features except order import."
+                    )
                 ],
-                help_text="Default search works best for most use cases"
+                is_default=True,
+                requirements={
+                    'api_key_required': True,
+                    'complexity': 'low',
+                    'data_type': 'live_data',
+                    'prerequisites': ['Mouser account', 'API key from Mouser support']
+                }
             ),
-            FieldDefinition(
-                name="search_with_your_signup_language",
-                label="Use Account Language",
-                field_type=FieldType.BOOLEAN,
-                required=False,
-                default_value=False,
-                description="Use the language preference from your Mouser account",
-                help_text="Enable if you need results in your account's configured language"
-            ),
-            FieldDefinition(
-                name="request_timeout",
-                label="Request Timeout (seconds)",
-                field_type=FieldType.NUMBER,
-                required=False,
-                default_value=30,
-                description="API request timeout in seconds",
-                validation={"min": 5, "max": 120},
-                help_text="Increase if you experience timeout errors (5-120 seconds)"
+            ConfigurationOption(
+                name='advanced',
+                label='Mouser Advanced Configuration',
+                description='Advanced configuration with custom headers and enhanced search options.',
+                schema=[
+                    FieldDefinition(
+                        name="search_option",
+                        label="Search Behavior",
+                        field_type=FieldType.SELECT,
+                        required=False,
+                        default_value="KeywordSearchInclude",
+                        description="How to perform part number searches",
+                        options=[
+                            {"value": "None", "label": "Default search"},
+                            {"value": "ManufacturerPartNumber", "label": "Exact manufacturer part number only"},
+                            {"value": "KeywordSearchInclude", "label": "Include description keywords"},
+                        ],
+                        help_text="Advanced search includes description keywords by default"
+                    ),
+                    FieldDefinition(
+                        name="search_with_your_signup_language",
+                        label="Use Account Language",
+                        field_type=FieldType.BOOLEAN,
+                        required=False,
+                        default_value=True,
+                        description="Use the language preference from your Mouser account",
+                        help_text="Enabled by default for localized results"
+                    ),
+                    FieldDefinition(
+                        name="request_timeout",
+                        label="Request Timeout (seconds)",
+                        field_type=FieldType.NUMBER,
+                        required=False,
+                        default_value=60,
+                        description="API request timeout in seconds",
+                        validation={"min": 5, "max": 120},
+                        help_text="Extended timeout for complex searches"
+                    ),
+                    FieldDefinition(
+                        name="custom_headers",
+                        label="Custom HTTP Headers",
+                        field_type=FieldType.TEXT,
+                        required=False,
+                        description="Custom headers for API requests (one per line: Header-Name: value)",
+                        help_text="Advanced users only. Format: 'Header-Name: value' (one per line)"
+                    ),
+                    FieldDefinition(
+                        name="advanced_info",
+                        label="Advanced Configuration Info",
+                        field_type=FieldType.INFO,
+                        required=False,
+                        description="Advanced Mouser API configuration with custom options",
+                        help_text="This configuration provides enhanced search capabilities and custom header support for advanced integrations."
+                    )
+                ],
+                is_default=False,
+                requirements={
+                    'api_key_required': True,
+                    'complexity': 'medium',
+                    'data_type': 'live_data',
+                    'prerequisites': ['Mouser account', 'API key from Mouser support', 'Advanced API knowledge']
+                }
             )
         ]
     
     def _get_base_url(self) -> str:
         """Get API base URL"""
-        return self._config.get("base_url", "https://api.mouser.com/api/v1")
+        config = self._config or {}  # Handle case where _config might be None
+        return config.get("base_url", "https://api.mouser.com/api/v1")
     
     def _get_headers(self) -> Dict[str, str]:
         """Get standard headers for Mouser API calls"""
@@ -131,7 +232,8 @@ class MouserSupplier(BaseSupplier):
         }
         
         # Add custom headers from configuration
-        custom_headers_text = self._config.get("custom_headers", "")
+        config = self._config or {}  # Handle case where _config might be None
+        custom_headers_text = config.get("custom_headers", "")
         if custom_headers_text and custom_headers_text.strip():
             for line in custom_headers_text.strip().split('\n'):
                 line = line.strip()
@@ -142,30 +244,96 @@ class MouserSupplier(BaseSupplier):
         return headers
     
     async def authenticate(self) -> bool:
-        """Test API key authentication"""
+        """Authenticate with Mouser API using API key"""
         if not self.is_configured():
-            raise SupplierConfigurationError("Supplier not configured", supplier_name="mouser")
+            raise SupplierConfigurationError(
+                "Mouser supplier not configured. Please provide API key.", 
+                supplier_name="mouser",
+                details={'missing_config': ['api_key']}
+            )
         
-        api_key = self._credentials.get("api_key")
+        # Validate required credentials - handle case where _credentials might be None
+        credentials = self._credentials or {}
+        api_key = credentials.get('api_key', '').strip()
+        
         if not api_key:
-            return False
+            raise SupplierConfigurationError(
+                "Mouser requires an API key",
+                supplier_name="mouser",
+                details={
+                    'missing_credentials': ['api_key']
+                }
+            )
         
-        # Test with a simple API call
         try:
-            result = await self.test_connection()
-            return result.get("success", False)
-        except Exception:
-            return False
+            # Test authentication with a simple API call (without calling test_connection to avoid recursion)
+            session = await self._get_session()
+            headers = self._get_headers()
+            
+            url = f"{self._get_base_url()}/search/keyword"
+            params = {"apiKey": api_key}
+            
+            search_data = {
+                "SearchByKeywordRequest": {
+                    "keyword": "test",
+                    "records": 1,
+                    "startingRecord": 0
+                }
+            }
+            
+            config = self._config or {}
+            timeout = config.get("request_timeout", 30)
+            
+            async with session.post(url, headers=headers, params=params, json=search_data, timeout=timeout) as response:
+                # Any response (even error) means API key is being accepted
+                return response.status in [200, 400, 401, 403]  # 401/403 means API key was processed
+                
+        except SupplierError:
+            # Re-raise supplier errors as-is
+            raise
+        except Exception as e:
+            # Wrap unexpected errors
+            raise SupplierAuthenticationError(
+                f"Mouser authentication failed: {str(e)}",
+                supplier_name="mouser",
+                details={
+                    'error_type': type(e).__name__,
+                    'original_error': str(e)
+                }
+            )
     
     async def test_connection(self) -> Dict[str, Any]:
         """Test connection to Mouser API"""
+        logger.info("🚨 MOUSER TEST_CONNECTION METHOD CALLED!")
         try:
-            api_key = self._credentials.get("api_key")
+            # Check if supplier is configured first
+            if not self.is_configured():
+                return {
+                    "success": False,
+                    "message": "Mouser not configured",
+                    "details": {
+                        "error": "Missing credentials: API key required",
+                        "configuration_needed": True,
+                        "required_fields": ["api_key"],
+                        "setup_url": "https://www.mouser.com/api-signup/",
+                        "instructions": "1. Sign up for Mouser API access\\n2. Contact Mouser support to request API key\\n3. Add your API key to MakerMatrix"
+                    }
+                }
+            
+            # Check for credentials - handle case where _credentials might be None
+            credentials = self._credentials or {}
+            api_key = credentials.get('api_key', '').strip()
+            
             if not api_key:
                 return {
                     "success": False,
-                    "message": "No API key provided",
-                    "details": {"requires": "Valid Mouser API key"}
+                    "message": "Missing Mouser API key",
+                    "details": {
+                        "error": "API key is required",
+                        "configuration_needed": True,
+                        "missing_credentials": ["api_key"],
+                        "setup_url": "https://www.mouser.com/api-signup/"
+                    }
                 }
             
             # Test with a lightweight search
@@ -185,44 +353,88 @@ class MouserSupplier(BaseSupplier):
                 }
             }
             
-            async with session.post(url, headers=headers, params=params, json=search_data) as response:
+            config = self._config or {}  # Handle case where _config might be None
+            timeout = config.get("request_timeout", 30)
+            
+            async with session.post(url, headers=headers, params=params, json=search_data, timeout=timeout) as response:
                 if response.status == 200:
                     data = await response.json()
-                    search_results = data.get("SearchResults", {})
+                    data = data or {}  # Handle case where response.json() returns None
+                    search_results = data.get("SearchResults", {}) or {}  # Handle case where SearchResults is None
                     return {
                         "success": True,
-                        "message": "Connection successful",
+                        "message": "Mouser API connection successful",
                         "details": {
                             "api_version": "v1",
                             "base_url": self._get_base_url(),
-                            "test_results": f"Found {search_results.get('NumberOfResult', 0)} components"
+                            "test_results": f"Found {search_results.get('NumberOfResult', 0)} components",
+                            "rate_limit": "30 calls per minute, 1000 calls per day",
+                            "api_ready": True
                         }
                     }
                 elif response.status == 429:
                     return {
                         "success": False,
                         "message": "Rate limit exceeded",
-                        "details": {"status_code": response.status}
+                        "details": {
+                            "error": "Too many API requests",
+                            "status_code": response.status,
+                            "rate_limit": "30 calls per minute, 1000 calls per day",
+                            "suggestion": "Wait before retrying or upgrade API plan"
+                        }
                     }
                 elif response.status == 401:
                     return {
                         "success": False,
                         "message": "Invalid API key",
-                        "details": {"status_code": response.status}
+                        "details": {
+                            "error": "API key authentication failed",
+                            "status_code": response.status,
+                            "configuration_needed": True,
+                            "setup_url": "https://www.mouser.com/api-signup/"
+                        }
+                    }
+                elif response.status == 403:
+                    return {
+                        "success": False,
+                        "message": "API access forbidden",
+                        "details": {
+                            "error": "API key may not have required permissions",
+                            "status_code": response.status,
+                            "suggestion": "Contact Mouser support to verify API access"
+                        }
                     }
                 else:
                     error_text = await response.text()
                     return {
                         "success": False,
-                        "message": f"API error: {response.status}",
-                        "details": {"error": error_text}
+                        "message": f"Mouser API error: {response.status}",
+                        "details": {
+                            "error": error_text,
+                            "status_code": response.status,
+                            "api_call_failed": True,
+                            "suggestion": "Check API key and network connectivity"
+                        }
                     }
         
+        except SupplierConfigurationError as config_error:
+            return {
+                "success": False,
+                "message": "Configuration error",
+                "details": {
+                    "error": str(config_error),
+                    "configuration_needed": True
+                }
+            }
         except Exception as e:
             return {
                 "success": False,
                 "message": f"Connection test failed: {str(e)}",
-                "details": {"exception": str(e)}
+                "details": {
+                    "exception": str(e),
+                    "traceback": tb,
+                    "unexpected_error": True
+                }
             }
     
     async def search_parts(self, query: str, limit: int = 50) -> List[PartSearchResult]:
@@ -232,20 +444,22 @@ class MouserSupplier(BaseSupplier):
         
         session = await self._get_session()
         headers = self._get_headers()
-        api_key = self._credentials.get("api_key")
+        credentials = self._credentials or {}
+        api_key = credentials.get("api_key")
         
         url = f"{self._get_base_url()}/search/keyword"
         params = {
             "apiKey": api_key
         }
         
+        config = self._config or {}  # Handle case where _config might be None
         search_data = {
             "SearchByKeywordRequest": {
                 "keyword": query,
                 "records": min(limit, 100),  # Mouser allows up to 100 records
                 "startingRecord": 0,
-                "searchOptions": self._config.get("search_option", "None"),
-                "searchWithYourSignUpLanguage": self._config.get("search_with_your_signup_language", False)
+                "searchOptions": config.get("search_option", "None"),
+                "searchWithYourSignUpLanguage": config.get("search_with_your_signup_language", False)
             }
         }
         
@@ -253,6 +467,7 @@ class MouserSupplier(BaseSupplier):
             async with session.post(url, headers=headers, params=params, json=search_data) as response:
                 if response.status == 200:
                     data = await response.json()
+                    data = data or {}  # Handle case where response.json() returns None
                     return self._parse_search_results(data)
                 elif response.status == 429:
                     raise SupplierRateLimitError("Rate limit exceeded", supplier_name="mouser")
@@ -271,6 +486,7 @@ class MouserSupplier(BaseSupplier):
     def _parse_search_results(self, data: Dict[str, Any]) -> List[PartSearchResult]:
         """Parse Mouser search response into PartSearchResult objects"""
         results = []
+        data = data or {}  # Handle case where data is None
         search_results = data.get("SearchResults", {})
         parts = search_results.get("Parts", [])
         
@@ -337,17 +553,19 @@ class MouserSupplier(BaseSupplier):
         
         session = await self._get_session()
         headers = self._get_headers()
-        api_key = self._credentials.get("api_key")
+        credentials = self._credentials or {}
+        api_key = credentials.get("api_key")
         
         url = f"{self._get_base_url()}/search/partnumber"
         params = {
             "apiKey": api_key
         }
         
+        config = self._config or {}  # Handle case where _config might be None
         search_data = {
             "SearchByPartRequest": {
                 "mouserPartNumber": supplier_part_number,
-                "partSearchOptions": self._config.get("search_option", "None")
+                "partSearchOptions": config.get("search_option", "None")
             }
         }
         
@@ -355,6 +573,7 @@ class MouserSupplier(BaseSupplier):
             async with session.post(url, headers=headers, params=params, json=search_data) as response:
                 if response.status == 200:
                     data = await response.json()
+                    data = data or {}  # Handle case where response.json() returns None
                     search_results = data.get("SearchResults", {})
                     parts = search_results.get("Parts", [])
                     if parts:
@@ -368,28 +587,43 @@ class MouserSupplier(BaseSupplier):
     
     async def fetch_pricing(self, supplier_part_number: str) -> Optional[List[Dict[str, Any]]]:
         """Fetch current pricing for a Mouser part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.pricing if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.pricing if part_details else None
+        
+        return await self._tracked_api_call("fetch_pricing", _impl)
     
     async def fetch_stock(self, supplier_part_number: str) -> Optional[int]:
         """Fetch current stock level for a Mouser part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.stock_quantity if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.stock_quantity if part_details else None
+        
+        return await self._tracked_api_call("fetch_stock", _impl)
     
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:
         """Fetch datasheet URL for a Mouser part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.datasheet_url if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.datasheet_url if part_details else None
+        
+        return await self._tracked_api_call("fetch_datasheet", _impl)
     
     async def fetch_image(self, supplier_part_number: str) -> Optional[str]:
         """Fetch image URL for a Mouser part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.image_url if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.image_url if part_details else None
+        
+        return await self._tracked_api_call("fetch_image", _impl)
     
     async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
         """Fetch technical specifications for a Mouser part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.specifications if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.specifications if part_details else None
+        
+        return await self._tracked_api_call("fetch_specifications", _impl)
     
     def get_rate_limit_delay(self) -> float:
         """Mouser rate limit: 30 calls per minute = 2 seconds between requests"""
@@ -526,16 +760,17 @@ class MouserSupplier(BaseSupplier):
                     part = {
                         'part_name': str(row.get(mapped_columns.get('description', ''), 
                                                row.get(mapped_columns.get('manufacturer_part_number', ''), ''))).strip(),
-                        'supplier_part_number': str(row.get(mapped_columns['part_number'], '')).strip(),
+                        'part_number': str(row.get(mapped_columns['part_number'], '')).strip(),  # Changed from supplier_part_number to part_number
                         'manufacturer': str(row.get(mapped_columns.get('manufacturer', ''), '')).strip(),
                         'manufacturer_part_number': str(row.get(mapped_columns.get('manufacturer_part_number', ''), '')).strip(),
                         'description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
                         'quantity': quantity,
                         'unit_price': unit_price,
-                        'extended_price': extended_price,
+                        'currency': 'USD',  # Mouser pricing is typically in USD
                         'supplier': 'Mouser',
                         'additional_properties': {
-                            'row_index': index + 1
+                            'row_index': index + 1,
+                            'extended_price': extended_price  # Move extended_price to additional_properties
                         }
                     }
                     
@@ -544,7 +779,7 @@ class MouserSupplier(BaseSupplier):
                         part['part_name'] = part['manufacturer_part_number']
                     
                     # Only add parts with valid part numbers
-                    if part['supplier_part_number']:
+                    if part['part_number']:
                         parts.append(part)
                         
                 except Exception as e:

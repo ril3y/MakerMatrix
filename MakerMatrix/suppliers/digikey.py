@@ -239,8 +239,9 @@ class DigiKeySupplier(BaseSupplier):
             )
         
         # Validate required credentials
-        client_id = self._credentials.get('client_id', '').strip()
-        client_secret = self._credentials.get('client_secret', '').strip()
+        credentials = self._credentials or {}
+        client_id = credentials.get('client_id', '').strip()
+        client_secret = credentials.get('client_secret', '').strip()
         
         if not client_id or not client_secret:
             raise SupplierConfigurationError(
@@ -249,7 +250,7 @@ class DigiKeySupplier(BaseSupplier):
                 details={
                     'missing_credentials': [
                         field for field in ['client_id', 'client_secret'] 
-                        if not self._credentials.get(field, '').strip()
+                        if not (self._credentials or {}).get(field, '').strip()
                     ]
                 }
             )
@@ -364,8 +365,9 @@ class DigiKeySupplier(BaseSupplier):
         """Authenticate using client credentials grant (no redirect needed)"""
         try:
             print("DEBUG: Starting client credentials authentication")
-            client_id = self._credentials.get("client_id")
-            client_secret = self._credentials.get("client_secret")
+            credentials = self._credentials or {}
+            client_id = credentials.get("client_id")
+            client_secret = credentials.get("client_secret")
             
             print(f"DEBUG: client_id={client_id is not None}, client_secret={client_secret is not None}")
             
@@ -397,7 +399,7 @@ class DigiKeySupplier(BaseSupplier):
             print(f"DEBUG: Response status: {response.status_code}")
             
             if response.status_code == 200:
-                token_data = response.json()
+                token_data = response.json() or {}
                 self._access_token = token_data.get("access_token")
                 self._token_type = token_data.get("token_type", "Bearer")
                 
@@ -483,8 +485,9 @@ class DigiKeySupplier(BaseSupplier):
         session = await self._get_session()
         
         # Prepare basic auth header
-        client_id = self._credentials.get("client_id")
-        client_secret = self._credentials.get("client_secret")
+        credentials = self._credentials or {}
+        client_id = credentials.get("client_id")
+        client_secret = credentials.get("client_secret")
         auth_string = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
         
         headers = {
@@ -500,7 +503,7 @@ class DigiKeySupplier(BaseSupplier):
         try:
             async with session.post(self._get_token_url(), headers=headers, data=data) as response:
                 if response.status == 200:
-                    token_data = await response.json()
+                    token_data = await response.json() or {}
                     self._access_token = token_data.get("access_token")
                     expires_in = token_data.get("expires_in", 3600)
                     self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
@@ -513,7 +516,8 @@ class DigiKeySupplier(BaseSupplier):
     
     def get_oauth_authorization_url(self) -> str:
         """Get OAuth authorization URL for initial setup"""
-        client_id = self._credentials.get("client_id")
+        credentials = self._credentials or {}
+        client_id = credentials.get("client_id")
         callback_url = self._config.get("oauth_callback_url")
         
         params = {
@@ -530,8 +534,9 @@ class DigiKeySupplier(BaseSupplier):
         """Exchange authorization code for access/refresh tokens"""
         session = await self._get_session()
         
-        client_id = self._credentials.get("client_id")
-        client_secret = self._credentials.get("client_secret")
+        credentials = self._credentials or {}
+        client_id = credentials.get("client_id")
+        client_secret = credentials.get("client_secret")
         callback_url = self._config.get("oauth_callback_url")
         
         # Prepare basic auth header
@@ -551,7 +556,7 @@ class DigiKeySupplier(BaseSupplier):
         try:
             async with session.post(self._get_token_url(), headers=headers, data=data) as response:
                 if response.status == 200:
-                    token_data = await response.json()
+                    token_data = await response.json() or {}
                     self._access_token = token_data.get("access_token")
                     self._refresh_token = token_data.get("refresh_token")
                     expires_in = token_data.get("expires_in", 3600)
@@ -600,8 +605,9 @@ class DigiKeySupplier(BaseSupplier):
                 }
             
             # Check for credentials
-            client_id = self._credentials.get('client_id', '').strip()
-            client_secret = self._credentials.get('client_secret', '').strip()
+            credentials = self._credentials or {}
+            client_id = credentials.get('client_id', '').strip()
+            client_secret = credentials.get('client_secret', '').strip()
             
             if not client_id or not client_secret:
                 return {
@@ -612,7 +618,7 @@ class DigiKeySupplier(BaseSupplier):
                         "configuration_needed": True,
                         "missing_credentials": [
                             field for field in ['client_id', 'client_secret'] 
-                            if not self._credentials.get(field, '').strip()
+                            if not (self._credentials or {}).get(field, '').strip()
                         ],
                         "setup_url": "https://developer.digikey.com"
                     }
@@ -942,7 +948,8 @@ class DigiKeySupplier(BaseSupplier):
     def _generate_oauth_url(self) -> str:
         """Generate OAuth authorization URL for manual authentication"""
         try:
-            client_id = self._credentials.get('client_id', '')
+            credentials = self._credentials or {}
+            client_id = credentials.get('client_id', '')
             default_callback = f"{self._get_server_url()}/api/suppliers/digikey/oauth/callback"
             callback_url = self._config.get('oauth_callback_url', default_callback)
             auth_base = "https://api.digikey.com/v1/oauth2/authorize"

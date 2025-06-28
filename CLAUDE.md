@@ -126,6 +126,49 @@ if parser and parser.supports_capability(CapabilityType.FETCH_PRICING):
 - Follow role-based security patterns for task creation and management
 - When changing the API code, always keep @api.md up to date.
 
+### Supplier Implementation Guidelines
+
+#### JSON Response Safety Pattern
+**CRITICAL**: All supplier implementations must use defensive null checking when handling JSON API responses to prevent `'NoneType' object has no attribute 'get'` errors.
+
+**Required Pattern:**
+```python
+# Always use this pattern in all supplier implementations
+data = await response.json() or {}  # Handle case where response.json() returns None
+nested_data = data.get("SomeKey", {}) or {}  # Handle case where nested keys are None
+```
+
+**Background:** API responses can return `{"key": null}` or the `response.json()` call itself can return `None`. This causes runtime errors when calling `.get()` on `None` objects.
+
+**Examples:**
+```python
+# ✅ CORRECT - Safe pattern used consistently
+async def test_connection(self):
+    async with session.post(url, json=data) as response:
+        if response.status == 200:
+            data = await response.json() or {}  # Prevent None
+            search_results = data.get("SearchResults", {}) or {}  # Prevent nested None
+            count = search_results.get("NumberOfResult", 0)  # Safe to call .get()
+
+# ❌ INCORRECT - Vulnerable to None errors  
+async def test_connection(self):
+    data = await response.json()  # Could be None
+    search_results = data.get("SearchResults")  # Could return None
+    count = search_results.get("NumberOfResult", 0)  # CRASH if search_results is None
+```
+
+**Architecture Decision:** This pattern is implemented at the individual supplier level rather than in the BaseSupplier abstract class because:
+- Each supplier API has different response structures and error conditions
+- Supplier-specific handling is more maintainable and debuggable
+- The pattern is simple and explicit: `or {}` after any JSON parsing
+- Avoids over-abstraction while maintaining safety
+
+**Code Review Checklist:**
+- [ ] All `response.json()` calls have `or {}` null safety
+- [ ] All `.get()` calls on potentially null nested data have `or {}` safety
+- [ ] Test connection methods handle API response edge cases
+- [ ] Authentication methods use the same defensive patterns
+
 ### Printer Testing Notes
 - only use 12mm tape for printer tests
 
