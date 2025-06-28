@@ -6,13 +6,21 @@ No authentication required - uses the same API as the existing LCSC parser.
 """
 
 import re
+import logging
 from typing import List, Dict, Any, Optional
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo, CapabilityRequirement, ImportResult
+    PartSearchResult, SupplierInfo, ConfigurationOption,
+    CapabilityRequirement, ImportResult
 )
 from .registry import register_supplier
+from .exceptions import (
+    SupplierError, SupplierConfigurationError, SupplierAuthenticationError,
+    SupplierConnectionError, SupplierRateLimitError
+)
+
+logger = logging.getLogger(__name__)
 
 
 @register_supplier("lcsc")
@@ -23,11 +31,11 @@ class LCSCSupplier(BaseSupplier):
         return SupplierInfo(
             name="lcsc",
             display_name="LCSC Electronics",
-            description="Chinese electronics component supplier with EasyEDA integration and competitive pricing",
+            description="Chinese electronics component supplier with EasyEDA integration and competitive pricing. Uses web scraping with configurable rate limiting for responsible data access.",
             website_url="https://www.lcsc.com",
             api_documentation_url="https://easyeda.com",
             supports_oauth=False,
-            rate_limit_info="Public API - reasonable rate limits apply",
+            rate_limit_info="Web scraping - configurable rate limiting (default: 20 requests per minute)",
             supported_file_types=["csv"]
         )
     
@@ -75,30 +83,135 @@ class LCSCSupplier(BaseSupplier):
         return []
     
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
+        """
+        Default configuration schema - returns empty list since we use get_configuration_options() instead.
+        This method is kept for abstract class compliance.
+        """
+        return []
+    
+    def get_configuration_options(self) -> List[ConfigurationOption]:
+        """
+        Return configuration options for LCSC API.
+        Provides different rate limiting and scraping configurations.
+        """
         return [
-            FieldDefinition(
-                name="api_version",
-                label="API Version",
-                field_type=FieldType.TEXT,
-                required=False,
-                default_value="6.4.19.5",
-                description="EasyEDA API version",
-                help_text="Version parameter for EasyEDA API compatibility"
+            ConfigurationOption(
+                name='standard',
+                label='LCSC Standard Configuration',
+                description='Standard configuration for LCSC/EasyEDA API access with moderate rate limiting.',
+                schema=[
+                    FieldDefinition(
+                        name="api_version",
+                        label="EasyEDA API Version",
+                        field_type=FieldType.TEXT,
+                        required=False,
+                        default_value="6.4.19.5",
+                        description="EasyEDA API version parameter",
+                        help_text="Version parameter for EasyEDA API compatibility"
+                    ),
+                    FieldDefinition(
+                        name="rate_limit_requests_per_minute",
+                        label="Rate Limit (requests per minute)",
+                        field_type=FieldType.NUMBER,
+                        required=False,
+                        default_value=20,
+                        description="Maximum requests per minute for responsible scraping",
+                        validation={"min": 1, "max": 60},
+                        help_text="Lower values are more respectful to LCSC servers (recommended: 10-20)"
+                    ),
+                    FieldDefinition(
+                        name="request_timeout",
+                        label="Request Timeout (seconds)",
+                        field_type=FieldType.NUMBER,
+                        required=False,
+                        default_value=30,
+                        description="API request timeout in seconds",
+                        validation={"min": 5, "max": 120},
+                        help_text="Increase if you experience timeout errors (5-120 seconds)"
+                    ),
+                    FieldDefinition(
+                        name="standard_info",
+                        label="Configuration Info",
+                        field_type=FieldType.INFO,
+                        required=False,
+                        description="Standard LCSC configuration with moderate rate limiting",
+                        help_text="This configuration provides balanced settings for general use. No API key required - uses public EasyEDA API."
+                    )
+                ],
+                is_default=True,
+                requirements={
+                    'api_key_required': False,
+                    'complexity': 'low',
+                    'data_type': 'public_api',
+                    'prerequisites': ['Internet access']
+                }
             ),
-            FieldDefinition(
-                name="custom_headers",
-                label="Custom Headers",
-                field_type=FieldType.TEXTAREA,
-                required=False,
-                default_value="User-Agent: Mozilla/5.0 (compatible; MakerMatrix/1.0)\nAccept-Language: en-US,en;q=0.9",
-                description="Additional HTTP headers (one per line, format: Header-Name: value)",
-                help_text="Example: User-Agent: YourApp/1.0. LCSC may require browser-like headers for scraping."
+            ConfigurationOption(
+                name='conservative',
+                label='LCSC Conservative Configuration',
+                description='Conservative configuration with slower rate limiting for maximum server respect.',
+                schema=[
+                    FieldDefinition(
+                        name="api_version",
+                        label="EasyEDA API Version",
+                        field_type=FieldType.TEXT,
+                        required=False,
+                        default_value="6.4.19.5",
+                        description="EasyEDA API version parameter",
+                        help_text="Version parameter for EasyEDA API compatibility"
+                    ),
+                    FieldDefinition(
+                        name="rate_limit_requests_per_minute",
+                        label="Rate Limit (requests per minute)",
+                        field_type=FieldType.NUMBER,
+                        required=False,
+                        default_value=10,
+                        description="Conservative rate limiting for maximum server respect",
+                        validation={"min": 1, "max": 60},
+                        help_text="Very conservative rate limiting - best for large batch operations"
+                    ),
+                    FieldDefinition(
+                        name="request_timeout",
+                        label="Request Timeout (seconds)",
+                        field_type=FieldType.NUMBER,
+                        required=False,
+                        default_value=45,
+                        description="Extended timeout for slower connections",
+                        validation={"min": 5, "max": 120},
+                        help_text="Extended timeout for reliable operation"
+                    ),
+                    FieldDefinition(
+                        name="custom_headers",
+                        label="Custom HTTP Headers",
+                        field_type=FieldType.TEXTAREA,
+                        required=False,
+                        default_value="User-Agent: Mozilla/5.0 (compatible; MakerMatrix/1.0)\nAccept-Language: en-US,en;q=0.9",
+                        description="Additional HTTP headers (one per line, format: Header-Name: value)",
+                        help_text="Browser-like headers for better compatibility with LCSC servers"
+                    ),
+                    FieldDefinition(
+                        name="conservative_info",
+                        label="Conservative Configuration Info",
+                        field_type=FieldType.INFO,
+                        required=False,
+                        description="Conservative LCSC configuration with slower rate limiting",
+                        help_text="This configuration prioritizes server respect and reliability over speed. Ideal for bulk operations or automated processes."
+                    )
+                ],
+                is_default=False,
+                requirements={
+                    'api_key_required': False,
+                    'complexity': 'medium',
+                    'data_type': 'public_api',
+                    'prerequisites': ['Internet access', 'Patience for slower operations']
+                }
             )
         ]
     
     def _get_easyeda_api_url(self, lcsc_id: str) -> str:
         """Get EasyEDA API URL for a specific LCSC part"""
-        version = self._config.get("api_version", "6.4.19.5")
+        config = self._config or {}  # Handle case where _config might be None
+        version = config.get("api_version", "6.4.19.5")
         return f"https://easyeda.com/api/products/{lcsc_id}/components?version={version}"
     
     def _get_headers(self) -> Dict[str, str]:
@@ -110,8 +223,9 @@ class LCSCSupplier(BaseSupplier):
             "User-Agent": "MakerMatrix/1.0 (easyeda2kicad compatible)"
         }
         
-        # Add custom headers from configuration
-        custom_headers_text = self._config.get("custom_headers", "")
+        # Add custom headers from configuration - handle case where _config might be None
+        config = self._config or {}
+        custom_headers_text = config.get("custom_headers", "")
         if custom_headers_text and custom_headers_text.strip():
             for line in custom_headers_text.strip().split('\n'):
                 line = line.strip()
@@ -141,17 +255,22 @@ class LCSCSupplier(BaseSupplier):
             
             url = self._get_easyeda_api_url(test_lcsc_id)
             
-            async with session.get(url, headers=headers) as response:
+            config = self._config or {}
+            timeout = config.get("request_timeout", 30)
+            
+            async with session.get(url, headers=headers, timeout=timeout) as response:
                 if response.status == 200:
-                    data = await response.json()
+                    data = await response.json() or {}  # Defensive null safety
                     if data and "result" in data:
                         return {
                             "success": True,
-                            "message": "Connection successful",
+                            "message": "LCSC/EasyEDA API connection successful",
                             "details": {
                                 "api_endpoint": "EasyEDA API",
                                 "test_part": test_lcsc_id,
-                                "api_version": self._config.get("api_version", "6.4.19.5")
+                                "api_version": config.get("api_version", "6.4.19.5"),
+                                "rate_limit": f"{config.get('rate_limit_requests_per_minute', 20)} requests per minute",
+                                "api_ready": True
                             }
                         }
                     else:
@@ -205,29 +324,36 @@ class LCSCSupplier(BaseSupplier):
     
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
         """Get detailed information about a specific LCSC part using EasyEDA API"""
-        try:
-            # Ensure part number is uppercase and clean
-            lcsc_id = supplier_part_number.strip().upper()
-            
-            session = await self._get_session()
-            headers = self._get_headers()
-            
-            url = self._get_easyeda_api_url(lcsc_id)
-            
-            async with session.get(url, headers=headers) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    if data and "result" in data and data["result"]:
-                        return await self._parse_easyeda_response(data, lcsc_id)
-                    return None
-                else:
-                    return None
-        except Exception:
-            return None
+        async def _impl():
+            try:
+                # Ensure part number is uppercase and clean
+                lcsc_id = supplier_part_number.strip().upper()
+                
+                session = await self._get_session()
+                headers = self._get_headers()
+                
+                url = self._get_easyeda_api_url(lcsc_id)
+                
+                config = self._config or {}
+                timeout = config.get("request_timeout", 30)
+                
+                async with session.get(url, headers=headers, timeout=timeout) as response:
+                    if response.status == 200:
+                        data = await response.json() or {}  # Defensive null safety
+                        if data and "result" in data and data["result"]:
+                            return await self._parse_easyeda_response(data, lcsc_id)
+                        return None
+                    else:
+                        return None
+            except Exception:
+                return None
+        
+        return await self._tracked_api_call("get_part_details", _impl)
     
     async def _parse_easyeda_response(self, data: Dict[str, Any], lcsc_id: str) -> PartSearchResult:
         """Parse EasyEDA API response into PartSearchResult format"""
-        result = data.get("result", {})
+        data = data or {}  # Defensive null safety
+        result = data.get("result", {}) or {}  # Handle case where result is None
         
         # Extract basic component info using the same paths as the original parser
         manufacturer = self._get_nested_value(result, ['dataStr', 'head', 'c_para', 'Manufacturer'])
@@ -300,18 +426,27 @@ class LCSCSupplier(BaseSupplier):
     
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:
         """Fetch datasheet URL for an LCSC part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.datasheet_url if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.datasheet_url if part_details else None
+        
+        return await self._tracked_api_call("fetch_datasheet", _impl)
     
     async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
         """Fetch technical specifications for an LCSC part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.specifications if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.specifications if part_details else None
+        
+        return await self._tracked_api_call("fetch_specifications", _impl)
     
     async def fetch_image(self, supplier_part_number: str) -> Optional[str]:
         """Fetch component image URL for an LCSC part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.image_url if part_details else None
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.image_url if part_details else None
+        
+        return await self._tracked_api_call("fetch_image", _impl)
     
     async def _scrape_lcsc_image(self, lcsc_id: str) -> Optional[str]:
         """Scrape actual part image from LCSC website instead of using EasyEDA symbol"""
@@ -329,7 +464,10 @@ class LCSCSupplier(BaseSupplier):
                 "Upgrade-Insecure-Requests": "1"
             }
             
-            async with session.get(product_url, headers=headers) as response:
+            config = self._config or {}
+            timeout = config.get("request_timeout", 30)
+            
+            async with session.get(product_url, headers=headers, timeout=timeout) as response:
                 if response.status == 200:
                     html_content = await response.text()
                     
@@ -420,8 +558,13 @@ class LCSCSupplier(BaseSupplier):
             return None
     
     def get_rate_limit_delay(self) -> float:
-        """EasyEDA API - 60 calls per minute = 1 second between requests"""
-        return 1.0
+        """LCSC rate limiting based on configuration - default 20 requests per minute"""
+        config = self._config or {}
+        requests_per_minute = config.get("rate_limit_requests_per_minute", 20)
+        # Convert requests per minute to seconds between requests
+        # e.g., 20 requests/minute = 60/20 = 3 seconds between requests
+        delay = 60.0 / max(requests_per_minute, 1)  # Prevent division by zero
+        return delay
     
     # ========== Order Import Implementation ==========
     
