@@ -84,10 +84,19 @@ class LCSCSupplier(BaseSupplier):
     
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """
-        Default configuration schema - returns empty list since we use get_configuration_options() instead.
-        This method is kept for abstract class compliance.
+        Get configuration schema for LCSC supplier.
+        Returns fields from the default configuration option for frontend compatibility.
         """
-        return []
+        # Get the default configuration option and return its schema fields
+        config_options = self.get_configuration_options()
+        default_option = next((opt for opt in config_options if opt.is_default), None)
+        
+        if default_option:
+            return default_option.schema
+        else:
+            # Fallback to standard option if no default found
+            standard_option = next((opt for opt in config_options if opt.name == 'standard'), None)
+            return standard_option.schema if standard_option else []
     
     def get_configuration_options(self) -> List[ConfigurationOption]:
         """

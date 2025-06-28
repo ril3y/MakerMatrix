@@ -145,10 +145,19 @@ class DigiKeySupplier(BaseSupplier):
     
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """
-        Default configuration schema - returns empty list since we use get_configuration_options() instead.
-        This method is kept for abstract class compliance.
+        Get configuration schema for DigiKey supplier.
+        Returns fields from the default configuration option for frontend compatibility.
         """
-        return []
+        # Get the default configuration option and return its schema fields
+        config_options = self.get_configuration_options()
+        default_option = next((opt for opt in config_options if opt.is_default), None)
+        
+        if default_option:
+            return default_option.schema
+        else:
+            # Fallback to production option if no default found
+            production_option = next((opt for opt in config_options if opt.name == 'production'), None)
+            return production_option.schema if production_option else []
     
     def get_configuration_options(self) -> List[ConfigurationOption]:
         """
