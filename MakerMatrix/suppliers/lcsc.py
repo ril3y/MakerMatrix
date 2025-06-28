@@ -106,18 +106,9 @@ class LCSCSupplier(BaseSupplier):
         return [
             ConfigurationOption(
                 name='standard',
-                label='LCSC Standard Configuration',
-                description='Standard configuration for LCSC/EasyEDA API access with moderate rate limiting.',
+                label='LCSC Rate Limiting',
+                description='Configure rate limiting for responsible LCSC web scraping.',
                 schema=[
-                    FieldDefinition(
-                        name="api_version",
-                        label="EasyEDA API Version",
-                        field_type=FieldType.TEXT,
-                        required=False,
-                        default_value="6.4.19.5",
-                        description="EasyEDA API version parameter",
-                        help_text="Version parameter for EasyEDA API compatibility"
-                    ),
                     FieldDefinition(
                         name="rate_limit_requests_per_minute",
                         label="Rate Limit (requests per minute)",
@@ -127,24 +118,6 @@ class LCSCSupplier(BaseSupplier):
                         description="Maximum requests per minute for responsible scraping",
                         validation={"min": 1, "max": 60},
                         help_text="Lower values are more respectful to LCSC servers (recommended: 10-20)"
-                    ),
-                    FieldDefinition(
-                        name="request_timeout",
-                        label="Request Timeout (seconds)",
-                        field_type=FieldType.NUMBER,
-                        required=False,
-                        default_value=30,
-                        description="API request timeout in seconds",
-                        validation={"min": 5, "max": 120},
-                        help_text="Increase if you experience timeout errors (5-120 seconds)"
-                    ),
-                    FieldDefinition(
-                        name="standard_info",
-                        label="Configuration Info",
-                        field_type=FieldType.INFO,
-                        required=False,
-                        description="Standard LCSC configuration with moderate rate limiting",
-                        help_text="This configuration provides balanced settings for general use. No API key required - uses public EasyEDA API."
                     )
                 ],
                 is_default=True,
@@ -157,18 +130,9 @@ class LCSCSupplier(BaseSupplier):
             ),
             ConfigurationOption(
                 name='conservative',
-                label='LCSC Conservative Configuration',
-                description='Conservative configuration with slower rate limiting for maximum server respect.',
+                label='LCSC Conservative Rate Limiting',
+                description='Very slow rate limiting for bulk operations and maximum server respect.',
                 schema=[
-                    FieldDefinition(
-                        name="api_version",
-                        label="EasyEDA API Version",
-                        field_type=FieldType.TEXT,
-                        required=False,
-                        default_value="6.4.19.5",
-                        description="EasyEDA API version parameter",
-                        help_text="Version parameter for EasyEDA API compatibility"
-                    ),
                     FieldDefinition(
                         name="rate_limit_requests_per_minute",
                         label="Rate Limit (requests per minute)",
@@ -178,41 +142,14 @@ class LCSCSupplier(BaseSupplier):
                         description="Conservative rate limiting for maximum server respect",
                         validation={"min": 1, "max": 60},
                         help_text="Very conservative rate limiting - best for large batch operations"
-                    ),
-                    FieldDefinition(
-                        name="request_timeout",
-                        label="Request Timeout (seconds)",
-                        field_type=FieldType.NUMBER,
-                        required=False,
-                        default_value=45,
-                        description="Extended timeout for slower connections",
-                        validation={"min": 5, "max": 120},
-                        help_text="Extended timeout for reliable operation"
-                    ),
-                    FieldDefinition(
-                        name="custom_headers",
-                        label="Custom HTTP Headers",
-                        field_type=FieldType.TEXTAREA,
-                        required=False,
-                        default_value="User-Agent: Mozilla/5.0 (compatible; MakerMatrix/1.0)\nAccept-Language: en-US,en;q=0.9",
-                        description="Additional HTTP headers (one per line, format: Header-Name: value)",
-                        help_text="Browser-like headers for better compatibility with LCSC servers"
-                    ),
-                    FieldDefinition(
-                        name="conservative_info",
-                        label="Conservative Configuration Info",
-                        field_type=FieldType.INFO,
-                        required=False,
-                        description="Conservative LCSC configuration with slower rate limiting",
-                        help_text="This configuration prioritizes server respect and reliability over speed. Ideal for bulk operations or automated processes."
                     )
                 ],
                 is_default=False,
                 requirements={
                     'api_key_required': False,
-                    'complexity': 'medium',
+                    'complexity': 'low',
                     'data_type': 'public_api',
-                    'prerequisites': ['Internet access', 'Patience for slower operations']
+                    'prerequisites': ['Internet access']
                 }
             )
         ]
@@ -220,7 +157,7 @@ class LCSCSupplier(BaseSupplier):
     def _get_easyeda_api_url(self, lcsc_id: str) -> str:
         """Get EasyEDA API URL for a specific LCSC part"""
         config = self._config or {}  # Handle case where _config might be None
-        version = config.get("api_version", "6.4.19.5")
+        version = config.get("api_version", "6.4.19.5")  # Internal default, not user-configurable
         return f"https://easyeda.com/api/products/{lcsc_id}/components?version={version}"
     
     def _get_headers(self) -> Dict[str, str]:
@@ -265,7 +202,7 @@ class LCSCSupplier(BaseSupplier):
             url = self._get_easyeda_api_url(test_lcsc_id)
             
             config = self._config or {}
-            timeout = config.get("request_timeout", 30)
+            timeout = config.get("request_timeout", 30)  # Internal default, not user-configurable
             
             async with session.get(url, headers=headers, timeout=timeout) as response:
                 if response.status == 200:
@@ -344,7 +281,7 @@ class LCSCSupplier(BaseSupplier):
                 url = self._get_easyeda_api_url(lcsc_id)
                 
                 config = self._config or {}
-                timeout = config.get("request_timeout", 30)
+                timeout = config.get("request_timeout", 30)  # Internal default, not user-configurable
                 
                 async with session.get(url, headers=headers, timeout=timeout) as response:
                     if response.status == 200:
@@ -474,7 +411,7 @@ class LCSCSupplier(BaseSupplier):
             }
             
             config = self._config or {}
-            timeout = config.get("request_timeout", 30)
+            timeout = config.get("request_timeout", 30)  # Internal default, not user-configurable
             
             async with session.get(product_url, headers=headers, timeout=timeout) as response:
                 if response.status == 200:
