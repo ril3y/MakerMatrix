@@ -6,7 +6,7 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 
-from MakerMatrix.services.printer_manager_service import (
+from MakerMatrix.services.printer.printer_manager_service import (
     PrinterManagerService, 
     PrintJob,
     get_printer_manager,

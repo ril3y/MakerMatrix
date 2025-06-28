@@ -10,7 +10,7 @@ from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.suppliers import SupplierRegistry
 from MakerMatrix.suppliers.base import SupplierCapability
-from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from sqlmodel import select
 import logging
 

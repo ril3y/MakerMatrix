@@ -23,7 +23,7 @@ export interface AIProcessRequest {
 class AIService {
   async processCommand(command: string, context?: any): Promise<AICommandResponse> {
     try {
-      const response = await apiClient.post<AICommandResponse>('/ai/process-command', {
+      const response = await apiClient.post<AICommandResponse>('/api/ai/process-command', {
         command,
         context
       });
@@ -80,12 +80,12 @@ class AIService {
   }
 
   async generateLabel(partId: number): Promise<{ label_data: string }> {
-    const response = await apiClient.post<{ label_data: string }>(`/ai/generate-label/${partId}`);
+    const response = await apiClient.post<{ label_data: string }>(`/api/ai/generate-label/${partId}`);
     return response;
   }
 
   async suggestCategories(partName: string): Promise<string[]> {
-    const response = await apiClient.post<{ categories: string[] }>('/ai/suggest-categories', {
+    const response = await apiClient.post<{ categories: string[] }>('/api/ai/suggest-categories', {
       part_name: partName
     });
     return response.categories;

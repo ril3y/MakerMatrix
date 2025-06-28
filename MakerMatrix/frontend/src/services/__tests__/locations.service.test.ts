@@ -60,7 +60,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.createLocation(createRequest)
 
-      expect(mockApiClient.post).toHaveBeenCalledWith('/locations/add_location', createRequest)
+      expect(mockApiClient.post).toHaveBeenCalledWith('/api/locations/add_location', createRequest)
       expect(result).toEqual(mockLocation)
     })
 
@@ -103,7 +103,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.getLocation({ id: 'loc-123' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/locations/get_location?location_id=loc-123')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_location?location_id=loc-123')
       expect(result).toEqual(mockLocation)
     })
 
@@ -117,7 +117,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.getLocation({ name: 'Main Warehouse' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/locations/get_location?name=Main+Warehouse')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_location?name=Main+Warehouse')
       expect(result).toEqual(mockLocation)
     })
 
@@ -155,7 +155,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.updateLocation(updateRequest)
 
-      expect(mockApiClient.put).toHaveBeenCalledWith('/locations/update_location/loc-123', {
+      expect(mockApiClient.put).toHaveBeenCalledWith('/api/locations/update_location/loc-123', {
         name: 'Updated Warehouse',
         description: 'Updated description'
       })
@@ -197,7 +197,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.deleteLocation('loc-123')
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/locations/delete_location/loc-123')
+      expect(mockApiClient.delete).toHaveBeenCalledWith('/api/locations/delete_location/loc-123')
       expect(result).toEqual(mockDeleteResponse)
     })
   })
@@ -214,7 +214,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.getAllLocations()
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/locations/get_all_locations')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_all_locations')
       expect(result).toEqual(mockLocations)
     })
 
@@ -256,7 +256,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.getLocationDetails('loc-123')
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/locations/get_location_details/loc-123')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_location_details/loc-123')
       expect(result).toEqual(mockDetails)
     })
   })
@@ -277,7 +277,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.getLocationPath('loc-456')
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/locations/get_location_path/loc-456')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_location_path/loc-456')
       expect(result).toEqual(mockPath)
     })
   })
@@ -300,7 +300,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.previewLocationDelete('loc-123')
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/locations/preview-location-delete/loc-123')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/preview-location-delete/loc-123')
       expect(result).toEqual(mockPreview)
     })
   })
@@ -321,7 +321,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.cleanupLocations()
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/locations/cleanup-locations')
+      expect(mockApiClient.delete).toHaveBeenCalledWith('/api/locations/cleanup-locations')
       expect(result).toEqual(mockCleanup)
     })
   })
@@ -458,7 +458,7 @@ describe('LocationsService', () => {
 
       const result = await locationsService.getAll()
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/locations/get_all_locations')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_all_locations')
       expect(result).toEqual(mockLocations)
     })
   })

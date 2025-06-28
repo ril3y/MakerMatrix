@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
 from MakerMatrix.main import app
-from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.models.models import engine
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin

@@ -9,9 +9,9 @@ sys.path.append('.')
 
 from sqlmodel import Session
 from MakerMatrix.models.models import engine
-from MakerMatrix.services.category_service import CategoryService
-from MakerMatrix.services.location_service import LocationService
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.category_service import CategoryService
+from MakerMatrix.services.data.location_service import LocationService
+from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.database.db import create_db_and_tables
 
 def get_categories_map():

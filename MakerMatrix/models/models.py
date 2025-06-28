@@ -11,6 +11,7 @@ from datetime import datetime
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
 from MakerMatrix.models.task_models import TaskModel
 from MakerMatrix.models.supplier_config_models import SupplierConfigModel, SupplierCredentialsModel, EnrichmentProfileModel
+from MakerMatrix.models.supplier_credentials import SimpleSupplierCredentials
 from MakerMatrix.models.rate_limiting_models import (
     SupplierRateLimitModel, 
     SupplierUsageTrackingModel, 
@@ -194,93 +195,98 @@ class LocationUpdate(SQLModel):
     emoji: Optional[str] = None
 
 
-# PartModel
+# PartModel - Clean core part data only
 class PartModel(SQLModel, table=True):
+    # === CORE IDENTIFICATION ===
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    part_number: Optional[str] = Field(index=True)
     part_name: str = Field(index=True, unique=True)
+    part_number: Optional[str] = Field(index=True)
+    
+    # === PART DESCRIPTION ===
     description: Optional[str] = None
-    quantity: Optional[int]
-    supplier: Optional[str] = None
-
+    manufacturer: Optional[str] = Field(default=None, index=True, description="Component manufacturer")
+    manufacturer_part_number: Optional[str] = Field(default=None, index=True, description="Manufacturer's part number")
+    component_type: Optional[str] = Field(default=None, index=True, description="Part type: resistor, capacitor, screwdriver, etc.")
+    
+    # === CURRENT INVENTORY ===
+    quantity: Optional[int] = None
     location_id: Optional[str] = Field(
         default=None,
-        sa_column=Column(
-            String, ForeignKey("locationmodel.id", ondelete="SET NULL")
-        )
+        sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="SET NULL"))
     )
+    supplier: Optional[str] = None  # Primary/preferred supplier
 
     location: Optional["LocationModel"] = Relationship(
         back_populates="parts",
         sa_relationship_kwargs={"lazy": "selectin"}
     )
 
+    # === MEDIA & COMPLIANCE ===
     image_url: Optional[str] = None
+    rohs_status: Optional[str] = Field(default=None, description="RoHS compliance status")
+    lifecycle_status: Optional[str] = Field(default=None, description="Part lifecycle status (active, obsolete, etc.)")
     
-    # === STANDARDIZED CORE FIELDS FOR UI CONSISTENCY ===
-    
-    # Universal Part Identification (critical for any UI)
-    manufacturer: Optional[str] = Field(default=None, index=True, description="Component manufacturer")
-    manufacturer_part_number: Optional[str] = Field(default=None, index=True, description="Manufacturer's part number")
-    
-    # Component Classification (helps UI organize and display parts)
-    component_type: Optional[str] = Field(default=None, index=True, description="Standardized component type (resistor, capacitor, etc.)")
-    package: Optional[str] = Field(default=None, index=True, description="Physical package (0603, SOIC-8, etc.)")
-    mounting_type: Optional[str] = Field(default=None, description="Mounting type (SMT, through_hole, etc.)")
-    
-    # Compliance and Status (important for sourcing decisions)
-    rohs_status: Optional[str] = Field(default=None, description="RoHS compliance status (compliant, non_compliant, etc.)")
-    lifecycle_status: Optional[str] = Field(default=None, description="Part lifecycle status (active, obsolete, nrnd, etc.)")
-    
-    # === ENHANCED PRICING FIELDS (improved from existing) ===
-    unit_price: Optional[float] = Field(default=None, description="Primary unit price (typically for qty=1)")
-    currency: Optional[str] = Field(default="USD", max_length=3, description="Currency code (USD, EUR, etc.)")
-    pricing_data: Optional[Dict[str, Any]] = Field(
-        default=None,
-        sa_column=Column(JSON),
-        description="Complete pricing structure - flexible format per supplier"
-    )
-    last_price_update: Optional[datetime] = Field(default=None, description="When pricing was last updated")
-    price_source: Optional[str] = Field(default=None, description="Source of pricing data (supplier name)")
-    
-    # === STOCK TRACKING ===
-    stock_quantity: Optional[int] = Field(default=None, description="Supplier stock level")
-    last_stock_update: Optional[datetime] = Field(default=None, description="When stock was last checked")
-    
-    # === ENRICHMENT TRACKING ===
-    last_enrichment_date: Optional[datetime] = Field(default=None, description="Last successful enrichment")
-    enrichment_source: Optional[str] = Field(default=None, description="Which supplier enriched this part")
-    data_quality_score: Optional[float] = Field(default=None, description="Data completeness score (0.0-1.0)")
-    
-    # === STANDARDIZED FLEXIBLE STORAGE ===
+    # === PART-SPECIFIC PROPERTIES ===
+    # Examples:
+    # Resistor: {"resistance": "10k", "tolerance": "5%", "power": "0.25W", "package": "0603"}
+    # Screwdriver: {"type": "phillips", "size": "#2", "shaft_length": "4in", "handle_type": "plastic"}
+    # Capacitor: {"capacitance": "100uF", "voltage": "35V", "tolerance": "20%", "package": "SMD,D6.3xL7.7mm"}
+    # IC: {"package": "SOIC-8", "pins": 8, "operating_voltage": "3.3V", "interface": "SPI"}
     additional_properties: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
         sa_column=Column(JSON),
-        description="Standardized additional properties using schemas.part_data_standards structure"
+        description="Part-specific properties (resistance, capacitance, package, type, size, etc.)"
     )
+    
+    # === TIMESTAMPS ===
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # === CORE RELATIONSHIPS ===
     categories: List["CategoryModel"] = Relationship(
         back_populates="parts",
         link_model=PartCategoryLink,
         sa_relationship_kwargs={"lazy": "selectin"}
     )
     
+    # Datasheet files (one-to-many relationship)
+    datasheets: List["DatasheetModel"] = Relationship(
+        back_populates="part",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+    )
+    
+    # === METADATA RELATIONSHIPS (optional, lazy-loaded) ===
+    # These are only loaded when specifically requested via include parameters
+    
+    # Enrichment metadata (one-to-one)
+    enrichment_metadata: Optional["PartEnrichmentMetadata"] = Relationship(
+        back_populates="part",
+        sa_relationship_kwargs={"lazy": "noload", "uselist": False, "cascade": "all, delete-orphan"}
+    )
+    
+    # Pricing history (one-to-many) - historical pricing data from different suppliers
+    pricing_history: List["PartPricingHistory"] = Relationship(
+        back_populates="part",
+        sa_relationship_kwargs={"lazy": "noload", "cascade": "all, delete-orphan"}
+    )
+    
+    # System metadata (one-to-one) - analytics, import tracking, user flags
+    system_metadata: Optional["PartSystemMetadata"] = Relationship(
+        back_populates="part",
+        sa_relationship_kwargs={"lazy": "noload", "uselist": False, "cascade": "all, delete-orphan"}
+    )
+    
+    # === ORDER RELATIONSHIPS (optional, lazy-loaded) ===
     # Order tracking - parts can be linked to multiple order items
     order_items: List["OrderItemModel"] = Relationship(
         back_populates="part",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        sa_relationship_kwargs={"lazy": "noload"}
     )
     
     # Order summary information (one-to-one relationship)
     order_summary: Optional["PartOrderSummary"] = Relationship(
         back_populates="part",
-        sa_relationship_kwargs={"lazy": "selectin", "uselist": False}
-    )
-    
-    # Datasheet files (one-to-many relationship)
-    datasheets: List["DatasheetModel"] = Relationship(
-        back_populates="part",
-        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "noload", "uselist": False}
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -315,30 +321,40 @@ class PartModel(SQLModel, table=True):
         Custom serialization method for PartModel 
         
         Args:
-            include: List of additional data to include. Options: 'orders', 'datasheets', 'all'
+            include: List of metadata to include. Options:
+                - 'pricing': Include pricing history
+                - 'enrichment': Include enrichment metadata  
+                - 'system': Include system metadata
+                - 'orders': Include order relationships
+                - 'all': Include all metadata
         """
         include = include or []
-        exclude_fields = {"location", "order_items", "order_summary", "datasheets"}
         
-        # Determine what to include based on parameters
+        # Always exclude metadata relationships unless specifically requested
+        exclude_fields = {
+            "location", "enrichment_metadata", "pricing_history", "system_metadata",
+            "order_items", "order_summary"
+        }
+        
+        # Datasheets are part of core part data (always included)
+        # Categories and location are part of core part data (always included)
+        
+        # Determine what metadata to include
+        include_pricing = 'pricing' in include or 'all' in include
+        include_enrichment = 'enrichment' in include or 'all' in include
+        include_system = 'system' in include or 'all' in include
         include_orders = 'orders' in include or 'all' in include
-        include_datasheets = 'datasheets' in include or 'all' in include
         
-        # Adjust exclusions based on what we want to include
-        if include_orders:
-            exclude_fields.discard("order_items")
-            exclude_fields.discard("order_summary")
-        if include_datasheets:
-            exclude_fields.discard("datasheets")
-            
+        # Get base part data (core fields only)
         base_dict = self.model_dump(exclude=exclude_fields)
-        # Always include categories, even if empty
+        
+        # Always include categories (core part data)
         base_dict["categories"] = [
             {"id": category.id, "name": category.name, "description": category.description}
             for category in self.categories
         ] if self.categories else []
         
-        # Include location information if available
+        # Always include location (core part data)
         if hasattr(self, 'location') and self.location is not None:
             base_dict["location"] = {
                 "id": self.location.id,
@@ -349,16 +365,58 @@ class PartModel(SQLModel, table=True):
         else:
             base_dict["location"] = None
         
-        # Conditionally include order information
+        # Always include datasheets (core part data)
+        if hasattr(self, 'datasheets') and self.datasheets:
+            base_dict["datasheets"] = [datasheet.to_dict() for datasheet in self.datasheets]
+        else:
+            base_dict["datasheets"] = []
+        
+        # === OPTIONAL METADATA ===
+        
+        # Include pricing metadata if requested
+        if include_pricing:
+            if hasattr(self, 'pricing_history') and self.pricing_history:
+                base_dict["pricing_history"] = [pricing.to_dict() for pricing in self.pricing_history]
+                
+                # Add current pricing summary for convenience
+                current_pricing = [p for p in self.pricing_history if p.is_current]
+                if current_pricing:
+                    base_dict["current_pricing"] = {
+                        supplier_pricing.supplier: {
+                            "unit_price": supplier_pricing.unit_price,
+                            "currency": supplier_pricing.currency,
+                            "stock_quantity": supplier_pricing.stock_quantity,
+                            "last_updated": supplier_pricing.created_at.isoformat() if supplier_pricing.created_at else None
+                        }
+                        for supplier_pricing in current_pricing
+                    }
+            else:
+                base_dict["pricing_history"] = []
+        
+        # Include enrichment metadata if requested
+        if include_enrichment:
+            if hasattr(self, 'enrichment_metadata') and self.enrichment_metadata:
+                base_dict["enrichment_metadata"] = self.enrichment_metadata.to_dict()
+            else:
+                base_dict["enrichment_metadata"] = None
+        
+        # Include system metadata if requested
+        if include_system:
+            if hasattr(self, 'system_metadata') and self.system_metadata:
+                base_dict["system_metadata"] = self.system_metadata.to_dict()
+            else:
+                base_dict["system_metadata"] = None
+        
+        # Include order information if requested
         if include_orders:
             # Include order summary information
-            if self.order_summary:
+            if hasattr(self, 'order_summary') and self.order_summary:
                 base_dict["order_summary"] = self.order_summary.to_dict()
             else:
                 base_dict["order_summary"] = None
             
             # Include order history summary
-            if self.order_items:
+            if hasattr(self, 'order_items') and self.order_items:
                 base_dict["order_history"] = [
                     {
                         "order_id": item.order_id,
@@ -374,13 +432,12 @@ class PartModel(SQLModel, table=True):
             else:
                 base_dict["order_history"] = []
         
-        # Conditionally include datasheet information  
-        if include_datasheets:
-            if hasattr(self, 'datasheets') and self.datasheets:
-                base_dict["datasheets"] = [datasheet.to_dict() for datasheet in self.datasheets]
-            else:
-                base_dict["datasheets"] = []
-        
+        # Convert datetime fields to ISO strings for JSON serialization
+        if 'created_at' in base_dict and base_dict['created_at']:
+            base_dict['created_at'] = base_dict['created_at'].isoformat()
+        if 'updated_at' in base_dict and base_dict['updated_at']:
+            base_dict['updated_at'] = base_dict['updated_at'].isoformat()
+            
         return base_dict
     
     # === UI CONVENIENCE METHODS FOR STANDARDIZED DATA ===
@@ -455,57 +512,82 @@ class PartModel(SQLModel, table=True):
     
     def needs_enrichment(self) -> bool:
         """Determine if part needs enrichment based on data completeness"""
-        # Never been enriched
-        if not self.last_enrichment_date:
-            return True
+        # Check if enrichment metadata explicitly says we need enrichment
+        if hasattr(self, 'enrichment_metadata') and self.enrichment_metadata:
+            if self.enrichment_metadata.needs_enrichment:
+                return True
         
-        # Missing critical identification
+        # Missing manufacturer identification (needed for enrichment)
         if not self.has_complete_identification():
             return True
         
-        # Missing component classification
-        if not self.component_type:
+        # Missing image
+        if not self.image_url:
             return True
         
-        # Explicitly marked as needing enrichment
-        std_props = self.get_standardized_additional_properties()
-        metadata = std_props.get('metadata', {})
-        return metadata.get('needs_enrichment', False)
+        # Missing datasheets
+        if not self.has_datasheet():
+            return True
+        
+        # Sparse additional_properties (enrichment adds specifications)
+        if not self.additional_properties or len(self.additional_properties) < 3:
+            return True
+        
+        return False
     
     def update_data_quality_score(self):
-        """Calculate and update data quality score based on field completeness"""
-        # Core fields scoring (60% weight)
+        """Calculate and update data quality score in enrichment metadata"""
+        # Core fields scoring (60% weight) - removed package since it's in additional_properties now
         core_fields = [
             self.manufacturer,
             self.manufacturer_part_number,
             self.component_type,
-            self.package,
             self.description,
             self.image_url
         ]
         core_score = sum(1 for field in core_fields if field is not None) / len(core_fields)
         
-        # Pricing data (20% weight)
-        pricing_score = 1.0 if self.unit_price is not None else 0.0
+        # Pricing data (20% weight) - check if we have current pricing in metadata
+        pricing_score = 0.0
+        if hasattr(self, 'pricing_history') and self.pricing_history:
+            current_pricing = [p for p in self.pricing_history if p.is_current]
+            pricing_score = 1.0 if current_pricing else 0.0
         
         # Additional properties/specifications (20% weight)
-        specs = self.get_specifications_dict()
-        spec_score = min(len(specs) / 5, 1.0) if specs else 0.0  # Up to 5 specs for full score
+        additional_props = self.additional_properties or {}
+        spec_score = min(len(additional_props) / 5, 1.0) if additional_props else 0.0  # Up to 5 properties for full score
         
         # Overall weighted score
-        self.data_quality_score = (core_score * 0.6 + pricing_score * 0.2 + spec_score * 0.2)
+        calculated_score = (core_score * 0.6 + pricing_score * 0.2 + spec_score * 0.2)
+        
+        # Store score in enrichment metadata (create if it doesn't exist)
+        if hasattr(self, 'enrichment_metadata') and self.enrichment_metadata:
+            self.enrichment_metadata.data_quality_score = calculated_score
+        
+        return calculated_score
     
     def get_enrichment_status(self) -> Dict[str, Any]:
         """Get comprehensive enrichment status for UI display"""
+        # Pull enrichment data from metadata
+        enrichment_meta = getattr(self, 'enrichment_metadata', None)
+        
+        # Check for current pricing from pricing history
+        has_pricing = False
+        if hasattr(self, 'pricing_history') and self.pricing_history:
+            current_pricing = [p for p in self.pricing_history if p.is_current]
+            has_pricing = bool(current_pricing)
+        
         return {
-            'last_enrichment': self.last_enrichment_date.isoformat() if self.last_enrichment_date else None,
-            'enrichment_source': self.enrichment_source,
-            'data_quality_score': self.data_quality_score,
+            'last_enrichment': enrichment_meta.last_enrichment_date.isoformat() if enrichment_meta and enrichment_meta.last_enrichment_date else None,
+            'enrichment_source': enrichment_meta.enrichment_source if enrichment_meta else None,
+            'data_quality_score': enrichment_meta.data_quality_score if enrichment_meta else None,
+            'enrichment_attempts': enrichment_meta.enrichment_attempts if enrichment_meta else 0,
+            'last_error': enrichment_meta.last_error if enrichment_meta else None,
             'needs_enrichment': self.needs_enrichment(),
             'has_datasheet': self.has_datasheet(),
             'has_image': bool(self.image_url),
-            'has_pricing': bool(self.unit_price),
-            'has_stock_info': bool(self.stock_quantity is not None),
+            'has_pricing': has_pricing,
+            'has_additional_props': bool(self.additional_properties and len(self.additional_properties) > 0),
             'has_complete_id': self.has_complete_identification()
         }
 
@@ -708,6 +790,170 @@ class PrinterModel(SQLModel, table=True):
             base_dict["updated_at"] = self.updated_at.isoformat()
         if self.last_seen:
             base_dict["last_seen"] = self.last_seen.isoformat()
+        return base_dict
+
+
+# ========== PART METADATA TABLES ==========
+# These tables store system metadata about parts, separate from core part data
+
+class PartEnrichmentMetadata(SQLModel, table=True):
+    """Tracks enrichment attempts and data quality for parts"""
+    
+    id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    part_id: str = Field(
+        sa_column=Column(String, ForeignKey("partmodel.id", ondelete="CASCADE"), unique=True)
+    )
+    
+    # Enrichment tracking
+    last_enrichment_date: Optional[datetime] = None
+    enrichment_source: Optional[str] = None  # Which supplier/service enriched
+    data_quality_score: Optional[float] = None  # 0.0-1.0 completeness score
+    enrichment_attempts: int = Field(default=0)
+    last_error: Optional[str] = None
+    
+    # Capabilities used during enrichment
+    capabilities_used: Optional[Dict[str, Any]] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON)
+    )
+    
+    # Flags
+    needs_enrichment: bool = Field(default=False)
+    enrichment_enabled: bool = Field(default=True)
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationship
+    part: Optional["PartModel"] = Relationship(back_populates="enrichment_metadata")
+    
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Custom serialization method"""
+        base_dict = self.model_dump(exclude={"part"})
+        
+        # Convert datetime fields to ISO strings
+        datetime_fields = ['last_enrichment_date', 'created_at', 'updated_at']
+        for field in datetime_fields:
+            if field in base_dict and base_dict[field]:
+                base_dict[field] = base_dict[field].isoformat()
+        
+        return base_dict
+
+
+class PartPricingHistory(SQLModel, table=True):
+    """Tracks pricing and stock information over time"""
+    
+    id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    part_id: str = Field(foreign_key="partmodel.id", index=True)
+    
+    # Pricing information
+    supplier: str = Field(index=True)
+    unit_price: Optional[float] = Field(default=None, sa_column=Column(Numeric(10, 4)))
+    currency: str = Field(default="USD", max_length=3)
+    stock_quantity: Optional[int] = None
+    
+    # Pricing tiers (quantity breaks)
+    pricing_tiers: Optional[Dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Quantity-based pricing: {qty: price, ...}"
+    )
+    
+    # Source tracking
+    source: str = Field(index=True)  # "import", "api", "manual", "enrichment"
+    source_reference: Optional[str] = None  # Order number, API call ID, batch ID, etc.
+    
+    # Validity period
+    valid_from: datetime = Field(default_factory=datetime.utcnow, index=True)
+    valid_until: Optional[datetime] = None
+    is_current: bool = Field(default=True, index=True)  # Latest price for this supplier
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    
+    # Relationship
+    part: Optional["PartModel"] = Relationship(back_populates="pricing_history")
+    
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    @field_serializer('unit_price')
+    def serialize_decimal_fields(self, value: Optional[float]) -> Optional[float]:
+        """Convert Decimal values to float during serialization"""
+        if isinstance(value, Decimal):
+            return float(value)
+        return value
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Custom serialization method"""
+        base_dict = self.model_dump(exclude={"part"})
+        
+        # Convert Decimal fields to float
+        if isinstance(base_dict.get('unit_price'), Decimal):
+            base_dict['unit_price'] = float(base_dict['unit_price'])
+        
+        # Convert datetime fields to ISO strings
+        datetime_fields = ['valid_from', 'valid_until', 'created_at']
+        for field in datetime_fields:
+            if field in base_dict and base_dict[field]:
+                base_dict[field] = base_dict[field].isoformat()
+        
+        return base_dict
+
+
+class PartSystemMetadata(SQLModel, table=True):
+    """System-level metadata and analytics for parts"""
+    
+    id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    part_id: str = Field(
+        sa_column=Column(String, ForeignKey("partmodel.id", ondelete="CASCADE"), unique=True)
+    )
+    
+    # Analytics and usage tracking
+    view_count: int = Field(default=0)
+    search_count: int = Field(default=0)
+    last_accessed: Optional[datetime] = None
+    
+    # Import tracking
+    import_source: Optional[str] = None  # "csv", "api", "manual", "migration"
+    import_reference: Optional[str] = None  # filename, batch ID, migration ID, etc.
+    import_date: Optional[datetime] = None
+    
+    # Quality and organization flags
+    needs_review: bool = Field(default=False)
+    is_favorite: bool = Field(default=False)
+    is_obsolete: bool = Field(default=False)
+    
+    # User-defined organization
+    tags: Optional[List[str]] = Field(
+        default_factory=list,
+        sa_column=Column(JSON)
+    )
+    notes: Optional[str] = None  # User notes about this part
+    
+    # System flags
+    auto_reorder_enabled: bool = Field(default=False)
+    reorder_threshold: Optional[int] = None
+    preferred_supplier: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationship
+    part: Optional["PartModel"] = Relationship(back_populates="system_metadata")
+    
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Custom serialization method"""
+        base_dict = self.model_dump(exclude={"part"})
+        
+        # Convert datetime fields to ISO strings
+        datetime_fields = ['last_accessed', 'import_date', 'created_at', 'updated_at']
+        for field in datetime_fields:
+            if field in base_dict and base_dict[field]:
+                base_dict[field] = base_dict[field].isoformat()
+        
         return base_dict
 
 

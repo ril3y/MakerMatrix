@@ -33,8 +33,10 @@ class ImportResult(BaseModel):
     supplier: str
     imported_count: int
     failed_count: int
+    skipped_count: int = 0
     part_ids: List[str]
     failed_items: List[Dict[str, Any]]
+    skipped_items: List[Dict[str, Any]] = []
     warnings: List[str]
     order_id: Optional[str] = None
 
@@ -82,10 +84,25 @@ async def import_file(
         try:
             from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
             config_service = SupplierConfigService()
-            supplier_config = config_service.get_supplier_config(supplier_name)
+            # Try multiple case variations to find the supplier config
+            supplier_config = None
+            name_variations = [
+                supplier_name,                    # Original case (e.g., "digikey")
+                supplier_name.upper(),           # Uppercase (e.g., "DIGIKEY")
+                supplier_name.lower(),           # Lowercase (e.g., "digikey")
+                supplier_name.capitalize()       # Capitalized (e.g., "Digikey")
+            ]
+            
+            for name_variant in name_variations:
+                try:
+                    supplier_config = config_service.get_supplier_config(name_variant)
+                    logger.info(f"Found supplier config for '{name_variant}' (original: '{supplier_name}')")
+                    break
+                except:
+                    continue
             
             # Supplier must be configured and enabled
-            if not supplier_config or not supplier_config.get('enabled', False):
+            if not supplier_config or not supplier_config.enabled:
                 raise HTTPException(
                     status_code=403,
                     detail=f"Supplier {supplier_name} is not configured or enabled. Please configure the supplier in Settings -> Suppliers before importing files."
@@ -135,9 +152,13 @@ async def import_file(
         logger.info(f"Supplier import result: success={import_result.success}, parts_count={len(import_result.parts) if import_result.parts else 0}")
         
         if not import_result.success:
+            error_msg = import_result.error_message or "Import failed"
+            logger.error(f"Import failed for {supplier_name}: {error_msg}")
+            if import_result.warnings:
+                logger.error(f"Import warnings: {import_result.warnings}")
             raise HTTPException(
                 status_code=400,
-                detail=import_result.error_message or "Import failed"
+                detail=error_msg
             )
         
         if not import_result.parts:
@@ -184,6 +205,7 @@ async def import_file(
                 logger.warning(f"Failed to create order: {e}")
         
         # Import parts
+        skipped_parts = []  # Track parts that already exist
         logger.info(f"Starting to import {len(import_result.parts)} parts")
         for i, part_data in enumerate(import_result.parts):
             try:
@@ -224,27 +246,51 @@ async def import_file(
                         logger.warning(f"Failed to link part to order: {e}")
                         
             except Exception as e:
-                failed_items.append({
-                    'part_data': part_data,
-                    'error': str(e)
-                })
+                error_message = str(e)
+                # Check if this is a duplicate part error
+                if 'already exists' in error_message.lower():
+                    skipped_parts.append({
+                        'part_data': part_data,
+                        'reason': f"Part '{part_data.get('part_name', 'unknown')}' already exists"
+                    })
+                    logger.info(f"Skipped duplicate part: {part_data.get('part_name', 'unknown')}")
+                else:
+                    failed_items.append({
+                        'part_data': part_data,
+                        'error': error_message
+                    })
+                    logger.error(f"Failed to import part: {error_message}")
         
         # Build response
+        total_processed = len(part_ids) + len(skipped_parts) + len(failed_items)
         result = ImportResult(
             import_id=str(uuid.uuid4()),
             status="success" if not failed_items else "partial",
             supplier=supplier_name,
             imported_count=len(part_ids),
             failed_count=len(failed_items),
+            skipped_count=len(skipped_parts),
             part_ids=part_ids,
             failed_items=failed_items,
+            skipped_items=skipped_parts,
             warnings=import_result.warnings,
             order_id=order_id
         )
         
+        # Build message
+        message_parts = []
+        if len(part_ids) > 0:
+            message_parts.append(f"{len(part_ids)} parts imported")
+        if len(skipped_parts) > 0:
+            message_parts.append(f"{len(skipped_parts)} parts skipped (already exist)")
+        if len(failed_items) > 0:
+            message_parts.append(f"{len(failed_items)} parts failed")
+        
+        message = f"Processed {total_processed} parts from {supplier_name}: " + ", ".join(message_parts)
+        
         return ResponseSchema(
             status="success",
-            message=f"Imported {len(part_ids)} parts from {supplier_name}",
+            message=message,
             data=result
         )
         
@@ -254,186 +300,6 @@ async def import_file(
         logger.error(f"Error importing file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
-
-@router.post("/preview")
-async def preview_csv_content(
-    csv_content: Dict[str, str],
-    current_user: UserModel = Depends(get_current_user)
-):
-    """
-    Preview CSV content without importing.
-    
-    Analyzes CSV text content and returns headers, row count, and preview data.
-    """
-    try:
-        content = csv_content.get('csv_content', '')
-        if not content:
-            raise HTTPException(status_code=400, detail="No CSV content provided")
-        
-        # Try to detect supplier from CSV content
-        detected_supplier = None
-        content_lower = content.lower()
-        
-        # Check for supplier-specific patterns in CSV headers/content
-        if 'lcsc part number' in content_lower or 'customer no.' in content_lower:
-            detected_supplier = 'lcsc'
-        elif 'digi-key part number' in content_lower or 'quantity available' in content_lower:
-            detected_supplier = 'digikey'
-        elif 'mouser part no' in content_lower or 'mouser part number' in content_lower:
-            detected_supplier = 'mouser'
-        
-        if detected_supplier:
-            try:
-                supplier = get_supplier(detected_supplier)
-                # Use supplier's preview method if available
-                if hasattr(supplier, 'get_import_file_preview'):
-                    preview_data = supplier.get_import_file_preview(
-                        content.encode('utf-8'), 'csv'
-                    )
-                    preview_data['detected_parser'] = detected_supplier
-                    return ResponseSchema(
-                        status="success",
-                        message="CSV preview generated",
-                        data=preview_data
-                    )
-            except Exception as e:
-                logger.warning(f"Error using supplier preview for {detected_supplier}: {e}")
-        
-        # Fallback to basic CSV parsing
-        import csv
-        import io
-        
-        csv_file = io.StringIO(content)
-        reader = csv.DictReader(csv_file)
-        headers = reader.fieldnames or []
-        
-        # Get preview rows
-        preview_rows = []
-        total_rows = 0
-        for i, row in enumerate(reader):
-            total_rows += 1
-            if i < 5:  # Only keep first 5 for preview
-                preview_rows.append(row)
-        
-        return ResponseSchema(
-            status="success",
-            message="CSV preview generated",
-            data={
-                "headers": headers,
-                "preview_rows": preview_rows,
-                "total_rows": total_rows,
-                "detected_parser": detected_supplier,
-                "is_supported": detected_supplier is not None
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Error previewing CSV: {e}")
-        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
-
-
-@router.post("/preview-file")
-async def preview_file_upload(
-    file: UploadFile = File(...),
-    current_user: UserModel = Depends(get_current_user)
-):
-    """
-    Preview uploaded file without importing.
-    
-    Supports CSV and XLS files, returns headers, row count, and preview data.
-    """
-    try:
-        content = await file.read()
-        filename = file.filename or ''
-        file_type = filename.split('.')[-1].lower() if '.' in filename else ''
-        
-        # Try to auto-detect supplier from filename
-        detected_supplier = None
-        filename_lower = filename.lower()
-        
-        if 'lcsc' in filename_lower:
-            detected_supplier = 'lcsc'
-        elif 'digikey' in filename_lower or 'dk_' in filename_lower:
-            detected_supplier = 'digikey'
-        elif 'mouser' in filename_lower:
-            detected_supplier = 'mouser'
-        
-        # Try each supplier's preview method
-        for supplier_name in get_available_suppliers():
-            try:
-                supplier = get_supplier(supplier_name)
-                
-                # Check if supplier can handle this file
-                if hasattr(supplier, 'can_import_file') and supplier.can_import_file(filename, content):
-                    detected_supplier = supplier_name
-                    
-                    # Use supplier's preview method
-                    if hasattr(supplier, 'get_import_file_preview'):
-                        preview_data = supplier.get_import_file_preview(content, file_type)
-                        preview_data['detected_parser'] = detected_supplier
-                        return ResponseSchema(
-                            status="success",
-                            message="File preview generated",
-                            data=preview_data
-                        )
-                    break
-                    
-            except Exception as e:
-                logger.warning(f"Error checking supplier {supplier_name}: {e}")
-                continue
-        
-        # Fallback preview for CSV files
-        if file_type == 'csv':
-            import csv
-            import io
-            
-            try:
-                content_str = content.decode('utf-8')
-                csv_file = io.StringIO(content_str)
-                reader = csv.DictReader(csv_file)
-                headers = reader.fieldnames or []
-                
-                # Get preview rows
-                preview_rows = []
-                total_rows = 0
-                for i, row in enumerate(reader):
-                    total_rows += 1
-                    if i < 5:  # Only keep first 5 for preview
-                        preview_rows.append(row)
-                
-                return ResponseSchema(
-                    status="success",
-                    message="File preview generated",
-                    data={
-                        "headers": headers,
-                        "preview_rows": preview_rows,
-                        "total_rows": total_rows,
-                        "detected_parser": detected_supplier,
-                        "is_supported": detected_supplier is not None
-                    }
-                )
-            except UnicodeDecodeError:
-                raise HTTPException(status_code=400, detail="Unable to decode CSV file")
-        
-        # If we get here, we couldn't preview the file
-        return ResponseSchema(
-            status="error",
-            message="Unable to preview this file type",
-            data={
-                "headers": [],
-                "preview_rows": [],
-                "total_rows": 0,
-                "detected_parser": detected_supplier,
-                "is_supported": False,
-                "error": f"Unsupported file type: {file_type}"
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error previewing file: {e}")
-        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
 
 
 @router.get("/suppliers", response_model=ResponseSchema[List[SupplierImportInfo]])
@@ -516,79 +382,3 @@ async def get_import_suppliers(
         raise HTTPException(status_code=500, detail="Failed to get suppliers")
 
 
-@router.post("/extract-filename-info")
-async def extract_filename_info(
-    request: Dict[str, str],
-    current_user: UserModel = Depends(get_current_user)
-):
-    """
-    Extract order information from filename patterns.
-    
-    Analyzes filename to detect supplier and extract order details.
-    """
-    try:
-        filename = request.get('filename', '')
-        if not filename:
-            raise HTTPException(status_code=400, detail="Filename is required")
-        
-        # Extract file info
-        filename_lower = filename.lower()
-        file_ext = filename.split('.')[-1].lower() if '.' in filename else ''
-        
-        # Detect supplier from filename patterns
-        detected_supplier = None
-        order_info = {}
-        
-        if 'lcsc' in filename_lower:
-            detected_supplier = 'lcsc'
-        elif 'digikey' in filename_lower or 'dk_' in filename_lower or 'digi-key' in filename_lower:
-            detected_supplier = 'digikey'
-        elif 'mouser' in filename_lower:
-            detected_supplier = 'mouser'
-        
-        # Extract order number patterns
-        import re
-        
-        # Common order number patterns
-        order_patterns = [
-            r'order[_-]?(\w+)',
-            r'ord[_-]?(\w+)', 
-            r'po[_-]?(\w+)',
-            r'(\d{8,})',  # 8+ digit numbers
-            r'([A-Z]{2,}\d{4,})',  # Letter prefix with numbers
-        ]
-        
-        for pattern in order_patterns:
-            match = re.search(pattern, filename_lower)
-            if match:
-                order_info['order_number'] = match.group(1).upper()
-                break
-        
-        # Extract date patterns (YYYYMMDD, YYYY-MM-DD, etc.)
-        date_patterns = [
-            r'(\d{4}[-_]?\d{2}[-_]?\d{2})',
-            r'(\d{2}[-_]?\d{2}[-_]?\d{4})',
-        ]
-        
-        for pattern in date_patterns:
-            match = re.search(pattern, filename)
-            if match:
-                order_info['order_date'] = match.group(1)
-                break
-        
-        return ResponseSchema(
-            status="success",
-            message="Filename info extracted",
-            data={
-                "detected_supplier": detected_supplier,
-                "file_type": file_ext.upper(),
-                "order_info": order_info,
-                "filename": filename
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error extracting filename info: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to extract filename info: {str(e)}")

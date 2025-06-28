@@ -6,7 +6,7 @@ import pytest
 from sqlmodel import Session
 from MakerMatrix.models.models import PartModel, CategoryModel, engine
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.tests.unit_tests.test_database import create_test_db
 
 

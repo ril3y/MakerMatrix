@@ -516,13 +516,27 @@ class LCSCSupplier(BaseSupplier):
                     order_price_str = row.get('Order Price($)', row.get('Subtotal(USD)', '0')).strip()
                     extended_price = float(order_price_str) if order_price_str else (unit_price * quantity)
                     
+                    # Extract part name with fallback logic
+                    part_name = row.get('Part Name', '').strip()
+                    description = row.get('Description', '').strip()
+                    manufacturer_part_number = row.get('Manufacture Part Number', row.get('MFR.Part Number', '')).strip()
+                    
+                    # Use fallback if part name is empty
+                    if not part_name:
+                        if manufacturer_part_number:
+                            part_name = manufacturer_part_number
+                        elif description:
+                            part_name = description
+                        else:
+                            part_name = part_number  # Use LCSC part number as last resort
+                    
                     # Map LCSC CSV fields to standard part format
                     import_part = {
-                        'part_name': row.get('Part Name', '').strip(),
+                        'part_name': part_name,
                         'supplier_part_number': part_number,
                         'manufacturer': row.get('Manufacturer', '').strip(),
-                        'manufacturer_part_number': row.get('Manufacture Part Number', row.get('MFR.Part Number', '')).strip(),
-                        'description': row.get('Description', '').strip(),
+                        'manufacturer_part_number': manufacturer_part_number,
+                        'description': description,
                         'quantity': quantity,
                         'unit_price': unit_price,
                         'extended_price': extended_price,
@@ -555,46 +569,3 @@ class LCSCSupplier(BaseSupplier):
                 warnings=[traceback.format_exc()]
             )
     
-    def get_import_file_preview(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
-        """Get a preview of LCSC CSV import"""
-        try:
-            import csv
-            import io
-            
-            csv_content = file_content.decode('utf-8')
-            
-            # Parse CSV to get headers and preview rows
-            csv_file = io.StringIO(csv_content)
-            csv_reader = csv.DictReader(csv_file)
-            headers = csv_reader.fieldnames or []
-            
-            # Get first 5 rows for preview
-            preview_rows = []
-            for i, row in enumerate(csv_reader):
-                if i >= 5:
-                    break
-                # Only include non-empty rows
-                if row.get('LCSC Part Number', '').strip():
-                    preview_rows.append(row)
-            
-            # Reset reader to count total rows
-            csv_file.seek(0)
-            csv_reader = csv.DictReader(csv_file)
-            total_rows = sum(1 for row in csv_reader if row.get('LCSC Part Number', '').strip())
-            
-            return {
-                "headers": headers,
-                "preview_rows": preview_rows,
-                "total_rows": total_rows,
-                "detected_supplier": "lcsc",
-                "is_supported": True
-            }
-        except Exception as e:
-            return {
-                "headers": [],
-                "preview_rows": [],
-                "total_rows": 0,
-                "detected_supplier": "lcsc",
-                "is_supported": False,
-                "error": str(e)
-            }

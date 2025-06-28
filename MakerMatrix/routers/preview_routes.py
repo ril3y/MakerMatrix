@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.services.preview_service import PreviewService, PreviewManager
+from MakerMatrix.services.printer.preview_service import PreviewService, PreviewManager
 from MakerMatrix.printers.drivers.mock.driver import MockPrinter
 from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
 from MakerMatrix.models.models import engine

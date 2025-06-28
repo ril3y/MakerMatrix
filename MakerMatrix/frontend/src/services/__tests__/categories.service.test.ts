@@ -55,7 +55,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.createCategory(createRequest)
 
-      expect(mockApiClient.post).toHaveBeenCalledWith('/categories/add_category', createRequest)
+      expect(mockApiClient.post).toHaveBeenCalledWith('/api/categories/add_category', createRequest)
       expect(result).toEqual(mockCategory)
     })
 
@@ -83,7 +83,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.getCategory({ id: 'cat-123' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/categories/get_category?category_id=cat-123')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/categories/get_category?category_id=cat-123')
       expect(result).toEqual(mockCategory)
     })
 
@@ -99,7 +99,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.getCategory({ name: 'Electronics' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/categories/get_category?name=Electronics')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/categories/get_category?name=Electronics')
       expect(result).toEqual(mockCategory)
     })
 
@@ -134,7 +134,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.updateCategory(updateRequest)
 
-      expect(mockApiClient.put).toHaveBeenCalledWith('/categories/update_category/cat-123', {
+      expect(mockApiClient.put).toHaveBeenCalledWith('/api/categories/update_category/cat-123', {
         name: 'Updated Electronics',
         description: 'Updated description'
       })
@@ -166,7 +166,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.deleteCategory({ id: 'cat-123' })
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/categories/remove_category?cat_id=cat-123')
+      expect(mockApiClient.delete).toHaveBeenCalledWith('/api/categories/remove_category?cat_id=cat-123')
       expect(result).toEqual(mockCategory)
     })
 
@@ -182,7 +182,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.deleteCategory({ name: 'Electronics' })
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/categories/remove_category?name=Electronics')
+      expect(mockApiClient.delete).toHaveBeenCalledWith('/api/categories/remove_category?name=Electronics')
       expect(result).toEqual(mockCategory)
     })
 
@@ -205,7 +205,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.getAllCategories()
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/categories/get_all_categories')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/categories/get_all_categories')
       expect(result).toEqual(mockCategories)
     })
 
@@ -242,7 +242,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.deleteAllCategories()
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/categories/delete_all_categories')
+      expect(mockApiClient.delete).toHaveBeenCalledWith('/api/categories/delete_all_categories')
       expect(result).toBe(5)
     })
   })
@@ -435,7 +435,7 @@ describe('CategoriesService', () => {
 
       const result = await categoriesService.getAll()
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/categories/get_all_categories')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/categories/get_all_categories')
       expect(result).toEqual(mockCategories)
     })
   })

@@ -10,7 +10,7 @@ import aiohttp
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo, CapabilityRequirement
+    PartSearchResult, SupplierInfo, CapabilityRequirement, ImportResult
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -30,7 +30,8 @@ class MouserSupplier(BaseSupplier):
             website_url="https://www.mouser.com",
             api_documentation_url="https://api.mouser.com/api/docs/V1",
             supports_oauth=False,
-            rate_limit_info="30 calls per minute, 1000 calls per day (free tier with instant access)"
+            rate_limit_info="30 calls per minute, 1000 calls per day (free tier with instant access)",
+            supported_file_types=["xls", "xlsx"]  # Mouser exports order files in Excel format
         )
     
     def get_capabilities(self) -> List[SupplierCapability]:
@@ -42,19 +43,31 @@ class MouserSupplier(BaseSupplier):
             SupplierCapability.FETCH_PRICING,          # Pricing (up to 4 price breaks)
             SupplierCapability.FETCH_STOCK,            # Availability
             SupplierCapability.FETCH_SPECIFICATIONS,   # Product attributes, RoHS, lifecycle
-            SupplierCapability.PARAMETRIC_SEARCH       # Enhanced search capabilities
+            SupplierCapability.PARAMETRIC_SEARCH,      # Enhanced search capabilities
+            SupplierCapability.IMPORT_ORDERS           # Import Mouser order Excel files
         ]
 
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """Define what credentials each capability needs"""
         api_key_req = ["api_key"]
-        return {
-            capability: CapabilityRequirement(
-                capability=capability,
-                required_credentials=api_key_req
-            )
-            for capability in self.get_capabilities()
-        }
+        requirements = {}
+        
+        # Most capabilities require API key
+        for capability in self.get_capabilities():
+            if capability == SupplierCapability.IMPORT_ORDERS:
+                # Order import doesn't need API key
+                requirements[capability] = CapabilityRequirement(
+                    capability=capability,
+                    required_credentials=[],
+                    description="Import Mouser order history from Excel exports"
+                )
+            else:
+                requirements[capability] = CapabilityRequirement(
+                    capability=capability,
+                    required_credentials=api_key_req
+                )
+        
+        return requirements
     
     def get_credential_schema(self) -> List[FieldDefinition]:
         return [
@@ -381,3 +394,181 @@ class MouserSupplier(BaseSupplier):
     def get_rate_limit_delay(self) -> float:
         """Mouser rate limit: 30 calls per minute = 2 seconds between requests"""
         return 2.0  # Conservative delay to stay under 30 calls/minute
+    
+    # ========== Order Import Implementation ==========
+    
+    def can_import_file(self, filename: str, file_content: bytes = None) -> bool:
+        """Check if this is a Mouser Excel file"""
+        filename_lower = filename.lower()
+        
+        # Check file extension - Mouser uses Excel formats
+        if not filename_lower.endswith(('.xls', '.xlsx')):
+            return False
+        
+        # Check filename patterns - if Mouser pattern found, we can handle it
+        mouser_patterns = ['mouser', 'mouse', 'order', 'cart']
+        if any(pattern in filename_lower for pattern in mouser_patterns):
+            return True
+        
+        # Check content for Mouser-specific patterns
+        if file_content:
+            try:
+                import pandas as pd
+                import io
+                df = pd.read_excel(io.BytesIO(file_content), nrows=10)  # Read first 10 rows
+                
+                # Check column headers for Mouser patterns
+                if not df.empty:
+                    headers = ' '.join(str(col).lower() for col in df.columns)
+                    mouser_indicators = [
+                        'mouser part', 'mouser p/n', 'part number', 'mouse part',
+                        'manufacturer part number', 'quantity', 'unit price',
+                        'extended price', 'customer part'
+                    ]
+                    if any(indicator in headers for indicator in mouser_indicators):
+                        return True
+            except Exception:
+                # If we can't read the Excel file, but extension is supported, allow it
+                return True
+        
+        # If no content provided but extension is supported, allow it for now
+        return True
+    
+    async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
+        """Import Mouser order Excel file"""
+        file_type_lower = file_type.lower()
+        
+        if file_type_lower not in ['xls', 'xlsx']:
+            return ImportResult(
+                success=False,
+                error_message=f"Mouser uses Excel format (.xls/.xlsx), not {file_type}. Please download your Mouser order as Excel."
+            )
+        
+        try:
+            import pandas as pd
+            import io
+            
+            # Read Excel file
+            df = pd.read_excel(io.BytesIO(file_content))
+            
+            # Clean up column names
+            df.columns = df.columns.str.strip()
+            
+            parts = []
+            errors = []
+            
+            # Try to detect Mouser Excel format
+            columns = [col.lower() for col in df.columns]
+            
+            # Common Mouser column mappings
+            column_mappings = {
+                'part_number': ['mouser #:', 'mouser part #', 'mouser part number', 'part number', 'mouser p/n'],
+                'manufacturer': ['manufacturer', 'mfr', 'mfg'],
+                'manufacturer_part_number': ['mfr. #:', 'manufacturer part number', 'mfr part #', 'mfg part #', 'customer #'],
+                'description': ['desc.:', 'description', 'product description'],
+                'quantity': ['order qty.', 'quantity', 'qty', 'order qty'],
+                'unit_price': ['price (usd)', 'unit price', 'price', 'unit cost'],
+                'extended_price': ['ext. (usd)', 'extended price', 'total price', 'line total']
+            }
+            
+            # Find actual column names
+            mapped_columns = {}
+            for field, possible_names in column_mappings.items():
+                for possible_name in possible_names:
+                    matching_cols = [col for col in df.columns if possible_name.lower() in col.lower()]
+                    if matching_cols:
+                        mapped_columns[field] = matching_cols[0]
+                        break
+            
+            # Validate we have minimum required columns
+            required_fields = ['part_number', 'quantity']
+            missing_fields = [field for field in required_fields if field not in mapped_columns]
+            
+            if missing_fields:
+                return ImportResult(
+                    success=False,
+                    error_message=f"Missing required columns: {', '.join(missing_fields)}",
+                    warnings=[f"Available columns: {', '.join(df.columns)}"]
+                )
+            
+            # Parse rows
+            for index, row in df.iterrows():
+                try:
+                    # Skip empty rows
+                    if pd.isna(row.get(mapped_columns['part_number'], '')) or row.get(mapped_columns['part_number'], '').strip() == '':
+                        continue
+                    
+                    # Extract pricing values
+                    unit_price = 0.0
+                    extended_price = 0.0
+                    
+                    if 'unit_price' in mapped_columns:
+                        unit_price_str = str(row.get(mapped_columns['unit_price'], '0')).replace('$', '').replace(',', '').strip()
+                        try:
+                            unit_price = float(unit_price_str) if unit_price_str else 0.0
+                        except ValueError:
+                            unit_price = 0.0
+                    
+                    if 'extended_price' in mapped_columns:
+                        extended_price_str = str(row.get(mapped_columns['extended_price'], '0')).replace('$', '').replace(',', '').strip()
+                        try:
+                            extended_price = float(extended_price_str) if extended_price_str else 0.0
+                        except ValueError:
+                            extended_price = 0.0
+                    
+                    # Extract quantity
+                    quantity_str = str(row.get(mapped_columns['quantity'], '0')).replace(',', '').strip()
+                    try:
+                        quantity = int(float(quantity_str)) if quantity_str else 0
+                    except ValueError:
+                        quantity = 0
+                    
+                    part = {
+                        'part_name': str(row.get(mapped_columns.get('description', ''), 
+                                               row.get(mapped_columns.get('manufacturer_part_number', ''), ''))).strip(),
+                        'supplier_part_number': str(row.get(mapped_columns['part_number'], '')).strip(),
+                        'manufacturer': str(row.get(mapped_columns.get('manufacturer', ''), '')).strip(),
+                        'manufacturer_part_number': str(row.get(mapped_columns.get('manufacturer_part_number', ''), '')).strip(),
+                        'description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
+                        'quantity': quantity,
+                        'unit_price': unit_price,
+                        'extended_price': extended_price,
+                        'supplier': 'Mouser',
+                        'additional_properties': {
+                            'row_index': index + 1
+                        }
+                    }
+                    
+                    # Use manufacturer part number as part name if description is empty
+                    if not part['part_name'] and part['manufacturer_part_number']:
+                        part['part_name'] = part['manufacturer_part_number']
+                    
+                    # Only add parts with valid part numbers
+                    if part['supplier_part_number']:
+                        parts.append(part)
+                        
+                except Exception as e:
+                    errors.append(f"Error parsing row {index + 1}: {str(e)}")
+            
+            if not parts:
+                return ImportResult(
+                    success=False,
+                    error_message="No valid parts found in Excel file",
+                    warnings=errors
+                )
+            
+            return ImportResult(
+                success=True,
+                imported_count=len(parts),
+                parts=parts,
+                parser_type='mouser',
+                warnings=errors if errors else []
+            )
+            
+        except Exception as e:
+            import traceback
+            return ImportResult(
+                success=False,
+                error_message=f"Error importing Mouser Excel file: {str(e)}",
+                warnings=[traceback.format_exc()]
+            )

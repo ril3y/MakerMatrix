@@ -12,8 +12,9 @@ from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field, validator
 import json
 
-from MakerMatrix.dependencies.auth import get_current_user, require_permission
-from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.auth.guards import require_permission
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError,
@@ -84,6 +85,7 @@ class SupplierConfigUpdate(BaseModel):
     supports_pricing: Optional[bool] = Field(None)
     supports_stock: Optional[bool] = Field(None)
     supports_specifications: Optional[bool] = Field(None)
+    capabilities: Optional[List[str]] = Field(None)  # Modern flexible capabilities list
     custom_headers: Optional[Dict[str, str]] = Field(None)
     custom_parameters: Optional[Dict[str, Any]] = Field(None)
 

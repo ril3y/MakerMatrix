@@ -34,12 +34,12 @@ export class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get<User>('/users/me')
+    const response = await apiClient.get<User>('/api/users/me')
     return response
   }
 
   async updatePassword(currentPassword: string, newPassword: string): Promise<ApiResponse> {
-    return await apiClient.put('/users/update_password', {
+    return await apiClient.put('/api/users/update_password', {
       current_password: currentPassword,
       new_password: newPassword,
     })

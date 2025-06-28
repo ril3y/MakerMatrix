@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from sqlmodel import Session, select
 from MakerMatrix.models.models import engine
 from MakerMatrix.models.order_models import OrderModel, OrderItemModel
-from MakerMatrix.services.analytics_service import analytics_service
+from MakerMatrix.services.data.analytics_service import analytics_service
 
 
 class TestAnalyticsFixes:

@@ -8,8 +8,8 @@ sys.path.append('.')
 
 from sqlmodel import Session
 from MakerMatrix.models.models import engine
-from MakerMatrix.services.category_service import CategoryService
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.category_service import CategoryService
+from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.schemas.part_create import PartUpdate
 
 

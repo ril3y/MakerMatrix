@@ -6,7 +6,7 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from PIL import Image
 
-from MakerMatrix.services.preview_service import PreviewService, PreviewManager
+from MakerMatrix.services.printer.preview_service import PreviewService, PreviewManager
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.printers.base import PreviewResult, LabelSize, PrinterInterface
 from MakerMatrix.printers.drivers.mock.driver import MockPrinter

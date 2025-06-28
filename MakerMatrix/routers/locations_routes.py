@@ -9,9 +9,8 @@ from MakerMatrix.models.models import LocationUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.schemas.location_response import LocationResponse
-from MakerMatrix.services.location_service import LocationService
-from MakerMatrix.dependencies import oauth2_scheme
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.services.data.location_service import LocationService
+from MakerMatrix.auth.dependencies import get_current_user, oauth2_scheme
 from MakerMatrix.models.user_models import UserModel
 
 

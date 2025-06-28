@@ -82,7 +82,7 @@ class BaseTask(ABC):
             self.logger.info(f"Task {task.id}: {message}")
             # Send to WebSocket (import here to avoid circular imports)
             try:
-                from MakerMatrix.services.websocket_service import websocket_manager
+                from MakerMatrix.services.system.websocket_service import websocket_manager
                 asyncio.create_task(websocket_manager.broadcast_task_log(
                     task.id, "info", message, task.current_step
                 ))
@@ -97,7 +97,7 @@ class BaseTask(ABC):
             self.logger.error(f"Task {task.id}: {message}", exc_info=exc_info)
             # Send to WebSocket
             try:
-                from MakerMatrix.services.websocket_service import websocket_manager
+                from MakerMatrix.services.system.websocket_service import websocket_manager
                 asyncio.create_task(websocket_manager.broadcast_task_log(
                     task.id, "error", message, task.current_step
                 ))

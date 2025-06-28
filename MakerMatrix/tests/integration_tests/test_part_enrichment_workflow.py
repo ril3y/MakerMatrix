@@ -12,7 +12,7 @@ from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.models.user_models import UserModel, RoleModel
 from MakerMatrix.models.task_models import TaskModel, TaskType, TaskStatus
-from MakerMatrix.services.task_service import task_service
+from MakerMatrix.services.system.task_service import task_service
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ class TestPartEnrichmentWorkflow:
     async def test_complete_enrichment_workflow(self, client, test_user, test_part, auth_headers):
         """Test the complete enrichment workflow from API call to completion"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=test_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=test_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.database.db.get_session') as mock_get_session, \
              patch('MakerMatrix.services.enrichment_task_handlers.get_enhanced_parser') as mock_get_parser:
@@ -141,7 +141,7 @@ class TestPartEnrichmentWorkflow:
             # In a real scenario, the task worker would pick this up
             # For testing, we'll manually execute the task handler
             
-            with patch('MakerMatrix.services.task_service.task_service.get_task') as mock_get_task:
+            with patch('MakerMatrix.services.system.task_service.task_service.get_task') as mock_get_task:
                 mock_task = TaskModel(
                     id=task_id,
                     task_type=TaskType.PART_ENRICHMENT,
@@ -181,7 +181,7 @@ class TestPartEnrichmentWorkflow:
     async def test_enrichment_with_security_validation(self, client, test_user, test_part, auth_headers):
         """Test enrichment with security validation"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=test_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=test_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate:
             
@@ -223,7 +223,7 @@ class TestPartEnrichmentWorkflow:
     async def test_supplier_capabilities_discovery(self, client, auth_headers, test_user):
         """Test supplier capabilities discovery via API"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=test_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=test_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission:
             
             mock_require_permission.return_value = lambda: test_user
@@ -278,7 +278,7 @@ class TestPartEnrichmentWorkflow:
             for i in range(1, 4)
         ]
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=test_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=test_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.database.db.get_session') as mock_get_session, \
              patch('MakerMatrix.services.enrichment_task_handlers.get_enhanced_parser') as mock_get_parser:
@@ -335,7 +335,7 @@ class TestPartEnrichmentWorkflow:
     async def test_task_progress_tracking(self, client, test_user, test_part, auth_headers):
         """Test task progress tracking functionality"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=test_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=test_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.database.db.get_session') as mock_get_session:
             
@@ -390,7 +390,7 @@ class TestPartEnrichmentWorkflow:
     async def test_enrichment_error_handling(self, client, test_user, auth_headers):
         """Test enrichment error handling scenarios"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=test_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=test_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.database.db.get_session') as mock_get_session:
             
@@ -421,7 +421,7 @@ class TestPartEnrichmentWorkflow:
             task_id = response.json()["data"]["id"]
             
             # Manually execute the task to test error handling
-            with patch('MakerMatrix.services.task_service.task_service.get_task') as mock_get_task:
+            with patch('MakerMatrix.services.system.task_service.task_service.get_task') as mock_get_task:
                 mock_task = TaskModel(
                     id=task_id,
                     task_type=TaskType.PART_ENRICHMENT,
@@ -446,7 +446,7 @@ class TestPartEnrichmentWorkflow:
     async def test_task_security_endpoints(self, client, test_user, auth_headers):
         """Test task security-related endpoints"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=test_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=test_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission:
             
             mock_require_permission.return_value = lambda: test_user
@@ -524,7 +524,7 @@ class TestPartEnrichmentWorkflow:
             is_active=True
         )
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=admin_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=admin_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission:
             
             mock_require_permission.return_value = lambda: admin_user
@@ -539,13 +539,13 @@ class TestPartEnrichmentWorkflow:
             assert "registered_handlers" in worker_status
             
             # Test starting worker
-            with patch('MakerMatrix.services.task_service.task_service.is_worker_running', False):
+            with patch('MakerMatrix.services.system.task_service.task_service.is_worker_running', False):
                 response = client.post("/tasks/worker/start", headers=auth_headers)
                 assert response.status_code == 200
                 assert "started successfully" in response.json()["message"]
             
             # Test stopping worker
-            with patch('MakerMatrix.services.task_service.task_service.is_worker_running', True):
+            with patch('MakerMatrix.services.system.task_service.task_service.is_worker_running', True):
                 response = client.post("/tasks/worker/stop", headers=auth_headers)
                 assert response.status_code == 200
                 assert "stopped successfully" in response.json()["message"]

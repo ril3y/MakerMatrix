@@ -14,7 +14,7 @@ from sqlmodel import Session
 from MakerMatrix.models.models import PartModel, engine
 from MakerMatrix.services.enrichment_task_handlers import EnrichmentTaskHandlers
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 
 
 class TestDownloadIssueReproduction:

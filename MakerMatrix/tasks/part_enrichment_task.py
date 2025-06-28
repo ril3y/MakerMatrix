@@ -10,8 +10,8 @@ from datetime import datetime
 from MakerMatrix.tasks.base_task import BaseTask
 from MakerMatrix.models.task_models import TaskModel, TaskStatus, UpdateTaskRequest
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.services.part_service import PartService
-from MakerMatrix.services.enrichment_task_handlers import EnrichmentTaskHandlers
+from MakerMatrix.services.data.part_service import PartService
+from MakerMatrix.services.system.enrichment_task_handlers import EnrichmentTaskHandlers
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import engine
 from sqlmodel import Session

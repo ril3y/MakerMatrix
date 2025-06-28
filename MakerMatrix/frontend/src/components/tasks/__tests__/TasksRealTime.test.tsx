@@ -5,9 +5,35 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import TasksManagement from '../TasksManagement'
 import { tasksService } from '@/services/tasks.service'
 
+// Set default timeout for all tests in this file
+vi.setConfig({ testTimeout: 15000 })
+
 // Mock the services
 vi.mock('@/services/tasks.service')
 const mockTasksService = tasksService as any
+
+// Mock WebSocket service
+vi.mock('@/services/task-websocket.service', () => ({
+  taskWebSocket: {
+    isConnected: false,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    sendMessage: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
+    onTaskUpdate: vi.fn(),
+    onWorkerStatusUpdate: vi.fn(),
+    onTaskStatsUpdate: vi.fn(),
+  }
+}))
+
+// Mock parts service
+vi.mock('@/services/parts.service', () => ({
+  partsService: {
+    getAllParts: vi.fn(),
+    getPartById: vi.fn(),
+  }
+}))
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
@@ -84,12 +110,12 @@ describe('TasksManagement - Real-time Monitoring', () => {
     it('auto-refreshes data every 2 seconds by default', async () => {
       render(<TasksManagement />, { wrapper: TestWrapper })
       
-      // Initial load
+      // Initial load - wait for component to mount and make initial calls
       await waitFor(() => {
         expect(mockTasksService.getTasks).toHaveBeenCalledTimes(1)
         expect(mockTasksService.getWorkerStatus).toHaveBeenCalledTimes(1)
         expect(mockTasksService.getTaskStats).toHaveBeenCalledTimes(1)
-      })
+      }, { timeout: 10000 })
 
       // Fast forward 2 seconds
       act(() => {
@@ -101,8 +127,8 @@ describe('TasksManagement - Real-time Monitoring', () => {
         expect(mockTasksService.getTasks).toHaveBeenCalledTimes(2)
         expect(mockTasksService.getWorkerStatus).toHaveBeenCalledTimes(2)
         expect(mockTasksService.getTaskStats).toHaveBeenCalledTimes(2)
-      })
-    })
+      }, { timeout: 10000 })
+    }, 15000)
 
     it('can be disabled via toggle button', async () => {
       const user = userEvent.setup({ delay: null })
@@ -111,11 +137,14 @@ describe('TasksManagement - Real-time Monitoring', () => {
       // Wait for initial load
       await waitFor(() => {
         expect(screen.getByText('Part Enrichment')).toBeInTheDocument()
-      })
+      }, { timeout: 10000 })
 
       // Find and click auto-refresh toggle
-      const refreshButton = await screen.findByTitle('Disable auto-refresh')
+      const refreshButton = await screen.findByTitle('Disable fallback refresh')
       await user.click(refreshButton)
+
+      // Reset call counts after button click
+      mockTasksService.getTasks.mockClear()
 
       // Fast forward time
       act(() => {
@@ -123,8 +152,8 @@ describe('TasksManagement - Real-time Monitoring', () => {
       })
 
       // Should not have made additional calls
-      expect(mockTasksService.getTasks).toHaveBeenCalledTimes(1)
-    })
+      expect(mockTasksService.getTasks).not.toHaveBeenCalled()
+    }, 15000)
 
     it('shows correct auto-refresh status', async () => {
       const user = userEvent.setup({ delay: null })

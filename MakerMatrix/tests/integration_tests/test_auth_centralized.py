@@ -3,7 +3,7 @@ import uuid
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select, SQLModel
 from MakerMatrix.main import app
-from MakerMatrix.services.auth_service import AuthService
+from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.models.user_models import RoleModel, UserModel, UserRoleLink
 from MakerMatrix.database.db import engine

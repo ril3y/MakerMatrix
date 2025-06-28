@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 
-from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.models.supplier_config_models import SupplierConfigModel
 from MakerMatrix.repositories.custom_exceptions import (
     SupplierConfigAlreadyExistsError,
@@ -47,7 +47,7 @@ class TestSupplierConfigService:
             "custom_parameters": {"format": "json"}
         }
     
-    @patch('MakerMatrix.services.supplier_config_service.Session')
+    @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_create_supplier_config_success(self, mock_session_class, service, sample_supplier_data):
         """Test successful creation of a new supplier configuration"""
         # Setup mocks
@@ -61,7 +61,7 @@ class TestSupplierConfigService:
         mock_supplier.supplier_name = "TESTSUPPLIER"
         
         # Mock the model creation
-        with patch('MakerMatrix.services.supplier_config_service.SupplierConfigModel') as mock_model_class:
+        with patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigModel') as mock_model_class:
             mock_model_class.return_value = mock_supplier
             
             # Execute
@@ -78,7 +78,7 @@ class TestSupplierConfigService:
             call_args = mock_model_class.call_args[1]
             assert call_args['supplier_name'] == 'TESTSUPPLIER'
     
-    @patch('MakerMatrix.services.supplier_config_service.Session')
+    @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_create_supplier_config_duplicate_error(self, mock_session_class, service, sample_supplier_data):
         """Test creating supplier when one already exists raises error"""
         # Setup mocks
@@ -98,7 +98,7 @@ class TestSupplierConfigService:
         mock_session.add.assert_not_called()
         mock_session.commit.assert_not_called()
     
-    @patch('MakerMatrix.services.supplier_config_service.Session')
+    @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_create_supplier_config_case_insensitive_duplicate(self, mock_session_class, service):
         """Test that duplicate check is case-insensitive"""
         # Setup mocks
@@ -123,7 +123,7 @@ class TestSupplierConfigService:
         # Verify the query used ilike for case-insensitive comparison
         mock_session.query.return_value.filter.assert_called_once()
     
-    @patch('MakerMatrix.services.supplier_config_service.Session')
+    @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_delete_supplier_config_success(self, mock_session_class, service):
         """Test successful deletion of supplier configuration"""
         # Setup mocks
@@ -142,7 +142,7 @@ class TestSupplierConfigService:
         mock_session.delete.assert_called_once_with(mock_supplier)
         mock_session.commit.assert_called_once()
     
-    @patch('MakerMatrix.services.supplier_config_service.Session')
+    @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_delete_supplier_config_not_found(self, mock_session_class, service):
         """Test deleting non-existent supplier raises error"""
         # Setup mocks
@@ -164,7 +164,7 @@ class TestSupplierConfigService:
         ("MOUSER", "MOUSER"),
         ("test_supplier", "TEST_SUPPLIER")
     ])
-    @patch('MakerMatrix.services.supplier_config_service.Session')
+    @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_supplier_name_normalization(self, mock_session_class, service, supplier_name, expected_normalized):
         """Test that supplier names are normalized to uppercase"""
         # Setup mocks
@@ -180,7 +180,7 @@ class TestSupplierConfigService:
             "base_url": "https://example.com"
         }
         
-        with patch('MakerMatrix.services.supplier_config_service.SupplierConfigModel') as mock_model_class:
+        with patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigModel') as mock_model_class:
             mock_model_class.return_value = mock_supplier
             
             service.create_supplier_config(supplier_data)
@@ -189,7 +189,7 @@ class TestSupplierConfigService:
             call_args = mock_model_class.call_args[1]
             assert call_args['supplier_name'] == expected_normalized
     
-    @patch('MakerMatrix.services.supplier_config_service.Session')
+    @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_supplier_validation_edge_cases(self, mock_session_class, service):
         """Test validation of edge cases in supplier data"""
         # Setup mocks
@@ -199,7 +199,7 @@ class TestSupplierConfigService:
         
         # Test empty supplier name - should normalize to empty string and succeed in our current implementation
         # (The actual validation happens at the API/Pydantic level, not service level)
-        with patch('MakerMatrix.services.supplier_config_service.SupplierConfigModel') as mock_model_class:
+        with patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigModel') as mock_model_class:
             mock_supplier = MagicMock(spec=SupplierConfigModel)
             mock_model_class.return_value = mock_supplier
             

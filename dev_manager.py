@@ -23,6 +23,60 @@ from typing import Optional, Dict, List
 import requests
 from blessed import Terminal
 
+# File watching for auto-restart
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    WATCHDOG_AVAILABLE = True
+    
+    class PythonFileHandler(FileSystemEventHandler):
+        """File system event handler for Python files"""
+        def __init__(self, manager):
+            self.manager = manager
+            self.last_restart = 0
+            self.restart_delay = 2  # Minimum seconds between restarts
+            
+        def on_modified(self, event):
+            if event.is_directory:
+                return
+                
+            # Only watch Python files
+            if not event.src_path.endswith('.py'):
+                return
+                
+            # Ignore __pycache__ and other cache files
+            if '__pycache__' in event.src_path or '.pyc' in event.src_path:
+                return
+                
+            # Rate limiting to prevent multiple rapid restarts
+            current_time = time.time()
+            if current_time - self.last_restart < self.restart_delay:
+                return
+                
+            self.last_restart = current_time
+            
+            # Get relative path for logging
+            try:
+                rel_path = os.path.relpath(event.src_path, self.manager.project_root)
+            except:
+                rel_path = event.src_path
+                
+            self.manager.log_message("system", f"📝 Python file changed: {rel_path}", "CHANGE")
+            
+            # Restart backend if it's running and auto-restart is enabled
+            if self.manager.backend_status == "Running" and self.manager.auto_restart_enabled:
+                self.manager.log_message("system", "🔄 Auto-restarting backend due to file change...", "INFO")
+                threading.Thread(target=self.manager.restart_backend, daemon=True).start()
+            elif self.manager.backend_status == "Running" and not self.manager.auto_restart_enabled:
+                self.manager.log_message("system", "📁 File changed but auto-restart disabled (press 'r' to enable)", "INFO")
+
+except ImportError:
+    WATCHDOG_AVAILABLE = False
+    # Define dummy class when watchdog is not available
+    class PythonFileHandler:
+        def __init__(self, manager):
+            pass
+
 
 class LogEntry:
     """Enhanced log entry with metadata"""
@@ -82,11 +136,19 @@ class EnhancedServerManager:
         self.last_display_hash = ""
         self.last_logs_count = 0
         
-        # URLs and paths - updated for network access
+        # HTTPS Configuration - Default to HTTPS for security
+        self.https_enabled = os.getenv("HTTPS_ENABLED", "true").lower() == "true"
+        self.http_port = 8080
+        self.https_port = 8443
+        
+        # URLs and paths - updated for network access and HTTPS support
         self.local_ip = self._get_local_ip()
-        self.backend_port = 8080
-        self.backend_url = f"http://{self.local_ip}:{self.backend_port}"
-        self.frontend_url = f"http://{self.local_ip}:5173"
+        self.backend_port = self.https_port if self.https_enabled else self.http_port
+        protocol = "https" if self.https_enabled else "http"
+        self.backend_url = f"{protocol}://{self.local_ip}:{self.backend_port}"
+        # Frontend now supports HTTPS when enabled
+        frontend_protocol = "https" if self.https_enabled else "http"
+        self.frontend_url = f"{frontend_protocol}://{self.local_ip}:5173"
         self.project_root = Path(__file__).parent
         self.frontend_path = self.project_root / "MakerMatrix" / "frontend"
         self.log_file_path = self.project_root / "dev_manager.log"
@@ -98,12 +160,41 @@ class EnhancedServerManager:
         
         # Initialize enhanced logging
         self._init_log_file()
-        self.log_message("system", f"Enhanced Development Manager initialized on {self.local_ip}", "SUCCESS")
+        mode = "HTTPS" if self.https_enabled else "HTTP"
+        self.log_message("system", f"Enhanced Development Manager initialized on {self.local_ip} ({mode} mode)", "SUCCESS")
         
         # Auto-kill any stale processes on startup
         self.log_message("system", "Checking for stale processes on startup...", "INFO")
         self._kill_stale_processes(self.backend_port, "backend")
         self._kill_stale_processes(5173, "frontend")
+        
+        # Initialize file watching for Python files
+        self.file_observer = None
+        self.auto_restart_enabled = True
+        self._setup_file_watching()
+    
+    def _setup_file_watching(self):
+        """Set up file watching for Python files"""
+        if not WATCHDOG_AVAILABLE:
+            self.log_message("system", "⚠️ watchdog not available - install with: pip install watchdog", "WARN")
+            self.log_message("system", "📁 File watching disabled - use manual restart (key 7)", "INFO")
+            return
+            
+        try:
+            self.file_observer = Observer()
+            event_handler = PythonFileHandler(self)
+            
+            # Watch the MakerMatrix directory for Python file changes
+            watch_path = self.project_root / "MakerMatrix"
+            if watch_path.exists():
+                self.file_observer.schedule(event_handler, str(watch_path), recursive=True)
+                self.file_observer.start()
+                self.log_message("system", f"📁 Watching Python files in {watch_path} for auto-restart", "SUCCESS")
+            else:
+                self.log_message("system", f"⚠️ Watch path not found: {watch_path}", "WARN")
+                
+        except Exception as e:
+            self.log_message("system", f"❌ Failed to setup file watching: {e}", "ERROR")
     
     def _get_local_ip(self):
         """Get the local IP address for network access"""
@@ -265,13 +356,27 @@ class EnhancedServerManager:
             venv_python = self.project_root / "venv_test" / "bin" / "python"
             python_exe = str(venv_python) if venv_python.exists() else sys.executable
             
+            # Build uvicorn command based on HTTPS mode
+            if self.https_enabled:
+                # HTTPS mode - set environment variable and use HTTPS-enabled main
+                env = os.environ.copy()
+                env["HTTPS_ENABLED"] = "true"
+                cmd = [python_exe, "-m", "MakerMatrix.main"]
+                self.log_message("backend", f"Starting in HTTPS mode on port {self.backend_port}", "INFO")
+            else:
+                # HTTP mode - use uvicorn directly
+                env = None
+                cmd = [python_exe, "-m", "uvicorn", "MakerMatrix.main:app", "--host", "0.0.0.0", "--port", str(self.backend_port), "--reload"]
+                self.log_message("backend", f"Starting in HTTP mode on port {self.backend_port}", "INFO")
+            
             self.backend_process = subprocess.Popen(
-                [python_exe, "-m", "uvicorn", "MakerMatrix.main:app", "--host", "0.0.0.0", "--port", str(self.backend_port), "--reload"],
+                cmd,
                 cwd=self.project_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=0  # Unbuffered for real-time logs
+                bufsize=0,  # Unbuffered for real-time logs
+                env=env
             )
             
             # Start enhanced log monitoring
@@ -357,19 +462,21 @@ class EnhancedServerManager:
                                 self.backend_status = "Error"
                 
                 elif service == "frontend":
-                    if "Local:" in line and "http://" in line:
+                    # Check for both HTTP and HTTPS URLs depending on mode
+                    protocol = "https" if self.https_enabled else "http"
+                    if "Local:" in line and f"{protocol}://" in line:
                         self.frontend_status = "Running"
                         self.log_message("frontend", "Frontend started successfully!", "SUCCESS")
                         # Extract URL and find network URL
                         try:
                             if "Network:" in line:
-                                network_match = re.search(r'http://([0-9.]+):(\d+)', line)
+                                network_match = re.search(rf'{protocol}://([0-9.]+):(\d+)', line)
                                 if network_match:
-                                    self.frontend_url = f"http://{network_match.group(1)}:{network_match.group(2)}"
+                                    self.frontend_url = f"{protocol}://{network_match.group(1)}:{network_match.group(2)}"
                             else:
-                                port_match = re.search(r'http://[^:]+:(\d+)', line)
+                                port_match = re.search(rf'{protocol}://[^:]+:(\d+)', line)
                                 if port_match:
-                                    self.frontend_url = f"http://0.0.0.0:{port_match.group(1)}"
+                                    self.frontend_url = f"{protocol}://0.0.0.0:{port_match.group(1)}"
                         except:
                             pass
                     elif any(error in line for error in ["Failed to compile", "Module not found", "SyntaxError"]):
@@ -550,8 +657,12 @@ class EnhancedServerManager:
         backend_symbol = self.get_status_symbol(self.backend_status)
         frontend_symbol = self.get_status_symbol(self.frontend_status)
         
+        mode_icon = "🔒" if self.https_enabled else "🌐"
+        mode_text = "HTTPS" if self.https_enabled else "HTTP"
+        mode_color = self.term.bright_green if self.https_enabled else self.term.bright_blue
+        
         status_line = (f"{backend_symbol} Backend: {backend_color}{self.backend_status}{self.term.normal} "
-                      f"({self.backend_url}) | "
+                      f"({self.backend_url}) [{mode_icon} {mode_color}{mode_text}{self.term.normal}] | "
                       f"{frontend_symbol} Frontend: {frontend_color}{self.frontend_status}{self.term.normal} "
                       f"({self.frontend_url})")
         
@@ -565,11 +676,14 @@ class EnhancedServerManager:
         with self.term.location(0, y):
             print(self.term.clear_eol + self.term.bold + self.term.bright_cyan + "Controls:" + self.term.normal)
         
+        auto_restart_status = "ON" if self.auto_restart_enabled else "OFF"
+        auto_restart_color = self.term.green if self.auto_restart_enabled else self.term.red
+        
         controls = [
             f"{self.term.green}1{self.term.normal}:Start Backend  {self.term.green}2{self.term.normal}:Stop Backend   {self.term.green}3{self.term.normal}:Start Frontend  {self.term.green}4{self.term.normal}:Stop Frontend  {self.term.green}5{self.term.normal}:Both",
             f"{self.term.green}6{self.term.normal}:Stop All      {self.term.green}7{self.term.normal}:Restart BE     {self.term.green}8{self.term.normal}:Restart FE      {self.term.green}9{self.term.normal}:Build Frontend",
-            f"{self.term.green}v{self.term.normal}:Switch View   {self.term.green}e{self.term.normal}:Errors Only    {self.term.green}c{self.term.normal}:Clear Logs     {self.term.green}s{self.term.normal}:Search        {self.term.green}a{self.term.normal}:Auto-scroll",
-            f"{self.term.green}↑↓/jk{self.term.normal}:Scroll     {self.term.green}PgUp/PgDn{self.term.normal}:Fast     {self.term.green}Home/End{self.term.normal}:Top/Bottom  {self.term.green}Esc{self.term.normal}:Exit Search {self.term.green}q{self.term.normal}:Quit"
+            f"{self.term.green}H{self.term.normal}:HTTP Mode      {self.term.green}S{self.term.normal}:HTTPS Mode     {self.term.green}v{self.term.normal}:Switch View    {self.term.green}e{self.term.normal}:Errors Only    {self.term.green}c{self.term.normal}:Clear Logs     {self.term.green}s{self.term.normal}:Search",
+            f"{self.term.green}a{self.term.normal}:Auto-scroll   {self.term.green}r{self.term.normal}:Auto-restart({auto_restart_color}{auto_restart_status}{self.term.normal})   {self.term.green}↑↓/jk{self.term.normal}:Scroll     {self.term.green}Esc{self.term.normal}:Exit {self.term.green}q{self.term.normal}:Quit"
         ]
         
         for i, control in enumerate(controls):
@@ -719,7 +833,7 @@ class EnhancedServerManager:
             self.filtered_logs = []
         elif key == 'c':
             self.clear_logs()
-        elif key == 's':
+        elif key == 's':  # lowercase s for search
             self.search_mode = True
             self.search_term = ""
         elif key == 'a':
@@ -727,6 +841,11 @@ class EnhancedServerManager:
             self.auto_scroll = not self.auto_scroll
             status = "enabled" if self.auto_scroll else "disabled"
             self.log_message("system", f"Auto-scroll {status}", "INFO")
+        elif key == 'r':
+            # Toggle auto-restart
+            self.auto_restart_enabled = not self.auto_restart_enabled
+            status = "enabled" if self.auto_restart_enabled else "disabled"
+            self.log_message("system", f"📁 Auto-restart {status}", "INFO")
         elif key.name == 'KEY_ESCAPE':
             self.search_term = ""
             self.filtered_logs = []
@@ -773,11 +892,86 @@ class EnhancedServerManager:
             self.scroll_position = 0
             # User went to bottom, re-enable auto-scroll
             self.auto_scroll = True
+        elif key == 'H':  # Capital H for HTTP mode
+            # Switch to HTTP mode (since HTTPS is default)
+            self.switch_to_http_mode()
+        elif key == 'S':  # Capital S for HTTPS mode (Secure)
+            # Switch to HTTPS mode (secure)
+            self.switch_to_https_mode()
+    
+    def switch_to_http_mode(self):
+        """Switch to HTTP mode (since HTTPS is default)"""
+        if not self.https_enabled:
+            self.log_message("system", "Already in HTTP mode", "INFO")
+            return
+            
+        # Stop backend if running to switch modes
+        was_running = self.backend_status == "Running"
+        if was_running:
+            self.stop_backend()
+            time.sleep(1)  # Give it time to stop
+        
+        # Switch to HTTP mode
+        self.https_enabled = False
+        
+        # Update configuration
+        self.backend_port = self.http_port
+        self.backend_url = f"http://{self.local_ip}:{self.backend_port}"
+        
+        # Update environment variable for the process
+        os.environ.pop("HTTPS_ENABLED", None)
+        
+        self.log_message("system", "Switched to HTTP mode (insecure)", "SUCCESS")
+        self.log_message("system", f"Backend URL: {self.backend_url}", "INFO")
+        
+        # Restart backend if it was running
+        if was_running:
+            time.sleep(0.5)
+            self.start_backend()
+    
+    def switch_to_https_mode(self):
+        """Switch back to HTTPS mode"""
+        if self.https_enabled:
+            self.log_message("system", "Already in HTTPS mode", "INFO")
+            return
+            
+        # Stop backend if running to switch modes
+        was_running = self.backend_status == "Running"
+        if was_running:
+            self.stop_backend()
+            time.sleep(1)  # Give it time to stop
+        
+        # Switch to HTTPS mode
+        self.https_enabled = True
+        
+        # Update configuration
+        self.backend_port = self.https_port
+        self.backend_url = f"https://{self.local_ip}:{self.backend_port}"
+        
+        # Update environment variable for the process
+        os.environ["HTTPS_ENABLED"] = "true"
+        
+        self.log_message("system", "Switched to HTTPS mode (secure)", "SUCCESS")
+        self.log_message("system", f"Backend URL: {self.backend_url}", "INFO")
+        
+        # Restart backend if it was running
+        if was_running:
+            time.sleep(0.5)
+            self.start_backend()
     
     def cleanup(self):
         """Enhanced cleanup"""
         self.log_message("system", "Shutting down enhanced development manager...", "INFO")
         self.stop_all()
+        
+        # Stop file watching
+        if self.file_observer:
+            try:
+                self.file_observer.stop()
+                self.file_observer.join(timeout=2)
+                self.log_message("system", "📁 File watching stopped", "INFO")
+            except Exception as e:
+                self.log_message("system", f"⚠️ Error stopping file watcher: {e}", "WARN")
         
         # Write final session info to log file
         try:
@@ -862,7 +1056,7 @@ Usage: python dev_manager.py
   • Color-coded log levels and HMR detection
 
 📋 Requirements:
-  - blessed package: pip install blessed requests psutil
+  - blessed package: pip install blessed requests psutil watchdog
   - Node.js and npm for frontend
   - Python environment with MakerMatrix dependencies
 
@@ -877,7 +1071,7 @@ Usage: python dev_manager.py
         import psutil
     except ImportError as e:
         print(f"❌ Error: Missing dependency: {e}")
-        print("📦 Install with: pip install blessed requests psutil")
+        print("📦 Install with: pip install blessed requests psutil watchdog")
         sys.exit(1)
     
     manager = EnhancedServerManager()

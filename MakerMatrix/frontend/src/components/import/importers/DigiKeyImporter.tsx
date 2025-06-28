@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/services/api'
 import { useOrderImport, OrderInfo } from '../hooks/useOrderImport'
+import { extractOrderInfoFromFilename } from '@/utils/filenameExtractor'
 import FileUpload from '../FileUpload'
 import ImportProgress from '../ImportProgress'
 import FilePreview from '../FilePreview'
@@ -35,27 +36,8 @@ const DigiKeyImporter: React.FC<DigiKeyImporterProps> = ({ onImportComplete }) =
     return true
   }
 
-  const extractOrderInfoFromFilename = async (filename: string): Promise<Partial<OrderInfo> | null> => {
-    try {
-      const response = await apiClient.post('/api/csv/extract-filename-info', {
-        filename: filename
-      })
-      
-      // Handle ResponseSchema format
-      const data = response.data || response
-      if (data && data.order_info) {
-        return {
-          order_date: data.order_info.order_date,
-          order_number: data.order_info.order_number
-        }
-      }
-      
-      return null
-    } catch (error) {
-      console.log('No DigiKey filename pattern matched for:', filename)
-      return null
-    }
-  }
+  // extractOrderInfoFromFilename function is now imported from @/utils/filenameExtractor
+  // This eliminates the need for API calls to extract order info from filenames
 
   const orderImport = useOrderImport({
     parserType: 'digikey',

@@ -13,12 +13,12 @@ import logging
 import httpx
 from urllib.parse import urlparse
 
-from MakerMatrix.services.category_service import CategoryService
-from MakerMatrix.services.location_service import LocationService
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.category_service import CategoryService
+from MakerMatrix.services.data.location_service import LocationService
+from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.database.db import DATABASE_URL
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.user_models import UserModel
 
 logger = logging.getLogger(__name__)

@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from MakerMatrix.services.task_service import task_service
-from MakerMatrix.services.task_security_service import task_security_service
+from MakerMatrix.services.system.task_service import task_service
+from MakerMatrix.services.system.task_security_service import task_security_service
 from MakerMatrix.models.task_models import (
     TaskModel, TaskStatus, TaskPriority, TaskType,
     CreateTaskRequest, UpdateTaskRequest, TaskFilterRequest
 )
 from MakerMatrix.models.task_security_model import get_user_allowed_task_types
-from MakerMatrix.dependencies.auth import require_permission
+from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.models.user_models import UserModel
 import logging
 

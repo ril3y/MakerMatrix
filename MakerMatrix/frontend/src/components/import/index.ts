@@ -1,6 +1,5 @@
 // Main components
 export { default as ImportSelector } from './ImportSelector'
-export { default as ImportSettings } from './ImportSettings'
 
 // Shared components
 export { default as FileUpload } from './FileUpload'

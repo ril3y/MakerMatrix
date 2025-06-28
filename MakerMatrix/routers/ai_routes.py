@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from MakerMatrix.models.ai_config_model import AIConfig, AIConfigUpdate
 from MakerMatrix.schemas.response import ResponseSchema
-from MakerMatrix.services.ai_service import ai_service
+from MakerMatrix.services.ai.ai_service import ai_service
 from MakerMatrix.utils.config import load_ai_config, save_ai_config
 
 router = APIRouter()

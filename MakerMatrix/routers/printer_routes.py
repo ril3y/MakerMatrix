@@ -4,11 +4,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import io
 
-from MakerMatrix.services.printer_manager_service import printer_manager
-from MakerMatrix.services.preview_service import preview_service
+from MakerMatrix.services.printer.printer_manager_service import printer_manager
+from MakerMatrix.services.printer.preview_service import preview_service
 from MakerMatrix.printers.base import PrinterStatus, PrinterCapability
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -369,7 +369,7 @@ async def update_printer(printer_id: str, update_data: PrinterRegistration):
     try:
         from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.services.activity_service import get_activity_service
-        from MakerMatrix.dependencies.auth import get_current_user_optional
+        from MakerMatrix.auth.dependencies import get_current_user_optional
         from MakerMatrix.schemas.response import ResponseSchema
         
         # Check if printer exists
@@ -403,7 +403,7 @@ async def update_printer(printer_id: str, update_data: PrinterRegistration):
         
         # Log activity
         try:
-            from MakerMatrix.dependencies.auth import get_current_user_optional
+            from MakerMatrix.auth.dependencies import get_current_user_optional
             
             activity_service = get_activity_service()
             current_user = None
@@ -441,7 +441,7 @@ async def delete_printer(printer_id: str, request: Request = None):
         from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.schemas.response import ResponseSchema
         from MakerMatrix.services.activity_service import get_activity_service
-        from MakerMatrix.dependencies.auth import get_current_user_optional
+        from MakerMatrix.auth.dependencies import get_current_user_optional
         
         # Get printer info before deletion for logging
         printer_name = printer_id  # fallback
@@ -546,7 +546,7 @@ async def test_printer_connection(printer_id: str, request: Request = None):
         # Log activity
         try:
             from MakerMatrix.services.activity_service import get_activity_service
-            from MakerMatrix.dependencies.auth import get_current_user_optional
+            from MakerMatrix.auth.dependencies import get_current_user_optional
             
             activity_service = get_activity_service()
             current_user = None
@@ -594,7 +594,7 @@ async def register_printer(registration: PrinterRegistration, request: Request =
     try:
         from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.services.activity_service import get_activity_service
-        from MakerMatrix.dependencies.auth import get_current_user_optional
+        from MakerMatrix.auth.dependencies import get_current_user_optional
         
         # Get current user if authenticated
         current_user = None

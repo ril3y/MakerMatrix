@@ -50,8 +50,9 @@ export class WebSocketService {
       console.log(`🔍 Current port: ${currentPort}`)
       
       if (currentPort === '5173' || currentPort === '3000') {
-        // Development: frontend on 5173/3000, backend likely on 8080
-        host = window.location.hostname + ':8080'
+        // Development: frontend on 5173/3000, backend on 8443 (HTTPS) or 8080 (HTTP)
+        const backendPort = protocol === 'wss:' ? '8443' : '8080'
+        host = window.location.hostname + ':' + backendPort
         console.log(`🔧 Development mode detected, redirecting to backend: ${host}`)
       }
       

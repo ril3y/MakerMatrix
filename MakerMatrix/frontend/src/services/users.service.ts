@@ -4,42 +4,44 @@ import { User, CreateUserRequest, UpdateUserRolesRequest, Role, CreateRoleReques
 export class UsersService {
   // User Management
   async getAllUsers(): Promise<User[]> {
-    const response = await apiClient.get<ApiResponse<User[]>>('/users/all')
+    const response = await apiClient.get<ApiResponse<User[]>>('/api/users/all')
     return response.data || []
   }
 
   async createUser(userData: CreateUserRequest): Promise<ApiResponse> {
-    return await apiClient.post<ApiResponse>('/users/register', userData)
+    return await apiClient.post<ApiResponse>('/api/users/register', userData)
   }
 
   async updateUserRoles(userId: string, roleData: UpdateUserRolesRequest): Promise<ApiResponse> {
-    return await apiClient.put<ApiResponse>(`/users/${userId}/roles`, roleData)
+    return await apiClient.put<ApiResponse>(`/api/users/${userId}/roles`, roleData)
   }
 
   async deleteUser(userId: string): Promise<ApiResponse> {
-    return await apiClient.delete<ApiResponse>(`/users/${userId}`)
+    return await apiClient.delete<ApiResponse>(`/api/users/${userId}`)
   }
 
   async toggleUserStatus(userId: string, isActive: boolean): Promise<ApiResponse> {
-    return await apiClient.put<ApiResponse>(`/users/${userId}/status`, { is_active: isActive })
+    return await apiClient.put<ApiResponse>(`/api/users/${userId}/status`, { is_active: isActive })
   }
 
   // Role Management
   async getAllRoles(): Promise<Role[]> {
-    const response = await apiClient.get<ApiResponse<Role[]>>('/roles/all')
-    return response.data || []
+    // TODO: Backend doesn't have get all roles endpoint yet
+    // This needs to be implemented in the backend
+    console.warn('getAllRoles: Backend endpoint not implemented yet')
+    return []
   }
 
   async createRole(roleData: CreateRoleRequest): Promise<ApiResponse> {
-    return await apiClient.post<ApiResponse>('/roles/create', roleData)
+    return await apiClient.post<ApiResponse>('/api/users/roles/add_role', roleData)
   }
 
   async updateRole(roleId: string, roleData: UpdateRoleRequest): Promise<ApiResponse> {
-    return await apiClient.put<ApiResponse>(`/roles/${roleId}`, roleData)
+    return await apiClient.put<ApiResponse>(`/api/users/roles/${roleId}`, roleData)
   }
 
   async deleteRole(roleId: string): Promise<ApiResponse> {
-    return await apiClient.delete<ApiResponse>(`/roles/${roleId}`)
+    return await apiClient.delete<ApiResponse>(`/api/users/roles/${roleId}`)
   }
 
   // Statistics

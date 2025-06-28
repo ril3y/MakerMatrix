@@ -7,6 +7,7 @@ import { useOrderImport, OrderInfo } from '../hooks/useOrderImport'
 import FileUpload from '../FileUpload'
 import ImportProgress from '../ImportProgress'
 import FilePreview from '../FilePreview'
+import { extractOrderInfoFromFilename } from '@/utils/filenameExtractor'
 
 interface MouserImporterProps {
   onImportComplete?: (result: any) => void
@@ -35,27 +36,7 @@ const MouserImporter: React.FC<MouserImporterProps> = ({ onImportComplete }) => 
     return true
   }
 
-  const extractOrderInfoFromFilename = async (filename: string): Promise<Partial<OrderInfo> | null> => {
-    try {
-      const response = await apiClient.post('/api/csv/extract-filename-info', {
-        filename: filename
-      })
-      
-      // Handle ResponseSchema format
-      const data = response.data || response
-      if (data && data.order_info) {
-        return {
-          order_date: data.order_info.order_date,
-          order_number: data.order_info.order_number
-        }
-      }
-      
-      return null
-    } catch (error) {
-      console.log('No Mouser filename pattern matched for:', filename)
-      return null
-    }
-  }
+  // Note: extractOrderInfoFromFilename is now imported from utils/filenameExtractor
 
   // Use file upload instead of text content for XLS files
   const handleFileSelect = async (selectedFile: File) => {
@@ -83,8 +64,9 @@ const MouserImporter: React.FC<MouserImporterProps> = ({ onImportComplete }) => 
       // Use file upload endpoint for XLS files
       const formData = new FormData()
       formData.append('file', selectedFile)
+      formData.append('supplier_name', 'mouser')
 
-      const response = await apiClient.post('/api/csv/preview-file', formData, {
+      const response = await apiClient.post('/api/import/file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -120,7 +102,7 @@ const MouserImporter: React.FC<MouserImporterProps> = ({ onImportComplete }) => 
       // Use file upload endpoint for XLS files
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('parser_type', 'mouser')
+      formData.append('supplier_name', 'mouser')
       formData.append('order_number', orderInfo.order_number || '')
       formData.append('order_date', orderInfo.order_date || new Date().toISOString().split('T')[0])
       formData.append('notes', orderInfo.notes || '')
@@ -132,7 +114,7 @@ const MouserImporter: React.FC<MouserImporterProps> = ({ onImportComplete }) => 
         is_complete: false
       })
 
-      const response = await apiClient.post('/api/csv/import-file', formData, {
+      const response = await apiClient.post('/api/import/file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

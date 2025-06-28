@@ -10,9 +10,9 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query, HTTPException
 
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.models import UserModel
-from MakerMatrix.services.analytics_service import analytics_service
+from MakerMatrix.services.data.analytics_service import analytics_service
 from MakerMatrix.schemas.response import ResponseSchema
 
 logger = logging.getLogger(__name__)

@@ -21,23 +21,79 @@ interface OrderInfo {
   notes?: string
 }
 
-// Function to extract order info from filename using API
+// Supplier-specific filename extraction functions
 const extractOrderInfoFromFilename = async (filename: string, parserType: string): Promise<Partial<OrderInfo>> => {
-  try {
-    const response = await apiClient.post('/api/csv/extract-filename-info', {
-      filename: filename,
-      parser_type: parserType
-    })
+  // LCSC-specific extraction
+  if (parserType === 'lcsc') {
+    return extractLCSCOrderInfo(filename)
+  }
+  
+  // DigiKey-specific extraction
+  if (parserType === 'digikey') {
+    return extractDigikeyOrderInfo(filename)
+  }
+  
+  // Mouser-specific extraction
+  if (parserType === 'mouser') {
+    return extractMouserOrderInfo(filename)
+  }
+  
+  // Default: no extraction
+  return {}
+}
+
+const extractLCSCOrderInfo = (filename: string): Partial<OrderInfo> => {
+  // LCSC exported files: LCSC_Exported__YYYYMMDD_HHMMSS.csv
+  const lcscMatch = filename.match(/lcsc_exported__(\d{8})_(\d{6})/i)
+  if (lcscMatch) {
+    const dateStr = lcscMatch[1] // YYYYMMDD
+    const timeStr = lcscMatch[2] // HHMMSS
     
-    if (response.status === 'success' && response.data) {
+    // Validate the date
+    const year = parseInt(dateStr.substring(0, 4))
+    const month = parseInt(dateStr.substring(4, 6))
+    const day = parseInt(dateStr.substring(6, 8))
+    
+    if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      // Format as YYYY-MM-DD for HTML date input
+      const formattedDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+      
+      // Use the export info as notes
+      const hour = timeStr.substring(0, 2)
+      const minute = timeStr.substring(2, 4)
+      const second = timeStr.substring(4, 6)
+      
       return {
-        order_date: response.data.order_date,
-        order_number: response.data.order_number,
-        notes: response.data.notes || `Auto-extracted from filename: ${filename}`
+        order_date: formattedDate,
+        notes: `LCSC export from ${formattedDate} at ${hour}:${minute}:${second}`
       }
     }
-  } catch (error) {
-    console.warn('Failed to extract order info from filename:', error)
+  }
+  
+  return {}
+}
+
+const extractDigikeyOrderInfo = (filename: string): Partial<OrderInfo> => {
+  // DigiKey files: DK_PRODUCTS_12345678.csv
+  const digikeyMatch = filename.match(/dk_products_(\d+)/i)
+  if (digikeyMatch) {
+    return {
+      order_number: digikeyMatch[1],
+      notes: `DigiKey export file: ${filename}`
+    }
+  }
+  
+  return {}
+}
+
+const extractMouserOrderInfo = (filename: string): Partial<OrderInfo> => {
+  // Mouser files: typically numeric like 123456.xls
+  const mouserMatch = filename.match(/^(\d{6,})\.xls$/i)
+  if (mouserMatch) {
+    return {
+      order_number: mouserMatch[1],
+      notes: `Mouser order file: ${filename}`
+    }
   }
   
   return {}
@@ -102,14 +158,14 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
     try {
       const formData = new FormData()
       formData.append('file', uploadedFile)
-      formData.append('parser_type', parserType)
+      formData.append('supplier_name', parserType)
       if (orderInfo.order_number) formData.append('order_number', orderInfo.order_number)
       if (orderInfo.order_date) formData.append('order_date', orderInfo.order_date)
       if (orderInfo.notes) formData.append('notes', orderInfo.notes)
 
       setImportProgress(25)
 
-      const result = await apiClient.post('/api/csv/import-file', formData, {
+      const result = await apiClient.post('/api/import/file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -119,27 +175,36 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
 
       if (result.status === 'success') {
         const importResult: ImportResult = {
-          success_parts: result.data.imported_parts || [],
-          failed_parts: result.data.failures || []
+          success_parts: result.data.part_ids || [],
+          failed_parts: result.data.failed_items || []
         }
 
-        const successfulImports = result.data.successful_imports || 0
+        const successfulImports = result.data.imported_count || 0
+        const skippedCount = result.data.skipped_count || 0
+        const failedCount = result.data.failed_count || 0
+        const totalProcessed = successfulImports + skippedCount + failedCount
+        
         setImportedPartsCount(successfulImports)
         
         // Debug logging
         console.log('CSV Import Result:', result.data)
-        console.log('Enrichment Task ID:', result.data.enrichment_task_id)
-        console.log('Has enrichment_task_id:', !!result.data.enrichment_task_id)
+        console.log(`Import stats: ${successfulImports} imported, ${skippedCount} skipped, ${failedCount} failed`)
+        
+        // Build success message
+        let message = `Processed ${totalProcessed} parts: `
+        const messageParts = []
+        if (successfulImports > 0) messageParts.push(`${successfulImports} imported`)
+        if (skippedCount > 0) messageParts.push(`${skippedCount} skipped`)
+        if (failedCount > 0) messageParts.push(`${failedCount} failed`)
+        message += messageParts.join(', ')
         
         // Check if enrichment task was created
         if (result.data.enrichment_task_id) {
-          console.log('Setting enrichment task ID:', result.data.enrichment_task_id)
           setEnrichmentTaskId(result.data.enrichment_task_id)
-          console.log('Setting showEnrichmentModal to true')
           setShowEnrichmentModal(true)
-          toast.success(`Import completed: ${successfulImports} parts imported. Starting enrichment...`)
+          toast.success(`${message}. Starting enrichment...`)
         } else {
-          toast.success(`Import completed: ${successfulImports} parts imported successfully`)
+          toast.success(message)
         }
         
         onImportComplete?.(importResult)

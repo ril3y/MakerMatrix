@@ -232,7 +232,7 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
         </div>
 
         <div className={`border border-border rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto`}>
-          {locationTree.length > 0 ? (
+          {locationTree && locationTree.length > 0 ? (
             <div className="p-2">
               <LocationTreeNode
                 locations={locationTree}
@@ -275,7 +275,7 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
                 }
                 return null;
               };
-              return findLocation(locationTree) || 'Unknown location';
+              return findLocation(locationTree || []) || 'Unknown location';
             })()}
           </div>
         )}

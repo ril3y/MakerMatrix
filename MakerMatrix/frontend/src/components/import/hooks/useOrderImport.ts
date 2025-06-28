@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/services/api'
+import { previewFile } from '@/utils/filePreview'
 
 export interface FilePreviewData {
   detected_parser: string | null
@@ -106,32 +107,22 @@ export const useOrderImport = ({
     }
 
     try {
-      let response
-      const fileName = selectedFile.name.toLowerCase()
+      // Use frontend-only file preview
+      const previewData = await previewFile(selectedFile)
+      setPreviewData(previewData)
       
-      if (fileName.endsWith('.csv')) {
-        // Handle CSV files with text content
-        const fileContent = await selectedFile.text()
-        response = await apiClient.post('/api/csv/preview', {
-          csv_content: fileContent
-        })
+      if (previewData.validation_errors && previewData.validation_errors.length > 0) {
+        // Only show error for critical issues, not warnings
+        const criticalErrors = previewData.validation_errors.filter(error => 
+          error.includes('Could not detect') || error.includes('empty') || error.includes('Failed to')
+        )
+        if (criticalErrors.length > 0) {
+          toast.error(`File issue: ${criticalErrors[0]}`)
+        } else {
+          toast.success(`File processed - ${previewData.validation_errors.length} warning(s)`)
+        }
       } else {
-        // Handle XLS files with file upload
-        const formData = new FormData()
-        formData.append('file', selectedFile)
-        response = await apiClient.post('/api/csv/preview-file', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        })
-      }
-
-      // Handle ResponseSchema format
-      const data = response.data || response
-      setPreviewData(data)
-      
-      if (data.validation_errors && data.validation_errors.length > 0) {
-        toast.error(`Validation issues: ${data.validation_errors[0]}`)
+        toast.success(`File preview ready - ${previewData.total_rows} rows detected`)
       }
       
     } catch (error) {
@@ -163,7 +154,7 @@ export const useOrderImport = ({
 
   const pollProgress = useCallback(async () => {
     try {
-      const response = await apiClient.get('/api/csv/import/progress')
+      const response = await apiClient.get('/api/import/import/progress')
       const progress = response.data || response
       if (progress && progress.processed_parts !== undefined) {
         setImportProgress(progress)
@@ -225,7 +216,7 @@ export const useOrderImport = ({
       if (fileName.endsWith('.csv')) {
         // Handle CSV files with text content
         const fileContent = await file.text()
-        response = await apiClient.post('/api/csv/import/with-progress', {
+        response = await apiClient.post('/api/import/import/with-progress', {
           csv_content: fileContent,
           parser_type: parserType,
           order_info: {
@@ -238,12 +229,12 @@ export const useOrderImport = ({
         // Handle XLS files with file upload
         const formData = new FormData()
         formData.append('file', file)
-        formData.append('parser_type', parserType)
+        formData.append('supplier_name', parserType)
         formData.append('order_number', orderInfo.order_number)
         formData.append('order_date', orderInfo.order_date || new Date().toISOString())
         formData.append('notes', orderInfo.notes)
         
-        response = await apiClient.post('/api/csv/import-file', formData, {
+        response = await apiClient.post('/api/import/file', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }

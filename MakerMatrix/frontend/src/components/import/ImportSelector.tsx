@@ -2,9 +2,9 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ChevronDown, Upload, CheckCircle, AlertCircle, File, X, Settings } from 'lucide-react'
 import UnifiedFileImporter from './UnifiedFileImporter'
-import ImportSettings from './ImportSettings'
 import { ImportResult } from './hooks/useOrderImport'
 import { apiClient } from '@/services/api'
+import { previewFile } from '@/utils/filePreview'
 import toast from 'react-hot-toast'
 
 interface ImportSelectorProps {
@@ -187,42 +187,11 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
     setUploadedFile(file)
 
     try {
-      // Get file preview from backend API
-      let previewResponse
-      const fileName = file.name.toLowerCase()
+      // Get file preview using frontend-only processing
+      const previewData = await previewFile(file)
       
-      if (fileName.endsWith('.csv')) {
-        // Handle CSV files with text content
-        const fileContent = await file.text()
-        previewResponse = await apiClient.post('/api/import/preview', {
-          csv_content: fileContent
-        })
-      } else {
-        // Handle XLS files with file upload
-        const formData = new FormData()
-        formData.append('file', file)
-        previewResponse = await apiClient.post('/api/import/file', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        })
-      }
-
-      // Extract preview data from response
-      const previewData = previewResponse.data?.data || previewResponse.data || {}
-      
-      // Auto-detect parser from filename if not detected by backend
-      let suggestedParser = previewData.detected_parser || ''
-      if (!suggestedParser) {
-        const filename = file.name.toLowerCase()
-        if (filename.includes('lcsc')) {
-          suggestedParser = 'lcsc'
-        } else if (filename.includes('digikey') || filename.includes('dk_')) {
-          suggestedParser = 'digikey'  
-        } else if (filename.includes('mouser')) {
-          suggestedParser = 'mouser'
-        }
-      }
+      // Auto-detect parser from preview data
+      const suggestedParser = previewData.detected_parser || ''
       
       if (suggestedParser) {
         setDetectedParser(suggestedParser)
@@ -233,7 +202,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         toast('File uploaded successfully, please select a parser type')
       }
       
-      // Set preview data from backend response
+      // Set preview data from frontend processing
       const fileExtension = file.name.toLowerCase().split('.').pop()
       setFilePreview({
         filename: file.name,
@@ -541,8 +510,6 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         )}
           </div>
 
-          {/* Import Settings */}
-          <ImportSettings />
 
           {/* Selected Parser Component */}
           {uploadedFile && selectedParser && (

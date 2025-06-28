@@ -4,8 +4,8 @@ from pydantic import BaseModel
 from MakerMatrix.models.user_models import UserCreate, UserUpdate, PasswordUpdate
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.schemas.response import ResponseSchema
-from MakerMatrix.services.auth_service import AuthService
-from MakerMatrix.dependencies import oauth2_scheme
+from MakerMatrix.services.system.auth_service import AuthService
+from MakerMatrix.auth.dependencies import oauth2_scheme
 
 router = APIRouter()
 user_repository = UserRepository()

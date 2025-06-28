@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Save, Package, Plus, X, Upload, Image } from 'lucide-react'
+import { Save, Package, Plus, X, Upload, Image, Tag, MapPin } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
 import CategorySelector from '@/components/ui/CategorySelector'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
+import AddCategoryModal from '@/components/categories/AddCategoryModal'
+import AddLocationModal from '@/components/locations/AddLocationModal'
 import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
@@ -43,6 +45,10 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>('')
+  
+  // Inline modal states
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [showAddLocationModal, setShowAddLocationModal] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -196,6 +202,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setCustomProperties([])
     setErrors({})
     setImageUrl('')
+    
+    // Close any open inline modals
+    setShowAddCategoryModal(false)
+    setShowAddLocationModal(false)
+    
     onClose()
   }
 
@@ -219,6 +230,48 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     } else {
       setSelectedCategories([...selectedCategories, categoryId])
     }
+  }
+
+  const handleCategoryCreated = async () => {
+    // Reload categories and auto-select the new one
+    try {
+      const categoriesData = await categoriesService.getAllCategories()
+      setCategories(categoriesData || [])
+      
+      // Find the newest category (assuming it's the last one after sort)
+      if (categoriesData && categoriesData.length > 0) {
+        const sortedCategories = categoriesData.sort((a, b) => 
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        )
+        const newestCategory = sortedCategories[0]
+        if (!selectedCategories.includes(newestCategory.id)) {
+          setSelectedCategories([...selectedCategories, newestCategory.id])
+        }
+      }
+    } catch (error) {
+      console.error('Failed to reload categories:', error)
+    }
+    setShowAddCategoryModal(false)
+  }
+
+  const handleLocationCreated = async () => {
+    // Reload locations and auto-select the new one
+    try {
+      const locationsData = await locationsService.getAllLocations()
+      setLocations(locationsData || [])
+      
+      // Find the newest location
+      if (locationsData && locationsData.length > 0) {
+        const sortedLocations = locationsData.sort((a, b) => 
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        )
+        const newestLocation = sortedLocations[0]
+        setFormData({ ...formData, location_id: newestLocation.id })
+      }
+    } catch (error) {
+      console.error('Failed to reload locations:', error)
+    }
+    setShowAddLocationModal(false)
   }
 
   return (
@@ -272,15 +325,29 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               />
             </FormField>
 
-            <LocationTreeSelector
-              selectedLocationId={formData.location_id}
-              onLocationSelect={(locationId) => setFormData({ ...formData, location_id: locationId || '' })}
-              label="Location"
-              description="Select where this part will be stored"
-              error={errors.location_id}
-              showAddButton={false}
-              compact={true}
-            />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-primary">Location</label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddLocationModal(true)}
+                  className="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
+                  disabled={loading}
+                >
+                  <MapPin className="w-3 h-3" />
+                  Add Location
+                </button>
+              </div>
+              <LocationTreeSelector
+                selectedLocationId={formData.location_id}
+                onLocationSelect={(locationId) => setFormData({ ...formData, location_id: locationId || '' })}
+                description="Select where this part will be stored"
+                error={errors.location_id}
+                showAddButton={false}
+                compact={true}
+                showLabel={false}
+              />
+            </div>
 
             <FormField label="Supplier" error={errors.supplier}>
               <select
@@ -319,14 +386,28 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           </FormField>
 
           {/* Categories */}
-          <CategorySelector
-            categories={categories}
-            selectedCategories={selectedCategories}
-            onToggleCategory={toggleCategory}
-            label="Categories"
-            description="Select categories that apply to this part"
-            layout="checkboxes"
-          />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-primary">Categories</label>
+              <button
+                type="button"
+                onClick={() => setShowAddCategoryModal(true)}
+                className="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
+                disabled={loading}
+              >
+                <Tag className="w-3 h-3" />
+                Add Category
+              </button>
+            </div>
+            <CategorySelector
+              categories={categories}
+              selectedCategories={selectedCategories}
+              onToggleCategory={toggleCategory}
+              description="Select categories that apply to this part"
+              layout="checkboxes"
+              showLabel={false}
+            />
+          </div>
 
           {/* Custom Properties */}
           <div className="space-y-3">
@@ -398,6 +479,20 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           </div>
         </form>
       )}
+      
+      {/* Inline Modals */}
+      <AddCategoryModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onSuccess={handleCategoryCreated}
+        existingCategories={categories.map(c => c.name)}
+      />
+      
+      <AddLocationModal
+        isOpen={showAddLocationModal}
+        onClose={() => setShowAddLocationModal(false)}
+        onSuccess={handleLocationCreated}
+      />
     </Modal>
   )
 }

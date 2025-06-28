@@ -7,27 +7,27 @@ export type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 export class SettingsService {
   // Modern Printer Configuration
   async getAvailablePrinters(): Promise<any[]> {
-    const response = await apiClient.get<{data: any[]}>('/printer/printers')
+    const response = await apiClient.get<{data: any[]}>('/api/printer/printers')
     return response.data || []
   }
 
   async getPrinterInfo(printerId: string): Promise<any> {
-    const response = await apiClient.get<any>(`/printer/printers/${printerId}`)
+    const response = await apiClient.get<any>(`/api/printer/printers/${printerId}`)
     return response
   }
 
   async getPrinterStatus(printerId: string): Promise<{printer_id: string, status: string}> {
-    const response = await apiClient.get<{printer_id: string, status: string}>(`/printer/printers/${printerId}/status`)
+    const response = await apiClient.get<{printer_id: string, status: string}>(`/api/printer/printers/${printerId}/status`)
     return response
   }
 
   async testPrinterConnection(printerId: string): Promise<any> {
-    const response = await apiClient.post<any>(`/printer/printers/${printerId}/test`)
+    const response = await apiClient.post<any>(`/api/printer/printers/${printerId}/test`)
     return response
   }
 
   async printTestLabel(printerId: string, text: string = "Test Label", labelSize: string = "12"): Promise<any> {
-    const response = await apiClient.post<any>('/printer/print/text', {
+    const response = await apiClient.post<any>('/api/printer/print/text', {
       printer_id: printerId,
       text,
       label_size: labelSize,
@@ -37,7 +37,7 @@ export class SettingsService {
   }
 
   async previewLabel(text: string, labelSize: string = "12"): Promise<Blob> {
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/printer/preview/text`, {
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/printer/preview/text`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ export class SettingsService {
     }
     data?: any
   }): Promise<any> {
-    const response = await apiClient.post<any>('/printer/print/advanced', requestData)
+    const response = await apiClient.post<any>('/api/printer/print/advanced', requestData)
     return response
   }
 
@@ -85,7 +85,7 @@ export class SettingsService {
     }
     data?: any
   }): Promise<Blob> {
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/printer/preview/advanced`, {
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/printer/preview/advanced`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ export class SettingsService {
     dpi: number
     scaling_factor: number
   }): Promise<any> {
-    const response = await apiClient.post<any>('/printer/register', printerData)
+    const response = await apiClient.post<any>('/api/printer/register', printerData)
     return response
   }
 
@@ -124,78 +124,78 @@ export class SettingsService {
     dpi: number
     scaling_factor: number
   }): Promise<any> {
-    const response = await apiClient.put<any>(`/printer/printers/${printerId}`, printerData)
+    const response = await apiClient.put<any>(`/api/printer/printers/${printerId}`, printerData)
     return response
   }
 
   async deletePrinter(printerId: string): Promise<any> {
-    const response = await apiClient.delete<any>(`/printer/printers/${printerId}`)
+    const response = await apiClient.delete<any>(`/api/printer/printers/${printerId}`)
     return response
   }
 
   async getSupportedDrivers(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<{drivers: any[]}>>('/printer/drivers')
+    const response = await apiClient.get<ApiResponse<{drivers: any[]}>>('/api/printer/drivers')
     return response.data?.drivers || []
   }
 
   async getDriverInfo(driverType: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/printer/drivers/${driverType}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/printer/drivers/${driverType}`)
     return response.data!
   }
 
   async testPrinterSetup(printerData: any): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/printer/test-setup', { printer: printerData })
+    const response = await apiClient.post<ApiResponse<any>>('/api/printer/test-setup', { printer: printerData })
     return response.data!
   }
 
   async startPrinterDiscovery(): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/printer/discover/start')
+    const response = await apiClient.post<ApiResponse<any>>('/api/printer/discover/start')
     return response.data!
   }
 
   async getPrinterDiscoveryStatus(taskId: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/printer/discover/status/${taskId}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/printer/discover/status/${taskId}`)
     return response.data!
   }
 
   async getLatestPrinterDiscovery(): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>('/printer/discover/latest')
+    const response = await apiClient.get<ApiResponse<any>>('/api/printer/discover/latest')
     return response.data!
   }
 
   // AI Configuration
   async getAIConfig(): Promise<AIConfig> {
-    const response = await apiClient.get<ApiResponse<AIConfig>>('/ai/config')
+    const response = await apiClient.get<ApiResponse<AIConfig>>('/api/ai/config')
     return response.data!
   }
 
   async updateAIConfig(config: AIConfigUpdate): Promise<ApiResponse> {
-    return await apiClient.put<ApiResponse>('/ai/config', config)
+    return await apiClient.put<ApiResponse>('/api/ai/config', config)
   }
 
   async testAIConnection(): Promise<ApiResponse> {
-    return await apiClient.post<ApiResponse>('/ai/test')
+    return await apiClient.post<ApiResponse>('/api/ai/test')
   }
 
   async resetAIConfig(): Promise<ApiResponse> {
-    return await apiClient.post<ApiResponse>('/ai/reset')
+    return await apiClient.post<ApiResponse>('/api/ai/reset')
   }
 
   async getAvailableModels(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<{models: any[], provider: string}>>('/ai/models')
+    const response = await apiClient.get<ApiResponse<{models: any[], provider: string}>>('/api/ai/models')
     return response.data?.models || []
   }
 
   // Backup & Export
   async getBackupStatus(): Promise<BackupStatus> {
-    const response = await apiClient.get<ApiResponse<BackupStatus>>('/utility/backup/status')
+    const response = await apiClient.get<ApiResponse<BackupStatus>>('/api/utility/backup/status')
     return response.data!
   }
 
   async downloadDatabaseBackup(): Promise<void> {
     // This will trigger a file download
     const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
-    const response = await fetch(`${baseURL}/utility/backup/download`, {
+    const response = await fetch(`${baseURL}/api/utility/backup/download`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
       }
@@ -219,7 +219,7 @@ export class SettingsService {
   async exportDataJSON(): Promise<void> {
     // This will trigger a file download
     const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
-    const response = await fetch(`${baseURL}/utility/backup/export`, {
+    const response = await fetch(`${baseURL}/api/utility/backup/export`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
       }
@@ -247,25 +247,25 @@ export class SettingsService {
     password: string
     role_ids: string[]
   }): Promise<ApiResponse> {
-    return await apiClient.post<ApiResponse>('/users/register', userData)
+    return await apiClient.post<ApiResponse>('/api/users/register', userData)
   }
 
   async getAllUsers(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/users/all')
+    const response = await apiClient.get<ApiResponse<any[]>>('/api/users/all')
     return response.data || []
   }
 
   async updateUserRoles(userId: string, roleIds: string[]): Promise<ApiResponse> {
-    return await apiClient.put<ApiResponse>(`/users/${userId}/roles`, { role_ids: roleIds })
+    return await apiClient.put<ApiResponse>(`/api/users/${userId}/roles`, { role_ids: roleIds })
   }
 
   async deleteUser(userId: string): Promise<ApiResponse> {
-    return await apiClient.delete<ApiResponse>(`/users/${userId}`)
+    return await apiClient.delete<ApiResponse>(`/api/users/${userId}`)
   }
 
   // Roles Management
   async getAllRoles(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/roles/all')
+    const response = await apiClient.get<ApiResponse<any[]>>('/api/users/roles/all')
     return response.data || []
   }
 
@@ -273,18 +273,18 @@ export class SettingsService {
     name: string
     permissions: Record<string, boolean>
   }): Promise<ApiResponse> {
-    return await apiClient.post<ApiResponse>('/roles/create', roleData)
+    return await apiClient.post<ApiResponse>('/api/users/roles/create', roleData)
   }
 
   async updateRole(roleId: string, roleData: {
     name?: string
     permissions?: Record<string, boolean>
   }): Promise<ApiResponse> {
-    return await apiClient.put<ApiResponse>(`/roles/${roleId}`, roleData)
+    return await apiClient.put<ApiResponse>(`/api/users/roles/${roleId}`, roleData)
   }
 
   async deleteRole(roleId: string): Promise<ApiResponse> {
-    return await apiClient.delete<ApiResponse>(`/roles/${roleId}`)
+    return await apiClient.delete<ApiResponse>(`/api/users/roles/${roleId}`)
   }
 }
 

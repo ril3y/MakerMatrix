@@ -10,7 +10,7 @@ from MakerMatrix.models.models import CategoryModel, PartModel
 from MakerMatrix.models.models import engine
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.schemas.part_create import PartCreate
-from MakerMatrix.services.category_service import CategoryService  # Import PartCreate
+from MakerMatrix.services.data.category_service import CategoryService  # Import PartCreate
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 import uuid

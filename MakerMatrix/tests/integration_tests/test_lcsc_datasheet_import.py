@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from MakerMatrix.services.csv_import.lcsc_parser import LCSCParser
 from MakerMatrix.services.csv_import_service import CSVImportService
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.models import PartModel, DatasheetModel, create_db_and_tables
 from MakerMatrix.database.db import get_session
 from MakerMatrix.services.file_download_service import FileDownloadService

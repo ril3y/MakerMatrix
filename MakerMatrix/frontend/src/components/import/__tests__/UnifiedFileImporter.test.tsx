@@ -5,6 +5,15 @@ import { toast } from 'react-hot-toast'
 import UnifiedFileImporter from '../UnifiedFileImporter'
 import { apiClient } from '@/services/api'
 
+// Mock the filename extractor since it's now frontend-only
+vi.mock('@/utils/filenameExtractor', () => ({
+  extractOrderInfoFromFilename: vi.fn().mockResolvedValue({
+    order_number: 'AUTO123',
+    order_date: '2024-01-01',
+    notes: 'Auto-extracted from filename: test-file.csv'
+  })
+}))
+
 // Mock dependencies
 vi.mock('react-hot-toast')
 vi.mock('@/services/api')
@@ -42,20 +51,9 @@ describe('UnifiedFileImporter - Core Functionality', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     
-    // Mock successful order info extraction by default
+    // Mock successful import by default
     mockApiClient.post.mockImplementation((endpoint) => {
-      if (endpoint === '/api/csv/extract-filename-info') {
-        return Promise.resolve({
-          status: 'success',
-          data: {
-            order_date: '2024-01-15',
-            order_number: 'ORD-123456'
-          }
-        })
-      }
-      
-      // Mock successful import by default
-      if (endpoint === '/api/csv/import-file') {
+      if (endpoint === '/api/import/file') {
         return Promise.resolve({
           status: 'success',
           data: {
@@ -99,25 +97,21 @@ describe('UnifiedFileImporter - Core Functionality', () => {
     })
   })
 
-  describe('Auto Order Info Extraction', () => {
-    it('should extract order info from filename', async () => {
+  describe('Auto Order Info Extraction (Frontend)', () => {
+    it('should extract order info from filename using frontend utility', async () => {
+      const { extractOrderInfoFromFilename } = await import('@/utils/filenameExtractor')
+      
       render(<UnifiedFileImporter {...mockProps} />)
       
+      // Verify the frontend function is called (mocked)
       await waitFor(() => {
-        expect(mockApiClient.post).toHaveBeenCalledWith('/api/csv/extract-filename-info', {
-          filename: 'test-file.csv',
-          parser_type: 'lcsc'
-        })
+        expect(extractOrderInfoFromFilename).toHaveBeenCalledWith('test-file.csv', 'lcsc')
       })
     })
 
     it('should handle extraction failure gracefully', async () => {
-      mockApiClient.post.mockImplementation((endpoint) => {
-        if (endpoint === '/api/csv/extract-filename-info') {
-          return Promise.reject(new Error('Extraction failed'))
-        }
-        return Promise.resolve({})
-      })
+      const { extractOrderInfoFromFilename } = await import('@/utils/filenameExtractor')
+      vi.mocked(extractOrderInfoFromFilename).mockRejectedValueOnce(new Error('Extraction failed'))
 
       // Should not crash
       expect(() => render(<UnifiedFileImporter {...mockProps} />)).not.toThrow()
@@ -139,7 +133,7 @@ describe('UnifiedFileImporter - Core Functionality', () => {
 
       await waitFor(() => {
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/csv/import-file',
+          '/api/import/file',
           expect.any(FormData),
           expect.objectContaining({
             headers: {
@@ -165,11 +159,8 @@ describe('UnifiedFileImporter - Core Functionality', () => {
       const user = userEvent.setup()
       
       mockApiClient.post.mockImplementation((endpoint) => {
-        if (endpoint === '/api/csv/import-file') {
+        if (endpoint === '/api/import/file') {
           return Promise.reject(new Error('Import failed'))
-        }
-        if (endpoint === '/api/csv/extract-filename-info') {
-          return Promise.resolve({ status: 'success', data: {} })
         }
         return Promise.resolve({})
       })
@@ -194,14 +185,11 @@ describe('UnifiedFileImporter - Core Functionality', () => {
       const user = userEvent.setup()
       
       mockApiClient.post.mockImplementation((endpoint) => {
-        if (endpoint === '/api/csv/import-file') {
+        if (endpoint === '/api/import/file') {
           return Promise.resolve({
             status: 'error',
             message: 'Invalid file format'
           })
-        }
-        if (endpoint === '/api/csv/extract-filename-info') {
-          return Promise.resolve({ status: 'success', data: {} })
         }
         return Promise.resolve({})
       })
@@ -235,7 +223,7 @@ describe('UnifiedFileImporter - Core Functionality', () => {
 
       await waitFor(() => {
         const importCall = mockApiClient.post.mock.calls.find(
-          call => call[0] === '/api/csv/import-file'
+          call => call[0] === '/api/import/file'
         )
         expect(importCall).toBeDefined()
         

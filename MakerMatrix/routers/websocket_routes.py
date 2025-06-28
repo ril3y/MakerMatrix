@@ -6,8 +6,8 @@ import json
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from typing import Optional
-from MakerMatrix.services.websocket_service import websocket_manager
-from MakerMatrix.dependencies.auth import get_current_user_from_token
+from MakerMatrix.services.system.websocket_service import websocket_manager
+from MakerMatrix.auth.dependencies import get_current_user_from_token
 from MakerMatrix.models.user_models import UserModel
 import logging
 

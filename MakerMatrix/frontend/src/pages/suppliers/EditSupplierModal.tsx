@@ -4,9 +4,11 @@
  * Modal for editing existing supplier configurations with validation and capability management.
  */
 
-import React, { useState } from 'react';
-import { X, AlertTriangle, Save, TestTube } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, AlertTriangle, Save, TestTube, HelpCircle } from 'lucide-react';
 import { supplierService, SupplierConfig, SupplierConfigUpdate, ConnectionTestResult } from '../../services/supplier.service';
+import { CredentialEditor } from '../../components/suppliers/CredentialEditor';
+import { SupplierTestResult } from '../../components/suppliers/SupplierTestResult';
 
 interface EditSupplierModalProps {
   supplier: SupplierConfig;
@@ -21,27 +23,88 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   
+  // Backend-driven capabilities and credential schema
+  const [availableCapabilities, setAvailableCapabilities] = useState<string[]>([]);
+  const [credentialSchema, setCredentialSchema] = useState<any[]>([]);
+  const [loadingCapabilities, setLoadingCapabilities] = useState(true);
+  
+  // Track current credentials for testing and credential status
+  const [currentCredentials, setCurrentCredentials] = useState<Record<string, string>>({});
+  const [credentialStatus, setCredentialStatus] = useState<any>(null);
+  
   const [config, setConfig] = useState<SupplierConfigUpdate>({
     display_name: supplier.display_name,
     description: supplier.description || '',
-    api_type: supplier.api_type,
-    base_url: supplier.base_url,
-    api_version: supplier.api_version || '',
-    rate_limit_per_minute: supplier.rate_limit_per_minute || (supplier.supplier_name === 'LCSC' ? 300 : null),
-    timeout_seconds: supplier.timeout_seconds,
-    max_retries: supplier.max_retries,
-    retry_backoff: supplier.retry_backoff,
     enabled: supplier.enabled,
-    supports_datasheet: supplier.capabilities.includes('fetch_datasheet'),
-    supports_image: supplier.capabilities.includes('fetch_image'),
-    supports_pricing: supplier.capabilities.includes('fetch_pricing'),
-    supports_stock: supplier.capabilities.includes('fetch_stock'),
-    supports_specifications: supplier.capabilities.includes('fetch_specifications'),
+    capabilities: supplier.capabilities || [],
     custom_headers: supplier.custom_headers,
     custom_parameters: supplier.custom_parameters
   });
 
-  const capabilities = supplierService.getSupportedCapabilities();
+  // Load capabilities and schema from backend
+  useEffect(() => {
+    const loadSupplierData = async () => {
+      try {
+        setLoadingCapabilities(true);
+        
+        // Get actual capabilities from backend
+        const capabilitiesResponse = await fetch(`/api/suppliers/${supplier.supplier_name.toLowerCase()}/capabilities`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+        });
+        
+        if (!capabilitiesResponse.ok) {
+          throw new Error(`Capabilities API returned ${capabilitiesResponse.status}: ${capabilitiesResponse.statusText}`);
+        }
+        
+        const capabilitiesData = await capabilitiesResponse.json();
+        if (capabilitiesData.status === 'success') {
+          setAvailableCapabilities(capabilitiesData.data);
+          // Auto-enable all supported capabilities
+          setConfig(prev => ({ ...prev, capabilities: capabilitiesData.data }));
+        } else {
+          throw new Error(`Capabilities API failed: ${capabilitiesData.message || 'Unknown error'}`);
+        }
+        
+        // Get credential schema from backend
+        console.log(`Fetching credentials schema for ${supplier.supplier_name}`);
+        const schemaResponse = await fetch(`/api/suppliers/${supplier.supplier_name.toLowerCase()}/credentials-schema`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+        });
+        console.log('Schema response status:', schemaResponse.status);
+        if (!schemaResponse.ok) {
+          throw new Error(`Schema API returned ${schemaResponse.status}: ${schemaResponse.statusText}`);
+        }
+        const schemaData = await schemaResponse.json();
+        console.log('Schema data:', schemaData);
+        if (schemaData.status === 'success') {
+          setCredentialSchema(schemaData.data);
+        } else {
+          throw new Error(`Credentials schema API failed: ${schemaData.message || 'Unknown error'}`);
+        }
+        
+        // Get credential status to show what's already configured
+        try {
+          console.log('Fetching credential status for:', supplier.supplier_name);
+          const status = await supplierService.getCredentialStatus(supplier.supplier_name);
+          console.log('Credential status response:', status);
+          setCredentialStatus(status);
+          console.log('Credential status set in state:', status);
+        } catch (error) {
+          console.error('Failed to load credential status:', error);
+          console.error('Error details:', error);
+        }
+        
+      } catch (error) {
+        console.error('Failed to load supplier data:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setErrors([`Failed to load supplier information: ${errorMessage}`]);
+      } finally {
+        setLoadingCapabilities(false);
+      }
+    };
+    
+    loadSupplierData();
+  }, [supplier.supplier_name]);
 
   const handleConfigChange = (field: keyof SupplierConfigUpdate, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
@@ -49,9 +112,22 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
   };
 
   const handleCapabilityChange = (capability: string, enabled: boolean) => {
-    const field = `supports_${capability.replace('fetch_', '')}` as keyof SupplierConfigUpdate;
-    handleConfigChange(field, enabled);
+    const currentCapabilities = config.capabilities || [];
+    let updatedCapabilities: string[];
+    
+    if (enabled) {
+      // Add capability if not already present
+      updatedCapabilities = currentCapabilities.includes(capability) 
+        ? currentCapabilities 
+        : [...currentCapabilities, capability];
+    } else {
+      // Remove capability
+      updatedCapabilities = currentCapabilities.filter(cap => cap !== capability);
+    }
+    
+    handleConfigChange('capabilities', updatedCapabilities);
   };
+
 
   const handleCustomHeaderChange = (key: string, value: string) => {
     const newHeaders = { ...config.custom_headers };
@@ -73,7 +149,8 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
   const handleTestConnection = async () => {
     try {
       setTesting(true);
-      const result = await supplierService.testConnection(supplier.supplier_name);
+      setTestResult(null);
+      const result = await supplierService.testConnection(supplier.supplier_name, currentCredentials);
       setTestResult(result);
     } catch (err: any) {
       setTestResult({
@@ -121,19 +198,8 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
     const originalConfig = {
       display_name: supplier.display_name,
       description: supplier.description || '',
-      api_type: supplier.api_type,
-      base_url: supplier.base_url,
-      api_version: supplier.api_version || '',
-      rate_limit_per_minute: supplier.rate_limit_per_minute,
-      timeout_seconds: supplier.timeout_seconds,
-      max_retries: supplier.max_retries,
-      retry_backoff: supplier.retry_backoff,
       enabled: supplier.enabled,
-      supports_datasheet: supplier.capabilities.includes('fetch_datasheet'),
-      supports_image: supplier.capabilities.includes('fetch_image'),
-      supports_pricing: supplier.capabilities.includes('fetch_pricing'),
-      supports_stock: supplier.capabilities.includes('fetch_stock'),
-      supports_specifications: supplier.capabilities.includes('fetch_specifications'),
+      capabilities: supplier.capabilities || [],
       custom_headers: supplier.custom_headers,
       custom_parameters: supplier.custom_parameters
     };
@@ -154,22 +220,12 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
               {supplier.supplier_name} - {supplier.display_name}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleTestConnection}
-              disabled={testing}
-              className="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
-            >
-              <TestTube className={`w-4 h-4 mr-1 ${testing ? 'animate-pulse' : ''}`} />
-              Test
-            </button>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         {/* Content */}
@@ -210,38 +266,7 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
 
             {/* Test Result */}
             {testResult && (
-              <div className={`border rounded-md p-4 ${
-                testResult.success 
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-              }`}>
-                <div className="flex items-center">
-                  <div className={`w-5 h-5 ${
-                    testResult.success ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {testResult.success ? '✓' : '✗'}
-                  </div>
-                  <div className="ml-3">
-                    <h3 className={`text-sm font-medium ${
-                      testResult.success 
-                        ? 'text-green-800 dark:text-green-200' 
-                        : 'text-red-800 dark:text-red-200'
-                    }`}>
-                      Connection Test {testResult.success ? 'Successful' : 'Failed'}
-                    </h3>
-                    <p className={`mt-1 text-sm ${
-                      testResult.success 
-                        ? 'text-green-700 dark:text-green-300' 
-                        : 'text-red-700 dark:text-red-300'
-                    }`}>
-                      {testResult.success 
-                        ? `Connection established in ${testResult.test_duration_seconds.toFixed(2)}s`
-                        : testResult.error_message
-                      }
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <SupplierTestResult testResult={testResult} />
             )}
 
             {/* Basic Information */}
@@ -302,133 +327,92 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
               </div>
             </div>
 
-            {/* API Configuration */}
+            {/* Credentials Configuration - Backend Driven */}
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                API Configuration
+                Credentials Setup
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Base URL *
-                  </label>
-                  <input
-                    type="url"
-                    value={config.base_url}
-                    onChange={(e) => handleConfigChange('base_url', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+              {loadingCapabilities ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-gray-500 mt-2">Loading credential requirements...</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    API Type
-                  </label>
-                  <select
-                    value={config.api_type}
-                    onChange={(e) => handleConfigChange('api_type', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="rest">REST API</option>
-                    <option value="graphql">GraphQL</option>
-                    <option value="scraping">Web Scraping</option>
-                  </select>
-                </div>
-                {config.api_type !== 'scraping' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      API Version
-                    </label>
-                    <input
-                      type="text"
-                      value={config.api_version}
-                      onChange={(e) => handleConfigChange('api_version', e.target.value)}
-                      placeholder="e.g., v1, v2, 2024-01"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      API version identifier (not needed for web scraping)
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Rate Limit (per minute)
-                  </label>
-                  <input
-                    type="number"
-                    value={config.rate_limit_per_minute || ''}
-                    onChange={(e) => handleConfigChange('rate_limit_per_minute', e.target.value ? parseInt(e.target.value) : null)}
-                    min="1"
-                    max={supplier.supplier_name === 'LCSC' ? "600" : "10000"}
-                    placeholder={supplier.supplier_name === 'LCSC' ? "Recommended: 300 (5/sec)" : "Optional (leave empty for no limit)"}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {supplier.supplier_name === 'LCSC' 
-                      ? '⚠️ LCSC uses web scraping - keep between 60-600 requests/minute (1-10 per second) to avoid being banned'
-                      : 'Leave empty for no rate limiting, or enter 1-10000 requests per minute'
+              ) : (
+                <CredentialEditor
+                  supplierName={supplier.supplier_name}
+                  credentialSchema={credentialSchema}
+                  currentlyConfigured={credentialStatus?.fully_configured || false}
+                  credentialStatus={credentialStatus}
+                  onCredentialsReady={(credentials) => {
+                    setCurrentCredentials(credentials);
+                  }}
+                  onSave={async (credentials) => {
+                    try {
+                      await supplierService.saveCredentials(supplier.supplier_name, credentials);
+                      // Refresh credential status
+                      const newStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
+                      setCredentialStatus(newStatus);
+                      setSuccessMessage('Credentials saved successfully!');
+                    } catch (error) {
+                      console.error('Failed to save credentials:', error);
+                      setErrors(['Failed to save credentials: ' + (error as Error).message]);
                     }
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Timeout (seconds)
-                  </label>
-                  <input
-                    type="number"
-                    value={config.timeout_seconds}
-                    onChange={(e) => handleConfigChange('timeout_seconds', parseInt(e.target.value))}
-                    min="1"
-                    max="300"
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Max Retries
-                  </label>
-                  <input
-                    type="number"
-                    value={config.max_retries}
-                    onChange={(e) => handleConfigChange('max_retries', parseInt(e.target.value))}
-                    min="0"
-                    max="10"
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-              </div>
+                  }}
+                  loading={loadingCapabilities}
+                />
+              )}
             </div>
 
-            {/* Capabilities */}
+            {/* Capabilities - Compact */}
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Supported Capabilities
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {capabilities.map((capability) => {
-                  const field = `supports_${capability.key.replace('fetch_', '')}` as keyof SupplierConfigUpdate;
-                  const isEnabled = config[field] as boolean;
-                  
-                  return (
-                    <label key={capability.key} className="flex items-start space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={isEnabled}
-                        onChange={(e) => handleCapabilityChange(capability.key, e.target.checked)}
-                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {capability.label}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {capability.description}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Supported Capabilities
+                </h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  {availableCapabilities.length} capabilities
+                </span>
+              </div>
+              
+              {loadingCapabilities ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-gray-500 mt-2">Loading capabilities...</p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {availableCapabilities.map((capability) => {
+                    // Create human-readable labels for capabilities (dynamic fallback)
+                    const getCapabilityLabel = (cap: string) => {
+                      return cap
+                        .replace(/_/g, ' ')
+                        .replace(/\b\w/g, l => l.toUpperCase())
+                        .replace(/Fetch /g, '')
+                        .replace(/Get /g, '')
+                        .trim();
+                    };
+
+                    const getCapabilityDescription = (cap: string) => {
+                      const verb = cap.includes('fetch') ? 'Fetch' : 
+                                  cap.includes('search') ? 'Search for' : 
+                                  cap.includes('import') ? 'Import' : 'Support';
+                      const object = cap.replace(/^(fetch_|search_|get_|import_)/, '').replace(/_/g, ' ');
+                      return `${verb} ${object}`;
+                    };
+                    
+                    return (
+                      <div key={capability} className="group relative">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 cursor-help">
+                          ✓ {getCapabilityLabel(capability)}
+                        </span>
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                          {getCapabilityDescription(capability)}
                         </div>
                       </div>
-                    </label>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Custom Headers */}
@@ -492,6 +476,14 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
             )}
           </div>
           <div className="flex items-center space-x-3">
+            <button
+              onClick={handleTestConnection}
+              disabled={testing || loading}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+            >
+              <TestTube className={`w-4 h-4 mr-2 ${testing ? 'animate-pulse' : ''}`} />
+              {testing ? 'Testing...' : 'Test Connection'}
+            </button>
             <button
               onClick={onClose}
               disabled={loading}

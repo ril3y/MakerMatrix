@@ -10,7 +10,7 @@ import {
 
 export class CategoriesService {
   async createCategory(data: CreateCategoryRequest): Promise<Category> {
-    const response = await apiClient.post<ApiResponse<CategoryResponse>>('/categories/add_category', data)
+    const response = await apiClient.post<ApiResponse<CategoryResponse>>('/api/categories/add_category', data)
     return response.data!.category
   }
 
@@ -23,13 +23,13 @@ export class CategoriesService {
     if (params.id) queryParams.append('category_id', params.id)
     if (params.name) queryParams.append('name', params.name)
     
-    const response = await apiClient.get<ApiResponse<CategoryResponse>>(`/categories/get_category?${queryParams}`)
+    const response = await apiClient.get<ApiResponse<CategoryResponse>>(`/api/categories/get_category?${queryParams}`)
     return response.data!.category
   }
 
   async updateCategory(data: UpdateCategoryRequest): Promise<Category> {
     const { id, ...updateData } = data
-    const response = await apiClient.put<ApiResponse<CategoryResponse>>(`/categories/update_category/${id}`, updateData)
+    const response = await apiClient.put<ApiResponse<CategoryResponse>>(`/api/categories/update_category/${id}`, updateData)
     return response.data!.category
   }
 
@@ -42,17 +42,17 @@ export class CategoriesService {
     if (params.id) queryParams.append('cat_id', params.id)
     if (params.name) queryParams.append('name', params.name)
     
-    const response = await apiClient.delete<ApiResponse<CategoryResponse>>(`/categories/remove_category?${queryParams}`)
+    const response = await apiClient.delete<ApiResponse<CategoryResponse>>(`/api/categories/remove_category?${queryParams}`)
     return response.data!.category
   }
 
   async getAllCategories(): Promise<Category[]> {
-    const response = await apiClient.get<ApiResponse<CategoriesListResponse>>('/categories/get_all_categories')
+    const response = await apiClient.get<ApiResponse<CategoriesListResponse>>('/api/categories/get_all_categories')
     return response.data?.categories || []
   }
 
   async deleteAllCategories(): Promise<number> {
-    const response = await apiClient.delete<ApiResponse<DeleteCategoriesResponse>>('/categories/delete_all_categories')
+    const response = await apiClient.delete<ApiResponse<DeleteCategoriesResponse>>('/api/categories/delete_all_categories')
     return response.data!.deleted_count
   }
 

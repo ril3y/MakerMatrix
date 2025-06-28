@@ -29,7 +29,7 @@ export const handlers = [
   }),
 
   // Parts handlers
-  http.get(`${API_BASE}/parts/get_all_parts`, ({ request }) => {
+  http.get(`${API_BASE}/api/parts/get_all_parts`, ({ request }) => {
     const url = new URL(request.url)
     const page = parseInt(url.searchParams.get('page') || '1')
     const pageSize = parseInt(url.searchParams.get('page_size') || '10')
@@ -56,7 +56,7 @@ export const handlers = [
     })
   }),
 
-  http.post(`${API_BASE}/parts/add_part`, async ({ request }) => {
+  http.post(`${API_BASE}/api/parts/add_part`, async ({ request }) => {
     const body = await request.json()
     const newPart = createMockPart(body)
     
@@ -67,7 +67,7 @@ export const handlers = [
     })
   }),
 
-  http.get(`${API_BASE}/parts/get_part`, ({ request }) => {
+  http.get(`${API_BASE}/api/parts/get_part`, ({ request }) => {
     const url = new URL(request.url)
     const partId = url.searchParams.get('part_id')
     const partName = url.searchParams.get('part_name')
@@ -87,7 +87,7 @@ export const handlers = [
     }, { status: 404 })
   }),
 
-  http.put(`${API_BASE}/parts/update_part/:id`, async ({ params, request }) => {
+  http.put(`${API_BASE}/api/parts/update_part/:id`, async ({ params, request }) => {
     const { id } = params
     const body = await request.json()
     const updatedPart = createMockPart({ id, ...body })
@@ -99,7 +99,7 @@ export const handlers = [
     })
   }),
 
-  http.delete(`${API_BASE}/parts/delete_part`, ({ request }) => {
+  http.delete(`${API_BASE}/api/parts/delete_part`, ({ request }) => {
     const url = new URL(request.url)
     const partId = url.searchParams.get('part_id')
     
@@ -111,7 +111,7 @@ export const handlers = [
   }),
 
   // Categories handlers
-  http.get(`${API_BASE}/categories/get_all_categories`, () => {
+  http.get(`${API_BASE}/api/categories/get_all_categories`, () => {
     const mockCategories = [
       createMockCategory({ id: 'cat-1', name: 'Resistors' }),
       createMockCategory({ id: 'cat-2', name: 'Capacitors' }),
@@ -125,7 +125,7 @@ export const handlers = [
     })
   }),
 
-  http.post(`${API_BASE}/categories/add_category`, async ({ request }) => {
+  http.post(`${API_BASE}/api/categories/add_category`, async ({ request }) => {
     const body = await request.json()
     const newCategory = createMockCategory(body)
     
@@ -137,7 +137,7 @@ export const handlers = [
   }),
 
   // Locations handlers
-  http.get(`${API_BASE}/locations/get_all_locations`, () => {
+  http.get(`${API_BASE}/api/locations/get_all_locations`, () => {
     const mockLocations = [
       createMockLocation({ id: 'loc-1', name: 'Storage Room A' }),
       createMockLocation({ id: 'loc-2', name: 'Workbench 1' }),
@@ -151,7 +151,7 @@ export const handlers = [
     })
   }),
 
-  http.post(`${API_BASE}/locations/add_location`, async ({ request }) => {
+  http.post(`${API_BASE}/api/locations/add_location`, async ({ request }) => {
     const body = await request.json()
     const newLocation = createMockLocation(body)
     
@@ -163,7 +163,7 @@ export const handlers = [
   }),
 
   // Suppliers handlers
-  http.get(`${API_BASE}/api/config/suppliers`, () => {
+  http.get(`${API_BASE}/api/suppliers/config/suppliers`, () => {
     const mockSuppliers = [
       createMockSupplier({ supplier_name: 'LCSC', display_name: 'LCSC Electronics' }),
       createMockSupplier({ supplier_name: 'DIGIKEY', display_name: 'DigiKey Electronics' }),
@@ -177,7 +177,7 @@ export const handlers = [
     })
   }),
 
-  http.post(`${API_BASE}/api/config/suppliers`, async ({ request }) => {
+  http.post(`${API_BASE}/api/suppliers/config/suppliers`, async ({ request }) => {
     const body = await request.json()
     const newSupplier = createMockSupplier(body)
     
@@ -188,13 +188,28 @@ export const handlers = [
     })
   }),
 
-  http.delete(`${API_BASE}/api/config/suppliers/:name`, ({ params }) => {
+  http.delete(`${API_BASE}/api/suppliers/config/suppliers/:name`, ({ params }) => {
     const { name } = params
     
     return HttpResponse.json({
       status: 'success',
       message: `Deleted supplier configuration: ${name}`,
       data: { supplier_name: name, deleted: 'true' }
+    })
+  }),
+
+  // Users handlers
+  http.get(`${API_BASE}/api/users/all`, () => {
+    const mockUsers = [
+      createMockUser({ id: 'user-1', username: 'admin', email: 'admin@test.com', is_active: true }),
+      createMockUser({ id: 'user-2', username: 'user1', email: 'user1@test.com', is_active: true }),
+      createMockUser({ id: 'user-3', username: 'user2', email: 'user2@test.com', is_active: false }),
+    ]
+    
+    return HttpResponse.json({
+      status: 'success',
+      message: 'Users retrieved successfully',
+      data: mockUsers
     })
   }),
 
@@ -230,7 +245,7 @@ export const handlers = [
   }),
 
   // Utility handlers
-  http.get(`${API_BASE}/utility/get_counts`, () => {
+  http.get(`${API_BASE}/api/utility/get_counts`, () => {
     return HttpResponse.json({
       status: 'success',
       message: 'Counts retrieved successfully',
@@ -242,26 +257,9 @@ export const handlers = [
     })
   }),
 
-  // CSV Import handlers
-  http.post(`${API_BASE}/csv/preview`, async ({ request }) => {
-    const body = await request.json()
-    
-    return HttpResponse.json({
-      status: 'success',
-      message: 'CSV preview generated',
-      data: {
-        parser_type: 'lcsc',
-        total_rows: 5,
-        preview_data: [
-          { 'LCSC Part': 'C123456', 'MFR.Part': 'ABC123', 'Package': '0603', 'Description': 'Test Resistor' },
-          { 'LCSC Part': 'C123457', 'MFR.Part': 'ABC124', 'Package': '0805', 'Description': 'Test Capacitor' }
-        ],
-        detected_fields: ['LCSC Part', 'MFR.Part', 'Package', 'Description']
-      }
-    })
-  }),
+  // CSV Import handlers (preview removed - now frontend-only)
 
-  http.post(`${API_BASE}/csv/import`, async ({ request }) => {
+  http.post(`${API_BASE}/api/import/import`, async ({ request }) => {
     const body = await request.json()
     
     return HttpResponse.json({

@@ -4,7 +4,7 @@ Rate limiting API routes for exposing usage statistics and monitoring.
 
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any, List
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.rate_limit_service import RateLimitService

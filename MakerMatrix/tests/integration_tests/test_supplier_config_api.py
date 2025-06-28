@@ -14,7 +14,7 @@ from MakerMatrix.main import app
 from MakerMatrix.database.db import get_session
 from sqlmodel import SQLModel
 from MakerMatrix.models.supplier_config_models import SupplierConfigModel
-from MakerMatrix.services.auth_service import AuthService
+from MakerMatrix.services.system.auth_service import AuthService
 
 
 # Test database setup - use in-memory database for complete isolation

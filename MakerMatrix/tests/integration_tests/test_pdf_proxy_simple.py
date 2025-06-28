@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from MakerMatrix.main import app
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.models import UserModel
 
 

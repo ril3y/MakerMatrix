@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios'
 import { toast } from 'react-hot-toast'
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://localhost:8443'
 
 export interface ApiResponse<T = any> {
   success: boolean

@@ -7,7 +7,7 @@ import asyncio
 from PIL import Image, ImageDraw, ImageFont
 
 from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
-from MakerMatrix.services.qr_service import QRService
+from MakerMatrix.services.printer.qr_service import QRService
 from MakerMatrix.models.models import PartModel
 
 

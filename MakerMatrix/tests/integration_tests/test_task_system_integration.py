@@ -7,7 +7,7 @@ from MakerMatrix.models.task_models import (
     TaskModel, TaskStatus, TaskPriority, TaskType,
     CreateTaskRequest, UpdateTaskRequest, TaskFilterRequest
 )
-from MakerMatrix.services.task_service import TaskService, task_service
+from MakerMatrix.services.system.task_service import TaskService, task_service
 from MakerMatrix.services.csv_import_service import CSVImportService
 
 

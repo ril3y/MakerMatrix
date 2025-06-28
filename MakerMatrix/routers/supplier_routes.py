@@ -6,20 +6,19 @@ Works with any supplier that implements the BaseSupplier interface.
 """
 
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
-import asyncio
-import json
 
-from ..dependencies.auth import get_current_user
-from ..models.user_models import UserModel
-from ..suppliers import SupplierRegistry
-from ..suppliers.base import FieldDefinition, PartSearchResult, SupplierInfo
-from ..suppliers.exceptions import (
-    SupplierError, SupplierNotFoundError, SupplierConfigurationError,
+from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
+
+from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.suppliers import SupplierRegistry
+from MakerMatrix.suppliers.exceptions import (
+    SupplierNotFoundError, SupplierConfigurationError,
     SupplierAuthenticationError, SupplierConnectionError
 )
-from ..schemas.response import ResponseSchema
+from MakerMatrix.schemas.response import ResponseSchema
 
 router = APIRouter()
 
@@ -102,7 +101,7 @@ async def get_suppliers_for_dropdown(
     - Currently enabled
     """
     try:
-        from MakerMatrix.services.supplier_config_service import SupplierConfigService
+        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
         
         supplier_service = SupplierConfigService()
         
@@ -167,7 +166,7 @@ async def get_configured_suppliers_only(
 ):
     """Get list of configured and enabled suppliers only"""
     try:
-        from MakerMatrix.services.supplier_config_service import SupplierConfigService
+        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
         
         supplier_service = SupplierConfigService()
         
@@ -548,6 +547,7 @@ async def test_supplier_connection(
             
             try:
                 result = await supplier.test_connection()
+                print(f"🔍 supplier.test_connection() returned: {result}")
                 
                 # Calculate response time
                 response_time = int((time.time() - start_time) * 1000)
@@ -561,11 +561,13 @@ async def test_supplier_connection(
                     "usage_percentage": rate_status.get("usage_percentage", {})
                 }
                 
-                return ResponseSchema(
+                wrapped_response = ResponseSchema(
                     status="success" if result.get("success") else "error",
                     message=result.get("message", "Connection test completed"),
                     data=result
                 )
+                print(f"🔍 Final wrapped response: {wrapped_response}")
+                return wrapped_response
                 
             except Exception as test_error:
                 # Record the failure with response time
@@ -892,3 +894,103 @@ async def get_part_stock(
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get stock: {str(e)}")
+
+# ========== OAuth Callback Handling ==========
+
+@router.get("/{supplier_name}/oauth/callback", response_class=HTMLResponse)
+async def handle_oauth_callback(
+    supplier_name: str,
+    code: str = Query(None, description="OAuth authorization code"),
+    error: str = Query(None, description="OAuth error"),
+    state: str = Query(None, description="OAuth state parameter")
+):
+    """Handle OAuth callback for supplier authentication"""
+    
+    # Simple HTML response to inform user about the OAuth result
+    html_template = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>MakerMatrix - {supplier_name} OAuth</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 40px; text-align: center; }}
+            .success {{ color: #22c55e; }}
+            .error {{ color: #ef4444; }}
+            .info {{ color: #3b82f6; }}
+            .container {{ max-width: 600px; margin: 0 auto; }}
+            .code-box {{ 
+                background: #f3f4f6; 
+                border: 1px solid #d1d5db; 
+                border-radius: 8px; 
+                padding: 16px; 
+                margin: 20px 0; 
+                font-family: monospace; 
+                word-break: break-all;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>MakerMatrix - {supplier_name} OAuth</h1>
+            {content}
+        </div>
+    </body>
+    </html>
+    """
+    
+    if error:
+        content = f"""
+        <h2 class="error">OAuth Authorization Failed</h2>
+        <p>Error: {error}</p>
+        <p>Please return to MakerMatrix and try the OAuth setup again.</p>
+        <p>If this problem persists, check your {supplier_name} app configuration.</p>
+        """
+        return HTMLResponse(
+            content=html_template.format(
+                supplier_name=supplier_name.title(),
+                content=content
+            ),
+            status_code=400
+        )
+    
+    if not code:
+        content = f"""
+        <h2 class="error">Missing Authorization Code</h2>
+        <p>No authorization code received from {supplier_name}.</p>
+        <p>Please return to MakerMatrix and restart the OAuth setup process.</p>
+        """
+        return HTMLResponse(
+            content=html_template.format(
+                supplier_name=supplier_name.title(),
+                content=content
+            ),
+            status_code=400
+        )
+    
+    # Success - show the authorization code for manual entry
+    content = f"""
+    <h2 class="success">OAuth Authorization Successful!</h2>
+    <p>Authorization code received from {supplier_name}.</p>
+    
+    <div class="info">
+        <h3>Next Steps:</h3>
+        <p>Copy the authorization code below and paste it into MakerMatrix:</p>
+        <div class="code-box">{code}</div>
+        <p><strong>Instructions:</strong></p>
+        <ol style="text-align: left;">
+            <li>Copy the authorization code above</li>
+            <li>Return to MakerMatrix supplier configuration</li>
+            <li>Paste the code when prompted</li>
+            <li>Complete the authentication setup</li>
+        </ol>
+    </div>
+    
+    <p><small>You can close this window after copying the code.</small></p>
+    """
+    
+    return HTMLResponse(
+        content=html_template.format(
+            supplier_name=supplier_name.title(),
+            content=content
+        )
+    )

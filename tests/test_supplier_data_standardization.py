@@ -16,7 +16,7 @@ load_dotenv()
 
 from MakerMatrix.models.models import PartModel, engine
 from MakerMatrix.suppliers.base import PartSearchResult, SupplierCapability
-from MakerMatrix.services.supplier_data_mapper import SupplierDataMapper
+from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
 from MakerMatrix.schemas.part_data_standards import ComponentType, MountingType, RoHSStatus
 
 

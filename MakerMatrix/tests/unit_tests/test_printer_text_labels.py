@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from PIL import Image
 
-from MakerMatrix.services.printer_manager_service import PrinterManagerService
+from MakerMatrix.services.printer.printer_manager_service import PrinterManagerService
 from MakerMatrix.printers.base import PrintJobResult, LabelSize, PrinterStatus
 from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
 

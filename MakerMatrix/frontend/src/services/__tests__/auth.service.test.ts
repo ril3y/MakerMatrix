@@ -155,7 +155,7 @@ describe('AuthService', () => {
 
       const result = await authService.getCurrentUser()
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/users/me')
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/users/me')
       expect(result).toEqual(mockUser)
     })
 
@@ -182,7 +182,7 @@ describe('AuthService', () => {
 
       const result = await authService.updatePassword('oldpass', 'newpass')
 
-      expect(mockApiClient.put).toHaveBeenCalledWith('/users/update_password', {
+      expect(mockApiClient.put).toHaveBeenCalledWith('/api/users/update_password', {
         current_password: 'oldpass',
         new_password: 'newpass'
       })

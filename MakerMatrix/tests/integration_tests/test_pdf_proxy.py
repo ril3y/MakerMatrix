@@ -12,7 +12,7 @@ from unittest.mock import patch, Mock
 from io import BytesIO
 
 from MakerMatrix.main import app
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.models import UserModel
 
 

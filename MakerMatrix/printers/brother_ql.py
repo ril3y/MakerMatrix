@@ -8,7 +8,7 @@ from brother_ql.raster import BrotherQLRaster
 
 from MakerMatrix.lib.print_settings import PrintSettings
 from MakerMatrix.printers.abstract_printer import AbstractPrinter
-from MakerMatrix.services.label_service import LabelService
+from MakerMatrix.services.printer.label_service import LabelService
 from PIL import Image
 
 

@@ -12,8 +12,8 @@ import CategoriesPage from '../../pages/categories/CategoriesPage'
 
 // Mock services
 vi.mock('../../services/parts.service')
-vi.mock('../../services/location.service')
-vi.mock('../../services/category.service')
+vi.mock('../../services/locations.service')
+vi.mock('../../services/categories.service')
 vi.mock('../../store/authStore', () => ({
   authStore: {
     getState: () => ({

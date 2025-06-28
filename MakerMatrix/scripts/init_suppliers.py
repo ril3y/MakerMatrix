@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from MakerMatrix.models.models import engine
 from sqlmodel import SQLModel
-from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 
 
 def main():

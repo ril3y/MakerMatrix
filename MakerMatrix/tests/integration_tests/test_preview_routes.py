@@ -290,7 +290,7 @@ class TestPrinterPreviewRoutes:
     @pytest.fixture
     def auth_headers(self):
         """Get authentication headers for requests."""
-        from MakerMatrix.services.auth_service import AuthService
+        from MakerMatrix.services.system.auth_service import AuthService
         from MakerMatrix.repositories.user_repository import UserRepository
         
         user_repo = UserRepository()

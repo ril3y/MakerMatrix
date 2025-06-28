@@ -86,10 +86,10 @@ class TestTaskSecurityEndpoints:
     def test_regular_user_can_create_part_enrichment(self, client, regular_user, auth_headers):
         """Test that regular users can create part enrichment tasks"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate, \
-             patch('MakerMatrix.services.task_service.task_service.create_task') as mock_create_task:
+             patch('MakerMatrix.services.system.task_service.task_service.create_task') as mock_create_task:
             
             mock_require_permission.return_value = lambda: regular_user
             mock_validate.return_value = (True, None)
@@ -115,7 +115,7 @@ class TestTaskSecurityEndpoints:
     def test_regular_user_cannot_create_admin_tasks(self, client, regular_user, auth_headers):
         """Test that regular users cannot create admin-only tasks"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate:
             
@@ -139,10 +139,10 @@ class TestTaskSecurityEndpoints:
     def test_power_user_can_create_bulk_enrichment(self, client, power_user, auth_headers):
         """Test that power users can create bulk enrichment tasks"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=power_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=power_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate, \
-             patch('MakerMatrix.services.task_service.task_service.create_task') as mock_create_task:
+             patch('MakerMatrix.services.system.task_service.task_service.create_task') as mock_create_task:
             
             mock_require_permission.return_value = lambda: power_user
             mock_validate.return_value = (True, None)
@@ -167,10 +167,10 @@ class TestTaskSecurityEndpoints:
     def test_admin_can_create_database_cleanup(self, client, admin_user, auth_headers):
         """Test that admin users can create database cleanup tasks"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=admin_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=admin_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate, \
-             patch('MakerMatrix.services.task_service.task_service.create_task') as mock_create_task:
+             patch('MakerMatrix.services.system.task_service.task_service.create_task') as mock_create_task:
             
             mock_require_permission.return_value = lambda: admin_user
             mock_validate.return_value = (True, None)
@@ -193,7 +193,7 @@ class TestTaskSecurityEndpoints:
     def test_rate_limiting_enforcement(self, client, regular_user, auth_headers):
         """Test that rate limiting is enforced"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate:
             
@@ -219,7 +219,7 @@ class TestTaskSecurityEndpoints:
     def test_concurrent_task_limiting(self, client, regular_user, auth_headers):
         """Test that concurrent task limits are enforced"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate:
             
@@ -245,7 +245,7 @@ class TestTaskSecurityEndpoints:
     def test_resource_limits_enforcement(self, client, power_user, auth_headers):
         """Test that resource limits are enforced"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=power_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=power_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate:
             
@@ -272,7 +272,7 @@ class TestTaskSecurityEndpoints:
     def test_security_permissions_endpoint(self, client, regular_user, auth_headers):
         """Test the security permissions endpoint"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service._get_user_permissions') as mock_get_perms:
             
@@ -302,7 +302,7 @@ class TestTaskSecurityEndpoints:
     def test_security_limits_endpoint(self, client, regular_user, auth_headers):
         """Test the security limits endpoint"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.routers.task_routes.get_session') as mock_get_session, \
              patch('MakerMatrix.services.task_security_service.task_security_service._get_user_permissions') as mock_get_perms:
@@ -346,7 +346,7 @@ class TestTaskSecurityEndpoints:
     def test_task_validation_endpoint(self, client, regular_user, auth_headers):
         """Test the task validation endpoint"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate:
             
@@ -395,7 +395,7 @@ class TestTaskSecurityEndpoints:
     def test_viewer_user_permissions(self, client, viewer_user, auth_headers):
         """Test that viewer users have very limited permissions"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=viewer_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=viewer_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate:
             
@@ -421,7 +421,7 @@ class TestTaskSecurityEndpoints:
     def test_audit_logging_on_security_denial(self, client, regular_user, auth_headers):
         """Test that security denials are properly logged"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate, \
              patch('MakerMatrix.services.task_security_service.task_security_service.log_task_security_event') as mock_log_event:
@@ -454,10 +454,10 @@ class TestTaskSecurityEndpoints:
     def test_security_event_logging_on_success(self, client, regular_user, auth_headers):
         """Test that successful task creation is logged"""
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
              patch('MakerMatrix.services.task_security_service.task_security_service.validate_task_creation') as mock_validate, \
-             patch('MakerMatrix.services.task_service.task_service.create_task') as mock_create_task, \
+             patch('MakerMatrix.services.system.task_service.task_service.create_task') as mock_create_task, \
              patch('MakerMatrix.services.task_security_service.task_security_service.log_task_security_event') as mock_log_event:
             
             mock_require_permission.return_value = lambda: regular_user
@@ -493,7 +493,7 @@ class TestTaskSecurityEndpoints:
         """Test that worker management requires admin permissions"""
         
         # Test regular user cannot manage worker
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission:
             
             # Mock require_permission to raise HTTPException for non-admin
@@ -508,9 +508,9 @@ class TestTaskSecurityEndpoints:
                 pass
         
         # Test admin user can manage worker
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=admin_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=admin_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
-             patch('MakerMatrix.services.task_service.task_service.is_worker_running', False):
+             patch('MakerMatrix.services.system.task_service.task_service.is_worker_running', False):
             
             mock_require_permission.return_value = lambda: admin_user
             
@@ -531,9 +531,9 @@ class TestTaskSecurityEndpoints:
             is_active=True
         )
         
-        with patch('MakerMatrix.dependencies.auth.get_current_user', return_value=regular_user), \
+        with patch('MakerMatrix.auth.dependencies.auth.get_current_user', return_value=regular_user), \
              patch('MakerMatrix.routers.task_routes.require_permission') as mock_require_permission, \
-             patch('MakerMatrix.services.task_service.task_service.get_task') as mock_get_task:
+             patch('MakerMatrix.services.system.task_service.task_service.get_task') as mock_get_task:
             
             mock_require_permission.return_value = lambda: regular_user
             

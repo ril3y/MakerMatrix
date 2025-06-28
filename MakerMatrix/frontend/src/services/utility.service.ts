@@ -9,7 +9,7 @@ class UtilityService {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await apiClient.post<ImageUploadResponse>('/utility/upload_image', formData, {
+    const response = await apiClient.post<ImageUploadResponse>('/api/utility/upload_image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -17,7 +17,7 @@ class UtilityService {
 
     // Return the full image URL - backend handles extension lookup
     const imageId = response.image_id
-    return `/utility/get_image/${imageId}`
+    return `/api/utility/get_image/${imageId}`
   }
 }
 

@@ -17,11 +17,11 @@ from sqlmodel import SQLModel, Session, select
 from MakerMatrix.main import app
 from MakerMatrix.models.models import PartModel, engine
 from MakerMatrix.database.db import create_db_and_tables
-from MakerMatrix.services.auth_service import AuthService
+from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 from MakerMatrix.services.csv_import_service import CSVImportService
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 
 client = TestClient(app)
 

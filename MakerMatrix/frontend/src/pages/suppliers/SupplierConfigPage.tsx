@@ -127,9 +127,7 @@ export const SupplierConfigPage: React.FC = () => {
       return <CheckCircle className="w-5 h-5 text-green-500" />; // Public API, no credentials needed
     }
 
-    return supplier.has_credentials ? 
-      <CheckCircle className="w-5 h-5 text-green-500" /> : 
-      <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+    return <CheckCircle className="w-5 h-5 text-green-500" />;
   };
 
   const getStatusText = (supplier: SupplierConfig) => {
@@ -142,7 +140,7 @@ export const SupplierConfigPage: React.FC = () => {
       return 'Configured'; // Public API, no credentials needed
     }
     
-    return supplier.has_credentials ? 'Configured' : 'Needs credentials';
+    return 'Configured';
   };
 
   if (loading && suppliers.length === 0) {

@@ -15,7 +15,7 @@ export interface DashboardStats {
 
 export class DashboardService {
   async getCounts(): Promise<DashboardCounts> {
-    const response = await apiClient.get<ApiResponse<DashboardCounts>>('/utility/get_counts')
+    const response = await apiClient.get<ApiResponse<DashboardCounts>>('/api/utility/get_counts')
     return response.data!
   }
 
@@ -26,7 +26,7 @@ export class DashboardService {
 
   async getAllUsers(): Promise<any[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/users/all')
+      const response = await apiClient.get<ApiResponse<any[]>>('/api/users/all')
       return response.data || []
     } catch (error) {
       // If not admin, return empty array

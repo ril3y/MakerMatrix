@@ -20,6 +20,10 @@ npm run dev
 ```
 Frontend development server runs on `http://localhost:5173` by default.
 
+### Development Environment
+
+- The back end and front end auto restart on save.
+
 ### Testing
 ```bash
 # Run all tests (excludes integration tests by default)

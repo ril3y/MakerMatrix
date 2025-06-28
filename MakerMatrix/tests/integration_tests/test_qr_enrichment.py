@@ -11,7 +11,7 @@ from typing import Dict, Any
 from unittest.mock import patch, MagicMock
 
 from MakerMatrix.schemas.part_create import PartCreate
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.task_models import TaskType, TaskPriority, TaskStatus
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 
@@ -110,8 +110,8 @@ class TestQREnrichmentIntegration:
 
     @pytest.mark.integration 
     @patch('MakerMatrix.suppliers.registry.get_available_suppliers')
-    @patch('MakerMatrix.services.supplier_config_service.SupplierConfigService.get_supplier_config')
-    @patch('MakerMatrix.services.task_service.get_task_service')
+    @patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigService.get_supplier_config')
+    @patch('MakerMatrix.services.system.task_service.get_task_service')
     def test_qr_part_creation_with_enrichment_success(
         self, 
         mock_task_service,
@@ -165,7 +165,7 @@ class TestQREnrichmentIntegration:
 
     @pytest.mark.integration
     @patch('MakerMatrix.suppliers.registry.get_available_suppliers')
-    @patch('MakerMatrix.services.supplier_config_service.SupplierConfigService.get_supplier_config')
+    @patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigService.get_supplier_config')
     def test_qr_part_creation_supplier_not_configured(
         self,
         mock_supplier_config,
@@ -189,8 +189,8 @@ class TestQREnrichmentIntegration:
 
     @pytest.mark.integration
     @patch('MakerMatrix.suppliers.registry.get_available_suppliers')
-    @patch('MakerMatrix.services.supplier_config_service.SupplierConfigService.get_supplier_config')
-    @patch('MakerMatrix.services.task_service.get_task_service')
+    @patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigService.get_supplier_config')
+    @patch('MakerMatrix.services.system.task_service.get_task_service')
     def test_qr_part_creation_enrichment_timeout(
         self,
         mock_task_service,

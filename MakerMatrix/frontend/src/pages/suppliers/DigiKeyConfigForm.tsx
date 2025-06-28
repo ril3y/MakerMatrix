@@ -31,7 +31,7 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             <div className="mt-1 text-sm text-blue-700 dark:text-blue-300">
               <ol className="list-decimal list-inside space-y-1">
                 <li>Register an app at <a href="https://developer.digikey.com" target="_blank" rel="noopener noreferrer" className="underline">developer.digikey.com</a></li>
-                <li>Set OAuth callback URL to: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">https://localhost:8139/digikey_callback</code></li>
+                <li>Set OAuth callback URL to: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">https://localhost:8443/api/suppliers/digikey/oauth/callback</code></li>
                 <li>Get your Client ID and Client Secret from the app settings</li>
                 <li>Configure the settings below</li>
               </ol>
@@ -139,13 +139,13 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             </div>
             <input
               type="url"
-              value={config.oauth_callback_url || 'https://localhost:8139/digikey_callback'}
+              value={config.oauth_callback_url || 'https://localhost:8443/api/suppliers/digikey/oauth/callback'}
               onChange={(e) => onConfigChange('oauth_callback_url', e.target.value)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               required
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Default: https://localhost:8139/digikey_callback
+              Default: https://localhost:8443/api/suppliers/digikey/oauth/callback
             </p>
           </div>
 

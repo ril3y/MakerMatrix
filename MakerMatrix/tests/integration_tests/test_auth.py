@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
 from MakerMatrix.main import app
-from MakerMatrix.services.auth_service import AuthService
+from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.models.models import engine

@@ -14,7 +14,7 @@ from MakerMatrix.models.models import PartModel, PartOrderSummary
 from MakerMatrix.models.order_models import OrderItemModel, OrderModel
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 
 
 class TestPartDeletionConstraints:

@@ -81,7 +81,6 @@ export const createMockSupplier = (overrides = {}) => ({
   updated_at: '2024-01-01T00:00:00Z',
   last_tested_at: null,
   test_status: null,
-  has_credentials: false,
   ...overrides,
 })
 

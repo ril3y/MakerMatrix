@@ -18,17 +18,54 @@ class CategoriesListResponse(BaseModel):
 
 
 class PartResponse(BaseModel):
-    id: Optional[str]
-    part_number: Optional[str]
-    part_name: Optional[str]
-    quantity: Optional[int]
+    # === CORE PART DATA (always included) ===
+    # Core identification
+    id: Optional[str] = None
+    part_name: Optional[str] = None
+    part_number: Optional[str] = None
+    
+    # Part description  
     description: Optional[str] = None
-    supplier: Optional[str] = None
+    manufacturer: Optional[str] = None
+    manufacturer_part_number: Optional[str] = None
+    component_type: Optional[str] = None
+    
+    # Current inventory
+    quantity: Optional[int] = None
     location_id: Optional[str] = None
     location: Optional[Dict[str, Any]] = None  # Use generic dict for location data
+    supplier: Optional[str] = None
+    
+    # Media & compliance
     image_url: Optional[str] = None
-    additional_properties: Optional[dict] = {}
+    rohs_status: Optional[str] = None
+    lifecycle_status: Optional[str] = None
+    
+    # Part-specific properties (resistor values, screwdriver type, etc.)
+    additional_properties: Optional[Dict[str, Any]] = {}
+    
+    # Core relationships (always included)
     categories: Optional[List[CategoryResponse]] = []
+    datasheets: Optional[List[Dict[str, Any]]] = []  # Always included (core part data)
+    
+    # Timestamps
+    created_at: Optional[str] = None  # ISO datetime string
+    updated_at: Optional[str] = None  # ISO datetime string
+    
+    # === OPTIONAL METADATA (populated when include parameter is used) ===
+    # Pricing metadata (include=pricing)
+    pricing_history: Optional[List[Dict[str, Any]]] = None
+    current_pricing: Optional[Dict[str, Dict[str, Any]]] = None  # {supplier: {price, currency, stock}}
+    
+    # Enrichment metadata (include=enrichment)  
+    enrichment_metadata: Optional[Dict[str, Any]] = None
+    
+    # System metadata (include=system)
+    system_metadata: Optional[Dict[str, Any]] = None
+    
+    # Order relationships (include=orders)
+    order_summary: Optional[Dict[str, Any]] = None
+    order_history: Optional[List[Dict[str, Any]]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

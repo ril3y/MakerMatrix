@@ -8,8 +8,8 @@ from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, CategoryAlreadyExistsError
 from MakerMatrix.schemas.part_response import CategoryResponse, DeleteCategoriesResponse, CategoriesListResponse
 from MakerMatrix.schemas.response import ResponseSchema
-from MakerMatrix.services.category_service import CategoryService
-from MakerMatrix.dependencies.auth import get_current_user
+from MakerMatrix.services.data.category_service import CategoryService
+from MakerMatrix.auth.dependencies import get_current_user
 
 router = APIRouter()
 

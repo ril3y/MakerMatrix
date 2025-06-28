@@ -96,6 +96,28 @@ class CapabilityRequirement:
             self.optional_credentials = []
 
 @dataclass
+class EnrichmentResult:
+    """Result from part enrichment"""
+    success: bool
+    supplier_part_number: str
+    enriched_fields: List[str] = None  # List of fields that were successfully enriched
+    failed_fields: List[str] = None    # List of fields that failed to enrich
+    data: Optional[PartSearchResult] = None  # The enriched part data
+    errors: Dict[str, str] = None      # Field-specific error messages
+    warnings: List[str] = None
+    duration_ms: Optional[int] = None  # Total enrichment time in milliseconds
+    
+    def __post_init__(self):
+        if self.enriched_fields is None:
+            self.enriched_fields = []
+        if self.failed_fields is None:
+            self.failed_fields = []
+        if self.errors is None:
+            self.errors = {}
+        if self.warnings is None:
+            self.warnings = []
+
+@dataclass
 class ImportResult:
     """Result from importing an order file"""
     success: bool
@@ -157,8 +179,8 @@ class BaseSupplier(ABC):
         if self._rate_limit_service is None:
             try:
                 # Lazy import to avoid circular dependency
-                from ..services.rate_limit_service import RateLimitService
-                from ..models.models import engine
+                from MakerMatrixs.services.rate_limit_service import RateLimitService
+                from MakerMatrixs.models.models import engine
                 self._rate_limit_service = RateLimitService(engine)
             except ImportError as e:
                 logger.warning(f"Could not import RateLimitService: {e}")
@@ -542,6 +564,142 @@ class BaseSupplier(ABC):
         
         return await self._tracked_api_call("fetch_specifications", _impl)
     
+    # ========== Unified Enrichment ==========
+    
+    async def enrich_part(self, supplier_part_number: str, capabilities: List[SupplierCapability] = None) -> EnrichmentResult:
+        """
+        Enrich a part with all available data from the supplier.
+        
+        Args:
+            supplier_part_number: The supplier's part number
+            capabilities: Optional list of specific capabilities to use. If None, uses all available.
+            
+        Returns:
+            EnrichmentResult with enriched part data and status information
+        """
+        start_time = time.time()
+        enriched_fields = []
+        failed_fields = []
+        errors = {}
+        warnings = []
+        
+        # Determine which capabilities to use
+        if capabilities is None:
+            # Use all enrichment capabilities that are available
+            capabilities = [
+                cap for cap in [
+                    SupplierCapability.GET_PART_DETAILS,
+                    SupplierCapability.FETCH_DATASHEET,
+                    SupplierCapability.FETCH_IMAGE,
+                    SupplierCapability.FETCH_PRICING,
+                    SupplierCapability.FETCH_STOCK,
+                    SupplierCapability.FETCH_SPECIFICATIONS
+                ]
+                if cap in self.get_capabilities() and self.is_capability_available(cap)
+            ]
+        else:
+            # Validate requested capabilities
+            available_caps = self.get_capabilities()
+            for cap in capabilities:
+                if cap not in available_caps:
+                    warnings.append(f"Capability {cap.value} not supported by {self.get_supplier_info().display_name}")
+                elif not self.is_capability_available(cap):
+                    missing_creds = self.get_missing_credentials_for_capability(cap)
+                    warnings.append(f"Capability {cap.value} requires missing credentials: {', '.join(missing_creds)}")
+            
+            # Filter to only available capabilities
+            capabilities = [cap for cap in capabilities if cap in available_caps and self.is_capability_available(cap)]
+        
+        if not capabilities:
+            return EnrichmentResult(
+                success=False,
+                supplier_part_number=supplier_part_number,
+                errors={"general": "No enrichment capabilities available"},
+                warnings=warnings,
+                duration_ms=int((time.time() - start_time) * 1000)
+            )
+        
+        # Start with basic part details if available
+        part_data = None
+        if SupplierCapability.GET_PART_DETAILS in capabilities:
+            try:
+                part_data = await self.get_part_details(supplier_part_number)
+                if part_data:
+                    enriched_fields.append("part_details")
+                else:
+                    failed_fields.append("part_details")
+                    errors["part_details"] = "Part not found"
+                    # If we can't get basic part details, skip other enrichments
+                    return EnrichmentResult(
+                        success=False,
+                        supplier_part_number=supplier_part_number,
+                        enriched_fields=enriched_fields,
+                        failed_fields=failed_fields,
+                        errors=errors,
+                        warnings=warnings,
+                        duration_ms=int((time.time() - start_time) * 1000)
+                    )
+            except Exception as e:
+                failed_fields.append("part_details")
+                errors["part_details"] = str(e)
+                # Continue with other enrichments even if part details fail
+                part_data = PartSearchResult(supplier_part_number=supplier_part_number)
+        else:
+            # Create minimal part data if GET_PART_DETAILS not available
+            part_data = PartSearchResult(supplier_part_number=supplier_part_number)
+        
+        # Enrich with additional data
+        enrichment_tasks = []
+        
+        if SupplierCapability.FETCH_DATASHEET in capabilities and not part_data.datasheet_url:
+            enrichment_tasks.append(("datasheet_url", self.fetch_datasheet(supplier_part_number)))
+        
+        if SupplierCapability.FETCH_IMAGE in capabilities and not part_data.image_url:
+            enrichment_tasks.append(("image_url", self.fetch_image(supplier_part_number)))
+        
+        if SupplierCapability.FETCH_PRICING in capabilities and not part_data.pricing:
+            enrichment_tasks.append(("pricing", self.fetch_pricing(supplier_part_number)))
+        
+        if SupplierCapability.FETCH_STOCK in capabilities and part_data.stock_quantity is None:
+            enrichment_tasks.append(("stock_quantity", self.fetch_stock(supplier_part_number)))
+        
+        if SupplierCapability.FETCH_SPECIFICATIONS in capabilities and not part_data.specifications:
+            enrichment_tasks.append(("specifications", self.fetch_specifications(supplier_part_number)))
+        
+        # Run all enrichment tasks concurrently
+        if enrichment_tasks:
+            results = await asyncio.gather(
+                *[task for _, task in enrichment_tasks],
+                return_exceptions=True
+            )
+            
+            for (field_name, _), result in zip(enrichment_tasks, results):
+                if isinstance(result, Exception):
+                    failed_fields.append(field_name)
+                    errors[field_name] = str(result)
+                elif result is not None:
+                    # Update the part data with the enriched field
+                    setattr(part_data, field_name, result)
+                    enriched_fields.append(field_name)
+                else:
+                    # None result means the data wasn't available
+                    failed_fields.append(field_name)
+                    errors[field_name] = "Data not available"
+        
+        # Determine overall success
+        success = len(enriched_fields) > 0 and ("part_details" in enriched_fields or part_data)
+        
+        return EnrichmentResult(
+            success=success,
+            supplier_part_number=supplier_part_number,
+            enriched_fields=enriched_fields,
+            failed_fields=failed_fields,
+            data=part_data,
+            errors=errors,
+            warnings=warnings,
+            duration_ms=int((time.time() - start_time) * 1000)
+        )
+    
     # ========== Order Import Features ==========
     
     async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
@@ -577,15 +735,6 @@ class BaseSupplier(ABC):
         # Subclasses should override for content-based detection
         return False
     
-    def get_import_file_preview(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
-        """Get a preview of what will be imported from a file"""
-        # Default implementation - subclasses should override
-        return {
-            "headers": [],
-            "preview_rows": [],
-            "total_rows": 0,
-            "detected_supplier": self.get_supplier_info().name
-        }
     
     # ========== Capability Checking ==========
     

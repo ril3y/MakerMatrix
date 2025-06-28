@@ -18,7 +18,7 @@ from MakerMatrix.models.models import PartModel, engine
 from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
 from MakerMatrix.services.enrichment_task_handlers import EnrichmentTaskHandlers
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 
 
 class TestFileDownloadEnrichment:

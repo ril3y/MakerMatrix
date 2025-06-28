@@ -12,7 +12,7 @@ import {
 
 export class LocationsService {
   async createLocation(data: CreateLocationRequest): Promise<Location> {
-    const response = await apiClient.post<any>('/locations/add_location', data)
+    const response = await apiClient.post<any>('/api/locations/add_location', data)
     // Backend returns ResponseSchema format: { status, message, data }
     if (response.status === 'success' && response.data) {
       return response.data
@@ -29,7 +29,7 @@ export class LocationsService {
     if (params.id) queryParams.append('location_id', params.id)
     if (params.name) queryParams.append('name', params.name)
     
-    const response = await apiClient.get<any>(`/locations/get_location?${queryParams}`)
+    const response = await apiClient.get<any>(`/api/locations/get_location?${queryParams}`)
     if (response.status === 'success' && response.data) {
       return response.data
     }
@@ -38,7 +38,7 @@ export class LocationsService {
 
   async updateLocation(data: UpdateLocationRequest): Promise<Location> {
     const { id, ...updateData } = data
-    const response = await apiClient.put<any>(`/locations/update_location/${id}`, updateData)
+    const response = await apiClient.put<any>(`/api/locations/update_location/${id}`, updateData)
     if (response.status === 'success' && response.data) {
       return response.data
     }
@@ -46,12 +46,12 @@ export class LocationsService {
   }
 
   async deleteLocation(id: string): Promise<LocationDeleteResponse> {
-    const response = await apiClient.delete<ApiResponse<LocationDeleteResponse>>(`/locations/delete_location/${id}`)
+    const response = await apiClient.delete<ApiResponse<LocationDeleteResponse>>(`/api/locations/delete_location/${id}`)
     return response.data!
   }
 
   async getAllLocations(): Promise<Location[]> {
-    const response = await apiClient.get<any>('/locations/get_all_locations')
+    const response = await apiClient.get<any>('/api/locations/get_all_locations')
     if (response.status === 'success' && response.data) {
       return response.data
     }
@@ -59,22 +59,22 @@ export class LocationsService {
   }
 
   async getLocationDetails(id: string): Promise<LocationDetails> {
-    const response = await apiClient.get<ApiResponse<LocationDetails>>(`/locations/get_location_details/${id}`)
+    const response = await apiClient.get<ApiResponse<LocationDetails>>(`/api/locations/get_location_details/${id}`)
     return response.data!
   }
 
   async getLocationPath(id: string): Promise<LocationPath> {
-    const response = await apiClient.get<ApiResponse<LocationPath>>(`/locations/get_location_path/${id}`)
+    const response = await apiClient.get<ApiResponse<LocationPath>>(`/api/locations/get_location_path/${id}`)
     return response.data!
   }
 
   async previewLocationDelete(id: string): Promise<LocationDeletePreview> {
-    const response = await apiClient.get<ApiResponse<LocationDeletePreview>>(`/locations/preview-location-delete/${id}`)
+    const response = await apiClient.get<ApiResponse<LocationDeletePreview>>(`/api/locations/preview-location-delete/${id}`)
     return response.data!
   }
 
   async cleanupLocations(): Promise<LocationCleanupResponse> {
-    const response = await apiClient.delete<ApiResponse<LocationCleanupResponse>>('/locations/cleanup-locations')
+    const response = await apiClient.delete<ApiResponse<LocationCleanupResponse>>('/api/locations/cleanup-locations')
     return response.data!
   }
 

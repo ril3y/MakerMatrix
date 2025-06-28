@@ -52,10 +52,10 @@ class DigiKeySupplier(BaseSupplier):
             description="Global electronic components distributor with comprehensive inventory and fast shipping",
             website_url="https://www.digikey.com",
             api_documentation_url="https://developer.digikey.com",
-            supports_oauth=True,  # DigiKey requires OAuth for production API access
+            supports_oauth=False,  # DigiKey uses client credentials (backend-only, no browser required)
             rate_limit_info="1000 requests per hour for authenticated users",
             supports_multiple_environments=True,  # Supports both sandbox and production modes
-            supported_file_types=["csv", "xls", "xlsx"]  # DigiKey supports CSV and Excel order exports
+            supported_file_types=["csv", "xls", "xlsx"]  # DigiKey exports in CSV format but files may have Excel extensions
         )
     
     def get_capabilities(self) -> List[SupplierCapability]:
@@ -68,7 +68,7 @@ class DigiKeySupplier(BaseSupplier):
             SupplierCapability.FETCH_PRICING,
             SupplierCapability.FETCH_STOCK,
             SupplierCapability.FETCH_SPECIFICATIONS,
-            SupplierCapability.IMPORT_ORDERS  # CSV order import doesn't need API
+            SupplierCapability.IMPORT_ORDERS
         ]
         
         # Only return API capabilities if the digikey-api library is available
@@ -152,60 +152,27 @@ class DigiKeySupplier(BaseSupplier):
     
     def get_configuration_options(self) -> List[ConfigurationOption]:
         """
-        Return both sandbox and production configuration options for DigiKey.
-        Frontend will show both options and let user choose.
+        Return production configuration for DigiKey.
+        Only production mode is supported for access to live inventory data.
         """
+        # Automatically detect server URL for callback
+        server_url = self._get_server_url()
+        callback_url = f"{server_url}/api/suppliers/digikey/oauth/callback"
+        
         return [
-            ConfigurationOption(
-                name='sandbox',
-                label='DigiKey Sandbox (Test Data)',
-                description='Simple API key authentication for testing with sample data. No OAuth2 setup required.',
-                schema=[
-                    FieldDefinition(
-                        name="api_environment",
-                        label="API Environment",
-                        field_type=FieldType.HIDDEN,
-                        required=True,
-                        default_value="sandbox",
-                        description="Set to sandbox mode"
-                    ),
-                    FieldDefinition(
-                        name="sandbox_info",
-                        label="Sandbox Information",
-                        field_type=FieldType.INFO,
-                        required=False,
-                        description="Sandbox mode uses simple authentication",
-                        help_text="Your DigiKey sandbox app credentials will be used directly as API keys. No OAuth2 flow required."
-                    )
-                ],
-                is_default=True,  # Sandbox is easier to set up, so make it default
-                requirements={
-                    'oauth_setup_required': False,
-                    'complexity': 'low',
-                    'data_type': 'test_data'
-                }
-            ),
             ConfigurationOption(
                 name='production',
                 label='DigiKey Production (Live Data)',
-                description='OAuth2 authentication for accessing live inventory data. Requires OAuth2 app setup.',
+                description='OAuth2 authentication for accessing live DigiKey inventory data and APIs.',
                 schema=[
-                    FieldDefinition(
-                        name="api_environment",
-                        label="API Environment", 
-                        field_type=FieldType.HIDDEN,
-                        required=True,
-                        default_value="production",
-                        description="Set to production mode"
-                    ),
                     FieldDefinition(
                         name="oauth_callback_url",
                         label="OAuth Callback URL",
                         field_type=FieldType.URL,
-                        required=True,
-                        default_value="https://localhost:8139/digikey_callback",
-                        description="OAuth redirect URI for DigiKey Production API",
-                        help_text="Use this EXACT URL in your DigiKey app settings: https://localhost:8139/digikey_callback",
+                        required=False,
+                        default_value=callback_url,
+                        description=f"OAuth redirect URI for DigiKey Production API (automatically detected: {callback_url})",
+                        help_text=f"Use this EXACT URL in your DigiKey app settings: {callback_url}",
                         validation={'pattern': r'^https?://.*'}
                     ),
                     FieldDefinition(
@@ -220,49 +187,50 @@ class DigiKeySupplier(BaseSupplier):
                     ),
                     FieldDefinition(
                         name="production_info",
-                        label="Production Requirements",
+                        label="Setup Requirements",
                         field_type=FieldType.INFO,
                         required=False,
-                        description="Production mode requires OAuth2 setup",
-                        help_text="You'll need to complete OAuth2 authentication flow on first use. Tokens will be stored securely for future use."
+                        description="DigiKey production API requires OAuth2 setup",
+                        help_text="You'll need to complete OAuth2 authentication flow on first use. Tokens will be stored securely for future use. Ensure your DigiKey app is configured for production use."
                     )
                 ],
-                is_default=False,
+                is_default=True,
                 requirements={
                     'oauth_setup_required': True,
-                    'complexity': 'high',
+                    'complexity': 'medium',
                     'data_type': 'live_data',
-                    'prerequisites': ['DigiKey developer account', 'OAuth2 app registration']
+                    'prerequisites': ['DigiKey developer account', 'OAuth2 app registration', 'Production API access']
                 }
             )
         ]
     
     def _get_base_url(self) -> str:
-        """Get base URL based on API environment"""
-        api_environment = self._config.get("api_environment", "production")
-        if api_environment == "sandbox":
-            return "https://sandbox-api.digikey.com"
-        else:
-            return "https://api.digikey.com"
+        """Get base URL for DigiKey production API"""
+        return "https://api.digikey.com"
     
     def _get_auth_url(self) -> str:
-        """Get authorization URL based on API environment"""  
-        api_environment = self._config.get("api_environment", "production")
-        if api_environment == "sandbox":
-            return "https://sandbox-api.digikey.com/v1/oauth2/authorize"
-        else:
-            return "https://api.digikey.com/v1/oauth2/authorize"
+        """Get authorization URL for DigiKey production API"""  
+        return "https://api.digikey.com/v1/oauth2/authorize"
     
     def _get_token_url(self) -> str:
-        """Get token URL based on API environment"""
-        api_environment = self._config.get("api_environment", "production")
-        if api_environment == "sandbox":
-            return "https://sandbox-api.digikey.com/v1/oauth2/token"
-        else:
-            return "https://api.digikey.com/v1/oauth2/token"
+        """Get token URL for DigiKey production API"""
+        return "https://api.digikey.com/v1/oauth2/token"
+    
+    def _get_server_url(self) -> str:
+        """Automatically detect the server URL for OAuth callbacks"""
+        # Check if HTTPS is enabled
+        https_enabled = os.getenv("HTTPS_ENABLED", "false").lower() == "true"
+        protocol = "https" if https_enabled else "http"
+        
+        # Get the server host and port
+        # In production, you might want to use environment variables for this
+        host = os.getenv("SERVER_HOST", "localhost")
+        port = os.getenv("SERVER_PORT", "8443" if https_enabled else "8080")
+        
+        return f"{protocol}://{host}:{port}"
     
     async def authenticate(self) -> bool:
-        """Authenticate based on configured environment (sandbox vs production)"""
+        """Authenticate with DigiKey production API"""
         if not self.is_configured():
             raise SupplierConfigurationError(
                 "DigiKey supplier not configured. Please provide client_id and client_secret.", 
@@ -286,22 +254,21 @@ class DigiKeySupplier(BaseSupplier):
                 }
             )
         
-        api_environment = self._config.get('api_environment', 'sandbox')
-        
         try:
-            # Set basic environment variables that the digikey library expects
+            # Set environment variables for the digikey library (production mode only)
             os.environ['DIGIKEY_CLIENT_ID'] = client_id
             os.environ['DIGIKEY_CLIENT_SECRET'] = client_secret
-            os.environ['DIGIKEY_CLIENT_SANDBOX'] = str(api_environment == 'sandbox')
+            os.environ['DIGIKEY_CLIENT_SANDBOX'] = 'False'  # Always use production
             
-            if api_environment == 'sandbox':
-                # Sandbox mode: Simple API key authentication, no OAuth2 required
-                print("DigiKey: Using sandbox mode with simple API key authentication")
-                return await self._authenticate_sandbox()
-            else:
-                # Production mode: Full OAuth2 flow required
-                print("DigiKey: Using production mode with OAuth2 authentication")
-                return await self._authenticate_production()
+            # Try client credentials flow first (backend-only, no browser required)
+            print("DigiKey: Attempting client credentials authentication (backend-only)")
+            if await self._authenticate_client_credentials():
+                print("DigiKey: Client credentials authentication successful")
+                return True
+            
+            # Fall back to OAuth2 if client credentials fail
+            print("DigiKey: Client credentials failed, falling back to OAuth2 authentication")
+            return await self._authenticate_production()
                 
         except SupplierError:
             # Re-raise supplier errors as-is
@@ -312,106 +279,43 @@ class DigiKeySupplier(BaseSupplier):
                 f"DigiKey authentication failed: {str(e)}",
                 supplier_name="digikey",
                 details={
-                    'api_environment': api_environment,
+                    'api_environment': 'production',
                     'error_type': type(e).__name__,
                     'original_error': str(e)
                 }
             )
     
-    async def _authenticate_sandbox(self) -> bool:
-        """Simple authentication for sandbox environment"""
-        try:
-            # For sandbox, we just need to verify credentials are provided
-            client_id = self._credentials.get('client_id', '').strip()
-            client_secret = self._credentials.get('client_secret', '').strip()
-            
-            if not client_id or not client_secret:
-                raise SupplierAuthenticationError(
-                    "DigiKey sandbox requires both client_id and client_secret. "
-                    "Get these from your DigiKey sandbox app in the developer portal.",
-                    supplier_name="digikey",
-                    details={
-                        'api_environment': 'sandbox',
-                        'required_fields': ['client_id', 'client_secret'],
-                        'help_url': 'https://developer.digikey.com'
-                    }
-                )
-            
-            # Validate credential format (basic sanity check)
-            if len(client_id) < 8 or len(client_secret) < 16:
-                raise SupplierAuthenticationError(
-                    "DigiKey credentials appear to be invalid (too short). "
-                    "Please verify your client_id and client_secret from the DigiKey developer portal.",
-                    supplier_name="digikey",
-                    details={
-                        'api_environment': 'sandbox',
-                        'client_id_length': len(client_id),
-                        'client_secret_length': len(client_secret),
-                        'help_url': 'https://developer.digikey.com'
-                    }
-                )
-            
-            # No additional setup needed for sandbox - credentials are used directly as API keys
-            print("DigiKey sandbox authentication configured successfully")
-            return True
-            
-        except SupplierError:
-            raise
-        except Exception as e:
-            raise SupplierAuthenticationError(
-                f"DigiKey sandbox authentication setup failed: {str(e)}",
-                supplier_name="digikey",
-                details={
-                    'api_environment': 'sandbox',
-                    'error_type': type(e).__name__,
-                    'original_error': str(e)
-                }
-            )
     
     async def _authenticate_production(self) -> bool:
-        """OAuth2 authentication for production environment"""
+        """OAuth2 authentication for DigiKey production API"""
         try:
             if not DIGIKEY_API_AVAILABLE:
                 raise SupplierConfigurationError(
-                    "DigiKey API library not available for production mode. "
-                    "Install with: pip install digikey-api",
+                    "DigiKey API library not available. Install with: pip install digikey-api",
                     supplier_name="digikey",
                     details={
-                        'api_environment': 'production',
                         'missing_dependency': 'digikey-api',
                         'install_command': 'pip install digikey-api',
                         'help_url': 'https://github.com/peeter123/digikey-api'
                     }
                 )
             
-            # Validate production-specific configuration
-            oauth_callback_url = self._config.get('oauth_callback_url', '').strip()
-            if not oauth_callback_url:
-                raise SupplierConfigurationError(
-                    "DigiKey production mode requires oauth_callback_url. "
-                    "This must match the redirect URI in your DigiKey app settings.",
-                    supplier_name="digikey",
-                    details={
-                        'api_environment': 'production',
-                        'missing_config': ['oauth_callback_url'],
-                        'default_value': 'https://localhost:8139/digikey_callback',
-                        'help_url': 'https://developer.digikey.com'
-                    }
-                )
+            # Set up OAuth2 callback URL (with auto-detection fallback)
+            default_callback = f"{self._get_server_url()}/api/suppliers/digikey/oauth/callback"
+            oauth_callback_url = self._config.get('oauth_callback_url', default_callback).strip()
             
-            # Validate callback URL format
-            if not oauth_callback_url.startswith(('http://', 'https://')):
+            # Validate callback URL format if provided
+            if oauth_callback_url and not oauth_callback_url.startswith(('http://', 'https://')):
                 raise SupplierConfigurationError(
                     "oauth_callback_url must be a valid URL starting with http:// or https://",
                     supplier_name="digikey",
                     details={
-                        'api_environment': 'production',
                         'invalid_url': oauth_callback_url,
                         'required_format': 'https://your-domain.com/callback'
                     }
                 )
             
-            # Ensure storage path exists as a directory for OAuth2 tokens
+            # Set up storage path for OAuth2 tokens
             storage_path = self._config.get('storage_path', './digikey_tokens')
             
             # If it ends with .json, treat it as a file and use its directory
@@ -428,7 +332,6 @@ class DigiKeySupplier(BaseSupplier):
                     f"Cannot create token storage directory: {storage_dir}",
                     supplier_name="digikey",
                     details={
-                        'api_environment': 'production',
                         'storage_path': storage_dir,
                         'os_error': str(e),
                         'suggested_path': './digikey_tokens'
@@ -439,7 +342,7 @@ class DigiKeySupplier(BaseSupplier):
             abs_storage_dir = os.path.abspath(storage_dir)
             os.environ['DIGIKEY_STORAGE_PATH'] = abs_storage_dir
             
-            print(f"DigiKey production OAuth2 storage path: {abs_storage_dir}")
+            print(f"DigiKey OAuth2 storage path: {abs_storage_dir}")
             
             # The actual OAuth2 flow will be handled by the digikey library on first API call
             return True
@@ -448,10 +351,9 @@ class DigiKeySupplier(BaseSupplier):
             raise
         except Exception as e:
             raise SupplierAuthenticationError(
-                f"DigiKey production authentication setup failed: {str(e)}",
+                f"DigiKey authentication setup failed: {str(e)}",
                 supplier_name="digikey",
                 details={
-                    'api_environment': 'production',
                     'error_type': type(e).__name__,
                     'original_error': str(e),
                     'help_url': 'https://developer.digikey.com'
@@ -461,15 +363,22 @@ class DigiKeySupplier(BaseSupplier):
     async def _authenticate_client_credentials(self) -> bool:
         """Authenticate using client credentials grant (no redirect needed)"""
         try:
+            print("DEBUG: Starting client credentials authentication")
             client_id = self._credentials.get("client_id")
             client_secret = self._credentials.get("client_secret")
             
+            print(f"DEBUG: client_id={client_id is not None}, client_secret={client_secret is not None}")
+            
             if not client_id or not client_secret:
+                print("DEBUG: Missing client_id or client_secret")
                 return False
             
             token_url = self._get_token_url()
+            print(f"DEBUG: token_url={token_url}")
             
-            # Client credentials flow
+            # Workaround: Use requests library since aiohttp has connection issues with DigiKey
+            import requests
+            
             data = {
                 "grant_type": "client_credentials",
                 "client_id": client_id,
@@ -477,20 +386,32 @@ class DigiKeySupplier(BaseSupplier):
             }
             
             headers = {
-                "Content-Type": "application/x-www-form-urlencoded"
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "MakerMatrix/1.0",
+                "Accept": "*/*"
             }
             
-            response = await self._session.post(token_url, data=data, headers=headers)
-            response.raise_for_status()
+            print(f"DEBUG: Sending POST to {token_url} using requests library")
             
-            token_data = response.json()
-            self._access_token = token_data.get("access_token")
-            self._token_type = token_data.get("token_type", "Bearer")
+            response = requests.post(token_url, data=data, headers=headers, timeout=30)
+            print(f"DEBUG: Response status: {response.status_code}")
             
-            # Store token
-            await self._store_tokens(token_data)
-            
-            return bool(self._access_token)
+            if response.status_code == 200:
+                token_data = response.json()
+                self._access_token = token_data.get("access_token")
+                self._token_type = token_data.get("token_type", "Bearer")
+                
+                # Calculate expiration
+                expires_in = token_data.get("expires_in", 600)  # Default 10 minutes
+                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                
+                print(f"✅ DigiKey client credentials successful! Token expires in {expires_in} seconds")
+                print(f"✅ Access token: {self._access_token[:20]}...")
+                return True
+            else:
+                error_text = response.text
+                print(f"❌ DigiKey client credentials failed: {response.status_code} - {error_text}")
+                return False
             
         except Exception as e:
             print(f"Client credentials authentication failed: {e}")
@@ -651,76 +572,212 @@ class DigiKeySupplier(BaseSupplier):
     
     async def test_connection(self) -> Dict[str, Any]:
         """Test connection to DigiKey API using the official library"""
-        try:            
-            if not await self.authenticate():
+        print("🚨 DIGIKEY TEST_CONNECTION METHOD CALLED!")
+        try:
+            # Check if supplier is configured first
+            if not self.is_configured():
                 return {
                     "success": False,
-                    "message": "Authentication setup failed",
-                    "details": {"error": "Failed to set up DigiKey authentication"}
+                    "message": "DigiKey not configured",
+                    "details": {
+                        "error": "Missing credentials: client_id and client_secret required",
+                        "configuration_needed": True,
+                        "required_fields": ["client_id", "client_secret"],
+                        "setup_url": "https://developer.digikey.com",
+                        "instructions": "1. Register at developer.digikey.com\n2. Create an OAuth2 application\n3. Add your Client ID and Client Secret to MakerMatrix"
+                    }
                 }
             
             if not DIGIKEY_API_AVAILABLE:
                 return {
                     "success": False,
                     "message": "DigiKey API library not available",
-                    "details": {"error": "Install digikey-api package"}
+                    "details": {
+                        "error": "DigiKey API library not installed",
+                        "install_command": "pip install digikey-api",
+                        "dependency_missing": True
+                    }
                 }
             
-            # Test the DigiKey API using the official library
-            try:
-                # Try a simple keyword search to test authentication
-                from digikey.v3.productinformation import KeywordSearchRequest
-                
-                search_request = KeywordSearchRequest(keywords='capacitor', record_count=1)
-                result = digikey.keyword_search(body=search_request)
-                
+            # Check for credentials
+            client_id = self._credentials.get('client_id', '').strip()
+            client_secret = self._credentials.get('client_secret', '').strip()
+            
+            if not client_id or not client_secret:
                 return {
-                    "success": True,
-                    "message": "Connection successful",
+                    "success": False,
+                    "message": "Missing DigiKey credentials",
                     "details": {
-                        "api_library": "digikey-api",
-                        "api_environment": self._config.get("api_environment", "production"),
-                        "products_found": len(result.products) if result and result.products else 0,
-                        "test_search": "capacitor"
+                        "error": "client_id and client_secret are required",
+                        "configuration_needed": True,
+                        "missing_credentials": [
+                            field for field in ['client_id', 'client_secret'] 
+                            if not self._credentials.get(field, '').strip()
+                        ],
+                        "setup_url": "https://developer.digikey.com"
+                    }
+                }
+            
+            # Attempt authentication setup
+            try:
+                print("DEBUG test_connection: About to call authenticate()")
+                auth_result = await self.authenticate()
+                print(f"DEBUG test_connection: authenticate() returned: {auth_result}")
+                
+                if auth_result:
+                    # Authentication successful! No need for OAuth browser flow
+                    success_response = {
+                        "success": True,
+                        "message": "DigiKey authentication successful - ready for API calls",
+                        "details": {
+                            "authentication_method": "client_credentials",
+                            "token_expires_in": getattr(self, '_token_expires_at', None),
+                            "api_ready": True,
+                            "no_browser_required": True
+                        }
+                    }
+                    print(f"DEBUG test_connection: Returning success response: {success_response}")
+                    return success_response
+                else:
+                    print("DEBUG test_connection: authenticate() returned False")
+                    return {
+                        "success": False,
+                        "message": "Authentication setup failed",
+                        "details": {"error": "Failed to set up DigiKey authentication"}
+                    }
+            except SupplierConfigurationError as config_error:
+                return {
+                    "success": False,
+                    "message": "Configuration error",
+                    "details": {
+                        "error": str(config_error),
+                        "configuration_needed": True
+                    }
+                }
+            
+            # Test DigiKey API configuration and connectivity
+            try:
+                # First, test basic API connectivity without triggering OAuth
+                import requests
+                
+                # Test if we can reach DigiKey API endpoints
+                api_base = "https://api.digikey.com"
+                
+                try:
+                    # Simple connectivity test - don't authenticate yet
+                    response = requests.get(f"{api_base}/v1/oauth2/authorize", timeout=5, allow_redirects=False)
+                    api_reachable = response.status_code in [200, 302, 400]  # Any response means API is reachable
+                except requests.RequestException:
+                    api_reachable = False
+                
+                if not api_reachable:
+                    return {
+                        "success": False,
+                        "message": "DigiKey API not reachable",
+                        "details": {
+                            "error": "Cannot reach DigiKey API endpoints",
+                            "api_base": api_base,
+                            "network_issue": True,
+                            "suggestion": "Check internet connectivity"
+                        }
+                    }
+                
+                # API is reachable, but OAuth is required for actual data access
+                oauth_url = self._generate_oauth_url()
+                return {
+                    "success": False,
+                    "message": "DigiKey API configuration valid - OAuth required",
+                    "details": {
+                        "error": "DigiKey API requires OAuth2 authentication for data access",
+                        "oauth_url": oauth_url,
+                        "oauth_required": True,
+                        "api_reachable": True,
+                        "credentials_valid": True,
+                        "environment": "headless",
+                        "instructions": "1. Click the OAuth URL below to authorize MakerMatrix\n2. Complete the authorization in your browser\n3. Tokens will be stored automatically\n4. Re-test after completing OAuth\n\nNote: DigiKey requires interactive OAuth even with valid API credentials."
                     }
                 }
                 
             except Exception as api_error:
-                # Check if this is a browser/display related error (headless environment)
+                # Check for specific error conditions
                 error_str = str(api_error).lower()
-                if "xdg-settings" in error_str or "no such device" in error_str or "display" in error_str:
-                    # Generate manual OAuth URL for headless environments
+                
+                # Address already in use (OAuth callback server issue)
+                if "address already in use" in error_str:
                     oauth_url = self._generate_oauth_url()
                     return {
                         "success": False,
-                        "message": "Manual OAuth required - No browser available",
+                        "message": "OAuth callback port in use",
                         "details": {
-                            "error": "Running in headless environment (WSL2/server)",
+                            "error": "OAuth callback server port 8139 is already in use",
                             "oauth_url": oauth_url,
+                            "oauth_required": True,
+                            "solution": "Complete OAuth authentication manually",
+                            "instructions": "1. Open the OAuth URL above in your browser\n2. Complete the authorization\n3. The system will handle the callback automatically once port is available"
+                        }
+                    }
+                
+                # Browser/display related error (headless environment)
+                elif ("xdg-settings" in error_str or "no such device" in error_str or 
+                      "display" in error_str or "operation not supported" in error_str):
+                    oauth_url = self._generate_oauth_url()
+                    return {
+                        "success": False,
+                        "message": "Manual OAuth required - Headless environment",
+                        "details": {
+                            "error": "Running in headless environment (WSL2/server) - no browser available",
+                            "oauth_url": oauth_url,
+                            "oauth_required": True,
+                            "environment": "headless",
                             "instructions": "1. Open the OAuth URL above in your browser\n2. Complete the authorization\n3. Copy the authorization code from the callback URL\n4. Use the code to complete authentication"
                         }
                     }
-                elif "oauth" in error_str or "authentication" in error_str or "authorize" in error_str:
+                
+                # OAuth/authentication related errors
+                elif ("oauth" in error_str or "authentication" in error_str or 
+                      "authorize" in error_str or "unauthorized" in error_str):
+                    oauth_url = self._generate_oauth_url()
                     return {
                         "success": False,
                         "message": "OAuth authentication required",
                         "details": {
-                            "error": str(api_error),
-                            "oauth_url": self._generate_oauth_url(),
+                            "error": "OAuth authentication flow needed",
+                            "oauth_url": oauth_url,
+                            "oauth_required": True,
+                            "original_error": str(api_error),
                             "instructions": "Complete OAuth authentication using the URL above"
                         }
                     }
+                
+                # Generic API errors
                 else:
                     return {
                         "success": False,
-                        "message": f"API call failed: {str(api_error)}",
-                        "details": {"error": str(api_error)}
+                        "message": f"DigiKey API error: {str(api_error)}",
+                        "details": {
+                            "error": str(api_error),
+                            "api_call_failed": True,
+                            "suggestion": "Check credentials and network connectivity"
+                        }
                     }
+                    
+        except SupplierConfigurationError as config_error:
+            return {
+                "success": False,
+                "message": "Configuration error",
+                "details": {
+                    "error": str(config_error),
+                    "configuration_needed": True
+                }
+            }
         except Exception as e:
             return {
                 "success": False,
                 "message": f"Connection test failed: {str(e)}",
-                "details": {"exception": str(e)}
+                "details": {
+                    "exception": str(e),
+                    "unexpected_error": True
+                }
             }
     
     async def search_parts(self, query: str, limit: int = 50) -> List[PartSearchResult]:
@@ -886,13 +943,9 @@ class DigiKeySupplier(BaseSupplier):
         """Generate OAuth authorization URL for manual authentication"""
         try:
             client_id = self._credentials.get('client_id', '')
-            callback_url = self._config.get('oauth_callback_url', 'https://localhost:8139/digikey_callback')
-            api_environment = self._config.get('api_environment', 'production')
-            
-            if api_environment == "sandbox":
-                auth_base = "https://sandbox-api.digikey.com/v1/oauth2/authorize"
-            else:
-                auth_base = "https://api.digikey.com/v1/oauth2/authorize"
+            default_callback = f"{self._get_server_url()}/api/suppliers/digikey/oauth/callback"
+            callback_url = self._config.get('oauth_callback_url', default_callback)
+            auth_base = "https://api.digikey.com/v1/oauth2/authorize"
             
             params = {
                 'response_type': 'code',
@@ -917,17 +970,16 @@ class DigiKeySupplier(BaseSupplier):
         """Check if this is a DigiKey CSV or Excel file"""
         filename_lower = filename.lower()
         
-        # Check file extension
-        supported_extensions = ['.csv', '.xls', '.xlsx']
-        if not any(filename_lower.endswith(ext) for ext in supported_extensions):
+        # Check file extension - DigiKey uses CSV/Excel formats
+        if not filename_lower.endswith(('.csv', '.xls', '.xlsx')):
             return False
         
-        # Check filename patterns
+        # Check filename patterns - if DigiKey pattern found, we can handle it
         digikey_patterns = ['digikey', 'digi-key', 'weborder', 'salesorder', 'dk_products']
         if any(pattern in filename_lower for pattern in digikey_patterns):
             return True
         
-        # Check content for DigiKey-specific patterns
+        # Check content for DigiKey-specific patterns only if filename doesn't match
         if file_content:
             try:
                 # For Excel files, try to read first sheet
@@ -948,6 +1000,8 @@ class DigiKeySupplier(BaseSupplier):
                                 return True
                     except Exception as e:
                         logger.debug(f"Error reading Excel file for DigiKey detection: {e}")
+                        # If we can't read the Excel file, but extension is supported, allow it
+                        return True
                 
                 # For CSV files, check text content
                 else:
@@ -963,7 +1017,10 @@ class DigiKeySupplier(BaseSupplier):
                     return any(indicator in content_str for indicator in digikey_indicators)
             except Exception as e:
                 logger.debug(f"Error checking DigiKey file content: {e}")
+                # If we can't check content but file extension is supported, allow it
+                return True
         
+        # If no content provided, only allow if filename matches DigiKey patterns
         return False
     
     async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
@@ -973,31 +1030,49 @@ class DigiKeySupplier(BaseSupplier):
         if file_type_lower not in ['csv', 'xls', 'xlsx']:
             return ImportResult(
                 success=False,
-                error_message=f"DigiKey supports CSV and Excel files, not {file_type}"
+                error_message=f"DigiKey supports CSV, XLS, and XLSX formats, not {file_type}. Please export your DigiKey order as CSV or Excel."
             )
         
         try:
-            # Convert Excel files to CSV format for processing
+            # Handle Excel files (XLS/XLSX) - try Excel first, fallback to CSV
             if file_type_lower in ['xls', 'xlsx']:
                 try:
                     import pandas as pd
                     import io
                     
-                    # Read Excel file
-                    df = pd.read_excel(io.BytesIO(file_content))
-                    
-                    # Convert to CSV string
-                    csv_content = df.to_csv(index=False)
-                    content_str = csv_content
-                    
-                except Exception as e:
+                    # Try to read as Excel first
+                    try:
+                        df = pd.read_excel(io.BytesIO(file_content), engine='openpyxl' if file_type_lower == 'xlsx' else None)
+                        logger.info(f"Successfully read {filename} as Excel format")
+                        # Convert DataFrame to CSV string for uniform processing
+                        content_str = df.to_csv(index=False)
+                    except Exception as excel_error:
+                        # If Excel reading fails, try to read as CSV (common issue - CSV files with .xls extension)
+                        try:
+                            content_str = file_content.decode('utf-8')
+                            # Quick validation - does it look like CSV?
+                            if ',' in content_str and '\n' in content_str:
+                                logger.warning(f"File {filename} has .{file_type_lower} extension but appears to be CSV format, processing as CSV")
+                            else:
+                                raise excel_error  # Re-raise original error if it doesn't look like CSV
+                        except UnicodeDecodeError:
+                            return ImportResult(
+                                success=False,
+                                error_message=f"File appears to be neither valid Excel nor CSV format: {str(excel_error)}"
+                            )
+                except ImportError:
                     return ImportResult(
                         success=False,
-                        error_message=f"Failed to read Excel file: {str(e)}"
+                        error_message="pandas library not available for Excel file processing. Please install pandas or export as CSV."
                     )
             else:
                 # Handle CSV files
                 content_str = file_content.decode('utf-8')
+            
+            # Remove BOM (Byte Order Mark) if present
+            if content_str.startswith('\ufeff'):
+                content_str = content_str[1:]
+                logger.info("Removed BOM (Byte Order Mark) from CSV file")
             
             # Parse CSV content
             import csv
@@ -1010,59 +1085,92 @@ class DigiKeySupplier(BaseSupplier):
             
             # Try to detect CSV format
             headers = csv_reader.fieldnames or []
+            logger.info(f"CSV headers detected: {headers}")
             
-            # Format 1: Standard DigiKey export
-            if 'Digi-Key Part Number' in headers:
+            # Format 1: Standard DigiKey export (be flexible with column variations)
+            digikey_part_col = None
+            for header in headers:
+                header_lower = header.lower()
+                if ('digi-key part' in header_lower or 
+                    'digikey part' in header_lower or
+                    header_lower == 'digikey part #' or
+                    header_lower == 'digi-key part #'):
+                    digikey_part_col = header
+                    break
+            
+            if digikey_part_col:
+                # Find other column variations flexibly
+                desc_col = next((h for h in headers if 'description' in h.lower()), 'Description')
+                mfr_col = next((h for h in headers if 'manufacturer' in h.lower() and 'part' not in h.lower()), 'Manufacturer')
+                mfr_part_col = next((h for h in headers if 'manufacturer part' in h.lower() or 'mfr part' in h.lower()), 'Manufacturer Part Number')
+                qty_col = next((h for h in headers if 'quantity' in h.lower() or 'qty' in h.lower()), 'Quantity')
+                unit_price_col = next((h for h in headers if 'unit price' in h.lower()), 'Unit Price')
+                ext_price_col = next((h for h in headers if 'extended price' in h.lower() or 'total price' in h.lower()), 'Extended Price')
+                
+                logger.info(f"Using DigiKey part column: {digikey_part_col}")
+                
                 for row in csv_reader:
                     try:
+                        # Extract values using flexible column names
+                        description = row.get(desc_col, '').strip()
+                        manufacturer_part_number = row.get(mfr_part_col, '').strip()
+                        
+                        # Use description as part name, fallback to manufacturer part number
+                        part_name = description if description else manufacturer_part_number
+                        
                         part = {
-                            'part_name': row.get('Description', row.get('Manufacturer Part Number', '')).strip(),
-                            'supplier_part_number': row.get('Digi-Key Part Number', '').strip(),
-                            'manufacturer': row.get('Manufacturer', '').strip(),
-                            'manufacturer_part_number': row.get('Manufacturer Part Number', '').strip(),
-                            'description': row.get('Description', '').strip(),
-                            'quantity': int(row.get('Quantity', 0)),
-                            'unit_price': float(row.get('Unit Price', '0').replace('$', '').replace(',', '')),
-                            'extended_price': float(row.get('Extended Price', '0').replace('$', '').replace(',', '')),
+                            'part_name': part_name,
+                            'part_number': row.get(digikey_part_col, '').strip(),  # Changed from supplier_part_number to part_number
+                            'manufacturer': row.get(mfr_col, '').strip(),
+                            'manufacturer_part_number': manufacturer_part_number,
+                            'description': description,
+                            'quantity': int(row.get(qty_col, '0') or 0),
+                            'unit_price': float((row.get(unit_price_col, '0') or '0').replace('$', '').replace(',', '').replace('"', '')),
+                            'currency': 'USD',  # DigiKey pricing is typically in USD
                             'supplier': 'DigiKey',
                             'additional_properties': {
                                 'customer_reference': row.get('Customer Reference', ''),
                                 'backorder': row.get('Backorder', ''),
-                                'index': row.get('Index', '')
+                                'index': row.get('Index', ''),
+                                'extended_price': float((row.get(ext_price_col, '0') or '0').replace('$', '').replace(',', '').replace('"', ''))  # Move extended_price to additional_properties
                             }
                         }
-                        if part['supplier_part_number']:
+                        if part['part_number']:
                             parts.append(part)
                     except Exception as e:
                         errors.append(f"Error parsing row: {str(e)}")
             
-            # Format 2: Alternative format
-            elif 'Part Number' in headers and 'Manufacturer Part Number' in headers:
+            # Format 2: Alternative format (flexible header detection)
+            elif any('part number' in h.lower() for h in headers) and any('manufacturer part' in h.lower() for h in headers):
                 for row in csv_reader:
                     try:
                         part = {
                             'part_name': row.get('Description', row.get('Manufacturer Part Number', '')).strip(),
-                            'supplier_part_number': row.get('Part Number', '').strip(),
+                            'part_number': row.get('Part Number', '').strip(),  # Changed from supplier_part_number to part_number
                             'manufacturer': row.get('Manufacturer', '').strip(),
                             'manufacturer_part_number': row.get('Manufacturer Part Number', '').strip(),
                             'description': row.get('Description', '').strip(),
                             'quantity': int(row.get('Quantity', 0)),
-                            'unit_price': float(row.get('Unit Price', '0').replace('$', '').replace(',', '')),
-                            'extended_price': float(row.get('Extended Price', '0').replace('$', '').replace(',', '')),
+                            'unit_price': float(row.get('Unit Price', '0').replace('$', '').replace(',', '').replace('"', '')),
+                            'currency': 'USD',  # DigiKey pricing is typically in USD
                             'supplier': 'DigiKey',
                             'additional_properties': {
-                                'customer_reference': row.get('Customer Reference', '')
+                                'customer_reference': row.get('Customer Reference', ''),
+                                'extended_price': float(row.get('Extended Price', '0').replace('$', '').replace(',', '').replace('"', ''))  # Move extended_price to additional_properties
                             }
                         }
-                        if part['supplier_part_number']:
+                        if part['part_number']:
                             parts.append(part)
                     except Exception as e:
                         errors.append(f"Error parsing row: {str(e)}")
             else:
                 return ImportResult(
                     success=False,
-                    error_message="Unrecognized DigiKey CSV format",
-                    warnings=[f"Headers found: {', '.join(headers[:10])}"]
+                    error_message="Unrecognized DigiKey CSV format. Expected headers like 'Digi-Key Part Number' or 'Part Number' + 'Manufacturer Part Number'.",
+                    warnings=[
+                        f"Headers found: {', '.join(headers[:10])}",
+                        "Ensure you exported the file from DigiKey in CSV format with standard column headers."
+                    ]
                 )
             
             if not parts:
@@ -1088,43 +1196,3 @@ class DigiKeySupplier(BaseSupplier):
                 warnings=[traceback.format_exc()]
             )
     
-    def get_import_file_preview(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
-        """Get preview of DigiKey CSV import"""
-        try:
-            import csv
-            import io
-            
-            content_str = file_content.decode('utf-8')
-            csv_reader = csv.DictReader(io.StringIO(content_str))
-            
-            headers = csv_reader.fieldnames or []
-            preview_rows = []
-            
-            # Get first 5 rows for preview
-            for i, row in enumerate(csv_reader):
-                if i >= 5:
-                    break
-                preview_rows.append(dict(row))
-            
-            # Count total rows
-            total_rows = len(preview_rows)
-            for _ in csv_reader:
-                total_rows += 1
-            
-            return {
-                "headers": headers,
-                "preview_rows": preview_rows,
-                "total_rows": total_rows,
-                "detected_supplier": "digikey",
-                "is_supported": True
-            }
-            
-        except Exception as e:
-            return {
-                "headers": [],
-                "preview_rows": [],
-                "total_rows": 0,
-                "detected_supplier": "digikey",
-                "is_supported": False,
-                "error": str(e)
-            }

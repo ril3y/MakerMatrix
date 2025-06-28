@@ -19,18 +19,16 @@ from sqlalchemy.orm import Session
 
 from MakerMatrix.database.db import engine
 from MakerMatrix.services.rate_limit_service import RateLimitService
-from MakerMatrix.services.enrichment_queue_manager import EnrichmentQueueManager, EnrichmentPriority
+from MakerMatrix.services.system.enrichment_queue_manager import EnrichmentQueueManager, EnrichmentPriority
 from MakerMatrix.schemas.websocket_schemas import (
     create_import_progress_message, 
     create_enrichment_progress_message,
     create_notification_message
 )
 from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
-from MakerMatrix.services.csv_import_service import CSVImportService
-from MakerMatrix.services.csv_import.parser_registry import csv_parser_registry
-from MakerMatrix.services.parser_client_registry import get_enrichment_client, supports_enrichment
+
 from MakerMatrix.models.models import PartModel
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 
 logger = logging.getLogger(__name__)
 

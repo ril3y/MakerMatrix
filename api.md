@@ -661,27 +661,7 @@ Validate if a task can be created without creating it.
 #### GET /csv/supported-types
 Get list of supported order file types (CSV and XLS).
 
-#### POST /csv/preview
-Preview CSV content and detect file type.
-
-**Request Body:**
-```json
-{
-  "csv_content": "csv_string_data"
-}
-```
-
-#### POST /csv/preview-file
-Preview uploaded CSV or XLS file and detect file type.
-
-**Request:** Form data with file upload
-```http
-Content-Type: multipart/form-data
-file: <csv_or_xls_file>
-```
-
-**Supported formats:** CSV, XLS, XLSX
-**Response:** File preview data with detected parser type
+**Note:** File preview functionality has been moved to frontend-only processing for better performance and reduced server load. The frontend handles CSV parsing and supplier detection without requiring API calls.
 
 #### POST /csv/import
 Import parts from CSV text content.

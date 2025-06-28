@@ -1,8 +1,8 @@
 /**
  * Supplier Configuration Service
  * 
- * API service for managing supplier configurations, credentials, and enrichment profiles.
- * Handles encrypted credential storage and supplier capability management.
+ * API service for managing supplier configurations and enrichment profiles.
+ * Credentials are now managed via environment variables.
  */
 
 import { apiClient } from './api';
@@ -28,7 +28,6 @@ export interface SupplierConfig {
   updated_at: string;
   last_tested_at?: string;
   test_status?: string;
-  has_credentials: boolean;
 }
 
 export interface SupplierConfigCreate {
@@ -55,6 +54,12 @@ export interface SupplierConfigCreate {
 export interface SupplierConfigUpdate {
   display_name?: string;
   description?: string;
+  enabled?: boolean;
+  // Modern capabilities array - backend driven
+  capabilities?: string[];
+  custom_headers?: Record<string, string>;
+  custom_parameters?: Record<string, any>;
+  // Legacy fields - DEPRECATED (kept for API compatibility but not used in UI)
   api_type?: 'rest' | 'graphql' | 'scraping';
   base_url?: string;
   api_version?: string;
@@ -62,32 +67,34 @@ export interface SupplierConfigUpdate {
   timeout_seconds?: number;
   max_retries?: number;
   retry_backoff?: number;
-  enabled?: boolean;
   supports_datasheet?: boolean;
   supports_image?: boolean;
   supports_pricing?: boolean;
   supports_stock?: boolean;
   supports_specifications?: boolean;
-  custom_headers?: Record<string, string>;
-  custom_parameters?: Record<string, any>;
 }
 
-export interface SupplierCredentials {
-  api_key?: string;
-  secret_key?: string;
-  username?: string;
-  password?: string;
-  oauth_token?: string;
-  refresh_token?: string;
-  additional_data?: Record<string, string>;
-}
 
 export interface ConnectionTestResult {
   supplier_name: string;
   success: boolean;
+  message: string;
   test_duration_seconds: number;
   tested_at: string;
   error_message?: string;
+  details?: {
+    oauth_required?: boolean;
+    oauth_url?: string;
+    environment?: string;
+    instructions?: string;
+    configuration_needed?: boolean;
+    missing_credentials?: string[];
+    setup_url?: string;
+    install_command?: string;
+    api_reachable?: boolean;
+    credentials_valid?: boolean;
+    [key: string]: any;
+  };
 }
 
 export interface SupplierCapability {
@@ -127,7 +134,7 @@ export class SupplierService {
    * Get all supplier configurations
    */
   async getSuppliers(enabledOnly: boolean = false): Promise<SupplierConfig[]> {
-    const response = await apiClient.get('/api/config/suppliers', {
+    const response = await apiClient.get('/api/suppliers/config/suppliers', {
       params: { enabled_only: enabledOnly }
     });
     return response.data.data || response.data || [];
@@ -136,10 +143,8 @@ export class SupplierService {
   /**
    * Get specific supplier configuration
    */
-  async getSupplier(supplierName: string, includeCredentials: boolean = false): Promise<SupplierConfig> {
-    const response = await apiClient.get(`/api/config/suppliers/${supplierName}`, {
-      params: { include_credentials: includeCredentials }
-    });
+  async getSupplier(supplierName: string): Promise<SupplierConfig> {
+    const response = await apiClient.get(`/api/suppliers/config/suppliers/${supplierName}`);
     return response.data.data;
   }
 
@@ -147,7 +152,7 @@ export class SupplierService {
    * Create new supplier configuration
    */
   async createSupplier(config: SupplierConfigCreate): Promise<SupplierConfig> {
-    const response = await apiClient.post('/api/config/suppliers', config);
+    const response = await apiClient.post('/api/suppliers/config/suppliers', config);
     return response.data.data;
   }
 
@@ -155,7 +160,7 @@ export class SupplierService {
    * Update supplier configuration
    */
   async updateSupplier(supplierName: string, updates: SupplierConfigUpdate): Promise<SupplierConfig> {
-    const response = await apiClient.put(`/api/config/suppliers/${supplierName}`, updates);
+    const response = await apiClient.put(`/api/suppliers/config/suppliers/${supplierName}`, updates);
     return response.data.data;
   }
 
@@ -167,23 +172,79 @@ export class SupplierService {
       throw new Error('Supplier name is required for deletion');
     }
     console.log(`Deleting supplier: ${supplierName}`);
-    await apiClient.delete(`/api/config/suppliers/${encodeURIComponent(supplierName)}`);
+    await apiClient.delete(`/api/suppliers/config/suppliers/${encodeURIComponent(supplierName)}`);
   }
 
   /**
-   * Test supplier connection
+   * Test supplier connection with provided credentials
    */
-  async testConnection(supplierName: string): Promise<ConnectionTestResult> {
-    const response = await apiClient.post(`/api/config/suppliers/${supplierName}/test`);
+  async testConnection(supplierName: string, credentials: Record<string, string> = {}): Promise<ConnectionTestResult> {
+    const response = await apiClient.post(`/api/suppliers/${supplierName}/test`, {
+      credentials: Object.keys(credentials).length > 0 ? credentials : {},
+      config: {} // Required for supplier test endpoint
+    });
     console.log('Raw API response:', response.data);
     return response.data.data || response.data;
+  }
+
+  /**
+   * Test existing stored credentials
+   */
+  async testExistingCredentials(supplierName: string): Promise<ConnectionTestResult> {
+    const response = await apiClient.get(`/api/suppliers/${supplierName}/credentials/test-existing`);
+    return response.data.data || response.data;
+  }
+
+  /**
+   * Save credentials for a supplier
+   */
+  async saveCredentials(supplierName: string, credentials: Record<string, string>): Promise<void> {
+    await apiClient.post(`/api/suppliers/${supplierName}/credentials`, {
+      credentials
+    });
+  }
+
+  /**
+   * Update credentials for a supplier (alias for saveCredentials)
+   */
+  async updateCredentials(supplierName: string, credentials: Record<string, string>): Promise<void> {
+    return this.saveCredentials(supplierName, credentials);
+  }
+
+  /**
+   * Get credential status for a supplier
+   */
+  async getCredentialStatus(supplierName: string): Promise<any> {
+    const response = await apiClient.get(`/api/suppliers/${supplierName}/credentials/status`);
+    // Check if response follows standard ResponseSchema format
+    if (response.data && response.data.data) {
+      return response.data.data;
+    }
+    // Fallback to direct data if not wrapped
+    return response.data;
+  }
+
+  /**
+   * Get actual credentials for editing (unmasked values)
+   */
+  async getCredentials(supplierName: string): Promise<Record<string, string>> {
+    const response = await apiClient.get(`/api/suppliers/${supplierName}/credentials`);
+    return response.data.data || response.data || {};
+  }
+
+  /**
+   * Get masked credentials for display (shows ••••• for set fields)
+   */
+  async getCredentialsForDisplay(supplierName: string): Promise<Record<string, string>> {
+    const response = await apiClient.get(`/api/suppliers/${supplierName}/credentials`);
+    return response.data.data || {};
   }
 
   /**
    * Get supplier capabilities
    */
   async getSupplierCapabilities(supplierName: string): Promise<string[]> {
-    const response = await apiClient.get(`/api/config/suppliers/${supplierName}/capabilities`);
+    const response = await apiClient.get(`/api/suppliers/config/suppliers/${supplierName}/capabilities`);
     return response.data.data;
   }
 
@@ -191,7 +252,7 @@ export class SupplierService {
    * Get credential field definitions for a supplier
    */
   async getCredentialFields(supplierName: string): Promise<CredentialFieldDefinition[]> {
-    const response = await apiClient.get(`/api/config/suppliers/${supplierName}/credential-fields`);
+    const response = await apiClient.get(`/api/suppliers/config/suppliers/${supplierName}/credential-fields`);
     return response.data.data;
   }
 
@@ -203,49 +264,24 @@ export class SupplierService {
     has_custom_fields: boolean;
     supplier_name: string;
   }> {
-    const response = await apiClient.get(`/api/config/suppliers/${supplierName}/config-fields`);
+    const response = await apiClient.get(`/api/suppliers/config/suppliers/${supplierName}/config-fields`);
     return response.data.data;
   }
 
-  /**
-   * Store supplier credentials
-   */
-  async storeCredentials(supplierName: string, credentials: SupplierCredentials): Promise<void> {
-    await apiClient.post('/api/config/credentials', {
-      supplier_name: supplierName,
-      ...credentials
-    });
-  }
-
-  /**
-   * Update supplier credentials
-   */
-  async updateCredentials(supplierName: string, credentials: SupplierCredentials): Promise<void> {
-    await apiClient.put(`/api/config/credentials/${supplierName}`, credentials);
-  }
-
-  /**
-   * Delete supplier credentials
-   */
-  async deleteCredentials(supplierName: string): Promise<void> {
-    await apiClient.delete(`/api/config/credentials/${supplierName}`);
-  }
 
   /**
    * Initialize default supplier configurations
    */
   async initializeDefaults(): Promise<string[]> {
-    const response = await apiClient.post('/api/config/initialize-defaults');
+    const response = await apiClient.post('/api/suppliers/config/initialize-defaults');
     return response.data.data;
   }
 
   /**
    * Export supplier configurations
    */
-  async exportConfigurations(includeCredentials: boolean = false): Promise<any> {
-    const response = await apiClient.get('/api/config/export', {
-      params: { include_credentials: includeCredentials }
-    });
+  async exportConfigurations(): Promise<any> {
+    const response = await apiClient.get('/api/suppliers/config/export');
     return response.data.data;
   }
 
@@ -256,7 +292,7 @@ export class SupplierService {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await apiClient.post('/api/config/import', formData, {
+    const response = await apiClient.post('/api/suppliers/config/import', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -288,36 +324,12 @@ export class SupplierService {
   }
 
   /**
-   * Get supported capabilities
+   * Get supported capabilities - DEPRECATED: Use backend API endpoints instead
+   * @deprecated Use /api/suppliers/{supplier}/capabilities endpoint
    */
   getSupportedCapabilities(): { key: string; label: string; description: string }[] {
-    return [
-      {
-        key: 'fetch_datasheet',
-        label: 'Datasheet Download',
-        description: 'Download component datasheets'
-      },
-      {
-        key: 'fetch_image',
-        label: 'Image Download', 
-        description: 'Download component images'
-      },
-      {
-        key: 'fetch_pricing',
-        label: 'Pricing Information',
-        description: 'Retrieve current pricing data'
-      },
-      {
-        key: 'fetch_stock',
-        label: 'Stock Information',
-        description: 'Check availability and stock levels'
-      },
-      {
-        key: 'fetch_specifications',
-        label: 'Technical Specifications',
-        description: 'Retrieve detailed component specifications'
-      }
-    ];
+    console.warn('getSupportedCapabilities is deprecated. Use backend API /api/suppliers/{supplier}/capabilities instead.');
+    return [];
   }
 
   /**

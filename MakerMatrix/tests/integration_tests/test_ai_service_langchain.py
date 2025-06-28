@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 import os
-from MakerMatrix.services.ai_service import ai_service
+from MakerMatrix.services.ai.ai_service import ai_service
 from MakerMatrix.utils.config import load_ai_config
 
 @pytest.mark.asyncio

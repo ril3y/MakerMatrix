@@ -1,5 +1,9 @@
 from contextlib import asynccontextmanager
 import asyncio
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 import uvicorn
 from fastapi import FastAPI, Depends
@@ -12,18 +16,18 @@ from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes, 
-    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, rate_limit_routes,
-    enrichment_routes
+    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, 
+    supplier_credentials_routes, rate_limit_routes
 )
-from MakerMatrix.services.printer_service import PrinterService
+from MakerMatrix.services.printer.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
-from MakerMatrix.dependencies.auth import secure_all_routes
+from MakerMatrix.auth.guards import secure_all_routes
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 from MakerMatrix.repositories.user_repository import UserRepository
-from MakerMatrix.services.task_service import task_service
-from MakerMatrix.services.websocket_service import start_ping_task
-from MakerMatrix.services.printer_manager_service import initialize_default_printers
+from MakerMatrix.services.system.task_service import task_service
+from MakerMatrix.services.system.websocket_service import start_ping_task
+from MakerMatrix.services.printer.printer_manager_service import initialize_default_printers
 
 
 @asynccontextmanager
@@ -38,16 +42,6 @@ async def lifespan(app: FastAPI):
     setup_default_roles(user_repo)
     setup_default_admin(user_repo)
     print("Setup complete!")
-    
-    # Start the task worker
-    print("Starting task worker...")
-    asyncio.create_task(task_service.start_worker())
-    print("Task worker started!")
-    
-    # Start WebSocket ping task
-    print("Starting WebSocket ping task...")
-    asyncio.create_task(start_ping_task())
-    print("WebSocket service started!")
     
     # Initialize default printers
     print("Initializing default printers...")
@@ -66,10 +60,74 @@ async def lifespan(app: FastAPI):
         print(f"Failed to initialize rate limiting: {e}")
         # Don't fail startup if rate limiting initialization fails
     
+    # Auto-initialize suppliers with environment credentials
+    print("Auto-initializing suppliers with environment credentials...")
+    try:
+        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+        from MakerMatrix.utils.env_credentials import list_available_env_credentials
+        from MakerMatrix.suppliers.registry import get_available_suppliers, get_supplier
+        
+        config_service = SupplierConfigService()
+        available_creds = list_available_env_credentials()
+        available_suppliers = get_available_suppliers()
+        
+        for supplier_name in available_suppliers:
+            # Check if we have credentials for this supplier
+            supplier_key = supplier_name.replace("-", "").replace("_", "").lower()
+            cred_key = None
+            for cred_supplier in available_creds.keys():
+                if cred_supplier.replace("-", "").replace("_", "").lower() == supplier_key:
+                    cred_key = cred_supplier
+                    break
+            
+            if cred_key and available_creds[cred_key]:
+                try:
+                    # Check if supplier is already configured
+                    existing_config = None
+                    try:
+                        existing_config = config_service.get_supplier_config(supplier_name)
+                    except:
+                        # Supplier not found, which is fine - we'll create it
+                        pass
+                    
+                    if not existing_config:
+                        # Auto-create supplier configuration
+                        supplier_info = get_supplier(supplier_name).get_supplier_info()
+                        config_data = {
+                            "supplier_name": supplier_name,
+                            "display_name": supplier_info.display_name,
+                            "description": supplier_info.description,
+                            "api_type": "rest",
+                            "base_url": getattr(supplier_info, 'website_url', 'https://api.example.com'),
+                            "enabled": True,
+                            "capabilities": [cap.value for cap in get_supplier(supplier_name).get_capabilities()]
+                        }
+                        config_service.create_supplier_config(config_data)
+                        print(f"Auto-configured supplier: {supplier_name} (found credentials: {list(available_creds[cred_key])})")
+                    else:
+                        print(f"Supplier {supplier_name} already configured")
+                except Exception as supplier_error:
+                    print(f"Failed to auto-configure supplier {supplier_name}: {supplier_error}")
+        
+        print("Supplier auto-initialization completed!")
+    except Exception as e:
+        print(f"Failed to auto-initialize suppliers: {e}")
+        # Don't fail startup if supplier initialization fails
+    
+    # Start the task worker (after all setup is complete)
+    print("Starting task worker...")
+    asyncio.create_task(task_service.start_worker())
+    print("Task worker started!")
+    
+    # Start WebSocket ping task
+    print("Starting WebSocket ping task...")
+    asyncio.create_task(start_ping_task())
+    print("WebSocket service started!")
+    
     # Restore printers from database
     print("Restoring printers from database...")
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         persistence_service = get_printer_persistence_service()
         restored_printers = await persistence_service.restore_printers_from_database()
         print(f"Restored {len(restored_printers)} printers from database: {restored_printers}")
@@ -160,16 +218,6 @@ task_permissions = {
     "/security/validate": "tasks:create"
 }
 
-enrichment_permissions = {
-    "/capabilities": "enrichment:read",
-    "/capabilities/{supplier_name}": "enrichment:read",
-    "/capabilities/find/{capability_type}": "enrichment:read",
-    "/tasks/part": "enrichment:create",
-    "/tasks/bulk": "enrichment:create",
-    "/queue/status": "enrichment:read",
-    "/queue/cancel/{task_id}": "enrichment:update",
-    "/queue/cancel-all": "enrichment:update"
-}
 
 supplier_config_permissions = {
     "/suppliers": {
@@ -217,6 +265,13 @@ rate_limit_permissions = {
     "/initialize": "rate_limits:admin"
 }
 
+credential_permissions = {
+    "/suppliers/{supplier_name}/credentials": "supplier_config:credentials",
+    "/suppliers/{supplier_name}/credentials/status": "supplier_config:read",
+    "/suppliers/{supplier_name}/credentials/test": "supplier_config:credentials",
+    "/suppliers/{supplier_name}/credentials/test-existing": "supplier_config:read"
+}
+
 
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
@@ -239,11 +294,15 @@ secure_all_routes(ai_routes.router)
 secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
 secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
-secure_all_routes(supplier_routes.router, permissions=supplier_permissions)
+secure_all_routes(
+    supplier_routes.router, 
+    permissions=supplier_permissions,
+    exclude_paths=["/{supplier_name}/oauth/callback"]  # OAuth callbacks must be public
+)
+secure_all_routes(supplier_credentials_routes.router, permissions=credential_permissions)
 secure_all_routes(rate_limit_routes.router, permissions=rate_limit_permissions)
 secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
-secure_all_routes(enrichment_routes.router, permissions=enrichment_permissions)
 
 # Public routes that don't need authentication
 public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
@@ -262,11 +321,12 @@ app.include_router(import_routes.router, prefix="/api/import")
 app.include_router(task_routes.router, prefix="/api/tasks")
 app.include_router(supplier_config_routes.router, prefix="/api/suppliers/config", tags=["Supplier Configuration"])
 app.include_router(supplier_routes.router, prefix="/api/suppliers", tags=["Suppliers"])
+app.include_router(supplier_credentials_routes.router, prefix="/api", tags=["Supplier Credentials"])
 app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
 app.include_router(analytics_routes.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
-app.include_router(enrichment_routes.router, prefix="/api/enrichment")
 app.include_router(websocket_routes.router, tags=["WebSocket"])
+
 
 # Static file serving for React frontend
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
@@ -301,15 +361,27 @@ else:
         return {"message": "Welcome to MakerMatrix API - Frontend not built yet"}
 
 if __name__ == "__main__":
-    # Load printer config at startup
-    try:
-        printer_service = PrinterService(PrinterRepository())
-        printer_service.load_printer_config()
-        print("Printer configuration loaded on startup.")
-    except FileNotFoundError:
-        print("No config file found. Using default printer configuration.")
-    except Exception as e:
-        print(f"Error loading configuration: {e}")
-
-    # Start the FastAPI server
-    uvicorn.run(app, host='0.0.0.0', port=8080)
+    # HTTPS Configuration
+    import ssl
+    
+    def run_with_https():
+        """Run the application with HTTPS support"""
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain("certs/cert.pem", "certs/key.pem")
+        
+        uvicorn.run(
+            "MakerMatrix.main:app",
+            host="0.0.0.0",
+            port=8443,
+            ssl_keyfile="certs/key.pem",
+            ssl_certfile="certs/cert.pem",
+            reload=False  # Disable reload for HTTPS
+        )
+    
+    import os
+    if os.getenv("HTTPS_ENABLED", "false").lower() == "true":
+        print(f"🔒 Starting MakerMatrix with HTTPS on port 8443")
+        run_with_https()
+    else:
+        print("🌐 Starting MakerMatrix with HTTP on port 8080")
+        uvicorn.run("MakerMatrix.main:app", host="0.0.0.0", port=8080, reload=True)

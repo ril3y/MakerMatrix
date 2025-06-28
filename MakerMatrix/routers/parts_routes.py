@@ -7,15 +7,16 @@ from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, R
 from MakerMatrix.schemas.part_create import PartCreate, PartUpdate
 from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
-from MakerMatrix.services.category_service import CategoryService
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.category_service import CategoryService
+from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.models.models import PartModel
-from MakerMatrix.services.part_service import PartService
-from MakerMatrix.dependencies.auth import get_current_user, require_permission
-from MakerMatrix.services.supplier_config_service import SupplierConfigService
+from MakerMatrix.services.data.part_service import PartService
+from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.auth.guards import require_permission
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.suppliers.registry import get_available_suppliers
-from MakerMatrix.services.task_service import task_service
+from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority
 
 router = APIRouter()

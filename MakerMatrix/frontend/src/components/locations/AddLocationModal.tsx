@@ -127,8 +127,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
       if (imageFile) {
         try {
           setUploadingImage(true)
-          const uploadResult = await utilityService.uploadImage(imageFile)
-          imageUrl = `/utility/get_image/${uploadResult.image_id}.${imageFile.name.split('.').pop()}`
+          imageUrl = await utilityService.uploadImage(imageFile)
         } catch (error) {
           toast.error('Failed to upload image')
           return

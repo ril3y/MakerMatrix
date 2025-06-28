@@ -15,7 +15,7 @@ from MakerMatrix.main import app
 from MakerMatrix.models.models import PartModel, CategoryModel, LocationModel, engine
 from MakerMatrix.models.order_models import OrderModel, OrderItemModel
 from MakerMatrix.database.db import create_db_and_tables
-from MakerMatrix.services.auth_service import AuthService
+from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 

@@ -1,15 +1,16 @@
-from typing import Optional, List
-from sqlmodel import Session, select
+from datetime import datetime
+from passlib.hash import pbkdf2_sha256
 from sqlalchemy.orm import joinedload
-from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
+from sqlmodel import Session, select
+from typing import Optional, List
+
 from MakerMatrix.models.models import engine
+from MakerMatrix.models.user_models import UserModel, RoleModel
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError,
     UserAlreadyExistsError,
     InvalidReferenceError
 )
-from passlib.hash import pbkdf2_sha256
-from datetime import datetime
 
 pwd_context = pbkdf2_sha256
 

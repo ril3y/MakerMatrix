@@ -79,7 +79,7 @@ class ActivityService:
     async def _broadcast_activity(self, activity: ActivityLogModel):
         """Broadcast activity to connected WebSocket clients using standardized schemas."""
         try:
-            from MakerMatrix.services.websocket_service import broadcast_message
+            from MakerMatrix.services.system.websocket_service import broadcast_message
             from MakerMatrix.schemas.websocket_schemas import create_entity_event_message
             
             # Create standardized WebSocket message

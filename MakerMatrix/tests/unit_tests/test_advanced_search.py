@@ -4,7 +4,7 @@ from sqlalchemy.pool import StaticPool
 
 from MakerMatrix.models.models import PartModel, CategoryModel, LocationModel, AdvancedPartSearch
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.services.part_service import PartService
+from MakerMatrix.services.data.part_service import PartService
 
 # Create test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
