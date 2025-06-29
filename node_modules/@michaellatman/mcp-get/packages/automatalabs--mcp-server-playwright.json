@@ -1,0 +1,10 @@
+{
+  "name": "@automatalabs/mcp-server-playwright",
+  "description": "MCP server for browser automation using Playwright",
+  "vendor": "Automata Labs (https://automatalabs.io)",
+  "sourceUrl": "https://github.com/Automata-Labs-team/MCP-Server-Playwright/tree/main",
+  "homepage": "https://github.com/Automata-Labs-team/MCP-Server-Playwright",
+  "runtime": "node",
+  "license": "MIT",
+  "environmentVariables": {}
+}

@@ -83,6 +83,57 @@ class PreviewService:
         
         return await printer_to_use.preview_label(combined_image, label_size)
     
+    async def preview_advanced_label(self, template: str, data: dict, label_size: str = "12",
+                                     label_length: Optional[int] = None, options: dict = None,
+                                     printer: Optional[PrinterInterface] = None) -> PreviewResult:
+        """Generate a preview of an advanced label with template processing."""
+        printer_to_use = printer or self.default_printer
+        if not printer_to_use:
+            raise ValueError("No printer available for preview generation")
+        
+        options = options or {}
+        
+        # Process template with data
+        processed_text = self._process_template(template, data)
+        
+        # Check if QR codes are requested
+        include_qr = options.get('include_qr', False)
+        qr_data_field = options.get('qr_data', 'part_number')
+        
+        if include_qr and qr_data_field in data:
+            # Generate combined image with QR code and text
+            qr_data_value = str(data[qr_data_field])
+            qr_image = self.qr_service.generate_qr_code(qr_data_value, size=(150, 150))
+            
+            # Create combined image
+            combined_image = self._create_combined_image(qr_image, processed_text, (400, 200))
+            return await printer_to_use.preview_label(combined_image, label_size)
+        else:
+            # Generate text only image
+            text_image = self._generate_text_image(processed_text, (400, 100))
+            return await printer_to_use.preview_label(text_image, label_size)
+    
+    def _process_template(self, template: str, data: dict) -> str:
+        """Process a template string by replacing placeholders with actual data."""
+        processed = template
+        
+        # Replace standard placeholders
+        for key, value in data.items():
+            placeholder = f"{{{key}}}"
+            processed = processed.replace(placeholder, str(value))
+        
+        # Handle QR codes in template (format: {qr=field_name})
+        import re
+        qr_matches = re.findall(r'\{qr=([^}]+)\}', processed)
+        for qr_field in qr_matches:
+            if qr_field in data:
+                qr_value = str(data[qr_field])
+                processed = processed.replace(f"{{qr={qr_field}}}", f"[QR:{qr_value}]")
+            else:
+                processed = processed.replace(f"{{qr={qr_field}}}", f"[QR:{qr_field}]")
+        
+        return processed
+    
     def get_available_label_sizes(self, printer: Optional[PrinterInterface] = None) -> List[LabelSize]:
         """Get available label sizes from the printer."""
         printer_to_use = printer or self.default_printer

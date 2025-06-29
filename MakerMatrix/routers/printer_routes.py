@@ -5,12 +5,45 @@ from pydantic import BaseModel
 import io
 
 from MakerMatrix.services.printer.printer_manager_service import printer_manager
-from MakerMatrix.services.printer.preview_service import preview_service
+from MakerMatrix.services.printer.preview_service import PreviewService
 from MakerMatrix.printers.base import PrinterStatus, PrinterCapability
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.auth.dependencies import get_current_user
 
 router = APIRouter()
+
+
+async def get_preview_service() -> PreviewService:
+    """Get a preview service with a default printer if available."""
+    try:
+        # Try to get a printer from the printer manager
+        printers = await printer_manager.list_printers()
+        if printers:
+            # Use the first available printer as default
+            first_printer = printers[0]
+            return PreviewService(first_printer)
+        else:
+            # Create a mock printer for preview if no real printers available
+            from MakerMatrix.printers.drivers.mock.driver import MockPrinter
+            mock_printer = MockPrinter(
+                printer_id="preview_mock",
+                name="Preview Mock Printer",
+                model="MockQL-800",
+                backend="mock",
+                identifier="mock://preview"
+            )
+            return PreviewService(mock_printer)
+    except Exception as e:
+        # Fallback to mock printer
+        from MakerMatrix.printers.drivers.mock.driver import MockPrinter
+        mock_printer = MockPrinter(
+            printer_id="preview_mock",
+            name="Preview Mock Printer", 
+            model="MockQL-800",
+            backend="mock",
+            identifier="mock://preview"
+        )
+        return PreviewService(mock_printer)
 
 
 # Request/Response models
@@ -206,7 +239,7 @@ async def get_driver_info(driver_type: str):
 async def list_printers():
     """Get list of all registered printers."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         
         print(f"[DEBUG] NEW list_printers endpoint called with persistence")
         print(f"[DEBUG] This is the updated version of the endpoint")
@@ -299,7 +332,7 @@ async def list_printers():
 async def get_printer_info(printer_id: str):
     """Get detailed information about a specific printer."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         
         printer = await printer_manager.get_printer(printer_id)
         if not printer:
@@ -367,7 +400,7 @@ async def get_printer_info(printer_id: str):
 async def update_printer(printer_id: str, update_data: PrinterRegistration):
     """Update an existing printer configuration."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.services.activity_service import get_activity_service
         from MakerMatrix.auth.dependencies import get_current_user_optional
         from MakerMatrix.schemas.response import ResponseSchema
@@ -438,7 +471,7 @@ async def update_printer(printer_id: str, update_data: PrinterRegistration):
 async def delete_printer(printer_id: str, request: Request = None):
     """Delete a registered printer."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.schemas.response import ResponseSchema
         from MakerMatrix.services.activity_service import get_activity_service
         from MakerMatrix.auth.dependencies import get_current_user_optional
@@ -523,7 +556,7 @@ async def test_printer_connection(printer_id: str, request: Request = None):
         # If printer not found in memory, try to restore from database first
         if not printer:
             print(f"Printer {printer_id} not found in memory, checking database...")
-            from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+            from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
             persistence_service = get_printer_persistence_service()
             
             # Try to restore all printers from database
@@ -592,7 +625,7 @@ async def test_printer_connection(printer_id: str, request: Request = None):
 async def register_printer(registration: PrinterRegistration, request: Request = None):
     """Register a new printer with persistence."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.services.activity_service import get_activity_service
         from MakerMatrix.auth.dependencies import get_current_user_optional
         
@@ -921,6 +954,63 @@ async def print_advanced_label(
 
 # Note: Preview endpoints have been moved to /api/preview/* in preview_routes.py
 # This consolidates all preview functionality in one place with better API design
+
+# Backward compatibility endpoints for frontend
+from fastapi.responses import StreamingResponse
+import io
+
+@router.post("/preview/text")
+async def preview_text_label_compat(
+    text: str = Body(...),
+    label_size: str = Body("12")
+):
+    """Preview a text label (backward compatibility endpoint)."""
+    try:
+        # Create a preview using the preview service
+        preview_svc = await get_preview_service()
+        result = await preview_svc.preview_text_label(text, label_size)
+        
+        # Return the image as a streaming response
+        return StreamingResponse(
+            io.BytesIO(result.image_data),
+            media_type="image/png",
+            headers={"Content-Disposition": "inline; filename=label_preview.png"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
+
+
+@router.post("/preview/advanced")
+async def preview_advanced_label_compat(request: AdvancedPreviewRequest):
+    """Preview an advanced label (backward compatibility endpoint)."""
+    try:
+        # Extract data from the request or use mock data for testing
+        data = request.data or {
+            'part_name': 'Test Part',
+            'part_number': 'TP-001', 
+            'location': 'A1-B2',
+            'category': 'Electronics',
+            'quantity': '10'
+        }
+        
+        # Create a preview using the preview service
+        preview_svc = await get_preview_service()
+        result = await preview_svc.preview_advanced_label(
+            template=request.template,
+            data=data,
+            label_size=request.label_size,
+            label_length=request.label_length,
+            options=request.options
+        )
+        
+        # Return the image as a streaming response
+        return StreamingResponse(
+            io.BytesIO(result.image_data),
+            media_type="image/png",
+            headers={"Content-Disposition": "inline; filename=advanced_label_preview.png"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate advanced preview: {str(e)}")
 
 
 

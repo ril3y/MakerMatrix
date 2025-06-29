@@ -57,10 +57,10 @@ class DigiKeySupplier(BaseSupplier):
             supports_multiple_environments=True,  # Supports both sandbox and production modes
             supported_file_types=["csv", "xls", "xlsx"]  # DigiKey exports in CSV format but files may have Excel extensions
         )
-    
+
     def get_capabilities(self) -> List[SupplierCapability]:
         """Get capabilities that DigiKey API supports"""
-        base_capabilities = [
+        return [
             SupplierCapability.SEARCH_PARTS,
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,

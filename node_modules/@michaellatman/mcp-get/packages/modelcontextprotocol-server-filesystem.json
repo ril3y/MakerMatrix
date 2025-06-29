@@ -1,0 +1,9 @@
+{
+  "name": "@modelcontextprotocol/server-filesystem",
+  "description": "MCP server for filesystem access",
+  "runtime": "node",
+  "vendor": "Anthropic",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT"
+}

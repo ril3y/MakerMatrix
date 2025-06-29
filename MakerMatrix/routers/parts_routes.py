@@ -14,7 +14,7 @@ from MakerMatrix.models.models import PartModel
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
-from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+
 from MakerMatrix.suppliers.registry import get_available_suppliers
 from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority

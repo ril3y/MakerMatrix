@@ -157,6 +157,26 @@
     box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.3);
   }
   
+  /* Fix dropdown positioning in modals */
+  select.input {
+    /* Ensure dropdown has proper space and doesn't get clipped */
+    position: relative;
+    /* Increase z-index to appear above modal elements */
+    z-index: 1001;
+  }
+  
+  /* Modal-specific fixes for select dropdowns */
+  .modal-container select.input {
+    /* Ensure the select has proper positioning context */
+    position: relative;
+    z-index: 1001;
+  }
+  
+  /* Ensure modal doesn't clip dropdown options */
+  .modal-container {
+    overflow: visible !important;
+  }
+  
   .input-sm {
     @apply h-8 px-2 py-1 text-xs;
   }

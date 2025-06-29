@@ -21,6 +21,9 @@
     "test:integration": "vitest run src/__tests__/integration/crud-flow.test.tsx",
     "test:unit": "npm run test:crud && npm run test:integration",
     "test:all": "npm run test:run && npm run test:e2e",
+    "test:supplier": "vitest run src/tests/integration/supplier-configuration.test.js",
+    "test:supplier:e2e": "jest --config src/tests/config/jest.e2e.config.js src/tests/e2e/supplier-workflow.e2e.test.js",
+    "test:supplier:all": "npm run test:supplier && npm run test:supplier:e2e",
     "playwright:install": "playwright install"
   },
   "dependencies": {
@@ -46,10 +49,17 @@
     "zustand": "^4.4.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.27.6",
+    "@babel/preset-env": "^7.27.6",
+    "@babel/preset-react": "^7.27.6",
     "@playwright/test": "^1.40.0",
     "@testing-library/jest-dom": "^6.1.0",
     "@testing-library/react": "^14.1.0",
     "@testing-library/user-event": "^14.5.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-node": "^29.7.0",
+    "puppeteer": "^21.11.0",
     "@types/node": "^24.0.3",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",

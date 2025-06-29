@@ -5,6 +5,7 @@ Defines the abstract interface that all supplier implementations must follow.
 This ensures consistency and makes it easy to add new suppliers.
 """
 
+
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Union, Callable
 from dataclasses import dataclass, field
@@ -187,66 +188,7 @@ class BaseSupplier(ABC):
                 self._rate_limit_service = None
         return self._rate_limit_service
     
-    def _track_api_call(self, endpoint_type: str):
-        """Decorator to track API calls with rate limiting and usage statistics"""
-        def decorator(func: Callable):
-            @functools.wraps(func)
-            async def wrapper(*args, **kwargs):
-                supplier_name = self.get_supplier_info().name
-                rate_service = self._get_rate_limit_service()
-                
-                if not rate_service:
-                    # If rate limiting service is not available, just call the function
-                    return await func(*args, **kwargs)
-                
-                start_time = time.time()
-                success = False
-                error_message = None
-                result = None
-                
-                try:
-                    # Check rate limits before making the request
-                    rate_status = await rate_service.check_rate_limit(supplier_name, endpoint_type)
-                    if not rate_status.get("allowed", True):
-                        from ..suppliers.exceptions import SupplierRateLimitError
-                        raise SupplierRateLimitError(
-                            f"Rate limit exceeded for {supplier_name}",
-                            supplier_name=supplier_name
-                        )
-                    
-                    # Make the actual API call
-                    result = await func(*args, **kwargs)
-                    success = True
-                    return result
-                    
-                except Exception as e:
-                    error_message = str(e)
-                    logger.error(f"API call failed for {supplier_name}.{endpoint_type}: {e}")
-                    raise
-                
-                finally:
-                    # Record the request regardless of success/failure
-                    try:
-                        response_time_ms = int((time.time() - start_time) * 1000)
-                        await rate_service.record_request(
-                            supplier_name=supplier_name,
-                            endpoint_type=endpoint_type,
-                            success=success,
-                            response_time_ms=response_time_ms,
-                            error_message=error_message,
-                            request_metadata={
-                                "method": func.__name__,
-                                "args_count": len(args),
-                                "kwargs_keys": list(kwargs.keys())
-                            }
-                        )
-                    except Exception as tracking_error:
-                        logger.error(f"Failed to record API usage: {tracking_error}")
-                        # Don't let tracking errors affect the main functionality
-                        pass
-            
-            return wrapper
-        return decorator
+    
     
     # ========== Supplier Information ==========
     
@@ -279,13 +221,15 @@ class BaseSupplier(ABC):
         
         Returns:
             List of FieldDefinition objects defining configuration options.
-            For suppliers with multiple configuration methods, return all options
-            and let the frontend handle showing appropriate fields based on user selection.
-        
-        Args:
-            **kwargs: Optional parameters for dynamic schema generation
         """
-        pass
+        # Find the default configuration option
+        default_option = next((opt for opt in self.get_configuration_options() if opt.is_default), None)
+        
+        # If no default, try to find the first option
+        if not default_option and self.get_configuration_options():
+            default_option = self.get_configuration_options()[0]
+            
+        return default_option.schema if default_option else []
     
     def get_configuration_options(self) -> List[ConfigurationOption]:
         """
@@ -307,23 +251,7 @@ class BaseSupplier(ABC):
             )
         ]
     
-    def get_configuration_options_dict(self) -> List[Dict[str, Any]]:
-        """
-        Get configuration options as dictionaries for backward compatibility.
-        
-        Returns configuration options in the legacy dictionary format.
-        """
-        options = []
-        for config_option in self.get_configuration_options():
-            options.append({
-                'name': config_option.name,
-                'label': config_option.label,
-                'description': config_option.description,
-                'schema': config_option.schema,
-                'is_default': config_option.is_default,
-                'requirements': config_option.requirements
-            })
-        return options
+    
     
     def validate_configuration_option(self, option_name: str, config_data: Dict[str, Any]) -> Dict[str, Any]:
         """

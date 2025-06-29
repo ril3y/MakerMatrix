@@ -1,0 +1,15 @@
+{
+  "name": "webflow-mcp-server",
+  "description": "Webflow MCP server to help users easily interact with Webflow sites, pages, and collections.",
+  "vendor": "Webflow Inc. (https://webflow.com)",
+  "sourceUrl": "https://github.com/webflow/mcp-server",
+  "homepage": "https://github.com/webflow/mcp-server",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {
+    "WEBFLOW_TOKEN": {
+      "description": "API key for Webflow API",
+      "required": true
+    }
+  }
+}

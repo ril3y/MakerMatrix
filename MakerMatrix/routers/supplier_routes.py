@@ -509,6 +509,62 @@ async def get_supplier_env_defaults(
 
 # ========== Configuration and Testing ==========
 
+class SupplierConfigSaveRequest(BaseModel):
+    supplier_name: str
+    display_name: str
+    description: str
+    api_type: str
+    base_url: str
+    enabled: bool
+    supports_datasheet: bool
+    supports_image: bool
+    supports_pricing: bool
+    supports_stock: bool
+    supports_specifications: bool
+    configuration: Dict[str, Any] = {}
+
+@router.post("/config/suppliers", response_model=ResponseSchema[Dict[str, Any]])
+async def save_supplier_configuration(
+    config_request: SupplierConfigSaveRequest,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Save supplier configuration"""
+    from MakerMatrix.models.models import engine
+    from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+    
+    try:
+        # Save configuration to database
+        config_service = SupplierConfigService()
+        
+        config_data = {
+            "supplier_name": config_request.supplier_name,
+            "display_name": config_request.display_name,
+            "description": config_request.description,
+            "api_type": config_request.api_type,
+            "base_url": config_request.base_url,
+            "enabled": config_request.enabled,
+            "supports_datasheet": config_request.supports_datasheet,
+            "supports_image": config_request.supports_image,
+            "supports_pricing": config_request.supports_pricing,
+            "supports_stock": config_request.supports_stock,
+            "supports_specifications": config_request.supports_specifications,
+            "configuration": config_request.configuration
+        }
+        
+        saved_config = config_service.create_supplier_config(config_data)
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Supplier configuration for {config_request.supplier_name} saved successfully",
+            data={
+                "supplier_name": saved_config.supplier_name,
+                "enabled": saved_config.enabled,
+                "configuration": saved_config.configuration
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save supplier configuration: {str(e)}")
+
 @router.post("/{supplier_name}/test", response_model=ResponseSchema[Dict[str, Any]])
 async def test_supplier_connection(
     supplier_name: str,
@@ -994,3 +1050,171 @@ async def handle_oauth_callback(
             content=content
         )
     )
+
+
+# ========== Frontend Compatibility Endpoints ==========
+# These endpoints provide compatibility with the existing frontend
+# that expects /config/suppliers paths
+
+@router.get("/config/suppliers", response_model=ResponseSchema[List[Dict[str, Any]]])
+async def get_supplier_configs(
+    enabled_only: bool = Query(False, description="Return only enabled suppliers"),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get all supplier configurations (frontend compatibility endpoint)"""
+    from MakerMatrix.models.models import engine
+    from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+    
+    try:
+        # Get saved configurations from database
+        config_service = SupplierConfigService()
+        saved_configs = config_service.get_all_supplier_configs(enabled_only=enabled_only)
+        
+        # The service already returns dictionaries, so we can use them directly
+        # but need to format for frontend compatibility
+        supplier_configs = []
+        for config_dict in saved_configs:
+            # Build capabilities array from boolean flags
+            capabilities = []
+            if config_dict.get("supports_datasheet", False):
+                capabilities.append("fetch_datasheet")
+            if config_dict.get("supports_image", False):
+                capabilities.append("fetch_image")
+            if config_dict.get("supports_pricing", False):
+                capabilities.append("fetch_pricing")
+            if config_dict.get("supports_stock", False):
+                capabilities.append("fetch_stock")
+            if config_dict.get("supports_specifications", False):
+                capabilities.append("fetch_specifications")
+            
+            frontend_config = {
+                "id": config_dict.get("supplier_name"),
+                "supplier_name": config_dict.get("supplier_name"),
+                "display_name": config_dict.get("display_name"),
+                "description": config_dict.get("description"),
+                "enabled": config_dict.get("enabled", True),
+                "api_type": config_dict.get("api_type", "rest"),
+                "base_url": config_dict.get("base_url"),
+                "capabilities": capabilities,  # Add capabilities array for frontend
+                "supports_datasheet": config_dict.get("supports_datasheet", False),
+                "supports_image": config_dict.get("supports_image", False),
+                "supports_pricing": config_dict.get("supports_pricing", False),
+                "supports_stock": config_dict.get("supports_stock", False),
+                "supports_specifications": config_dict.get("supports_specifications", False),
+                "configuration": config_dict.get("configuration", {}),
+                "timeout_seconds": config_dict.get("timeout_seconds", 30),
+                "max_retries": config_dict.get("max_retries", 3),
+                "retry_backoff": config_dict.get("retry_backoff", 1.0),
+                "custom_headers": config_dict.get("custom_headers", {}),
+                "custom_parameters": config_dict.get("custom_parameters", {}),
+                "created_at": config_dict.get("created_at"),
+                "updated_at": config_dict.get("updated_at")
+            }
+            supplier_configs.append(frontend_config)
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved {len(supplier_configs)} supplier configurations",
+            data=supplier_configs
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get supplier configurations: {str(e)}"
+        )
+
+
+@router.get("/config/suppliers/{supplier_name}", response_model=ResponseSchema[Dict[str, Any]])
+async def get_supplier_config(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get specific supplier configuration (frontend compatibility endpoint)"""
+    try:
+        supplier = SupplierRegistry.get_supplier(supplier_name)
+        info = supplier.get_supplier_info()
+        
+        # Convert to frontend expected format
+        config = {
+            "id": supplier_name,
+            "supplier_name": supplier_name,
+            "display_name": info.get("display_name", supplier_name.title()),
+            "description": info.get("description", ""),
+            "enabled": True,
+            "capabilities": info.get("capabilities", []),
+            "api_type": "rest",
+            "base_url": info.get("website_url", ""),
+            "timeout_seconds": 30,
+            "max_retries": 3,
+            "retry_backoff": 1.0,
+            "custom_headers": {},
+            "custom_parameters": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved configuration for {supplier_name}",
+            data=config
+        )
+        
+    except SupplierNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Supplier '{supplier_name}' not found"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get supplier configuration: {str(e)}"
+        )
+
+
+@router.get("/config/suppliers/{supplier_name}/capabilities", response_model=ResponseSchema[List[str]])
+async def get_supplier_config_capabilities(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get supplier capabilities (frontend compatibility endpoint)"""
+    try:
+        supplier = SupplierRegistry.get_supplier(supplier_name)
+        info = supplier.get_supplier_info()
+        
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved capabilities for {supplier_name}",
+            data=info.get("capabilities", [])
+        )
+        
+    except SupplierNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Supplier '{supplier_name}' not found"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get supplier capabilities: {str(e)}"
+        )
+
+
+@router.get("/config/suppliers/{supplier_name}/credential-fields", response_model=ResponseSchema[List[FieldDefinitionResponse]])
+async def get_supplier_credential_fields_compat(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get supplier credential fields (frontend compatibility endpoint)"""
+    # Delegate to existing endpoint
+    return await get_supplier_credentials_schema(supplier_name, current_user)
+
+
+@router.get("/config/suppliers/{supplier_name}/config-fields", response_model=ResponseSchema[List[FieldDefinitionResponse]])
+async def get_supplier_config_fields_compat(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get supplier configuration fields (frontend compatibility endpoint)"""
+    # Delegate to existing endpoint
+    return await get_supplier_config_schema(supplier_name, current_user)

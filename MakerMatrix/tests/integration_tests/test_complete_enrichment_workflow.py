@@ -17,7 +17,7 @@ from sqlmodel import create_engine, SQLModel
 from unittest.mock import Mock, AsyncMock
 
 from MakerMatrix.services.rate_limit_service import RateLimitService
-from MakerMatrix.services.enrichment_queue_manager import EnrichmentQueueManager
+
 from MakerMatrix.models.rate_limiting_models import (
     SupplierRateLimitModel,
     SupplierUsageTrackingModel,

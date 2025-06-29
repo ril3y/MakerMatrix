@@ -7,7 +7,7 @@ import pytest
 import json
 from unittest.mock import Mock, patch
 
-from MakerMatrix.services.enrichment_task_handlers import EnrichmentTaskHandlers
+
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.models import engine

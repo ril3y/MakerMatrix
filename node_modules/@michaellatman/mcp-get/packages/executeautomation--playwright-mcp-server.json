@@ -1,0 +1,10 @@
+{
+  "name": "@executeautomation/playwright-mcp-server",
+  "description": "A Model Context Protocol server for Playwright for Browser Automation and Web Scraping.",
+  "vendor": "ExecuteAutomation, Ltd (https://executeautomation.com)",
+  "sourceUrl": "https://github.com/executeautomation/mcp-playwright/tree/main/src",
+  "homepage": "https://github.com/executeautomation/mcp-playwright",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

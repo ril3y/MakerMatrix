@@ -4,8 +4,9 @@
  * Simple modal explaining how to configure supplier credentials via environment variables.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Shield, AlertCircle, ExternalLink } from 'lucide-react';
+import { dynamicSupplierService } from '../../services/dynamic-supplier.service';
 
 interface CredentialsModalProps {
   supplierName: string;
@@ -14,21 +15,26 @@ interface CredentialsModalProps {
 }
 
 export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName, onClose, onSuccess }) => {
-  const getEnvironmentVariables = (supplier: string) => {
-    const upperSupplier = supplier.toUpperCase();
-    switch (upperSupplier) {
-      case 'LCSC':
-        return [];
-      case 'DIGIKEY':
-        return ['DIGIKEY_API_KEY', 'DIGIKEY_SECRET_KEY'];
-      case 'MOUSER':
-        return ['MOUSER_API_KEY'];
-      default:
-        return [`${upperSupplier}_API_KEY`];
-    }
-  };
+  const [envVars, setEnvVars] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const envVars = getEnvironmentVariables(supplierName);
+  useEffect(() => {
+    const fetchEnvVars = async () => {
+      try {
+        setLoading(true);
+        const schema = await dynamicSupplierService.getCredentialSchema(supplierName);
+        const varNames = schema.map(field => `${supplierName.toUpperCase()}_${field.name.toUpperCase()}`);
+        setEnvVars(varNames);
+      } catch (error) {
+        console.error('Failed to fetch credential schema:', error);
+        setEnvVars([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEnvVars();
+  }, [supplierName]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

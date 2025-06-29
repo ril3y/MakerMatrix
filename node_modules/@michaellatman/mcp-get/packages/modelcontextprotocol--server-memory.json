@@ -1,0 +1,10 @@
+{
+  "name": "@modelcontextprotocol/server-memory",
+  "description": "MCP server for enabling memory for Claude through a knowledge graph",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/memory",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

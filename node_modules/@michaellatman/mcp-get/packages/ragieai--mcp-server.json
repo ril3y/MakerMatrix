@@ -1,0 +1,15 @@
+{
+  "name": "@ragieai/mcp-server",
+  "description": "Retrieve context from your Ragie knowledge base connected to integrations like Google Drive, Notion, JIRA and more.",
+  "runtime": "node",
+  "vendor": "Ragie",
+  "sourceUrl": "https://github.com/ragieai/ragie-mcp-server",
+  "homepage": "https://github.com/ragieai/ragie-mcp-server",
+  "license": "MIT",
+  "environmentVariables": {
+    "RAGIE_API_KEY": {
+      "description": "API key for Ragie",
+      "required": true
+    }
+  }
+}

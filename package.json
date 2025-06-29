@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@michaellatman/mcp-get": "^1.0.115"
+  }
+}

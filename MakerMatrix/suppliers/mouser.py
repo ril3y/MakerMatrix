@@ -86,6 +86,7 @@ class MouserSupplier(BaseSupplier):
             )
         ]
     
+    
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """
         Get configuration schema for Mouser supplier.

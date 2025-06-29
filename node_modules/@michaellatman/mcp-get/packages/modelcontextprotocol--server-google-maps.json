@@ -1,0 +1,15 @@
+{
+  "name": "@modelcontextprotocol/server-google-maps",
+  "description": "MCP server for using the Google Maps API",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/google-maps",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {
+    "GOOGLE_MAPS_API_KEY": {
+      "description": "API key for Google Maps services",
+      "required": true
+    }
+  }
+}

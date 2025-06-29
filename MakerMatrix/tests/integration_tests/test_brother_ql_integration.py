@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from MakerMatrix.printers.drivers.brother_ql import BrotherQLModern
-from MakerMatrix.services.modern_printer_service import ModernPrinterService
+
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.printers.base import PrinterStatus, PrinterCapability
 

@@ -17,7 +17,7 @@ from unittest.mock import Mock, AsyncMock, patch
 from sqlmodel import Session, select
 
 from MakerMatrix.services.rate_limit_service import RateLimitService
-from MakerMatrix.services.enrichment_queue_manager import EnrichmentQueueManager, EnrichmentPriority
+
 from MakerMatrix.models.rate_limiting_models import (
     SupplierRateLimitModel,
     SupplierUsageTrackingModel

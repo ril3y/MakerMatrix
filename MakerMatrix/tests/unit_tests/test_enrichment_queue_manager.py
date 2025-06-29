@@ -11,13 +11,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, AsyncMock, patch
 from sqlmodel import Session, create_engine, SQLModel
 
-from MakerMatrix.services.enrichment_queue_manager import (
-    EnrichmentQueueManager,
-    SupplierQueue,
-    EnrichmentTask,
-    EnrichmentPriority,
-    EnrichmentStatus
-)
+
 from MakerMatrix.services.rate_limit_service import RateLimitService
 from MakerMatrix.models.rate_limiting_models import SupplierRateLimitModel
 

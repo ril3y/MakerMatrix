@@ -367,7 +367,7 @@ const DynamicPrinterModal = ({ isOpen, onClose, mode, existingPrinter, onSuccess
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-background-primary rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto"
+        className="modal-container bg-background-primary rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-6">
           <h4 className="text-xl font-semibold text-primary">

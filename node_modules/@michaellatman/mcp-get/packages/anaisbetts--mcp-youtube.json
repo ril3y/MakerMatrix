@@ -1,0 +1,10 @@
+{
+  "name": "@anaisbetts/mcp-youtube",
+  "description": "MCP server for fetching YouTube subtitles",
+  "vendor": "Anaïs Betts (https://github.com/anaisbetts)",
+  "sourceUrl": "https://github.com/anaisbetts/mcp-youtube",
+  "homepage": "https://github.com/anaisbetts/mcp-youtube",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

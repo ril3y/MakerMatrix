@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, HelpCircle, ExternalLink, Info } from 'lucide-react';
 import { FieldDefinition, SupplierInfo } from '../../services/dynamic-supplier.service';
 import { SupplierTestResult } from '../../components/suppliers/SupplierTestResult';
+import { FormField } from '../../components/shared/FormField';
 
 interface DynamicSupplierConfigFormProps {
   supplierName: string;
@@ -417,7 +418,12 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {field.label} {field.required && <span className="text-red-500">*</span>}
                 </label>
-                {renderField(field, config[field.name], (value) => handleConfigChange(field.name, value))}
+                <FormField
+                  field={field}
+                  value={config[field.name]}
+                  onChange={(value) => handleConfigChange(field.name, value)}
+                  disabled={loading}
+                />
                 {field.help_text && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {field.help_text}

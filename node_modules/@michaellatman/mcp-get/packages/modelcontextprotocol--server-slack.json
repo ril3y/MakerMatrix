@@ -1,0 +1,19 @@
+{
+  "name": "@modelcontextprotocol/server-slack",
+  "description": "MCP server for interacting with Slack",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/slack",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {
+    "SLACK_BOT_TOKEN": {
+      "description": "Slack Bot User OAuth Token (starts with xoxb-)",
+      "required": true
+    },
+    "SLACK_TEAM_ID": {
+      "description": "Slack Team/Workspace ID",
+      "required": true
+    }
+  }
+}

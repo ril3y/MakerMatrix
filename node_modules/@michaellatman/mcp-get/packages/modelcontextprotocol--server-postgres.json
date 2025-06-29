@@ -1,0 +1,10 @@
+{
+  "name": "@modelcontextprotocol/server-postgres",
+  "description": "MCP server for interacting with PostgreSQL databases",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/postgres",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

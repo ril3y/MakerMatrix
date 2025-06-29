@@ -1,0 +1,10 @@
+{
+  "name": "mcp-solver",
+  "description": "MCP server for Constraint Solving and Optimization",
+  "vendor": "Stefan Szeider",
+  "sourceUrl": "https://github.com/szeider/mcp-solver",
+  "homepage": "https://github.com/szeider/mcp-solver",
+  "license": "MIT",
+  "runtime": "python",
+  "environmentVariables": {}
+}

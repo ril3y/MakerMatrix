@@ -1,0 +1,10 @@
+{
+  "name": "mcp-shell",
+  "description": "An MCP server for your shell",
+  "vendor": "High Dimensional Research (https://hdr.is)",
+  "sourceUrl": "https://github.com/hdresearch/mcp-shell",
+  "homepage": "https://github.com/hdresearch/mcp-shell",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

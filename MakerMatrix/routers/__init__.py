@@ -14,9 +14,7 @@ from . import (
     websocket_routes,
     analytics_routes,
     activity_routes,
-    supplier_config_routes,
     supplier_routes,
-    supplier_credentials_routes,
     rate_limit_routes,
     
 )
@@ -36,8 +34,6 @@ __all__ = [
     "websocket_routes",
     "analytics_routes",
     "activity_routes",
-    "supplier_config_routes",
     "supplier_routes",
-    "supplier_credentials_routes",
     "rate_limit_routes"
 ]

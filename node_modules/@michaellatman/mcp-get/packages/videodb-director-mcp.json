@@ -1,0 +1,15 @@
+{
+  "name": "videodb-director-mcp",
+  "description": "Unlock Intelligent Video Processing with VideoDB MCP",
+  "vendor": "VideoDB",
+  "sourceUrl": "https://github.com/video-db/agent-toolkit/tree/main/modelcontextprotocol",
+  "homepage": "https://videodb.io/mcp-users",
+  "license": "Apache 2.0",
+  "runtime": "python",
+  "environmentVariables": {
+    "VIDEODB_API_KEY": {
+      "description": "The VideoDB API key required to connect to the VideoDB service. You can get one by logging into https://console.videodb.io",
+      "required": true
+    }
+  }
+}

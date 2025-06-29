@@ -1,0 +1,19 @@
+{
+  "name": "@modelcontextprotocol/server-gitlab",
+  "description": "MCP server for using the GitLab API",
+  "vendor": "GitLab, PBC (https://gitlab.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/gitlab",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {
+    "GITLAB_PERSONAL_ACCESS_TOKEN": {
+      "description": "Personal access token for GitLab API access",
+      "required": true
+    },
+    "GITLAB_API_URL": {
+      "description": "GitLab API URL (optional, for self-hosted instances)",
+      "required": false
+    }
+  }
+}

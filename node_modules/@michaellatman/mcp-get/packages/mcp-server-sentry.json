@@ -1,0 +1,10 @@
+{
+  "name": "mcp-server-sentry",
+  "description": "MCP server for retrieving issues from sentry.io",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/sentry",
+  "homepage": "https://github.com/modelcontextprotocol/servers",
+  "license": "MIT",
+  "runtime": "python",
+  "environmentVariables": {}
+}

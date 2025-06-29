@@ -15,9 +15,9 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
-    utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes, 
-    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, 
-    supplier_credentials_routes, rate_limit_routes
+    utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
+    websocket_routes, analytics_routes, activity_routes, supplier_routes,
+    rate_limit_routes
 )
 from MakerMatrix.services.printer.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -59,60 +59,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Failed to initialize rate limiting: {e}")
         # Don't fail startup if rate limiting initialization fails
-    
-    # Auto-initialize suppliers with environment credentials
-    print("Auto-initializing suppliers with environment credentials...")
-    try:
-        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-        from MakerMatrix.utils.env_credentials import list_available_env_credentials
-        from MakerMatrix.suppliers.registry import get_available_suppliers, get_supplier
-        
-        config_service = SupplierConfigService()
-        available_creds = list_available_env_credentials()
-        available_suppliers = get_available_suppliers()
-        
-        for supplier_name in available_suppliers:
-            # Check if we have credentials for this supplier
-            supplier_key = supplier_name.replace("-", "").replace("_", "").lower()
-            cred_key = None
-            for cred_supplier in available_creds.keys():
-                if cred_supplier.replace("-", "").replace("_", "").lower() == supplier_key:
-                    cred_key = cred_supplier
-                    break
-            
-            if cred_key and available_creds[cred_key]:
-                try:
-                    # Check if supplier is already configured
-                    existing_config = None
-                    try:
-                        existing_config = config_service.get_supplier_config(supplier_name)
-                    except:
-                        # Supplier not found, which is fine - we'll create it
-                        pass
-                    
-                    if not existing_config:
-                        # Auto-create supplier configuration
-                        supplier_info = get_supplier(supplier_name).get_supplier_info()
-                        config_data = {
-                            "supplier_name": supplier_name,
-                            "display_name": supplier_info.display_name,
-                            "description": supplier_info.description,
-                            "api_type": "rest",
-                            "base_url": getattr(supplier_info, 'website_url', 'https://api.example.com'),
-                            "enabled": True,
-                            "capabilities": [cap.value for cap in get_supplier(supplier_name).get_capabilities()]
-                        }
-                        config_service.create_supplier_config(config_data)
-                        print(f"Auto-configured supplier: {supplier_name} (found credentials: {list(available_creds[cred_key])})")
-                    else:
-                        print(f"Supplier {supplier_name} already configured")
-                except Exception as supplier_error:
-                    print(f"Failed to auto-configure supplier {supplier_name}: {supplier_error}")
-        
-        print("Supplier auto-initialization completed!")
-    except Exception as e:
-        print(f"Failed to auto-initialize suppliers: {e}")
-        # Don't fail startup if supplier initialization fails
     
     # Start the task worker (after all setup is complete)
     print("Starting task worker...")
@@ -218,26 +164,6 @@ task_permissions = {
     "/security/validate": "tasks:create"
 }
 
-
-supplier_config_permissions = {
-    "/suppliers": {
-        "GET": "supplier_config:read",
-        "POST": "supplier_config:create"
-    },
-    "/suppliers/{supplier_name}": {
-        "GET": "supplier_config:read",
-        "PUT": "supplier_config:update",
-        "DELETE": "supplier_config:delete"
-    },
-    "/suppliers/{supplier_name}/test": "supplier_config:read",
-    "/suppliers/{supplier_name}/capabilities": "supplier_config:read",
-    "/credentials": "supplier_config:credentials",
-    "/credentials/{supplier_name}": "supplier_config:credentials",
-    "/import": "supplier_config:import",
-    "/export": "supplier_config:export",
-    "/initialize-defaults": "supplier_config:create"
-}
-
 supplier_permissions = {
     "/": "suppliers:read",
     "/info": "suppliers:read",
@@ -265,14 +191,6 @@ rate_limit_permissions = {
     "/initialize": "rate_limits:admin"
 }
 
-credential_permissions = {
-    "/suppliers/{supplier_name}/credentials": "supplier_config:credentials",
-    "/suppliers/{supplier_name}/credentials/status": "supplier_config:read",
-    "/suppliers/{supplier_name}/credentials/test": "supplier_config:credentials",
-    "/suppliers/{supplier_name}/credentials/test-existing": "supplier_config:read"
-}
-
-
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
     "/login",
@@ -293,13 +211,11 @@ secure_all_routes(user_management_routes.router)
 secure_all_routes(ai_routes.router)
 secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
-secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
 secure_all_routes(
     supplier_routes.router, 
     permissions=supplier_permissions,
     exclude_paths=["/{supplier_name}/oauth/callback"]  # OAuth callbacks must be public
 )
-secure_all_routes(supplier_credentials_routes.router, permissions=credential_permissions)
 secure_all_routes(rate_limit_routes.router, permissions=rate_limit_permissions)
 secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
@@ -319,9 +235,7 @@ app.include_router(user_management_routes.router, prefix="/api/users", tags=["Us
 app.include_router(ai_routes.router, prefix="/api/ai", tags=["AI Configuration"])
 app.include_router(import_routes.router, prefix="/api/import")
 app.include_router(task_routes.router, prefix="/api/tasks")
-app.include_router(supplier_config_routes.router, prefix="/api/suppliers/config", tags=["Supplier Configuration"])
 app.include_router(supplier_routes.router, prefix="/api/suppliers", tags=["Suppliers"])
-app.include_router(supplier_credentials_routes.router, prefix="/api", tags=["Supplier Credentials"])
 app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
 app.include_router(analytics_routes.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])

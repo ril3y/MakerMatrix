@@ -1,0 +1,10 @@
+{
+  "name": "@modelcontextprotocol/server-sequential-thinking",
+  "description": "MCP server for sequential thinking and problem solving",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/sequentialthinking",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

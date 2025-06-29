@@ -59,13 +59,24 @@ try:
                 
             self.manager.log_message("system", f"📝 Python file changed: {rel_path}", "CHANGE")
             
-            # Only handle restart if backend is running and auto-restart is enabled
-            if self.manager.backend_status == "Running" and self.manager.auto_restart_enabled:
-                self._schedule_restart()
-            elif self.manager.backend_status == "Running" and not self.manager.auto_restart_enabled:
-                self.manager.log_message("system", "📁 File changed but auto-restart disabled (press 'r' to enable)", "INFO")
+            # Handle restart/start based on backend status and auto-restart setting
+            if self.manager.auto_restart_enabled:
+                if self.manager.backend_status == "Running":
+                    # Backend is running - schedule a restart
+                    self._schedule_restart()
+                elif self.manager.backend_status in ["Stopped", "Failed", "Error"]:
+                    # Backend is not running - start it
+                    self.manager.log_message("system", f"📁 File changed and backend is {self.manager.backend_status} - starting backend...", "INFO")
+                    self._schedule_start()
+                else:
+                    # Backend is in some other state (Starting, etc.)
+                    self.manager.log_message("system", f"📁 File changed but backend is {self.manager.backend_status} - waiting for current operation to complete", "INFO")
             else:
-                self.manager.log_message("system", f"📁 File changed but no restart scheduled: backend_status='{self.manager.backend_status}', auto_restart_enabled={self.manager.auto_restart_enabled}", "INFO")
+                # Auto-restart is disabled
+                if self.manager.backend_status == "Running":
+                    self.manager.log_message("system", "📁 File changed but auto-restart disabled (press 'r' to enable)", "INFO")
+                else:
+                    self.manager.log_message("system", f"📁 File changed but auto-restart disabled and backend is {self.manager.backend_status} (press 'r' to enable auto-restart)", "INFO")
         
         def _schedule_restart(self):
             """Schedule a debounced restart - waits for 5 seconds of quiet before restarting"""
@@ -82,6 +93,24 @@ try:
             
             # Schedule the restart
             self.restart_timer = threading.Timer(self.debounce_delay, self._execute_restart)
+            self.restart_timer.daemon = True
+            self.restart_timer.start()
+        
+        def _schedule_start(self):
+            """Schedule a debounced start - waits for 5 seconds of quiet before starting"""
+            # Cancel any existing timer
+            if self.restart_timer:
+                self.restart_timer.cancel()
+            
+            # If this is the first change in this batch, log it
+            if not self.pending_restart:
+                self.pending_restart = True
+                self.manager.log_message("system", f"⏱️ Backend start scheduled in {self.debounce_delay} seconds (will wait for file changes to settle)", "INFO")
+            else:
+                self.manager.log_message("system", f"⏱️ Start timer reset - waiting {self.debounce_delay} more seconds for changes to settle", "INFO")
+            
+            # Schedule the start (reuse the same timer and flag)
+            self.restart_timer = threading.Timer(self.debounce_delay, self._execute_start)
             self.restart_timer.daemon = True
             self.restart_timer.start()
         
@@ -104,14 +133,33 @@ try:
             else:
                 self.manager.log_message("system", f"⏹️ Restart cancelled - backend_status='{self.manager.backend_status}', auto_restart_enabled={self.manager.auto_restart_enabled}", "INFO")
         
+        def _execute_start(self):
+            """Execute the actual start after debounce period"""
+            self.pending_restart = False
+            self.restart_timer = None
+            
+            # Log current status for debugging
+            self.manager.log_message("system", f"🔍 Start check: backend_status='{self.manager.backend_status}', auto_restart_enabled={self.manager.auto_restart_enabled}", "INFO")
+            
+            # Double-check that backend is still not running and auto-restart is still enabled
+            if self.manager.backend_status in ["Stopped", "Failed", "Error"] and self.manager.auto_restart_enabled:
+                self.manager.log_message("system", "🚀 Debounce period complete - executing auto-start now", "INFO")
+                try:
+                    # Use a separate thread for the actual start to avoid blocking the timer
+                    threading.Thread(target=self.manager.start_backend, daemon=True).start()
+                except Exception as e:
+                    self.manager.log_message("system", f"❌ Failed to start backend thread: {e}", "ERROR")
+            else:
+                self.manager.log_message("system", f"⏹️ Start cancelled - backend_status='{self.manager.backend_status}', auto_restart_enabled={self.manager.auto_restart_enabled}", "INFO")
+        
         def cancel_pending_restart(self):
-            """Cancel any pending restart"""
+            """Cancel any pending restart or start operation"""
             if self.restart_timer:
                 self.restart_timer.cancel()
                 self.restart_timer = None
             if self.pending_restart:
                 self.pending_restart = False
-                self.manager.log_message("system", "⏹️ Pending restart cancelled", "INFO")
+                self.manager.log_message("system", "⏹️ Pending restart/start operation cancelled", "INFO")
 
 except ImportError:
     WATCHDOG_AVAILABLE = False
@@ -214,7 +262,14 @@ class EnhancedServerManager:
         # Initialize file watching for Python files
         self.file_observer = None
         self.auto_restart_enabled = True
+        self.auto_start_enabled = os.getenv("AUTO_START_SERVERS", "true").lower() == "true"
         self._setup_file_watching()
+        
+        # Auto-start servers if enabled
+        if self.auto_start_enabled:
+            self.log_message("system", "🚀 Auto-starting servers...", "INFO")
+            # Use threading to avoid blocking initialization
+            threading.Thread(target=self._auto_start_servers, daemon=True).start()
     
     def _setup_file_watching(self):
         """Set up file watching for Python files"""
@@ -238,6 +293,26 @@ class EnhancedServerManager:
                 
         except Exception as e:
             self.log_message("system", f"❌ Failed to setup file watching: {e}", "ERROR")
+    
+    def _auto_start_servers(self):
+        """Auto-start both backend and frontend servers"""
+        try:
+            # Wait a moment for initialization to complete
+            time.sleep(2)
+            
+            self.log_message("system", "Starting backend server...", "INFO")
+            self.start_backend()
+            
+            # Wait a bit for backend to start before starting frontend
+            time.sleep(3)
+            
+            self.log_message("system", "Starting frontend server...", "INFO")
+            self.start_frontend()
+            
+            self.log_message("system", "✅ Auto-start sequence completed", "SUCCESS")
+            
+        except Exception as e:
+            self.log_message("system", f"❌ Error during auto-start: {e}", "ERROR")
     
     def _get_local_ip(self):
         """Get the local IP address for network access"""
@@ -329,13 +404,48 @@ class EnhancedServerManager:
                 self.log_message("system", f"Unexpected error killing process {proc_info}: {e}", "ERROR")
     
     def _write_to_log_file(self, log_entry: LogEntry):
-        """Write a log entry to the file"""
+        """Write a log entry to the file with automatic rollover at 1MB"""
         try:
+            # Check if log file needs rollover (1MB = 1048576 bytes)
+            max_log_size = 1024 * 1024  # 1MB
+            
+            if self.log_file_path.exists() and self.log_file_path.stat().st_size > max_log_size:
+                self._rollover_log_file()
+            
             with open(self.log_file_path, 'a', encoding='utf-8') as f:
                 f.write(f"{log_entry.get_file_line()}\n")
                 f.flush()
         except Exception:
             pass  # Silently fail to avoid disrupting UI
+    
+    def _rollover_log_file(self):
+        """Rollover log file when it gets too large"""
+        try:
+            # Keep up to 3 old log files
+            old_logs_to_keep = 3
+            
+            # Shift existing backup files
+            for i in range(old_logs_to_keep - 1, 0, -1):
+                old_file = Path(f"{self.log_file_path}.{i}")
+                new_file = Path(f"{self.log_file_path}.{i + 1}")
+                if old_file.exists():
+                    if new_file.exists():
+                        new_file.unlink()  # Remove oldest backup
+                    old_file.rename(new_file)
+            
+            # Move current log to .1
+            if self.log_file_path.exists():
+                backup_file = Path(f"{self.log_file_path}.1")
+                if backup_file.exists():
+                    backup_file.unlink()
+                self.log_file_path.rename(backup_file)
+            
+            # Re-initialize the log file with session header
+            self._init_log_file()
+            
+        except Exception as e:
+            # Log rollover failed, but don't disrupt the application
+            pass
     
     def log_message(self, service: str, message: str, level: str = "INFO"):
         """Enhanced log message handling"""
@@ -769,12 +879,14 @@ class EnhancedServerManager:
         
         auto_restart_status = "ON" if self.auto_restart_enabled else "OFF"
         auto_restart_color = self.term.green if self.auto_restart_enabled else self.term.red
+        auto_start_status = "ON" if self.auto_start_enabled else "OFF"
+        auto_start_color = self.term.green if self.auto_start_enabled else self.term.red
         
         controls = [
             f"{self.term.green}1{self.term.normal}:Start Backend  {self.term.green}2{self.term.normal}:Stop Backend   {self.term.green}3{self.term.normal}:Start Frontend  {self.term.green}4{self.term.normal}:Stop Frontend  {self.term.green}5{self.term.normal}:Both",
             f"{self.term.green}6{self.term.normal}:Stop All      {self.term.green}7{self.term.normal}:Restart BE     {self.term.green}8{self.term.normal}:Restart FE      {self.term.green}9{self.term.normal}:Build Frontend",
             f"{self.term.green}H{self.term.normal}:HTTP Mode      {self.term.green}S{self.term.normal}:HTTPS Mode     {self.term.green}v{self.term.normal}:Switch View    {self.term.green}e{self.term.normal}:Errors Only    {self.term.green}c{self.term.normal}:Clear Logs     {self.term.green}s{self.term.normal}:Search",
-            f"{self.term.green}a{self.term.normal}:Auto-scroll   {self.term.green}r{self.term.normal}:Auto-restart({auto_restart_color}{auto_restart_status}{self.term.normal})   {self.term.green}h{self.term.normal}:Health Check   {self.term.green}↑↓/jk{self.term.normal}:Scroll   {self.term.green}q{self.term.normal}:Quit"
+            f"{self.term.green}a{self.term.normal}:Auto-scroll   {self.term.green}r{self.term.normal}:Auto-restart({auto_restart_color}{auto_restart_status}{self.term.normal})   {self.term.green}t{self.term.normal}:Auto-start({auto_start_color}{auto_start_status}{self.term.normal})   {self.term.green}h{self.term.normal}:Health Check   {self.term.green}q{self.term.normal}:Quit"
         ]
         
         for i, control in enumerate(controls):
@@ -937,6 +1049,11 @@ class EnhancedServerManager:
             self.auto_restart_enabled = not self.auto_restart_enabled
             status = "enabled" if self.auto_restart_enabled else "disabled"
             self.log_message("system", f"📁 Auto-restart {status}", "INFO")
+        elif key == 't':
+            # Toggle auto-start
+            self.auto_start_enabled = not self.auto_start_enabled
+            status = "enabled" if self.auto_start_enabled else "disabled"
+            self.log_message("system", f"🚀 Auto-start {status}", "INFO")
         elif key == 'h':
             # Manual health check
             self._check_backend_health()
@@ -1168,13 +1285,14 @@ Usage: python dev_manager.py
 
 🚀 Enhanced Features:
   • Auto-kill stale processes on ports 57891 & 5173 at startup
+  • Smart auto-restart: restarts running servers OR starts stopped servers on file changes
   • Real-time server status monitoring with better error detection
   • Enhanced log management with 5000+ entry buffer
   • Advanced search and filtering capabilities  
   • Errors Only view (press 'e') for quick debugging
   • Improved scrolling with Home/End navigation
   • Better performance with selective screen updates
-  • Comprehensive file logging with timestamps
+  • Comprehensive file logging with automatic 1MB rollover (keeps 3 backups)
   • Lightweight with no API polling
   • Color-coded log levels and HMR detection
 

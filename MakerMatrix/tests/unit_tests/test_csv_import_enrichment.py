@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any, List
 import io
 
-from MakerMatrix.services.csv_import_service import CSVImportService
+
 from MakerMatrix.services.csv_import.base_parser import BaseCSVParser
 
 

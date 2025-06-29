@@ -1,0 +1,10 @@
+{
+  "name": "mcp-server-sqlite",
+  "description": "A simple SQLite MCP server",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/sqlite",
+  "homepage": "https://github.com/modelcontextprotocol/servers",
+  "license": "MIT",
+  "runtime": "python",
+  "environmentVariables": {}
+}

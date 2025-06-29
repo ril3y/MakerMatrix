@@ -1,0 +1,15 @@
+{
+  "name": "mcp-server-perplexity",
+  "description": "MCP Server for the Perplexity API",
+  "vendor": "tanigami",
+  "sourceUrl": "https://github.com/tanigami/mcp-server-perplexity",
+  "homepage": "https://github.com/tanigami/mcp-server-perplexity",
+  "license": "MIT",
+  "runtime": "python",
+  "environmentVariables": {
+    "PERPLEXITY_API_KEY": {
+      "description": "API key for Perplexity API access",
+      "required": true
+    }
+  }
+}

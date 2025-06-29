@@ -1,0 +1,9 @@
+{
+  "name": "@benborla29/mcp-server-mysql",
+  "description": "MCP server for interacting with MySQL databases based on Node",
+  "runtime": "node",
+  "vendor": "benborla",
+  "sourceUrl": "https://github.com/benborla/mcp-server-mysql",
+  "homepage": "https://github.com/benborla/mcp-server-mysql",
+  "license": "MIT"
+}

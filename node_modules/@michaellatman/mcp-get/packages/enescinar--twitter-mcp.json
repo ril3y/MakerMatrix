@@ -1,0 +1,27 @@
+{
+  "name": "@enescinar/twitter-mcp",
+  "description": "This MCP server allows Clients to interact with Twitter, enabling posting tweets and searching Twitter.",
+  "vendor": "Enes Çınar",
+  "sourceUrl": "https://github.com/EnesCinr/twitter-mcp",
+  "homepage": "https://github.com/EnesCinr/twitter-mcp",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {
+    "API_KEY": {
+      "description": "API key for X API",
+      "required": true
+    },
+    "API_SECRET_KEY": {
+      "description": "API secret key for X API",
+      "required": true
+    },
+    "ACCESS_TOKEN": {
+      "description": "API access token for X API",
+      "required": true
+    },
+    "ACCESS_TOKEN_SECRET": {
+      "description": "API access token secret for X API",
+      "required": true
+    }
+  }
+}

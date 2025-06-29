@@ -1,0 +1,10 @@
+{
+  "name": "@mcp-get-community/server-curl",
+  "description": "MCP server for making HTTP requests using a curl-like interface",
+  "vendor": "Michael Latman <https://michaellatman.com>",
+  "sourceUrl": "https://github.com/mcp-get/community-servers/blob/main/src/server-curl",
+  "homepage": "https://github.com/mcp-get-community/server-curl#readme",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

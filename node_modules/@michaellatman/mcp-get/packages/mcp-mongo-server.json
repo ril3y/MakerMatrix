@@ -1,0 +1,10 @@
+{
+  "name": "mcp-mongo-server",
+  "description": "A Model Context Protocol Server for MongoDB",
+  "vendor": "Muhammed Kılıç <kiliczsh>",
+  "sourceUrl": "https://github.com/kiliczsh/mcp-mongo-server",
+  "homepage": "https://github.com/kiliczsh/mcp-mongo-server",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

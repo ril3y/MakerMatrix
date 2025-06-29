@@ -1,0 +1,10 @@
+{
+  "name": "@modelcontextprotocol/server-puppeteer",
+  "description": "MCP server for browser automation using Puppeteer",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/puppeteer",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

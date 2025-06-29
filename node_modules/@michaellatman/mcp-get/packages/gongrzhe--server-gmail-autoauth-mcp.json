@@ -1,0 +1,9 @@
+{
+  "name": "@gongrzhe/server-gmail-autoauth-mcp",
+  "description": "Gmail MCP server with auto authentication support",
+  "runtime": "node",
+  "vendor": "gongrzhe",
+  "sourceUrl": "https://github.com/gongrzhe/server-gmail-autoauth-mcp",
+  "homepage": "https://github.com/gongrzhe/server-gmail-autoauth-mcp",
+  "license": "ISC"
+}

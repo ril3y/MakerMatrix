@@ -1,0 +1,10 @@
+{
+  "name": "@strowk/mcp-k8s",
+  "description": "MCP server connecting to Kubernetes",
+  "vendor": "Timur Sultanaev (https://str4.io/about-me)",
+  "sourceUrl": "https://github.com/strowk/mcp-k8s-go",
+  "homepage": "https://github.com/strowk/mcp-k8s-go",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

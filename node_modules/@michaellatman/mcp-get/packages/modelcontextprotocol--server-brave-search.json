@@ -1,0 +1,15 @@
+{
+  "name": "@modelcontextprotocol/server-brave-search",
+  "description": "MCP server for Brave Search API integration",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/brave-search",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {
+    "BRAVE_API_KEY": {
+      "description": "API key for Brave Search",
+      "required": true
+    }
+  }
+}

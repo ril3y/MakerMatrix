@@ -1,0 +1,10 @@
+{
+  "name": "@pollinations/model-context-protocol",
+  "description": "MCP server for image, audio, and text generation using Pollinations APIs.",
+  "vendor": "Pollinations.AI",
+  "sourceUrl": "https://github.com/pollinations/pollinations/tree/main/model-context-protocol",
+  "homepage": "https://github.com/pollinations/pollinations/tree/main/model-context-protocol",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

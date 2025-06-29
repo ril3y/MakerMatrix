@@ -1,0 +1,10 @@
+{
+  "name": "@modelcontextprotocol/server-gdrive",
+  "description": "MCP server for interacting with Google Drive",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/gdrive",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}

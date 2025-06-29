@@ -1,0 +1,10 @@
+{
+  "name": "qanon_mcp",
+  "description": "Enables search, exploration, and analysis of all QAnon posts/drops for sociological study",
+  "vendor": "Jack Kingsman",
+  "sourceUrl": "https://github.com/jkingsman/qanon-mcp-server",
+  "homepage": "https://github.com/jkingsman/qanon-mcp-server",
+  "license": "MIT",
+  "runtime": "python",
+  "environmentVariables": {}
+}

@@ -1,0 +1,10 @@
+{
+  "name": "mcp-server-time",
+  "description": "A Model Context Protocol server providing tools for time queries and timezone conversions for LLMs",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/time",
+  "homepage": "https://github.com/modelcontextprotocol/servers",
+  "license": "MIT",
+  "runtime": "python",
+  "environmentVariables": {}
+}

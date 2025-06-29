@@ -11,7 +11,7 @@ from unittest.mock import patch, Mock
 
 from MakerMatrix.models.models import PartModel, engine
 from MakerMatrix.models.task_models import TaskModel, TaskType, TaskPriority
-from MakerMatrix.services.enrichment_task_handlers import EnrichmentTaskHandlers
+
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.data.part_service import PartService
 

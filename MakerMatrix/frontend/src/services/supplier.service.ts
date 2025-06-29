@@ -300,37 +300,7 @@ export class SupplierService {
     return response.data.data;
   }
 
-  /**
-   * Get available supplier types (only suppliers with configuration files)
-   */
-  getAvailableSupplierTypes(): { name: string; display_name: string; description: string }[] {
-    return [
-      {
-        name: 'lcsc',
-        display_name: 'LCSC Electronics',
-        description: 'Chinese electronics component supplier with EasyEDA integration'
-      },
-      {
-        name: 'digikey',
-        display_name: 'DigiKey Electronics',
-        description: 'Global electronic components distributor with OAuth2 authentication'
-      },
-      {
-        name: 'mouser',
-        display_name: 'Mouser Electronics', 
-        description: 'Electronic component distributor with comprehensive inventory'
-      }
-    ];
-  }
-
-  /**
-   * Get supported capabilities - DEPRECATED: Use backend API endpoints instead
-   * @deprecated Use /api/suppliers/{supplier}/capabilities endpoint
-   */
-  getSupportedCapabilities(): { key: string; label: string; description: string }[] {
-    console.warn('getSupportedCapabilities is deprecated. Use backend API /api/suppliers/{supplier}/capabilities instead.');
-    return [];
-  }
+  
 
   /**
    * Validate supplier configuration

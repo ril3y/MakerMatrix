@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from sqlmodel import Session, select
 from MakerMatrix.database.db import get_session
-from MakerMatrix.services.csv_import_service import csv_import_service
+
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.models import PartModel, PartOrderSummary
 from MakerMatrix.models.order_models import OrderModel, OrderItemModel

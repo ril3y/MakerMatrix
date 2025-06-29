@@ -23,6 +23,7 @@ Frontend development server runs on `http://localhost:5173` by default.
 ### Development Environment
 
 - The back end and front end auto restart on save.
+- The server auto refreshes when python files are saved or changed. So does the front end unless the server is not running, no need to restart the server.
 
 ### Testing
 ```bash
@@ -288,3 +289,4 @@ Consider adding dead code analysis to pre-commit hooks for large refactoring PRs
 - Update this section when new tools or patterns are added
 - Document any project-specific false positive patterns
 - Keep configuration files in sync with project structure changes
+```

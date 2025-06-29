@@ -1,0 +1,10 @@
+{
+  "name": "@modelcontextprotocol/server-filesystem",
+  "description": "MCP server for filesystem access",
+  "vendor": "Anthropic, PBC (https://anthropic.com)",
+  "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem",
+  "homepage": "https://modelcontextprotocol.io",
+  "license": "MIT",
+  "runtime": "node",
+  "environmentVariables": {}
+}
