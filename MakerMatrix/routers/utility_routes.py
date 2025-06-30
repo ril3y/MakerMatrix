@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Base path for static files
-STATIC_BASE_PATH = Path(__file__).parent.parent / "static"
+STATIC_BASE_PATH = Path(__file__).parent.parent / "services" / "static"
 
 @router.post("/upload_image")
 async def upload_image(
@@ -88,14 +88,18 @@ async def get_image(
     image_id: str,
     current_user: UserModel = Depends(get_current_user)
 ):
+    import glob
+    
+    # Use absolute path - project root is /home/ril3y/MakerMatrix
+    uploaded_images_dir = Path("/home/ril3y/MakerMatrix/uploaded_images")
+    
     # First try with the image_id as-is (might include extension)
-    file_path = f"uploaded_images/{image_id}"
-    if os.path.exists(file_path):
-        return FileResponse(file_path)
+    file_path = uploaded_images_dir / image_id
+    if file_path.exists():
+        return FileResponse(str(file_path))
     
     # If not found, try to find the file with any extension
-    import glob
-    pattern = f"uploaded_images/{image_id}.*"
+    pattern = str(uploaded_images_dir / f"{image_id}.*")
     matching_files = glob.glob(pattern)
     
     if matching_files:
@@ -104,6 +108,29 @@ async def get_image(
     
     raise HTTPException(status_code=404, detail="Image not found")
 
+
+@router.get("/debug/server-info")
+async def debug_server_info():
+    """Debug endpoint to check server working directory and file paths"""
+    import glob
+    
+    current_dir = os.getcwd()
+    uploaded_images_exists = os.path.exists("uploaded_images")
+    uploaded_images_abs = os.path.abspath("uploaded_images") if uploaded_images_exists else None
+    
+    files_in_uploaded = []
+    if uploaded_images_exists:
+        try:
+            files_in_uploaded = os.listdir("uploaded_images")
+        except Exception as e:
+            files_in_uploaded = [f"Error: {e}"]
+    
+    return {
+        "current_working_directory": current_dir,
+        "uploaded_images_exists": uploaded_images_exists,
+        "uploaded_images_absolute_path": uploaded_images_abs,
+        "files_in_uploaded_images": files_in_uploaded
+    }
 
 @router.get("/get_counts")
 async def get_counts():
@@ -219,7 +246,7 @@ async def get_backup_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get backup status: {str(e)}")
 
-@router.get("/static/datasheets/{filename}")
+@router.api_route("/static/datasheets/{filename}", methods=["GET", "HEAD"])
 async def serve_datasheet(filename: str):
     """Serve component datasheets"""
     file_path = STATIC_BASE_PATH / "datasheets" / filename

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download, X, FileText, AlertCircle } from 'lucide-react';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
-// Set up the PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Use local PDF.js worker file
+pdfjs.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.mjs';
 
 interface PDFViewerProps {
   fileUrl: string;
@@ -19,8 +19,51 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
   const [scale, setScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfData, setPdfData] = useState<string | ArrayBuffer | null>(null);
+
+  useEffect(() => {
+    const fetchPdf = async () => {
+      // Check if this is a local API URL that needs authentication
+      if (fileUrl.startsWith('/api/') || fileUrl.startsWith('/utility/')) {
+        try {
+          setLoading(true);
+          setError(null);
+          
+          const token = localStorage.getItem('auth_token');
+          console.log('PDFViewer: Using token:', token ? `${token.substring(0, 20)}...` : 'null');
+          console.log('PDFViewer: Fetching URL:', fileUrl);
+          
+          const response = await fetch(fileUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          console.log('PDFViewer: ArrayBuffer received, size:', arrayBuffer.byteLength);
+          setPdfData(arrayBuffer);
+          setLoading(false);  // Important: Set loading to false after data is received
+          console.log('PDFViewer: Loading set to false, pdfData set');
+        } catch (err: any) {
+          console.error('Failed to fetch PDF:', err);
+          setError(`Failed to load PDF: ${err.message}`);
+          setLoading(false);
+        }
+      } else {
+        // External URL, use directly
+        setPdfData(fileUrl);
+      }
+    };
+    
+    fetchPdf();
+  }, [fileUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log('PDFViewer: Document loaded successfully, pages:', numPages);
     setNumPages(numPages);
     setLoading(false);
     setError(null);
@@ -62,13 +105,41 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
     setScale(prevScale => Math.max(0.5, Math.min(prevScale + scaleChange, 3.0)));
   };
 
-  const downloadFile = () => {
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadFile = async () => {
+    try {
+      let downloadUrl = fileUrl;
+      
+      // If it's a local API URL, we need to handle authentication
+      if (fileUrl.startsWith('/api/') || fileUrl.startsWith('/utility/')) {
+        const response = await fetch(fileUrl, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to download: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        downloadUrl = URL.createObjectURL(blob);
+      }
+      
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up blob URL if we created one
+      if (downloadUrl !== fileUrl) {
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download failed. Please try again.');
+    }
   };
 
   return (
@@ -161,6 +232,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
 
         {/* PDF Content */}
         <div className="flex-1 overflow-auto bg-gray-700 flex items-center justify-center p-4">
+          {console.log('PDFViewer render state:', { loading, error: !!error, pdfData: !!pdfData })}
           {loading && (
             <div className="text-center text-gray-300">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
@@ -182,10 +254,11 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
             </div>
           )}
 
-          {!loading && !error && (
+          {!loading && !error && pdfData && (
             <div className="pdf-container">
+              {console.log('PDFViewer: Rendering Document component with data:', typeof pdfData, pdfData instanceof ArrayBuffer ? `ArrayBuffer(${pdfData.byteLength})` : 'string')}
               <Document
-                file={fileUrl}
+                file={pdfData}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
                 loading={<div>Loading PDF...</div>}

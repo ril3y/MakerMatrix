@@ -44,6 +44,14 @@ class DigiKeySupplier(BaseSupplier):
         self._access_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
         self._refresh_token: Optional[str] = None
+    
+    def _normalize_url(self, url: str) -> str:
+        """Normalize protocol-relative URLs to use HTTPS"""
+        if not url:
+            return ""
+        if url.startswith("//"):
+            return f"https:{url}"
+        return url
         
     def get_supplier_info(self) -> SupplierInfo:
         return SupplierInfo(
@@ -640,19 +648,59 @@ class DigiKeySupplier(BaseSupplier):
                 print(f"DEBUG test_connection: authenticate() returned: {auth_result}")
                 
                 if auth_result:
-                    # Authentication successful! No need for OAuth browser flow
-                    success_response = {
-                        "success": True,
-                        "message": "DigiKey authentication successful - ready for API calls",
-                        "details": {
-                            "authentication_method": "client_credentials",
-                            "token_expires_in": getattr(self, '_token_expires_at', None),
-                            "api_ready": True,
-                            "no_browser_required": True
+                    # Authentication successful! Now test API subscription with a simple call
+                    try:
+                        # Test API subscription with a simple product search
+                        session = await self._get_session()
+                        headers = {
+                            'Authorization': f'Bearer {self._access_token}',
+                            'X-DIGIKEY-Client-Id': self._credentials.get('client_id'),
+                            'Content-Type': 'application/json'
                         }
-                    }
-                    print(f"DEBUG test_connection: Returning success response: {success_response}")
-                    return success_response
+                        
+                        # Try a simple API call to test subscription
+                        test_url = f"{self._get_base_url()}/products/v4/search/test/productdetails"
+                        async with session.get(test_url, headers=headers) as response:
+                            if response.status == 401 and "not subscribed to this API" in await response.text():
+                                return {
+                                    "success": False,
+                                    "message": "DigiKey API subscription required",
+                                    "details": {
+                                        "authentication": "successful",
+                                        "api_subscription": "required",
+                                        "error": "Your DigiKey developer account is not subscribed to the Product Information V4 API",
+                                        "action_required": "Subscribe to Product Information V4 API in DigiKey Developer Portal",
+                                        "portal_url": "https://developer.digikey.com"
+                                    }
+                                }
+                            
+                        # API subscription appears to be working (we might get 404 for test part, but that's ok)
+                        success_response = {
+                            "success": True,
+                            "message": "DigiKey authentication and API subscription verified - ready for enrichment",
+                            "details": {
+                                "authentication_method": "client_credentials",
+                                "token_expires_in": getattr(self, '_token_expires_at', None),
+                                "api_ready": True,
+                                "api_subscription": "verified",
+                                "no_browser_required": True
+                            }
+                        }
+                        print(f"DEBUG test_connection: Returning success response: {success_response}")
+                        return success_response
+                        
+                    except Exception as api_test_error:
+                        # Authentication worked but API test failed
+                        return {
+                            "success": False,
+                            "message": "DigiKey authentication successful but API test failed",
+                            "details": {
+                                "authentication": "successful", 
+                                "api_test": "failed",
+                                "error": str(api_test_error),
+                                "suggestion": "Check API subscription status in DigiKey Developer Portal"
+                            }
+                        }
                 else:
                     print("DEBUG test_connection: authenticate() returned False")
                     return {
@@ -829,8 +877,8 @@ class DigiKeySupplier(BaseSupplier):
                         manufacturer_part_number=product.manufacturer_part_number or "",
                         description=product.product_description or "",
                         category=product.category.value if product.category else "",
-                        datasheet_url=product.primary_datasheet or "",
-                        image_url=product.primary_photo or "",
+                        datasheet_url=self._normalize_url(product.primary_datasheet or ""),
+                        image_url=self._normalize_url(product.primary_photo or ""),
                         stock_quantity=product.quantity_available or 0,
                         pricing=[],  # We'll fetch pricing separately if needed
                         specifications={},  # We'll fetch specs separately if needed
@@ -850,62 +898,229 @@ class DigiKeySupplier(BaseSupplier):
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
         """Get detailed information about a specific part using DigiKey API"""
         async def _impl():
-            if not await self.authenticate():
+            logger.info(f"🔍 DigiKey get_part_details called with: {supplier_part_number}")
+            
+            auth_result = await self.authenticate()
+            logger.info(f"🔍 DigiKey authentication result: {auth_result}")
+            if not auth_result:
+                logger.error(f"❌ DigiKey authentication failed for part: {supplier_part_number}")
                 raise SupplierAuthenticationError("Authentication required", supplier_name="digikey")
             
+            logger.info(f"🔍 DigiKey API available: {DIGIKEY_API_AVAILABLE}")
             if not DIGIKEY_API_AVAILABLE:
+                logger.error(f"❌ DigiKey API library not available")
                 raise SupplierConfigurationError("DigiKey API library not available", supplier_name="digikey")
             
             try:
-                from digikey.v3.productinformation import ProductDetailsRequest
+                # Make direct API call using our authentication
+                session = await self._get_session()
+                headers = {
+                    'Authorization': f'Bearer {self._access_token}',
+                    'X-DIGIKEY-Client-Id': self._credentials.get('client_id'),
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'MakerMatrix/1.0'
+                }
                 
-                # Get detailed product information
-                details_request = ProductDetailsRequest(part=supplier_part_number)
-                result = digikey.product_details(body=details_request)
+                # Try the product details endpoint (might be included in Product Information V4)
+                search_url = f"{self._get_base_url()}/products/v4/search/{supplier_part_number}/productdetails"
                 
-                if result and result.product:
-                    product = result.product
-                    return PartSearchResult(
-                        supplier_part_number=product.digi_key_part_number or "",
-                        manufacturer=product.manufacturer.value if product.manufacturer else "",
-                        manufacturer_part_number=product.manufacturer_part_number or "",
-                        description=product.product_description or "",
-                        category=product.category.value if product.category else "",
-                        datasheet_url=product.primary_datasheet or "",
-                        image_url=product.primary_photo or "",
-                        stock_quantity=product.quantity_available or 0,
-                        pricing=self._extract_pricing(product),
-                        specifications=self._extract_specifications(product),
-                        additional_data={
-                            "detailed_description": product.detailed_description,
-                            "series": product.series.value if product.series else "",
-                            "packaging": product.packaging.value if product.packaging else "",
-                            "unit_price": product.unit_price,
-                            "minimum_quantity": product.minimum_quantity,
-                            "standard_package": product.standard_package
-                        }
-                    )
-                else:
-                    return None
+                async with session.get(search_url, headers=headers) as response:
+                    if response.status == 200:
+                        result_data = await response.json() or {}
+                        # Product details endpoint returns product directly
+                        product = result_data.get('Product')
+                        
+                        # Log successful API response retrieval
+                        logger.debug(f"🔍 DigiKey API Response keys: {list(result_data.keys()) if result_data else 'None'}")
+                        
+                        # Log successful data retrieval  
+                        if product:
+                            logger.info(f"✅ DigiKey retrieved part data for {supplier_part_number}: {product.get('ManufacturerProductNumber', 'Unknown MPN')}")
+                        else:
+                            logger.warning(f"⚠️ DigiKey: No product found in response for {supplier_part_number}")
+                        
+                        if product:
+                            # Extract nested data properly with null safety
+                            description_data = product.get("Description", {}) or {}
+                            manufacturer_data = product.get("Manufacturer", {}) or {}
+                            category_data = product.get("Category", {}) or {}
+                            series_data = product.get("Series", {}) or {}
+                            product_status = product.get("ProductStatus", {}) or {}
+                            classifications = product.get("Classifications", {}) or {}
+                            
+                            # Extract component type from category hierarchy
+                            category_name = category_data.get("Name", "") if category_data else ""
+                            component_type = self._determine_component_type_from_category(category_data)
+                            
+                            # Extract RoHS and lifecycle status from classifications and product status
+                            rohs_status = self._extract_rohs_status(classifications)
+                            lifecycle_status = self._extract_lifecycle_status(product_status, product)
+                            
+                            # Build rich additional_data with DigiKey-specific information
+                            # but exclude pricing (goes to PartPricingHistory table)
+                            additional_data = {
+                                # Core fields that can be mapped to PartModel top-level fields
+                                "component_type": component_type,
+                                "rohs_status": rohs_status,
+                                "lifecycle_status": lifecycle_status,
+                                
+                                # DigiKey-specific identifiers
+                                "digikey_part_number": supplier_part_number,
+                                "product_url": product.get("ProductUrl", ""),
+                                "base_product_number": product.get("BaseProductNumber", {}).get("Name", "") if product.get("BaseProductNumber") else "",
+                                
+                                # Detailed descriptions
+                                "detailed_description": description_data.get("DetailedDescription", ""),
+                                
+                                # Technical specifications from Parameters
+                                "series": series_data.get("Name", "") if series_data else "",
+                                "package_case": self._extract_package_from_parameters(product),
+                                "mounting_type": self._extract_mounting_type_from_parameters(product),
+                                "supplier_device_package": self._extract_supplier_device_package(product),
+                                
+                                # Manufacturing and lead times (no pricing here)
+                                "manufacturer_lead_weeks": int(product.get("ManufacturerLeadWeeks", 0)) if product.get("ManufacturerLeadWeeks") else 0,
+                                "factory_stock_availability": product.get("ManufacturerPublicQuantity", 0),
+                                "normally_stocking": product.get("NormallyStocking", False),
+                                "back_order_not_allowed": product.get("BackOrderNotAllowed", False),
+                                
+                                # DigiKey category hierarchy (helpful for part organization)
+                                "digikey_category_id": category_data.get("CategoryId") if category_data else None,
+                                "digikey_category_name": category_name,
+                                "digikey_parent_category": self._extract_parent_category_name(category_data),
+                                "digikey_subcategory": self._extract_subcategory_name(category_data),
+                                
+                                # Product status and lifecycle
+                                "product_status_id": product_status.get("Id") if product_status else None,
+                                "product_status_name": product_status.get("Status") if product_status else "",
+                                "discontinued": product.get("Discontinued", False),
+                                "end_of_life": product.get("EndOfLife", False),
+                                "date_last_buy_chance": product.get("DateLastBuyChance"),
+                                "ncnr": product.get("Ncnr", False),  # Non-Cancelable Non-Returnable
+                                
+                                # Compliance and certifications
+                                "reach_status": classifications.get("ReachStatus", ""),
+                                "moisture_sensitivity_level": classifications.get("MoistureSensitivityLevel", ""),
+                                "export_control_class_number": classifications.get("ExportControlClassNumber", ""),
+                                "htsus_code": classifications.get("HtsusCode", ""),
+                                
+                                # Media
+                                "primary_video_url": product.get("PrimaryVideoUrl"),
+                                
+                                # Alternative names and identifiers
+                                "other_names": product.get("OtherNames", []),
+                                
+                                # Data enrichment metadata
+                                "enrichment_source": "digikey_api_v4",
+                                "enrichment_timestamp": datetime.utcnow().isoformat(),
+                                "api_response_version": "v4"
+                            }
+                            
+                            # Remove None values and empty strings to keep additional_data clean
+                            additional_data = {k: v for k, v in additional_data.items() if v is not None and v != ""}
+                            
+                            return PartSearchResult(
+                                supplier_part_number=supplier_part_number,  # Use the requested part number
+                                manufacturer=manufacturer_data.get("Name", ""),
+                                manufacturer_part_number=product.get("ManufacturerProductNumber", ""),
+                                description=description_data.get("ProductDescription", ""),
+                                category=category_name,
+                                datasheet_url=self._normalize_url(product.get("DatasheetUrl", "")),
+                                image_url=self._normalize_url(product.get("PhotoUrl", "")),
+                                stock_quantity=product.get("QuantityAvailable", 0),
+                                pricing=self._extract_pricing_from_dict(product),
+                                specifications=self._extract_specifications_from_dict(product),
+                                additional_data=additional_data
+                            )
+                        else:
+                            logger.warning(f"🔍 DigiKey: No product found in response for {supplier_part_number}")
+                            return None
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"🔍 DigiKey API call failed: {response.status} - {error_text}")
+                        
+                        # Handle specific API subscription errors
+                        if response.status == 401 and "not subscribed to this API" in error_text:
+                            raise SupplierConfigurationError(
+                                "DigiKey API subscription required: Your DigiKey developer account is not subscribed to the Product Information V4 API. "
+                                "Please visit the DigiKey Developer Portal and subscribe to the Product Information V4 API to enable part enrichment.",
+                                supplier_name="digikey",
+                                details={
+                                    'error_type': 'api_subscription_required',
+                                    'api_name': 'Product Information V4',
+                                    'action_required': 'Subscribe to API in DigiKey Developer Portal'
+                                }
+                            )
+                        elif response.status == 401:
+                            raise SupplierAuthenticationError(
+                                f"DigiKey authentication failed: {error_text}",
+                                supplier_name="digikey"
+                            )
+                        else:
+                            raise SupplierConnectionError(
+                                f"DigiKey API error ({response.status}): {error_text}",
+                                supplier_name="digikey"
+                            )
                     
             except Exception as e:
                 raise SupplierConnectionError(f"DigiKey part details failed: {str(e)}", supplier_name="digikey")
         
         return await self._tracked_api_call("get_part_details", _impl)
     
+    def _extract_pricing_from_dict(self, product: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract pricing information from product dictionary"""
+        pricing = []
+        standard_pricing = product.get("StandardPricing", [])
+        
+        for price_break in standard_pricing:
+            pricing.append({
+                "quantity": price_break.get("BreakQuantity", 1),
+                "price": price_break.get("UnitPrice", 0.0),
+                "currency": "USD"
+            })
+        
+        return pricing
+    
+    def _extract_specifications_from_dict(self, product: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract specifications from product dictionary"""
+        specs = {}
+        parameters = product.get("Parameters", [])
+        
+        for param in parameters:
+            param_name = param.get("Parameter", "")
+            param_value = param.get("Value", "")
+            if param_name and param_value:
+                specs[param_name] = param_value
+        
+        return specs
+    
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:
         """Fetch datasheet URL for a part"""
         async def _impl():
+            logger.info(f"🔍 DigiKey fetch_datasheet called with part_number: {supplier_part_number}")
             part_details = await self.get_part_details(supplier_part_number)
-            return part_details.datasheet_url if part_details else None
+            logger.info(f"🔍 DigiKey get_part_details returned: {part_details is not None}")
+            if part_details:
+                logger.info(f"🔍 DigiKey datasheet_url: {part_details.datasheet_url}")
+                return part_details.datasheet_url
+            else:
+                logger.warning(f"❌ DigiKey get_part_details returned None for {supplier_part_number}")
+                return None
         
         return await self._tracked_api_call("fetch_datasheet", _impl)
     
     async def fetch_image(self, supplier_part_number: str) -> Optional[str]:
         """Fetch image URL for a part"""
         async def _impl():
+            logger.info(f"🔍 DigiKey fetch_image called with part_number: {supplier_part_number}")
             part_details = await self.get_part_details(supplier_part_number)
-            return part_details.image_url if part_details else None
+            logger.info(f"🔍 DigiKey get_part_details returned: {part_details is not None}")
+            if part_details:
+                logger.info(f"🔍 DigiKey image_url: {part_details.image_url}")
+                return part_details.image_url
+            else:
+                logger.warning(f"❌ DigiKey get_part_details returned None for {supplier_part_number}")
+                return None
         
         return await self._tracked_api_call("fetch_image", _impl)
     
@@ -1211,4 +1426,135 @@ class DigiKeySupplier(BaseSupplier):
                 error_message=f"Error importing DigiKey CSV: {str(e)}",
                 warnings=[traceback.format_exc()]
             )
+    
+    # ========== DigiKey V4 API Helper Methods ==========
+    
+    def _determine_component_type_from_category(self, category_data: Dict[str, Any]) -> str:
+        """Determine component type from DigiKey category hierarchy"""
+        if not category_data:
+            return ""
+        
+        category_name = category_data.get("Name", "").lower()
+        
+        # Map DigiKey categories to component types
+        category_mappings = {
+            "integrated circuits": "integrated_circuit",
+            "resistors": "resistor", 
+            "capacitors": "capacitor",
+            "inductors": "inductor",
+            "crystals": "crystal",
+            "connectors": "connector",
+            "sensors": "sensor",
+            "transistors": "transistor",
+            "diodes": "diode",
+            "switches": "switch",
+            "relays": "relay",
+            "transformers": "transformer",
+            "fuses": "fuse",
+            "leds": "led",
+            "displays": "display"
+        }
+        
+        for key, component_type in category_mappings.items():
+            if key in category_name:
+                return component_type
+        
+        # Check parent categories if available
+        child_categories = category_data.get("ChildCategories", [])
+        if child_categories:
+            for child in child_categories:
+                child_name = child.get("Name", "").lower()
+                for key, component_type in category_mappings.items():
+                    if key in child_name:
+                        return component_type
+        
+        return category_name.replace(" ", "_").lower()
+    
+    def _extract_rohs_status(self, classifications: Dict[str, Any]) -> str:
+        """Extract RoHS status from DigiKey classifications"""
+        if not classifications:
+            return ""
+        
+        rohs_status = classifications.get("RohsStatus", "")
+        
+        # Standardize DigiKey RoHS status values
+        if "compliant" in rohs_status.lower():
+            return "Compliant"
+        elif "exempt" in rohs_status.lower():
+            return "Exempt"
+        elif "non" in rohs_status.lower():
+            return "Non-Compliant"
+        
+        return rohs_status
+    
+    def _extract_lifecycle_status(self, product_status: Dict[str, Any], product: Dict[str, Any]) -> str:
+        """Extract lifecycle status from DigiKey product status and flags"""
+        if product.get("Discontinued", False):
+            return "Discontinued"
+        elif product.get("EndOfLife", False):
+            return "End of Life"
+        elif product_status.get("Status", "").lower() == "active":
+            return "Active"
+        elif product.get("DateLastBuyChance"):
+            return "Last Time Buy"
+        else:
+            return product_status.get("Status", "")
+    
+    def _extract_package_from_parameters(self, product: Dict[str, Any]) -> str:
+        """Extract package/case information from DigiKey parameters"""
+        parameters = product.get("Parameters", [])
+        
+        for param in parameters:
+            param_text = param.get("ParameterText", "").lower()
+            if "package" in param_text or "case" in param_text:
+                return param.get("ValueText", "")
+        
+        return ""
+    
+    def _extract_mounting_type_from_parameters(self, product: Dict[str, Any]) -> str:
+        """Extract mounting type from DigiKey parameters"""
+        parameters = product.get("Parameters", [])
+        
+        for param in parameters:
+            param_text = param.get("ParameterText", "").lower()
+            if "mounting" in param_text:
+                return param.get("ValueText", "")
+        
+        return ""
+    
+    def _extract_supplier_device_package(self, product: Dict[str, Any]) -> str:
+        """Extract supplier device package from DigiKey parameters"""
+        parameters = product.get("Parameters", [])
+        
+        for param in parameters:
+            param_text = param.get("ParameterText", "").lower()
+            if "supplier device package" in param_text:
+                return param.get("ValueText", "")
+        
+        return ""
+    
+    def _extract_parent_category_name(self, category_data: Dict[str, Any]) -> str:
+        """Extract parent category name from DigiKey category data"""
+        if not category_data:
+            return ""
+        
+        parent_id = category_data.get("ParentId", 0)
+        if parent_id == 0:
+            return ""  # This is a top-level category
+        
+        # For now, return empty - we'd need to map parent IDs to names
+        # This could be enhanced with a lookup table if needed
+        return ""
+    
+    def _extract_subcategory_name(self, category_data: Dict[str, Any]) -> str:
+        """Extract subcategory name from DigiKey category hierarchy"""
+        if not category_data:
+            return ""
+        
+        child_categories = category_data.get("ChildCategories", [])
+        if child_categories:
+            # Return the first subcategory name if available
+            return child_categories[0].get("Name", "")
+        
+        return ""
     
