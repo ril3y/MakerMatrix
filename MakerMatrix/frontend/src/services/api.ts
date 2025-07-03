@@ -1,7 +1,10 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios'
 import { toast } from 'react-hot-toast'
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://localhost:8443'
+// In development, use relative URLs to benefit from Vite proxy
+// In production, use the full API URL
+const isDevelopment = (import.meta as any).env?.DEV
+const API_BASE_URL = isDevelopment ? '' : ((import.meta as any).env?.VITE_API_URL || 'https://localhost:8443')
 
 export interface ApiResponse<T = any> {
   success: boolean

@@ -19,6 +19,11 @@ export function normalizeImageUrl(imageUrl: string | null | undefined): string |
     return url;
   }
   
+  // Handle API prefixed URLs (keep the /api prefix)
+  if (url.startsWith('/api/utility/get_image/')) {
+    return url;
+  }
+  
   // Legacy static URLs (backward compatibility)
   if (url.startsWith('/static/images/')) {
     return url;

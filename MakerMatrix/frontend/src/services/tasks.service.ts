@@ -67,9 +67,8 @@ export interface TaskType {
 class TasksService {
   private baseUrl = '/api/tasks'
 
-  async createTask(request: CreateTaskRequest): Promise<{ status: string; data: Task }> {
-    return apiClient.post(this.baseUrl, request)
-  }
+  // Custom task creation removed for security reasons
+  // Use specific quick task creation methods instead
 
   async getTasks(params?: {
     status?: string[]

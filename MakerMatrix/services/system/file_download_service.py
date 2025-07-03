@@ -16,8 +16,8 @@ class FileDownloadService:
     def __init__(self, download_config=None):
         self.base_path = Path(__file__).parent.parent / "static"
         self.datasheets_path = self.base_path / "datasheets"
-        # All images now use uploaded_images directory for consistency
-        self.uploaded_images_path = Path(__file__).parent.parent / "uploaded_images"
+        # Use images directory within static folder
+        self.uploaded_images_path = self.base_path / "images"
         
         # Store download configuration
         self.download_config = download_config or {}
@@ -42,9 +42,9 @@ class FileDownloadService:
         try:
             logger.info(f"Downloading datasheet for {part_number} from {url}")
             
-            # Generate UUID for filename if not provided
+            # Generate UUID for filename if not provided - use URL-based UUID for consistency
             if not file_uuid:
-                file_uuid = str(uuid.uuid4())
+                file_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
             
             # Determine file extension
             parsed_url = urlparse(url)
@@ -152,8 +152,13 @@ class FileDownloadService:
             elif 'webp' in url.lower():
                 extension = '.webp'
             
-            # Always use UUID-based filename for consistency
-            image_uuid = str(uuid.uuid4())
+            # Sanitize names for reference
+            safe_part_number = self._sanitize_filename(part_number)
+            safe_supplier = self._sanitize_filename(supplier) if supplier else "unknown"
+            
+            # Generate consistent UUID based on URL to avoid re-downloading
+            url_hash = hashlib.md5(url.encode()).hexdigest()
+            image_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
             filename = f"{image_uuid}{extension}"
             file_path = self.uploaded_images_path / filename
             
@@ -190,9 +195,9 @@ class FileDownloadService:
             elif 'webp' in content_type:
                 extension = '.webp'
             
-            # Update filename with correct extension
-            filename = f"{safe_supplier}_{safe_part_number}_image{extension}"
-            file_path = self.images_path / filename
+            # Update filename with correct extension (but keep UUID-based naming)
+            filename = f"{image_uuid}{extension}"
+            file_path = self.uploaded_images_path / filename
             
             # Save the file
             with open(file_path, 'wb') as f:
@@ -238,7 +243,7 @@ class FileDownloadService:
     
     def get_image_url(self, image_uuid: str) -> str:
         """Generate URL for serving images via utility API"""
-        return f"/utility/get_image/{image_uuid}"
+        return f"/api/utility/get_image/{image_uuid}"
     
     def get_datasheet_url(self, filename: str) -> str:
         """Generate URL for serving datasheets via static route"""

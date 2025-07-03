@@ -206,7 +206,7 @@ async def get_driver_info(driver_type: str):
 async def list_printers():
     """Get list of all registered printers."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         
         print(f"[DEBUG] NEW list_printers endpoint called with persistence")
         print(f"[DEBUG] This is the updated version of the endpoint")
@@ -299,7 +299,7 @@ async def list_printers():
 async def get_printer_info(printer_id: str):
     """Get detailed information about a specific printer."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         
         printer = await printer_manager.get_printer(printer_id)
         if not printer:
@@ -367,7 +367,7 @@ async def get_printer_info(printer_id: str):
 async def update_printer(printer_id: str, update_data: PrinterRegistration):
     """Update an existing printer configuration."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.services.activity_service import get_activity_service
         from MakerMatrix.auth.dependencies import get_current_user_optional
         from MakerMatrix.schemas.response import ResponseSchema
@@ -438,7 +438,7 @@ async def update_printer(printer_id: str, update_data: PrinterRegistration):
 async def delete_printer(printer_id: str, request: Request = None):
     """Delete a registered printer."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.schemas.response import ResponseSchema
         from MakerMatrix.services.activity_service import get_activity_service
         from MakerMatrix.auth.dependencies import get_current_user_optional
@@ -523,7 +523,7 @@ async def test_printer_connection(printer_id: str, request: Request = None):
         # If printer not found in memory, try to restore from database first
         if not printer:
             print(f"Printer {printer_id} not found in memory, checking database...")
-            from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+            from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
             persistence_service = get_printer_persistence_service()
             
             # Try to restore all printers from database
@@ -592,7 +592,7 @@ async def test_printer_connection(printer_id: str, request: Request = None):
 async def register_printer(registration: PrinterRegistration, request: Request = None):
     """Register a new printer with persistence."""
     try:
-        from MakerMatrix.services.printer_persistence_service import get_printer_persistence_service
+        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
         from MakerMatrix.services.activity_service import get_activity_service
         from MakerMatrix.auth.dependencies import get_current_user_optional
         

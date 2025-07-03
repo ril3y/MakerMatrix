@@ -76,12 +76,15 @@ export interface UpdatePartRequest extends Partial<CreatePartRequest> {
 }
 
 export interface SearchPartsRequest {
-  query?: string
+  search_term?: string
+  query?: string  // Keep for backward compatibility
   category?: string
   location_id?: string
   min_quantity?: number
   max_quantity?: number
   supplier?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
   page?: number
   page_size?: number
 }

@@ -528,24 +528,8 @@ Delete a user account.
 ### Task Management
 **Base Path:** `/tasks`
 
-#### POST /tasks/
-Create a new background task.
-
-**Request Body:**
-```json
-{
-  "task_type": "PART_ENRICHMENT",
-  "name": "string",
-  "description": "string",
-  "priority": "NORMAL",
-  "input_data": {},
-  "max_retries": 3,
-  "timeout_seconds": 300,
-  "scheduled_at": "2024-01-01T00:00:00Z",
-  "related_entity_type": "part",
-  "related_entity_id": "uuid"
-}
-```
+#### ~~POST /tasks/~~ (REMOVED)
+**SECURITY**: Custom task creation has been removed for security reasons. Use predefined quick task endpoints instead.
 
 #### GET /tasks/
 Get tasks with filtering options.
@@ -652,8 +636,8 @@ Get user's task permissions and allowed task types.
 #### GET /tasks/security/limits
 Get user's current task usage and limits.
 
-#### POST /tasks/security/validate
-Validate if a task can be created without creating it.
+#### ~~POST /tasks/security/validate~~ (REMOVED)
+**SECURITY**: Task validation endpoint removed along with custom task creation.
 
 ### Order File Import (CSV/XLS)
 **Base Path:** `/csv`

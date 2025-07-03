@@ -55,8 +55,19 @@ MakerMatrix/
 
 ### 4. Authentication & Authorization
 - **JWT Tokens**: Secure, stateless authentication
-- **Role-Based Access**: Admin, Manager, and User roles with granular permissions
-- **Permission System**: Fine-grained control (parts:create, parts:update, etc.)
+- **Role-Based Access**: Multi-tier role system with granular permissions
+  - **Admin**: Full system access including user management, system configuration
+  - **Manager**: Inventory management, order processing, task creation
+  - **User**: Standard inventory operations, parts CRUD, label printing
+  - **Read-Only**: View-only access to inventory, search, and reports
+- **Permission System**: Fine-grained control with hierarchical permissions
+  - `parts:read`, `parts:write`, `parts:delete`
+  - `categories:read`, `categories:write`, `categories:delete`
+  - `locations:read`, `locations:write`, `locations:delete`
+  - `orders:read`, `orders:write`, `orders:delete`
+  - `tasks:read`, `tasks:write`, `tasks:admin`
+  - `users:read`, `users:write`, `users:admin`
+  - `system:admin`, `system:config`
 - **Password Security**: Bcrypt hashing with configurable requirements
 
 ### 5. Label Printing System
@@ -77,18 +88,44 @@ MakerMatrix/
 - **Auto-Population**: Extract order date/number from filenames
 
 ### 7. Advanced Task-Based Enrichment System
-- **Multi-Vendor Support**: Parse data from major suppliers
-  - LCSC: Electronic components with specifications, datasheets, and EasyEDA integration
-  - Mouser: Component data, images, pricing, and availability
-  - DigiKey: Comprehensive parametric data and high-quality images
-  - BoltDepot: Hardware and fastener information
-- **EasyEDA Integration**: Fetch component details, footprints, and 3D models
-- **Capability-Based Enrichment**: Intelligent selection of available data sources
-  - Datasheet fetching from supplier APIs
-  - Product image retrieval for visual identification
-  - Real-time pricing and stock information
-  - Detailed technical specifications
-  - Component validation and verification
+- **Multi-Vendor Support**: Parse data from major suppliers with dynamic capability detection
+  - **LCSC**: Electronic components with specifications, datasheets, and EasyEDA integration
+    - Capabilities: `get_part_details`, `fetch_datasheet`, `fetch_specifications`, `fetch_image`, `import_orders`
+    - Rate limiting: Configurable (10-60 requests/minute) for responsible web scraping
+    - No authentication required - uses public EasyEDA API
+  - **Mouser**: Component data, images, pricing, and availability
+    - Capabilities: Full API suite with OAuth2 authentication
+    - Real-time pricing and stock information
+  - **DigiKey**: Comprehensive parametric data and high-quality images
+    - Capabilities: `search_parts`, `get_part_details`, `fetch_datasheet`, `fetch_image`, `fetch_pricing`, `fetch_stock`, `fetch_specifications`, `import_orders`
+    - Requires client credentials (OAuth2) for API access
+    - Fallback to CSV import only if API library unavailable
+  - **BoltDepot**: Hardware and fastener information
+    - Web scraping with rate limiting for hardware components
+- **Capability-Based Architecture**: Dynamic supplier capability detection and validation
+  - **SupplierCapability Enum**: Standardized capability definitions
+    - `SEARCH_PARTS`: Search supplier catalog by keywords
+    - `GET_PART_DETAILS`: Get detailed part information
+    - `FETCH_DATASHEET`: Download or link to part datasheets
+    - `FETCH_IMAGE`: Retrieve product images
+    - `FETCH_PRICING`: Get current pricing information
+    - `FETCH_STOCK`: Check inventory availability
+    - `FETCH_SPECIFICATIONS`: Get technical specifications
+    - `BULK_SEARCH`: Search multiple parts simultaneously
+    - `PARAMETRIC_SEARCH`: Advanced filtering by parameters
+    - `IMPORT_ORDERS`: Import order files (CSV, XLS, etc.)
+  - **Dynamic Capability Detection**: Suppliers declare their available capabilities based on:
+    - API library availability (e.g., DigiKey requires `digikey-api` package)
+    - Authentication status and credential validity
+    - Configuration completeness and API endpoint accessibility
+  - **Graceful Degradation**: Suppliers automatically fall back to limited capabilities when:
+    - Required dependencies are missing
+    - API credentials are invalid or expired
+    - Network connectivity issues prevent full API access
+- **EasyEDA Integration**: Direct integration with EasyEDA public API for LCSC components
+  - Fetch component details, specifications, and datasheet links
+  - Extract part images from LCSC product pages
+  - No authentication required - uses same API as EasyEDA web interface
 - **Comprehensive Background Task System**: Production-ready asynchronous processing
   - **Task Security Framework**: Role-based permissions (USER, POWER_USER, ADMIN, SYSTEM)
   - **Enhanced Parser Architecture**: Supplier capabilities system with modular design
@@ -100,26 +137,59 @@ MakerMatrix/
   - **API Integration**: RESTful endpoints for task creation, monitoring, and management
 
 ### 8. Modular Supplier Integration Architecture ✅
-- **✅ Modernized Supplier Registry System**: Clean architecture with new supplier registry
-  - Consolidated supplier system using `MakerMatrix.suppliers.registry`
-  - BaseSupplier interface with standardized capabilities and methods
-  - Supplier-specific implementations (LCSC, Mouser, DigiKey, BoltDepot)
-  - Dependency injection pattern for enhanced parsers and services
-- **✅ Updated Enhanced Parser System**: Refactored for new supplier architecture
-  - Enhanced LCSC Parser V2 with dependency injection
-  - Separated API communication from data parsing logic
-  - Capability-based enrichment with modular design
-  - Proper error handling and result transformation
-- **✅ Frontend Supplier Integration**: User interface for supplier management
-  - Supplier dropdown in AddPartModal using configured suppliers only
-  - Dynamic supplier service for frontend API communication
-  - Automatic supplier detection and configuration validation
-  - Real-time supplier capability checking
-- **✅ Updated Import and Enrichment Systems**: Full integration with new architecture
-  - Enhanced import service with new supplier system integration
-  - Updated CSV import service with proper supplier dependencies
-  - Rate limiting service integration for API protection
-  - Enrichment queue manager with priority-based processing
+- **✅ Modernized Supplier Registry System**: Clean architecture with dynamic supplier discovery
+  - **BaseSupplier Interface**: Abstract base class defining standard supplier contract
+    - Capability declaration through `get_capabilities()` method
+    - Dynamic configuration schema through `get_configuration_schema()`
+    - Credential requirement definitions through `get_capability_requirements()`
+    - Standardized authentication and connection testing
+    - Rate limiting and request tracking built-in
+  - **Registry Pattern**: Automatic supplier registration using `@register_supplier` decorator
+    - Suppliers auto-register on import with their capability declarations
+    - Dynamic supplier discovery and instantiation
+    - Configuration validation and credential requirement checking
+  - **Supplier Implementations**: Production-ready implementations for major suppliers
+    - **LCSC**: Web scraping with EasyEDA API integration, configurable rate limiting
+    - **DigiKey**: OAuth2 API with graceful degradation to CSV-only mode
+    - **Mouser**: Full API support with comprehensive part data
+    - **BoltDepot**: Hardware and fastener data with web scraping
+- **✅ Enhanced Configuration System**: Flexible supplier configuration with validation
+  - **Configuration Schema**: Dynamic field definitions with validation rules
+    - Field types: TEXT, PASSWORD, URL, NUMBER, BOOLEAN, SELECT, TEXTAREA
+    - Required/optional field declaration with defaults
+    - Validation rules (min/max values, regex patterns, etc.)
+    - Help text and user guidance for complex configurations
+  - **Multiple Configuration Options**: Suppliers can offer different configuration presets
+    - Standard vs. Conservative rate limiting for LCSC
+    - Production vs. Sandbox modes for API-based suppliers
+    - Different authentication methods per supplier capabilities
+  - **Credential Management**: Secure credential storage with capability requirements
+    - Field-level credential requirements per capability
+    - Encrypted storage of API keys and sensitive data
+    - Credential validation and expiration handling
+- **✅ Capability-Based Enrichment Engine**: Intelligent capability matching and execution
+  - **Capability Validation**: Pre-flight validation before task execution
+    - Check supplier declares requested capabilities
+    - Verify required credentials are present and valid
+    - Test API connectivity and authentication status
+  - **Graceful Fallback**: Automatic capability degradation for resilient operation
+    - DigiKey falls back to CSV import if API library unavailable
+    - LCSC adjusts rate limiting based on network conditions
+    - Error-specific capability disabling with user notification
+  - **Rate Limiting Integration**: Built-in rate limiting with supplier-specific rules
+    - Configurable requests per minute for web scraping suppliers
+    - API quota management for authenticated suppliers
+    - Automatic backoff and retry logic for rate limit errors
+- **✅ Frontend Integration**: Seamless UI integration with supplier capabilities
+  - **Dynamic Supplier Dropdown**: Only shows suppliers with valid configurations
+  - **Real-time Capability Checking**: UI updates based on current supplier status
+  - **Configuration Validation**: Immediate feedback on configuration completeness
+  - **Enrichment Progress**: Real-time updates during capability-based enrichment
+- **✅ Enhanced Import and Export Systems**: Full integration with supplier architecture
+  - **Multi-format Support**: CSV, XLS, XLSX with automatic supplier detection
+  - **Order Tracking Integration**: Link imported parts to supplier order history
+  - **Enrichment Queue**: Priority-based enrichment with capability-aware scheduling
+  - **Error Recovery**: Intelligent retry logic with capability-specific error handling
 
 ## API Endpoints
 
@@ -167,7 +237,6 @@ MakerMatrix/
 
 ### Background Task Management
 - `GET /api/tasks/` - List tasks with filtering and pagination
-- `POST /api/tasks/` - Create custom background task
 - `GET /api/tasks/{task_id}` - Get specific task details
 - `POST /api/tasks/{task_id}/cancel` - Cancel running task
 - `POST /api/tasks/{task_id}/retry` - Retry failed task
@@ -175,6 +244,8 @@ MakerMatrix/
 - `GET /api/tasks/worker/status` - Get task worker status
 - `POST /api/tasks/worker/start` - Start task worker (admin)
 - `POST /api/tasks/worker/stop` - Stop task worker (admin)
+
+**Note**: Custom task creation has been removed for security reasons. Only predefined quick task creation endpoints are available.
 
 ### Quick Task Creation
 - `POST /api/tasks/quick/part_enrichment` - Enrich individual part
@@ -191,7 +262,6 @@ MakerMatrix/
 - `GET /api/tasks/capabilities/find/{capability_type}` - Find suppliers with capability
 - `GET /api/tasks/security/permissions` - Get user task permissions
 - `GET /api/tasks/security/limits` - Get user task usage limits
-- `POST /api/tasks/security/validate` - Validate task creation
 
 ### Supplier Configuration Management (Planned)
 - `GET /api/config/suppliers` - Get all supplier configurations
@@ -230,8 +300,9 @@ MakerMatrix/
   - Active/inactive status
 
 - **RoleModel**: Authorization roles
-  - Configurable permissions
-  - Default roles: Admin, Manager, User
+  - Configurable permissions with hierarchical inheritance
+  - Default roles: Admin, Manager, User, Read-Only
+  - Role-based endpoint protection and data filtering
 
 ### Order Tracking Tables
 - **OrderModel**: Supplier order records
@@ -289,10 +360,50 @@ MakerMatrix/
 - Password complexity requirements
 
 ### Authorization
-- Role-based access control (RBAC)
-- Granular permission system
-- Endpoint-level security
-- Default deny policy
+- Role-based access control (RBAC) with hierarchical permissions
+- Granular permission system with capability-based access
+- Endpoint-level security with automatic role validation
+- Default deny policy with explicit permission grants
+
+#### Role Permission Matrix
+
+| Feature | Read-Only | User | Manager | Admin |
+|---------|-----------|------|---------|-------|
+| **Parts Management** |
+| View parts | ✅ | ✅ | ✅ | ✅ |
+| Search parts | ✅ | ✅ | ✅ | ✅ |
+| Add parts | ❌ | ✅ | ✅ | ✅ |
+| Edit parts | ❌ | ✅ | ✅ | ✅ |
+| Delete parts | ❌ | ❌ | ✅ | ✅ |
+| **Categories & Locations** |
+| View categories/locations | ✅ | ✅ | ✅ | ✅ |
+| Create categories/locations | ❌ | ✅ | ✅ | ✅ |
+| Edit categories/locations | ❌ | ✅ | ✅ | ✅ |
+| Delete categories/locations | ❌ | ❌ | ✅ | ✅ |
+| **Order Management** |
+| View orders | ✅ | ✅ | ✅ | ✅ |
+| Import CSV orders | ❌ | ✅ | ✅ | ✅ |
+| Create orders | ❌ | ❌ | ✅ | ✅ |
+| Delete orders | ❌ | ❌ | ✅ | ✅ |
+| **Tasks & Enrichment** |
+| View task status | ✅ | ✅ | ✅ | ✅ |
+| Create enrichment tasks | ❌ | ✅ | ✅ | ✅ |
+| Cancel own tasks | ❌ | ✅ | ✅ | ✅ |
+| Cancel any tasks | ❌ | ❌ | ✅ | ✅ |
+| Task worker management | ❌ | ❌ | ❌ | ✅ |
+| **User Management** |
+| View own profile | ✅ | ✅ | ✅ | ✅ |
+| Change own password | ✅ | ✅ | ✅ | ✅ |
+| View all users | ❌ | ❌ | ❌ | ✅ |
+| Create users | ❌ | ❌ | ❌ | ✅ |
+| Assign roles | ❌ | ❌ | ❌ | ✅ |
+| **System Administration** |
+| View system logs | ❌ | ❌ | ❌ | ✅ |
+| Configure suppliers | ❌ | ❌ | ❌ | ✅ |
+| Database backup/restore | ❌ | ❌ | ❌ | ✅ |
+| **Printing** |
+| Print labels | ❌ | ✅ | ✅ | ✅ |
+| Configure printers | ❌ | ❌ | ✅ | ✅ |
 
 ### Data Protection
 - SQL injection prevention via ORM
@@ -322,9 +433,30 @@ MakerMatrix/
 
 ### Educational Institution
 - Student project component allocation
-- Lab inventory management
+- Lab inventory management with role-based access
 - Usage tracking and reporting
 - Budget management integration
+- Read-only access for students to view available components
+
+### Multi-Role Scenarios
+
+#### Corporate Environment
+- **Admin**: IT administrators managing system configuration
+- **Manager**: Procurement managers handling orders and suppliers  
+- **User**: Engineers and technicians managing daily inventory
+- **Read-Only**: Auditors, accountants, and visitors viewing inventory data
+
+#### Shared Workshop/Makerspace
+- **Admin**: Facility managers with full access
+- **Manager**: Workshop coordinators managing tools and supplies
+- **User**: Members with creation and modification rights
+- **Read-Only**: Visitors, prospective members, or restricted access users
+
+#### Research Institution
+- **Admin**: Lab managers and system administrators
+- **Manager**: Principal investigators managing project inventories
+- **User**: Graduate students and researchers
+- **Read-Only**: Undergraduate students, visiting researchers, safety inspectors
 
 ## Current Status
 

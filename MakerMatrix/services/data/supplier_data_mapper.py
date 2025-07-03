@@ -84,29 +84,31 @@ class SupplierDataMapper:
     def _map_core_fields(self, result: PartSearchResult, supplier_name: str) -> Dict[str, Any]:
         """Map PartSearchResult to core database fields"""
         
-        # Determine component type
-        component_type = determine_component_type(
-            result.supplier_part_number or "",
-            result.description or "",
-            result.specifications or {}
-        )
+        # Use component type from additional_data if available (e.g., from DigiKey API extraction)
+        # Otherwise fall back to automatic determination
+        component_type = None
+        if result.additional_data and 'component_type' in result.additional_data:
+            component_type = result.additional_data['component_type']
+        else:
+            component_type = determine_component_type(
+                result.supplier_part_number or "",
+                result.description or "",
+                result.specifications or {}
+            )
         
-        # Extract and determine package
-        package = (
-            extract_package_from_specs(result.specifications or {}) or
-            result.additional_data.get('package') if result.additional_data else None
-        )
+        # Use RoHS status from additional_data if available (e.g., from DigiKey Classifications)
+        rohs_status = None
+        if result.additional_data and 'rohs_status' in result.additional_data:
+            rohs_status = result.additional_data['rohs_status']
+        else:
+            rohs_status = self._map_rohs_status(result.additional_data or {})
         
-        # Determine mounting type
-        mounting_type = None
-        if package:
-            mounting_type = determine_mounting_type(package, result.specifications or {})
-        
-        # Map RoHS status
-        rohs_status = self._map_rohs_status(result.additional_data or {})
-        
-        # Map lifecycle status
-        lifecycle_status = self._map_lifecycle_status(result.additional_data or {})
+        # Use lifecycle status from additional_data if available (e.g., from DigiKey product status)
+        lifecycle_status = None
+        if result.additional_data and 'lifecycle_status' in result.additional_data:
+            lifecycle_status = result.additional_data['lifecycle_status']
+        else:
+            lifecycle_status = self._map_lifecycle_status(result.additional_data or {})
         
         core_data = {
             'part_number': result.supplier_part_number,
@@ -114,8 +116,6 @@ class SupplierDataMapper:
             'manufacturer_part_number': result.manufacturer_part_number,
             'description': result.description,
             'component_type': component_type,
-            'package': package,
-            'mounting_type': mounting_type,
             'rohs_status': rohs_status,
             'lifecycle_status': lifecycle_status,
             'supplier': supplier_name.upper(),
@@ -271,30 +271,69 @@ class SupplierDataMapper:
         
         return None
     
-    def _normalize_pricing_data(self, pricing: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Normalize pricing data to standard format"""
+    def _normalize_pricing_data(self, pricing) -> Dict[str, Any]:
+        """Normalize pricing data to standard format - handles multiple input formats"""
         
         if not pricing:
             return {}
         
-        # Sort by quantity
-        sorted_pricing = sorted(pricing, key=lambda x: x.get('quantity', 0))
-        
-        # Get unit price (lowest quantity tier)
+        # Handle different pricing formats
+        price_tiers = []
         unit_price = None
         currency = 'USD'
+        source = None
         
-        if sorted_pricing:
-            first_tier = sorted_pricing[0]
-            unit_price = first_tier.get('price')
-            currency = first_tier.get('currency', 'USD')
+        if isinstance(pricing, dict):
+            # Format 1: LCSC-style dict with quantity_breaks
+            if 'quantity_breaks' in pricing:
+                price_tiers = pricing.get('quantity_breaks', [])
+                unit_price = pricing.get('unit_price')
+                currency = pricing.get('currency', 'USD')
+                source = pricing.get('source')
+                
+                # Ensure each tier has currency if not present
+                for tier in price_tiers:
+                    if 'currency' not in tier:
+                        tier['currency'] = currency
+                        
+            # Format 2: Single price tier dict
+            elif 'price' in pricing:
+                price_tiers = [pricing]
+                unit_price = pricing.get('price')
+                currency = pricing.get('currency', 'USD')
+                
+        elif isinstance(pricing, list):
+            # Format 3: List of price tier dicts (traditional format)
+            price_tiers = pricing
+            
+        else:
+            # Invalid format
+            return {}
         
-        return {
+        # Sort by quantity
+        if price_tiers:
+            sorted_pricing = sorted(price_tiers, key=lambda x: x.get('quantity', 0))
+            
+            # Get unit price from lowest quantity tier if not already set
+            if unit_price is None and sorted_pricing:
+                first_tier = sorted_pricing[0]
+                unit_price = first_tier.get('price')
+                currency = first_tier.get('currency', currency)
+        else:
+            sorted_pricing = []
+        
+        result = {
             'unit_price': unit_price,
             'currency': currency,
             'price_tiers': sorted_pricing,
             'tier_count': len(sorted_pricing)
         }
+        
+        # Add source if available
+        if source:
+            result['source'] = source
+            
+        return result
     
     def _calculate_quality_score(self, part_data: Dict[str, Any]) -> float:
         """Calculate data quality score (0.0-1.0) based on field completeness"""

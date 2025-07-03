@@ -179,8 +179,8 @@ class BaseSupplier(ABC):
         if self._rate_limit_service is None:
             try:
                 # Lazy import to avoid circular dependency
-                from MakerMatrixs.services.rate_limit_service import RateLimitService
-                from MakerMatrixs.models.models import engine
+                from MakerMatrix.services.rate_limit_service import RateLimitService
+                from MakerMatrix.models.models import engine
                 self._rate_limit_service = RateLimitService(engine)
             except ImportError as e:
                 logger.warning(f"Could not import RateLimitService: {e}")

@@ -769,7 +769,7 @@ class MouserSupplier(BaseSupplier):
                     part = {
                         'part_name': str(row.get(mapped_columns.get('description', ''), 
                                                row.get(mapped_columns.get('manufacturer_part_number', ''), ''))).strip(),
-                        'part_number': str(row.get(mapped_columns['part_number'], '')).strip(),  # Changed from supplier_part_number to part_number
+                        'supplier_part_number': str(row.get(mapped_columns['part_number'], '')).strip(),  # Changed from part_number to supplier_part_number
                         'manufacturer': str(row.get(mapped_columns.get('manufacturer', ''), '')).strip(),
                         'manufacturer_part_number': str(row.get(mapped_columns.get('manufacturer_part_number', ''), '')).strip(),
                         'description': str(row.get(mapped_columns.get('description', ''), '')).strip(),

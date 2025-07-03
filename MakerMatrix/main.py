@@ -144,7 +144,11 @@ async def lifespan(app: FastAPI):
 
 
 # Initialize the FastAPI app with lifespan
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="MakerMatrix",
+    description="A comprehensive part inventory management system with label printing capabilities.",
+    version="1.0.0",
+)
 
 # Register exception handlers
 register_exception_handlers(app)
@@ -213,6 +217,9 @@ task_permissions = {
     "/quick/datasheet_fetch": "tasks:create",
     "/quick/image_fetch": "tasks:create",
     "/quick/bulk_enrichment": "tasks:create",
+    "/capabilities/suppliers": "tasks:read",
+    "/capabilities/suppliers/{supplier_name}": "tasks:read",
+    "/capabilities/find/{capability_type}": "tasks:read",
     "/security/permissions": "tasks:create",
     "/security/limits": "tasks:create",
     "/security/validate": "tasks:create"
@@ -286,7 +293,7 @@ secure_all_routes(locations_routes.router, permissions=locations_permissions, ex
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
 secure_all_routes(printer_routes.router)
 secure_all_routes(preview_routes.router)
-secure_all_routes(utility_routes.router, exclude_paths=["/get_counts"])
+secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/static/datasheets/{filename}"])
 # Don't secure auth routes - they need to be accessible without authentication
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
 secure_all_routes(user_management_routes.router)

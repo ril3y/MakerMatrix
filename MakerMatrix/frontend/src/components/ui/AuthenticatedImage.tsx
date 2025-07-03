@@ -23,18 +23,13 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
         setLoading(true)
         setError(false)
         
-        const token = localStorage.getItem('auth_token')
-        const response = await fetch(src, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        // Import apiClient dynamically to avoid circular dependencies
+        const { apiClient } = await import('@/services/api')
+        
+        // Use apiClient.get with blob response type
+        const blob = await apiClient.get(src, {
+          responseType: 'blob'
         })
-
-        if (!response.ok) {
-          throw new Error(`Failed to load image: ${response.statusText}`)
-        }
-
-        const blob = await response.blob()
         const objectUrl = URL.createObjectURL(blob)
         setImageSrc(objectUrl)
       } catch (error) {

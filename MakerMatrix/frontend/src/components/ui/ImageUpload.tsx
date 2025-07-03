@@ -102,24 +102,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       const tempPreviewUrl = URL.createObjectURL(file)
       setPreviewUrl(tempPreviewUrl)
 
-      // Upload to server
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const response = await fetch('/utility/upload_image', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        },
-        body: formData
-      })
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`)
-      }
-
-      const result = await response.json()
-      const imageUrl = `/utility/get_image/${result.image_id}.${file.name.split('.').pop()}`
+      // Upload to server using utilityService
+      const { utilityService } = await import('@/services/utility.service')
+      const imageUrl = await utilityService.uploadImage(file)
       
       // Clean up temp preview URL
       URL.revokeObjectURL(tempPreviewUrl)
@@ -226,7 +211,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               exit={{ opacity: 0 }}
               className="relative w-full h-full"
             >
-              {previewUrl?.startsWith('/utility/get_image/') ? (
+              {(previewUrl?.startsWith('/utility/get_image/') || previewUrl?.startsWith('/api/utility/get_image/')) ? (
                 <AuthenticatedImage
                   src={previewUrl}
                   alt="Preview"

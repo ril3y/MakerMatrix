@@ -18,7 +18,6 @@ from MakerMatrix.schemas.response import ResponseSchema
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/analytics",
     tags=["Analytics"],
     dependencies=[Depends(get_current_user)]
 )
@@ -242,3 +241,132 @@ async def get_dashboard_summary(
     except Exception as e:
         logger.error(f"Error getting dashboard summary: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve dashboard summary")
+
+
+@router.get("/suppliers/enrichment-analysis", response_model=ResponseSchema)
+async def get_supplier_enrichment_analysis(
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[Dict[str, Any]]:
+    """
+    Analyze parts by supplier and show which suppliers can be enriched vs just metadata.
+    
+    This endpoint helps identify:
+    - Parts with suppliers that have enrichment implementations
+    - Parts with suppliers that are just metadata strings (e.g., Amazon, Alibaba)
+    - Recommended actions for parts with non-enrichable suppliers
+    """
+    try:
+        from sqlalchemy.orm import Session
+        from sqlalchemy import func, text
+        from MakerMatrix.models.models import engine, PartModel
+        from MakerMatrix.suppliers.registry import SupplierRegistry
+        
+        logger.info(f"User {current_user.username} requesting supplier enrichment analysis")
+        
+        # Get all available enrichment suppliers
+        available_suppliers = SupplierRegistry.get_available_suppliers()
+        
+        # Query parts grouped by supplier
+        with Session(engine) as session:
+            # Get supplier counts from parts
+            supplier_counts = session.execute(
+                text("""
+                    SELECT 
+                        LOWER(supplier) as supplier_name,
+                        COUNT(*) as part_count,
+                        COUNT(CASE WHEN part_number IS NOT NULL AND part_number != '' THEN 1 END) as parts_with_part_numbers
+                    FROM parts 
+                    WHERE supplier IS NOT NULL AND supplier != ''
+                    GROUP BY LOWER(supplier)
+                    ORDER BY part_count DESC
+                """)
+            ).fetchall()
+        
+        # Categorize suppliers
+        enrichable_suppliers = []
+        metadata_only_suppliers = []
+        total_enrichable_parts = 0
+        total_metadata_parts = 0
+        
+        for row in supplier_counts:
+            supplier_name = row.supplier_name
+            part_count = row.part_count
+            parts_with_part_numbers = row.parts_with_part_numbers
+            
+            supplier_info = {
+                "supplier": supplier_name,
+                "part_count": part_count,
+                "parts_with_part_numbers": parts_with_part_numbers,
+                "enrichment_ready": parts_with_part_numbers > 0
+            }
+            
+            if supplier_name in available_suppliers:
+                supplier_info["status"] = "enrichment_available"
+                supplier_info["can_enrich"] = True
+                enrichable_suppliers.append(supplier_info)
+                total_enrichable_parts += part_count
+            else:
+                supplier_info["status"] = "metadata_only"
+                supplier_info["can_enrich"] = False
+                supplier_info["suggested_alternative"] = _suggest_alternative_supplier(supplier_name)
+                metadata_only_suppliers.append(supplier_info)
+                total_metadata_parts += part_count
+        
+        # Calculate summary statistics
+        total_parts = total_enrichable_parts + total_metadata_parts
+        enrichment_coverage = (total_enrichable_parts / total_parts * 100) if total_parts > 0 else 0
+        
+        analysis = {
+            "summary": {
+                "total_suppliers": len(supplier_counts),
+                "enrichable_suppliers": len(enrichable_suppliers),
+                "metadata_only_suppliers": len(metadata_only_suppliers),
+                "total_parts": total_parts,
+                "enrichable_parts": total_enrichable_parts,
+                "metadata_only_parts": total_metadata_parts,
+                "enrichment_coverage_percent": round(enrichment_coverage, 1)
+            },
+            "available_implementations": available_suppliers,
+            "enrichable_suppliers": enrichable_suppliers,
+            "metadata_only_suppliers": metadata_only_suppliers,
+            "recommendations": {
+                "message": "Suppliers like Amazon, Alibaba, etc. are stored as metadata only. For enrichment, use suppliers with implementations: " + ", ".join(available_suppliers),
+                "actions": [
+                    "Parts with metadata-only suppliers cannot be enriched",
+                    "Consider updating part suppliers to enrichable ones where possible",
+                    f"Current enrichment coverage: {enrichment_coverage:.1f}% of parts"
+                ]
+            }
+        }
+        
+        return ResponseSchema(
+            status="success",
+            message="Retrieved supplier enrichment analysis",
+            data=analysis
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting supplier enrichment analysis: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve supplier enrichment analysis")
+
+
+def _suggest_alternative_supplier(supplier_name: str) -> Optional[str]:
+    """Suggest alternative enrichable supplier based on supplier name"""
+    supplier_lower = supplier_name.lower()
+    
+    # Map common metadata suppliers to enrichable alternatives
+    suggestions = {
+        "amazon": "digikey",  # Amazon electronics -> DigiKey
+        "alibaba": "lcsc",    # Alibaba -> LCSC (Chinese supplier)
+        "aliexpress": "lcsc", # AliExpress -> LCSC
+        "ebay": "digikey",    # eBay -> DigiKey
+        "local": "digikey",   # Local supplier -> DigiKey
+        "unknown": "digikey"  # Unknown -> DigiKey
+    }
+    
+    for key, suggestion in suggestions.items():
+        if key in supplier_lower:
+            return suggestion
+    
+    # Default suggestion for electronic components
+    return "digikey"

@@ -39,11 +39,43 @@ logger = logging.getLogger(__name__)
 class DigiKeySupplier(BaseSupplier):
     """DigiKey supplier implementation with OAuth2 support"""
     
+    # Class-level token cache to share tokens across instances
+    _shared_access_token: Optional[str] = None
+    _shared_token_expires_at: Optional[datetime] = None
+    _shared_refresh_token: Optional[str] = None
+    
     def __init__(self):
         super().__init__()
         self._access_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
         self._refresh_token: Optional[str] = None
+    
+    def _has_valid_cached_token(self) -> bool:
+        """Check if we have a valid cached token that hasn't expired"""
+        if not DigiKeySupplier._shared_access_token or not DigiKeySupplier._shared_token_expires_at:
+            return False
+        
+        # Check if token expires within the next 30 seconds (buffer for API calls)
+        from datetime import timedelta
+        buffer_time = timedelta(seconds=30)
+        return datetime.now() + buffer_time < DigiKeySupplier._shared_token_expires_at
+    
+    def _use_cached_token(self) -> None:
+        """Copy cached token to instance variables"""
+        self._access_token = DigiKeySupplier._shared_access_token
+        self._token_expires_at = DigiKeySupplier._shared_token_expires_at
+        self._refresh_token = DigiKeySupplier._shared_refresh_token
+    
+    def _cache_token(self, access_token: str, expires_in: int, refresh_token: Optional[str] = None) -> None:
+        """Cache token at class level for reuse across instances"""
+        DigiKeySupplier._shared_access_token = access_token
+        DigiKeySupplier._shared_token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+        DigiKeySupplier._shared_refresh_token = refresh_token
+        
+        # Also set on instance
+        self._access_token = access_token
+        self._token_expires_at = DigiKeySupplier._shared_token_expires_at
+        self._refresh_token = refresh_token
     
     def _normalize_url(self, url: str) -> str:
         """Normalize protocol-relative URLs to use HTTPS"""
@@ -67,8 +99,8 @@ class DigiKeySupplier(BaseSupplier):
         )
     
     def get_capabilities(self) -> List[SupplierCapability]:
-        """Get capabilities that DigiKey API supports"""
-        base_capabilities = [
+        """Get capabilities that DigiKey supports (always returns full list, with fallbacks when API unavailable)"""
+        return [
             SupplierCapability.SEARCH_PARTS,
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,
@@ -78,13 +110,6 @@ class DigiKeySupplier(BaseSupplier):
             SupplierCapability.FETCH_SPECIFICATIONS,
             SupplierCapability.IMPORT_ORDERS
         ]
-        
-        # Only return API capabilities if the digikey-api library is available
-        if DIGIKEY_API_AVAILABLE:
-            return base_capabilities
-        else:
-            # If the library is not available, we can still import CSVs
-            return [SupplierCapability.IMPORT_ORDERS]
     
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """Define what credentials each capability needs"""
@@ -247,7 +272,14 @@ class DigiKeySupplier(BaseSupplier):
         return f"{protocol}://{host}:{port}"
     
     async def authenticate(self) -> bool:
-        """Authenticate with DigiKey production API"""
+        """Authenticate with DigiKey production API using cached tokens when possible"""
+        # First check if we have a valid cached token
+        if self._has_valid_cached_token():
+            logger.debug("DigiKey: Using cached access token (valid for %s more seconds)", 
+                        int((DigiKeySupplier._shared_token_expires_at - datetime.now()).total_seconds()))
+            self._use_cached_token()
+            return True
+        
         if not self.is_configured():
             raise SupplierConfigurationError(
                 "DigiKey supplier not configured. Please provide client_id and client_secret.", 
@@ -417,15 +449,17 @@ class DigiKeySupplier(BaseSupplier):
             
             if response.status_code == 200:
                 token_data = response.json() or {}
-                self._access_token = token_data.get("access_token")
+                access_token = token_data.get("access_token")
                 self._token_type = token_data.get("token_type", "Bearer")
                 
                 # Calculate expiration
                 expires_in = token_data.get("expires_in", 600)  # Default 10 minutes
-                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                
+                # Cache the token for reuse across instances
+                self._cache_token(access_token, expires_in)
                 
                 print(f"✅ DigiKey client credentials successful! Token expires in {expires_in} seconds")
-                print(f"✅ Access token: {self._access_token[:20]}...")
+                print(f"✅ Access token: {access_token[:20]}...")
                 return True
             else:
                 error_text = response.text
@@ -1351,7 +1385,7 @@ class DigiKeySupplier(BaseSupplier):
                         
                         part = {
                             'part_name': part_name,
-                            'part_number': row.get(digikey_part_col, '').strip(),  # Changed from supplier_part_number to part_number
+                            'supplier_part_number': row.get(digikey_part_col, '').strip(),  # Changed from part_number to supplier_part_number
                             'manufacturer': row.get(mfr_col, '').strip(),
                             'manufacturer_part_number': manufacturer_part_number,
                             'description': description,
@@ -1366,7 +1400,7 @@ class DigiKeySupplier(BaseSupplier):
                                 'extended_price': float((row.get(ext_price_col, '0') or '0').replace('$', '').replace(',', '').replace('"', ''))  # Move extended_price to additional_properties
                             }
                         }
-                        if part['part_number']:
+                        if part['supplier_part_number']:
                             parts.append(part)
                     except Exception as e:
                         errors.append(f"Error parsing row: {str(e)}")
@@ -1377,7 +1411,7 @@ class DigiKeySupplier(BaseSupplier):
                     try:
                         part = {
                             'part_name': row.get('Description', row.get('Manufacturer Part Number', '')).strip(),
-                            'part_number': row.get('Part Number', '').strip(),  # Changed from supplier_part_number to part_number
+                            'supplier_part_number': row.get('Part Number', '').strip(),  # Changed from part_number to supplier_part_number
                             'manufacturer': row.get('Manufacturer', '').strip(),
                             'manufacturer_part_number': row.get('Manufacturer Part Number', '').strip(),
                             'description': row.get('Description', '').strip(),
@@ -1390,7 +1424,7 @@ class DigiKeySupplier(BaseSupplier):
                                 'extended_price': float(row.get('Extended Price', '0').replace('$', '').replace(',', '').replace('"', ''))  # Move extended_price to additional_properties
                             }
                         }
-                        if part['part_number']:
+                        if part['supplier_part_number']:
                             parts.append(part)
                     except Exception as e:
                         errors.append(f"Error parsing row: {str(e)}")

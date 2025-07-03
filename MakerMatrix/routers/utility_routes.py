@@ -54,8 +54,8 @@ async def upload_image(
             )
         
         # Ensure upload directory exists
-        upload_dir = "uploaded_images"
-        os.makedirs(upload_dir, exist_ok=True)
+        upload_dir = STATIC_BASE_PATH / "images"
+        upload_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate unique filename with original extension
         file_extension = os.path.splitext(file.filename)[1].lower()
@@ -64,10 +64,10 @@ async def upload_image(
             file_extension = ".jpg"
         
         image_id = str(uuid.uuid4())
-        file_path = os.path.join(upload_dir, f"{image_id}{file_extension}")
+        file_path = upload_dir / f"{image_id}{file_extension}"
         
         # Save file
-        with open(file_path, "wb") as buffer:
+        with open(str(file_path), "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
         return {"image_id": image_id, "message": "Image uploaded successfully"}
@@ -90,8 +90,8 @@ async def get_image(
 ):
     import glob
     
-    # Use absolute path - project root is /home/ril3y/MakerMatrix
-    uploaded_images_dir = Path("/home/ril3y/MakerMatrix/uploaded_images")
+    # Use static images directory
+    uploaded_images_dir = STATIC_BASE_PATH / "images"
     
     # First try with the image_id as-is (might include extension)
     file_path = uploaded_images_dir / image_id
@@ -115,13 +115,14 @@ async def debug_server_info():
     import glob
     
     current_dir = os.getcwd()
-    uploaded_images_exists = os.path.exists("uploaded_images")
-    uploaded_images_abs = os.path.abspath("uploaded_images") if uploaded_images_exists else None
+    uploaded_images_dir = STATIC_BASE_PATH / "images"
+    uploaded_images_exists = uploaded_images_dir.exists()
+    uploaded_images_abs = str(uploaded_images_dir) if uploaded_images_exists else None
     
     files_in_uploaded = []
     if uploaded_images_exists:
         try:
-            files_in_uploaded = os.listdir("uploaded_images")
+            files_in_uploaded = os.listdir(uploaded_images_dir)
         except Exception as e:
             files_in_uploaded = [f"Error: {e}"]
     

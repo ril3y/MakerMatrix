@@ -45,7 +45,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
         return (
           <div key={location.id}>
             <div 
-              className={`flex items-center gap-2 p-2 rounded hover:bg-background-secondary transition-colors cursor-pointer ${
+              className={`flex items-start gap-2 p-2 rounded hover:bg-background-secondary transition-colors cursor-pointer min-w-0 ${
                 isSelected ? 'bg-primary/10 border border-primary/20' : ''
               }`}
               style={{ paddingLeft: `${level * (compact ? 16 : 24) + 8}px` }}
@@ -54,6 +54,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
               <div className="flex items-center gap-2 flex-1">
                 {hasChildren ? (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleExpanded(location.id.toString());
@@ -84,20 +85,25 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                   )}
                 </div>
                 
-                <span className={`font-medium text-primary ${compact ? 'text-sm' : 'text-base'}`}>
-                  {location.name}
-                </span>
-                
-                {!compact && (
-                  <>
-                    <span className="text-sm text-secondary ml-2">
-                      ({location.location_type || 'General'})
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`font-medium text-primary ${compact ? 'text-sm' : 'text-base'} truncate`}>
+                      {location.name}
                     </span>
-                    {location.description && (
-                      <span className="text-sm text-muted ml-2">- {location.description}</span>
+                    
+                    {!compact && (
+                      <span className="text-sm text-secondary whitespace-nowrap">
+                        ({location.location_type || 'General'})
+                      </span>
                     )}
-                  </>
-                )}
+                  </div>
+                  
+                  {!compact && location.description && (
+                    <div className="text-sm text-muted mt-1 line-clamp-2">
+                      {location.description}
+                    </div>
+                  )}
+                </div>
               </div>
               
               {isSelected && (

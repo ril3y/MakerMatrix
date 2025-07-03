@@ -215,6 +215,8 @@ class PartModel(SQLModel, table=True):
         sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="SET NULL"))
     )
     supplier: Optional[str] = None  # Primary/preferred supplier
+    supplier_part_number: Optional[str] = Field(default=None, index=True, description="Supplier's part number for API calls (e.g., LCSC: C25804, DigiKey: 296-1234-ND)")
+    supplier_url: Optional[str] = None  # URL to supplier product page
 
     location: Optional["LocationModel"] = Relationship(
         back_populates="parts",
@@ -610,7 +612,6 @@ class PartOrderSummary(SQLModel, table=True):
     last_ordered_date: Optional[datetime] = None
     last_ordered_price: Optional[float] = Field(default=0.0, sa_column=Column(Numeric(10, 4)))
     last_order_number: Optional[str] = None
-    supplier_url: Optional[str] = None
     total_orders: int = Field(default=0)
     
     # Pricing history
@@ -700,7 +701,7 @@ class AdvancedPartSearch(SQLModel):
     category_names: Optional[List[str]] = None
     location_id: Optional[str] = None
     supplier: Optional[str] = None
-    sort_by: Optional[str] = None  # "part_name", "part_number", "quantity", "location"
+    sort_by: Optional[str] = None  # "part_name", "part_number", "quantity", "location", "created_at"
     sort_order: Optional[str] = "asc"  # "asc" or "desc"
     page: int = 1
     page_size: int = 10
@@ -710,8 +711,8 @@ class AdvancedPartSearch(SQLModel):
     @field_validator("sort_by")
     @classmethod
     def validate_sort_by(cls, v):
-        if v and v not in ["part_name", "part_number", "quantity", "location"]:
-            raise ValueError("sort_by must be one of: part_name, part_number, quantity, location")
+        if v and v not in ["part_name", "part_number", "quantity", "location", "created_at"]:
+            raise ValueError("sort_by must be one of: part_name, part_number, quantity, location, created_at")
         return v
 
     @field_validator("sort_order")

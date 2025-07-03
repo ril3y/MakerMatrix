@@ -45,9 +45,10 @@ class LCSCSupplier(BaseSupplier):
             SupplierCapability.FETCH_DATASHEET,
             SupplierCapability.FETCH_SPECIFICATIONS,
             SupplierCapability.FETCH_IMAGE,  # Added image support
+            SupplierCapability.FETCH_PRICING,  # LCSC provides pricing information
             SupplierCapability.IMPORT_ORDERS  # Can import CSV order files
         ]
-    
+        
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """LCSC uses public API, so no credentials required for any capability"""
         return {
@@ -75,6 +76,11 @@ class LCSCSupplier(BaseSupplier):
                 capability=SupplierCapability.FETCH_IMAGE,
                 required_credentials=[],
                 description="Fetch part images from EasyEDA"
+            ),
+            SupplierCapability.FETCH_PRICING: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_PRICING,
+                required_credentials=[],
+                description="Fetch pricing information from LCSC"
             )
         }
     
@@ -306,11 +312,38 @@ class LCSCSupplier(BaseSupplier):
         manufacturer_part_number = self._get_nested_value(result, ['dataStr', 'head', 'c_para', 'Manufacturer Part'])
         package = self._get_nested_value(result, ['dataStr', 'head', 'c_para', 'package'])
         value = self._get_nested_value(result, ['dataStr', 'head', 'c_para', 'Value'])
-        datasheet_url = self._get_nested_value(result, ['packageDetail', 'dataStr', 'head', 'c_para', 'link'])
+        
+        # Always scrape datasheet from LCSC website for accurate URLs
+        # The API response often contains incorrect URLs like item.szlcsc.com
+        # The correct URLs are always on the product page in format:
+        # https://lcsc.com/datasheet/lcsc_datasheet_{timestamp}_{mfr_part}_{lcsc_part}.pdf
+        datasheet_url = await self._scrape_lcsc_datasheet(lcsc_id)
+        
+        # Fallback to API response only if scraping fails
+        if not datasheet_url:
+            possible_datasheet_paths = [
+                ['packageDetail', 'dataStr', 'head', 'c_para', 'link'],
+                ['dataStr', 'head', 'c_para', 'link'],
+                ['dataStr', 'head', 'c_para', 'Datasheet'],
+                ['szlcsc', 'attributes', 'Datasheet'],
+                ['attributes', 'Datasheet']
+            ]
+            
+            for path in possible_datasheet_paths:
+                api_datasheet_url = self._get_nested_value(result, path)
+                if api_datasheet_url and api_datasheet_url.strip():
+                    # Only use API URLs that look like proper datasheets
+                    if 'datasheet' in api_datasheet_url.lower() or api_datasheet_url.endswith('.pdf'):
+                        datasheet_url = api_datasheet_url
+                        break
+        
         product_url = self._get_nested_value(result, ['szlcsc', 'url'])
         
         # Extract image URL by scraping LCSC website instead of using EasyEDA symbol
         image_url = await self._scrape_lcsc_image(lcsc_id)
+        
+        # Extract pricing information from LCSC website
+        pricing = await self._scrape_lcsc_pricing(lcsc_id)
         
         # Extract categories from tags
         tags = result.get('tags', [])
@@ -365,7 +398,7 @@ class LCSCSupplier(BaseSupplier):
             datasheet_url=datasheet_url,
             image_url=image_url,
             stock_quantity=None,  # Not available in EasyEDA API response
-            pricing=None,  # Not available in EasyEDA API response
+            pricing=pricing,  # Scraped from LCSC website
             specifications=specifications if specifications else None,
             additional_data=additional_data
         )
@@ -394,113 +427,268 @@ class LCSCSupplier(BaseSupplier):
         
         return await self._tracked_api_call("fetch_image", _impl)
     
+    async def fetch_pricing(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
+        """Fetch pricing information for an LCSC part"""
+        async def _impl():
+            part_details = await self.get_part_details(supplier_part_number)
+            return part_details.pricing if part_details else None
+        
+        return await self._tracked_api_call("fetch_pricing", _impl)
+    
     async def _scrape_lcsc_image(self, lcsc_id: str) -> Optional[str]:
-        """Scrape actual part image from LCSC website instead of using EasyEDA symbol"""
+        """Scrape actual part image from LCSC website with simplified, more reliable approach"""
         try:
-            # LCSC product page URL
-            product_url = f"https://lcsc.com/product-detail/{lcsc_id}.html"
-            
             session = await self._get_session()
+            config = self._config or {}
+            timeout = config.get("request_timeout", 30)
+            
+            # Try direct image URL patterns first (more reliable than HTML scraping)
+            direct_image_patterns = [
+                f"https://wmsc.lcsc.com/wmsc/upload/image/c_part/{lcsc_id}.jpg",
+                f"https://wmsc.lcsc.com/wmsc/upload/image/c_part/{lcsc_id}.png",
+                f"https://assets.lcsc.com/images/lcsc/900x900/{lcsc_id}_front.jpg",
+                f"https://assets.lcsc.com/images/lcsc/600x600/{lcsc_id}.jpg"
+            ]
+            
+            # Test each direct URL pattern
+            for image_url in direct_image_patterns:
+                try:
+                    async with session.head(image_url, timeout=10) as response:
+                        if response.status == 200 and 'image' in response.headers.get('content-type', ''):
+                            logger.debug(f"Found direct image for {lcsc_id}: {image_url}")
+                            return image_url
+                except:
+                    continue
+            
+            # If direct URLs don't work, fall back to HTML scraping
+            product_url = f"https://lcsc.com/product-detail/{lcsc_id}.html"
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
                 "Accept-Language": "en-US,en;q=0.5",
-                "Accept-Encoding": "gzip, deflate",
+                "Accept-Encoding": "gzip, deflate, br",
                 "Connection": "keep-alive",
                 "Upgrade-Insecure-Requests": "1"
             }
             
+            async with session.get(product_url, headers=headers, timeout=timeout) as response:
+                if response.status != 200:
+                    logger.debug(f"Failed to load LCSC page for {lcsc_id}: status {response.status}")
+                    return None
+                
+                html_content = await response.text()
+                import re
+                
+                # Primary pattern: assets.lcsc.com high-res images
+                assets_pattern = r'https://assets\.lcsc\.com/images/lcsc/(?:900x900|600x600)/[^"\s]*\.(?:jpg|jpeg|png)'
+                matches = re.findall(assets_pattern, html_content, re.IGNORECASE)
+                if matches:
+                    logger.debug(f"Found assets.lcsc.com image for {lcsc_id}: {matches[0]}")
+                    return matches[0]
+                
+                # Secondary pattern: wmsc.lcsc.com images
+                wmsc_pattern = r'https://wmsc\.lcsc\.com/wmsc/upload/image/[^"\s]*\.(?:jpg|jpeg|png)'
+                matches = re.findall(wmsc_pattern, html_content, re.IGNORECASE)
+                if matches:
+                    logger.debug(f"Found wmsc.lcsc.com image for {lcsc_id}: {matches[0]}")
+                    return matches[0]
+                
+                # Fallback: any LCSC domain image
+                lcsc_img_pattern = r'https://[^"\s]*(?:lcsc|szlcsc)[^"\s]*\.(?:jpg|jpeg|png|gif|webp)'
+                matches = re.findall(lcsc_img_pattern, html_content, re.IGNORECASE)
+                
+                # Filter out obvious UI elements
+                exclude_patterns = ['logo', 'icon', 'banner', 'header', 'footer', 'nav', 'menu', 'button']
+                for img_url in matches:
+                    if not any(pattern in img_url.lower() for pattern in exclude_patterns):
+                        logger.debug(f"Found fallback LCSC image for {lcsc_id}: {img_url}")
+                        return img_url
+                
+                logger.debug(f"No suitable image found for {lcsc_id}")
+                return None
+                
+        except Exception as e:
+            logger.debug(f"Error scraping image for {lcsc_id}: {str(e)}")
+            return None
+    
+    async def _scrape_lcsc_pricing(self, lcsc_id: str) -> Optional[Dict[str, Any]]:
+        """Scrape pricing information from LCSC website using multiple strategies"""
+        try:
+            session = await self._get_session()
             config = self._config or {}
-            timeout = config.get("request_timeout", 30)  # Internal default, not user-configurable
+            timeout = config.get("request_timeout", 30)
+            
+            product_url = f"https://lcsc.com/product-detail/{lcsc_id}.html"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1"
+            }
             
             async with session.get(product_url, headers=headers, timeout=timeout) as response:
-                if response.status == 200:
-                    html_content = await response.text()
+                if response.status != 200:
+                    logger.debug(f"Failed to load LCSC page for pricing {lcsc_id}: status {response.status}")
+                    return None
+                
+                html_content = await response.text()
+                import re
+                
+                pricing_data = {}
+                
+                # Strategy 1: Extract from meta tags (most reliable)
+                meta_price_pattern = r'name="og:product:price"\s+content="([0-9.]+)"'
+                meta_match = re.search(meta_price_pattern, html_content)
+                
+                if meta_match:
+                    try:
+                        unit_price = float(meta_match.group(1))
+                        pricing_data = {
+                            "unit_price": unit_price,
+                            "currency": "USD",  # LCSC meta tags typically use USD
+                            "quantity_breaks": [],
+                            "source": "lcsc_meta_tag"
+                        }
+                        logger.debug(f"Found meta tag pricing for {lcsc_id}: ${unit_price}")
+                    except (ValueError, IndexError):
+                        pass
+                
+                # Strategy 2: Extract quantity break pricing from table structure
+                # Look for the pricing table with quantity tiers like "100+", "1,000+", etc.
+                qty_pricing_pattern = r'aria-label="Change the quantity to(\d+(?:,\d+)*)"[^>]*>.*?<span[^>]*>\$\s*([0-9.]+)</span>'
+                qty_matches = re.findall(qty_pricing_pattern, html_content, re.DOTALL | re.IGNORECASE)
+                
+                if qty_matches:
+                    quantity_breaks = []
+                    for qty_str, price_str in qty_matches:
+                        try:
+                            # Remove commas from quantity (e.g., "1,000" -> "1000")
+                            quantity = int(qty_str.replace(',', ''))
+                            price = float(price_str)
+                            quantity_breaks.append({
+                                "quantity": quantity,
+                                "price": price,
+                                "extended_price": quantity * price
+                            })
+                        except (ValueError, TypeError):
+                            continue
                     
-                    # Parse HTML to find the product image
-                    # LCSC typically has product images in specific div classes or img tags
-                    import re
+                    if quantity_breaks:
+                        # Sort by quantity
+                        quantity_breaks.sort(key=lambda x: x["quantity"])
+                        
+                        if pricing_data:
+                            pricing_data["quantity_breaks"] = quantity_breaks
+                        else:
+                            # Use the lowest quantity tier as unit price if no meta tag found
+                            pricing_data = {
+                                "unit_price": quantity_breaks[0]["price"],
+                                "currency": "USD",
+                                "quantity_breaks": quantity_breaks,
+                                "source": "lcsc_quantity_table"
+                            }
+                        
+                        logger.debug(f"Found {len(quantity_breaks)} quantity tiers for {lcsc_id}")
+                
+                # Strategy 3: Fallback to simple price pattern matching
+                if not pricing_data:
+                    price_patterns = [
+                        r'\$\s*([0-9]+\.?[0-9]*)',  # Dollar prices with optional $ and spaces
+                        r'Price\s*[:\s]*\$?\s*([0-9]+\.?[0-9]*)',  # Price labels
+                    ]
                     
-                    # Look for product image patterns in LCSC HTML
-                    # Pattern 1: Look for assets.lcsc.com image URLs (user's example pattern)
-                    # Example: https://assets.lcsc.com/images/lcsc/900x900/20230121_FOJAN-FRC0603J103-TS_C2930027_front.jpg
-                    assets_pattern = r'https://assets\.lcsc\.com/images/lcsc/900x900/[^"\']*\.jpg'
-                    matches = re.findall(assets_pattern, html_content, re.IGNORECASE)
-                    
-                    if matches:
-                        return matches[0]  # Return the first assets.lcsc.com image found
-                    
-                    # Pattern 2: Look for image in v-image component (Vue.js pattern from user's example)
-                    vue_image_pattern = r'background-image:\s*url\(["\']?(https://assets\.lcsc\.com/images/[^"\']*)["\']?\)'
-                    matches = re.findall(vue_image_pattern, html_content, re.IGNORECASE)
-                    
-                    if matches:
-                        return matches[0]
-                    
-                    # Pattern 3: LCSC image viewer links (based on user's example)
-                    # Example: https://www.lcsc.com/product-detail/image/FRC0603J103-TS_C2930027.html
-                    image_link_pattern = r'href="[^"]*product-detail/image/[^"]*\.html"[^>]*>'
-                    matches = re.findall(image_link_pattern, html_content, re.IGNORECASE)
-                    
-                    if matches:
-                        # Extract the image link and convert to direct image URL
-                        link_match = re.search(r'href="([^"]*product-detail/image/[^"]*\.html)"', matches[0])
-                        if link_match:
-                            image_page_url = link_match.group(1)
-                            if image_page_url.startswith('/'):
-                                image_page_url = 'https://lcsc.com' + image_page_url
-                            
-                            # Extract the part number from the image URL to construct direct image URL
-                            # Pattern: /image/PART-NAME_CXXXXXX.html -> should map to actual image
-                            part_match = re.search(r'/image/[^_]*_([^\.]+)\.html', image_page_url)
-                            if part_match:
-                                part_id = part_match.group(1)
-                                # Try common LCSC image URL patterns based on user's example
-                                possible_image_urls = [
-                                    f"https://assets.lcsc.com/images/lcsc/900x900/*_{part_id}_front.jpg",
-                                    f"https://wmsc.lcsc.com/wmsc/upload/image/c_part/{part_id}.jpg",
-                                    f"https://wmsc.lcsc.com/wmsc/upload/image/c_part/{part_id}.png"
-                                ]
-                                return possible_image_urls[1]  # Return wmsc pattern since assets pattern needs date prefix
-                    
-                    # Pattern 2: Direct image tags with product in class or data attributes
-                    img_pattern = r'<img[^>]*(?:class="[^"]*product[^"]*"|data-[^=]*="[^"]*product[^"]*")[^>]*src="([^"]+)"'
-                    matches = re.findall(img_pattern, html_content, re.IGNORECASE)
-                    
-                    if matches:
-                        img_url = matches[0]
-                        if img_url.startswith('//'):
-                            img_url = 'https:' + img_url
-                        elif img_url.startswith('/'):
-                            img_url = 'https://lcsc.com' + img_url
-                        return img_url
-                    
-                    # Pattern 3: Look for images in LCSC's typical image containers
-                    lcsc_img_pattern = r'<img[^>]*src="(https?://[^"]*(?:lcsc|szlcsc)[^"]*\.(?:jpg|jpeg|png|gif|webp))"'
-                    matches = re.findall(lcsc_img_pattern, html_content, re.IGNORECASE)
-                    
-                    if matches:
-                        # Filter out obvious non-product images
-                        for img_url in matches:
-                            if not any(pattern in img_url.lower() for pattern in ['logo', 'icon', 'banner', 'header']):
-                                return img_url
-                    
-                    # Pattern 4: General fallback - look for any reasonable product images
-                    general_img_pattern = r'<img[^>]*src="(https?://[^"]*\.(?:jpg|jpeg|png|gif|webp))"'
-                    all_images = re.findall(general_img_pattern, html_content, re.IGNORECASE)
-                    
-                    # Filter out common non-product images
-                    exclude_patterns = ['logo', 'icon', 'banner', 'header', 'footer', 'nav', 'ads']
-                    
-                    for img_url in all_images:
-                        if not any(pattern in img_url.lower() for pattern in exclude_patterns):
-                            # Likely a product image
-                            return img_url
-                    
-            return None
-            
+                    for pattern in price_patterns:
+                        matches = re.findall(pattern, html_content, re.IGNORECASE)
+                        if matches:
+                            try:
+                                # Filter out obvious non-price values (like years, part numbers)
+                                valid_prices = []
+                                for match in matches:
+                                    price = float(match)
+                                    # Reasonable price range for electronic components
+                                    if 0.0001 <= price <= 10000:
+                                        valid_prices.append(price)
+                                
+                                if valid_prices:
+                                    # Use the most common price or the first reasonable one
+                                    unit_price = min(valid_prices)  # Often the smallest price is the unit price
+                                    pricing_data = {
+                                        "unit_price": unit_price,
+                                        "currency": "USD",
+                                        "quantity_breaks": [],
+                                        "source": "lcsc_pattern_match"
+                                    }
+                                    logger.debug(f"Found fallback pricing for {lcsc_id}: ${unit_price}")
+                                    break
+                            except (ValueError, IndexError):
+                                continue
+                
+                return pricing_data if pricing_data else None
+                
         except Exception as e:
-            # Don't log as error since this is optional functionality
+            logger.debug(f"Error scraping pricing for {lcsc_id}: {str(e)}")
+            return None
+    
+    async def _scrape_lcsc_datasheet(self, lcsc_id: str) -> Optional[str]:
+        """Scrape datasheet URL from LCSC website"""
+        try:
+            session = await self._get_session()
+            config = self._config or {}
+            timeout = config.get("request_timeout", 30)
+            
+            product_url = f"https://lcsc.com/product-detail/{lcsc_id}.html"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1"
+            }
+            
+            async with session.get(product_url, headers=headers, timeout=timeout) as response:
+                if response.status != 200:
+                    logger.debug(f"Failed to load LCSC page for datasheet {lcsc_id}: status {response.status}")
+                    return None
+                
+                html_content = await response.text()
+                import re
+                
+                # Look for datasheet PDF links in the HTML
+                # Pattern: https://lcsc.com/datasheet/lcsc_datasheet_*_*_*.pdf
+                datasheet_pattern = r'href="(https://lcsc\.com/datasheet/lcsc_datasheet_[^"]*\.pdf)"'
+                matches = re.findall(datasheet_pattern, html_content, re.IGNORECASE)
+                
+                if matches:
+                    # Return the first datasheet URL found
+                    datasheet_url = matches[0]
+                    logger.debug(f"Found datasheet URL for {lcsc_id}: {datasheet_url}")
+                    return datasheet_url
+                
+                # Fallback: look for any PDF link that might be a datasheet
+                pdf_pattern = r'href="([^"]*\.pdf)"[^>]*(?:datasheet|spec|specification)'
+                pdf_matches = re.findall(pdf_pattern, html_content, re.IGNORECASE)
+                
+                if pdf_matches:
+                    # Convert relative URLs to absolute
+                    pdf_url = pdf_matches[0]
+                    if pdf_url.startswith('//'):
+                        pdf_url = f"https:{pdf_url}"
+                    elif pdf_url.startswith('/'):
+                        pdf_url = f"https://lcsc.com{pdf_url}"
+                    elif not pdf_url.startswith('http'):
+                        pdf_url = f"https://lcsc.com/{pdf_url}"
+                    
+                    logger.debug(f"Found fallback datasheet URL for {lcsc_id}: {pdf_url}")
+                    return pdf_url
+                
+                logger.debug(f"No datasheet URL found for {lcsc_id}")
+                return None
+                
+        except Exception as e:
+            logger.debug(f"Error scraping datasheet for {lcsc_id}: {str(e)}")
             return None
     
     def get_rate_limit_delay(self) -> float:
@@ -600,9 +788,13 @@ class LCSCSupplier(BaseSupplier):
                     
                     # Parse prices - LCSC uses Unit Price($) and Order Price($)
                     unit_price_str = row.get('Unit Price($)', row.get('Unit Price(USD)', '0')).strip()
+                    # Remove dollar sign and other currency symbols for parsing
+                    unit_price_str = unit_price_str.replace('$', '').replace('¥', '').replace('€', '').replace('£', '')
                     unit_price = float(unit_price_str) if unit_price_str else 0.0
                     
                     order_price_str = row.get('Order Price($)', row.get('Subtotal(USD)', '0')).strip()
+                    # Remove dollar sign and other currency symbols for parsing
+                    order_price_str = order_price_str.replace('$', '').replace('¥', '').replace('€', '').replace('£', '')
                     extended_price = float(order_price_str) if order_price_str else (unit_price * quantity)
                     
                     # Extract part name with fallback logic
@@ -622,7 +814,7 @@ class LCSCSupplier(BaseSupplier):
                     # Map LCSC CSV fields to standard part format
                     import_part = {
                         'part_name': part_name,
-                        'supplier_part_number': part_number,
+                        'supplier_part_number': part_number,  # Use dedicated supplier_part_number field for enrichment
                         'manufacturer': row.get('Manufacturer', '').strip(),
                         'manufacturer_part_number': manufacturer_part_number,
                         'description': description,
@@ -634,7 +826,7 @@ class LCSCSupplier(BaseSupplier):
                             'customer_no': row.get('Customer NO.', '').strip(),
                             'package': row.get('Package', '').strip(),
                             'rohs': row.get('RoHS', '').strip(),
-                            'min_mult_order_qty': row.get('Min\Mult Order Qty.', '').strip()
+                            'min_mult_order_qty': row.get('Min\\Mult Order Qty.', '').strip()
                         }
                     }
                     import_parts.append(import_part)

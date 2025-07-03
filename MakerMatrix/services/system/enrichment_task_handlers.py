@@ -77,44 +77,78 @@ class EnrichmentTaskHandlers:
             specifications = {}
             additional_data = {}
             
-            # Process each enrichment result
-            for capability, result_data in enrichment_results.items():
-                if not isinstance(result_data, dict) or not result_data.get('success'):
-                    continue
-                    
-                if capability == 'fetch_datasheet' and result_data.get('datasheet_url'):
-                    datasheet_url = result_data['datasheet_url']
-                    
-                elif capability == 'fetch_image':
-                    if result_data.get('primary_image_url'):
-                        image_url = result_data['primary_image_url']
-                    elif result_data.get('images') and len(result_data['images']) > 0:
-                        first_image = result_data['images'][0]
-                        if isinstance(first_image, dict) and 'url' in first_image:
-                            image_url = first_image['url']
-                            
-                elif capability == 'fetch_pricing' and result_data.get('pricing'):
-                    pricing = result_data['pricing']
-                    
-                elif capability == 'fetch_stock' and result_data.get('quantity_available') is not None:
-                    stock_quantity = result_data['quantity_available']
-                    
-                elif capability == 'fetch_specifications' and result_data.get('specifications'):
-                    specifications.update(result_data['specifications'])
-                    
-                elif capability == 'fetch_details':
-                    # Add any additional details to additional_data
-                    for key, value in result_data.items():
-                        if key not in ['success']:
-                            additional_data[key] = value
+            # Initialize core field variables
+            manufacturer = None
+            manufacturer_part_number = None
+            description = None
+            category = None
             
-            # Create PartSearchResult from enrichment data and existing part data
+            # Check if we have the consolidated part_data
+            if 'part_data' in enrichment_results:
+                part_data_result = enrichment_results['part_data']
+                if isinstance(part_data_result, dict) and part_data_result.get('success'):
+                    # Extract data directly from the unified part data
+                    datasheet_url = part_data_result.get('datasheet_url')
+                    image_url = part_data_result.get('image_url')
+                    pricing = part_data_result.get('pricing')
+                    stock_quantity = part_data_result.get('stock_quantity')
+                    specifications = part_data_result.get('specifications') or {}
+                    additional_data = part_data_result.get('additional_data') or {}
+                    
+                    # Extract core fields from part_data_result
+                    manufacturer = part_data_result.get('manufacturer')
+                    manufacturer_part_number = part_data_result.get('manufacturer_part_number')
+                    description = part_data_result.get('description')
+                    category = part_data_result.get('category')
+                    
+                    # Also store in additional_data for backward compatibility
+                    additional_data.update({
+                        'manufacturer': manufacturer,
+                        'manufacturer_part_number': manufacturer_part_number,
+                        'description': description,
+                        'category': category
+                    })
+            else:
+                # Process each enrichment result (legacy format)
+                for capability, result_data in enrichment_results.items():
+                    if not isinstance(result_data, dict) or not result_data.get('success'):
+                        continue
+                        
+                    if capability == 'fetch_datasheet' and result_data.get('datasheet_url'):
+                        datasheet_url = result_data['datasheet_url']
+                        
+                    elif capability == 'fetch_image' and result_data.get('image_url'):
+                        image_url = result_data['image_url']
+                        
+                    elif capability == 'fetch_pricing' and result_data.get('pricing'):
+                        pricing = result_data['pricing']
+                        
+                    elif capability == 'fetch_stock' and result_data.get('stock_quantity') is not None:
+                        stock_quantity = result_data['stock_quantity']
+                        
+                    elif capability == 'fetch_specifications' and result_data.get('specifications'):
+                        specifications.update(result_data['specifications'])
+                        
+                    elif capability == 'get_part_details':
+                        # Extract core fields from part details
+                        manufacturer = result_data.get('manufacturer')
+                        manufacturer_part_number = result_data.get('manufacturer_part_number')
+                        description = result_data.get('description')
+                        category = result_data.get('category')
+                        
+                    elif capability == 'fetch_details':
+                        # Add any additional details to additional_data
+                        for key, value in result_data.items():
+                            if key not in ['success']:
+                                additional_data[key] = value
+            
+            # Create PartSearchResult from enrichment data (prefer enriched data over existing part data)
             return PartSearchResult(
                 supplier_part_number=part.part_number or part.manufacturer_part_number or part.part_name,
-                manufacturer=part.manufacturer or additional_data.get('manufacturer'),
-                manufacturer_part_number=part.manufacturer_part_number or additional_data.get('manufacturer_part_number'),
-                description=part.description or additional_data.get('product_description') or additional_data.get('description'),
-                category=additional_data.get('category'),
+                manufacturer=manufacturer or part.manufacturer,
+                manufacturer_part_number=manufacturer_part_number or part.manufacturer_part_number,
+                description=description or part.description,
+                category=category,
                 datasheet_url=datasheet_url,
                 image_url=image_url,
                 pricing=pricing,
@@ -184,7 +218,9 @@ class EnrichmentTaskHandlers:
             
             # Determine capabilities to use
             if requested_capabilities:
-                # Validate requested capabilities are available
+                # available_capabilities is a list of strings from database model
+                # requested_capabilities is also a list of strings
+                # Simply compare strings directly
                 invalid_caps = [cap for cap in requested_capabilities if cap not in available_capabilities]
                 if invalid_caps:
                     raise ValueError(f"Capabilities not supported by {supplier}: {invalid_caps}")
@@ -220,6 +256,7 @@ class EnrichmentTaskHandlers:
                 'fetch_pricing': SupplierCapability.FETCH_PRICING,
                 'fetch_stock': SupplierCapability.FETCH_STOCK,
                 'fetch_details': SupplierCapability.GET_PART_DETAILS,
+                'get_part_details': SupplierCapability.GET_PART_DETAILS,  # Frontend sends this
                 'fetch_specifications': SupplierCapability.FETCH_SPECIFICATIONS
             }
             
@@ -266,7 +303,26 @@ class EnrichmentTaskHandlers:
                     if field in enrichment_result.enriched_fields:
                         value = getattr(part_data, field, None)
                         if value is not None:
-                            enrichment_results[cap_name] = self._serialize_for_json(value)
+                            # Wrap in the expected format for the conversion method
+                            enrichment_results[cap_name] = {
+                                'success': True,
+                                field: value
+                            }
+                            
+                # Also add the full part data for direct access
+                enrichment_results['part_data'] = {
+                    'success': True,
+                    'manufacturer': part_data.manufacturer,
+                    'manufacturer_part_number': part_data.manufacturer_part_number,
+                    'description': part_data.description,
+                    'datasheet_url': part_data.datasheet_url,
+                    'image_url': part_data.image_url,
+                    'category': part_data.category,
+                    'stock_quantity': part_data.stock_quantity,
+                    'pricing': part_data.pricing,
+                    'specifications': part_data.specifications,
+                    'additional_data': part_data.additional_data or {}
+                }
             
             # Add failed fields to failed_enrichments
             for field in enrichment_result.failed_fields:
@@ -322,6 +378,14 @@ class EnrichmentTaskHandlers:
                         fresh_part = fresh_session.query(PartModel).filter(PartModel.id == part.id).first()
                         if fresh_part:
                             # Update main part fields that were enriched
+                            if part.manufacturer and part.manufacturer != fresh_part.manufacturer:
+                                logger.info(f"Updating part manufacturer: '{fresh_part.manufacturer}' -> '{part.manufacturer}'")
+                                fresh_part.manufacturer = part.manufacturer
+                                
+                            if part.manufacturer_part_number and part.manufacturer_part_number != fresh_part.manufacturer_part_number:
+                                logger.info(f"Updating part manufacturer_part_number: '{fresh_part.manufacturer_part_number}' -> '{part.manufacturer_part_number}'")
+                                fresh_part.manufacturer_part_number = part.manufacturer_part_number
+                            
                             if part.description and part.description != fresh_part.description:
                                 logger.info(f"Updating part description: '{fresh_part.description}' -> '{part.description}'")
                                 fresh_part.description = part.description
@@ -343,6 +407,10 @@ class EnrichmentTaskHandlers:
                             # Force SQLAlchemy to recognize the changes
                             from sqlalchemy.orm.attributes import flag_modified
                             flag_modified(fresh_part, 'additional_properties')
+                            if part.manufacturer:
+                                flag_modified(fresh_part, 'manufacturer')
+                            if part.manufacturer_part_number:
+                                flag_modified(fresh_part, 'manufacturer_part_number')
                             if part.description:
                                 flag_modified(fresh_part, 'description')
                             if part.image_url:
@@ -389,18 +457,26 @@ class EnrichmentTaskHandlers:
         """
         try:
             logger.info(f"Applying standardized data to part {part.part_name}")
+            logger.info(f"Standardized data keys: {list(standardized_data.keys())}")
+            logger.info(f"Standardized data manufacturer: {standardized_data.get('manufacturer')}")
             
-            # Update core standardized fields
-            core_fields = [
+            # Update only fields that exist on PartModel
+            model_fields = [
                 'manufacturer', 'manufacturer_part_number', 'component_type', 
-                'package', 'mounting_type', 'rohs_status', 'lifecycle_status',
-                'unit_price', 'currency', 'stock_quantity', 'last_stock_update',
-                'pricing_data', 'last_price_update', 'price_source',
+                'rohs_status', 'lifecycle_status', 'image_url', 'description'
+            ]
+            
+            # Fields that should go into additional_properties instead
+            additional_fields = [
+                'package', 'mounting_type', 'unit_price', 'currency', 'stock_quantity', 
+                'last_stock_update', 'pricing_data', 'last_price_update', 'price_source',
                 'last_enrichment_date', 'enrichment_source', 'data_quality_score'
             ]
             
             updated_fields = []
-            for field in core_fields:
+            
+            # Update direct model fields
+            for field in model_fields:
                 if field in standardized_data:
                     old_value = getattr(part, field, None)
                     new_value = standardized_data[field]
@@ -409,6 +485,18 @@ class EnrichmentTaskHandlers:
                     if new_value is not None and old_value != new_value:
                         setattr(part, field, new_value)
                         updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
+            
+            # Update additional_properties with fields that don't exist on the model
+            if not part.additional_properties:
+                part.additional_properties = {}
+                
+            for field in additional_fields:
+                if field in standardized_data and standardized_data[field] is not None:
+                    old_value = part.additional_properties.get(field)
+                    new_value = standardized_data[field]
+                    if old_value != new_value:
+                        part.additional_properties[field] = new_value
+                        updated_fields.append(f"additional_properties.{field}: '{old_value}' -> '{new_value}'")
             
             # Update image URL if provided
             if standardized_data.get('image_url') and part.image_url != standardized_data['image_url']:
@@ -473,7 +561,7 @@ class EnrichmentTaskHandlers:
                 if datasheet_url:
                     logger.info(f"Downloading datasheet for part {part.part_name} from standardized data")
                     try:
-                        from MakerMatrix.services.file_download_service import get_file_download_service
+                        from MakerMatrix.services.system.file_download_service import get_file_download_service
                         file_service = get_file_download_service(self.download_config)
                         
                         part_number = part.part_number or part.manufacturer_part_number or part.part_name
@@ -507,7 +595,7 @@ class EnrichmentTaskHandlers:
                 if image_url and image_url.startswith('http'):
                     logger.info(f"Downloading image for part {part.part_name} from standardized data")
                     try:
-                        from MakerMatrix.services.file_download_service import get_file_download_service
+                        from MakerMatrix.services.system.file_download_service import get_file_download_service
                         file_service = get_file_download_service(self.download_config)
                         
                         part_number = part.part_number or part.manufacturer_part_number or part.part_name
@@ -521,7 +609,7 @@ class EnrichmentTaskHandlers:
                         
                         if download_result:
                             # Update part.image_url to local path
-                            part.image_url = f"/utility/get_image/{download_result['image_uuid']}"
+                            part.image_url = f"/api/utility/get_image/{download_result['image_uuid']}"
                             logger.info(f"✅ Downloaded image and updated URL to: {part.image_url}")
                         
                     except Exception as e:
@@ -610,7 +698,7 @@ class EnrichmentTaskHandlers:
                         if self.download_config.get('download_datasheets', False):
                             logger.info(f"Downloading datasheet file for part {part.part_name}")
                             try:
-                                from MakerMatrix.services.file_download_service import get_file_download_service
+                                from MakerMatrix.services.system.file_download_service import get_file_download_service
                                 file_service = get_file_download_service(self.download_config)
                                 
                                 # Use the appropriate part number for the supplier
@@ -631,6 +719,51 @@ class EnrichmentTaskHandlers:
                                     part.additional_properties['datasheet_size'] = download_result['size']
                                     part.additional_properties['datasheet_file_uuid'] = download_result['file_uuid']
                                     logger.info(f"✅ Successfully downloaded datasheet: {download_result['filename']} ({download_result['size']} bytes)")
+                                    
+                                    # Create proper DatasheetModel record
+                                    try:
+                                        from MakerMatrix.database.db import get_session
+                                        session = next(get_session())
+                                        try:
+                                            # Check if datasheet already exists for this part and URL
+                                            existing_datasheet = session.exec(
+                                                select(DatasheetModel).where(
+                                                    DatasheetModel.part_id == part.id,
+                                                    DatasheetModel.source_url == datasheet_url
+                                                )
+                                            ).first()
+                                            
+                                            if not existing_datasheet:
+                                                datasheet = DatasheetModel(
+                                                    part_id=part.id,
+                                                    file_uuid=download_result['file_uuid'],
+                                                    original_filename=download_result['original_filename'],
+                                                    file_extension=download_result['extension'],
+                                                    file_size=download_result['size'],
+                                                    source_url=datasheet_url,
+                                                    supplier=supplier,
+                                                    title=f"{supplier} Datasheet - {part_number}",
+                                                    description=f"Datasheet for {part.part_name or part_number}",
+                                                    is_downloaded=True
+                                                )
+                                                session.add(datasheet)
+                                                session.commit()
+                                                logger.info(f"✅ Created DatasheetModel record for {part.part_name}")
+                                            else:
+                                                # Update existing datasheet record
+                                                existing_datasheet.file_uuid = download_result['file_uuid']
+                                                existing_datasheet.original_filename = download_result['original_filename']
+                                                existing_datasheet.file_extension = download_result['extension']
+                                                existing_datasheet.file_size = download_result['size']
+                                                existing_datasheet.is_downloaded = True
+                                                existing_datasheet.download_error = None
+                                                session.commit()
+                                                logger.info(f"✅ Updated existing DatasheetModel record for {part.part_name}")
+                                        finally:
+                                            session.close()
+                                    except Exception as e:
+                                        logger.error(f"❌ Error creating DatasheetModel record: {e}")
+                                        
                                 else:
                                     part.additional_properties['datasheet_downloaded'] = False
                                     logger.warning(f"❌ Failed to download datasheet from {datasheet_url}")
@@ -658,7 +791,7 @@ class EnrichmentTaskHandlers:
                         if self.download_config.get('download_images', False):
                             logger.info(f"Downloading image file for part {part.part_name}")
                             try:
-                                from MakerMatrix.services.file_download_service import get_file_download_service
+                                from MakerMatrix.services.system.file_download_service import get_file_download_service
                                 file_service = get_file_download_service(self.download_config)
                                 
                                 # Use the appropriate part number for the supplier
@@ -673,7 +806,7 @@ class EnrichmentTaskHandlers:
                                 
                                 if download_result:
                                     # Update part.image_url to use utility API endpoint with UUID
-                                    part.image_url = f"/utility/get_image/{download_result['image_uuid']}"
+                                    part.image_url = f"/api/utility/get_image/{download_result['image_uuid']}"
                                     logger.info(f"✅ Successfully downloaded image: {download_result['filename']} ({download_result['size']} bytes)")
                                     logger.info(f"✅ Updated part.image_url to: {part.image_url}")
                                 else:
@@ -693,7 +826,7 @@ class EnrichmentTaskHandlers:
                                 if self.download_config.get('download_images', False):
                                     logger.info(f"Downloading image file for part {part.part_name} (from images list)")
                                     try:
-                                        from MakerMatrix.services.file_download_service import get_file_download_service
+                                        from MakerMatrix.services.system.file_download_service import get_file_download_service
                                         file_service = get_file_download_service(self.download_config)
                                         
                                         # Use the appropriate part number for the supplier
@@ -708,7 +841,7 @@ class EnrichmentTaskHandlers:
                                         
                                         if download_result:
                                             # Update part.image_url to use utility API endpoint with UUID
-                                            part.image_url = f"/utility/get_image/{download_result['image_uuid']}"
+                                            part.image_url = f"/api/utility/get_image/{download_result['image_uuid']}"
                                             logger.info(f"✅ Successfully downloaded image: {download_result['filename']} ({download_result['size']} bytes)")
                                             logger.info(f"✅ Updated part.image_url to: {part.image_url}")
                                         else:
@@ -910,7 +1043,7 @@ class EnrichmentTaskHandlers:
                     await progress_callback(80, "Downloading datasheet file...")
                 
                 # Download the datasheet file
-                from MakerMatrix.services.file_download_service import file_download_service
+                from MakerMatrix.services.system.file_download_service import file_download_service
                 download_result = file_download_service.download_datasheet(
                     url=result.datasheet_url,
                     part_number=part_number,
@@ -1098,21 +1231,51 @@ class EnrichmentTaskHandlers:
         """
         Handle bulk enrichment for multiple parts.
         
-        Input data should contain:
-        - part_ids: List of part IDs to enrich
+        Input data can contain:
+        - part_ids: List of specific part IDs to enrich (legacy mode)
+        - enrich_all: Boolean to enrich all parts in system with pagination (new mode)
         - supplier_filter: Optional supplier filter
         - capabilities: List of capabilities to use
         - batch_size: Number of parts to process in parallel (default: 5)
+        - page_size: Number of parts to fetch per page when enrich_all=true (default: 10)
         """
         try:
             input_data = task.get_input_data()
             part_ids = input_data.get('part_ids', [])
+            enrich_all = input_data.get('enrich_all', False)
             supplier_filter = input_data.get('supplier_filter')
             requested_capabilities = input_data.get('capabilities', [])
             batch_size = input_data.get('batch_size', 5)
+            page_size = input_data.get('page_size', 10)
             
-            if not part_ids:
-                raise ValueError("part_ids list is required for bulk enrichment")
+            logger.info(f"🚀 [BULK ENRICHMENT] Starting bulk enrichment task")
+            logger.info(f"🔧 [BULK ENRICHMENT] Requested capabilities: {requested_capabilities}")
+            logger.info(f"🏭 [BULK ENRICHMENT] Supplier filter: {supplier_filter}")
+            logger.info(f"📦 [BULK ENRICHMENT] Batch size: {batch_size}")
+            
+            if enrich_all:
+                logger.info(f"🌍 [BULK ENRICHMENT] Mode: Enrich ALL parts with pagination (page size: {page_size})")
+                return await self._handle_bulk_enrichment_paginated(
+                    supplier_filter, requested_capabilities, batch_size, page_size, progress_callback
+                )
+            else:
+                logger.info(f"📋 [BULK ENRICHMENT] Mode: Enrich specific parts ({len(part_ids)} parts)")
+                if not part_ids:
+                    raise ValueError("part_ids list is required when enrich_all=false")
+                return await self._handle_bulk_enrichment_specific(
+                    part_ids, supplier_filter, requested_capabilities, batch_size, progress_callback
+                )
+                
+        except Exception as e:
+            logger.error(f"💥 [BULK ENRICHMENT] Task failed with error: {e}", exc_info=True)
+            raise
+    
+    async def _handle_bulk_enrichment_specific(self, part_ids: List[str], supplier_filter: str, 
+                                             requested_capabilities: List[str], batch_size: int, 
+                                             progress_callback) -> Dict[str, Any]:
+        """Handle bulk enrichment for specific part IDs (legacy mode)"""
+        try:
+            logger.info(f"📊 [BULK ENRICHMENT] Total parts to process: {len(part_ids)}")
             
             total_parts = len(part_ids)
             processed_parts = 0
@@ -1120,11 +1283,18 @@ class EnrichmentTaskHandlers:
             failed_enrichments = []
             
             # Process parts in batches
+            logger.info(f"🔄 [BULK ENRICHMENT] Processing {total_parts} parts in batches of {batch_size}")
             for i in range(0, total_parts, batch_size):
                 batch = part_ids[i:i + batch_size]
+                batch_number = (i // batch_size) + 1
+                total_batches = (total_parts + batch_size - 1) // batch_size
+                
+                logger.info(f"📦 [BULK ENRICHMENT] Starting batch {batch_number}/{total_batches} with {len(batch)} parts")
                 batch_tasks = []
                 
-                for part_id in batch:
+                for j, part_id in enumerate(batch):
+                    logger.info(f"   📋 [BULK ENRICHMENT] Batch {batch_number}, Part {j+1}/{len(batch)}: {part_id}")
+                    
                     # Create enrichment task for each part
                     enrichment_data = {
                         'part_id': part_id,
@@ -1132,6 +1302,9 @@ class EnrichmentTaskHandlers:
                     }
                     if supplier_filter:
                         enrichment_data['supplier'] = supplier_filter
+                        logger.info(f"   🏭 [BULK ENRICHMENT] Using supplier filter: {supplier_filter}")
+                    
+                    logger.info(f"   🔧 [BULK ENRICHMENT] Part {part_id} capabilities: {requested_capabilities}")
                     
                     # Create a mock task for the part enrichment
                     part_task = TaskModel(
@@ -1144,21 +1317,29 @@ class EnrichmentTaskHandlers:
                     batch_tasks.append(self.handle_part_enrichment(part_task))
                 
                 # Execute batch in parallel
+                logger.info(f"⚡ [BULK ENRICHMENT] Executing batch {batch_number} with {len(batch_tasks)} tasks in parallel")
                 batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
                 
                 # Process batch results
+                batch_successful = 0
+                batch_failed = 0
+                
                 for j, result in enumerate(batch_results):
                     part_id = batch[j]
                     if isinstance(result, Exception):
+                        logger.error(f"   ❌ [BULK ENRICHMENT] Part {part_id} failed: {str(result)}")
                         failed_enrichments.append({
                             "part_id": part_id,
                             "error": str(result)
                         })
+                        batch_failed += 1
                     else:
+                        logger.info(f"   ✅ [BULK ENRICHMENT] Part {part_id} enriched successfully")
                         successful_enrichments.append({
                             "part_id": part_id,
                             "result": result
                         })
+                        batch_successful += 1
                     
                     processed_parts += 1
                     
@@ -1169,8 +1350,11 @@ class EnrichmentTaskHandlers:
                             progress, 
                             f"Processed {processed_parts}/{total_parts} parts"
                         )
-            
-            return {
+                
+                logger.info(f"📊 [BULK ENRICHMENT] Batch {batch_number} completed: {batch_successful} successful, {batch_failed} failed")
+                
+            # Final summary
+            final_results = {
                 "total_parts": total_parts,
                 "successful_count": len(successful_enrichments),
                 "failed_count": len(failed_enrichments),
@@ -1178,9 +1362,162 @@ class EnrichmentTaskHandlers:
                 "failed_enrichments": failed_enrichments
             }
             
+            logger.info(f"🎉 [BULK ENRICHMENT] Task completed!")
+            logger.info(f"📈 [BULK ENRICHMENT] Final results:")
+            logger.info(f"   ✅ Successful: {len(successful_enrichments)}/{total_parts}")
+            logger.info(f"   ❌ Failed: {len(failed_enrichments)}/{total_parts}")
+            logger.info(f"   📊 Success rate: {(len(successful_enrichments)/total_parts*100):.1f}%")
+            
+            if failed_enrichments:
+                logger.warning(f"⚠️ [BULK ENRICHMENT] Failed parts:")
+                for failed in failed_enrichments[:5]:  # Show first 5 failures
+                    logger.warning(f"   - {failed['part_id']}: {failed['error']}")
+                if len(failed_enrichments) > 5:
+                    logger.warning(f"   ... and {len(failed_enrichments) - 5} more failures")
+            
+            return final_results
+            
         except Exception as e:
-            logger.error(f"Error in bulk enrichment task: {e}", exc_info=True)
+            logger.error(f"💥 [BULK ENRICHMENT] Task failed with error: {e}", exc_info=True)
             raise
+    
+    async def _handle_bulk_enrichment_paginated(self, supplier_filter: str, 
+                                              requested_capabilities: List[str], batch_size: int, 
+                                              page_size: int, progress_callback) -> Dict[str, Any]:
+        """Handle bulk enrichment for all parts using pagination (new mode)"""
+        from MakerMatrix.database.db import get_session
+        from sqlmodel import select, func, and_
+        
+        session = next(get_session())
+        try:
+            # Get total count of parts (with supplier filter if specified)
+            if supplier_filter:
+                total_parts = session.exec(
+                    select(func.count(PartModel.id)).where(
+                        and_(
+                            PartModel.supplier.ilike(f"%{supplier_filter}%")
+                        )
+                    )
+                ).one()
+                logger.info(f"🌍 [BULK ENRICHMENT] Total parts with supplier '{supplier_filter}': {total_parts}")
+            else:
+                total_parts = session.exec(select(func.count(PartModel.id))).one()
+                logger.info(f"🌍 [BULK ENRICHMENT] Total parts in system: {total_parts}")
+            
+            if total_parts == 0:
+                logger.warning(f"⚠️ [BULK ENRICHMENT] No parts found to enrich")
+                return {
+                    "total_parts": 0,
+                    "successful_count": 0,
+                    "failed_count": 0,
+                    "successful_enrichments": [],
+                    "failed_enrichments": []
+                }
+            
+            # Initialize counters
+            processed_parts = 0
+            successful_enrichments = []
+            failed_enrichments = []
+            current_page = 0
+            
+            # Process parts in pages
+            while processed_parts < total_parts:
+                current_page += 1
+                offset = (current_page - 1) * page_size
+                
+                logger.info(f"📄 [BULK ENRICHMENT] Processing page {current_page}, offset {offset}, page size {page_size}")
+                
+                # Fetch page of parts
+                if supplier_filter:
+                    parts_query = select(PartModel).where(
+                        PartModel.supplier.ilike(f"%{supplier_filter}%")
+                    ).offset(offset).limit(page_size)
+                else:
+                    parts_query = select(PartModel).offset(offset).limit(page_size)
+                
+                parts_page = session.exec(parts_query).all()
+                page_part_count = len(parts_page)
+                
+                logger.info(f"📦 [BULK ENRICHMENT] Page {current_page} loaded {page_part_count} parts")
+                
+                if page_part_count == 0:
+                    logger.info(f"📄 [BULK ENRICHMENT] No more parts found, pagination complete")
+                    break
+                
+                # Convert parts to part IDs
+                page_part_ids = [part.id for part in parts_page]
+                
+                # Process this page using the existing specific enrichment method
+                logger.info(f"🔄 [BULK ENRICHMENT] Processing page {current_page} with {len(page_part_ids)} parts")
+                
+                try:
+                    page_results = await self._handle_bulk_enrichment_specific(
+                        page_part_ids, supplier_filter, requested_capabilities, batch_size, None  # No progress callback for individual pages
+                    )
+                    
+                    # Aggregate results
+                    successful_enrichments.extend(page_results["successful_enrichments"])
+                    failed_enrichments.extend(page_results["failed_enrichments"])
+                    
+                    page_successful = page_results["successful_count"]
+                    page_failed = page_results["failed_count"]
+                    
+                    logger.info(f"✅ [BULK ENRICHMENT] Page {current_page} completed: {page_successful} successful, {page_failed} failed")
+                    
+                except Exception as page_error:
+                    logger.error(f"❌ [BULK ENRICHMENT] Page {current_page} failed: {page_error}")
+                    # Add all parts in this page as failed
+                    for part_id in page_part_ids:
+                        failed_enrichments.append({
+                            "part_id": part_id,
+                            "error": f"Page processing failed: {str(page_error)}"
+                        })
+                
+                processed_parts += page_part_count
+                
+                # Update overall progress
+                if progress_callback:
+                    progress = min(int((processed_parts / total_parts) * 100), 100)
+                    await progress_callback(
+                        progress, 
+                        f"Processed {processed_parts}/{total_parts} parts (page {current_page})"
+                    )
+                
+                logger.info(f"📊 [BULK ENRICHMENT] Overall progress: {processed_parts}/{total_parts} parts processed")
+            
+            # Final summary
+            final_results = {
+                "total_parts": processed_parts,
+                "successful_count": len(successful_enrichments),
+                "failed_count": len(failed_enrichments),
+                "successful_enrichments": successful_enrichments,
+                "failed_enrichments": failed_enrichments,
+                "pages_processed": current_page,
+                "page_size": page_size
+            }
+            
+            logger.info(f"🎉 [BULK ENRICHMENT] Paginated enrichment completed!")
+            logger.info(f"📈 [BULK ENRICHMENT] Final results:")
+            logger.info(f"   📄 Pages processed: {current_page}")
+            logger.info(f"   📦 Page size: {page_size}")
+            logger.info(f"   ✅ Successful: {len(successful_enrichments)}/{processed_parts}")
+            logger.info(f"   ❌ Failed: {len(failed_enrichments)}/{processed_parts}")
+            
+            if processed_parts > 0:
+                success_rate = (len(successful_enrichments) / processed_parts) * 100
+                logger.info(f"   📊 Success rate: {success_rate:.1f}%")
+            
+            if failed_enrichments:
+                logger.warning(f"⚠️ [BULK ENRICHMENT] Failed parts:")
+                for failed in failed_enrichments[:5]:  # Show first 5 failures
+                    logger.warning(f"   - {failed['part_id']}: {failed['error']}")
+                if len(failed_enrichments) > 5:
+                    logger.warning(f"   ... and {len(failed_enrichments) - 5} more failures")
+            
+            return final_results
+            
+        finally:
+            session.close()
     
     async def _update_part_from_enrichment(self, part, capability_name: str, enrichment_data: Dict[str, Any]):
         """Update part fields based on enrichment results using new supplier format"""
@@ -1289,40 +1626,47 @@ class EnrichmentTaskHandlers:
             The part number to use for API calls to that supplier
         """
         if not supplier:
-            return part.part_number
+            return part.supplier_part_number or part.part_number
         
         try:
-            # Use the new supplier system
-            from MakerMatrix.suppliers.registry import get_supplier
+            # PRIORITY 1: Use dedicated supplier_part_number field (new approach)
+            if hasattr(part, 'supplier_part_number') and part.supplier_part_number:
+                logger.debug(f"Using supplier_part_number for {supplier}: {part.supplier_part_number}")
+                return part.supplier_part_number
             
-            supplier_instance = get_supplier(supplier.lower())
-            if supplier_instance:
-                # For our new suppliers, the part number is typically stored in part_number
-                # or can be extracted from additional_properties
+            # PRIORITY 2: Check additional properties for supplier-specific part numbers
+            if part.additional_properties:
+                # Check for direct supplier part number
+                supplier_key = f"{supplier.lower()}_part_number"
+                if supplier_key in part.additional_properties:
+                    logger.debug(f"Using {supplier_key} from additional_properties: {part.additional_properties[supplier_key]}")
+                    return part.additional_properties[supplier_key]
                 
-                # Check if it's a supplier-specific part number first
-                if hasattr(part, 'supplier_part_number') and part.supplier_part_number:
-                    return part.supplier_part_number
-                
-                # Check additional properties for supplier-specific part numbers
-                if part.additional_properties:
-                    supplier_key = f"{supplier.lower()}_part_number"
-                    if supplier_key in part.additional_properties:
-                        return part.additional_properties[supplier_key]
-                
-                # Use manufacturer part number as fallback
-                if hasattr(part, 'manufacturer_part_number') and part.manufacturer_part_number:
-                    return part.manufacturer_part_number
-                    
-                logger.debug(f"Using part number for {supplier}: {part.part_number}")
+                # Check for supplier data structure (new format)
+                supplier_data = part.additional_properties.get('supplier_data', {})
+                supplier_info = supplier_data.get(supplier.lower(), {})
+                if 'supplier_part_number' in supplier_info:
+                    logger.debug(f"Using supplier_part_number from supplier_data.{supplier.lower()}: {supplier_info['supplier_part_number']}")
+                    return supplier_info['supplier_part_number']
+            
+            # PRIORITY 3: Use generic part_number (legacy fallback)
+            if hasattr(part, 'part_number') and part.part_number:
+                logger.debug(f"Using part_number for {supplier}: {part.part_number}")
                 return part.part_number
+            
+            # PRIORITY 4: Use manufacturer part number as last resort
+            if hasattr(part, 'manufacturer_part_number') and part.manufacturer_part_number:
+                logger.warning(f"Using manufacturer_part_number as fallback for {supplier}: {part.manufacturer_part_number}")
+                return part.manufacturer_part_number
+                
+            # PRIORITY 5: Use part name as absolute last resort
+            logger.warning(f"Using part_name as final fallback for {supplier}: {part.part_name}")
+            return part.part_name
         
         except Exception as e:
-            logger.warning(f"Failed to get supplier part number using new supplier system for {supplier}: {e}")
-        
-        # Fallback to part number
-        logger.debug(f"Using fallback part number for {supplier}: {part.part_number}")
-        return part.part_number
+            logger.warning(f"Failed to get supplier part number for {supplier}: {e}")
+            # Final fallback
+            return part.supplier_part_number or part.part_number or part.part_name
     
     async def _handle_category_auto_creation(self, part, enrichment_results):
         """Auto-create categories from enriched data and add them to the part"""

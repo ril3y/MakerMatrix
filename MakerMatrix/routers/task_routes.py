@@ -17,50 +17,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Background Tasks"])
 
 
-@router.post("/", response_model=Dict[str, Any])
-async def create_task(
-    task_request: CreateTaskRequest,
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Create a new background task with security validation"""
-    try:
-        # Validate task creation against security policies
-        is_allowed, error_message = await task_security_service.validate_task_creation(task_request, current_user)
-        
-        if not is_allowed:
-            # Log security denial
-            await task_security_service.log_task_security_event(
-                "task_denied", 
-                current_user, 
-                None,
-                {"task_type": task_request.task_type.value, "reason": error_message}
-            )
-            raise HTTPException(status_code=403, detail=f"Task creation denied: {error_message}")
-        
-        # Create the task
-        task = await task_service.create_task(task_request, user_id=current_user.id)
-        
-        # Log successful task creation
-        await task_security_service.log_task_security_event(
-            "task_created",
-            current_user,
-            task,
-            {"task_type": task_request.task_type.value}
-        )
-        
-        logger.info(f"Created task {task.id}: {task.name} by user {current_user.username}")
-        
-        return {
-            "status": "success",
-            "message": "Task created successfully",
-            "data": task.to_dict()
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to create task: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
-
+# Custom task creation removed for security reasons
+# Only predefined quick task endpoints are allowed
 
 @router.get("/", response_model=Dict[str, Any])
 async def get_tasks(
@@ -291,28 +249,332 @@ async def get_worker_status(
         raise HTTPException(status_code=500, detail=f"Failed to get worker status: {str(e)}")
 
 
-# Quick task endpoints removed - use enrichment_routes.py for enrichment tasks
+# Quick task creation endpoints
+@router.post("/quick/part_enrichment", response_model=Dict[str, Any])
+async def quick_create_part_enrichment_task(
+    request: Dict[str, Any],
+    current_user: UserModel = Depends(require_permission("tasks:create"))
+):
+    """Quick create part enrichment task"""
+    try:
+        from MakerMatrix.models.task_models import TaskType, CreateTaskRequest, TaskPriority
+        from MakerMatrix.suppliers.registry import SupplierRegistry
+        
+        # Extract request data
+        part_id = request.get("part_id")
+        supplier = request.get("supplier", "").lower()
+        capabilities = request.get("capabilities", [])
+        force_refresh = request.get("force_refresh", False)  # Accept but ignore for now
+        
+        if not part_id:
+            raise HTTPException(status_code=400, detail="part_id is required")
+        
+        if not supplier:
+            raise HTTPException(status_code=400, detail="supplier is required")
+            
+        if not capabilities:
+            raise HTTPException(status_code=400, detail="capabilities are required")
+        
+        # Validate that the supplier has an actual enrichment implementation
+        if not SupplierRegistry.is_supplier_available(supplier):
+            available_suppliers = SupplierRegistry.get_available_suppliers()
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Supplier '{supplier}' has no enrichment implementation. Available suppliers: {', '.join(available_suppliers)}"
+            )
+        
+        # Create task request
+        task_request = CreateTaskRequest(
+            task_type=TaskType.PART_ENRICHMENT,
+            name=f"Enrich part {part_id}",
+            description=f"Enrich part using {supplier} with capabilities: {', '.join(capabilities)}",
+            priority=TaskPriority.NORMAL,
+            input_data={
+                "part_id": part_id,
+                "supplier": supplier,
+                "capabilities": capabilities
+            },
+            related_entity_type="part",
+            related_entity_id=part_id
+        )
+        
+        # Create the task
+        task = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        logger.info(f"Created part enrichment task {task.id} for part {part_id} with {supplier}")
+        
+        return {
+            "status": "success",
+            "message": "Part enrichment task created successfully",
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create part enrichment task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create part enrichment task: {str(e)}")
 
 
-# Removed - use /api/enrichment/tasks/part
+@router.post("/quick/datasheet_fetch", response_model=Dict[str, Any])  
+async def quick_create_datasheet_fetch_task(
+    request: Dict[str, Any],
+    current_user: UserModel = Depends(require_permission("tasks:create"))
+):
+    """Quick create datasheet fetch task"""
+    try:
+        from MakerMatrix.models.task_models import TaskType, CreateTaskRequest, TaskPriority
+        
+        part_id = request.get("part_id")
+        supplier = request.get("supplier", "").lower()
+        
+        if not part_id:
+            raise HTTPException(status_code=400, detail="part_id is required")
+        
+        task_request = CreateTaskRequest(
+            task_type=TaskType.DATASHEET_FETCH,
+            name=f"Fetch datasheet for part {part_id}",
+            description=f"Fetch datasheet using {supplier}",
+            priority=TaskPriority.NORMAL,
+            input_data={
+                "part_id": part_id,
+                "supplier": supplier,
+                "capabilities": ["fetch_datasheet"]
+            },
+            related_entity_type="part",
+            related_entity_id=part_id
+        )
+        
+        task = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        return {
+            "status": "success", 
+            "message": "Datasheet fetch task created successfully",
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create datasheet fetch task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create datasheet fetch task: {str(e)}")
 
 
-# Removed - use /api/enrichment/tasks/part with datasheet capability
+@router.post("/quick/image_fetch", response_model=Dict[str, Any])
+async def quick_create_image_fetch_task(
+    request: Dict[str, Any],
+    current_user: UserModel = Depends(require_permission("tasks:create"))
+):
+    """Quick create image fetch task"""
+    try:
+        from MakerMatrix.models.task_models import TaskType, CreateTaskRequest, TaskPriority
+        
+        part_id = request.get("part_id")
+        supplier = request.get("supplier", "").lower()
+        
+        if not part_id:
+            raise HTTPException(status_code=400, detail="part_id is required")
+        
+        task_request = CreateTaskRequest(
+            task_type=TaskType.IMAGE_FETCH,
+            name=f"Fetch image for part {part_id}",
+            description=f"Fetch image using {supplier}",
+            priority=TaskPriority.NORMAL,
+            input_data={
+                "part_id": part_id,
+                "supplier": supplier,
+                "capabilities": ["fetch_image"]
+            },
+            related_entity_type="part",
+            related_entity_id=part_id
+        )
+        
+        task = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        return {
+            "status": "success",
+            "message": "Image fetch task created successfully", 
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create image fetch task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create image fetch task: {str(e)}")
 
 
-# Removed - use /api/enrichment/tasks/part with image capability
+@router.post("/quick/bulk_enrichment", response_model=Dict[str, Any])
+async def quick_create_bulk_enrichment_task(
+    request: Dict[str, Any],
+    current_user: UserModel = Depends(require_permission("tasks:create"))
+):
+    """Quick create bulk enrichment task"""
+    try:
+        from MakerMatrix.models.task_models import TaskType, CreateTaskRequest, TaskPriority
+        from MakerMatrix.suppliers.registry import SupplierRegistry
+        
+        part_ids = request.get("part_ids", [])
+        supplier = request.get("supplier", "").lower()
+        capabilities = request.get("capabilities", [])
+        
+        if not part_ids:
+            raise HTTPException(status_code=400, detail="part_ids are required")
+        
+        # Validate that the supplier has an actual enrichment implementation
+        if supplier and not SupplierRegistry.is_supplier_available(supplier):
+            available_suppliers = SupplierRegistry.get_available_suppliers()
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Supplier '{supplier}' has no enrichment implementation. Available suppliers: {', '.join(available_suppliers)}"
+            )
+        
+        task_request = CreateTaskRequest(
+            task_type=TaskType.BULK_ENRICHMENT,
+            name=f"Bulk enrich {len(part_ids)} parts",
+            description=f"Bulk enrich parts using {supplier} with capabilities: {', '.join(capabilities)}",
+            priority=TaskPriority.NORMAL,
+            input_data={
+                "part_ids": part_ids,
+                "supplier": supplier,
+                "capabilities": capabilities
+            }
+        )
+        
+        task = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        return {
+            "status": "success",
+            "message": "Bulk enrichment task created successfully",
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create bulk enrichment task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create bulk enrichment task: {str(e)}")
 
 
-# Removed - use /api/enrichment/tasks/bulk
+@router.post("/quick/price_update", response_model=Dict[str, Any])
+async def quick_create_price_update_task(
+    request: Dict[str, Any],
+    current_user: UserModel = Depends(require_permission("tasks:create"))
+):
+    """Quick create price update task"""
+    try:
+        from MakerMatrix.models.task_models import TaskType, CreateTaskRequest, TaskPriority
+        
+        part_ids = request.get("part_ids", [])
+        supplier = request.get("supplier", "").lower()
+        
+        if not part_ids:
+            raise HTTPException(status_code=400, detail="part_ids are required")
+        
+        task_request = CreateTaskRequest(
+            task_type=TaskType.PRICE_UPDATE,
+            name=f"Update prices for {len(part_ids)} parts",
+            description=f"Update part prices using {supplier}",
+            priority=TaskPriority.NORMAL,
+            input_data={
+                "part_ids": part_ids,
+                "supplier": supplier,
+                "capabilities": ["fetch_pricing"]
+            }
+        )
+        
+        task = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        return {
+            "status": "success",
+            "message": "Price update task created successfully",
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create price update task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create price update task: {str(e)}")
 
 
-# Removed - use /api/enrichment/tasks/part with pricing capability
+# Task capabilities endpoints
+@router.get("/capabilities/suppliers", response_model=Dict[str, Any])
+async def get_supplier_capabilities(
+    current_user: UserModel = Depends(require_permission("tasks:read"))
+):
+    """Get enrichment capabilities for all suppliers"""
+    try:
+        from MakerMatrix.suppliers.registry import SupplierRegistry
+        
+        capabilities = {}
+        suppliers = SupplierRegistry.get_available_suppliers()
+        
+        for supplier_name in suppliers:
+            try:
+                supplier = SupplierRegistry.get_supplier(supplier_name)
+                supplier_capabilities = [cap.value for cap in supplier.get_capabilities()]
+                capabilities[supplier_name] = supplier_capabilities
+            except Exception as e:
+                logger.warning(f"Failed to get capabilities for {supplier_name}: {e}")
+                capabilities[supplier_name] = []
+        
+        return {
+            "status": "success",
+            "message": f"Retrieved capabilities for {len(capabilities)} suppliers",
+            "data": capabilities
+        }
+    except Exception as e:
+        logger.error(f"Failed to get supplier capabilities: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get supplier capabilities: {str(e)}")
 
 
-# Removed - database cleanup should use generic task creation
+@router.get("/capabilities/suppliers/{supplier_name}", response_model=Dict[str, Any])
+async def get_supplier_specific_capabilities(
+    supplier_name: str,
+    current_user: UserModel = Depends(require_permission("tasks:read"))
+):
+    """Get capabilities for a specific supplier"""
+    try:
+        from MakerMatrix.suppliers.registry import SupplierRegistry
+        
+        supplier = SupplierRegistry.get_supplier(supplier_name)
+        capabilities = [cap.value for cap in supplier.get_capabilities()]
+        
+        return {
+            "status": "success",
+            "message": f"Retrieved capabilities for {supplier_name}",
+            "data": capabilities
+        }
+    except Exception as e:
+        logger.error(f"Failed to get capabilities for {supplier_name}: {e}", exc_info=True)
+        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found or failed to get capabilities")
 
 
-# Enrichment capabilities endpoints moved to enrichment_routes.py
+@router.get("/capabilities/find/{capability_type}", response_model=Dict[str, Any])
+async def find_suppliers_with_capability(
+    capability_type: str,
+    current_user: UserModel = Depends(require_permission("tasks:read"))
+):
+    """Find suppliers that support a specific capability"""
+    try:
+        from MakerMatrix.suppliers.registry import SupplierRegistry
+        
+        matching_suppliers = []
+        suppliers = SupplierRegistry.get_available_suppliers()
+        
+        for supplier_name in suppliers:
+            try:
+                supplier = SupplierRegistry.get_supplier(supplier_name)
+                capabilities = [cap.value for cap in supplier.get_capabilities()]
+                if capability_type in capabilities:
+                    matching_suppliers.append(supplier_name)
+            except Exception as e:
+                logger.warning(f"Failed to check capabilities for {supplier_name}: {e}")
+        
+        return {
+            "status": "success",
+            "message": f"Found {len(matching_suppliers)} suppliers with capability '{capability_type}'",
+            "data": matching_suppliers
+        }
+    except Exception as e:
+        logger.error(f"Failed to find suppliers with capability {capability_type}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to find suppliers with capability: {str(e)}")
 
 
 # Security and permissions endpoints
@@ -433,27 +695,7 @@ async def get_user_task_limits(
         raise HTTPException(status_code=500, detail=f"Failed to get task limits: {str(e)}")
 
 
-@router.post("/security/validate", response_model=Dict[str, Any])
-async def validate_task_creation_security(
-    task_request: CreateTaskRequest,
-    current_user: UserModel = Depends(require_permission("tasks:create"))
-):
-    """Validate if a task can be created without actually creating it"""
-    try:
-        is_allowed, error_message = await task_security_service.validate_task_creation(task_request, current_user)
-        
-        return {
-            "status": "success",
-            "data": {
-                "allowed": is_allowed,
-                "error_message": error_message,
-                "task_type": task_request.task_type.value
-            }
-        }
-    except Exception as e:
-        logger.error(f"Failed to validate task creation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to validate task creation: {str(e)}")
-
+# Task creation validation endpoint removed - no longer needed without custom task creation
 
 # PARAMETERIZED ROUTES MUST COME LAST to avoid conflicts
 @router.get("/{task_id}", response_model=Dict[str, Any])

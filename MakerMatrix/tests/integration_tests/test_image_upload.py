@@ -39,7 +39,7 @@ class TestImageUpload:
     def setup(self):
         """Setup test environment."""
         # Create upload directory if it doesn't exist
-        os.makedirs("uploaded_images", exist_ok=True)
+        os.makedirs("MakerMatrix/services/static/images", exist_ok=True)
         
         # Create test part
         with Session(engine) as session:
@@ -90,9 +90,10 @@ class TestImageUpload:
             session.commit()
         
         # Clean up uploaded test images
-        for file in os.listdir("uploaded_images"):
-            if file.startswith("test_"):
-                os.remove(os.path.join("uploaded_images", file))
+        if os.path.exists("MakerMatrix/services/static/images"):
+            for file in os.listdir("MakerMatrix/services/static/images"):
+                if file.startswith("test_"):
+                    os.remove(os.path.join("MakerMatrix/services/static/images", file))
     
     def create_test_image(self, name="test_image.png"):
         """Create a test image file."""
@@ -111,7 +112,7 @@ class TestImageUpload:
         
         # Upload the image
         response = client.post(
-            "/utility/upload_image",
+            "/api/utility/upload_image",
             files={"file": (filename, img_data, "image/png")},
             headers={"Authorization": f"Bearer {admin_token}"}
         )
@@ -122,7 +123,7 @@ class TestImageUpload:
         
         # Verify the file was saved
         image_id = data["image_id"]
-        expected_path = f"uploaded_images/{image_id}.png"
+        expected_path = f"MakerMatrix/services/static/images/{image_id}.png"
         assert os.path.exists(expected_path)
         
         # Clean up
@@ -135,19 +136,19 @@ class TestImageUpload:
         # Upload an image first
         img_data, filename = self.create_test_image()
         upload_response = client.post(
-            "/utility/upload_image",
+            "/api/utility/upload_image",
             files={"file": (filename, img_data, "image/png")},
             headers={"Authorization": f"Bearer {admin_token}"}
         )
         image_id = upload_response.json()["image_id"]
         
         # Try to retrieve the image
-        response = client.get(f"/utility/get_image/{image_id}.png", headers={"Authorization": f"Bearer {admin_token}"})
+        response = client.get(f"/api/utility/get_image/{image_id}.png", headers={"Authorization": f"Bearer {admin_token}"})
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/png"
         
         # Clean up
-        os.remove(f"uploaded_images/{image_id}.png")
+        os.remove(f"MakerMatrix/services/static/images/{image_id}.png")
     
     def test_image_not_linked_to_part(self, admin_token):
         """Test that uploaded images are not automatically linked to parts."""
@@ -156,7 +157,7 @@ class TestImageUpload:
         # Upload an image
         img_data, filename = self.create_test_image()
         upload_response = client.post(
-            "/utility/upload_image",
+            "/api/utility/upload_image",
             files={"file": (filename, img_data, "image/png")},
             headers={"Authorization": f"Bearer {admin_token}"}
         )
@@ -168,7 +169,7 @@ class TestImageUpload:
             assert part.image_url is None
         
         # Clean up
-        os.remove(f"uploaded_images/{image_id}.png")
+        os.remove(f"MakerMatrix/services/static/images/{image_id}.png")
     
     @pytest.mark.integration
     def test_update_part_with_image_url(self, admin_token):
@@ -178,12 +179,12 @@ class TestImageUpload:
         # Upload an image first
         img_data, filename = self.create_test_image()
         upload_response = client.post(
-            "/utility/upload_image",
+            "/api/utility/upload_image",
             files={"file": (filename, img_data, "image/png")},
             headers={"Authorization": f"Bearer {admin_token}"}
         )
         image_id = upload_response.json()["image_id"]
-        image_url = f"/utility/get_image/{image_id}.png"
+        image_url = f"/api/utility/get_image/{image_id}.png"
         
         # Update the part with the image URL
         update_data = {
@@ -205,7 +206,7 @@ class TestImageUpload:
         assert part_data["image_url"] == image_url
         
         # Clean up
-        os.remove(f"uploaded_images/{image_id}.png")
+        os.remove(f"MakerMatrix/services/static/images/{image_id}.png")
 
 
 if __name__ == "__main__":

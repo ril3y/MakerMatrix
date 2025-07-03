@@ -253,7 +253,6 @@ class PartService:
             # Set default "Unsorted" location if no location specified
             if location_id is None:
                 try:
-                    from MakerMatrix.services.data.location_service import LocationService
                     unsorted_location = LocationService.get_or_create_unsorted_location()
                     part_data["location_id"] = unsorted_location.id
                     location_id = unsorted_location.id
@@ -297,7 +296,7 @@ class PartService:
                 # Filter out only valid PartModel fields
                 valid_part_fields = {
                     'part_number', 'part_name', 'description', 'quantity', 
-                    'supplier', 'location_id', 'image_url', 'additional_properties',
+                    'supplier', 'supplier_part_number', 'supplier_url', 'location_id', 'image_url', 'additional_properties',
                     # Pricing fields
                     'unit_price', 'currency', 'pricing_data',
                     # Enhanced fields from PartModel
@@ -313,7 +312,7 @@ class PartService:
                 for key, value in part_data.items():
                     if key in valid_part_fields:
                         # Convert empty strings to None for optional fields
-                        if value == "" and key in ['location_id', 'image_url', 'description', 'part_number', 'supplier', 
+                        if value == "" and key in ['location_id', 'image_url', 'description', 'part_number', 'supplier', 'supplier_part_number', 'supplier_url',
                                                   'manufacturer', 'manufacturer_part_number', 'component_type', 
                                                   'package', 'mounting_type', 'rohs_status', 'lifecycle_status',
                                                   'price_source', 'enrichment_source']:

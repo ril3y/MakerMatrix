@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import { tasksService } from '@/services/tasks.service'
 import { partsService } from '@/services/parts.service'
 import { taskWebSocket } from '@/services/task-websocket.service'
-import CreateTaskModal from './CreateTaskModal'
+// CreateTaskModal removed for security reasons
 
 interface Task {
   id: string
@@ -52,7 +52,7 @@ const TasksManagement: React.FC = () => {
   const [taskStats, setTaskStats] = useState<TaskStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
+  // Custom task creation removed for security reasons
   const [showTaskConsole, setShowTaskConsole] = useState(false)
   
   // Filters
@@ -85,10 +85,13 @@ const TasksManagement: React.FC = () => {
   // Check supplier configuration status
   const checkSupplierConfigStatus = async () => {
     try {
-      // Get all parts and configured suppliers in parallel
-      const [allParts, configuredResponse] = await Promise.all([
+      // Get all parts, configured suppliers, and available suppliers in parallel
+      const [allParts, configuredResponse, capabilitiesResponse] = await Promise.all([
         partsService.getAll(),
         fetch('/api/suppliers/configured', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+        }),
+        fetch('/api/tasks/capabilities/suppliers', {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
         })
       ])
@@ -96,19 +99,33 @@ const TasksManagement: React.FC = () => {
       const configuredSuppliers = configuredResponse.ok ? await configuredResponse.json() : { data: [] }
       const configuredNames = new Set(
         configuredSuppliers.data?.map((s: any) => {
-          // API returns 'name' field, but may also have 'supplier_name' or 'id'
-          const supplierName = s.name || s.supplier_name || s.id || '';
+          // Use 'id' field (supplier identifier) instead of 'name' (display name)
+          // API returns: id: "digikey", name: "DigiKey Electronics"
+          const supplierName = s.id || s.supplier_name || s.name || '';
           return supplierName.toUpperCase();
         }) || []
       )
       
-      // Analyze parts
+      // Get available supplier implementations (those with actual enrichment capabilities)
+      const availableSuppliers = capabilitiesResponse.ok ? await capabilitiesResponse.json() : { data: {} }
+      const availableSupplierNames = new Set(
+        Object.keys(availableSuppliers.data || {}).map(name => name.toUpperCase())
+      )
+      
+      // Analyze parts - only count suppliers that have implementations
       const supplierCounts = new Map<string, number>()
       let partsWithoutSuppliers = 0
+      let partsWithMetadataSuppliers = 0
       
       allParts.forEach(part => {
         if (part.supplier) {
-          supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+          // Only count suppliers that have actual implementations
+          if (availableSupplierNames.has(part.supplier.toUpperCase())) {
+            supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+          } else {
+            // Count parts with metadata-only suppliers (like Amazon, Alibaba, etc.)
+            partsWithMetadataSuppliers++
+          }
         } else {
           partsWithoutSuppliers++
         }
@@ -444,19 +461,39 @@ const TasksManagement: React.FC = () => {
               return
             }
             
-            // Check suppliers for these parts
+            // Get available suppliers to filter out metadata-only suppliers  
+            const capabilitiesResponse = await fetch('/api/tasks/capabilities/suppliers', {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+            })
+            
+            const availableSuppliers = capabilitiesResponse.ok ? await capabilitiesResponse.json() : { data: {} }
+            const availableSupplierNames = new Set(
+              Object.keys(availableSuppliers.data || {}).map(name => name.toUpperCase())
+            )
+            
+            // Check suppliers for these parts - only count suppliers with implementations
             const supplierCounts = new Map<string, number>()
+            let partsWithMetadataSuppliers = 0
+            
             allParts.forEach(part => {
               if (part.supplier) {
-                supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+                // Only count suppliers that have actual implementations
+                if (availableSupplierNames.has(part.supplier.toUpperCase())) {
+                  supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+                } else {
+                  partsWithMetadataSuppliers++
+                }
               }
             })
             
             toast.dismiss('price-update-loading')
             
             if (supplierCounts.size === 0) {
-              toast.error('No parts have suppliers assigned. Cannot update prices without supplier information.')
-              addConsoleMessage('error', 'Price update failed: No parts have suppliers assigned')
+              const message = partsWithMetadataSuppliers > 0 
+                ? `No parts have enrichable suppliers. Found ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
+                : 'No parts have suppliers assigned. Cannot update prices without supplier information.'
+              toast.error(message)
+              addConsoleMessage('error', `Price update failed: ${message}`)
               return
             }
             
@@ -465,7 +502,10 @@ const TasksManagement: React.FC = () => {
               .map(([supplier, count]) => `${supplier}: ${count} parts`)
               .join(', ')
             
-            addConsoleMessage('info', `Found parts from suppliers: ${supplierList}`)
+            addConsoleMessage('info', `Found parts from enrichable suppliers: ${supplierList}`)
+            if (partsWithMetadataSuppliers > 0) {
+              addConsoleMessage('info', `Skipped ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`)
+            }
             addConsoleMessage('warning', 'Note: Price updates require supplier configurations to be set up in Settings → Suppliers')
             
             // Check which suppliers are actually configured
@@ -501,8 +541,8 @@ const TasksManagement: React.FC = () => {
               if (response.ok) {
                 console.log('🔍 [DEBUG] Configured suppliers API response:', configuredSuppliers)
                 const configuredNames = new Set(configuredSuppliers.data?.map((s: any) => {
-                  // API returns 'name' field, but may also have 'supplier_name' or 'id'
-                  const supplierName = s.name || s.supplier_name || s.id || '';
+                  // Use 'id' field (supplier identifier) instead of 'name' (display name)
+                  const supplierName = s.id || s.supplier_name || s.name || '';
                   console.log(`🔍 [DEBUG] Supplier mapping: ${JSON.stringify(s)} -> "${supplierName.toUpperCase()}"`)
                   return supplierName.toUpperCase();
                 }) || [])
@@ -562,19 +602,39 @@ const TasksManagement: React.FC = () => {
               return
             }
             
-            // Check suppliers for these parts
+            // Get available suppliers to filter out metadata-only suppliers  
+            const capabilitiesResponse = await fetch('/api/tasks/capabilities/suppliers', {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+            })
+            
+            const availableSuppliers = capabilitiesResponse.ok ? await capabilitiesResponse.json() : { data: {} }
+            const availableSupplierNames = new Set(
+              Object.keys(availableSuppliers.data || {}).map(name => name.toUpperCase())
+            )
+            
+            // Check suppliers for these parts - only count suppliers with implementations
             const supplierCounts = new Map<string, number>()
+            let partsWithMetadataSuppliers = 0
+            
             allParts.forEach(part => {
               if (part.supplier) {
-                supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+                // Only count suppliers that have actual implementations
+                if (availableSupplierNames.has(part.supplier.toUpperCase())) {
+                  supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+                } else {
+                  partsWithMetadataSuppliers++
+                }
               }
             })
             
             toast.dismiss('bulk-enrichment-loading')
             
             if (supplierCounts.size === 0) {
-              toast.error('No parts have suppliers assigned. Cannot enrich parts without supplier information.')
-              addConsoleMessage('error', 'Enrichment failed: No parts have suppliers assigned')
+              const message = partsWithMetadataSuppliers > 0 
+                ? `No parts have enrichable suppliers. Found ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
+                : 'No parts have suppliers assigned. Cannot enrich parts without supplier information.'
+              toast.error(message)
+              addConsoleMessage('error', `Enrichment failed: ${message}`)
               return
             }
             
@@ -583,7 +643,10 @@ const TasksManagement: React.FC = () => {
               .map(([supplier, count]) => `${supplier}: ${count} parts`)
               .join(', ')
             
-            addConsoleMessage('info', `Found parts from suppliers: ${supplierList}`)
+            addConsoleMessage('info', `Found parts from enrichable suppliers: ${supplierList}`)
+            if (partsWithMetadataSuppliers > 0) {
+              addConsoleMessage('info', `Skipped ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`)
+            }
             addConsoleMessage('warning', 'Note: Enrichment requires supplier configurations to be set up in Settings → Suppliers')
             
             // Check which suppliers are actually configured
@@ -598,8 +661,8 @@ const TasksManagement: React.FC = () => {
               if (response.ok) {
                 const configuredSuppliers = await response.json()
                 const configuredNames = new Set(configuredSuppliers.data?.map((s: any) => {
-                  // API returns 'name' field, but may also have 'supplier_name' or 'id'
-                  const supplierName = s.name || s.supplier_name || s.id || '';
+                  // Use 'id' field (supplier identifier) instead of 'name' (display name)
+                  const supplierName = s.id || s.supplier_name || s.name || '';
                   return supplierName.toUpperCase();
                 }) || [])
                 
@@ -633,12 +696,13 @@ const TasksManagement: React.FC = () => {
             }
             
             taskData = { 
-              part_ids: partIds, 
+              enrich_all: true,
               batch_size: 10,
-              capabilities: ['fetch_pricing', 'fetch_datasheet', 'fetch_specifications'],
+              page_size: 10,
+              capabilities: ['fetch_pricing', 'fetch_datasheet', 'fetch_specifications', 'fetch_image'],
               force_refresh: false
             }
-            toast.success(`Found ${partIds.length} parts for enrichment from ${supplierCounts.size} suppliers`)
+            toast.success(`Found ${partIds.length} parts for enrichment from ${supplierCounts.size} suppliers. Task will process 10 parts at a time.`)
           } catch (error) {
             toast.dismiss('bulk-enrichment-loading')
             toast.error(`Failed to fetch parts: ${error.message}`)
@@ -676,25 +740,18 @@ const TasksManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Worker Status */}
+      {/* Worker Status and Controls */}
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
-            <Activity className="w-5 h-5" />
-            Background Tasks
-            {workerStatus && (
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                workerStatus.is_running 
-                  ? 'bg-success/20 text-success' 
-                  : 'bg-error/20 text-error'
-              }`}>
-                {workerStatus.is_running ? 'Worker Running' : 'Worker Stopped'}
-              </span>
-            )}
-          </h3>
-          <p className="text-secondary text-sm">
-            Manage and monitor background tasks and processes
-          </p>
+        <div className="flex items-center gap-3">
+          {workerStatus && (
+            <span className={`text-xs px-2 py-1 rounded-full ${
+              workerStatus.is_running 
+                ? 'bg-success/20 text-success' 
+                : 'bg-error/20 text-error'
+            }`}>
+              {workerStatus.is_running ? 'Worker Running' : 'Worker Stopped'}
+            </span>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -856,13 +913,7 @@ const TasksManagement: React.FC = () => {
             <Trash2 className="w-4 h-4" />
             Clean Database
           </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary btn-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Create Custom Task
-          </button>
+          {/* Custom task creation button removed for security reasons */}
         </div>
       </div>
 
@@ -1184,15 +1235,7 @@ const TasksManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Create Task Modal */}
-      <CreateTaskModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onTaskCreated={() => {
-          loadTasks()
-          loadTaskStats()
-        }}
-      />
+      {/* Create Task Modal removed for security reasons */}
     </div>
   )
 }

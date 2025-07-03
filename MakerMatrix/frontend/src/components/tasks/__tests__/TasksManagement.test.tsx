@@ -343,12 +343,13 @@ describe('TasksManagement', () => {
       await waitFor(() => {
         expect(mockPartsService.getAll).toHaveBeenCalled()
         expect(mockTasksService.createQuickTask).toHaveBeenCalledWith('bulk-enrichment', {
-          part_ids: ['part1', 'part2'],
+          enrich_all: true,
           batch_size: 10,
-          capabilities: ['fetch_pricing', 'fetch_datasheet', 'fetch_specifications'],
+          page_size: 10,
+          capabilities: ['fetch_pricing', 'fetch_datasheet', 'fetch_specifications', 'fetch_image'],
           force_refresh: false
         })
-        expect(toast.success).toHaveBeenCalledWith('Found 2 parts for enrichment')
+        expect(toast.success).toHaveBeenCalledWith('Found 2 parts for enrichment from 1 suppliers. Task will process 10 parts at a time.')
       })
     })
 
