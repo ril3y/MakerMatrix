@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, AsyncMock, patch
 from sqlmodel import Session, create_engine, SQLModel
 
-from MakerMatrix.services.enrichment_queue_manager import (
+from MakerMatrix.services.system.enrichment_queue_manager import (
     EnrichmentQueueManager,
     SupplierQueue,
     EnrichmentTask,
@@ -54,7 +54,7 @@ def mock_websocket_manager():
 @pytest.fixture
 def enrichment_queue_manager(memory_engine, mock_rate_limit_service, mock_websocket_manager):
     """Create EnrichmentQueueManager instance with mocks"""
-    with patch('MakerMatrix.services.enrichment_queue_manager.get_available_suppliers') as mock_suppliers:
+    with patch('MakerMatrix.services.system.enrichment_queue_manager.get_available_suppliers') as mock_suppliers:
         mock_suppliers.return_value = ["mouser", "lcsc", "digikey"]
         
         manager = EnrichmentQueueManager(
@@ -155,7 +155,7 @@ class TestSupplierQueue:
     @pytest.fixture
     def supplier_queue(self, mock_rate_limit_service):
         """Create a supplier queue"""
-        with patch('MakerMatrix.services.enrichment_queue_manager.get_supplier') as mock_get_supplier:
+        with patch('MakerMatrix.services.system.enrichment_queue_manager.get_supplier') as mock_get_supplier:
             mock_supplier = Mock()
             mock_supplier.get_rate_limit_delay.return_value = 2.0
             mock_get_supplier.return_value = mock_supplier

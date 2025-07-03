@@ -6,7 +6,7 @@ import asyncio
 from unittest.mock import Mock, AsyncMock
 from PIL import Image
 
-from MakerMatrix.services.modern_printer_service import ModernPrinterService, get_printer_service, set_printer_service
+from MakerMatrix.services.printer.modern_printer_service import ModernPrinterService, get_printer_service, set_printer_service
 from MakerMatrix.printers.drivers.mock import MockPrinter
 from MakerMatrix.printers.base import (
     PrinterNotFoundError,
