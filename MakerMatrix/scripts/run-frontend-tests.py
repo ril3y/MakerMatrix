@@ -302,7 +302,7 @@ def main():
     runner = TestRunner(project_root)
     
     # Setup signal handlers for cleanup
-    def signal_handler(sig, frame):
+    def signal_handler(sig, _):
         print("\n🛑 Received interrupt signal, cleaning up...")
         runner.cleanup()
         sys.exit(1)

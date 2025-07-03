@@ -14,7 +14,7 @@ from MakerMatrix.schemas.part_data_standards import (
     ComponentType, MountingType, RoHSStatus, LifecycleStatus,
     StandardizedAdditionalProperties, StandardizedSupplierData,
     StandardizedMetadata, StandardizedSpecifications,
-    determine_component_type, extract_package_from_specs, determine_mounting_type
+    determine_component_type, determine_mounting_type
 )
 
 logger = logging.getLogger(__name__)

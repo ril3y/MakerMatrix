@@ -316,7 +316,7 @@ class SupplierConfigService:
             f"See documentation for required environment variable names."
         )
     
-    def get_supplier_credentials(self, supplier_name: str, decrypt: bool = True) -> Optional[Dict[str, str]]:
+    def get_supplier_credentials(self, supplier_name: str) -> Optional[Dict[str, str]]:
         """
         Get credentials for a supplier from environment variables
         

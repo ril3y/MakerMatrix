@@ -10,7 +10,7 @@ from sqlalchemy.dialects.sqlite import JSON
 from datetime import datetime
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserRoleLink
 from MakerMatrix.models.task_models import TaskModel
-from MakerMatrix.models.supplier_config_models import SupplierConfigModel, SupplierCredentialsModel, EnrichmentProfileModel
+from MakerMatrix.models.supplier_config_models import SupplierConfigModel, EnrichmentProfileModel
 from MakerMatrix.models.supplier_credentials import SimpleSupplierCredentials
 from MakerMatrix.models.rate_limiting_models import (
     SupplierRateLimitModel, 

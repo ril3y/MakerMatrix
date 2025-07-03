@@ -901,8 +901,7 @@ async def get_part_stock(
 async def handle_oauth_callback(
     supplier_name: str,
     code: str = Query(None, description="OAuth authorization code"),
-    error: str = Query(None, description="OAuth error"),
-    state: str = Query(None, description="OAuth state parameter")
+    error: str = Query(None, description="OAuth error")
 ):
     """Handle OAuth callback for supplier authentication"""
     
