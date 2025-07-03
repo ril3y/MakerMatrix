@@ -34,7 +34,7 @@ try:
     from watchdog.events import FileSystemEventHandler
     WATCHDOG_AVAILABLE = True
 
-    class DebouncedRestartHandler:
+    class DebouncedRestartHandler(FileSystemEventHandler):
         """A debounced file system event handler to trigger restarts."""
         def __init__(self, manager, service_name, file_extensions, restart_function, status_checker, enabled_checker):
             self.manager = manager
