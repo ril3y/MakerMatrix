@@ -9,7 +9,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from sqlmodel import select, Session
+from sqlmodel import Session
 from MakerMatrix.models.task_models import TaskModel, TaskStatus, TaskType
 from MakerMatrix.models.models import PartModel, DatasheetModel, CategoryModel
 from MakerMatrix.services.data.category_service import CategoryService
@@ -37,12 +37,12 @@ class EnrichmentTaskHandlers:
         """Get the current CSV import configuration for download settings"""
         try:
             from MakerMatrix.database.db import get_session
-            from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
-            from sqlmodel import select
+            from MakerMatrix.repositories.csv_import_config_repository import CSVImportConfigRepository
             
             session = next(get_session())
             try:
-                config = session.exec(select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")).first()
+                config_repo = CSVImportConfigRepository()
+                config = config_repo.get_default_config(session)
                 if config:
                     return config.to_dict()
             finally:
@@ -187,7 +187,7 @@ class EnrichmentTaskHandlers:
             if not part_id:
                 raise ValueError("part_id is required for part enrichment")
             
-            # Get the part using session
+            # Get the part using repository
             from MakerMatrix.database.db import get_session
             session = next(get_session())
             try:
@@ -368,12 +368,11 @@ class EnrichmentTaskHandlers:
                     await self._update_part_from_enrichment_results(part, enrichment_results)
                 
                 # Update the part in database using a fresh session to avoid conflicts
-                from MakerMatrix.database.db import engine
-                from sqlalchemy.orm import Session
-                with Session(engine) as fresh_session:
+                from MakerMatrix.database.db import get_session
+                with get_session() as fresh_session:
                     try:
                         # Get fresh part instance in this session
-                        fresh_part = fresh_session.query(PartModel).filter(PartModel.id == part.id).first()
+                        fresh_part = PartRepository.get_part_by_id(fresh_session, part.id)
                         if fresh_part:
                             # Update main part fields that were enriched
                             if part.manufacturer and part.manufacturer != fresh_part.manufacturer:
@@ -414,10 +413,10 @@ class EnrichmentTaskHandlers:
                             if part.image_url:
                                 flag_modified(fresh_part, 'image_url')
                             
-                            fresh_session.commit()
+                            PartRepository.update_part(fresh_session, fresh_part)
                             
                             # Verify the save using standardized structure
-                            fresh_session.refresh(fresh_part)
+                            fresh_part = PartRepository.get_part_by_id(fresh_session, part.id)  # Get fresh instance
                             datasheet_url = fresh_part.get_datasheet_url()
                             if datasheet_url:
                                 logger.info(f"✅ Successfully saved datasheet URL: {datasheet_url}")
@@ -428,7 +427,7 @@ class EnrichmentTaskHandlers:
                         else:
                             logger.error(f"Part {part.id} not found in fresh session")
                     except Exception as e:
-                        fresh_session.rollback()
+                        # Repository handles rollback automatically
                         logger.error(f"Failed to save enrichment results to database: {e}")
                         raise
             
@@ -718,49 +717,51 @@ class EnrichmentTaskHandlers:
                                     part.additional_properties['datasheet_file_uuid'] = download_result['file_uuid']
                                     logger.info(f"✅ Successfully downloaded datasheet: {download_result['filename']} ({download_result['size']} bytes)")
                                     
-                                    # Create proper DatasheetModel record
+                                    # Create proper DatasheetModel record using repository
                                     try:
                                         from MakerMatrix.database.db import get_session
+                                        from MakerMatrix.repositories.datasheet_repository import DatasheetRepository
+                                        
                                         session = next(get_session())
-                                        try:
+            try:
+                                            datasheet_repo = DatasheetRepository()
+                                            
                                             # Check if datasheet already exists for this part and URL
-                                            existing_datasheet = session.exec(
-                                                select(DatasheetModel).where(
-                                                    DatasheetModel.part_id == part.id,
-                                                    DatasheetModel.source_url == datasheet_url
-                                                )
-                                            ).first()
+                                            existing_datasheet = datasheet_repo.get_datasheet_by_part_and_url(
+                                                session, part.id, datasheet_url
+                                            )
                                             
                                             if not existing_datasheet:
-                                                datasheet = DatasheetModel(
-                                                    part_id=part.id,
-                                                    file_uuid=download_result['file_uuid'],
-                                                    original_filename=download_result['original_filename'],
-                                                    file_extension=download_result['extension'],
-                                                    file_size=download_result['size'],
-                                                    source_url=datasheet_url,
-                                                    supplier=supplier,
-                                                    title=f"{supplier} Datasheet - {part_number}",
-                                                    description=f"Datasheet for {part.part_name or part_number}",
-                                                    is_downloaded=True
-                                                )
-                                                session.add(datasheet)
-                                                session.commit()
+                                                # Create new datasheet record
+                                                datasheet_data = {
+                                                    'part_id': part.id,
+                                                    'file_uuid': download_result['file_uuid'],
+                                                    'original_filename': download_result['original_filename'],
+                                                    'file_extension': download_result['extension'],
+                                                    'file_size': download_result['size'],
+                                                    'source_url': datasheet_url,
+                                                    'supplier': supplier,
+                                                    'title': f"{supplier} Datasheet - {part_number}",
+                                                    'description': f"Datasheet for {part.part_name or part_number}",
+                                                    'is_downloaded': True
+                                                }
+                                                datasheet_repo.create_datasheet(session, datasheet_data)
                                                 logger.info(f"✅ Created DatasheetModel record for {part.part_name}")
                                             else:
                                                 # Update existing datasheet record
-                                                existing_datasheet.file_uuid = download_result['file_uuid']
-                                                existing_datasheet.original_filename = download_result['original_filename']
-                                                existing_datasheet.file_extension = download_result['extension']
-                                                existing_datasheet.file_size = download_result['size']
-                                                existing_datasheet.is_downloaded = True
-                                                existing_datasheet.download_error = None
-                                                session.commit()
+                                                datasheet_repo.mark_download_successful(
+                                                    session, 
+                                                    existing_datasheet.id,
+                                                    download_result['file_uuid'],
+                                                    download_result['size'],
+                                                    download_result['original_filename'],
+                                                    download_result['extension']
+                                                )
                                                 logger.info(f"✅ Updated existing DatasheetModel record for {part.part_name}")
-                                        finally:
-                                            session.close()
                                     except Exception as e:
                                         logger.error(f"❌ Error creating DatasheetModel record: {e}")
+                                    finally:
+                                        session.close()
                                         
                                 else:
                                     part.additional_properties['datasheet_downloaded'] = False
@@ -976,15 +977,15 @@ class EnrichmentTaskHandlers:
             if part_id:
                 from MakerMatrix.database.db import get_session
                 session = next(get_session())
-                try:
+            try:
                     part = PartRepository.get_part_by_id(session, part_id)
                     if not part:
                         raise ValueError(f"Part not found: {part_id}")
                     # Use the appropriate part number for the supplier
                     part_number = self._get_supplier_part_number(part, supplier)
                     supplier = supplier or part.supplier or part.part_vendor
-                finally:
-                    session.close()
+            finally:
+                session.close()
             
             if not supplier:
                 raise ValueError("Supplier is required for datasheet fetch")
@@ -1095,36 +1096,59 @@ class EnrichmentTaskHandlers:
                         await progress_callback(95, "Datasheet download failed")
                 
                 from MakerMatrix.database.db import get_session
+                from MakerMatrix.repositories.datasheet_repository import DatasheetRepository
                 session = next(get_session())
-                try:
+            try:
+                    datasheet_repo = DatasheetRepository()
+                    
                     # Check if datasheet already exists for this part and URL
-                    existing_datasheet = session.exec(
-                        select(DatasheetModel).where(
-                            DatasheetModel.part_id == part.id,
-                            DatasheetModel.source_url == result.datasheet_url
-                        )
-                    ).first()
+                    existing_datasheet = datasheet_repo.get_datasheet_by_part_and_url(
+                        session, part.id, result.datasheet_url
+                    )
                     
                     if not existing_datasheet:
-                        session.add(datasheet)
+                        # Create new datasheet record
+                        datasheet_data = {
+                            'part_id': part.id,
+                            'source_url': result.datasheet_url,
+                            'supplier': supplier,
+                            'title': f"{supplier} Datasheet - {part_number}",
+                            'description': f"Datasheet for {part.part_name or part_number}",
+                            'is_downloaded': download_result is not None,
+                            'download_error': None if download_result else "Failed to download datasheet file"
+                        }
+                        
+                        # Add download details if successful
+                        if download_result:
+                            datasheet_data.update({
+                                'file_uuid': download_result['file_uuid'],
+                                'original_filename': download_result['original_filename'],
+                                'file_extension': download_result['extension'],
+                                'file_size': download_result['size']
+                            })
+                        
+                        datasheet_repo.create_datasheet(session, datasheet_data)
                     else:
                         # Update existing datasheet record
                         if download_result:
-                            existing_datasheet.file_uuid = download_result['file_uuid']
-                            existing_datasheet.original_filename = download_result['original_filename']
-                            existing_datasheet.file_extension = download_result['extension']
-                            existing_datasheet.file_size = download_result['size']
-                            existing_datasheet.is_downloaded = True
-                            existing_datasheet.download_error = None
+                            datasheet_repo.mark_download_successful(
+                                session,
+                                existing_datasheet.id,
+                                download_result['file_uuid'],
+                                download_result['size'],
+                                download_result['original_filename'],
+                                download_result['extension']
+                            )
                         else:
-                            existing_datasheet.is_downloaded = False
-                            existing_datasheet.download_error = "Failed to download datasheet file"
-                        existing_datasheet.updated_at = datetime.utcnow()
+                            datasheet_repo.mark_download_failed(
+                                session,
+                                existing_datasheet.id,
+                                "Failed to download datasheet file"
+                            )
                     
                     PartRepository.update_part(session, part)
-                    session.commit()
-                finally:
-                    session.close()
+            finally:
+                session.close()
             
             if progress_callback:
                 await progress_callback(100, "Datasheet fetch completed")
@@ -1157,14 +1181,14 @@ class EnrichmentTaskHandlers:
             if part_id:
                 from MakerMatrix.database.db import get_session
                 session = next(get_session())
-                try:
+            try:
                     part = PartRepository.get_part_by_id(session, part_id)
                     if not part:
                         raise ValueError(f"Part not found: {part_id}")
                     part_number = part.part_number or part.lcsc_part_number
                     supplier = supplier or part.supplier or part.part_vendor
-                finally:
-                    session.close()
+            finally:
+                session.close()
             
             if not supplier:
                 raise ValueError("Supplier is required for image fetch")
@@ -1205,10 +1229,10 @@ class EnrichmentTaskHandlers:
                 part.image_url = result.primary_image_url
                 from MakerMatrix.database.db import get_session
                 session = next(get_session())
-                try:
+            try:
                     PartRepository.update_part(session, part)
-                finally:
-                    session.close()
+            finally:
+                session.close()
             
             if progress_callback:
                 await progress_callback(100, "Image fetch completed")
@@ -1384,22 +1408,15 @@ class EnrichmentTaskHandlers:
                                               page_size: int, progress_callback) -> Dict[str, Any]:
         """Handle bulk enrichment for all parts using pagination (new mode)"""
         from MakerMatrix.database.db import get_session
-        from sqlmodel import select, func, and_
         
         session = next(get_session())
         try:
             # Get total count of parts (with supplier filter if specified)
             if supplier_filter:
-                total_parts = session.exec(
-                    select(func.count(PartModel.id)).where(
-                        and_(
-                            PartModel.supplier.ilike(f"%{supplier_filter}%")
-                        )
-                    )
-                ).one()
+                total_parts = PartRepository.get_parts_count_by_supplier(session, supplier_filter)
                 logger.info(f"🌍 [BULK ENRICHMENT] Total parts with supplier '{supplier_filter}': {total_parts}")
             else:
-                total_parts = session.exec(select(func.count(PartModel.id))).one()
+                total_parts = PartRepository.get_all_parts_count(session)
                 logger.info(f"🌍 [BULK ENRICHMENT] Total parts in system: {total_parts}")
             
             if total_parts == 0:
@@ -1425,15 +1442,8 @@ class EnrichmentTaskHandlers:
                 
                 logger.info(f"📄 [BULK ENRICHMENT] Processing page {current_page}, offset {offset}, page size {page_size}")
                 
-                # Fetch page of parts
-                if supplier_filter:
-                    parts_query = select(PartModel).where(
-                        PartModel.supplier.ilike(f"%{supplier_filter}%")
-                    ).offset(offset).limit(page_size)
-                else:
-                    parts_query = select(PartModel).offset(offset).limit(page_size)
-                
-                parts_page = session.exec(parts_query).all()
+                # Fetch page of parts using repository
+                parts_page = PartRepository.get_parts_paginated(session, offset, page_size, supplier_filter)
                 page_part_count = len(parts_page)
                 
                 logger.info(f"📦 [BULK ENRICHMENT] Page {current_page} loaded {page_part_count} parts")
@@ -1513,7 +1523,6 @@ class EnrichmentTaskHandlers:
                     logger.warning(f"   ... and {len(failed_enrichments) - 5} more failures")
             
             return final_results
-            
         finally:
             session.close()
     
@@ -1709,25 +1718,26 @@ class EnrichmentTaskHandlers:
                 logger.info(f"Processing {len(unique_categories)} categories for auto-creation: {unique_categories}")
                 
                 # Auto-create categories and add them to the part
-                from MakerMatrix.database.db import engine
-                from sqlalchemy.orm import Session
+                from MakerMatrix.database.db import get_session
+                # Using get_session() context manager for proper session management
                 from MakerMatrix.models.models import CategoryModel
                 from MakerMatrix.repositories.category_repositories import CategoryRepository
                 
-                with Session(engine) as session:
-                    category_repo = CategoryRepository(engine)
+                session = next(get_session())
+            try:
+                    category_repo = CategoryRepository()
                     
                     for category_name in unique_categories:
                         try:
                             # Check if category already exists
                             existing_category = None
                             try:
-                                existing_category = category_repo.get_category_by_name(session, category_name)
+                                existing_category = CategoryRepository.get_category(session, name=category_name)
                                 logger.info(f"Category '{category_name}' already exists with ID: {existing_category.id}")
                             except Exception:
                                 # Category doesn't exist, create it
                                 logger.info(f"Creating new category: {category_name}")
-                                new_category = category_repo.create_category(session, {
+                                new_category = CategoryRepository.create_category(session, {
                                     "name": category_name,
                                     "description": f"Auto-created from enrichment data for {part.part_name}"
                                 })
@@ -1737,7 +1747,7 @@ class EnrichmentTaskHandlers:
                             # Add category to part if not already associated
                             if existing_category:
                                 # Get fresh part instance in this session
-                                fresh_part = session.query(PartModel).filter(PartModel.id == part.id).first()
+                                fresh_part = PartRepository.get_part_by_id(session, part.id)
                                 if fresh_part:
                                     # Check if category is already associated with part
                                     category_already_associated = any(
@@ -1745,8 +1755,8 @@ class EnrichmentTaskHandlers:
                                     )
                                     
                                     if not category_already_associated:
-                                        fresh_part.categories.append(existing_category)
-                                        session.commit()
+                                        # Use repository to associate part with category
+                                        CategoryRepository.associate_part_with_category(session, part.id, existing_category.id)
                                         logger.info(f"Successfully associated part '{part.part_name}' with category '{category_name}'")
                                     else:
                                         logger.info(f"Part '{part.part_name}' already associated with category '{category_name}'")
@@ -1755,7 +1765,7 @@ class EnrichmentTaskHandlers:
                                     
                         except Exception as e:
                             logger.error(f"Error processing category '{category_name}': {e}")
-                            session.rollback()
+                            # Repository handles rollback automatically
                             continue
             else:
                 logger.info(f"No categories found in enrichment data for part {part.part_name}")

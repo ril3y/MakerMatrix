@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Save, MapPin, Upload, X, Image } from 'lucide-react'
-import Modal from '@/components/ui/Modal'
-import FormField from '@/components/ui/FormField'
+import { Upload, X, MapPin } from 'lucide-react'
+import CrudModal from '@/components/ui/CrudModal'
+import { FormInput, FormSelect, FormField, LocationTreeSelector } from '@/components/forms'
 import EmojiPicker from '@/components/ui/EmojiPicker'
-import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
+import ImageUpload from '@/components/ui/ImageUpload'
+import { useModalFormWithValidation } from '@/hooks/useFormWithValidation'
+import { locationFormSchema, type LocationFormData } from '@/schemas/locations'
 import { locationsService } from '@/services/locations.service'
 import { utilityService } from '@/services/utility.service'
-import { CreateLocationRequest, Location } from '@/types/locations'
+import { Location } from '@/types/locations'
 import toast from 'react-hot-toast'
 
 interface AddLocationModalProps {
@@ -16,32 +18,53 @@ interface AddLocationModalProps {
 }
 
 const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps) => {
-  const [formData, setFormData] = useState<CreateLocationRequest>({
-    name: '',
-    location_type: '',
-    parent_id: ''
-  })
-
   const [parentLocations, setParentLocations] = useState<Location[]>([])
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
 
   const locationTypes = [
+    { value: 'standard', label: 'Standard' },
     { value: 'warehouse', label: 'Warehouse' },
     { value: 'room', label: 'Room' },
     { value: 'shelf', label: 'Shelf' },
     { value: 'drawer', label: 'Drawer' },
     { value: 'bin', label: 'Bin' },
-    { value: 'rack', label: 'Rack' },
     { value: 'cabinet', label: 'Cabinet' },
-    { value: 'box', label: 'Box' },
-    { value: 'other', label: 'Other' }
+    { value: 'building', label: 'Building' }
   ]
+
+  // Form with validation
+  const form = useModalFormWithValidation<LocationFormData>({
+    schema: locationFormSchema,
+    isOpen,
+    onClose,
+    defaultValues: {
+      name: '',
+      location_type: 'standard',
+      parent_id: undefined,
+      image_url: undefined,
+      emoji: undefined,
+      image_file: undefined,
+    },
+    onSubmit: handleFormSubmit,
+    onSuccess: () => {
+      onSuccess()
+      handleClose()
+    },
+    successMessage: 'Location created successfully',
+    transformData: (data) => {
+      // Transform form data to API format
+      const { image_file, ...apiData } = data
+      return {
+        ...apiData,
+        name: data.name.trim(),
+        parent_id: data.parent_id || undefined,
+        location_type: data.location_type || 'standard',
+      }
+    },
+  })
 
   useEffect(() => {
     if (isOpen) {
@@ -92,79 +115,49 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
     setImagePreview(null)
   }
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Location name is required'
+  // Handle form submission with image upload
+  async function handleFormSubmit(data: LocationFormData) {
+    let imageUrl = ''
+    
+    // Handle image upload first if there's an image
+    if (imageFile) {
+      try {
+        setUploadingImage(true)
+        imageUrl = await utilityService.uploadImage(imageFile)
+      } catch (error) {
+        toast.error('Failed to upload image')
+        throw error
+      } finally {
+        setUploadingImage(false)
+      }
     }
 
     // Check for duplicate names at the same level
-    const siblingLocations = formData.parent_id 
-      ? parentLocations.filter(loc => loc.parent_id === formData.parent_id)
+    const siblingLocations = data.parent_id 
+      ? parentLocations.filter(loc => loc.parent_id === data.parent_id)
       : parentLocations.filter(loc => !loc.parent_id)
     
-    if (siblingLocations.some(loc => loc.name.toLowerCase() === formData.name.toLowerCase().trim())) {
-      newErrors.name = 'A location with this name already exists at this level'
+    if (siblingLocations.some(loc => loc.name.toLowerCase() === data.name.toLowerCase().trim())) {
+      throw new Error('A location with this name already exists at this level')
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    // Create location with image URL
+    const locationData = {
+      ...data,
+      name: data.name.trim(),
+      parent_id: data.parent_id || undefined,
+      location_type: data.location_type || 'standard',
+      image_url: imageUrl || undefined,
+    }
+
+    return await locationsService.createLocation(locationData)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validate()) {
-      return
-    }
-
-    try {
-      setLoading(true)
-
-      // Handle image upload first if there's an image
-      let imageUrl = ''
-      if (imageFile) {
-        try {
-          setUploadingImage(true)
-          imageUrl = await utilityService.uploadImage(imageFile)
-        } catch (error) {
-          toast.error('Failed to upload image')
-          return
-        } finally {
-          setUploadingImage(false)
-        }
-      }
-
-      const submitData: CreateLocationRequest = {
-        name: formData.name.trim(),
-        location_type: formData.location_type || undefined,
-        parent_id: formData.parent_id || undefined,
-        image_url: imageUrl || undefined,
-        emoji: selectedEmoji || undefined
-      }
-
-      await locationsService.createLocation(submitData)
-      toast.success('Location created successfully')
-      onSuccess()
-      handleClose()
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create location')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleClose = () => {
-    setFormData({
-      name: '',
-      location_type: '',
-      parent_id: ''
-    })
-    setErrors({})
     setImageFile(null)
     setImagePreview(null)
-    setSelectedEmoji(null)
+    form.reset()
     onClose()
   }
 
@@ -203,55 +196,58 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
   const hierarchicalLocations = buildLocationHierarchy(parentLocations)
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Add New Location" size="md">
+    <CrudModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Add New Location"
+      size="md"
+      mode="create"
+      onSubmit={form.onSubmit}
+      loading={form.loading}
+      loadingText="Creating..."
+      submitText="Create Location"
+      disabled={uploadingImage}
+    >
       {loadingData ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="text-secondary mt-2">Loading...</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <FormField label="Location Name" required error={errors.name}>
-            <input
-              type="text"
-              className="input w-full"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Enter location name"
+        <>
+          <FormInput
+            label="Location Name"
+            placeholder="Enter location name"
+            required
+            registration={form.register('name')}
+            error={form.getFieldError('name')}
+          />
+
+          <FormSelect
+            label="Location Type"
+            description="What type of storage location is this?"
+            registration={form.register('location_type')}
+            error={form.getFieldError('location_type')}
+            options={locationTypes}
+            placeholder="Select a type"
+          />
+
+          <FormField label="Parent Location" description="Select a parent location to create a hierarchy (optional)">
+            <LocationTreeSelector
+              selectedLocationId={form.watch('parent_id')}
+              onLocationSelect={(locationId) => form.setValue('parent_id', locationId || undefined)}
+              showAddButton={false}
+              compact={true}
             />
           </FormField>
 
-          <FormField label="Location Type" description="What type of storage location is this?">
-            <select
-              className="input w-full"
-              value={formData.location_type}
-              onChange={(e) => setFormData({ ...formData, location_type: e.target.value })}
-            >
-              <option value="">Select a type</option>
-              {locationTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </FormField>
-
-          <LocationTreeSelector
-            selectedLocationId={formData.parent_id}
-            onLocationSelect={(locationId) => setFormData({ ...formData, parent_id: locationId || '' })}
-            label="Parent Location"
-            description="Select a parent location to create a hierarchy (optional)"
-            showAddButton={false}
-            compact={true}
-          />
-
           {/* Preview of full path */}
-          {formData.parent_id && (
+          {form.watch('parent_id') && (
             <div className="p-3 bg-background-secondary rounded-md">
               <p className="text-sm text-secondary mb-1">Full path will be:</p>
               <p className="text-sm font-medium text-primary">
                 {(() => {
-                  const parent = parentLocations.find(loc => loc.id === formData.parent_id)
+                  const parent = parentLocations.find(loc => loc.id === form.watch('parent_id'))
                   if (parent) {
                     // Build full path from flat list
                     const buildPath = (loc: Location): string => {
@@ -263,9 +259,9 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
                       }
                       return loc.name
                     }
-                    return buildPath(parent) + ' → ' + (formData.name || '[New Location]')
+                    return buildPath(parent) + ' → ' + (form.watch('name') || '[New Location]')
                   }
-                  return formData.name || '[New Location]'
+                  return form.watch('name') || '[New Location]'
                 })()}
               </p>
             </div>
@@ -325,38 +321,14 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
           {/* Emoji Picker */}
           <FormField label="Location Emoji" description="Choose an emoji to help identify this location (optional)">
             <EmojiPicker
-              value={selectedEmoji || undefined}
-              onChange={setSelectedEmoji}
+              value={form.watch('emoji') || undefined}
+              onChange={(emoji) => form.setValue('emoji', emoji)}
               placeholder="Click to select an emoji..."
             />
           </FormField>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="btn btn-secondary"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary flex items-center gap-2"
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              {loading ? 'Creating...' : 'Create Location'}
-            </button>
-          </div>
-        </form>
+        </>
       )}
-    </Modal>
+    </CrudModal>
   )
 }
 

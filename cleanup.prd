@@ -2,7 +2,7 @@
 
 ## Current Status
 **Phase**: Phase 2 - Backend Cleanup (with Test Validation completed)  
-**Current Step**: Step 12.5 - Repository Pattern Compliance (✅ VALIDATED)  
+**Current Step**: Step 12.7 - URGENT Monolithic File Refactoring (🚨 HIGHEST PRIORITY)  
 **Progress**: 10/30 steps completed (33.3%) + Phase 4 Test Cleanup initiated  
 **Started**: 2025-01-08  
 **Branch**: `before_prd`  
@@ -179,15 +179,17 @@
 - **RECOMMENDATION**: Complete Step 12.5 (repository violations) OR begin Phase 3 (Frontend cleanup - high impact ready)
 
 ### Next Steps
-- **PRIORITY A**: Step 12.5 Repository Pattern Violations (67 violations across 10 services - HIGH ARCHITECTURAL VALUE)
-- **PRIORITY B**: Phase 3 Frontend Cleanup (Steps 13-18: High-impact opportunities identified - 1,300+ lines ready)
-- **PRIORITY C**: Complete Phase 2 (Steps 11-12: Backend configuration, error handling - 200+ lines estimated)
+- **🚨 PRIORITY A (URGENT)**: Step 12.7 Break Up Monolithic enrichment_task_handlers.py (1,843 lines - CRITICAL ARCHITECTURAL ISSUE)
+- **PRIORITY B**: Step 12.5 Repository Pattern Violations (67 violations across 10 services - BLOCKED until Step 12.7 complete)
+- **PRIORITY C**: Phase 3 Frontend Cleanup (Steps 13-18: High-impact opportunities identified - 1,300+ lines ready)
+- **PRIORITY D**: Complete Phase 2 (Steps 11-12: Backend configuration, error handling - 200+ lines estimated)
 - **Available**: Phase 4 Test Cleanup (Steps 19-24) or Phase 5 Validation (Steps 25-30)
 
 **CURRENT STATUS SUMMARY**: 
-- Phase 2 Backend Cleanup: 85% complete (Steps 7-10 ✅, Step 12.5 major progress ✅, Step 12.6 identified ✅, Steps 11-12 pending)
-- Step 12.5 Repository Violations: 45% complete (5/11 services ✅, ~40-45 violations remaining)
-- Step 12.6 Repository Creation: 0% complete (4 new repositories required, critical for enrichment system)
+- Phase 2 Backend Cleanup: 85% complete (Steps 7-10 ✅, Step 12.5 major progress ✅, Step 12.6 complete ✅, **Step 12.7 URGENT** 🚨, Steps 11-12 pending)
+- **Step 12.7 URGENT**: 0% complete (HIGHEST PRIORITY - Monolithic file refactoring required before repository fixes)
+- Step 12.5 Repository Violations: 45% complete (5/11 services ✅, ~40-45 violations remaining - BLOCKED by Step 12.7)
+- Step 12.6 Repository Creation: 100% complete (4 new repositories created, infrastructure ready)
 - Phase 3 Frontend Cleanup: 0% complete (Analysis 100% complete, ready to execute)
 - Overall Cleanup Progress: 13/32 steps completed (41%) with major architectural improvements
 
@@ -604,6 +606,141 @@ This PRD outlines a comprehensive cleanup process for the MakerMatrix codebase t
 - **200+ lines of database code** moved to proper repositories
 - **Largest repository violation concentration** in codebase resolved
 - **Full enrichment system compliance** with repository pattern
+
+### ✅ **Step 12.6 COMPLETED** (2025-01-08): Create Missing Repositories for enrichment_task_handlers.py - 100% COMPLETE
+- **✅ Sub-task 12.6.1 COMPLETED**: DatasheetRepository created
+  - **Repository created**: `/MakerMatrix/repositories/datasheet_repository.py`
+  - **6 core methods implemented**: get_datasheet_by_part_and_url, create_datasheet, update_datasheet, get_datasheets_by_part, delete_datasheet, get_datasheet_by_id
+  - **4 additional methods**: get_downloaded_datasheets, get_failed_datasheets, mark_download_failed, mark_download_successful
+  - **Architecture compliance**: Extends BaseRepository, follows established patterns
+  - **Testing**: Repository instantiation and method validation successful
+  - **Impact**: Ready to eliminate 6 direct database operations in enrichment handlers
+
+- **✅ Sub-task 12.6.2 COMPLETED**: CSVImportConfigRepository created
+  - **Repository created**: `/MakerMatrix/repositories/csv_import_config_repository.py`
+  - **6 methods implemented**: get_default_config, save_config, get_config_by_id, delete_config, get_all_configs, reset_to_defaults
+  - **Architecture compliance**: Extends BaseRepository, follows established patterns
+  - **Testing**: Repository instantiation and method validation successful
+  - **Impact**: Ready to eliminate CSV configuration database access violations
+
+- **✅ Sub-task 12.6.3 COMPLETED**: PartRepository enhanced for enrichment operations
+  - **3 methods added** to existing `/MakerMatrix/repositories/parts_repositories.py`:
+    - `get_parts_count_by_supplier(session, supplier_filter)` - Count parts by supplier with case-insensitive filtering
+    - `get_all_parts_count(session)` - Total parts count for system-wide operations
+    - `get_parts_paginated(session, offset, limit, supplier_filter)` - Paginated parts retrieval with optional supplier filtering
+  - **Architecture compliance**: Static methods following existing PartRepository patterns
+  - **Testing**: Method existence and functionality validation successful
+  - **Impact**: Ready to eliminate complex pagination queries in bulk enrichment (lines 1389-1518)
+
+- **✅ Sub-task 12.6.4 COMPLETED**: CategoryRepository enhanced for part associations
+  - **2 methods added** to existing `/MakerMatrix/repositories/category_repositories.py`:
+    - `associate_part_with_category(session, part_id, category_id)` - Create part-category association with validation
+    - `is_part_associated_with_category(session, part_id, category_id)` - Check existing associations
+  - **Architecture compliance**: Static methods following existing CategoryRepository patterns
+  - **Error handling**: Comprehensive exception handling and rollback mechanisms
+  - **Testing**: Method existence and functionality validation successful
+  - **Impact**: Ready to eliminate category association database access violations (lines 1712-1759)
+
+- **✅ Infrastructure Updates COMPLETED**:
+  - **Updated** `/MakerMatrix/repositories/__init__.py` to export DatasheetRepository and CSVImportConfigRepository
+  - **Validated** all repository instantiation and method existence
+  - **Confirmed** architecture compliance with established BaseRepository patterns
+  - **Verified** no regressions in existing repository functionality
+
+- **🎯 ARCHITECTURAL ACHIEVEMENT**: All required repositories now available for enrichment_task_handlers.py compliance
+  - **4 repositories** created/enhanced with 17 total methods
+  - **32 critical violations** in enrichment_task_handlers.py now ready for remediation
+  - **200+ lines of database code** ready to be moved to proper repositories
+  - **Complete repository infrastructure** established for enrichment system compliance
+
+#### Step 12.7: URGENT - Break Up Monolithic enrichment_task_handlers.py (NEW - HIGHEST PRIORITY)
+**CRITICAL ARCHITECTURAL ISSUE IDENTIFIED**: enrichment_task_handlers.py is a monolithic file (1,843 lines) that violates Single Responsibility Principle and needs immediate refactoring before repository violations can be properly addressed.
+
+**Sub-task 12.7.1: Analyze Monolithic File Structure (URGENT)**
+- **Priority**: HIGHEST - Critical architectural analysis required
+- **Scope**: Comprehensive analysis of enrichment_task_handlers.py (1,843 lines)
+- **Analysis Requirements**:
+  - Identify distinct responsibilities and functional domains within the file
+  - Map method dependencies and identify natural breaking points
+  - Analyze current class structure and identify logical separations
+  - Document potential refactoring approaches with pros/cons
+  - Identify existing similar services where functionality could be moved
+  - Create detailed refactoring plan with step-by-step implementation
+- **Deliverables**:
+  - `analysis_report_enrichment_monolith.md` - Comprehensive analysis report
+  - Refactoring implementation plan with clear steps
+  - Dependency mapping and impact assessment
+- **Impact**: Foundation for architectural improvement and code maintainability
+- **Files Affected**: enrichment_task_handlers.py (comprehensive analysis)
+
+**Sub-task 12.7.2: Design Modular Architecture Plan (URGENT)**
+- **Priority**: HIGHEST - Architectural design before implementation
+- **Scope**: Create detailed plan for breaking up monolithic file
+- **Design Requirements**:
+  - Define separate service classes with single responsibilities
+  - Plan integration points between new modular services
+  - Design consistent interfaces and dependency injection patterns
+  - Plan migration strategy to preserve existing functionality
+  - Identify testing strategy for refactored components
+  - Create validation checklist for ensuring no functionality loss
+- **Deliverables**:
+  - Detailed architectural design document
+  - Service separation plan with clear boundaries
+  - Integration strategy and dependency management plan
+  - Testing and validation strategy
+- **Impact**: Ensures systematic and safe refactoring approach
+- **Files Affected**: New service architecture design
+
+**Sub-task 12.7.3: Implement Modular Service Refactoring (URGENT)**
+- **Priority**: HIGHEST - Actual implementation of modular architecture
+- **Scope**: Break enrichment_task_handlers.py into focused, single-responsibility services
+- **Implementation Requirements**:
+  - Create individual service classes for distinct functionalities
+  - Maintain existing public interfaces for backward compatibility
+  - Implement proper dependency injection and service composition
+  - Ensure all 32 repository violations are addressed during refactoring
+  - Move database operations to appropriate repositories during refactoring
+  - Preserve all existing functionality and behavior
+- **Proposed Service Structure** (preliminary):
+  - `PartEnrichmentService` - Core part enrichment operations
+  - `DatasheetHandlerService` - Datasheet fetch and management
+  - `ImageHandlerService` - Image fetch and processing
+  - `BulkEnrichmentService` - Bulk operations and pagination
+  - `EnrichmentCoordinatorService` - Orchestration and task coordination
+- **Deliverables**:
+  - Multiple focused service files with clear responsibilities
+  - Updated imports and dependency injection
+  - Comprehensive testing of refactored services
+- **Impact**: Eliminates monolithic architecture and enables proper repository integration
+- **Files Affected**: enrichment_task_handlers.py (major refactoring), new service files
+
+**Sub-task 12.7.4: Comprehensive Testing of Refactored Services (URGENT)**
+- **Priority**: HIGHEST - Ensure no functionality loss during refactoring
+- **Scope**: Validate all functionality preserved after monolithic file breakup
+- **Testing Requirements**:
+  - Test all existing enrichment task handlers functionality
+  - Validate repository integration works correctly
+  - Test service composition and dependency injection
+  - Run full enrichment system integration tests
+  - Verify no regressions in task system operations
+  - Test error handling and edge cases
+- **Deliverables**:
+  - Comprehensive test suite for new modular services
+  - Integration test validation report
+  - Performance comparison before/after refactoring
+  - Regression testing results
+- **Impact**: Ensures architectural improvement doesn't break existing functionality
+- **Files Affected**: All new service files, existing test suites
+
+**Expected Step 12.7 Impact**:
+- **Monolithic file eliminated**: 1,843 lines broken into focused services
+- **Single Responsibility Principle**: Each service has clear, focused responsibility
+- **Repository violations addressed**: 32 violations resolved during refactoring
+- **Maintainability improved**: Code becomes more modular and testable
+- **Architecture compliance**: Enables proper repository pattern implementation
+- **Foundation for future work**: Creates sustainable architecture for continued development
+
+**CRITICAL NOTE**: This step must be completed before continuing with remaining Step 12.5 repository violations, as the monolithic architecture is the root cause of the compliance issues.
 
 ### Phase 3: Frontend Cleanup (Steps 13-18)
 

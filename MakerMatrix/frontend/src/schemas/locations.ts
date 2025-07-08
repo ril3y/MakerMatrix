@@ -27,12 +27,14 @@ export const createLocationSchema = baseLocationSchema.extend({
 })
 
 // Schema for updating an existing location
-export const updateLocationSchema = baseLocationSchema.partial().extend({
+const baseUpdateLocationSchema = baseLocationSchema.partial().extend({
   // Location name is still required for updates
   name: commonValidation.requiredString('Location name')
     .min(fieldConstraints.name.minLength, `Location name must be at least ${fieldConstraints.name.minLength} character`)
     .max(fieldConstraints.name.maxLength, `Location name must be no more than ${fieldConstraints.name.maxLength} characters`),
-}).refine(
+})
+
+export const updateLocationSchema = baseUpdateLocationSchema.refine(
   (data) => {
     // Prevent setting parent_id to self (when updating)
     if (data.parent_id && data.parent_id === (data as any).id) {
@@ -58,7 +60,7 @@ export const locationFormSchema = createLocationSchema.extend({
 })
 
 // Schema for updating location form with image upload
-export const updateLocationFormSchema = updateLocationSchema.extend({
+export const updateLocationFormSchema = baseUpdateLocationSchema.extend({
   image_file: commonValidation.optionalImageFile,
   emoji: z.string()
     .optional()
@@ -66,7 +68,19 @@ export const updateLocationFormSchema = updateLocationSchema.extend({
       (val) => !val || /^[\u{1F300}-\u{1F9FF}]$/u.test(val),
       'Must be a valid emoji'
     ),
-})
+}).refine(
+  (data) => {
+    // Prevent setting parent_id to self (when updating)
+    if (data.parent_id && data.parent_id === (data as any).id) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'A location cannot be its own parent',
+    path: ['parent_id'],
+  }
+)
 
 // Schema for location search and filtering
 export const locationSearchSchema = z.object({
