@@ -8,7 +8,6 @@ from sqlmodel import SQLModel
 
 from MakerMatrix.lib.print_settings import PrintSettings
 from MakerMatrix.main import app
-from MakerMatrix.models.label_model import LabelData
 from MakerMatrix.models.models import PartModel, engine, create_db_and_tables
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.services.printer_service import PrinterService

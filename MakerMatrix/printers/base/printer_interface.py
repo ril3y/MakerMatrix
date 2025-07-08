@@ -2,7 +2,7 @@
 Modern printer interface using Python protocols for type safety and modularity.
 """
 from abc import ABC, abstractmethod
-from typing import Protocol, List, Optional, Dict, Any, AsyncGenerator
+from typing import Protocol, List, Optional, Dict, Any
 from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime

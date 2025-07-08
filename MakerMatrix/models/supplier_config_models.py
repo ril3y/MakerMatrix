@@ -7,8 +7,7 @@ Supports user-managed supplier settings with secure credential storage.
 
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, Text, ForeignKey
 from sqlmodel import SQLModel, Field, Relationship
 import json
 
