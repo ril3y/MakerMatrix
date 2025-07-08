@@ -188,7 +188,12 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         
         // Fallback to hardcoded suppliers
         setParsers([
-          import UnifiedFileImporter from './UnifiedFileImporter'
+          {
+            id: 'lcsc',
+            name: 'LCSC Electronics',
+            supported_file_types: ['csv'],
+            component: UnifiedFileImporter
+          }
         ])
       } finally {
         setIsLoadingParsers(false)

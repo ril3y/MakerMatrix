@@ -34,24 +34,3 @@ export const useAuth = (requireAuth = true) => {
   }
 }
 
-export const useRequireRole = (role: string) => {
-  const navigate = useNavigate()
-  const { user, hasRole, isLoading } = useAuthStore()
-
-  useEffect(() => {
-    if (!isLoading && user && !hasRole(role)) {
-      navigate('/unauthorized')
-    }
-  }, [user, role, hasRole, isLoading, navigate])
-}
-
-export const useRequirePermission = (permission: string) => {
-  const navigate = useNavigate()
-  const { user, hasPermission, isLoading } = useAuthStore()
-
-  useEffect(() => {
-    if (!isLoading && user && !hasPermission(permission)) {
-      navigate('/unauthorized')
-    }
-  }, [user, permission, hasPermission, isLoading, navigate])
-}
