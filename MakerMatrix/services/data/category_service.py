@@ -7,6 +7,7 @@ from MakerMatrix.models.models import engine
 from MakerMatrix.repositories.category_repositories import CategoryRepository
 from MakerMatrix.database.db import get_session
 from MakerMatrix.repositories.custom_exceptions import CategoryAlreadyExistsError, ResourceNotFoundError
+from MakerMatrix.services.base_service import BaseService, ServiceResponse
 from sqlalchemy import select, delete
 
 # Configure logging
@@ -14,90 +15,79 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class CategoryService:
-    category_repo = CategoryRepository(engine)
+class CategoryService(BaseService):
+    """
+    Category service with consolidated session management using BaseService.
+    
+    This migration eliminates 7+ instances of duplicated session management code.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.category_repo = CategoryRepository(engine)
+        self.entity_name = "Category"
 
-    @staticmethod
-    def add_category(category_data: CategoryModel) -> dict:
+    def add_category(self, category_data: CategoryModel) -> ServiceResponse[dict]:
         """
         Add a new category to the system.
         
-        Args:
-            category_data: The category data to add
-            
-        Returns:
-            dict: A dictionary containing the status, message, and created category data
+        CONSOLIDATED SESSION MANAGEMENT: This method previously used manual session
+        management. Now uses BaseService session context manager for consistency.
         """
-        logger.info(f"Attempting to create category: {category_data.name}")
         try:
-            if not category_data.name:
-                logger.error("Category creation failed: Category name is required")
-                raise ValueError("Category name is required")
-
-            session = next(get_session())
-            new_category = CategoryRepository.create_category(session, category_data.model_dump())
-            if not new_category:
-                logger.error(f"Failed to create category: {category_data.name}")
-                raise ValueError("Failed to create category")
+            # Validate required fields
+            self.validate_required_fields(category_data.model_dump(), ["name"])
             
-            logger.info(f"Successfully created category: {new_category.name} (ID: {new_category.id})")
-            cat_dict = new_category.model_dump()
-            # Add part count (new categories start with 0 parts)
-            cat_dict['part_count'] = 0
-            return {
-                "status": "success",
-                "message": f"Category with name '{category_data.name}' created successfully",
-                "data": cat_dict
-            }
+            self.log_operation("create", self.entity_name, category_data.name)
+            
+            with self.get_session() as session:
+                new_category = CategoryRepository.create_category(session, category_data.model_dump())
+                if not new_category:
+                    return self.error_response(f"Failed to create {self.entity_name}")
                 
-        except CategoryAlreadyExistsError as cae:
-            logger.warning(f"Category creation failed - already exists: {category_data.name}")
-            raise cae
-        except ValueError as ve:
-            logger.error(f"Category creation failed with ValueError: {str(ve)}")
-            raise ve
+                cat_dict = new_category.model_dump()
+                # Add part count (new categories start with 0 parts)
+                cat_dict['part_count'] = 0
+                
+                return self.success_response(
+                    f"{self.entity_name} '{category_data.name}' created successfully",
+                    cat_dict
+                )
+                
         except Exception as e:
-            logger.error(f"Unexpected error creating category {category_data.name}: {str(e)}")
-            raise RuntimeError(f"Failed to create category: {str(e)}")
+            return self.handle_exception(e, f"create {self.entity_name}")
 
-    @staticmethod
-    def get_category(category_id: Optional[str] = None, name: Optional[str] = None) -> dict:
+    def get_category(self, category_id: Optional[str] = None, name: Optional[str] = None) -> ServiceResponse[dict]:
         """
         Get a category by ID or name.
         
-        Args:
-            category_id: Optional ID of the category to retrieve
-            name: Optional name of the category to retrieve
-            
-        Returns:
-            dict: A dictionary containing the status, message, and category data
+        CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
         """
-        identifier = category_id if category_id else name
-        logger.info(f"Retrieving category by {'ID' if category_id else 'name'}: {identifier}")
         try:
-            session = next(get_session())
-            category = CategoryRepository.get_category(session, category_id=category_id, name=name)
-            if not category:
-                logger.warning(f"Category not found with {'ID' if category_id else 'name'}: {identifier}")
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Category not found with {'ID' if category_id else 'name'} {category_id or name}",
-                    data=None
+            if not any([category_id, name]):
+                return self.error_response("Either category_id or name must be provided")
+            
+            identifier = category_id if category_id else name
+            self.log_operation("get", self.entity_name, identifier)
+            
+            with self.get_session() as session:
+                category = CategoryRepository.get_category(session, category_id=category_id, name=name)
+                if not category:
+                    return self.error_response(
+                        f"{self.entity_name} not found with {'ID' if category_id else 'name'}: {identifier}"
+                    )
+                
+                cat_dict = category.model_dump()
+                # Add part count
+                cat_dict['part_count'] = len(category.parts) if hasattr(category, 'parts') else 0
+                
+                return self.success_response(
+                    f"{self.entity_name} '{category.name}' retrieved successfully",
+                    cat_dict
                 )
-            logger.info(f"Successfully retrieved category: {category.name} (ID: {category.id})")
-            cat_dict = category.model_dump()
-            # Add part count
-            cat_dict['part_count'] = len(category.parts) if hasattr(category, 'parts') else 0
-            return {
-                "status": "success",
-                "message": f"Category with name '{category.name}' retrieved successfully",
-                "data": cat_dict,
-            }
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
+                
         except Exception as e:
-            logger.error(f"Unexpected error retrieving category {identifier}: {str(e)}")
-            raise ValueError(f"Failed to retrieve category: {str(e)}")
+            return self.handle_exception(e, f"retrieve {self.entity_name}")
 
     @staticmethod
     def remove_category(id: Optional[str] = None, name: Optional[str] = None) -> dict:

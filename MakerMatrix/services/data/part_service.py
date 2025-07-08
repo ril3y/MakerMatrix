@@ -16,6 +16,7 @@ from MakerMatrix.database.db import get_session
 from MakerMatrix.schemas.part_create import PartUpdate
 from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.services.data.location_service import LocationService
+from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
 if TYPE_CHECKING:
     from MakerMatrix.models.models import PartModel  # Only imports for type checking, avoiding circular import
@@ -25,13 +26,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class PartService:
-    # Initialize a part repository instance
-    part_repo = PartRepository(engine)
-    session = next(get_session())
+class PartService(BaseService):
+    """
+    Part service with consolidated session management using BaseService.
+    
+    This migration eliminates 15+ instances of duplicated session management code
+    that was previously repeated throughout this service.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.part_repo = PartRepository(engine)
+        self.entity_name = "Part"
 
-    @staticmethod
-    def _load_order_relationships(session: Session, part: 'PartModel') -> 'PartModel':
+    def _load_order_relationships(self, session: Session, part: 'PartModel') -> 'PartModel':
         """
         Load order relationships for a part (order_items and order_summary).
         This centralizes the order loading logic in one place.
@@ -47,37 +55,49 @@ class PartService:
 
 
     #####
-    @staticmethod
     def get_part_by_details(
+            self,
             part_id: Optional[str] = None,
             part_number: Optional[str] = None,
             part_name: Optional[str] = None
-    ) -> Optional[dict]:
+    ) -> ServiceResponse[dict]:
         """
         Determine which parameter is provided and call the appropriate repository method.
-        Returns the part as a dict, or None if not found.
+        
+        CONSOLIDATED SESSION MANAGEMENT: This method previously used manual session
+        management. Now uses BaseService session context manager for consistency.
         """
-        session = next(get_session())
         try:
-            found_part = None
-            if part_id:
-                found_part = PartService.part_repo.get_part_by_id(session, part_id)
-            elif part_number:
-                found_part = PartService.part_repo.get_part_by_part_number(session, part_number)
-            elif part_name:
-                found_part = PartService.part_repo.get_part_by_name(session, part_name)
-            else:
-                raise ValueError("At least one of part_id, part_number, or part_name must be provided.")
+            # Validate input parameters
+            if not any([part_id, part_number, part_name]):
+                return self.error_response(
+                    "At least one of part_id, part_number, or part_name must be provided."
+                )
+            
+            self.log_operation("get", self.entity_name)
+            
+            with self.get_session() as session:
+                found_part = None
+                
+                if part_id:
+                    found_part = self.part_repo.get_part_by_id(session, part_id)
+                elif part_number:
+                    found_part = self.part_repo.get_part_by_part_number(session, part_number)
+                elif part_name:
+                    found_part = self.part_repo.get_part_by_name(session, part_name)
 
-            if found_part:
-                # Load order relationships
-                found_part = PartService._load_order_relationships(session, found_part)
-                return found_part.to_dict()
-            return None
+                if found_part:
+                    # Load order relationships
+                    found_part = self._load_order_relationships(session, found_part)
+                    return self.success_response(
+                        f"{self.entity_name} retrieved successfully",
+                        found_part.to_dict()
+                    )
+                else:
+                    return self.error_response(f"{self.entity_name} not found")
 
         except Exception as e:
-            logger.error(f"Failed to get part by details: {e}")
-            return None
+            return self.handle_exception(e, f"get {self.entity_name} by details")
 
 
     @staticmethod
@@ -134,65 +154,57 @@ class PartService:
             logger.error(f"Failed to update quantity: {e}")
             raise
 
-    @staticmethod
-    def delete_part(part_id: str) -> Dict[str, Any]:
+    def delete_part(self, part_id: str) -> ServiceResponse[Dict[str, Any]]:
         """
         Delete a part by its ID using the repository.
-        Returns a structured response dictionary with deleted part info.
+        
+        CONSOLIDATED SESSION MANAGEMENT: This method previously included 30+ lines
+        of manual session, error handling, and logging. Now uses BaseService patterns.
         """
-        session = next(get_session())
         try:
-            logger.info(f"Attempting to delete part: {part_id}")
+            self.log_operation("delete", self.entity_name, part_id)
             
-            # Ensure the part exists before deletion
-            part = PartService.part_repo.get_part_by_id(session, part_id)
+            with self.get_session() as session:
+                # Ensure the part exists before deletion
+                part = self.part_repo.get_part_by_id(session, part_id)
 
-            if not part:
-                logger.error(f"Part deletion failed: Part with ID '{part_id}' not found")
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Part with ID '{part_id}' not found.",
-                    data=None
+                if not part:
+                    return self.error_response(f"{self.entity_name} with ID '{part_id}' not found")
+
+                # Log part details before deletion
+                part_name = part.part_name
+                part_categories = [getattr(cat, 'name', str(cat)) for cat in part.categories] if part.categories else []
+                self.logger.info(f"Deleting part: '{part_name}' (ID: {part_id}) with categories: {part_categories}")
+
+                # Perform deletion
+                deleted_part = self.part_repo.delete_part(session, part_id)
+
+                return self.success_response(
+                    f"{self.entity_name} with ID '{part_id}' was deleted successfully",
+                    deleted_part.model_dump()
                 )
 
-            # Log part details before deletion
-            part_name = part.part_name
-            part_categories = [getattr(cat, 'name', str(cat)) for cat in part.categories] if part.categories else []
-            logger.info(f"Deleting part: '{part_name}' (ID: {part_id}) with categories: {part_categories}")
-
-            # Perform deletion
-            deleted_part = PartService.part_repo.delete_part(session, part_id)
-
-            logger.info(f"Successfully deleted part: '{part_name}' (ID: {part_id})")
-            return {
-                "status": "success",
-                "message": f"Part with ID '{part_id}' was deleted.",
-                "data": deleted_part.model_dump()
-            }
-
-        except ResourceNotFoundError as rnfe:
-            raise rnfe  # Propagate known error
-
-        except ValueError as ve:
-            # Handle user-friendly constraint errors from repository
-            logger.error(f"Part deletion constraint error: {ve}")
-            raise ve  # Propagate the user-friendly error message
-
         except Exception as e:
-            logger.error(f"Failed to delete part {part_id}: {e}")
-            raise ValueError(f"Failed to delete part {part_id}: {str(e)}")
+            return self.handle_exception(e, f"delete {self.entity_name}")
 
-    @staticmethod
-    def dynamic_search(search_term: str) -> Any:
+    def dynamic_search(self, search_term: str) -> ServiceResponse[Any]:
         """
         Perform a dynamic search on parts using part_repo.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
         """
-        session = next(get_session())
         try:
-            return PartService.part_repo.dynamic_search(session, search_term)
+            self.log_operation("search", self.entity_name)
+            
+            with self.get_session() as session:
+                results = self.part_repo.dynamic_search(session, search_term)
+                return self.success_response(
+                    f"Search completed for term: {search_term}",
+                    results
+                )
+                
         except Exception as e:
-            logger.error(f"Error performing dynamic search: {e}")
-            raise RuntimeError("An error occurred while searching.")
+            return self.handle_exception(e, f"search {self.entity_name}")
 
     @staticmethod
     def clear_all_parts() -> Any:
