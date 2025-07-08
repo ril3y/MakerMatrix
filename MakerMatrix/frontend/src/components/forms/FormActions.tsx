@@ -1,5 +1,4 @@
 import { ReactNode } from 'react'
-import Button from '../ui/Button'
 
 interface FormActionsProps {
   onSubmit?: () => void
@@ -49,14 +48,14 @@ const FormActions = ({
     `}>
       {/* Left side (reset button if layout is between) */}
       {layout === 'between' && onReset && (
-        <Button
+        <button
           type="button"
-          variant={resetVariant}
+          className={`btn btn-${resetVariant}`}
           onClick={onReset}
           disabled={loading || disabled}
         >
           {resetText}
-        </Button>
+        </button>
       )}
 
       {/* Custom children */}
@@ -66,39 +65,38 @@ const FormActions = ({
       <div className="flex items-center gap-3">
         {/* Reset button (not in between layout) */}
         {layout !== 'between' && onReset && (
-          <Button
+          <button
             type="button"
-            variant={resetVariant}
+            className={`btn btn-${resetVariant}`}
             onClick={onReset}
             disabled={loading || disabled}
           >
             {resetText}
-          </Button>
+          </button>
         )}
 
         {/* Cancel button */}
         {onCancel && (
-          <Button
+          <button
             type="button"
-            variant={cancelVariant}
+            className={`btn btn-${cancelVariant}`}
             onClick={onCancel}
             disabled={loading}
           >
             {cancelText}
-          </Button>
+          </button>
         )}
 
         {/* Submit button */}
         {onSubmit && (
-          <Button
+          <button
             type="submit"
-            variant={submitVariant}
+            className={`btn btn-${submitVariant} ${loading ? 'loading' : ''}`}
             onClick={onSubmit}
-            loading={loading}
-            disabled={disabled}
+            disabled={loading || disabled}
           >
-            {submitText}
-          </Button>
+            {loading ? 'Loading...' : submitText}
+          </button>
         )}
       </div>
     </div>

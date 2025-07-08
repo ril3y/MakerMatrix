@@ -3,7 +3,7 @@ import { Upload, Eye, RefreshCw, Trash2, AlertCircle, CheckCircle } from 'lucide
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useOrderImport } from './hooks/useOrderImport';
-import { extractOrderInfoFromFilename } from '@/utils/filenameExtractor';
+import { extractFilenameInfo } from '@/utils/filenameExtractor';
 import FileUpload from './FileUpload';
 import ImportProgress from './ImportProgress';
 import FilePreview from './FilePreview';
@@ -39,7 +39,7 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({ onImportCompl
     parserName,
     onImportComplete,
     validateFile,
-    extractOrderInfoFromFilename,
+    extractOrderInfoFromFilename: extractFilenameInfo,
   });
 
   return (
