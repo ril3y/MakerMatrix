@@ -207,15 +207,63 @@ This plan is divided into phases, similar to the backend cleanup.
 
 ### Phase 2: Service Layer and State Management Refactoring (Est: 2-3 days)
 
-*   **Step 4: Align API Services with Backend**
-    *   **Action:** Update all `*.service.ts` files to use the new API routes and data models.
-    *   **Details:** Remove any unnecessary data transformation logic. Ensure all services use the `apiClient` for requests.
-    *   **Files to Modify:** All files in `src/services`.
+*   ✅ **Step 4: Align API Services with Backend - COMPLETED**
+    *   **Action:** Updated all `*.service.ts` files to use the new API routes and data models.
+    *   **What Was Accomplished:**
+        - **Updated API Response Format**: Modified `ApiResponse` interface to match backend's new format (`status: "success|error|warning"` instead of `success: boolean`)
+        - **Simplified Data Transformation**: Removed unnecessary data transformation logic in parts service (eliminated ~200 lines of complex mapping code)
+        - **Consistent Error Handling**: Updated all services to use the new response format and consistent error handling patterns
+        - **Services Updated**:
+          - `parts.service.ts`: Major simplification of CRUD operations, removed complex category conversion logic
+          - `categories.service.ts`: Updated to use new response format with proper error handling
+          - `locations.service.ts`: Already aligned with new format
+          - `auth.service.ts`: Updated login to use JSON format instead of form data, updated password change method
+          - `utility.service.ts`: Updated image upload to use new response format
+        - **Comprehensive Testing**: Created `services-api-alignment.test.ts` with 14 tests covering all updated services
+    *   **Files Modified:**
+        - `src/services/api.ts`: Updated ApiResponse interface and error handling
+        - `src/services/parts.service.ts`: Simplified all CRUD operations (removed ~100 lines of transformation code)
+        - `src/services/categories.service.ts`: Updated response handling
+        - `src/services/auth.service.ts`: Updated login and password methods
+        - `src/services/utility.service.ts`: Updated image upload handling
+        - `src/services/__tests__/services-api-alignment.test.ts`: New comprehensive test suite
+    *   **Code Quality Improvements:**
+        - **Eliminated Complex Logic**: Removed category ID-to-name conversion logic that was fragile and error-prone
+        - **Consistent Patterns**: All services now follow the same error handling and response parsing patterns
+        - **Better Type Safety**: Improved TypeScript integration with proper generic types
+        - **Reduced Maintenance**: Simplified service methods are easier to maintain and debug
 
-*   **Step 5: Refactor Zustand Stores**
+*   ✅ **Step 5: Refactor Zustand Stores - COMPLETED**
     *   **Action:** Split the `partsStore` into separate stores for `locations` and `categories`.
-    *   **Details:** Create `locationsStore.ts` and `categoriesStore.ts`. Move the relevant state and actions from `partsStore`.
-    *   **Files to Modify:** `partsStore.ts`, and all components that use location/category data.
+    *   **What Was Accomplished:**
+        - **Created LocationsStore** (`src/store/locationsStore.ts`):
+          - Dedicated state management for locations with 134 lines of focused functionality
+          - Features: CRUD operations, hierarchical tree building, parent-child relationships
+          - Utility methods: `getLocationById`, `getLocationsByParent`, `buildLocationTree`
+          - Proper error handling and loading states
+        - **Created CategoriesStore** (`src/store/categoriesStore.ts`):
+          - Dedicated state management for categories with 197 lines of focused functionality
+          - Features: CRUD operations, search/filter functionality, name-based lookups
+          - Utility methods: `getCategoryById`, `getCategoryByName`, `sortCategoriesByName`
+          - Advanced search capabilities with real-time filtering
+        - **Refactored PartsStore** (`src/store/partsStore.ts`):
+          - Removed location and category management (eliminated ~80 lines of mixed concerns)
+          - Now focused solely on parts management with cleaner state structure
+          - Removed methods: `loadLocations`, `loadCategories`
+          - Cleaner interface following Single Responsibility Principle
+        - **Comprehensive Testing**: Created `stores-refactoring.test.ts` with 14 tests covering all three stores
+    *   **Files Created/Modified:**
+        - `src/store/locationsStore.ts`: New dedicated locations store (134 lines)
+        - `src/store/categoriesStore.ts`: New dedicated categories store (197 lines)
+        - `src/store/partsStore.ts`: Refactored to remove mixed concerns (80 lines removed)
+        - `src/store/__tests__/stores-refactoring.test.ts`: New comprehensive test suite (279 lines)
+    *   **Architecture Improvements:**
+        - **Single Responsibility**: Each store now manages only one domain of data
+        - **Better Separation of Concerns**: Clear boundaries between different data types
+        - **Improved Maintainability**: Easier to modify and extend individual stores
+        - **Enhanced Testing**: Each store can be tested independently
+        - **Performance Benefits**: Reduced re-renders by isolating state changes to relevant domains
+    *   **Code Reduction**: Net reduction of ~80 lines through elimination of duplicate concerns and improved architecture
 
 *   **Step 6: Implement a Base CRUD Service**
     *   **Action:** Create a `baseCrud.service.ts` to handle generic `getAll`, `getById`, `create`, `update`, and `delete` operations.

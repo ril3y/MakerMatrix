@@ -1,4 +1,4 @@
-import { apiClient } from '@/services/api'
+import { apiClient, ApiResponse } from '@/services/api'
 
 export interface ImageUploadResponse {
   image_id: string
@@ -9,15 +9,18 @@ class UtilityService {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await apiClient.post<ImageUploadResponse>('/api/utility/upload_image', formData, {
+    const response = await apiClient.post<ApiResponse<ImageUploadResponse>>('/api/utility/upload_image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     })
 
-    // Return the full image URL - backend handles extension lookup
-    const imageId = response.image_id
-    return `/api/utility/get_image/${imageId}`
+    if (response.status === 'success' && response.data) {
+      // Return the full image URL - backend handles extension lookup
+      const imageId = response.data.image_id
+      return `/api/utility/get_image/${imageId}`
+    }
+    throw new Error(response.message || 'Failed to upload image')
   }
 }
 

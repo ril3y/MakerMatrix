@@ -7,10 +7,12 @@ const isDevelopment = (import.meta as any).env?.DEV
 const API_BASE_URL = isDevelopment ? '' : ((import.meta as any).env?.VITE_API_URL || 'https://localhost:8443')
 
 export interface ApiResponse<T = any> {
-  success: boolean
+  status: "success" | "error" | "warning"
+  message: string
   data?: T
-  error?: string
-  message?: string
+  page?: number
+  page_size?: number
+  total_parts?: number
 }
 
 export interface PaginatedResponse<T> {
@@ -67,11 +69,11 @@ class ApiClient {
           } else if (status === 403) {
             toast.error('You do not have permission to perform this action.')
           } else if (status === 404) {
-            toast.error(data?.error || 'Resource not found')
+            toast.error(data?.message || 'Resource not found')
           } else if (status === 409) {
-            toast.error(data?.error || 'Resource already exists')
+            toast.error(data?.message || 'Resource already exists')
           } else if (status === 422) {
-            toast.error(data?.error || 'Validation error')
+            toast.error(data?.message || 'Validation error')
           } else if (status >= 500) {
             toast.error('Server error. Please try again later.')
           }
@@ -120,11 +122,11 @@ export const apiClient = new ApiClient()
 
 // Helper function for handling API errors
 export const handleApiError = (error: any): string => {
-  if (error.response?.data?.error) {
-    return error.response.data.error
-  }
   if (error.response?.data?.message) {
     return error.response.data.message
+  }
+  if (error.response?.data?.error) {
+    return error.response.data.error
   }
   if (error.message) {
     return error.message

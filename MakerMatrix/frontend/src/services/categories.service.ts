@@ -11,7 +11,10 @@ import {
 export class CategoriesService {
   async createCategory(data: CreateCategoryRequest): Promise<Category> {
     const response = await apiClient.post<ApiResponse<CategoryResponse>>('/api/categories/add_category', data)
-    return response.data!.category
+    if (response.status === 'success' && response.data) {
+      return response.data.category
+    }
+    throw new Error(response.message || 'Failed to create category')
   }
 
   async getCategory(params: { id?: string; name?: string }): Promise<Category> {
@@ -24,13 +27,19 @@ export class CategoriesService {
     if (params.name) queryParams.append('name', params.name)
     
     const response = await apiClient.get<ApiResponse<CategoryResponse>>(`/api/categories/get_category?${queryParams}`)
-    return response.data!.category
+    if (response.status === 'success' && response.data) {
+      return response.data.category
+    }
+    throw new Error(response.message || 'Failed to get category')
   }
 
   async updateCategory(data: UpdateCategoryRequest): Promise<Category> {
     const { id, ...updateData } = data
     const response = await apiClient.put<ApiResponse<CategoryResponse>>(`/api/categories/update_category/${id}`, updateData)
-    return response.data!.category
+    if (response.status === 'success' && response.data) {
+      return response.data.category
+    }
+    throw new Error(response.message || 'Failed to update category')
   }
 
   async deleteCategory(params: { id?: string; name?: string }): Promise<Category> {
@@ -43,17 +52,26 @@ export class CategoriesService {
     if (params.name) queryParams.append('name', params.name)
     
     const response = await apiClient.delete<ApiResponse<CategoryResponse>>(`/api/categories/remove_category?${queryParams}`)
-    return response.data!.category
+    if (response.status === 'success' && response.data) {
+      return response.data.category
+    }
+    throw new Error(response.message || 'Failed to delete category')
   }
 
   async getAllCategories(): Promise<Category[]> {
     const response = await apiClient.get<ApiResponse<CategoriesListResponse>>('/api/categories/get_all_categories')
-    return response.data?.categories || []
+    if (response.status === 'success' && response.data) {
+      return response.data.categories || []
+    }
+    return []
   }
 
   async deleteAllCategories(): Promise<number> {
     const response = await apiClient.delete<ApiResponse<DeleteCategoriesResponse>>('/api/categories/delete_all_categories')
-    return response.data!.deleted_count
+    if (response.status === 'success' && response.data) {
+      return response.data.deleted_count
+    }
+    throw new Error(response.message || 'Failed to delete all categories')
   }
 
   async getAll(): Promise<Category[]> {

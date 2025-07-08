@@ -14,144 +14,79 @@ export class PartsService {
       part_name: data.name,
       category_names: data.categories || []
     }
-    const response = await apiClient.post<ApiResponse<any>>('/api/parts/add_part', backendData)
     
-    // Map response back to frontend format
-    if (response.data) {
-      return {
-        ...response.data,
-        name: response.data.part_name || response.data.name,
-        categories: response.data.categories || [], // Ensure categories are preserved
-        created_at: response.data.created_at || new Date().toISOString(),
-        updated_at: response.data.updated_at || new Date().toISOString()
-      }
+    // Remove frontend-only fields
+    delete backendData.name
+    delete backendData.categories
+    
+    const response = await apiClient.post<ApiResponse<Part>>('/api/parts/add_part', backendData)
+    
+    if (response.status === 'success' && response.data) {
+      return response.data
     }
-    throw new Error('No data in response')
+    throw new Error(response.message || 'Failed to create part')
   }
 
   async getPart(id: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_id=${id}`)
-    if (response.data) {
-      return {
-        ...response.data,
-        name: response.data.part_name || response.data.name,
-        categories: response.data.categories || [], // Ensure categories are preserved
-        created_at: response.data.created_at || new Date().toISOString(),
-        updated_at: response.data.updated_at || new Date().toISOString()
-      }
+    const response = await apiClient.get<ApiResponse<Part>>(`/api/parts/get_part?part_id=${id}`)
+    if (response.status === 'success' && response.data) {
+      return response.data
     }
-    throw new Error('No data in response')
+    throw new Error(response.message || 'Failed to get part')
   }
 
   async getPartByName(name: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_name=${name}`)
-    if (response.data) {
-      return {
-        ...response.data,
-        name: response.data.part_name || response.data.name,
-        categories: response.data.categories || [], // Ensure categories are preserved
-        created_at: response.data.created_at || new Date().toISOString(),
-        updated_at: response.data.updated_at || new Date().toISOString()
-      }
+    const response = await apiClient.get<ApiResponse<Part>>(`/api/parts/get_part?part_name=${name}`)
+    if (response.status === 'success' && response.data) {
+      return response.data
     }
-    throw new Error('No data in response')
+    throw new Error(response.message || 'Failed to get part')
   }
 
   async getPartByNumber(partNumber: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_number=${partNumber}`)
-    if (response.data) {
-      return {
-        ...response.data,
-        name: response.data.part_name || response.data.name,
-        categories: response.data.categories || [], // Ensure categories are preserved
-        created_at: response.data.created_at || new Date().toISOString(),
-        updated_at: response.data.updated_at || new Date().toISOString()
-      }
+    const response = await apiClient.get<ApiResponse<Part>>(`/api/parts/get_part?part_number=${partNumber}`)
+    if (response.status === 'success' && response.data) {
+      return response.data
     }
-    throw new Error('No data in response')
+    throw new Error(response.message || 'Failed to get part')
   }
 
   async updatePart(data: UpdatePartRequest): Promise<Part> {
     const { id, ...updateData } = data
     
-    // Handle category conversion from IDs to names
-    let categoryNames: string[] | undefined = undefined
-    if (updateData.categories && Array.isArray(updateData.categories)) {
-      if (updateData.categories.length > 0) {
-        // Check if categories are provided as IDs (strings) 
-        const firstCategory = updateData.categories[0]
-        if (typeof firstCategory === 'string') {
-          // Categories are IDs, we need to convert them to names
-          // Fetch category data to get names
-          try {
-            const { categoriesService } = await import('./categories.service')
-            const allCategories = await categoriesService.getAllCategories()
-            categoryNames = updateData.categories
-              .map(categoryId => {
-                const category = allCategories.find(cat => cat.id === categoryId)
-                return category?.name
-              })
-              .filter(Boolean) as string[]
-          } catch (error) {
-            console.error('Failed to convert category IDs to names:', error)
-            // Skip category update to prevent corruption
-            categoryNames = undefined
-          }
-        } else if (typeof firstCategory === 'object' && (firstCategory as any).name) {
-          // Categories are already Category objects, extract names
-          categoryNames = updateData.categories.map((cat: any) => cat.name)
-        }
-      } else {
-        // Empty array means clear all categories
-        categoryNames = []
-      }
-    }
-    
     // Map frontend format to backend format
     const backendData = {
       ...updateData,
       part_name: updateData.name,
-      ...(categoryNames !== undefined && { category_names: categoryNames })
+      category_names: updateData.categories || []
     }
     
-    // Remove frontend-only fields that don't exist in backend
+    // Remove frontend-only fields
     delete backendData.name
     delete backendData.categories
     
-    const response = await apiClient.put<ApiResponse<any>>(`/api/parts/update_part/${id}`, backendData)
-    if (response.data) {
-      return {
-        ...response.data,
-        name: response.data.part_name || response.data.name,
-        categories: response.data.categories || [], // Ensure categories are preserved
-        created_at: response.data.created_at || new Date().toISOString(),
-        updated_at: response.data.updated_at || new Date().toISOString()
-      }
+    const response = await apiClient.put<ApiResponse<Part>>(`/api/parts/update_part/${id}`, backendData)
+    if (response.status === 'success' && response.data) {
+      return response.data
     }
-    throw new Error('No data in response')
+    throw new Error(response.message || 'Failed to update part')
   }
 
-  async deletePart(id: string): Promise<ApiResponse> {
-    return await apiClient.delete<ApiResponse>(`/api/parts/delete_part?part_id=${id}`)
+  async deletePart(id: string): Promise<void> {
+    const response = await apiClient.delete<ApiResponse>(`/api/parts/delete_part?part_id=${id}`)
+    if (response.status !== 'success') {
+      throw new Error(response.message || 'Failed to delete part')
+    }
   }
 
   async getAllParts(page = 1, pageSize = 20): Promise<{ data: Part[], total_parts: number }> {
-    const response = await apiClient.get<any>('/api/parts/get_all_parts', {
+    const response = await apiClient.get<ApiResponse<Part[]>>('/api/parts/get_all_parts', {
       params: { page, page_size: pageSize }
     })
     
-    // Map backend response to frontend format
-    if (response.data && Array.isArray(response.data)) {
-      const mappedData = response.data.map((part: any) => ({
-        ...part,
-        name: part.part_name || part.name, // Map part_name to name
-        categories: part.categories || [], // Ensure categories are preserved
-        created_at: part.created_at || new Date().toISOString(),
-        updated_at: part.updated_at || new Date().toISOString()
-      }))
-      
+    if (response.status === 'success' && response.data) {
       return {
-        data: mappedData,
+        data: response.data,
         total_parts: response.total_parts || 0
       }
     }
@@ -160,17 +95,10 @@ export class PartsService {
   }
 
   async getAll(): Promise<Part[]> {
-    const response = await apiClient.get<any>('/api/parts/get_all_parts')
+    const response = await apiClient.get<ApiResponse<Part[]>>('/api/parts/get_all_parts')
     
-    // Map backend response to frontend format
-    if (response.data && Array.isArray(response.data)) {
-      return response.data.map((part: any) => ({
-        ...part,
-        name: part.part_name || part.name, // Map part_name to name
-        categories: part.categories || [], // Ensure categories are preserved
-        created_at: part.created_at || new Date().toISOString(),
-        updated_at: part.updated_at || new Date().toISOString()
-      }))
+    if (response.status === 'success' && response.data) {
+      return response.data
     }
     
     return []
@@ -194,22 +122,13 @@ export class PartsService {
   }
 
   async searchPartsText(query: string, page = 1, pageSize = 20): Promise<{ data: Part[], total_parts: number }> {
-    const response = await apiClient.get<any>('/api/parts/search_text', {
+    const response = await apiClient.get<ApiResponse<Part[]>>('/api/parts/search_text', {
       params: { query, page, page_size: pageSize }
     })
     
-    // Map backend response to frontend format
-    if (response.data && Array.isArray(response.data)) {
-      const mappedData = response.data.map((part: any) => ({
-        ...part,
-        name: part.part_name || part.name,
-        categories: part.categories || [], // Ensure categories are preserved
-        created_at: part.created_at || new Date().toISOString(),
-        updated_at: part.updated_at || new Date().toISOString()
-      }))
-      
+    if (response.status === 'success' && response.data) {
       return {
-        data: mappedData,
+        data: response.data,
         total_parts: response.total_parts || 0
       }
     }
@@ -223,10 +142,13 @@ export class PartsService {
     }
     
     try {
-      const response = await apiClient.get<any>('/api/parts/suggestions', {
+      const response = await apiClient.get<ApiResponse<string[]>>('/api/parts/suggestions', {
         params: { query, limit }
       })
-      return response.data || []
+      if (response.status === 'success' && response.data) {
+        return response.data
+      }
+      return []
     } catch (error) {
       console.error('Error fetching suggestions:', error)
       return []
@@ -238,7 +160,7 @@ export class PartsService {
       const response = await apiClient.get<ApiResponse<boolean>>('/api/parts/check_name_exists', {
         params: { name, exclude_id: excludeId }
       })
-      return response.data || false
+      return response.status === 'success' && response.data || false
     } catch {
       return false
     }
@@ -249,7 +171,10 @@ export class PartsService {
       supplier,
       url
     })
-    return response.data!
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to import part')
   }
 }
 

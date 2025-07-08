@@ -311,14 +311,14 @@ class EnrichmentQueueManager:
         
         try:
             # Import enrichment handler
-            from MakerMatrix.services.enrichment_task_handlers import EnrichmentTaskHandlers
+            from MakerMatrix.services.system.enrichment_coordinator_service import EnrichmentCoordinatorService
             from MakerMatrix.repositories.parts_repositories import PartRepository
             from MakerMatrix.services.data.part_service import PartService
             
             # Create services
             part_repository = PartRepository(self.engine)
             part_service = PartService(self.engine)
-            enrichment_handler = EnrichmentTaskHandlers(part_repository, part_service)
+            enrichment_handler = EnrichmentCoordinatorService(part_repository, part_service)
             
             # Get the part
             part = await part_repository.get_by_id(task.part_id)

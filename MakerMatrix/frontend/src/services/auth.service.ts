@@ -3,15 +3,7 @@ import { User, LoginRequest, LoginResponse } from '@/types/auth'
 
 export class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const formData = new URLSearchParams()
-    formData.append('username', credentials.username)
-    formData.append('password', credentials.password)
-
-    const response = await apiClient.post<LoginResponse>('/auth/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    })
+    const response = await apiClient.post<LoginResponse>('/auth/login', credentials)
 
     if (response.access_token) {
       apiClient.setAuthToken(response.access_token)
@@ -34,15 +26,21 @@ export class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get<User>('/api/users/me')
-    return response
+    const response = await apiClient.get<ApiResponse<User>>('/api/users/me')
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to get current user')
   }
 
-  async updatePassword(currentPassword: string, newPassword: string): Promise<ApiResponse> {
-    return await apiClient.put('/api/users/update_password', {
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const response = await apiClient.put<ApiResponse>('/api/users/update_password', {
       current_password: currentPassword,
       new_password: newPassword,
     })
+    if (response.status !== 'success') {
+      throw new Error(response.message || 'Failed to update password')
+    }
   }
 
   getStoredUser(): User | null {

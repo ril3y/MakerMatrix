@@ -11,7 +11,7 @@ from MakerMatrix.tasks.base_task import BaseTask
 from MakerMatrix.models.task_models import TaskModel, TaskStatus, UpdateTaskRequest
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.data.part_service import PartService
-from MakerMatrix.services.system.enrichment_task_handlers import EnrichmentTaskHandlers
+from MakerMatrix.services.system.enrichment_coordinator_service import EnrichmentCoordinatorService
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import engine
 from sqlmodel import Session
@@ -69,7 +69,7 @@ class PartEnrichmentTask(BaseTask):
                 # Create enrichment handlers with download configuration
                 part_repository = PartRepository(engine)
                 part_service = PartService()
-                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
+                enrichment_handlers = EnrichmentCoordinatorService(part_repository, part_service)  # Gets CSV config automatically
                 
                 # Progress callback for enrichment
                 async def progress_callback(percentage, step):
@@ -130,7 +130,7 @@ class DatasheetFetchTask(BaseTask):
             with Session(engine) as session:
                 part_repository = PartRepository(engine)
                 part_service = PartService()
-                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
+                enrichment_handlers = EnrichmentCoordinatorService(part_repository, part_service)  # Gets CSV config automatically
                 
                 async def progress_callback(percentage: int, step: str):
                     await self._update_task_progress(task, percentage, step)
@@ -183,7 +183,7 @@ class ImageFetchTask(BaseTask):
             with Session(engine) as session:
                 part_repository = PartRepository(engine)
                 part_service = PartService()
-                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
+                enrichment_handlers = EnrichmentCoordinatorService(part_repository, part_service)  # Gets CSV config automatically
                 
                 async def progress_callback(percentage: int, step: str):
                     await self._update_task_progress(task, percentage, step)
@@ -236,7 +236,7 @@ class BulkEnrichmentTask(BaseTask):
             with Session(engine) as session:
                 part_repository = PartRepository(engine)
                 part_service = PartService()
-                enrichment_handlers = EnrichmentTaskHandlers(part_repository, part_service)  # Gets CSV config automatically
+                enrichment_handlers = EnrichmentCoordinatorService(part_repository, part_service)  # Gets CSV config automatically
                 
                 async def progress_callback(percentage: int, step: str):
                     await self._update_task_progress(task, percentage, step)

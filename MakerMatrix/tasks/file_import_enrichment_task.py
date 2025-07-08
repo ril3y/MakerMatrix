@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any
 from .base_task import BaseTask
 from MakerMatrix.models.task_models import TaskModel, TaskType
-from MakerMatrix.services.system.enrichment_task_handlers import EnrichmentTaskHandlers
+from MakerMatrix.services.system.enrichment_coordinator_service import EnrichmentCoordinatorService
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.database.db import get_session
@@ -49,7 +49,7 @@ class FileImportEnrichmentTask(BaseTask):
         if not self.enrichment_handlers:
             with next(get_session()) as session:
                 part_repository = PartRepository(session.bind)
-                self.enrichment_handlers = EnrichmentTaskHandlers(
+                self.enrichment_handlers = EnrichmentCoordinatorService(
                     part_repository=part_repository,
                     part_service=self.part_service
                 )

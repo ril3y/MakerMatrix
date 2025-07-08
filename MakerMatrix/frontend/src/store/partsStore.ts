@@ -4,13 +4,9 @@ import {
   Part, 
   CreatePartRequest, 
   UpdatePartRequest, 
-  SearchPartsRequest,
-  Location,
-  Category
+  SearchPartsRequest
 } from '@/types/parts'
 import { partsService } from '@/services/parts.service'
-import { locationsService } from '@/services/locations.service'
-import { categoriesService } from '@/services/categories.service'
 import { PaginatedResponse } from '@/services/api'
 import { toast } from 'react-hot-toast'
 
@@ -22,10 +18,6 @@ interface PartsState {
   currentPage: number
   pageSize: number
   totalPages: number
-  
-  // Locations and categories
-  locations: Location[]
-  categories: Category[]
   
   // UI state
   isLoading: boolean
@@ -41,10 +33,6 @@ interface PartsState {
   createPart: (data: CreatePartRequest) => Promise<Part>
   updatePart: (data: UpdatePartRequest) => Promise<Part>
   deletePart: (id: string) => Promise<void>
-  
-  // Reference data
-  loadLocations: () => Promise<void>
-  loadCategories: () => Promise<void>
   
   // Filters
   setSearchQuery: (query: string) => void
@@ -66,8 +54,6 @@ export const usePartsStore = create<PartsState>()(
       currentPage: 1,
       pageSize: 20,
       totalPages: 0,
-      locations: [],
-      categories: [],
       isLoading: false,
       isLoadingPart: false,
       error: null,
@@ -196,24 +182,6 @@ export const usePartsStore = create<PartsState>()(
         }
       },
 
-      // Load reference data
-      loadLocations: async () => {
-        try {
-          const locations = await locationsService.getAllLocations()
-          set({ locations })
-        } catch (error) {
-          console.error('Failed to load locations:', error)
-        }
-      },
-
-      loadCategories: async () => {
-        try {
-          const categories = await categoriesService.getAllCategories()
-          set({ categories })
-        } catch (error) {
-          console.error('Failed to load categories:', error)
-        }
-      },
 
       // Filter management
       setSearchQuery: (query) => set({ searchQuery: query }),
