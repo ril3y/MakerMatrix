@@ -31,7 +31,7 @@ class LocationService(BaseService):
         self.location_repo = LocationRepository(engine)
         self.entity_name = "Location"
 
-    def get_all_locations(self) -> ServiceResponse[List[LocationModel]]:
+    def get_all_locations(self) -> ServiceResponse[List[Dict[str, Any]]]:
         """
         Get all locations.
         
@@ -42,15 +42,17 @@ class LocationService(BaseService):
             
             with self.get_session() as session:
                 locations = self.location_repo.get_all_locations(session)
+                # Convert to dictionaries to avoid DetachedInstanceError
+                locations_data = [location.model_dump() for location in locations]
                 return self.success_response(
                     f"Retrieved {len(locations)} {self.entity_name.lower()}s",
-                    locations
+                    locations_data
                 )
                 
         except Exception as e:
             return self.handle_exception(e, f"get all {self.entity_name.lower()}s")
 
-    def get_location(self, location_query: LocationQueryModel) -> ServiceResponse[LocationModel]:
+    def get_location(self, location_query: LocationQueryModel) -> ServiceResponse[Dict[str, Any]]:
         """
         Get a location by query parameters.
         
@@ -62,9 +64,11 @@ class LocationService(BaseService):
             with self.get_session() as session:
                 location = self.location_repo.get_location(session, location_query)
                 if location:
+                    # Convert to dictionary to avoid DetachedInstanceError
+                    location_dict = location.model_dump()
                     return self.success_response(
                         f"{self.entity_name} retrieved successfully",
-                        location
+                        location_dict
                     )
                 else:
                     return self.error_response(f"{self.entity_name} not found")
@@ -72,7 +76,7 @@ class LocationService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"retrieve {self.entity_name}")
 
-    def add_location(self, location_data: Dict[str, Any]) -> ServiceResponse[LocationModel]:
+    def add_location(self, location_data: Dict[str, Any]) -> ServiceResponse[Dict[str, Any]]:
         """
         Add a new location.
         
@@ -93,15 +97,17 @@ class LocationService(BaseService):
             
             with self.get_session() as session:
                 result = self.location_repo.add_location(session, location_data)
+                # Convert to dictionary to avoid DetachedInstanceError
+                location_dict = result.model_dump()
                 return self.success_response(
                     f"{self.entity_name} '{location_name}' created successfully",
-                    result
+                    location_dict
                 )
                 
         except Exception as e:
             return self.handle_exception(e, f"create {self.entity_name}")
 
-    def update_location(self, location_id: str, location_data: Dict[str, Any]) -> ServiceResponse[LocationModel]:
+    def update_location(self, location_id: str, location_data: Dict[str, Any]) -> ServiceResponse[Dict[str, Any]]:
         """
         Update a location's fields. This method can update any combination of name, description, parent_id, and location_type.
         
@@ -151,16 +157,17 @@ class LocationService(BaseService):
                 else:
                     self.logger.info(f"No changes made to location '{result.name}' (ID: {location_id})")
                 
+                # Convert to dictionary to avoid DetachedInstanceError
+                result_dict = result.model_dump()
                 return self.success_response(
                     f"{self.entity_name} '{result.name}' updated successfully",
-                    result
+                    result_dict
                 )
                 
         except Exception as e:
             return self.handle_exception(e, f"update {self.entity_name}")
 
-    @staticmethod
-    def get_location_details(location_id: str) -> dict:
+    def get_location_details(self, location_id: str) -> ServiceResponse[Dict[str, Any]]:
         """
         Get detailed information about a location, including its children.
 
@@ -168,67 +175,72 @@ class LocationService(BaseService):
             location_id (str): The ID of the location to get details for.
 
         Returns:
-            dict: A dictionary containing the location details and its children in the standard response format.
+            ServiceResponse[Dict[str, Any]]: Service response containing location details.
         """
-        with Session(engine) as session:
-            location_data = LocationRepository.get_location_details(session, location_id)
-            return {
-                "status": "success",
-                "message": "Location details retrieved successfully",
-                "data": location_data
-            }
+        try:
+            self.log_operation("get_details", self.entity_name, location_id)
+            
+            with self.get_session() as session:
+                location_data = self.location_repo.get_location_details(session, location_id)
+                return self.success_response(
+                    "Location details retrieved successfully",
+                    location_data
+                )
+                
+        except Exception as e:
+            return self.handle_exception(e, f"retrieve {self.entity_name} details")
 
-    @staticmethod
-    def get_location_path(location_id: str) -> Dict[str, Any]:
+    def get_location_path(self, location_id: str) -> ServiceResponse[List[Dict[str, Any]]]:
         """Get the full path from a location to its root.
         
         Args:
             location_id: The ID of the location to get the path for
             
         Returns:
-            A dictionary containing the location path with parent references
-            
-        Raises:
-            ResourceNotFoundError: If the location is not found
+            ServiceResponse containing the location path
         """
-        session = next(get_session())
         try:
-            path = LocationRepository.get_location_path(session, location_id)
-            return {
-                "status": "success",
-                "message": f"Location path retrieved for location {location_id}",
-                "data": path
-            }
-        except ResourceNotFoundError as e:
-            raise e
+            self.log_operation("get_path", self.entity_name, location_id)
+            
+            with self.get_session() as session:
+                path = self.location_repo.get_location_path(session, location_id)
+                return self.success_response(
+                    f"Location path retrieved for location {location_id}",
+                    path
+                )
+                
         except Exception as e:
-            raise ValueError(f"Error retrieving location path: {str(e)}")
+            return self.handle_exception(e, f"retrieve {self.entity_name} path")
 
-    @staticmethod
-    def preview_location_delete(location_id: str) -> dict[str, Any]:
-        session = next(get_session())
+    def preview_location_delete(self, location_id: str) -> ServiceResponse[Dict[str, Any]]:
+        """Preview what will be affected by deleting a location."""
         try:
-            # Get all affected locations (including children) This should always return at LEAST 1, if not the location does not exist
-            affected_locations = LocationService.location_repo.get_location_hierarchy(session, location_id)
+            self.log_operation("preview_delete", self.entity_name, location_id)
+            
+            with self.get_session() as session:
+                # Get all affected locations (including children) This should always return at LEAST 1, if not the location does not exist
+                affected_locations = self.location_repo.get_location_hierarchy(session, location_id)
 
-            if not affected_locations:
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Location with ID {location_id} not found",
-                    data=None)
+                if not affected_locations:
+                    return self.error_response(f"Location with ID {location_id} not found")
 
-            # Get all affected parts
-            affected_parts_count = LocationService.location_repo.get_affected_part_ids(session, affected_locations[
-                'affected_location_ids'])
-            location_response = LocationDeleteResponse(
-                location_ids_to_delete=affected_locations['affected_location_ids'],
-                affected_parts_count=len(affected_parts_count),
-                affected_locations_count=len(affected_locations['affected_location_ids']),
-                location_hierarchy=affected_locations['hierarchy']).model_dump()
-            return location_response
+                # Get all affected parts
+                affected_parts_count = self.location_repo.get_affected_part_ids(session, affected_locations[
+                    'affected_location_ids'])
+                    
+                location_response = LocationDeleteResponse(
+                    location_ids_to_delete=affected_locations['affected_location_ids'],
+                    affected_parts_count=len(affected_parts_count),
+                    affected_locations_count=len(affected_locations['affected_location_ids']),
+                    location_hierarchy=affected_locations['hierarchy']).model_dump()
+                    
+                return self.success_response(
+                    f"Preview data for deleting location {location_id}",
+                    location_response
+                )
 
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
+        except Exception as e:
+            return self.handle_exception(e, f"preview delete {self.entity_name}")
 
     @staticmethod
     def get_parts_effected_locations(location_id: str):

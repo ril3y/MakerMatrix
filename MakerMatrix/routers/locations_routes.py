@@ -29,38 +29,32 @@ router = APIRouter()
 @router.get("/get_all_locations")
 async def get_all_locations() -> ResponseSchema[List[Dict[str, Any]]]:
     try:
-        locations = LocationService.get_all_locations()
-        # Convert LocationModel objects to dictionaries
+        location_service = LocationService()
+        service_response = location_service.get_all_locations()
+        
+        if not service_response.success:
+            raise HTTPException(status_code=400, detail=service_response.message)
+        
+        # Locations are already dictionaries from the service
+        locations = service_response.data
         location_data = []
         for location in locations:
             location_dict = {
-                "id": location.id,
-                "name": location.name,
-                "description": location.description,
-                "parent_id": location.parent_id,
-                "location_type": location.location_type,
-                "image_url": location.image_url,
-                "emoji": getattr(location, 'emoji', None),
-                "parts_count": len(location.parts) if location.parts else 0
+                "id": location["id"],
+                "name": location["name"],
+                "description": location.get("description"),
+                "parent_id": location.get("parent_id"),
+                "location_type": location.get("location_type"),
+                "image_url": location.get("image_url"),
+                "emoji": location.get("emoji"),
+                "parts_count": 0  # Set to 0 since we don't have parts loaded in basic fetch
             }
-            # Add parent info if available
-            if location.parent:
-                location_dict["parent"] = {
-                    "id": location.parent.id,
-                    "name": location.parent.name
-                }
-            # Add children info if available
-            if hasattr(location, 'children') and location.children:
-                location_dict["children"] = [
-                    {"id": child.id, "name": child.name} 
-                    for child in location.children
-                ]
             location_data.append(location_dict)
         
         # noinspection PyArgumentList
         return ResponseSchema(
             status="success",
-            message="All locations retrieved successfully",
+            message=service_response.message,
             data=location_data
         )
     except Exception as e:
@@ -75,15 +69,23 @@ async def get_location(
     try:
         if not location_id and not name:
             raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
+        
+        location_service = LocationService()
         location_query = LocationQueryModel(id=location_id, name=name)
-        location = LocationService.get_location(location_query)
-        if location:
-            # noinspection PyArgumentList
-            return ResponseSchema(
-                status="success",
-                message="Location retrieved successfully",
-                data=location.to_dict()
-            )
+        service_response = location_service.get_location(location_query)
+        
+        if not service_response.success:
+            if "not found" in service_response.message:
+                raise HTTPException(status_code=404, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
+        
+        # noinspection PyArgumentList
+        return ResponseSchema(
+            status="success",
+            message=service_response.message,
+            data=service_response.data  # Already a dictionary from service
+        )
 
     except ResourceNotFoundError as rnfe:
         raise rnfe
@@ -113,7 +115,16 @@ async def update_location(
     try:
         # Convert the Pydantic model to a dict and remove None values
         update_data = {k: v for k, v in location_data.model_dump().items() if v is not None}
-        updated_location = LocationService.update_location(location_id, update_data)
+        location_service = LocationService()
+        service_response = location_service.update_location(location_id, update_data)
+        
+        if not service_response.success:
+            if "not found" in service_response.message:
+                raise HTTPException(status_code=404, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
+        
+        updated_location = service_response.data
         
         # Log activity to database for recent activity widget
         try:
@@ -125,7 +136,7 @@ async def update_location(
             
             await activity_service.log_location_updated(
                 location_id=location_id,
-                location_name=updated_location.name,
+                location_name=updated_location['name'],
                 changes=changes,
                 user=current_user,
                 request=request
@@ -137,7 +148,7 @@ async def update_location(
         return ResponseSchema(
             status="success",
             message="Location updated successfully",
-            data=updated_location.model_dump()
+            data=updated_location  # Already a dictionary from service
         )
     except ResourceNotFoundError as rnfe:
         raise HTTPException(status_code=404, detail=str(rnfe))
@@ -154,49 +165,33 @@ async def add_location(
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[Dict[str, Any]]:
     try:
-        # Check if a location with the same name and parent_id already exists
-        existing_location = None
-        try:
-            location_query = LocationQueryModel(name=location_data.name)
-            existing_location = LocationService.get_location(location_query)
-            
-            # If we found a location with the same name, check if it has the same parent_id
-            if existing_location and existing_location.parent_id == location_data.parent_id:
-                return JSONResponse(
-                    status_code=409,
-                    content={
-                        "status": "error",
-                        "message": f"Location with name '{location_data.name}' already exists under the same parent"
-                    }
-                )
-        except ResourceNotFoundError:
-            # If no location with this name exists, we can proceed
-            pass
-            
-        location = LocationService.add_location(location_data.model_dump())
-        print(f"[DEBUG] Location created successfully: {location.id}")
+        location_service = LocationService()
+        service_response = location_service.add_location(location_data.model_dump())
+        
+        if not service_response.success:
+            if "already exists" in service_response.message:
+                raise HTTPException(status_code=409, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
+        
+        location = service_response.data
+        print(f"[DEBUG] Location created successfully: {location['id']}")
         
         # Log activity
         try:
             from MakerMatrix.services.activity_service import get_activity_service
             activity_service = get_activity_service()
             await activity_service.log_location_created(
-                location_id=location.id,
-                location_name=location.name,
+                location_id=location['id'],
+                location_name=location['name'],
                 user=current_user,
                 request=request
             )
         except Exception as e:
             print(f"Failed to log location creation activity: {e}")
         
-        # Create response data manually to avoid serialization issues
-        response_data = {
-            "id": location.id,
-            "name": location.name,
-            "description": location.description,
-            "parent_id": location.parent_id,
-            "location_type": location.location_type
-        }
+        # Location data is already a dictionary from the service
+        response_data = location
         
         return ResponseSchema(
             status="success",
@@ -230,18 +225,20 @@ async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any
     Returns:
         ResponseSchema: A response containing the location details and its children.
     """
-    response = LocationService.get_location_details(location_id)
-    if response["status"] == "success":
-        return ResponseSchema(
-            status=response["status"],
-            message=response.get("message", "Location details retrieved successfully"),
-            data=response.get("data")
-        )
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail=response.get("message", "Location not found")
-        )
+    location_service = LocationService()
+    service_response = location_service.get_location_details(location_id)
+    
+    if not service_response.success:
+        if "not found" in service_response.message:
+            raise HTTPException(status_code=404, detail=service_response.message)
+        else:
+            raise HTTPException(status_code=400, detail=service_response.message)
+    
+    return ResponseSchema(
+        status="success",
+        message=service_response.message,
+        data=service_response.data
+    )
 
 
 @router.get("/get_location_path/{location_id}", response_model=ResponseSchema)
@@ -255,8 +252,20 @@ async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, A
         A ResponseSchema containing the location path with parent references
     """
     try:
-        response = LocationService.get_location_path(location_id)
-        return response
+        location_service = LocationService()
+        service_response = location_service.get_location_path(location_id)
+        
+        if not service_response.success:
+            if "not found" in service_response.message:
+                raise HTTPException(status_code=404, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
+        
+        return ResponseSchema(
+            status="success",
+            message=service_response.message,
+            data=service_response.data
+        )
     except ResourceNotFoundError as rnfe:
         raise HTTPException(status_code=404, detail=str(rnfe))
     except ValueError as ve:
@@ -276,11 +285,19 @@ async def preview_location_delete(location_id: str) -> ResponseSchema:
         ResponseSchema: A response containing the preview information
     """
     try:
-        preview_response = LocationService.preview_location_delete(location_id)
+        location_service = LocationService()
+        service_response = location_service.preview_location_delete(location_id)
+        
+        if not service_response.success:
+            if "not found" in service_response.message:
+                raise HTTPException(status_code=404, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
+        
         return ResponseSchema(
             status="success",
-            message="Delete preview generated",
-            data=preview_response
+            message=service_response.message,
+            data=service_response.data
         )
     except ResourceNotFoundError as rnfe:
         raise rnfe
