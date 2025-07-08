@@ -1,0 +1,9 @@
+
+Test Database Isolation Migration Report
+======================================
+
+Files processed: 25
+Files migrated: 24
+Imports removed: 24
+Fixtures updated: 12
+
