@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, Depends
@@ -64,7 +64,7 @@ async def add_category(
         if "data" not in response:
             raise HTTPException(status_code=500, detail="Invalid response format from service")
         
-        # Convert response data to CategoryResponse before activity logging
+        # Convert response data to CategoryResponse for type safety
         category_response_data = CategoryResponse.model_validate(response["data"])
         
         # Log activity

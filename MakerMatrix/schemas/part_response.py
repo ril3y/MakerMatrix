@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class CategoryResponse(BaseModel):
+    """Category response schema that matches CategoryModel.to_dict() output"""
     id: Optional[str]
     name: str
     description: Optional[str] = None
