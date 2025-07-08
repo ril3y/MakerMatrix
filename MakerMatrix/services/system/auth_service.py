@@ -7,7 +7,9 @@ from MakerMatrix.models.user_models import UserModel
 
 # Configuration - can be overridden with environment variables
 import os
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-keep-it-secret")  # Change this!
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("JWT_SECRET_KEY environment variable is required for security. Please set a secure secret key.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "480"))  # 8 hours default (mobile-friendly)
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))

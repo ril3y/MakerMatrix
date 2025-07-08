@@ -7,7 +7,7 @@ from MakerMatrix.models.rate_limiting_models import *  # Import rate limiting mo
 from sqlalchemy import inspect, event
 
 # Database URL for backup and utility operations
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///makers_matrix.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///makermatrix.db")
 
 
 # Dependency that will provide a session to FastAPI routes
