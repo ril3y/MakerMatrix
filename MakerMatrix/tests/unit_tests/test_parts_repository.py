@@ -7,7 +7,7 @@ without complex mocking of SQLAlchemy components.
 
 import pytest
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.repositories.custom_exceptions import (
+from MakerMatrix.exceptions import (
     ResourceNotFoundError,
     PartAlreadyExistsError,
     InvalidReferenceError

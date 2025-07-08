@@ -21,7 +21,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!isAuthenticated && !isLoading) {
       checkAuth()
     }
-  }, [])
+  }, [checkAuth, isAuthenticated, isLoading])
 
   if (isLoading) {
     return <LoadingScreen />

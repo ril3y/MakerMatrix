@@ -3,13 +3,10 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 from starlette.responses import JSONResponse
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY, HTTP_409_CONFLICT
 
-from MakerMatrix.repositories.custom_exceptions import (
-    PartAlreadyExistsError,
-    ResourceNotFoundError,
-    CategoryAlreadyExistsError,
-    LocationAlreadyExistsError,
-    UserAlreadyExistsError,
-    InvalidReferenceError
+from MakerMatrix.exceptions import (
+    MakerMatrixException, PartAlreadyExistsError, ResourceNotFoundError,
+    CategoryAlreadyExistsError, LocationAlreadyExistsError, UserAlreadyExistsError,
+    InvalidReferenceError, get_http_status_code, log_exception
 )
 from MakerMatrix.schemas.response import ResponseSchema
 
@@ -17,14 +14,26 @@ from MakerMatrix.schemas.response import ResponseSchema
 def register_exception_handlers(app):
     """Register all exception handlers for the FastAPI app."""
     
-    @app.exception_handler(PartAlreadyExistsError)
-    async def part_already_exists_handler(request: Request, exc: PartAlreadyExistsError):
+    @app.exception_handler(MakerMatrixException)
+    async def maker_matrix_exception_handler(request: Request, exc: MakerMatrixException):
+        """
+        Centralized handler for all MakerMatrix exceptions.
+        
+        This consolidates exception handling and eliminates the duplication
+        that was present in the original individual handlers.
+        """
+        # Log the exception with request context
+        log_exception(exc, context=f"{request.method} {request.url.path}")
+        
+        # Get appropriate HTTP status code
+        status_code = get_http_status_code(exc)
+        
         return JSONResponse(
-            status_code=HTTP_409_CONFLICT,
+            status_code=status_code,
             content=ResponseSchema(
                 status="error",
                 message=exc.message,
-                data=None
+                data=exc.details if exc.details else None
             ).model_dump()
         )
 
@@ -61,57 +70,6 @@ def register_exception_handlers(app):
             ).model_dump()
         )
 
-    @app.exception_handler(ResourceNotFoundError)
-    async def resource_not_found_handler(request: Request, exc: ResourceNotFoundError):
-        return JSONResponse(
-            status_code=404,
-            content=ResponseSchema(
-                status="error",
-                message=str(exc),
-                data=None
-            ).model_dump()
-        )
-    
-    @app.exception_handler(CategoryAlreadyExistsError)
-    async def category_already_exists_handler(request: Request, exc: CategoryAlreadyExistsError):
-        return JSONResponse(
-            status_code=HTTP_409_CONFLICT,
-            content=ResponseSchema(
-                status="error",
-                message=exc.message,
-                data=None
-            ).model_dump()
-        )
-    
-    @app.exception_handler(LocationAlreadyExistsError)
-    async def location_already_exists_handler(request: Request, exc: LocationAlreadyExistsError):
-        return JSONResponse(
-            status_code=HTTP_409_CONFLICT,
-            content=ResponseSchema(
-                status="error",
-                message=exc.message,
-                data=None
-            ).model_dump()
-        )
-    
-    @app.exception_handler(UserAlreadyExistsError)
-    async def user_already_exists_handler(request: Request, exc: UserAlreadyExistsError):
-        return JSONResponse(
-            status_code=HTTP_409_CONFLICT,
-            content=ResponseSchema(
-                status="error",
-                message=exc.message,
-                data=None
-            ).model_dump()
-        )
-    
-    @app.exception_handler(InvalidReferenceError)
-    async def invalid_reference_handler(request: Request, exc: InvalidReferenceError):
-        return JSONResponse(
-            status_code=400,
-            content=ResponseSchema(
-                status="error",
-                message=exc.message,
-                data=exc.data
-            ).model_dump()
-        ) 
+    # Note: Individual exception handlers removed in favor of centralized
+    # MakerMatrixException handler above. This eliminates the duplication
+    # that was present in the original code while maintaining all functionality. 

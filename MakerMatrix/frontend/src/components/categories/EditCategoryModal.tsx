@@ -1,4 +1,4 @@
-import { Tag, AlertCircle } from 'lucide-react'
+import { Tag } from 'lucide-react'
 import CrudModal from '@/components/ui/CrudModal'
 import FormField from '@/components/ui/FormField'
 import { useModalForm } from '@/hooks/useModalForm'

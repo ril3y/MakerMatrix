@@ -21,6 +21,10 @@ from pydantic import BaseModel
 
 from MakerMatrix.models.models import engine
 from MakerMatrix.database.db import get_session
+from MakerMatrix.exceptions import (
+    MakerMatrixException, ValidationError, ResourceNotFoundError, 
+    ResourceAlreadyExistsError, map_exception_to_base_service, log_exception
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -46,28 +50,8 @@ class ServiceResponse(BaseModel, Generic[T]):
         return cls(success=False, message=message, errors=errors or [])
 
 
-class ServiceException(Exception):
-    """Base exception for service layer errors."""
-    
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
-        super().__init__(message)
-        self.message = message
-        self.details = details or {}
-
-
-class ValidationError(ServiceException):
-    """Raised when service input validation fails."""
-    pass
-
-
-class ResourceNotFoundError(ServiceException):
-    """Raised when a requested resource is not found."""
-    pass
-
-
-class ResourceAlreadyExistsError(ServiceException):
-    """Raised when attempting to create a resource that already exists."""
-    pass
+# Note: Exception classes now imported from MakerMatrix.exceptions
+# This eliminates the duplication that was present in the original code
 
 
 class BaseService(ABC):
@@ -169,12 +153,15 @@ class BaseService(ABC):
         Returns:
             ServiceResponse with appropriate error information
         """
-        if isinstance(e, ServiceException):
-            return self.error_response(e.message, [str(e)])
-        elif isinstance(e, ValueError):
-            return self.error_response(f"Validation error in {operation}: {str(e)}")
+        # Log the exception with context
+        log_exception(e, context=f"{self.__class__.__name__}.{operation}")
+        
+        # Map to MakerMatrix exception if needed
+        mapped_exception = map_exception_to_base_service(e)
+        
+        if isinstance(mapped_exception, MakerMatrixException):
+            return self.error_response(mapped_exception.message, [str(mapped_exception)])
         else:
-            self.logger.exception(f"Unexpected error in {operation}")
             return self.error_response(
                 f"An unexpected error occurred during {operation}",
                 [str(e)]

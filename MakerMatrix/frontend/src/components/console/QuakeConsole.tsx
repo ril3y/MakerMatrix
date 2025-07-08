@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Terminal from 'react-console-emulator';
 import { useNavigate } from 'react-router-dom';
 import { partsService } from '../../services/parts.service';
 import { locationsService } from '../../services/locations.service';
 import { categoriesService } from '../../services/categories.service';
-import { aiService } from '../../services/ai.service';
 import { usePartsStore } from '../../store/partsStore';
 import { apiClient } from '../../services/api';
-import toast from 'react-hot-toast';
 
 interface CommandResult {
   message: string;

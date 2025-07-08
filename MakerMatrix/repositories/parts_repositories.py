@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 # from MakerMatrix.repositories.base_repository import BaseRepository
 
 from MakerMatrix.models.models import PartModel, CategoryModel, AdvancedPartSearch
-from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, InvalidReferenceError
+from MakerMatrix.exceptions import ResourceNotFoundError, InvalidReferenceError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -76,9 +76,9 @@ class PartRepository:
             return results
         else:
             raise ResourceNotFoundError(
-                status="error",
                 message=f"No parts found for search term '{search_term}'",
-                data=None
+                resource_type="part",
+                resource_id=search_term
             )
 
     ###
@@ -193,9 +193,9 @@ class PartRepository:
             return part
         else:
             raise ResourceNotFoundError(
-                status="error",
                 message=f"Error: Part with part number {part_number} not found",
-                data=None)
+                resource_type="part",
+                resource_id=part_number)
 
     @staticmethod
     def get_part_by_id(session: Session, part_id: str) -> Optional[PartModel]:
@@ -215,9 +215,9 @@ class PartRepository:
             return part
         else:
             raise ResourceNotFoundError(
-                status="error",
                 message=f"Part with ID {part_id} not found",
-                data=None
+                resource_type="part",
+                resource_id=part_id
             )
 
     @staticmethod
@@ -238,9 +238,9 @@ class PartRepository:
             return part
         else:
             raise ResourceNotFoundError(
-                status="error",
                 message=f"Part with name '{part_name}' not found",
-                data=None
+                resource_type="part",
+                resource_id=part_name
             )
 
     @staticmethod
@@ -282,9 +282,9 @@ class PartRepository:
             ).first()
             if not location:
                 raise InvalidReferenceError(
-                    status="error",
                     message=f"Location with ID '{part_data.location_id}' does not exist",
-                    data={"location_id": part_data.location_id}
+                    reference_type="location",
+                    reference_id=part_data.location_id
                 )
         
         try:

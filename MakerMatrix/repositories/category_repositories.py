@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import CategoryModel
-from MakerMatrix.repositories.custom_exceptions import (
+from MakerMatrix.exceptions import (
     ResourceNotFoundError,
     CategoryAlreadyExistsError,
     InvalidReferenceError
@@ -48,18 +48,18 @@ class CategoryRepository:
             identifier = f"name '{name}'"
         else:
             raise InvalidReferenceError(
-                status="error",
                 message="Either 'category_id' or 'name' must be provided for category lookup",
-                data=None
+                reference_type="category_lookup",
+                reference_id=None
             )
         
         if category:
             return category
         else:
             raise ResourceNotFoundError(
-                status="error",
                 message=f"Category with {identifier} not found",
-                data=None
+                resource_type="category",
+                resource_id=category_id or name
             )
 
     @staticmethod
@@ -88,9 +88,8 @@ class CategoryRepository:
             if existing_category:
                 logger.debug(f"[REPO] Category creation failed - duplicate name: {category_name}")
                 raise CategoryAlreadyExistsError(
-                    status="error",
                     message=f"Category with name '{category_name}' already exists",
-                    data={"existing_category_id": existing_category.id}
+                    category_name=category_name
                 )
         
         try:
@@ -193,9 +192,9 @@ class CategoryRepository:
         if not category:
             logger.debug(f"[REPO] Category update failed - not found: {category_id}")
             raise ResourceNotFoundError(
-                status="error",
                 message=f"Category with ID {category_id} not found",
-                data=None
+                resource_type="category",
+                resource_id=category_id
             )
 
         # Update fields that are not None

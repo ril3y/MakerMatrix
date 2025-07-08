@@ -7,7 +7,7 @@ without complex mocking of SQLAlchemy components.
 
 import pytest
 from MakerMatrix.repositories.category_repositories import CategoryRepository
-from MakerMatrix.repositories.custom_exceptions import (
+from MakerMatrix.exceptions import (
     ResourceNotFoundError,
     CategoryAlreadyExistsError,
     InvalidReferenceError
