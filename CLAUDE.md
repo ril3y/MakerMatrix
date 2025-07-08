@@ -199,25 +199,41 @@ GET /api/tasks/capabilities/find/{capability_type}     # Find suppliers with cap
 - **Session management**: Use `Session(engine)` pattern in tasks
 - **Repository pattern**: Always use repositories for database operations
 
-### Database Session Management for Tasks
+### Database Access Architecture (CRITICAL)
 
-**Critical Pattern for Task Handlers:**
+**ONLY REPOSITORIES interact with the database - NEVER services or other layers directly.**
+
+**Repository Pattern for ALL Database Operations:**
 
 ```python
-# Always use this pattern in task handlers
+# CORRECT: Only repositories handle database sessions
 from MakerMatrix.database.database import Session, engine
 from MakerMatrix.repository.parts_repository import PartRepository
 
-# In task handlers
+# In task handlers, services, routes - always use repositories
 with Session(engine) as session:
     repository = PartRepository(engine)
-    # Use repository for all database operations
+    # Repository handles ALL database operations
     # Proper session commit/rollback handled automatically
 ```
 
-- **Never use direct engine** in tasks - always use repositories
-- **Proper error handling** with session rollback
-- **Repository instantiation** requires `engine` parameter
+**Services use BaseService for consistency but delegate to repositories:**
+```python
+# CORRECT: Services use repositories, not direct database access
+class PartService(BaseService):
+    def get_part(self, part_id: str):
+        with self.get_session() as session:
+            return self.part_repo.get_by_id(session, part_id)  # Repository handles DB
+```
+
+**Architecture Rules:**
+- **ONLY repositories** handle database sessions and SQL operations
+- **Services** use repositories and provide business logic
+- **Routes** use services and handle HTTP concerns  
+- **Tasks** use repositories directly (with session management)
+- **Never bypass repositories** for database operations
+
+**VIOLATION**: Any code outside `/repositories/` that uses `session.add()`, `session.query()`, `session.commit()`, etc.
 
 ### Enhanced Parser Integration Patterns
 

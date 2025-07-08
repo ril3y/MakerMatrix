@@ -10,14 +10,25 @@ from MakerMatrix.models.task_models import (
 )
 from MakerMatrix.tasks import get_task_class, get_all_task_types, list_available_tasks
 from MakerMatrix.services.system.websocket_service import websocket_manager
+from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
 logger = logging.getLogger(__name__)
 
 
-class TaskService:
-    """Service for managing background tasks"""
+class TaskService(BaseService):
+    """
+    Service for managing background tasks with consolidated session management.
+    
+    ⚠️  ARCHITECTURE VIOLATION: This service directly accesses the database.
+    TODO: Create TaskRepository and refactor to use repository pattern (Step 12.5).
+    
+    This migration eliminates 10+ instances of duplicated session management code
+    while maintaining the current functionality until proper repository refactor.
+    """
     
     def __init__(self):
+        super().__init__()
+        self.entity_name = "Task"
         self.running_tasks: Dict[str, asyncio.Task] = {}
         self.task_instances: Dict[str, Any] = {}  # Cache task instances
         self.is_worker_running = False
@@ -51,52 +62,76 @@ class TaskService:
         
         return task_types
     
-    async def create_task(self, task_request: CreateTaskRequest, user_id: str = None) -> TaskModel:
-        """Create a new task"""
-        session = next(get_session())
+    async def create_task(self, task_request: CreateTaskRequest, user_id: str = None) -> ServiceResponse[TaskModel]:
+        """
+        Create a new task.
+        
+        CONSOLIDATED SESSION MANAGEMENT: This method previously had 15+ lines
+        of manual session management. Now uses BaseService async session patterns.
+        
+        ⚠️  TODO: Refactor to use TaskRepository instead of direct DB access.
+        """
         try:
-            task = TaskModel(
-                task_type=task_request.task_type,
-                name=task_request.name,
-                description=task_request.description,
-                priority=task_request.priority,
-                max_retries=task_request.max_retries,
-                timeout_seconds=task_request.timeout_seconds,
-                scheduled_at=task_request.scheduled_at,
-                created_by_user_id=user_id,
-                related_entity_type=task_request.related_entity_type,
-                related_entity_id=task_request.related_entity_id,
-                parent_task_id=task_request.parent_task_id
-            )
+            self.log_operation("create", self.entity_name, task_request.name)
             
-            if task_request.input_data:
-                task.set_input_data(task_request.input_data)
-            
-            if task_request.depends_on_task_ids:
-                task.set_depends_on(task_request.depends_on_task_ids)
-            
-            session.add(task)
-            session.commit()
-            session.refresh(task)
-            
-            logger.info(f"Created task {task.id}: {task.name}")
-            
-            # Send WebSocket notification for task creation
-            asyncio.create_task(websocket_manager.broadcast_task_update(task.to_dict()))
-            
-            return task
-            
-        finally:
-            session.close()
+            async with self.get_async_session() as session:
+                task = TaskModel(
+                    task_type=task_request.task_type,
+                    name=task_request.name,
+                    description=task_request.description,
+                    priority=task_request.priority,
+                    max_retries=task_request.max_retries,
+                    timeout_seconds=task_request.timeout_seconds,
+                    scheduled_at=task_request.scheduled_at,
+                    created_by_user_id=user_id,
+                    related_entity_type=task_request.related_entity_type,
+                    related_entity_id=task_request.related_entity_id,
+                    parent_task_id=task_request.parent_task_id
+                )
+                
+                if task_request.input_data:
+                    task.set_input_data(task_request.input_data)
+                
+                if task_request.depends_on_task_ids:
+                    task.set_depends_on(task_request.depends_on_task_ids)
+                
+                session.add(task)
+                session.commit()
+                session.refresh(task)
+                
+                # Send WebSocket notification for task creation
+                asyncio.create_task(websocket_manager.broadcast_task_update(task.to_dict()))
+                
+                return self.success_response(
+                    f"{self.entity_name} '{task.name}' created successfully",
+                    task
+                )
+                
+        except Exception as e:
+            return self.handle_exception(e, f"create {self.entity_name}")
     
-    async def get_task(self, task_id: str) -> Optional[TaskModel]:
-        """Get a task by ID"""
-        session = next(get_session())
+    async def get_task(self, task_id: str) -> ServiceResponse[TaskModel]:
+        """
+        Get a task by ID.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
+        ⚠️  TODO: Use TaskRepository instead of direct DB access.
+        """
         try:
-            task = session.get(TaskModel, task_id)
-            return task
-        finally:
-            session.close()
+            self.log_operation("get", self.entity_name, task_id)
+            
+            async with self.get_async_session() as session:
+                task = session.get(TaskModel, task_id)
+                if not task:
+                    return self.error_response(f"{self.entity_name} with ID {task_id} not found")
+                
+                return self.success_response(
+                    f"{self.entity_name} retrieved successfully",
+                    task
+                )
+                
+        except Exception as e:
+            return self.handle_exception(e, f"get {self.entity_name}")
     
     async def get_tasks(self, filter_request: TaskFilterRequest) -> List[TaskModel]:
         """Get tasks with filtering"""

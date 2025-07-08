@@ -4,21 +4,31 @@ from MakerMatrix.repositories.custom_exceptions import (
     UserAlreadyExistsError,
     InvalidReferenceError
 )
+from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
-class UserService:
-    user_repo = UserRepository()
+class UserService(BaseService):
+    """
+    User service with BaseService foundation for consistency.
+    
+    Note: This service uses repository patterns that don't require session management,
+    but inherits BaseService for consistent error handling and logging.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.user_repo = UserRepository()
+        self.entity_name = "User"
 
-    @staticmethod
-    def get_all_users() -> dict:
+    def get_all_users(self) -> ServiceResponse[list]:
         """
-        Returns all users in a consistent API response format.
+        Returns all users using consistent ServiceResponse format.
         """
         try:
-            users = UserService.user_repo.get_all_users()
-            return {
-                "status": "success",
-                "message": "All users retrieved successfully",
-                "data": users
-            }
+            self.log_operation("get_all", self.entity_name)
+            users = self.user_repo.get_all_users()
+            return self.success_response(
+                f"All {self.entity_name.lower()}s retrieved successfully",
+                users
+            )
         except Exception as e:
-            raise RuntimeError(f"Failed to retrieve users: {str(e)}")
+            return self.handle_exception(e, f"retrieve all {self.entity_name.lower()}s")

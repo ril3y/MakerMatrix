@@ -346,6 +346,18 @@ This PRD outlines a comprehensive cleanup process for the MakerMatrix codebase t
 - Consolidate error response formats
 - Update error logging
 
+#### Step 12.5: Fix Repository Pattern Violations (CRITICAL ARCHITECTURE ISSUE)
+- **DISCOVERED**: TaskService and potentially other services violate repository pattern
+- **VIOLATION**: Services directly accessing database instead of using repositories
+- **FIX REQUIRED**: Create missing repositories and refactor services to use them
+- **SCOPE**: 
+  - Create TaskRepository for database operations
+  - Refactor TaskService to delegate to TaskRepository
+  - Audit all services for direct database access violations
+  - Ensure ONLY repositories handle database sessions and SQL operations
+- **ARCHITECTURE RULE**: Only `/repositories/` should contain `session.add()`, `session.query()`, `session.commit()`, etc.
+- **PRIORITY**: High - architectural integrity critical for maintainability
+
 ### Phase 3: Frontend Cleanup (Steps 13-18)
 
 #### Step 13: Remove Dead Frontend Code
