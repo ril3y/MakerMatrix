@@ -62,8 +62,13 @@ async def get_all_users(current_user=Depends(get_current_user)):
     if not any(role.name == "admin" for role in getattr(current_user, "roles", [])):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     from MakerMatrix.services.user_service import UserService
-    response = UserService.get_all_users()
-    return ResponseSchema(**response)
+    user_service = UserService()  # Create instance instead of static call
+    response = user_service.get_all_users()
+    return ResponseSchema(
+        status="success" if response.success else "error",
+        message=response.message,
+        data=response.data
+    )
 
 
 @router.get("/{user_id}", response_model=ResponseSchema)

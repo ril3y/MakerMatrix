@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Upload, Eye, RefreshCw, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -34,12 +34,17 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({ onImportCompl
     return true;
   };
 
+  const extractOrderInfoFromFilename = useCallback(async (filename: string) => {
+    const fileInfo = extractFilenameInfo(filename);
+    return fileInfo.order_info;
+  }, []);
+
   const orderImport = useOrderImport({
     parserType,
     parserName,
     onImportComplete,
     validateFile,
-    extractOrderInfoFromFilename: extractFilenameInfo,
+    extractOrderInfoFromFilename,
   });
 
   return (

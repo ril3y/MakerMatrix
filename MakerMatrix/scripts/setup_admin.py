@@ -68,7 +68,7 @@ def setup_default_admin(user_repo: UserRepository):
             pass
 
         # Hash the default password
-        hashed_password = pbkdf2_sha256.hash(DEFAULT_ADMIN_PASSWORD)
+        hashed_password = user_repo.get_password_hash(DEFAULT_ADMIN_PASSWORD)
         
         # Create admin user with password change required
         admin_user = user_repo.create_user(

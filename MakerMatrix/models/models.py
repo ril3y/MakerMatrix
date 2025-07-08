@@ -25,7 +25,7 @@ from .rate_limiting_models import *
 from .csv_import_config_model import *
 
 # Create an engine for SQLite
-sqlite_file_name = "makers_matrix.db"
+sqlite_file_name = "makermatrix.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
 engine = create_engine(
