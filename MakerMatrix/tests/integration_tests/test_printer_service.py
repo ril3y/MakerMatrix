@@ -10,7 +10,7 @@ from MakerMatrix.lib.print_settings import PrintSettings
 from MakerMatrix.main import app
 from MakerMatrix.models.models import PartModel, engine, create_db_and_tables
 from MakerMatrix.repositories.printer_repository import PrinterRepository
-from MakerMatrix.services.printer_service import PrinterService
+from MakerMatrix.services.printer.printer_service import PrinterService
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 from MakerMatrix.repositories.user_repository import UserRepository
 
