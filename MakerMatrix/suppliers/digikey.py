@@ -101,13 +101,9 @@ class DigiKeySupplier(BaseSupplier):
     def get_capabilities(self) -> List[SupplierCapability]:
         """Get capabilities that DigiKey supports (always returns full list, with fallbacks when API unavailable)"""
         return [
-            SupplierCapability.SEARCH_PARTS,
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,
-            SupplierCapability.FETCH_IMAGE,
-            SupplierCapability.FETCH_PRICING,
-            SupplierCapability.FETCH_STOCK,
-            SupplierCapability.FETCH_SPECIFICATIONS,
+            SupplierCapability.FETCH_PRICING_STOCK,
             SupplierCapability.IMPORT_ORDERS
         ]
     
@@ -119,11 +115,6 @@ class DigiKeySupplier(BaseSupplier):
                 required_credentials=[],  # No API key needed for CSV import
                 description="Import DigiKey order history from CSV exports"
             ),
-            SupplierCapability.SEARCH_PARTS: CapabilityRequirement(
-                capability=SupplierCapability.SEARCH_PARTS,
-                required_credentials=["client_id", "client_secret"],
-                description="Search DigiKey catalog using API"
-            ),
             SupplierCapability.GET_PART_DETAILS: CapabilityRequirement(
                 capability=SupplierCapability.GET_PART_DETAILS,
                 required_credentials=["client_id", "client_secret"],
@@ -134,26 +125,11 @@ class DigiKeySupplier(BaseSupplier):
                 required_credentials=["client_id", "client_secret"],
                 description="Download datasheets via API"
             ),
-            SupplierCapability.FETCH_IMAGE: CapabilityRequirement(
-                capability=SupplierCapability.FETCH_IMAGE,
+            SupplierCapability.FETCH_PRICING_STOCK: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_PRICING_STOCK,
                 required_credentials=["client_id", "client_secret"],
-                description="Get product images via API"
+                description="Get real-time pricing and stock levels via API"
             ),
-            SupplierCapability.FETCH_PRICING: CapabilityRequirement(
-                capability=SupplierCapability.FETCH_PRICING,
-                required_credentials=["client_id", "client_secret"],
-                description="Get real-time pricing via API"
-            ),
-            SupplierCapability.FETCH_STOCK: CapabilityRequirement(
-                capability=SupplierCapability.FETCH_STOCK,
-                required_credentials=["client_id", "client_secret"],
-                description="Get real-time stock levels via API"
-            ),
-            SupplierCapability.FETCH_SPECIFICATIONS: CapabilityRequirement(
-                capability=SupplierCapability.FETCH_SPECIFICATIONS,
-                required_credentials=["client_id", "client_secret"],
-                description="Get technical specifications via API"
-            )
         }
     
     def get_credential_schema(self) -> List[FieldDefinition]:
@@ -1037,44 +1013,23 @@ class DigiKeySupplier(BaseSupplier):
         
         return await self._tracked_api_call("fetch_datasheet", _impl)
     
-    async def fetch_image(self, supplier_part_number: str) -> Optional[str]:
-        """Fetch image URL for a part"""
+    async def fetch_pricing_stock(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
+        """Fetch combined pricing and stock information for a DigiKey part"""
         async def _impl():
-            logger.info(f"🔍 DigiKey fetch_image called with part_number: {supplier_part_number}")
             part_details = await self.get_part_details(supplier_part_number)
-            logger.info(f"🔍 DigiKey get_part_details returned: {part_details is not None}")
-            if part_details:
-                logger.info(f"🔍 DigiKey image_url: {part_details.image_url}")
-                return part_details.image_url
-            else:
-                logger.warning(f"❌ DigiKey get_part_details returned None for {supplier_part_number}")
+            if not part_details:
                 return None
+            
+            result = {}
+            if part_details.pricing:
+                result["pricing"] = part_details.pricing
+            if part_details.stock_quantity is not None:
+                result["stock_quantity"] = part_details.stock_quantity
+            
+            return result if result else None
         
-        return await self._tracked_api_call("fetch_image", _impl)
+        return await self._tracked_api_call("fetch_pricing_stock", _impl)
     
-    async def fetch_pricing(self, supplier_part_number: str) -> Optional[List[Dict[str, Any]]]:
-        """Fetch current pricing for a part"""
-        async def _impl():
-            part_details = await self.get_part_details(supplier_part_number)
-            return part_details.pricing if part_details else None
-        
-        return await self._tracked_api_call("fetch_pricing", _impl)
-    
-    async def fetch_stock(self, supplier_part_number: str) -> Optional[int]:
-        """Fetch current stock level for a part"""
-        async def _impl():
-            part_details = await self.get_part_details(supplier_part_number)
-            return part_details.stock_quantity if part_details else None
-        
-        return await self._tracked_api_call("fetch_stock", _impl)
-    
-    async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch technical specifications for a part"""
-        async def _impl():
-            part_details = await self.get_part_details(supplier_part_number)
-            return part_details.specifications if part_details else None
-        
-        return await self._tracked_api_call("fetch_specifications", _impl)
     
     def _extract_pricing(self, product) -> List[Dict[str, Any]]:
         """Extract pricing information from DigiKey product data"""

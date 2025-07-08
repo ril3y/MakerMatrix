@@ -10,6 +10,7 @@ from MakerMatrix.models.task_models import (
 from MakerMatrix.models.task_security_model import get_user_allowed_task_types
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.schemas.response import ResponseSchema
 import logging
 
 logger = logging.getLogger(__name__)
@@ -493,6 +494,51 @@ async def quick_create_price_update_task(
         raise HTTPException(status_code=500, detail=f"Failed to create price update task: {str(e)}")
 
 
+@router.post("/quick/database_backup", response_model=Dict[str, Any])
+async def quick_create_database_backup_task(
+    request: Dict[str, Any],
+    current_user: UserModel = Depends(require_permission("admin"))  # Requires admin permission
+):
+    """Quick create database backup task"""
+    try:
+        backup_name = request.get("backup_name")  # Optional, will generate if not provided
+        include_datasheets = request.get("include_datasheets", True)
+        include_images = request.get("include_images", True)
+        
+        # Generate backup name if not provided
+        if not backup_name:
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"makermatrix_backup_{timestamp}"
+        
+        task_request = CreateTaskRequest(
+            task_type=TaskType.BACKUP_CREATION,
+            name=f"Database Backup: {backup_name}",
+            description=f"Create comprehensive backup including database, datasheets: {include_datasheets}, images: {include_images}",
+            priority=TaskPriority.HIGH,  # Backups are important
+            input_data={
+                "backup_name": backup_name,
+                "include_datasheets": include_datasheets,
+                "include_images": include_images
+            },
+            related_entity_type="system",
+            related_entity_id="database"
+        )
+        
+        task = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        return {
+            "status": "success",
+            "message": "Database backup task created successfully",
+            "data": task.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create database backup task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create database backup task: {str(e)}")
+
+
 # Task capabilities endpoints
 @router.get("/capabilities/suppliers", response_model=Dict[str, Any])
 async def get_supplier_capabilities(
@@ -796,3 +842,29 @@ async def retry_task(
     except Exception as e:
         logger.error(f"Failed to retry task {task_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to retry task: {str(e)}")
+
+
+@router.delete("/{task_id}", response_model=ResponseSchema[Dict[str, Any]])
+async def delete_task(
+    task_id: str,
+    current_user: UserModel = Depends(require_permission("tasks:delete"))
+):
+    """Delete a completed or failed task"""
+    try:
+        success = await task_service.delete_task(task_id)
+        
+        if not success:
+            raise HTTPException(status_code=400, detail="Task cannot be deleted (task is still running or does not exist)")
+        
+        logger.info(f"Deleted task {task_id} by user {current_user.username}")
+        
+        return ResponseSchema(
+            status="success",
+            message="Task deleted successfully",
+            data={"task_id": task_id}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete task {task_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete task: {str(e)}")

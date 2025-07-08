@@ -636,6 +636,21 @@ async def clear_all_parts(
     """Clear all parts from the database - USE WITH CAUTION! (Admin only)"""
     try:
         result = PartService.clear_all_parts()
+        
+        # Log the activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_activity(
+                action="cleared",
+                entity_type="parts",
+                entity_name="All parts",
+                user=current_user,
+                details=result
+            )
+        except Exception as activity_error:
+            logger.warning(f"Failed to log parts clear activity: {activity_error}")
+        
         return ResponseSchema(
             status="success", 
             message="All parts have been cleared successfully",

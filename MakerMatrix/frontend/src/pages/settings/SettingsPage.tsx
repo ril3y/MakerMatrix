@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Settings, Shield, Database, Printer, Palette, Globe, Bot, Save, TestTube, RefreshCw, Upload as ImportIcon, Activity, Plus, X, Monitor, Sun, Moon } from 'lucide-react'
+import { Settings, Shield, Database, Printer, Palette, Globe, Bot, Save, TestTube, RefreshCw, Upload as ImportIcon, Activity, Plus, X, Monitor, Sun, Moon, AlertTriangle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { settingsService } from '@/services/settings.service'
 import { AIConfig, PrinterConfig, BackupStatus } from '@/types/settings'
@@ -531,7 +531,7 @@ const SettingsPage = () => {
               </div>
             )}
 
-            <div className="flex gap-4">
+            <div className="flex gap-4 flex-wrap">
               <button
                 onClick={() => settingsService.downloadDatabaseBackup()}
                 className="btn btn-primary"
@@ -544,6 +544,69 @@ const SettingsPage = () => {
               >
                 Export JSON
               </button>
+            </div>
+            
+            <div className="border-t pt-6">
+              <h4 className="text-md font-medium text-red-600 mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Dangerous Operations
+              </h4>
+              <p className="text-sm text-secondary mb-4">
+                These operations will permanently delete data. Use with extreme caution.
+              </p>
+              <div className="flex gap-4 flex-wrap">
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Are you sure you want to clear ALL PARTS? This action cannot be undone!')) {
+                      try {
+                        await settingsService.clearAllParts();
+                        await loadBackupStatus();
+                        alert('All parts have been cleared successfully');
+                      } catch (error) {
+                        console.error('Error clearing parts:', error);
+                        alert('Failed to clear parts: ' + (error as Error).message);
+                      }
+                    }
+                  }}
+                  className="btn bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+                >
+                  Clear All Parts
+                </button>
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Are you sure you want to clear ALL SUPPLIERS data? This action cannot be undone!')) {
+                      try {
+                        await settingsService.clearAllSuppliers();
+                        await loadBackupStatus();
+                        alert('All supplier data has been cleared successfully');
+                      } catch (error) {
+                        console.error('Error clearing suppliers:', error);
+                        alert('Failed to clear suppliers: ' + (error as Error).message);
+                      }
+                    }
+                  }}
+                  className="btn bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+                >
+                  Clear All Suppliers
+                </button>
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Are you sure you want to clear ALL CATEGORIES? This action cannot be undone!')) {
+                      try {
+                        await settingsService.clearAllCategories();
+                        await loadBackupStatus();
+                        alert('All categories have been cleared successfully');
+                      } catch (error) {
+                        console.error('Error clearing categories:', error);
+                        alert('Failed to clear categories: ' + (error as Error).message);
+                      }
+                    }
+                  }}
+                  className="btn bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+                >
+                  Clear All Categories
+                </button>
+              </div>
             </div>
           </div>
         )}

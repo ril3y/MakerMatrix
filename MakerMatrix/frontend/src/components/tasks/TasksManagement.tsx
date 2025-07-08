@@ -406,6 +406,20 @@ const TasksManagement: React.FC = () => {
     }
   }
 
+  const deleteTask = async (taskId: string) => {
+    if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+      return
+    }
+    
+    try {
+      await tasksService.deleteTask(taskId)
+      toast.success('Task deleted successfully')
+      loadTasks()
+    } catch (error) {
+      toast.error('Failed to delete task')
+    }
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock className="w-4 h-4 text-yellow-500" />
@@ -1077,11 +1091,30 @@ const TasksManagement: React.FC = () => {
                     )}
                     
                     {task.status === 'failed' && (
+                      <>
+                        <button
+                          onClick={() => retryTask(task.id)}
+                          className="btn btn-primary btn-sm"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="btn btn-destructive btn-sm"
+                          title="Delete task"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                    
+                    {(task.status === 'completed' || task.status === 'cancelled') && (
                       <button
-                        onClick={() => retryTask(task.id)}
-                        className="btn btn-primary btn-sm"
+                        onClick={() => deleteTask(task.id)}
+                        className="btn btn-destructive btn-sm"
+                        title="Delete task"
                       >
-                        <RotateCcw className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>

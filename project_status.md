@@ -1,10 +1,22 @@
 # Project Status Updates
 
-## Latest Update: January 2025 - Analytics & Reporting Complete
+## Latest Update: January 2025 - Supplier Capability System Simplified
 
-MakerMatrix has reached a major milestone with the implementation of comprehensive analytics and reporting features. The system now provides deep insights into inventory spending, order patterns, and stock levels through an interactive dashboard with real-time data visualization.
+MakerMatrix has undergone a significant architectural improvement in the supplier integration system, streamlining capabilities and focusing on inventory enrichment rather than part discovery.
 
 ### Key Achievements This Session:
+- ✅ **Simplified Supplier Capabilities**: Removed redundant capabilities and consolidated data retrieval methods
+- ✅ **Inventory-Focused Design**: Eliminated search functionality to focus on enriching existing parts
+- ✅ **Cleaner API Surface**: Removed supplier search endpoints and consolidated specifications into part details
+- ✅ **Updated All Suppliers**: LCSC, DigiKey, Mouser, McMaster-Carr, and BoltDepot now use streamlined capabilities
+- ✅ **Frontend Integration**: Updated capability display with user-friendly names and removed broken search references
+- ✅ **Backward Compatibility**: Task system automatically uses new capabilities without breaking existing functionality
+
+## Previous Update: January 2025 - Analytics & Reporting Complete
+
+MakerMatrix reached a major milestone with the implementation of comprehensive analytics and reporting features. The system now provides deep insights into inventory spending, order patterns, and stock levels through an interactive dashboard with real-time data visualization.
+
+### Previous Session Achievements:
 - ✅ **Complete Analytics Backend**: Service layer with 8 analytical methods and REST API
 - ✅ **Interactive Analytics Dashboard**: React component with Chart.js visualizations
 - ✅ **Order History Integration**: Price trends displayed on individual part details
@@ -19,9 +31,53 @@ MakerMatrix has reached a major milestone with the implementation of comprehensi
 - **Advanced Search**: Multi-criteria part search with pagination support
 - **Authentication System**: JWT-based auth with role-based access control (Admin, Manager, User)
 - **Label Printing**: Brother QL printer integration with QR code generation
-- **External API Integration**: Part data enrichment from LCSC, Mouser, BoltDepot, and EasyEDA
+- **Simplified Supplier Integration**: Streamlined part enrichment from LCSC, DigiKey, Mouser, BoltDepot, and McMaster-Carr
 - **RESTful API**: Comprehensive API endpoints for all operations
 - **Database Design**: Well-structured SQLModel schema with proper relationships
+
+### Supplier Backend System Architecture
+
+The supplier integration system has been redesigned with a focus on inventory enrichment and simplicity:
+
+#### Core Components:
+1. **SupplierCapability Enum**: Defines 7 essential capabilities
+   - `GET_PART_DETAILS`: Comprehensive part information including specifications
+   - `FETCH_DATASHEET`: Datasheet URL retrieval for documentation
+   - `FETCH_IMAGE`: Product image URL fetching
+   - `FETCH_PRICING`: Current pricing information
+   - `FETCH_STOCK`: Inventory availability checking
+   - `PARAMETRIC_SEARCH`: Advanced parameter-based filtering
+   - `IMPORT_ORDERS`: Order file processing (CSV, XLS)
+
+2. **BaseSupplier Abstract Class**: Common interface for all suppliers
+   - Configuration and credential management
+   - Rate limiting and session handling
+   - Capability declaration and validation
+   - Error handling with supplier-specific exceptions
+
+3. **SupplierRegistry**: Dynamic supplier discovery and instantiation
+   - Automatic supplier detection via decorators
+   - Runtime capability checking
+   - Graceful handling of missing dependencies
+
+4. **Inventory-Focused Design Philosophy**:
+   - **No Search APIs**: Users directed to supplier websites for part discovery
+   - **Consolidated Data**: Specifications included in `GET_PART_DETAILS` response
+   - **Enrichment Priority**: System focuses on improving existing inventory data
+   - **User-Friendly Capabilities**: Only essential capabilities exposed to frontend
+
+#### Supplier Implementations:
+- **LCSC**: EasyEDA API integration, no authentication required
+- **DigiKey**: OAuth2 API with comprehensive data, requires credentials
+- **Mouser**: API key authentication, 30 calls/minute rate limit
+- **McMaster-Carr**: Certificate-based API (requires approval)
+- **BoltDepot**: Web scraping with responsible rate limiting
+
+#### Frontend Integration:
+- Dynamic capability display with user-friendly names
+- Automatic supplier configuration validation
+- Real-time connection testing with detailed feedback
+- Task system integration for background enrichment
 
 ### Technical Implementation
 - **Architecture**: Clean separation of concerns (routers → services → repositories)

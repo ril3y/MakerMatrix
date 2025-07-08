@@ -12,6 +12,8 @@ interface UnifiedFileImporterProps {
   parserType: string
   parserName: string
   description: string
+  selectedEnrichmentCapabilities?: string[]
+  supplierCapabilities?: any
   onImportComplete?: (result: ImportResult) => void
 }
 
@@ -105,6 +107,8 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
   parserType,
   parserName,
   description,
+  selectedEnrichmentCapabilities = [],
+  supplierCapabilities,
   onImportComplete
 }) => {
   const [isImporting, setIsImporting] = useState(false)
@@ -162,6 +166,14 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
       if (orderInfo.order_number) formData.append('order_number', orderInfo.order_number)
       if (orderInfo.order_date) formData.append('order_date', orderInfo.order_date)
       if (orderInfo.notes) formData.append('notes', orderInfo.notes)
+      
+      // Add enrichment capabilities
+      if (selectedEnrichmentCapabilities && selectedEnrichmentCapabilities.length > 0) {
+        formData.append('enable_enrichment', 'true')
+        formData.append('enrichment_capabilities', selectedEnrichmentCapabilities.join(','))
+      } else {
+        formData.append('enable_enrichment', 'false')
+      }
 
       setImportProgress(25)
 

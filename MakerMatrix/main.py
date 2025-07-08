@@ -114,6 +114,39 @@ async def lifespan(app: FastAPI):
         print(f"Failed to auto-initialize suppliers: {e}")
         # Don't fail startup if supplier initialization fails
     
+    # Initialize default CSV import configuration
+    print("Initializing default CSV import configuration...")
+    try:
+        from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
+        from MakerMatrix.models.models import engine
+        from sqlmodel import Session, select
+        
+        session = Session(engine)
+        try:
+            existing_config = session.exec(select(CSVImportConfigModel).where(CSVImportConfigModel.id == 'default')).first()
+            if not existing_config:
+                default_config = CSVImportConfigModel(
+                    id='default',
+                    download_datasheets=True,
+                    download_images=True,
+                    overwrite_existing_files=False,
+                    download_timeout_seconds=30,
+                    show_progress=True,
+                    enable_enrichment=True,
+                    auto_create_enrichment_tasks=True,
+                    additional_settings={}
+                )
+                session.add(default_config)
+                session.commit()
+                print("Created default CSV import configuration!")
+            else:
+                print("Default CSV import configuration already exists")
+        finally:
+            session.close()
+    except Exception as e:
+        print(f"Failed to initialize CSV import config: {e}")
+        # Don't fail startup if CSV config initialization fails
+    
     # Start the task worker (after all setup is complete)
     print("Starting task worker...")
     asyncio.create_task(task_service.start_worker())

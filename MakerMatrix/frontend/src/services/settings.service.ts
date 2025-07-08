@@ -240,6 +240,22 @@ export class SettingsService {
     document.body.removeChild(a)
   }
 
+  // Database Clear Operations (Admin only)
+  async clearAllParts(): Promise<ApiResponse> {
+    const response = await apiClient.delete<ApiResponse>('/api/parts/clear_all')
+    return response
+  }
+
+  async clearAllSuppliers(): Promise<ApiResponse> {
+    const response = await apiClient.delete<ApiResponse>('/api/utility/clear_suppliers')
+    return response
+  }
+
+  async clearAllCategories(): Promise<ApiResponse> {
+    const response = await apiClient.delete<ApiResponse>('/api/categories/delete_all_categories')
+    return response
+  }
+
   // User Management (Admin only)
   async createUser(userData: {
     username: string

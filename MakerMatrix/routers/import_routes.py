@@ -48,6 +48,10 @@ class SupplierImportInfo(BaseModel):
     missing_credentials: List[str] = Field(default_factory=list)
     is_configured: bool = False
     configuration_status: str = "not_configured"  # "configured", "not_configured", "partial"
+    # New enrichment capability fields
+    enrichment_capabilities: List[str] = Field(default_factory=list)
+    enrichment_available: bool = False
+    enrichment_missing_credentials: List[str] = Field(default_factory=list)
 
 # ========== Endpoints ==========
 
@@ -58,6 +62,8 @@ async def import_file(
     order_number: Optional[str] = Form(None, description="Order number (optional)"),
     order_date: Optional[str] = Form(None, description="Order date (optional)"),
     notes: Optional[str] = Form(None, description="Order notes (optional)"),
+    enable_enrichment: Optional[bool] = Form(False, description="Enable automatic enrichment after import"),
+    enrichment_capabilities: Optional[str] = Form(None, description="Comma-separated list of enrichment capabilities (e.g., 'get_part_details,fetch_datasheet')"),
     current_user: UserModel = Depends(get_current_user)
 ):
     """
@@ -261,6 +267,58 @@ async def import_file(
                     })
                     logger.error(f"Failed to import part: {error_message}")
         
+        # Create enrichment task if requested and parts were imported
+        enrichment_task_id = None
+        if enable_enrichment and part_ids and enrichment_capabilities:
+            try:
+                # Parse capabilities from comma-separated string
+                requested_capabilities = [cap.strip() for cap in enrichment_capabilities.split(',') if cap.strip()]
+                
+                # Validate capabilities against supplier
+                supplier_capabilities = [cap.value for cap in supplier.get_capabilities()]
+                valid_capabilities = [cap for cap in requested_capabilities if cap in supplier_capabilities]
+                
+                if valid_capabilities:
+                    # Create enrichment task
+                    from MakerMatrix.services.system.task_service import TaskService
+                    from MakerMatrix.models.task_models import TaskType, TaskPriority, CreateTaskRequest
+                    
+                    task_service = TaskService()
+                    
+                    # Prepare input data for enrichment task
+                    enrichment_input = {
+                        "part_ids": part_ids,
+                        "supplier": supplier_name,
+                        "capabilities": valid_capabilities,
+                        "import_source": f"File import: {filename}",
+                        "order_id": order_id
+                    }
+                    
+                    # Create the enrichment task
+                    task_request = CreateTaskRequest(
+                        task_type=TaskType.BULK_ENRICHMENT,
+                        name=f"Enrich imported parts from {supplier_name}",
+                        description=f"Enriching {len(part_ids)} parts imported from {filename}",
+                        priority=TaskPriority.NORMAL,
+                        input_data=enrichment_input,
+                        timeout_seconds=3600  # 1 hour timeout
+                    )
+                    enrichment_task = await task_service.create_task(task_request, current_user.id)
+                    
+                    enrichment_task_id = enrichment_task.id
+                    logger.info(f"Created enrichment task {enrichment_task_id} for {len(part_ids)} parts")
+                    
+                    # Add task info to warnings
+                    import_result.warnings.append(f"Enrichment task created: {enrichment_task_id}")
+                    
+                else:
+                    logger.warning(f"No valid enrichment capabilities found for {supplier_name}: requested={requested_capabilities}, available={supplier_capabilities}")
+                    import_result.warnings.append(f"No valid enrichment capabilities found for {supplier_name}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to create enrichment task: {e}")
+                import_result.warnings.append(f"Failed to create enrichment task: {str(e)}")
+
         # Build response
         total_processed = len(part_ids) + len(skipped_parts) + len(failed_items)
         result = ImportResult(
@@ -276,6 +334,10 @@ async def import_file(
             warnings=import_result.warnings,
             order_id=order_id
         )
+        
+        # Add enrichment task ID to result if created
+        if enrichment_task_id:
+            result.warnings.append(f"Enrichment task ID: {enrichment_task_id}")
         
         # Build message
         message_parts = []
@@ -357,6 +419,32 @@ async def get_import_suppliers(
                     import_available = True
                     config_status = "partial"  # Can import but not fully configured
                 
+                # Check enrichment capabilities
+                enrichment_capabilities = []
+                enrichment_available = False
+                enrichment_missing_credentials = []
+                
+                # Get all enrichment-related capabilities
+                enrichment_capability_types = [
+                    SupplierCapability.GET_PART_DETAILS,
+                    SupplierCapability.FETCH_DATASHEET,
+                    SupplierCapability.FETCH_PRICING_STOCK
+                ]
+                
+                for cap in enrichment_capability_types:
+                    if cap in supplier.get_capabilities():
+                        cap_available = supplier.is_capability_available(cap)
+                        if cap_available:
+                            enrichment_capabilities.append(cap.value)
+                            enrichment_available = True
+                        else:
+                            # Get missing credentials for this capability
+                            missing_for_cap = supplier.get_missing_credentials_for_capability(cap)
+                            enrichment_missing_credentials.extend(missing_for_cap)
+                
+                # Remove duplicates from missing credentials
+                enrichment_missing_credentials = list(set(enrichment_missing_credentials))
+                
                 suppliers_info.append(SupplierImportInfo(
                     name=supplier_name,
                     display_name=info.display_name,
@@ -364,7 +452,10 @@ async def get_import_suppliers(
                     import_available=import_available,
                     missing_credentials=missing_creds if not is_configured else [],
                     is_configured=is_configured,
-                    configuration_status=config_status
+                    configuration_status=config_status,
+                    enrichment_capabilities=enrichment_capabilities,
+                    enrichment_available=enrichment_available,
+                    enrichment_missing_credentials=enrichment_missing_credentials if not is_configured else []
                 ))
                 
             except Exception as e:

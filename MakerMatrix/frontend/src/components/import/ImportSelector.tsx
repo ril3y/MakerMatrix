@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, ChevronDown, Upload, CheckCircle, AlertCircle, File, X, Settings } from 'lucide-react'
+import { FileText, ChevronDown, Upload, CheckCircle, AlertCircle, File, X, Settings, Zap, Info, DollarSign, Image, Package, RefreshCw } from 'lucide-react'
 import UnifiedFileImporter from './UnifiedFileImporter'
 import { ImportResult } from './hooks/useOrderImport'
 import { apiClient } from '@/services/api'
 import { previewFile } from '@/utils/filePreview'
 import toast from 'react-hot-toast'
+import { DynamicAddSupplierModal } from '../../pages/suppliers/DynamicAddSupplierModal'
 
 interface ImportSelectorProps {
   onImportComplete?: (result: ImportResult) => void
@@ -34,11 +35,48 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
   const [parsers, setParsers] = useState<any[]>([])
   const [isLoadingParsers, setIsLoadingParsers] = useState<boolean>(true)
+  const [selectedEnrichmentCapabilities, setSelectedEnrichmentCapabilities] = useState<string[]>([])
+  const [showSupplierModal, setShowSupplierModal] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Helper functions for capability display
+  const getCapabilityDisplayName = (capability: string): string => {
+    const displayNames: Record<string, string> = {
+      'get_part_details': 'Part Details',
+      'fetch_datasheet': 'Datasheets',
+      'fetch_pricing_stock': 'Pricing & Stock',
+      'fetch_image': 'Product Images',
+      'fetch_specifications': 'Specifications'
+    }
+    return displayNames[capability] || capability
+  }
+
+  const getCapabilityIcon = (capability: string) => {
+    const icons: Record<string, any> = {
+      'get_part_details': <Info className="w-4 h-4" />,
+      'fetch_datasheet': <FileText className="w-4 h-4" />,
+      'fetch_pricing_stock': <DollarSign className="w-4 h-4" />,
+      'fetch_image': <Image className="w-4 h-4" />,
+      'fetch_specifications': <RefreshCw className="w-4 h-4" />
+    }
+    return icons[capability] || <Package className="w-4 h-4" />
+  }
+
+  // Function to refresh suppliers list
+  const refreshSuppliers = async () => {
+    setIsLoadingParsers(true)
+    await loadAvailableSuppliers()
+  }
+
+  // Handle successful supplier configuration
+  const handleSupplierConfigured = async () => {
+    setShowSupplierModal(false)
+    toast.success('Supplier configured successfully!')
+    await refreshSuppliers()
+  }
+
   // Load available suppliers dynamically from API
-  useEffect(() => {
-    const loadAvailableSuppliers = async () => {
+  const loadAvailableSuppliers = useCallback(async () => {
       try {
         setIsLoadingParsers(true)
         
@@ -106,7 +144,10 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
               import_available: supplier.import_available,
               missing_credentials: supplier.missing_credentials || [],
               is_configured: supplier.is_configured || false,
-              configuration_status: supplier.configuration_status || 'not_configured'
+              configuration_status: supplier.configuration_status || 'not_configured',
+              enrichment_capabilities: supplier.enrichment_capabilities || [],
+              enrichment_available: supplier.enrichment_available || false,
+              enrichment_missing_credentials: supplier.enrichment_missing_credentials || []
             }
           })
           
@@ -129,7 +170,22 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         }
       } catch (error) {
         console.error('Error loading suppliers:', error)
-        toast.error('Error loading available suppliers')
+        
+        // Check if this is a backend connectivity issue
+        const isNetworkError = error instanceof Error && (
+          error.message.includes('fetch') ||
+          error.message.includes('Network') ||
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('ERR_NETWORK') ||
+          error.message.includes('ERR_INTERNET_DISCONNECTED')
+        )
+        
+        if (isNetworkError) {
+          toast.error('Backend not connected - using fallback suppliers')
+        } else {
+          toast.error('Error loading available suppliers')
+        }
+        
         // Fallback to hardcoded suppliers
         setParsers([
           { 
@@ -163,10 +219,11 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       } finally {
         setIsLoadingParsers(false)
       }
-    }
+    }, [])
 
+  useEffect(() => {
     loadAvailableSuppliers()
-  }, [])
+  }, [loadAvailableSuppliers])
 
   const selectedParserInfo = parsers.find(p => p.id === selectedParser || p.name === selectedParser)
   
@@ -223,7 +280,28 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       
     } catch (error) {
       console.error('File preview error:', error)
-      toast.error('Failed to preview file')
+      
+      // Check if this is a backend connectivity issue
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('fetch') ||
+        error.message.includes('Network') ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('ERR_NETWORK') ||
+        error.message.includes('ERR_INTERNET_DISCONNECTED')
+      )
+      
+      const isBackendDown = error instanceof Error && (
+        error.message.includes('500') ||
+        error.message.includes('502') ||
+        error.message.includes('503') ||
+        error.message.includes('504')
+      )
+      
+      if (isNetworkError || isBackendDown) {
+        toast.error('Backend not connected - please check if the server is running')
+      } else {
+        toast.error('Failed to preview file')
+      }
       
       // Fallback to basic file info if preview fails
       const filename = file.name.toLowerCase()
@@ -245,6 +323,20 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       
       // Set basic file info for preview
       const fileExtension = file.name.toLowerCase().split('.').pop()
+      const isValidFileFormat = ['csv', 'xls', 'xlsx'].includes(fileExtension || '')
+      
+      let errorMessage = 'Could not preview file content'
+      let supportedStatus = !!suggestedParser && isValidFileFormat
+      
+      if (isNetworkError || isBackendDown) {
+        errorMessage = 'Backend not connected - cannot validate file format'
+        // For backend connectivity issues, assume the file might be supported if format is valid
+        supportedStatus = isValidFileFormat
+      } else if (!isValidFileFormat) {
+        errorMessage = 'File format not supported. Please use CSV or XLS files.'
+        supportedStatus = false
+      }
+      
       setFilePreview({
         filename: file.name,
         size: file.size,
@@ -253,8 +345,8 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         file_format: fileExtension?.toUpperCase() || 'Unknown',
         total_rows: 'Error loading preview',
         headers: [],
-        is_supported: !!suggestedParser,
-        validation_errors: ['Could not preview file content']
+        is_supported: supportedStatus,
+        validation_errors: [errorMessage]
       })
     } finally {
       setIsProcessing(false)
@@ -317,13 +409,13 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
             <br />
             Supported suppliers include LCSC, DigiKey, Mouser, and more.
           </p>
-          <a
-            href="/settings/suppliers"
+          <button
+            onClick={() => setShowSupplierModal(true)}
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
           >
             <Settings className="w-4 h-4 mr-2" />
             Configure Suppliers
-          </a>
+          </button>
         </div>
       ) : (
         <>
@@ -455,13 +547,61 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                         : `${selectedParserInfo.name} is not configured in your system. Please configure this supplier to access all features.`
                       }
                     </p>
-                    <a
-                      href="/settings/suppliers"
+                    <button
+                      onClick={() => setShowSupplierModal(true)}
                       className="inline-flex items-center px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-md transition-colors"
                     >
                       <Settings className="w-4 h-4 mr-1.5" />
                       Configure Supplier
-                    </a>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Enrichment Capabilities Selection */}
+            {selectedParserInfo && selectedParserInfo.enrichment_available && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                <div className="flex items-start">
+                  <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                      Enrichment Capabilities Available
+                    </h5>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                      {selectedParserInfo.name} can automatically enrich imported parts with additional data.
+                    </p>
+                    <div className="space-y-2">
+                      {selectedParserInfo.enrichment_capabilities.map((capability) => (
+                        <label key={capability} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedEnrichmentCapabilities.includes(capability)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedEnrichmentCapabilities(prev => [...prev, capability])
+                              } else {
+                                setSelectedEnrichmentCapabilities(prev => prev.filter(c => c !== capability))
+                              }
+                            }}
+                            className="mr-2 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex items-center space-x-2">
+                            {getCapabilityIcon(capability)}
+                            <span className="text-sm text-blue-700 dark:text-blue-300">
+                              {getCapabilityDisplayName(capability)}
+                            </span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedParserInfo.enrichment_missing_credentials?.length > 0 && (
+                      <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded text-sm">
+                        <p className="text-yellow-800 dark:text-yellow-200">
+                          <strong>Note:</strong> Some enrichment features may require additional configuration: {selectedParserInfo.enrichment_missing_credentials.join(', ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -487,17 +627,39 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                     <span className="text-primary ml-2 font-medium">{filePreview.headers?.length || 0}</span>
                   </div>
                   <div>
-                    <span className="text-secondary">Supported:</span>
+                    <span className="text-secondary">Status:</span>
                     <span className={`ml-2 font-medium ${filePreview.is_supported ? 'text-success' : 'text-error'}`}>
-                      {filePreview.is_supported ? 'Yes' : 'No'}
+                      {filePreview.is_supported 
+                        ? 'Supported' 
+                        : filePreview.validation_errors?.some(err => err.includes('Backend not connected'))
+                          ? 'Backend Offline'
+                          : 'Not Supported'
+                      }
                     </span>
                   </div>
                 </div>
                 
                 {filePreview.validation_errors?.length > 0 && (
-                  <div className="mt-3 p-3 bg-error/10 rounded border border-error/20">
-                    <p className="text-sm text-error font-medium mb-1">Validation Issues:</p>
-                    <ul className="text-sm text-error list-disc list-inside">
+                  <div className={`mt-3 p-3 rounded border ${
+                    filePreview.validation_errors.some(err => err.includes('Backend not connected'))
+                      ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'
+                      : 'bg-error/10 border-error/20'
+                  }`}>
+                    <p className={`text-sm font-medium mb-1 ${
+                      filePreview.validation_errors.some(err => err.includes('Backend not connected'))
+                        ? 'text-yellow-800 dark:text-yellow-200'
+                        : 'text-error'
+                    }`}>
+                      {filePreview.validation_errors.some(err => err.includes('Backend not connected'))
+                        ? 'Connection Issues:'
+                        : 'Validation Issues:'
+                      }
+                    </p>
+                    <ul className={`text-sm list-disc list-inside ${
+                      filePreview.validation_errors.some(err => err.includes('Backend not connected'))
+                        ? 'text-yellow-700 dark:text-yellow-300'
+                        : 'text-error'
+                    }`}>
                       {filePreview.validation_errors?.map((error, index) => (
                         <li key={index}>{error}</li>
                       ))}
@@ -526,6 +688,8 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                   parserType={selectedParser}
                   parserName={selectedParserInfo.name}
                   description={selectedParserInfo.description}
+                  selectedEnrichmentCapabilities={selectedEnrichmentCapabilities}
+                  supplierCapabilities={selectedParserInfo}
                   onImportComplete={(result) => {
                     onImportComplete?.(result)
                     // Reset state after successful import
@@ -566,6 +730,14 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
 
           {/* Instructions when no file is uploaded - removed redundant section */}
         </>
+      )}
+
+      {/* Supplier Configuration Modal */}
+      {showSupplierModal && (
+        <DynamicAddSupplierModal
+          onClose={() => setShowSupplierModal(false)}
+          onSuccess={handleSupplierConfigured}
+        />
       )}
     </div>
   )

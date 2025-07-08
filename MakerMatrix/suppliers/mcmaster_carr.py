@@ -56,13 +56,10 @@ class McMasterCarrSupplier(BaseSupplier):
     def get_capabilities(self) -> List[SupplierCapability]:
         # McMaster-Carr API implementation - requires approved account and certificates
         return [
-            SupplierCapability.SEARCH_PARTS,
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,
-            SupplierCapability.FETCH_IMAGE,
-            SupplierCapability.FETCH_SPECIFICATIONS,
-            SupplierCapability.PARAMETRIC_SEARCH
-            # Note: FETCH_PRICING and FETCH_STOCK not implemented yet
+            SupplierCapability.IMPORT_ORDERS
+            # Note: FETCH_PRICING_STOCK not implemented yet
         ]
 
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
@@ -507,28 +504,6 @@ class McMasterCarrSupplier(BaseSupplier):
             logger.error(f"❌ Failed to fetch image for part '{supplier_part_number}': {str(e)}")
             return None
     
-    async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch specifications for a part"""
-        try:
-            credentials = self._credentials or {}
-            if not credentials:
-                logger.error("No credentials configured for specifications fetch")
-                return None
-            
-            endpoint = f"/parts/{supplier_part_number}/specifications"
-            response = await self._make_api_request(endpoint, credentials)
-            
-            specifications = response.get("specifications", {})
-            if specifications:
-                logger.info(f"✅ Found {len(specifications)} specifications for part: {supplier_part_number}")
-                return specifications
-            
-            logger.warning(f"⚠️  No specifications available for part: {supplier_part_number}")
-            return None
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to fetch specifications for part '{supplier_part_number}': {str(e)}")
-            return None
 
 # Register the supplier
 from .registry import SupplierRegistry

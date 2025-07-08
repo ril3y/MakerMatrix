@@ -88,32 +88,35 @@ MakerMatrix/
 - **Auto-Population**: Extract order date/number from filenames
 
 ### 7. Advanced Task-Based Enrichment System
-- **Multi-Vendor Support**: Parse data from major suppliers with dynamic capability detection
+- **Multi-Vendor Support**: Parse data from major suppliers with focused capability system
   - **LCSC**: Electronic components with specifications, datasheets, and EasyEDA integration
-    - Capabilities: `get_part_details`, `fetch_datasheet`, `fetch_specifications`, `fetch_image`, `import_orders`
+    - Capabilities: `get_part_details`, `fetch_datasheet`, `fetch_image`, `fetch_pricing`, `import_orders`
     - Rate limiting: Configurable (10-60 requests/minute) for responsible web scraping
     - No authentication required - uses public EasyEDA API
   - **Mouser**: Component data, images, pricing, and availability
-    - Capabilities: Full API suite with OAuth2 authentication
-    - Real-time pricing and stock information
+    - Capabilities: `get_part_details`, `fetch_datasheet`, `fetch_image`, `fetch_pricing`, `fetch_stock`, `parametric_search`, `import_orders`
+    - Rate limiting: 30 calls per minute, 1000 calls per day
+    - API key authentication required
   - **DigiKey**: Comprehensive parametric data and high-quality images
-    - Capabilities: `search_parts`, `get_part_details`, `fetch_datasheet`, `fetch_image`, `fetch_pricing`, `fetch_stock`, `fetch_specifications`, `import_orders`
+    - Capabilities: `get_part_details`, `fetch_datasheet`, `fetch_image`, `fetch_pricing`, `fetch_stock`, `import_orders`
     - Requires client credentials (OAuth2) for API access
     - Fallback to CSV import only if API library unavailable
   - **BoltDepot**: Hardware and fastener information
+    - Capabilities: `get_part_details`, `fetch_pricing`, `fetch_image`
     - Web scraping with rate limiting for hardware components
-- **Capability-Based Architecture**: Dynamic supplier capability detection and validation
-  - **SupplierCapability Enum**: Standardized capability definitions
-    - `SEARCH_PARTS`: Search supplier catalog by keywords
-    - `GET_PART_DETAILS`: Get detailed part information
-    - `FETCH_DATASHEET`: Download or link to part datasheets
+- **Simplified Capability-Based Architecture**: Streamlined supplier capability system focused on inventory enrichment
+  - **Core SupplierCapability Enum**: Essential capabilities for inventory management
+    - `GET_PART_DETAILS`: Get detailed part information including specifications
+    - `FETCH_DATASHEET`: Download or link to part datasheets  
     - `FETCH_IMAGE`: Retrieve product images
     - `FETCH_PRICING`: Get current pricing information
     - `FETCH_STOCK`: Check inventory availability
-    - `FETCH_SPECIFICATIONS`: Get technical specifications
-    - `BULK_SEARCH`: Search multiple parts simultaneously
     - `PARAMETRIC_SEARCH`: Advanced filtering by parameters
     - `IMPORT_ORDERS`: Import order files (CSV, XLS, etc.)
+  - **Inventory-Focused Design**: MakerMatrix prioritizes part enrichment over discovery
+    - Removed search capabilities to focus on enriching existing inventory
+    - Consolidated specifications into GET_PART_DETAILS for simplified data flow
+    - Users directed to supplier websites for part discovery
   - **Dynamic Capability Detection**: Suppliers declare their available capabilities based on:
     - API library availability (e.g., DigiKey requires `digikey-api` package)
     - Authentication status and credential validity

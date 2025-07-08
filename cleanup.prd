@@ -1,0 +1,326 @@
+# MakerMatrix Codebase Cleanup PRD
+
+## Overview
+This PRD outlines a comprehensive cleanup process for the MakerMatrix codebase to eliminate dead code, reduce overlap, consolidate functionality, and ensure test coverage is up-to-date.
+
+## Objectives
+1. Remove dead/unused code from backend and frontend
+2. Identify and consolidate overlapping functionality
+3. Update and remove outdated tests
+4. Improve code maintainability and reduce technical debt
+5. Ensure consistency across the codebase
+
+## Scope
+- **Backend**: Python FastAPI codebase in `/MakerMatrix/`
+- **Frontend**: React/TypeScript codebase in `/MakerMatrix/frontend/`
+- **Tests**: All pytest tests in `/MakerMatrix/tests/` and `/MakerMatrix/unit_tests/`
+
+## Analysis Phase
+
+### 1. Backend Code Analysis
+#### 1.1 Dead Code Detection
+- Run vulture analysis on Python codebase
+- Identify unused imports, functions, classes, and variables
+- Check for orphaned modules and files
+- Analyze unused database models and schemas
+
+#### 1.2 Overlap Analysis
+- Review route handlers for duplicate functionality
+- Check service layer for redundant methods
+- Identify duplicate utility functions
+- Analyze similar data processing logic
+
+#### 1.3 Architecture Review
+- Review supplier implementations for common patterns
+- Check for duplicate validation logic
+- Analyze error handling patterns
+- Review configuration management
+
+### 2. Frontend Code Analysis
+#### 2.1 Dead Code Detection
+- Run ts-unused-exports on TypeScript/React code
+- Identify unused components, hooks, and utilities
+- Check for orphaned CSS/styling
+- Find unused imports and exports
+
+#### 2.2 Overlap Analysis
+- Review component hierarchy for duplicate functionality
+- Check for redundant API service methods
+- Identify duplicate utility functions
+- Analyze similar UI patterns and components
+
+#### 2.3 React-Specific Review
+- Check for unused React hooks and contexts
+- Review component prop interfaces for unused properties
+- Identify redundant state management patterns
+
+### 3. Test Coverage Analysis
+#### 3.1 Test Relevance
+- Identify tests for removed/refactored functionality
+- Check for outdated test data and fixtures
+- Review test coverage for new features
+- Analyze integration test completeness
+
+#### 3.2 Test Quality
+- Check for duplicate test scenarios
+- Review test naming conventions
+- Analyze test maintenance burden
+- Identify flaky or unreliable tests
+
+## Implementation Steps
+
+### Phase 1: Analysis and Discovery (Steps 1-6)
+
+#### Step 1: Run Automated Dead Code Analysis
+- Execute vulture on backend Python code
+- Execute ts-unused-exports on frontend TypeScript code
+- Generate initial dead code reports
+- Document findings in analysis report
+
+#### Step 2: Manual Code Review - Backend Routes
+- Review all route handlers in `/MakerMatrix/routers/`
+- Identify duplicate endpoint functionality
+- Check for unused route parameters
+- Document overlapping business logic
+
+#### Step 3: Manual Code Review - Backend Services
+- Review service layer in `/MakerMatrix/services/`
+- Identify duplicate service methods
+- Check for unused service classes
+- Document common patterns that could be consolidated
+
+#### Step 4: Manual Code Review - Frontend Components
+- Review React components in `/MakerMatrix/frontend/src/components/`
+- Identify duplicate component functionality
+- Check for unused component props
+- Document similar UI patterns
+
+#### Step 5: Manual Code Review - Frontend Services
+- Review API services in `/MakerMatrix/frontend/src/services/`
+- Identify duplicate API calls
+- Check for unused service methods
+- Document redundant data fetching patterns
+
+#### Step 6: Test Analysis
+- Review all test files for relevance
+- Check test coverage against current codebase
+- Identify tests for removed functionality
+- Document test gaps and redundancies
+
+### Phase 2: Backend Cleanup (Steps 7-12)
+
+#### Step 7: Remove Dead Backend Code
+- Remove unused imports identified by vulture
+- Delete unused functions and classes
+- Remove orphaned modules
+- Update imports after deletions
+
+#### Step 8: Consolidate Backend Overlapping Code
+- Merge duplicate route handlers
+- Consolidate similar service methods
+- Create shared utility functions
+- Refactor common patterns
+
+#### Step 9: Clean Up Backend Models and Schemas
+- Remove unused database models
+- Clean up unused schema definitions
+- Consolidate similar response schemas
+- Update model relationships
+
+#### Step 10: Optimize Backend Imports
+- Remove unused imports across all modules
+- Organize import statements
+- Update __init__.py files
+- Ensure consistent import patterns
+
+#### Step 11: Backend Configuration Cleanup
+- Remove unused configuration options
+- Consolidate environment variables
+- Clean up settings modules
+- Update configuration documentation
+
+#### Step 12: Backend Error Handling Consolidation
+- Standardize error handling patterns
+- Remove duplicate exception classes
+- Consolidate error response formats
+- Update error logging
+
+### Phase 3: Frontend Cleanup (Steps 13-18)
+
+#### Step 13: Remove Dead Frontend Code
+- Remove unused React components
+- Delete unused hooks and utilities
+- Remove orphaned TypeScript interfaces
+- Clean up unused CSS/styling
+
+#### Step 14: Consolidate Frontend Components
+- Merge similar React components
+- Create reusable component patterns
+- Consolidate prop interfaces
+- Standardize component structure
+
+#### Step 15: Frontend Service Layer Cleanup
+- Remove duplicate API service methods
+- Consolidate data fetching logic
+- Standardize API response handling
+- Update service interfaces
+
+#### Step 16: Frontend State Management Cleanup
+- Remove unused React contexts
+- Consolidate state management patterns
+- Clean up unused reducers/actions
+- Standardize state interfaces
+
+#### Step 17: Frontend Utility Cleanup
+- Remove duplicate utility functions
+- Consolidate helper methods
+- Standardize utility interfaces
+- Update utility documentation
+
+#### Step 18: Frontend Styling Cleanup
+- Remove unused CSS classes
+- Consolidate similar styles
+- Clean up styling imports
+- Standardize styling patterns
+
+### Phase 4: Test Cleanup (Steps 19-24)
+
+#### Step 19: Remove Outdated Tests
+- Delete tests for removed functionality
+- Remove duplicate test cases
+- Clean up outdated test fixtures
+- Update test data files
+
+#### Step 20: Update Integration Tests
+- Review integration test relevance
+- Update test scenarios for new features
+- Fix broken integration tests
+- Consolidate similar test patterns
+
+#### Step 21: Update Unit Tests
+- Review unit test coverage
+- Update tests for refactored code
+- Remove tests for deleted functionality
+- Add tests for new consolidated methods
+
+#### Step 22: Test Fixture Cleanup
+- Remove unused test fixtures
+- Consolidate similar test data
+- Update fixture factories
+- Standardize test setup patterns
+
+#### Step 23: Test Configuration Cleanup
+- Update pytest configuration
+- Clean up test environment settings
+- Remove unused test dependencies
+- Standardize test execution patterns
+
+#### Step 24: Test Documentation Update
+- Update test documentation
+- Document new test patterns
+- Update testing guidelines
+- Create test maintenance procedures
+
+### Phase 5: Validation and Documentation (Steps 25-30)
+
+#### Step 25: Run Full Test Suite
+- Execute all pytest tests
+- Verify frontend tests pass
+- Check integration test stability
+- Document any test failures
+
+#### Step 26: Performance Validation
+- Run performance tests
+- Check application startup time
+- Verify API response times
+- Document performance improvements
+
+#### Step 27: Code Quality Validation
+- Run linting tools
+- Check type checking
+- Verify code formatting
+- Document quality improvements
+
+#### Step 28: Documentation Updates
+- Update API documentation
+- Update frontend component docs
+- Update development guidelines
+- Create cleanup maintenance procedures
+
+#### Step 29: Final Verification
+- Perform full application testing
+- Verify all features work correctly
+- Check for any regressions
+- Document final cleanup results
+
+#### Step 30: Cleanup Summary Report
+- Create comprehensive cleanup report
+- Document code reduction metrics
+- List all changes made
+- Provide maintenance recommendations
+
+## Success Metrics
+
+### Code Reduction
+- **Target**: 15-25% reduction in total lines of code
+- **Backend**: Remove at least 10% of unused Python code
+- **Frontend**: Remove at least 15% of unused TypeScript/React code
+- **Tests**: Remove at least 20% of outdated/duplicate tests
+
+### Code Quality
+- **Duplicated Code**: Reduce code duplication by 30%
+- **Cyclomatic Complexity**: Reduce average complexity by 20%
+- **Import Statements**: Reduce unused imports by 95%
+- **Dead Code**: Achieve 0% dead code as detected by static analysis
+
+### Test Coverage
+- **Maintain**: Keep current test coverage percentage
+- **Improve**: Increase test reliability by 25%
+- **Reduce**: Decrease test execution time by 15%
+- **Update**: Ensure 100% of tests are relevant to current codebase
+
+## Risk Mitigation
+
+### Backup Strategy
+- Create full codebase backup before starting
+- Use feature branches for each cleanup phase
+- Maintain rollback procedures
+- Test each phase thoroughly before proceeding
+
+### Testing Strategy
+- Run full test suite after each step
+- Perform manual testing of critical features
+- Use staging environment for validation
+- Document any issues encountered
+
+### Communication
+- Update team on progress regularly
+- Document all changes made
+- Create review checkpoints
+- Maintain changelog of modifications
+
+## Timeline
+- **Phase 1**: 2-3 days (Analysis)
+- **Phase 2**: 3-4 days (Backend Cleanup)
+- **Phase 3**: 3-4 days (Frontend Cleanup)
+- **Phase 4**: 2-3 days (Test Cleanup)
+- **Phase 5**: 1-2 days (Validation)
+- **Total**: 11-16 days
+
+## Dependencies
+- Access to automated analysis tools (vulture, ts-unused-exports)
+- Full test suite execution capability
+- Staging environment for validation
+- Team availability for code reviews
+
+## Deliverables
+1. Dead code analysis reports
+2. Overlap analysis documentation
+3. Cleaned codebase with reduced technical debt
+4. Updated test suite with improved coverage
+5. Cleanup summary report with metrics
+6. Updated development documentation
+7. Maintenance procedures for future cleanup
+
+## Next Steps
+Upon PRD approval, begin Phase 1 with Step 1: Run Automated Dead Code Analysis.

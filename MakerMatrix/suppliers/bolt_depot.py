@@ -42,9 +42,7 @@ class BoltDepotSupplier(BaseSupplier):
     def get_capabilities(self) -> List[SupplierCapability]:
         return [
             SupplierCapability.GET_PART_DETAILS,       # Scrape individual product pages
-            SupplierCapability.FETCH_PRICING,          # Extract pricing table data
-            SupplierCapability.FETCH_IMAGE,            # Extract product images
-            SupplierCapability.FETCH_SPECIFICATIONS,   # Extract product details table
+            SupplierCapability.FETCH_PRICING_STOCK,    # Extract pricing and availability data
         ]
 
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
@@ -451,10 +449,6 @@ class BoltDepotSupplier(BaseSupplier):
         part_details = await self.get_part_details(supplier_part_number)
         return part_details.image_url if part_details else None
     
-    async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch technical specifications for a Bolt Depot part"""
-        part_details = await self.get_part_details(supplier_part_number)
-        return part_details.additional_data if part_details else None
     
     def get_rate_limit_delay(self) -> float:
         """Get configured delay between requests"""

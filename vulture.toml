@@ -9,7 +9,13 @@ exclude = [
     "dist/",
     "coverage/",
     ".pytest_cache/",
-    ".git/"
+    ".git/",
+    # Legacy/experimental code that may have unused components  
+    "MakerMatrix/lib/",
+    # Task implementations that are registered via class discovery
+    "MakerMatrix/tasks/",
+    # Test utilities and fixtures
+    "MakerMatrix/tests/conftest.py"
 ]
 
 # Configuration for ignoring false positives
@@ -47,7 +53,25 @@ ignore_names = [
     # Abstract method parameters
     "print_config",
     # Pytest parametrize parameters that may not be directly used in test body
-    "expected_error"
+    "expected_error",
+    # Pydantic model configuration
+    "model_config",
+    # Mock test attributes that appear unused
+    "side_effect",
+    "__aexit__",
+    # FastAPI lifespan function
+    "lifespan",
+    # Task classes used by task system
+    "*Task",
+    # Exception handlers registered with FastAPI
+    "*_handler",
+    # Public API functions that may not be called internally
+    "serve_*",
+    # Test markers
+    "pytestmark",
+    # Task discovery functions
+    "get_task_class",
+    "list_available_tasks"
 ]
 
 # Paths to ignore completely

@@ -117,16 +117,16 @@ class EnrichmentTaskHandlers:
                     if capability == 'fetch_datasheet' and result_data.get('datasheet_url'):
                         datasheet_url = result_data['datasheet_url']
                         
-                    elif capability == 'fetch_image' and result_data.get('image_url'):
+                    elif capability == 'get_part_details' and result_data.get('image_url'):
                         image_url = result_data['image_url']
                         
-                    elif capability == 'fetch_pricing' and result_data.get('pricing'):
+                    elif capability == 'fetch_pricing_stock' and result_data.get('pricing'):
                         pricing = result_data['pricing']
                         
-                    elif capability == 'fetch_stock' and result_data.get('stock_quantity') is not None:
+                    elif capability == 'fetch_pricing_stock' and result_data.get('stock_quantity') is not None:
                         stock_quantity = result_data['stock_quantity']
                         
-                    elif capability == 'fetch_specifications' and result_data.get('specifications'):
+                    elif capability == 'get_part_details' and result_data.get('specifications'):
                         specifications.update(result_data['specifications'])
                         
                     elif capability == 'get_part_details':
@@ -228,9 +228,9 @@ class EnrichmentTaskHandlers:
             else:
                 # Use recommended capabilities based on supplier
                 if supplier.upper() == 'LCSC':
-                    recommended = ['fetch_datasheet', 'fetch_image', 'fetch_specifications']
+                    recommended = ['fetch_datasheet', 'get_part_details', 'fetch_pricing_stock']
                 else:
-                    recommended = ['fetch_datasheet', 'fetch_image', 'fetch_pricing', 'fetch_stock']
+                    recommended = ['fetch_datasheet', 'get_part_details', 'fetch_pricing_stock']
                 capabilities = [cap for cap in recommended if cap in available_capabilities]
             
             if not capabilities:
@@ -244,7 +244,7 @@ class EnrichmentTaskHandlers:
                 raise ValueError(f"Supplier implementation not found for: {supplier}")
             
             # Configure the supplier with credentials and config
-            credentials = supplier_service.get_supplier_credentials(supplier.upper(), decrypt=True)
+            credentials = supplier_service.get_supplier_credentials(supplier.upper())
             config = supplier_config.custom_parameters or {}
             client.configure(credentials or {}, config)
             
@@ -252,12 +252,10 @@ class EnrichmentTaskHandlers:
             from MakerMatrix.suppliers.base import SupplierCapability
             capability_map = {
                 'fetch_datasheet': SupplierCapability.FETCH_DATASHEET,
-                'fetch_image': SupplierCapability.FETCH_IMAGE,
-                'fetch_pricing': SupplierCapability.FETCH_PRICING,
-                'fetch_stock': SupplierCapability.FETCH_STOCK,
                 'fetch_details': SupplierCapability.GET_PART_DETAILS,
                 'get_part_details': SupplierCapability.GET_PART_DETAILS,  # Frontend sends this
-                'fetch_specifications': SupplierCapability.FETCH_SPECIFICATIONS
+                'fetch_pricing_stock': SupplierCapability.FETCH_PRICING_STOCK,
+                'import_orders': SupplierCapability.IMPORT_ORDERS
             }
             
             supplier_capabilities = []
@@ -289,10 +287,10 @@ class EnrichmentTaskHandlers:
             field_to_capability_map = {
                 'part_details': 'fetch_details',
                 'datasheet_url': 'fetch_datasheet',
-                'image_url': 'fetch_image',
-                'pricing': 'fetch_pricing',
-                'stock_quantity': 'fetch_stock',
-                'specifications': 'fetch_specifications'
+                'image_url': 'get_part_details',
+                'pricing': 'fetch_pricing_stock',
+                'stock_quantity': 'fetch_pricing_stock',
+                'specifications': 'get_part_details'
             }
             
             if enrichment_result.success and enrichment_result.data:
@@ -647,14 +645,14 @@ class EnrichmentTaskHandlers:
                 if capability == 'fetch_datasheet' and result.get('datasheet_url'):
                     # Don't store datasheet_url here - it's handled in _update_part_from_enrichment_results
                     metadata['has_datasheet'] = True
-                elif capability == 'fetch_image' and result.get('primary_image_url'):
+                elif capability == 'get_part_details' and result.get('primary_image_url'):
                     # Don't store image URLs here - they're stored in part.image_url or local paths
                     metadata['has_image'] = True
-                elif capability == 'fetch_pricing' and result.get('unit_price'):
+                elif capability == 'fetch_pricing_stock' and result.get('unit_price'):
                     # Store only current unit price for quick access
                     metadata['unit_price'] = result.get('unit_price')
                     metadata['currency'] = result.get('currency', 'USD')
-                elif capability == 'fetch_stock' and result.get('quantity_available') is not None:
+                elif capability == 'fetch_pricing_stock' and result.get('quantity_available') is not None:
                     # Store only current stock for quick access
                     metadata['stock_quantity'] = result.get('quantity_available')
                 elif capability == 'fetch_details':
@@ -779,8 +777,8 @@ class EnrichmentTaskHandlers:
                 logger.warning("No fetch_datasheet found in enrichment_results")
             
             # Update image URL from ImageEnrichmentResponse
-            if 'fetch_image' in enrichment_results:
-                image_data = enrichment_results['fetch_image']
+            if 'get_part_details' in enrichment_results:
+                image_data = enrichment_results['get_part_details']
                 if isinstance(image_data, dict) and image_data.get('success'):
                     # Try primary_image_url first
                     primary_image_url = image_data.get('primary_image_url')
@@ -851,8 +849,8 @@ class EnrichmentTaskHandlers:
                                         logger.error(f"❌ Error downloading image: {e}")
             
             # Update pricing information using standardized pricing schema
-            if 'fetch_pricing' in enrichment_results:
-                pricing_data = enrichment_results['fetch_pricing']
+            if 'fetch_pricing_stock' in enrichment_results:
+                pricing_data = enrichment_results['fetch_pricing_stock']
                 logger.info(f"Processing pricing enrichment result: {pricing_data}")
                 if isinstance(pricing_data, dict) and pricing_data.get('success'):
                     # Get supplier name from context
@@ -894,8 +892,8 @@ class EnrichmentTaskHandlers:
             # Note: Detailed information is stored in enrichment_results.fetch_details (no separate duplication needed)
             
             # Update specifications information from SpecificationsEnrichmentResponse
-            if 'fetch_specifications' in enrichment_results:
-                specs_data = enrichment_results['fetch_specifications']
+            if 'get_part_details' in enrichment_results:
+                specs_data = enrichment_results['get_part_details']
                 if isinstance(specs_data, dict) and specs_data.get('success'):
                     # Extract key specification values for quick access (no full duplication)
                     if not part.additional_properties:
@@ -1009,7 +1007,7 @@ class EnrichmentTaskHandlers:
                 raise ValueError(f"Supplier implementation not found for: {supplier}")
             
             # Configure the supplier with credentials and config
-            credentials = supplier_service.get_supplier_credentials(supplier.upper(), decrypt=True)
+            credentials = supplier_service.get_supplier_credentials(supplier.upper())
             config = supplier_config.custom_parameters or {}
             client.configure(credentials or {}, config)
             
@@ -1189,7 +1187,7 @@ class EnrichmentTaskHandlers:
                 raise ValueError(f"Supplier implementation not found for: {supplier}")
             
             # Configure the supplier with credentials and config
-            credentials = supplier_service.get_supplier_credentials(supplier.upper(), decrypt=True)
+            credentials = supplier_service.get_supplier_credentials(supplier.upper())
             config = supplier_config.custom_parameters or {}
             client.configure(credentials or {}, config)
             
@@ -1540,12 +1538,12 @@ class EnrichmentTaskHandlers:
                         part.additional_properties = {}
                     part.additional_properties['supplier_data'] = supplier_data
             
-            elif capability_name == 'fetch_image':
+            elif capability_name == 'get_part_details':
                 # enrichment_data contains {'image': 'url'}
                 if 'image' in enrichment_data and enrichment_data['image']:
                     part.image_url = enrichment_data['image']
             
-            elif capability_name == 'fetch_pricing':
+            elif capability_name == 'fetch_pricing_stock':
                 # enrichment_data contains {'pricing': [...]}
                 if 'pricing' in enrichment_data and enrichment_data['pricing']:
                     if not part.additional_properties:
@@ -1555,12 +1553,12 @@ class EnrichmentTaskHandlers:
                     # Pricing data is stored in additional_properties['pricing_data']
                     # No direct 'price' field on PartModel - pricing is stored as structured data
             
-            elif capability_name == 'fetch_stock':
+            elif capability_name == 'fetch_pricing_stock':
                 # enrichment_data contains {'stock': number}
                 if 'stock' in enrichment_data and enrichment_data['stock'] is not None:
                     part.quantity = int(enrichment_data['stock'])
             
-            elif capability_name == 'fetch_specifications':
+            elif capability_name == 'get_part_details':
                 # enrichment_data contains {'specifications': {...}}
                 if 'specifications' in enrichment_data and enrichment_data['specifications']:
                     if not part.additional_properties:
@@ -1685,9 +1683,9 @@ class EnrichmentTaskHandlers:
                         categories_to_add.append(category.strip())
                         logger.info(f"Found category from fetch_details: {category}")
             
-            # Check fetch_specifications for category information  
-            if 'fetch_specifications' in enrichment_results:
-                specs_data = enrichment_results['fetch_specifications']
+            # Check get_part_details for category information  
+            if 'get_part_details' in enrichment_results:
+                specs_data = enrichment_results['get_part_details']
                 if isinstance(specs_data, dict) and specs_data.get('success'):
                     specifications = specs_data.get('specifications', {})
                     if isinstance(specifications, dict):

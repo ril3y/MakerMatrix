@@ -17,6 +17,7 @@ from MakerMatrix.models.rate_limiting_models import (
     SupplierUsageTrackingModel, 
     SupplierUsageSummaryModel
 )
+from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
 
 # Association table to link PartModel and CategoryModel
 # Association table to link PartModel and CategoryModel

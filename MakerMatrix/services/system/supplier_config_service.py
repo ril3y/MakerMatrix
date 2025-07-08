@@ -351,7 +351,7 @@ class SupplierConfigService:
             ResourceNotFoundError: If supplier configuration not found
         """
         config = self.get_supplier_config(supplier_name)
-        credentials = self.get_supplier_credentials(supplier_name, decrypt=True)
+        credentials = self.get_supplier_credentials(supplier_name)
         
         try:
             # Create supplier instance for testing

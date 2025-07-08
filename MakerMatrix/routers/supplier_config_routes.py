@@ -379,7 +379,7 @@ async def get_supplier_config_options(
             )
         
         # Create supplier instance to get configuration options
-        credentials = service.get_supplier_credentials(supplier_name.upper(), decrypt=True)
+        credentials = service.get_supplier_credentials(supplier_name.upper())
         supplier_instance = service._create_api_client(supplier_config, credentials)
         
         # Get all configuration options from the supplier

@@ -354,7 +354,18 @@ export const SupplierConfigPage: React.FC = () => {
                           key={capability}
                           className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
                         >
-                          {capability.replace('fetch_', '').replace('_', ' ')}
+                          {(() => {
+                            const nameMap: Record<string, string> = {
+                              'get_part_details': 'Part Enrichment',
+                              'fetch_datasheet': 'Datasheet Retrieval', 
+                              'fetch_image': 'Image Fetching',
+                              'fetch_pricing': 'Pricing Data',
+                              'fetch_stock': 'Stock Levels',
+                              'import_orders': 'Order Import',
+                              'parametric_search': 'Advanced Search'
+                            };
+                            return nameMap[capability] || capability.replace('fetch_', '').replace('_', ' ');
+                          })()}
                         </span>
                       ))}
                     </div>

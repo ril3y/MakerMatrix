@@ -50,13 +50,6 @@ class SupplierConfigurationRequest(BaseModel):
     credentials: Dict[str, Any]
     config: Optional[Dict[str, Any]] = None
 
-class PartSearchRequest(BaseModel):
-    query: str
-    limit: int = Field(default=50, ge=1, le=100)
-
-class BulkSearchRequest(BaseModel):
-    queries: List[str] = Field(..., max_items=20)
-    limit_per_query: int = Field(default=10, ge=1, le=50)
 
 class PartSearchResultResponse(BaseModel):
     supplier_part_number: str
@@ -659,103 +652,6 @@ async def exchange_oauth_code(
 
 # ========== Part Search and Data Retrieval ==========
 
-@router.post("/{supplier_name}/search", response_model=ResponseSchema[List[PartSearchResultResponse]])
-async def search_parts(
-    supplier_name: str,
-    search_request: PartSearchRequest,
-    config_request: SupplierConfigurationRequest,
-    current_user: UserModel = Depends(get_current_user)
-):
-    """Search for parts using a specific supplier"""
-    try:
-        supplier = SupplierRegistry.get_supplier(supplier_name)
-        supplier.configure(config_request.credentials, config_request.config)
-        
-        results = await supplier.search_parts(search_request.query, search_request.limit)
-        await supplier.close()
-        
-        # Convert to response format
-        response_data = [
-            PartSearchResultResponse(
-                supplier_part_number=result.supplier_part_number,
-                manufacturer=result.manufacturer,
-                manufacturer_part_number=result.manufacturer_part_number,
-                description=result.description,
-                category=result.category,
-                datasheet_url=result.datasheet_url,
-                image_url=result.image_url,
-                stock_quantity=result.stock_quantity,
-                pricing=result.pricing,
-                specifications=result.specifications,
-                additional_data=result.additional_data
-            )
-            for result in results
-        ]
-        
-        return ResponseSchema(
-            status="success",
-            message=f"Found {len(response_data)} parts from {supplier_name}",
-            data=response_data
-        )
-    except SupplierNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
-    except SupplierAuthenticationError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    except SupplierConnectionError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
-
-@router.post("/{supplier_name}/bulk-search", response_model=ResponseSchema[Dict[str, List[PartSearchResultResponse]]])
-async def bulk_search_parts(
-    supplier_name: str,
-    search_request: BulkSearchRequest,
-    config_request: SupplierConfigurationRequest,
-    current_user: UserModel = Depends(get_current_user)
-):
-    """Search for multiple parts at once using a specific supplier"""
-    try:
-        supplier = SupplierRegistry.get_supplier(supplier_name)
-        supplier.configure(config_request.credentials, config_request.config)
-        
-        results = await supplier.bulk_search_parts(search_request.queries, search_request.limit_per_query)
-        await supplier.close()
-        
-        # Convert to response format
-        response_data = {}
-        for query, query_results in results.items():
-            response_data[query] = [
-                PartSearchResultResponse(
-                    supplier_part_number=result.supplier_part_number,
-                    manufacturer=result.manufacturer,
-                    manufacturer_part_number=result.manufacturer_part_number,
-                    description=result.description,
-                    category=result.category,
-                    datasheet_url=result.datasheet_url,
-                    image_url=result.image_url,
-                    stock_quantity=result.stock_quantity,
-                    pricing=result.pricing,
-                    specifications=result.specifications,
-                    additional_data=result.additional_data
-                )
-                for result in query_results
-            ]
-        
-        total_results = sum(len(results) for results in response_data.values())
-        
-        return ResponseSchema(
-            status="success",
-            message=f"Bulk search completed: {total_results} total results from {supplier_name}",
-            data=response_data
-        )
-    except SupplierNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
-    except SupplierAuthenticationError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    except SupplierConnectionError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Bulk search failed: {str(e)}")
 
 @router.post("/{supplier_name}/part/{part_number}", response_model=ResponseSchema[PartSearchResultResponse])
 async def get_part_details(

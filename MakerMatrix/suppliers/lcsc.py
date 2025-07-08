@@ -43,9 +43,7 @@ class LCSCSupplier(BaseSupplier):
         return [
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,
-            SupplierCapability.FETCH_SPECIFICATIONS,
-            SupplierCapability.FETCH_IMAGE,  # Added image support
-            SupplierCapability.FETCH_PRICING,  # LCSC provides pricing information
+            SupplierCapability.FETCH_PRICING_STOCK,  # Combined pricing and stock information
             SupplierCapability.IMPORT_ORDERS  # Can import CSV order files
         ]
         
@@ -67,20 +65,10 @@ class LCSCSupplier(BaseSupplier):
                 required_credentials=[],
                 description="Fetch datasheet URLs from EasyEDA"
             ),
-            SupplierCapability.FETCH_SPECIFICATIONS: CapabilityRequirement(
-                capability=SupplierCapability.FETCH_SPECIFICATIONS,
+            SupplierCapability.FETCH_PRICING_STOCK: CapabilityRequirement(
+                capability=SupplierCapability.FETCH_PRICING_STOCK,
                 required_credentials=[],
-                description="Fetch part specifications from EasyEDA"
-            ),
-            SupplierCapability.FETCH_IMAGE: CapabilityRequirement(
-                capability=SupplierCapability.FETCH_IMAGE,
-                required_credentials=[],
-                description="Fetch part images from EasyEDA"
-            ),
-            SupplierCapability.FETCH_PRICING: CapabilityRequirement(
-                capability=SupplierCapability.FETCH_PRICING,
-                required_credentials=[],
-                description="Fetch pricing information from LCSC"
+                description="Fetch pricing and stock information from LCSC"
             )
         }
     
@@ -411,29 +399,23 @@ class LCSCSupplier(BaseSupplier):
         
         return await self._tracked_api_call("fetch_datasheet", _impl)
     
-    async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch technical specifications for an LCSC part"""
-        async def _impl():
-            part_details = await self.get_part_details(supplier_part_number)
-            return part_details.specifications if part_details else None
-        
-        return await self._tracked_api_call("fetch_specifications", _impl)
     
-    async def fetch_image(self, supplier_part_number: str) -> Optional[str]:
-        """Fetch component image URL for an LCSC part"""
+    async def fetch_pricing_stock(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
+        """Fetch combined pricing and stock information for an LCSC part"""
         async def _impl():
             part_details = await self.get_part_details(supplier_part_number)
-            return part_details.image_url if part_details else None
+            if not part_details:
+                return None
+            
+            result = {}
+            if part_details.pricing:
+                result["pricing"] = part_details.pricing
+            if part_details.stock_quantity is not None:
+                result["stock_quantity"] = part_details.stock_quantity
+            
+            return result if result else None
         
-        return await self._tracked_api_call("fetch_image", _impl)
-    
-    async def fetch_pricing(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch pricing information for an LCSC part"""
-        async def _impl():
-            part_details = await self.get_part_details(supplier_part_number)
-            return part_details.pricing if part_details else None
-        
-        return await self._tracked_api_call("fetch_pricing", _impl)
+        return await self._tracked_api_call("fetch_pricing_stock", _impl)
     
     async def _scrape_lcsc_image(self, lcsc_id: str) -> Optional[str]:
         """Scrape actual part image from LCSC website with simplified, more reliable approach"""

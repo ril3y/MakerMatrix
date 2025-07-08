@@ -82,11 +82,14 @@ try:
         def _execute_restart(self):
             self.pending_restart = False
             self.restart_timer = None
-            if self.status_checker() == "Running" and self.enabled_checker():
+            status = self.status_checker()
+            enabled = self.enabled_checker()
+            self.manager.log_message("system", f"🔍 {self.service_name.upper()} restart check: Status={status}, Enabled={enabled}", "DEBUG")
+            if status == "Running" and enabled:
                 self.manager.log_message("system", f"🔄 Executing {self.service_name.upper()} auto-restart", "INFO")
                 threading.Thread(target=self.restart_function, daemon=True).start()
             else:
-                self.manager.log_message("system", f"⏹️ {self.service_name.upper()} restart cancelled", "INFO")
+                self.manager.log_message("system", f"⏹️ {self.service_name.upper()} restart cancelled (Status: {status}, Enabled: {enabled})", "INFO")
 
 except ImportError:
     WATCHDOG_AVAILABLE = False
@@ -359,11 +362,17 @@ class EnhancedServerManager:
 
             level = "INFO"
             if service == "backend":
-                if "Application startup complete" in line or "Uvicorn running on" in line:
+                if ("Application startup complete" in line or 
+                    "Uvicorn running on" in line or 
+                    "Starting MakerMatrix with HTTPS" in line or
+                    "MakerMatrix API is ready" in line):
                     self.backend_status = "Running"
                     level = "SUCCESS"
-                elif any(error in line.upper() for error in ["ERROR", "CRITICAL", "FATAL", "TRACEBACK"]):
+                elif any(error in line.upper() for error in ["CRITICAL", "FATAL", "TRACEBACK"]):
                     self.backend_status = "Error"
+                    level = "ERROR"
+                elif "ERROR" in line.upper():
+                    # Only mark as error level in logs, don't change backend status for normal error logs
                     level = "ERROR"
             elif service == "frontend":
                 if "Local:" in line and "http" in line:

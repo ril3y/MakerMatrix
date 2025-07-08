@@ -617,6 +617,50 @@ Quick create file import enrichment task (supports CSV, XLS, etc.).
 #### POST /tasks/quick/price_update
 Quick create price update task.
 
+#### POST /tasks/quick/database_backup
+Quick create database backup task (admin only).
+
+**Request Body:**
+```json
+{
+  "backup_name": "string (optional)",
+  "include_datasheets": true,
+  "include_images": true
+}
+```
+
+**Parameters:**
+- `backup_name`: Optional custom backup name. If not provided, will generate timestamped name like `makermatrix_backup_20240101_120000`
+- `include_datasheets`: Include datasheet files in backup (default: true)
+- `include_images`: Include image files in backup (default: true)
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Database backup task created successfully",
+  "data": {
+    "id": "task_uuid",
+    "task_type": "backup_creation",
+    "name": "Database Backup: backup_name",
+    "status": "pending",
+    "priority": "high"
+  }
+}
+```
+
+**Note:** Requires admin permissions. Creates a comprehensive ZIP backup containing:
+- SQLite database file
+- All enrichment datasheet files (if included)
+- All enrichment image files (if included)
+- Backup metadata JSON file
+
+Backup files are saved to `/MakerMatrix/backups/` directory.
+
+**Alternative endpoints:**
+- `POST /api/utility/backup/create` - Direct backup task creation
+- `GET /api/utility/backup/download` - Legacy compatibility endpoint
+
 ### Task Capabilities
 
 #### GET /tasks/capabilities/suppliers
@@ -639,7 +683,72 @@ Get user's current task usage and limits.
 #### ~~POST /tasks/security/validate~~ (REMOVED)
 **SECURITY**: Task validation endpoint removed along with custom task creation.
 
-### Order File Import (CSV/XLS)
+### Order File Import
+**Base Path:** `/import`
+
+#### GET /import/suppliers
+Get list of suppliers that support file imports with their capabilities.
+
+**Response:** `ResponseSchema<List<SupplierImportInfo>>`
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "name": "lcsc",
+      "display_name": "LCSC Electronics",
+      "supported_file_types": ["csv"],
+      "import_available": true,
+      "missing_credentials": [],
+      "is_configured": true,
+      "configuration_status": "configured",
+      "enrichment_capabilities": ["get_part_details", "fetch_datasheet", "fetch_pricing_stock"],
+      "enrichment_available": true,
+      "enrichment_missing_credentials": []
+    }
+  ]
+}
+```
+
+#### POST /import/file
+Import parts from a supplier file with optional automatic enrichment.
+
+**Request:** Form data with file upload
+```http
+Content-Type: multipart/form-data
+supplier_name: string (required) - Supplier name (e.g., lcsc, digikey, mouser)
+file: <file> (required) - Order file to import
+order_number: string (optional) - Order number
+order_date: string (optional) - Order date
+notes: string (optional) - Order notes
+enable_enrichment: boolean (optional) - Enable automatic enrichment after import (default: false)
+enrichment_capabilities: string (optional) - Comma-separated list of enrichment capabilities
+```
+
+**Enrichment Capabilities:**
+- `get_part_details` - Complete part info including images, specifications
+- `fetch_datasheet` - Datasheet URL retrieval
+- `fetch_pricing_stock` - Combined pricing and stock information
+
+**Supported formats:** 
+- CSV: LCSC, DigiKey, and other CSV formats
+- XLS: Mouser Electronics order files
+
+**Response:** `ResponseSchema<ImportResult>`
+
+**Example Request:**
+```bash
+curl -X POST \
+  -H "Authorization: Bearer <token>" \
+  -F "supplier_name=lcsc" \
+  -F "file=@lcsc_order.csv" \
+  -F "enable_enrichment=true" \
+  -F "enrichment_capabilities=get_part_details,fetch_datasheet" \
+  http://localhost:8080/api/import/file
+```
+
+### Legacy CSV Import (DEPRECATED)
 **Base Path:** `/csv`
 
 #### GET /csv/supported-types
@@ -862,10 +971,59 @@ Get counts of parts, locations, and categories.
 }
 ```
 
-#### GET /utility/backup/download
-Download database backup file.
+#### POST /utility/backup/create
+Create a comprehensive database backup task (admin only).
 
-**Response:** SQLite database file download
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Database backup task created successfully...",
+  "data": {
+    "task_id": "uuid",
+    "task_type": "backup_creation",
+    "backup_name": "makermatrix_backup_20240707_143000",
+    "monitor_url": "/api/tasks/uuid",
+    "expected_backup_location": "/MakerMatrix/backups/backup_name.zip"
+  }
+}
+```
+
+**Note:** Creates a background task that generates a comprehensive ZIP backup including database, datasheets, and images. Monitor progress via WebSocket or task endpoints.
+
+#### GET /utility/backup/download
+Legacy endpoint for backup creation (admin only).
+
+**Note:** Deprecated - redirects to the new task-based backup system for backward compatibility. Use `/utility/backup/create` for new implementations.
+
+#### GET /utility/backup/download/{backup_filename}
+Download a completed backup file (admin only).
+
+**URL Parameters:**
+- `backup_filename`: Name of the backup ZIP file to download
+
+**Response:** ZIP file download with comprehensive backup
+
+#### GET /utility/backup/list
+List all available backup files (admin only).
+
+**Response:**
+```json
+{
+  "status": "success", 
+  "data": {
+    "backups": [
+      {
+        "filename": "makermatrix_backup_20240707_143000.zip",
+        "size_bytes": 5242880,
+        "size_mb": 5.0,
+        "created_at": "2024-07-07T14:30:00",
+        "download_url": "/api/utility/backup/download/makermatrix_backup_20240707_143000.zip"
+      }
+    ]
+  }
+}
+```
 
 #### GET /utility/backup/export
 Export all data as JSON.

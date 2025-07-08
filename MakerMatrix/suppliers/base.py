@@ -31,16 +31,10 @@ class FieldType(Enum):
 
 class SupplierCapability(Enum):
     """Capabilities that suppliers can support"""
-    SEARCH_PARTS = "search_parts"
-    GET_PART_DETAILS = "get_part_details"
-    FETCH_DATASHEET = "fetch_datasheet"
-    FETCH_IMAGE = "fetch_image"
-    FETCH_PRICING = "fetch_pricing"
-    FETCH_STOCK = "fetch_stock"
-    FETCH_SPECIFICATIONS = "fetch_specifications"
-    BULK_SEARCH = "bulk_search"
-    PARAMETRIC_SEARCH = "parametric_search"
-    IMPORT_ORDERS = "import_orders"  # Import order files (CSV, XLS, etc.)
+    GET_PART_DETAILS = "get_part_details"  # Complete part info including images, specifications
+    FETCH_DATASHEET = "fetch_datasheet"    # Datasheet URL retrieval
+    FETCH_PRICING_STOCK = "fetch_pricing_stock"  # Combined pricing and stock information
+    IMPORT_ORDERS = "import_orders"        # Import order files (CSV, XLS, etc.)
 
 @dataclass
 class FieldDefinition:
@@ -524,45 +518,16 @@ class BaseSupplier(ABC):
         
         return await self._tracked_api_call("fetch_datasheet", _impl)
     
-    async def fetch_image(self, supplier_part_number: str) -> Optional[str]:
-        """Fetch image URL for a part (if supported)"""
+    async def fetch_pricing_stock(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
+        """Fetch combined pricing and stock information for a part (if supported)"""
         async def _impl():
-            if SupplierCapability.FETCH_IMAGE not in self.get_capabilities():
+            if SupplierCapability.FETCH_PRICING_STOCK not in self.get_capabilities():
                 return None
             # Subclasses should implement this
             return None
         
-        return await self._tracked_api_call("fetch_image", _impl)
+        return await self._tracked_api_call("fetch_pricing_stock", _impl)
     
-    async def fetch_pricing(self, supplier_part_number: str) -> Optional[List[Dict[str, Any]]]:
-        """Fetch current pricing for a part (if supported)"""
-        async def _impl():
-            if SupplierCapability.FETCH_PRICING not in self.get_capabilities():
-                return None
-            # Subclasses should implement this
-            return None
-        
-        return await self._tracked_api_call("fetch_pricing", _impl)
-    
-    async def fetch_stock(self, supplier_part_number: str) -> Optional[int]:
-        """Fetch current stock level for a part (if supported)"""
-        async def _impl():
-            if SupplierCapability.FETCH_STOCK not in self.get_capabilities():
-                return None
-            # Subclasses should implement this
-            return None
-        
-        return await self._tracked_api_call("fetch_stock", _impl)
-    
-    async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch technical specifications for a part (if supported)"""
-        async def _impl():
-            if SupplierCapability.FETCH_SPECIFICATIONS not in self.get_capabilities():
-                return None
-            # Subclasses should implement this
-            return None
-        
-        return await self._tracked_api_call("fetch_specifications", _impl)
     
     # ========== Unified Enrichment ==========
     
@@ -590,10 +555,7 @@ class BaseSupplier(ABC):
                 cap for cap in [
                     SupplierCapability.GET_PART_DETAILS,
                     SupplierCapability.FETCH_DATASHEET,
-                    SupplierCapability.FETCH_IMAGE,
-                    SupplierCapability.FETCH_PRICING,
-                    SupplierCapability.FETCH_STOCK,
-                    SupplierCapability.FETCH_SPECIFICATIONS
+                    SupplierCapability.FETCH_PRICING_STOCK
                 ]
                 if cap in self.get_capabilities() and self.is_capability_available(cap)
             ]
@@ -654,17 +616,12 @@ class BaseSupplier(ABC):
         if SupplierCapability.FETCH_DATASHEET in capabilities and not part_data.datasheet_url:
             enrichment_tasks.append(("datasheet_url", self.fetch_datasheet(supplier_part_number)))
         
-        if SupplierCapability.FETCH_IMAGE in capabilities and not part_data.image_url:
-            enrichment_tasks.append(("image_url", self.fetch_image(supplier_part_number)))
+        if SupplierCapability.FETCH_PRICING_STOCK in capabilities and (not part_data.pricing or part_data.stock_quantity is None):
+            enrichment_tasks.append(("pricing_stock", self.fetch_pricing_stock(supplier_part_number)))
         
-        if SupplierCapability.FETCH_PRICING in capabilities and not part_data.pricing:
-            enrichment_tasks.append(("pricing", self.fetch_pricing(supplier_part_number)))
-        
-        if SupplierCapability.FETCH_STOCK in capabilities and part_data.stock_quantity is None:
-            enrichment_tasks.append(("stock_quantity", self.fetch_stock(supplier_part_number)))
-        
-        if SupplierCapability.FETCH_SPECIFICATIONS in capabilities and not part_data.specifications:
-            enrichment_tasks.append(("specifications", self.fetch_specifications(supplier_part_number)))
+        # Extract specifications from GET_PART_DETAILS result (no separate call needed)
+        if part_data.specifications:
+            enriched_fields.append("specifications")
         
         # Run all enrichment tasks concurrently
         if enrichment_tasks:
@@ -678,9 +635,21 @@ class BaseSupplier(ABC):
                     failed_fields.append(field_name)
                     errors[field_name] = str(result)
                 elif result is not None:
-                    # Update the part data with the enriched field
-                    setattr(part_data, field_name, result)
-                    enriched_fields.append(field_name)
+                    # Handle special case for pricing_stock which returns a dict with both pricing and stock
+                    if field_name == "pricing_stock" and isinstance(result, dict):
+                        if "pricing" in result and result["pricing"]:
+                            part_data.pricing = result["pricing"]
+                            enriched_fields.append("pricing")
+                        if "stock_quantity" in result and result["stock_quantity"] is not None:
+                            part_data.stock_quantity = result["stock_quantity"]
+                            enriched_fields.append("stock_quantity")
+                        # Mark the consolidated field as enriched if we got any data
+                        if "pricing" in result or "stock_quantity" in result:
+                            enriched_fields.append(field_name)
+                    else:
+                        # Update the part data with the enriched field
+                        setattr(part_data, field_name, result)
+                        enriched_fields.append(field_name)
                 else:
                     # None result means the data wasn't available
                     failed_fields.append(field_name)

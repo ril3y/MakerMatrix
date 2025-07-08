@@ -222,23 +222,53 @@ class TaskService:
         finally:
             session.close()
     
+    async def delete_task(self, task_id: str) -> bool:
+        """Delete a completed or failed task"""
+        from sqlmodel import Session
+        from MakerMatrix.models.models import engine
+        
+        session = Session(engine)
+        try:
+            task = session.get(TaskModel, task_id)
+            if not task:
+                return False
+            
+            # Only allow deletion of completed, failed, or cancelled tasks
+            if task.status in [TaskStatus.RUNNING, TaskStatus.PENDING, TaskStatus.RETRY]:
+                return False
+            
+            session.delete(task)
+            session.commit()
+            
+            logger.info(f"Deleted task {task_id} (status: {task.status})")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting task {task_id}: {e}")
+            session.rollback()
+            return False
+            
+        finally:
+            session.close()
+    
     async def start_worker(self):
-        """Start the task worker"""
+        """Start the task worker with automatic restart on errors"""
         if self.is_worker_running:
             return
         
         self.is_worker_running = True
         logger.info("Starting task worker")
         
-        try:
-            while self.is_worker_running:
+        while self.is_worker_running:
+            try:
                 await self._process_pending_tasks()
                 await asyncio.sleep(1)  # Check for new tasks every second
-        except Exception as e:
-            logger.error(f"Task worker error: {e}")
-        finally:
-            self.is_worker_running = False
-            logger.info("Task worker stopped")
+            except Exception as e:
+                logger.error(f"Task worker error: {e}", exc_info=True)
+                logger.warning("Task worker encountered an error but will continue running...")
+                await asyncio.sleep(5)  # Wait 5 seconds before retrying
+        
+        logger.info("Task worker stopped")
     
     async def stop_worker(self):
         """Stop the task worker"""
@@ -256,27 +286,35 @@ class TaskService:
     
     async def _process_pending_tasks(self):
         """Process pending tasks"""
-        session = next(get_session())
         try:
-            # Get ready-to-run tasks
-            query = select(TaskModel).where(
-                and_(
-                    TaskModel.status == TaskStatus.PENDING,
-                    or_(
-                        TaskModel.scheduled_at.is_(None),
-                        TaskModel.scheduled_at <= datetime.utcnow()
+            session = next(get_session())
+            try:
+                # Get ready-to-run tasks
+                query = select(TaskModel).where(
+                    and_(
+                        TaskModel.status == TaskStatus.PENDING,
+                        or_(
+                            TaskModel.scheduled_at.is_(None),
+                            TaskModel.scheduled_at <= datetime.utcnow()
+                        )
                     )
-                )
-            ).order_by(TaskModel.priority.desc(), TaskModel.created_at)
-            
-            pending_tasks = session.exec(query).all()
-            
-            for task in pending_tasks:
-                if task.id not in self.running_tasks:
-                    await self._start_task(task)
-                    
-        finally:
-            session.close()
+                ).order_by(TaskModel.priority.desc(), TaskModel.created_at)
+                
+                pending_tasks = session.exec(query).all()
+                
+                for task in pending_tasks:
+                    try:
+                        if task.id not in self.running_tasks:
+                            await self._start_task(task)
+                    except Exception as e:
+                        logger.error(f"Failed to start task {task.id}: {e}", exc_info=True)
+                        # Continue processing other tasks
+                        
+            finally:
+                session.close()
+        except Exception as e:
+            logger.error(f"Error in _process_pending_tasks: {e}", exc_info=True)
+            # Don't let database errors crash the worker
     
     async def _start_task(self, task: TaskModel):
         """Start executing a task"""

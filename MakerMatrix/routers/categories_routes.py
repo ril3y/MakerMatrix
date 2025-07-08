@@ -1,4 +1,5 @@
 from typing import Optional
+import logging
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
@@ -10,7 +11,9 @@ from MakerMatrix.schemas.part_response import CategoryResponse, DeleteCategories
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.auth.guards import require_permission
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -228,15 +231,32 @@ async def remove_category(
 
 
 @router.delete("/delete_all_categories", response_model=ResponseSchema[DeleteCategoriesResponse])
-async def delete_all_categories() -> ResponseSchema[DeleteCategoriesResponse]:
+async def delete_all_categories(
+    current_user: UserModel = Depends(require_permission("admin"))
+) -> ResponseSchema[DeleteCategoriesResponse]:
     """
-    Delete all categories from the system.
+    Delete all categories from the system - USE WITH CAUTION! (Admin only)
     
     Returns:
         ResponseSchema: A response containing the deletion status
     """
     try:
         response = CategoryService.delete_all_categories()
+        
+        # Log the activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_activity(
+                action="cleared",
+                entity_type="categories",
+                entity_name="All categories",
+                user=current_user,
+                details=response["data"]
+            )
+        except Exception as activity_error:
+            logger.warning(f"Failed to log categories clear activity: {activity_error}")
+        
         return ResponseSchema(
             status=response["status"],
             message=response["message"],

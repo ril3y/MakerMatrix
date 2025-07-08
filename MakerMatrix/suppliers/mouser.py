@@ -41,14 +41,9 @@ class MouserSupplier(BaseSupplier):
     
     def get_capabilities(self) -> List[SupplierCapability]:
         return [
-            SupplierCapability.SEARCH_PARTS,           # Search by keyword/part number
             SupplierCapability.GET_PART_DETAILS,       # Complete part information
             SupplierCapability.FETCH_DATASHEET,        # Data Sheet URL
-            SupplierCapability.FETCH_IMAGE,            # Image URL
-            SupplierCapability.FETCH_PRICING,          # Pricing (up to 4 price breaks)
-            SupplierCapability.FETCH_STOCK,            # Availability
-            SupplierCapability.FETCH_SPECIFICATIONS,   # Product attributes, RoHS, lifecycle
-            SupplierCapability.PARAMETRIC_SEARCH,      # Enhanced search capabilities
+            SupplierCapability.FETCH_PRICING_STOCK,    # Combined pricing and stock information
             SupplierCapability.IMPORT_ORDERS           # Import Mouser order Excel files
         ]
 
@@ -618,21 +613,23 @@ class MouserSupplier(BaseSupplier):
         
         return await self._tracked_api_call("fetch_datasheet", _impl)
     
-    async def fetch_image(self, supplier_part_number: str) -> Optional[str]:
-        """Fetch image URL for a Mouser part"""
+    async def fetch_pricing_stock(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
+        """Fetch combined pricing and stock information for a Mouser part"""
         async def _impl():
             part_details = await self.get_part_details(supplier_part_number)
-            return part_details.image_url if part_details else None
+            if not part_details:
+                return None
+            
+            result = {}
+            if part_details.pricing:
+                result["pricing"] = part_details.pricing
+            if part_details.stock_quantity is not None:
+                result["stock_quantity"] = part_details.stock_quantity
+            
+            return result if result else None
         
-        return await self._tracked_api_call("fetch_image", _impl)
+        return await self._tracked_api_call("fetch_pricing_stock", _impl)
     
-    async def fetch_specifications(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch technical specifications for a Mouser part"""
-        async def _impl():
-            part_details = await self.get_part_details(supplier_part_number)
-            return part_details.specifications if part_details else None
-        
-        return await self._tracked_api_call("fetch_specifications", _impl)
     
     def get_rate_limit_delay(self) -> float:
         """Mouser rate limit: 30 calls per minute = 2 seconds between requests"""

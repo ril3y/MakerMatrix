@@ -117,6 +117,10 @@ class TasksService {
     return apiClient.post(`${this.baseUrl}/${taskId}/retry`)
   }
 
+  async deleteTask(taskId: string): Promise<{ status: string; message: string }> {
+    return apiClient.delete(`${this.baseUrl}/${taskId}`)
+  }
+
   async getAvailableTaskTypes(): Promise<{ status: string; data: TaskType[] }> {
     return apiClient.get(`${this.baseUrl}/types/available`)
   }

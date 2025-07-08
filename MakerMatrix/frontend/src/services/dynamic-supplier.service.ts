@@ -310,20 +310,6 @@ export class DynamicSupplierService {
     return response.data.data;
   }
 
-  /**
-   * Search for parts using a supplier
-   */
-  async searchParts(supplierName: string, query: string, credentials: Record<string, any>, config?: Record<string, any>, limit: number = 50): Promise<PartSearchResult[]> {
-    const response = await apiClient.post(`/api/suppliers/${supplierName}/search`, {
-      query,
-      limit,
-      config_request: {
-        credentials,
-        config: config || {}
-      }
-    });
-    return response.data.data;
-  }
 
   /**
    * Get detailed information about a specific part

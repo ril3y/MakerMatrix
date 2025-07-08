@@ -31,7 +31,7 @@ describe('DigiKey Frontend Integration', () => {
     api_type: 'rest' as const,
     base_url: 'https://api.digikey.com',
     enabled: true,
-    capabilities: ['search_parts', 'fetch_datasheet', 'fetch_pricing', 'import_orders'],
+    capabilities: ['get_part_details', 'fetch_datasheet', 'fetch_pricing', 'import_orders'],
     custom_headers: {},
     custom_parameters: {},
     created_at: '2024-01-01T00:00:00Z',
