@@ -1,7 +1,7 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
-from sqlmodel import Session, select, and_, or_
+from sqlmodel import Session, select, and_, or_, func
 from MakerMatrix.models.task_models import (
     TaskModel, TaskStatus, TaskPriority, TaskType,
     TaskFilterRequest
@@ -177,3 +177,29 @@ class TaskRepository(BaseRepository[TaskModel]):
         query = select(TaskModel).where(TaskModel.status == TaskStatus.RUNNING)
         tasks = session.exec(query).all()
         return list(tasks)
+    
+    def count_tasks_by_user_and_timeframe(self, session: Session, user_id: str, 
+                                        task_type: TaskType, time_start: datetime) -> int:
+        """Count tasks created by user within a specific timeframe for rate limiting."""
+        query = select(func.count(TaskModel.id)).where(
+            and_(
+                TaskModel.created_by_user_id == user_id,
+                TaskModel.task_type == task_type,
+                TaskModel.created_at >= time_start
+            )
+        )
+        count = session.exec(query).one()
+        return count
+    
+    def count_concurrent_tasks_by_user_and_type(self, session: Session, user_id: str, 
+                                              task_type: TaskType) -> int:
+        """Count concurrent (running/pending) tasks by user and type."""
+        query = select(func.count(TaskModel.id)).where(
+            and_(
+                TaskModel.created_by_user_id == user_id,
+                TaskModel.task_type == task_type,
+                TaskModel.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])
+            )
+        )
+        count = session.exec(query).one()
+        return count

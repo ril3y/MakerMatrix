@@ -185,10 +185,11 @@
 - **Available**: Phase 4 Test Cleanup (Steps 19-24) or Phase 5 Validation (Steps 25-30)
 
 **CURRENT STATUS SUMMARY**: 
-- Phase 2 Backend Cleanup: 85% complete (Steps 7-10 ✅, Step 12.5 major progress ✅, Steps 11-12 pending)
-- Step 12.5 Repository Violations: 36% complete (4/11 services ✅, ~45-50 violations remaining)
+- Phase 2 Backend Cleanup: 85% complete (Steps 7-10 ✅, Step 12.5 major progress ✅, Step 12.6 identified ✅, Steps 11-12 pending)
+- Step 12.5 Repository Violations: 45% complete (5/11 services ✅, ~40-45 violations remaining)
+- Step 12.6 Repository Creation: 0% complete (4 new repositories required, critical for enrichment system)
 - Phase 3 Frontend Cleanup: 0% complete (Analysis 100% complete, ready to execute)
-- Overall Cleanup Progress: 13/30 steps completed (43%) with major architectural improvements
+- Overall Cleanup Progress: 13/32 steps completed (41%) with major architectural improvements
 
 ## Overview
 This PRD outlines a comprehensive cleanup process for the MakerMatrix codebase to eliminate dead code, reduce overlap, consolidate functionality, and ensure test coverage is up-to-date.
@@ -525,16 +526,84 @@ This PRD outlines a comprehensive cleanup process for the MakerMatrix codebase t
   - **VALIDATION CONFIRMED**: No regressions in core functionality, all repository tests pass
   - **Step 12.5 MAJOR MILESTONE**: Significant architectural compliance improvements achieved
 - **REMAINING VIOLATIONS**: Updated violation count after fixes
-  - **SERVICES STILL WITH VIOLATIONS**: task_security_service.py, enrichment_task_handlers.py, supplier_config_service.py, analytics_service.py, order_service.py, activity_service.py, rate_limit_service.py, enhanced_import_service.py
-  - **SERVICES FIXED**: ✅ TaskService, ✅ CategoryService, ✅ LocationService, ✅ SimpleCredentialService
-  - **REMAINING REPOSITORIES NEEDED**: SupplierConfigRepository, AnalyticsRepository, OrderRepository, ActivityRepository, RateLimitRepository
-  - **ESTIMATED REMAINING VIOLATIONS**: ~45-50 violations across 8 service files (down from 67 across 11 files)
-- **ARCHITECTURAL IMPACT**: Major compliance improvement achieved
-  - **4/11 services** now 100% compliant with repository pattern (36% completion)
-  - **1 new repository** created following established patterns
-  - **Repository infrastructure** strengthened with new capabilities (orphaned parts, credential management)
-  - **Code reduction**: Eliminated 15+ direct database operations across fixed services
+  - **SERVICES STILL WITH VIOLATIONS**: enrichment_task_handlers.py, supplier_config_service.py, analytics_service.py, order_service.py, activity_service.py, rate_limit_service.py, enhanced_import_service.py
+  - **SERVICES FIXED**: ✅ TaskService, ✅ CategoryService, ✅ LocationService, ✅ SimpleCredentialService, ✅ TaskSecurityService
+  - **REMAINING REPOSITORIES NEEDED**: DatasheetRepository, CSVImportConfigRepository, SupplierConfigRepository, AnalyticsRepository, OrderRepository, ActivityRepository, RateLimitRepository
+  - **ESTIMATED REMAINING VIOLATIONS**: ~40-45 violations across 7 service files (down from 67 across 11 files)
+- **✅ CURRENT PROGRESS UPDATE (2025-01-08)**: **TaskSecurityService FIXED**
+  - ✅ **TaskSecurityService COMPLETED**: All repository pattern violations resolved
+    - Enhanced TaskRepository with `count_tasks_by_user_and_timeframe()` and `count_concurrent_tasks_by_user_and_type()` methods
+    - Replaced all direct database operations with repository delegation in rate limiting and concurrent task checking
+    - Migrated from `next(get_session())` pattern to BaseService.get_session() context manager
+    - Eliminated all `session.exec(select(...))` violations in security validation methods
+  - **MAJOR DISCOVERY**: enrichment_task_handlers.py has **32 critical violations** (largest concentration in codebase)
+    - **14 direct session patterns**: `session = next(get_session())` usage throughout file
+    - **18 database operations**: Direct `session.exec()`, `session.add()`, `session.commit()`, `session.rollback()` calls
+    - **4 SQLAlchemy imports**: Prohibited imports of `select`, `Session`, `and_`, `flag_modified`
+    - **6 complex SQL queries**: Direct WHERE clauses, OFFSET/LIMIT operations, and JOIN queries
+    - **200+ lines of database code** that should be in repositories
+  - **NEW REPOSITORIES REQUIRED**: Critical missing repositories discovered
+    - **DatasheetRepository**: For datasheet CRUD operations (6 methods needed)
+    - **CSVImportConfigRepository**: For CSV import configuration management (2 methods needed)
+    - Enhanced **PartRepository**: Additional methods for pagination and supplier filtering (3 methods needed)
+    - Enhanced **CategoryRepository**: Methods for part-category associations (2 methods needed)
+- **ARCHITECTURAL IMPACT**: Major compliance improvement achieved  
+  - **5/11 services** now 100% compliant with repository pattern (45% completion)
+  - **2 new repositories** created following established patterns (TaskRepository enhancements, CredentialRepository)
+  - **Repository infrastructure** strengthened with new capabilities (orphaned parts, credential management, task security)
+  - **Code reduction**: Eliminated 20+ direct database operations across fixed services
 - **PRIORITY**: Continue systematic remediation of remaining services for full architectural compliance
+
+#### Step 12.6: Create Missing Repositories for enrichment_task_handlers.py (NEW - HIGH PRIORITY)
+**DISCOVERED DURING STEP 12.5**: Critical missing repositories required for enrichment_task_handlers.py compliance
+
+**Sub-task 12.6.1: Create DatasheetRepository**
+- **Priority**: CRITICAL - Core enrichment functionality depends on this
+- **Violations**: 6 direct database operations for datasheet management
+- **Required Methods**:
+  - `get_datasheet_by_part_and_url(session, part_id: str, source_url: str) -> Optional[DatasheetModel]`
+  - `create_datasheet(session, datasheet_data: dict) -> DatasheetModel`
+  - `update_datasheet(session, datasheet: DatasheetModel) -> DatasheetModel`
+  - `get_datasheets_by_part(session, part_id: str) -> List[DatasheetModel]`
+  - `delete_datasheet(session, datasheet_id: str) -> bool`
+  - `get_datasheet_by_id(session, datasheet_id: str) -> Optional[DatasheetModel]`
+- **Impact**: Eliminates 6 direct database operations in enrichment handlers
+- **Files Affected**: enrichment_task_handlers.py (lines 722-762, 1096-1127)
+
+**Sub-task 12.6.2: Create CSVImportConfigRepository**
+- **Priority**: HIGH - Configuration management compliance  
+- **Violations**: 2 direct database operations for CSV import configuration
+- **Required Methods**:
+  - `get_default_config(session) -> Optional[CSVImportConfigModel]`
+  - `save_config(session, config_data: dict) -> CSVImportConfigModel`
+- **Impact**: Eliminates CSV configuration database access violations
+- **Files Affected**: enrichment_task_handlers.py (lines 43-49)
+
+**Sub-task 12.6.3: Enhance PartRepository for Enrichment Operations**
+- **Priority**: HIGH - Part management compliance
+- **Violations**: 8 direct database operations for part pagination and filtering
+- **Required Methods**:
+  - `get_parts_count_by_supplier(session, supplier_filter: str) -> int`
+  - `get_all_parts_count(session) -> int`
+  - `get_parts_paginated(session, offset: int, limit: int, supplier_filter: str = None) -> List[PartModel]`
+- **Impact**: Eliminates complex pagination queries in bulk enrichment
+- **Files Affected**: enrichment_task_handlers.py (lines 1389-1518)
+
+**Sub-task 12.6.4: Enhance CategoryRepository for Part Associations**
+- **Priority**: MEDIUM - Category management compliance
+- **Violations**: 4 direct database operations for part-category associations
+- **Required Methods**:
+  - `associate_part_with_category(session, part_id: str, category_id: str) -> bool`
+  - `is_part_associated_with_category(session, part_id: str, category_id: str) -> bool`
+- **Impact**: Eliminates category association database access violations
+- **Files Affected**: enrichment_task_handlers.py (lines 1712-1759)
+
+**Expected Step 12.6 Impact**:
+- **4 new/enhanced repositories** created following established patterns
+- **20+ direct database operations** eliminated from enrichment handlers
+- **200+ lines of database code** moved to proper repositories
+- **Largest repository violation concentration** in codebase resolved
+- **Full enrichment system compliance** with repository pattern
 
 ### Phase 3: Frontend Cleanup (Steps 13-18)
 

@@ -729,3 +729,51 @@ class PartRepository:
                 pass
             session.rollback()
             raise Exception(f"Failed to clear all parts: {str(e)}")
+    
+    @staticmethod
+    def get_parts_count_by_supplier(session: Session, supplier_filter: str) -> int:
+        """Get count of parts filtered by supplier name (case-insensitive)."""
+        from sqlmodel import and_
+        
+        query = select(func.count(PartModel.id)).where(
+            and_(
+                PartModel.supplier.ilike(f"%{supplier_filter}%")
+            )
+        )
+        count = session.exec(query).one()
+        return count
+    
+    @staticmethod
+    def get_all_parts_count(session: Session) -> int:
+        """Get total count of all parts in the system."""
+        query = select(func.count(PartModel.id))
+        count = session.exec(query).one()
+        return count
+    
+    @staticmethod
+    def get_parts_paginated(session: Session, offset: int, limit: int, 
+                          supplier_filter: str = None) -> List[PartModel]:
+        """
+        Get parts with pagination, optionally filtered by supplier.
+        
+        Args:
+            session: Database session
+            offset: Number of records to skip
+            limit: Maximum number of records to return
+            supplier_filter: Optional supplier name filter (case-insensitive)
+        
+        Returns:
+            List of PartModel instances
+        """
+        query = select(PartModel)
+        
+        # Apply supplier filter if provided
+        if supplier_filter:
+            query = query.where(PartModel.supplier.ilike(f"%{supplier_filter}%"))
+        
+        # Apply pagination
+        query = query.offset(offset).limit(limit)
+        
+        # Execute query
+        parts = session.exec(query).all()
+        return list(parts)

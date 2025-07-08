@@ -36,6 +36,15 @@ describe('Modal', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  it('disables close button when loading', () => {
+    const onClose = vi.fn()
+    
+    render(<Modal {...defaultProps} onClose={onClose} loading={true} />)
+    
+    const closeButton = screen.getByRole('button')
+    expect(closeButton).toBeDisabled()
+  })
+
   it('renders different sizes correctly', () => {
     const { rerender } = render(<Modal {...defaultProps} size="sm" />)
     
@@ -64,5 +73,33 @@ describe('Modal', () => {
     
     expect(screen.getByTestId('custom-content')).toBeInTheDocument()
     expect(screen.getByText('Custom Content')).toBeInTheDocument()
+  })
+
+  it('hides header when showHeader is false', () => {
+    render(<Modal {...defaultProps} showHeader={false} />)
+    
+    expect(screen.queryByText('Test Modal')).not.toBeInTheDocument()
+  })
+
+  it('shows footer when showFooter is true and footer is provided', () => {
+    const footer = <div data-testid="footer">Footer content</div>
+    render(<Modal {...defaultProps} showFooter={true} footer={footer} />)
+    
+    expect(screen.getByTestId('footer')).toBeInTheDocument()
+    expect(screen.getByText('Footer content')).toBeInTheDocument()
+  })
+
+  it('does not show footer when showFooter is false', () => {
+    const footer = <div data-testid="footer">Footer content</div>
+    render(<Modal {...defaultProps} showFooter={false} footer={footer} />)
+    
+    expect(screen.queryByTestId('footer')).not.toBeInTheDocument()
+  })
+
+  it('applies custom className', () => {
+    render(<Modal {...defaultProps} className="custom-class" />)
+    
+    const modalContainer = screen.getByText('Test Modal').closest('.custom-class')
+    expect(modalContainer).toBeInTheDocument()
   })
 })

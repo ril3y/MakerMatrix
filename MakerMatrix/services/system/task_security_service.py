@@ -5,10 +5,10 @@ Task Security Service - Enforces security policies for task creation and executi
 import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
-from sqlmodel import select, and_, func
 import logging
 
-from MakerMatrix.database.db import get_session
+from MakerMatrix.services.base_service import BaseService
+from MakerMatrix.repositories.task_repository import TaskRepository
 from MakerMatrix.models.task_models import TaskModel, TaskType, TaskStatus, CreateTaskRequest
 from MakerMatrix.models.task_security_model import (
     get_task_security_policy, TaskSecurityPolicy, TaskSecurityLevel,
@@ -24,12 +24,14 @@ class TaskSecurityError(Exception):
     pass
 
 
-class TaskSecurityService:
+class TaskSecurityService(BaseService):
     """Service for enforcing task security policies"""
     
     def __init__(self):
+        super().__init__()
         self._rate_limit_cache: Dict[str, List[datetime]] = {}
         self._concurrent_tasks_cache: Dict[str, int] = {}
+        self.task_repo = TaskRepository()
     
     async def validate_task_creation(self, task_request: CreateTaskRequest, user: UserModel) -> Tuple[bool, Optional[str]]:
         """
@@ -51,7 +53,7 @@ class TaskSecurityService:
                 return False, f"Insufficient permissions. Missing: {', '.join(missing_perms)}"
             
             # Check rate limits
-            rate_limit_ok, rate_limit_msg = await self._check_rate_limits(user.id, policy)
+            rate_limit_ok, rate_limit_msg = await self._check_rate_limits(user.id, policy, task_request.task_type)
             if not rate_limit_ok:
                 return False, rate_limit_msg
             
@@ -109,28 +111,20 @@ class TaskSecurityService:
         
         return list(set(permissions))  # Remove duplicates
     
-    async def _check_rate_limits(self, user_id: str, policy: TaskSecurityPolicy) -> Tuple[bool, Optional[str]]:
+    async def _check_rate_limits(self, user_id: str, policy: TaskSecurityPolicy, task_type: TaskType) -> Tuple[bool, Optional[str]]:
         """Check if user has exceeded rate limits"""
         if not policy.rate_limit_per_hour and not policy.rate_limit_per_day:
             return True, None
         
-        session = next(get_session())
-        try:
+        with self.get_session() as session:
             now = datetime.utcnow()
             
             # Check hourly rate limit
             if policy.rate_limit_per_hour:
                 hour_ago = now - timedelta(hours=1)
-                hourly_count = session.exec(
-                    select(func.count(TaskModel.id))
-                    .where(
-                        and_(
-                            TaskModel.created_by_user_id == user_id,
-                            TaskModel.created_at >= hour_ago,
-                            TaskModel.task_type == policy.__dict__.get('task_type')  # This needs to be passed
-                        )
-                    )
-                ).one()
+                hourly_count = self.task_repo.count_tasks_by_user_and_timeframe(
+                    session, user_id, task_type, hour_ago
+                )
                 
                 if hourly_count >= policy.rate_limit_per_hour:
                     return False, f"Hourly rate limit exceeded ({hourly_count}/{policy.rate_limit_per_hour}). Try again in {60 - now.minute} minutes."
@@ -138,47 +132,26 @@ class TaskSecurityService:
             # Check daily rate limit
             if policy.rate_limit_per_day:
                 day_ago = now - timedelta(days=1)
-                daily_count = session.exec(
-                    select(func.count(TaskModel.id))
-                    .where(
-                        and_(
-                            TaskModel.created_by_user_id == user_id,
-                            TaskModel.created_at >= day_ago,
-                            TaskModel.task_type == policy.__dict__.get('task_type')
-                        )
-                    )
-                ).one()
+                daily_count = self.task_repo.count_tasks_by_user_and_timeframe(
+                    session, user_id, task_type, day_ago
+                )
                 
                 if daily_count >= policy.rate_limit_per_day:
                     return False, f"Daily rate limit exceeded ({daily_count}/{policy.rate_limit_per_day}). Try again tomorrow."
             
             return True, None
-            
-        finally:
-            session.close()
     
     async def _check_concurrent_limits(self, user_id: str, task_type: TaskType, policy: TaskSecurityPolicy) -> Tuple[bool, Optional[str]]:
         """Check if user has too many concurrent tasks"""
-        session = next(get_session())
-        try:
-            running_count = session.exec(
-                select(func.count(TaskModel.id))
-                .where(
-                    and_(
-                        TaskModel.created_by_user_id == user_id,
-                        TaskModel.task_type == task_type,
-                        TaskModel.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])
-                    )
-                )
-            ).one()
+        with self.get_session() as session:
+            running_count = self.task_repo.count_concurrent_tasks_by_user_and_type(
+                session, user_id, task_type
+            )
             
             if running_count >= policy.max_concurrent_per_user:
                 return False, f"Too many concurrent {task_type.value} tasks ({running_count}/{policy.max_concurrent_per_user}). Wait for existing tasks to complete."
             
             return True, None
-            
-        finally:
-            session.close()
     
     def _check_resource_limits(self, task_request: CreateTaskRequest, policy: TaskSecurityPolicy) -> Tuple[bool, Optional[str]]:
         """Check if task request exceeds resource limits"""

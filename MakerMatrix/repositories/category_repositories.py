@@ -213,3 +213,73 @@ class CategoryRepository:
         session.refresh(category)
         logger.debug(f"[REPO] Successfully updated category in database: {category.name} (ID: {category_id})")
         return category
+    
+    @staticmethod
+    def associate_part_with_category(session: Session, part_id: str, category_id: str) -> bool:
+        """
+        Associate a part with a category.
+        
+        Args:
+            session: The database session
+            part_id: The ID of the part to associate
+            category_id: The ID of the category to associate with
+            
+        Returns:
+            bool: True if association was successful, False otherwise
+        """
+        try:
+            from MakerMatrix.models.models import PartModel
+            
+            # Get the part and category
+            part = session.get(PartModel, part_id)
+            category = session.get(CategoryModel, category_id)
+            
+            if not part or not category:
+                logger.warning(f"[REPO] Failed to associate part {part_id} with category {category_id} - one or both not found")
+                return False
+            
+            # Check if association already exists
+            if category in part.categories:
+                logger.debug(f"[REPO] Part {part_id} already associated with category {category_id}")
+                return True
+            
+            # Add the association
+            part.categories.append(category)
+            session.commit()
+            
+            logger.info(f"[REPO] Successfully associated part {part_id} with category {category_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"[REPO] Error associating part {part_id} with category {category_id}: {e}")
+            session.rollback()
+            return False
+    
+    @staticmethod
+    def is_part_associated_with_category(session: Session, part_id: str, category_id: str) -> bool:
+        """
+        Check if a part is associated with a category.
+        
+        Args:
+            session: The database session
+            part_id: The ID of the part to check
+            category_id: The ID of the category to check
+            
+        Returns:
+            bool: True if part is associated with category, False otherwise
+        """
+        try:
+            from MakerMatrix.models.models import PartModel
+            
+            # Get the part
+            part = session.get(PartModel, part_id)
+            if not part:
+                logger.warning(f"[REPO] Part {part_id} not found when checking category association")
+                return False
+            
+            # Check if category is in part's categories
+            return any(cat.id == category_id for cat in part.categories)
+            
+        except Exception as e:
+            logger.error(f"[REPO] Error checking part-category association: {e}")
+            return False
