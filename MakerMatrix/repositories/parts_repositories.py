@@ -685,7 +685,7 @@ class PartRepository:
             deleted_records['part_category_links'] = result.rowcount
             
             # Delete datasheet records
-            result = session.exec(text("DELETE FROM datasheetmodel"))
+            result = session.exec(text("DELETE FROM datasheets"))
             deleted_records['datasheets'] = result.rowcount
             
             # Delete part order summaries

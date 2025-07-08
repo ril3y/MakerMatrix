@@ -39,9 +39,16 @@ async def add_part(
         enrichment_capabilities = part_data.pop('enrichment_capabilities', [])
         
         # Process to add part
-        response = PartService.add_part(part_data)
-        created_part = response["data"]
+        part_service = PartService()
+        service_response = part_service.add_part(part_data)
+        if not service_response.success:
+            if "already exists" in service_response.message:
+                raise HTTPException(status_code=409, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
+        created_part = service_response.data
         part_id = created_part["id"]
+        response = {"status": "success", "message": service_response.message, "data": created_part}
 
         # Handle automatic enrichment if requested
         enrichment_message = ""
@@ -146,7 +153,11 @@ async def add_part(
 @router.get("/get_part_counts", response_model=ResponseSchema[int])
 async def get_part_counts() -> ResponseSchema[int]:
     try:
-        response = PartService.get_part_counts()
+        part_service = PartService()
+        service_response = part_service.get_part_counts()
+        if not service_response.success:
+            raise HTTPException(status_code=500, detail=service_response.message)
+        response = {"status": "success", "message": service_response.message, "total_parts": service_response.data["total_parts"]}
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
@@ -181,14 +192,17 @@ async def delete_part(
             )
         
         # Retrieve part using details
-        part = PartService.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
+        part_service = PartService()
+        service_response = part_service.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
         
-        if not part:
+        if not service_response.success:
             identifier = part_id or part_name or part_number
             raise HTTPException(
                 status_code=404,
                 detail=f"Part not found with the provided identifier: {identifier}"
             )
+        
+        part = service_response.data
 
         # Store part info for activity logging before deletion
         part_info = {
@@ -197,8 +211,14 @@ async def delete_part(
         }
 
         # Perform the deletion using the actual part ID
-        response = PartService.delete_part(part['id'])
-
+        delete_response = part_service.delete_part(part['id'])
+        
+        if not delete_response.success:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete part: {delete_response.message}"
+            )
+        
         # Log activity
         try:
             from MakerMatrix.services.activity_service import get_activity_service
@@ -213,10 +233,10 @@ async def delete_part(
             logger.warning(f"Failed to log part deletion activity: {e}")
 
         # Convert PartResponse to dict for the response
-        part_response_obj = PartResponse.model_validate(response["data"])
+        part_response_obj = PartResponse.model_validate(delete_response.data)
         return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
+            status="success",
+            message=delete_response.message,
             data=part_response_obj.model_dump()
         )
 
@@ -237,7 +257,11 @@ async def get_all_parts(
         page_size: int = Query(default=10, ge=1)
 ) -> ResponseSchema[List[PartResponse]]:
     try:
-        response = PartService.get_all_parts(page, page_size)
+        part_service = PartService()
+        service_response = part_service.get_all_parts(page, page_size)
+        if not service_response.success:
+            raise HTTPException(status_code=500, detail=service_response.message)
+        response = {"status": "success", "message": service_response.message, "data": service_response.data["items"], "page": service_response.data["page"], "page_size": service_response.data["page_size"], "total_parts": service_response.data["total"]}
 
         return ResponseSchema(
             status=response["status"],
@@ -269,11 +293,33 @@ async def get_part(
         
         # Use the PartService to determine which parameter to use for fetching
         if part_id:
-            response = PartService.get_part_by_id(part_id, include=include_list)
+            part_service = PartService()
+            service_response = part_service.get_part_by_id(part_id, include=include_list)
+            if not service_response.success:
+                raise HTTPException(
+                    status_code=404,
+                    detail=service_response.message
+                )
+            response = {"status": "success", "message": service_response.message, "data": service_response.data}
         elif part_number:
-            response = PartService.get_part_by_part_number(part_number, include=include_list)
+            part_service = PartService()
+            service_response = part_service.get_part_by_part_number(part_number, include=include_list)
+            if not service_response.success:
+                raise HTTPException(
+                    status_code=404,
+                    detail=service_response.message
+                )
+            response = {"status": "success", "message": service_response.message, "data": service_response.data}
         elif part_name:
-            response = PartService.get_part_by_part_name(part_name, include=include_list)
+            if 'part_service' not in locals():
+                part_service = PartService()
+            service_response = part_service.get_part_by_part_name(part_name, include=include_list)
+            if not service_response.success:
+                raise HTTPException(
+                    status_code=404,
+                    detail=service_response.message
+                )
+            response = {"status": "success", "message": service_response.message, "data": service_response.data}
         else:
             # If no identifier is provided, return a 400 error
             raise HTTPException(
@@ -311,10 +357,18 @@ async def update_part(
 ) -> ResponseSchema[PartResponse]:
     try:
         # Capture original data for change tracking
-        original_part = PartService.get_part_by_id(part_id)
+        part_service = PartService()
+        original_part_response = part_service.get_part_by_id(part_id)
+        if not original_part_response.success:
+            raise HTTPException(status_code=404, detail=original_part_response.message)
+        original_part = original_part_response.data
         
-        # Use part_id from the path
-        response = PartService.update_part(part_id, part_data)
+        # Use part_id from the path  
+        part_service = PartService()
+        service_response = part_service.update_part(part_id, part_data)
+        if not service_response.success:
+            raise HTTPException(status_code=404, detail=service_response.message)
+        response = {"status": "success", "message": service_response.message, "data": service_response.data}
 
         if response["status"] == "error":
             raise HTTPException(status_code=404, detail=response["message"])
@@ -365,7 +419,16 @@ async def advanced_search(search_params: AdvancedPartSearch) -> ResponseSchema[D
     Perform an advanced search on parts with multiple filters and sorting options.
     """
     try:
-        response = PartService.advanced_search(search_params)
+        part_service = PartService()
+        service_response = part_service.advanced_search(search_params)
+        
+        if not service_response.success:
+            raise HTTPException(
+                status_code=500,
+                detail=service_response.message
+            )
+        
+        response = {"status": "success", "message": service_response.message, "data": service_response.data}
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
@@ -386,7 +449,16 @@ async def search_parts_text(
     Simple text search across part names, numbers, and descriptions.
     """
     try:
-        response = PartService.search_parts_text(query, page, page_size)
+        part_service = PartService()
+        service_response = part_service.search_parts_text(query, page, page_size)
+        
+        if not service_response.success:
+            raise HTTPException(
+                status_code=500,
+                detail=service_response.message
+            )
+        
+        response = {"status": "success", "message": service_response.message, "data": service_response.data}
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
@@ -410,7 +482,16 @@ async def get_part_suggestions(
     Returns up to 'limit' part names that start with or contain the query.
     """
     try:
-        response = PartService.get_part_suggestions(query, limit)
+        part_service = PartService()
+        service_response = part_service.get_part_suggestions(query, limit)
+        
+        if not service_response.success:
+            raise HTTPException(
+                status_code=500,
+                detail=service_response.message
+            )
+        
+        response = {"status": "success", "message": service_response.message, "data": service_response.data}
         return ResponseSchema(
             status=response["status"],
             message=response["message"],
@@ -428,7 +509,14 @@ async def clear_all_parts(
 ) -> ResponseSchema[Dict[str, Any]]:
     """Clear all parts from the database - USE WITH CAUTION! (Admin only)"""
     try:
-        result = PartService.clear_all_parts()
+        part_service = PartService()
+        service_response = part_service.clear_all_parts()
+        if not service_response.success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=service_response.message
+            )
+        result = service_response.data
         
         # Log the activity
         try:
