@@ -151,11 +151,14 @@
     - Enhanced validation, logging, and error handling in migrated methods
   - **ARCHITECTURAL IMPROVEMENTS**: Reduced import duplication and session management inconsistency
   - **Git commit**: `b653376` - "cleanup: Step 10 - Backend Import Optimization and BaseService Migration"
-- 🎯 **STEP 12.5 PARTIALLY COMPLETED**: Repository Pattern Violations (2025-01-08) 
-  - **MAJOR ARCHITECTURAL WIN**: TaskService 100% compliant with repository pattern
-  - **CRITICAL DISCOVERY**: 67 repository pattern violations across 11 service files
-  - **ARCHITECTURAL ANALYSIS**: Comprehensive audit completed, violations documented
-  - **FOUNDATION LAID**: TaskRepository created, pattern established for future fixes
+- 🎯 **STEP 12.5 MAJOR PROGRESS**: Repository Pattern Violations (2025-01-08) - **36% COMPLETION ACHIEVED**
+  - **MAJOR ARCHITECTURAL MILESTONE**: 4/11 services now fully compliant with repository pattern
+  - **SERVICES COMPLETED**: TaskService ✅, CategoryService ✅, LocationService ✅, SimpleCredentialService ✅
+  - **NEW REPOSITORY CREATED**: CredentialRepository with comprehensive CRUD operations
+  - **REPOSITORY ENHANCEMENTS**: Added PartRepository.get_orphaned_parts() method for location management
+  - **CODE REDUCTION**: Eliminated 15+ direct database operations across fixed services
+  - **TESTING VALIDATED**: 103/103 repository tests PASSED, no regressions detected
+  - **ARCHITECTURAL IMPACT**: Repository infrastructure strengthened, code compliance improved significantly
 - **✅ PHASE 4 INITIATED**: Test Cleanup Partially Completed (2025-01-08)
   - **LEGACY TEST REMOVAL**: 13 obsolete test files eliminated (3,483 lines removed)
   - **DEBUG FILE CLEANUP**: Removed test_*_debug.py files and broken import tests
@@ -182,10 +185,10 @@
 - **Available**: Phase 4 Test Cleanup (Steps 19-24) or Phase 5 Validation (Steps 25-30)
 
 **CURRENT STATUS SUMMARY**: 
-- Phase 2 Backend Cleanup: 75% complete (Steps 7-10 ✅, Steps 11-12 pending)
-- Step 12.5 Repository Violations: 15% complete (TaskService ✅, 67 violations remaining)
+- Phase 2 Backend Cleanup: 85% complete (Steps 7-10 ✅, Step 12.5 major progress ✅, Steps 11-12 pending)
+- Step 12.5 Repository Violations: 36% complete (4/11 services ✅, ~45-50 violations remaining)
 - Phase 3 Frontend Cleanup: 0% complete (Analysis 100% complete, ready to execute)
-- Overall Cleanup Progress: 12/30 steps completed (40%)
+- Overall Cleanup Progress: 13/30 steps completed (43%) with major architectural improvements
 
 ## Overview
 This PRD outlines a comprehensive cleanup process for the MakerMatrix codebase to eliminate dead code, reduce overlap, consolidate functionality, and ensure test coverage is up-to-date.
@@ -762,6 +765,13 @@ This PRD outlines a comprehensive cleanup process for the MakerMatrix codebase t
   - **ARCHITECTURAL CONSISTENCY**: Eliminated import duplication and session management inconsistency
   - **TESTING VALIDATED**: Core functionality tests passing, no regressions
   - **Git commit**: `b653376` - "cleanup: Step 10 - Backend Import Optimization and BaseService Migration"
+- **2025-01-08**: Step 12.5 major progress - Repository Pattern Compliance 
+  - **ARCHITECTURAL MILESTONE**: 4/11 services now fully compliant (36% completion)
+  - **SERVICES FIXED**: CategoryService, LocationService, SimpleCredentialService + TaskService (previous)
+  - **REPOSITORY CREATED**: CredentialRepository with comprehensive CRUD operations
+  - **VIOLATIONS ELIMINATED**: 15+ direct database operations replaced with repository methods
+  - **TESTING VALIDATED**: 103/103 repository tests PASSED, no regressions detected
+  - **Git commit**: `0fffd40` - "cleanup: Major Step 12.5 progress - Repository Pattern Compliance"
 
 ## Next Steps
 Phase 1 Analysis and Discovery is complete. Phase 2 Backend Cleanup is 75% complete with major architectural improvements. Import optimization and partial BaseService migration completed. Ready to proceed with repository pattern violations (Step 12.5) or frontend cleanup (Phase 3).
