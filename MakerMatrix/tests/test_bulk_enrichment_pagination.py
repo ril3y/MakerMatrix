@@ -8,7 +8,7 @@ import asyncio
 import sys
 sys.path.append('/home/ril3y/MakerMatrix')
 
-from MakerMatrix.services.system.enrichment_task_handlers import EnrichmentTaskHandlers
+from MakerMatrix.services.system.enrichment_coordinator_service import EnrichmentCoordinatorService
 from MakerMatrix.models.task_models import TaskModel, TaskType, TaskStatus
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.data.part_service import PartService
@@ -22,7 +22,7 @@ async def test_pagination():
     # Create handlers
     part_repository = PartRepository(engine)
     part_service = PartService()
-    handler = EnrichmentTaskHandlers(part_repository, part_service)
+    handler = EnrichmentCoordinatorService(part_repository, part_service)
     
     # Create a mock task with enrich_all=true
     task = TaskModel(
@@ -77,7 +77,7 @@ async def test_specific_parts():
     # Create handlers
     part_repository = PartRepository(engine)
     part_service = PartService()
-    handler = EnrichmentTaskHandlers(part_repository, part_service)
+    handler = EnrichmentCoordinatorService(part_repository, part_service)
     
     # Create a mock task with specific part IDs
     task = TaskModel(

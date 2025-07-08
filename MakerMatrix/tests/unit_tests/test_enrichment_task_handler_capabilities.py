@@ -8,7 +8,7 @@ runtime errors caused by invalid capability mappings.
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from MakerMatrix.suppliers.base import SupplierCapability
-from MakerMatrix.services.system.enrichment_task_handlers import EnrichmentTaskHandlers
+from MakerMatrix.services.system.enrichment_coordinator_service import EnrichmentCoordinatorService
 
 
 class TestEnrichmentTaskHandlerCapabilities:
@@ -204,13 +204,13 @@ class TestEnrichmentTaskHandlerCapabilities:
         
         # Read the enrichment task handler source to check for these
         import inspect
-        from MakerMatrix.services.system.enrichment_task_handlers import EnrichmentTaskHandlers
+        from MakerMatrix.services.system.enrichment_coordinator_service import EnrichmentCoordinatorService
         
-        source = inspect.getsource(EnrichmentTaskHandlers)
+        source = inspect.getsource(EnrichmentCoordinatorService)
         
         for deprecated_cap in deprecated_capabilities:
             assert f"'{deprecated_cap}'" not in source, (
-                f"Deprecated capability '{deprecated_cap}' found in enrichment task handler source"
+                f"Deprecated capability '{deprecated_cap}' found in enrichment coordinator service source"
             )
 
     def test_enum_values_match_string_representations(self):
