@@ -1,11 +1,10 @@
 import logging
 from http.client import HTTPException
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, TYPE_CHECKING
 
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlmodel import Session
-from typing import Optional, TYPE_CHECKING
 
 from MakerMatrix.models.models import CategoryModel, LocationQueryModel, AdvancedPartSearch
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, PartAlreadyExistsError
@@ -18,8 +17,6 @@ from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
-if TYPE_CHECKING:
-    from MakerMatrix.models.models import PartModel  # Only imports for type checking, avoiding circular import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -100,59 +97,62 @@ class PartService(BaseService):
             return self.handle_exception(e, f"get {self.entity_name} by details")
 
 
-    @staticmethod
     def update_quantity_service(
+            self,
             new_quantity: int,
             manufacturer_pn: Optional[str] = None,
             part_number: Optional[str] = None,
             part_id: Optional[str] = None
-    ) -> bool:
+    ) -> ServiceResponse[bool]:
         """
         Update the quantity of a part based on part_id, part_number, or manufacturer_pn.
-        Returns True if the update was successful, False otherwise.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
+        management to BaseService pattern for consistency.
         """
-        session = next(get_session())
         try:
-            logger.info(f"Attempting to update quantity to {new_quantity} for part (ID: {part_id}, PN: {part_number}, MPN: {manufacturer_pn})")
+            self.validate_required_fields({"new_quantity": new_quantity}, ["new_quantity"])
             
-            # Attempt to find the part using the provided identifier
-            found_part = None
-            identifier_type = None
-            identifier_value = None
+            identifier = part_id or part_number or manufacturer_pn
+            self.log_operation("update_quantity", self.entity_name, identifier)
             
-            if part_id:
-                found_part = PartService.part_repo.get_part_by_id(session, part_id)
-                identifier_type = "ID"
-                identifier_value = part_id
-            elif part_number:
-                found_part = PartService.part_repo.get_part_by_part_number(session, part_number)
-                identifier_type = "part number"
-                identifier_value = part_number
-            elif manufacturer_pn:
-                # Example method if it exists in your repository:
-                found_part = PartService.part_repo.get_part_by_manufacturer_pn(session, manufacturer_pn)
-                identifier_type = "manufacturer part number"
-                identifier_value = manufacturer_pn
-            else:
-                logger.error("Quantity update failed: At least one of part_id, part_number, or manufacturer_pn must be provided")
-                raise ValueError("At least one of part_id, part_number, or manufacturer_pn must be provided.")
+            with self.get_session() as session:
+                # Attempt to find the part using the provided identifier
+                found_part = None
+                identifier_type = None
+                identifier_value = None
+                
+                if part_id:
+                    found_part = self.part_repo.get_part_by_id(session, part_id)
+                    identifier_type = "ID"
+                    identifier_value = part_id
+                elif part_number:
+                    found_part = self.part_repo.get_part_by_part_number(session, part_number)
+                    identifier_type = "part number"
+                    identifier_value = part_number
+                elif manufacturer_pn:
+                    found_part = self.part_repo.get_part_by_manufacturer_pn(session, manufacturer_pn)
+                    identifier_type = "manufacturer part number"
+                    identifier_value = manufacturer_pn
+                else:
+                    return self.error_response("At least one of part_id, part_number, or manufacturer_pn must be provided")
 
-            if not found_part:
-                logger.error(f"Quantity update failed: Part not found using {identifier_type} '{identifier_value}'")
-                return False
+                if not found_part:
+                    return self.error_response(f"{self.entity_name} not found using {identifier_type} '{identifier_value}'")
 
-            # Log old quantity before update
-            old_quantity = found_part.quantity
-            logger.info(f"Updating quantity for part '{found_part.part_name}' (ID: {found_part.id}): {old_quantity} → {new_quantity}")
-
-            # Update the quantity using a hypothetical repo method
-            PartService.part_repo.update_quantity(session, found_part.id, new_quantity)
-            logger.info(f"Successfully updated quantity for part '{found_part.part_name}' to {new_quantity}")
-            return True
+                # Log old quantity before update
+                old_quantity = found_part.quantity
+                
+                # Update the quantity using repository method
+                self.part_repo.update_quantity(session, found_part.id, new_quantity)
+                
+                return self.success_response(
+                    f"Quantity updated for part '{found_part.part_name}': {old_quantity} → {new_quantity}",
+                    True
+                )
 
         except Exception as e:
-            logger.error(f"Failed to update quantity: {e}")
-            raise
+            return self.handle_exception(e, f"update quantity for {self.entity_name}")
 
     def delete_part(self, part_id: str) -> ServiceResponse[Dict[str, Any]]:
         """
@@ -206,21 +206,26 @@ class PartService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"search {self.entity_name}")
 
-    @staticmethod
-    def clear_all_parts() -> Any:
+    def clear_all_parts(self) -> ServiceResponse[Any]:
         """
         Clear all parts from the database using the part_repo.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
+        management to BaseService pattern for consistency.
         """
-        session = next(get_session())
         try:
-            result = PartService.part_repo.clear_all_parts(session)
-            logger.info(f"Clear all parts result: {result}")
-            return result
+            self.log_operation("clear_all", self.entity_name, "all_parts")
+            
+            with self.get_session() as session:
+                result = self.part_repo.clear_all_parts(session)
+                
+                return self.success_response(
+                    "All parts cleared successfully",
+                    result
+                )
+                
         except Exception as e:
-            logger.error(f"Failed to clear all parts: {e}")
-            raise e
-        finally:
-            session.close()
+            return self.handle_exception(e, f"clear all {self.entity_name}s")
 
 
     #####
@@ -432,33 +437,34 @@ class PartService(BaseService):
         """
         return PartService.part_repo.is_part_name_unique(part_name)
 
-    @staticmethod
-    def get_part_by_part_number(part_number: str, include: List[str] = None) -> dict[str, str | dict[str, Any]]:
+    def get_part_by_part_number(self, part_number: str, include: List[str] = None) -> ServiceResponse[Dict[str, Any]]:
+        """
+        Get a part by its part number.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
+        management to BaseService pattern for consistency.
+        """
         try:
-            identifier = "part number"
-            session = next(get_session())
+            self.validate_required_fields({"part_number": part_number}, ["part_number"])
+            self.log_operation("get_by_part_number", self.entity_name, part_number)
             
-            # Fetch part using the repository layer
-            part = PartService.part_repo.get_part_by_part_number(session, part_number)
-            
-            if part:
-                # Load order relationships
-                part_with_orders = PartService._load_order_relationships(session, part)
+            with self.get_session() as session:
+                # Fetch part using the repository layer
+                part = self.part_repo.get_part_by_part_number(session, part_number)
                 
-                return {
-                    "status": "success",
-                    "message": f"Part with {identifier} '{part_number}' found.",
-                    "data": part_with_orders.to_dict(include=include),
-                }
-            
-            raise ResourceNotFoundError(
-                status="error",
-                message=f"Part with {identifier} '{part_number}' not found.",
-                data=None
-            )
-            
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
+                if not part:
+                    return self.error_response(f"{self.entity_name} with part number '{part_number}' not found")
+                
+                # Load order relationships
+                part_with_orders = self._load_order_relationships(session, part)
+                
+                return self.success_response(
+                    f"{self.entity_name} with part number '{part_number}' found",
+                    part_with_orders.to_dict(include=include)
+                )
+                
+        except Exception as e:
+            return self.handle_exception(e, f"get {self.entity_name} by part number")
 
     @staticmethod
     def get_part_by_part_name(part_name: str, include: List[str] = None) -> dict[str, str | dict[str, Any]]:

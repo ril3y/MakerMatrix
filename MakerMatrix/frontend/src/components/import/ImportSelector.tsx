@@ -188,33 +188,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         
         // Fallback to hardcoded suppliers
         setParsers([
-          { 
-            id: 'lcsc', 
-            name: 'LCSC Electronics', 
-            description: 'LCSC Electronics (CSV)',
-            color: 'bg-blue-500',
-            supported: true,
-            import_available: true,
-            missing_credentials: []
-          },
-          { 
-            id: 'digikey', 
-            name: 'DigiKey', 
-            description: 'DigiKey (CSV)',
-            color: 'bg-red-500',
-            supported: true,
-            import_available: true,
-            missing_credentials: []
-          },
-          { 
-            id: 'mouser', 
-            name: 'Mouser Electronics', 
-            description: 'Mouser Electronics (XLS)',
-            color: 'bg-green-500',
-            supported: true,
-            import_available: true,
-            missing_credentials: []
-          }
+          import UnifiedFileImporter from './UnifiedFileImporter'
         ])
       } finally {
         setIsLoadingParsers(false)

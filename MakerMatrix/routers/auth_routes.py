@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Body, Request
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from MakerMatrix.services.system.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from MakerMatrix.repositories.user_repository import UserRepository
-from MakerMatrix.models.user_models import UserCreate, UserModel, PasswordUpdate
+from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.auth.dependencies import oauth2_scheme
 from fastapi.responses import JSONResponse

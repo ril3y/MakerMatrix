@@ -1,458 +1,216 @@
-import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { Upload, RefreshCw, AlertCircle, Package, FileText, Zap } from 'lucide-react'
-import toast from 'react-hot-toast'
-import { ImportResult } from './hooks/useOrderImport'
-import { apiClient } from '@/services/api'
-import CSVEnrichmentProgressModal from './CSVEnrichmentProgressModal'
+import React from 'react';
+import { Upload, Eye, RefreshCw, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { useOrderImport } from './hooks/useOrderImport';
+import { extractOrderInfoFromFilename } from '@/utils/filenameExtractor';
+import FileUpload from './FileUpload';
+import ImportProgress from './ImportProgress';
+import FilePreview from './FilePreview';
 
 interface UnifiedFileImporterProps {
-  uploadedFile: File
-  filePreview: any
-  parserType: string
-  parserName: string
-  description: string
-  selectedEnrichmentCapabilities?: string[]
-  supplierCapabilities?: any
-  onImportComplete?: (result: ImportResult) => void
+  onImportComplete?: (result: any) => void;
+  parserType: string;
+  parserName: string;
+  description: string;
 }
 
-interface OrderInfo {
-  order_number?: string
-  order_date?: string
-  notes?: string
-}
+const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({ onImportComplete, parserType, parserName, description }) => {
+  const validateFile = (file: File): boolean => {
+    const fileName = file.name.toLowerCase();
+    const isCsv = fileName.endsWith('.csv');
+    const isXls = fileName.endsWith('.xls') || fileName.endsWith('.xlsx');
 
-// Supplier-specific filename extraction functions
-const extractOrderInfoFromFilename = async (filename: string, parserType: string): Promise<Partial<OrderInfo>> => {
-  // LCSC-specific extraction
-  if (parserType === 'lcsc') {
-    return extractLCSCOrderInfo(filename)
-  }
-  
-  // DigiKey-specific extraction
-  if (parserType === 'digikey') {
-    return extractDigikeyOrderInfo(filename)
-  }
-  
-  // Mouser-specific extraction
-  if (parserType === 'mouser') {
-    return extractMouserOrderInfo(filename)
-  }
-  
-  // Default: no extraction
-  return {}
-}
-
-const extractLCSCOrderInfo = (filename: string): Partial<OrderInfo> => {
-  // LCSC exported files: LCSC_Exported__YYYYMMDD_HHMMSS.csv
-  const lcscMatch = filename.match(/lcsc_exported__(\d{8})_(\d{6})/i)
-  if (lcscMatch) {
-    const dateStr = lcscMatch[1] // YYYYMMDD
-    const timeStr = lcscMatch[2] // HHMMSS
-    
-    // Validate the date
-    const year = parseInt(dateStr.substring(0, 4))
-    const month = parseInt(dateStr.substring(4, 6))
-    const day = parseInt(dateStr.substring(6, 8))
-    
-    if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      // Format as YYYY-MM-DD for HTML date input
-      const formattedDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
-      
-      // Use the export info as notes
-      const hour = timeStr.substring(0, 2)
-      const minute = timeStr.substring(2, 4)
-      const second = timeStr.substring(4, 6)
-      
-      return {
-        order_date: formattedDate,
-        notes: `LCSC export from ${formattedDate} at ${hour}:${minute}:${second}`
-      }
-    }
-  }
-  
-  return {}
-}
-
-const extractDigikeyOrderInfo = (filename: string): Partial<OrderInfo> => {
-  // DigiKey files: DK_PRODUCTS_12345678.csv
-  const digikeyMatch = filename.match(/dk_products_(\d+)/i)
-  if (digikeyMatch) {
-    return {
-      order_number: digikeyMatch[1],
-      notes: `DigiKey export file: ${filename}`
-    }
-  }
-  
-  return {}
-}
-
-const extractMouserOrderInfo = (filename: string): Partial<OrderInfo> => {
-  // Mouser files: typically numeric like 123456.xls
-  const mouserMatch = filename.match(/^(\d{6,})\.xls$/i)
-  if (mouserMatch) {
-    return {
-      order_number: mouserMatch[1],
-      notes: `Mouser order file: ${filename}`
-    }
-  }
-  
-  return {}
-}
-
-const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
-  uploadedFile,
-  filePreview,
-  parserType,
-  parserName,
-  description,
-  selectedEnrichmentCapabilities = [],
-  supplierCapabilities,
-  onImportComplete
-}) => {
-  const [isImporting, setIsImporting] = useState(false)
-  const [importProgress, setImportProgress] = useState(0)
-  const [orderInfo, setOrderInfo] = useState<OrderInfo>({
-    order_number: '',
-    order_date: new Date().toISOString().split('T')[0],
-    notes: ''
-  })
-  const [showPreview, setShowPreview] = useState(false)
-  const [showEnrichmentModal, setShowEnrichmentModal] = useState(false)
-  const [enrichmentTaskId, setEnrichmentTaskId] = useState<string | null>(null)
-  const [importedPartsCount, setImportedPartsCount] = useState(0)
-
-  // Auto-extract order info from filename when component mounts or file changes
-  useEffect(() => {
-    const extractInfo = async () => {
-      if (uploadedFile && parserType) {
-        const extractedInfo = await extractOrderInfoFromFilename(uploadedFile.name, parserType)
-        if (Object.keys(extractedInfo).length > 0) {
-          setOrderInfo(prev => ({
-            // Only override if the field is empty
-            order_number: prev.order_number || extractedInfo.order_number || '',
-            order_date: prev.order_date === new Date().toISOString().split('T')[0] ? 
-              (extractedInfo.order_date || prev.order_date) : prev.order_date,
-            notes: prev.notes || extractedInfo.notes || ''
-          }))
-          
-          // Show a toast notification
-          if (extractedInfo.order_date && extractedInfo.order_number) {
-            toast.success(`Auto-extracted order info: ${extractedInfo.order_date} (${extractedInfo.order_number})`)
-          } else if (extractedInfo.order_number) {
-            toast.success(`Auto-extracted order number: ${extractedInfo.order_number}`)
-          }
-        }
-      }
-    }
-    
-    extractInfo()
-  }, [uploadedFile, parserType])
-
-  const handleImport = async () => {
-    if (!uploadedFile) {
-      toast.error('No file uploaded')
-      return
+    if (!isCsv && !isXls) {
+      toast.error('Please select a CSV or XLS file.');
+      return false;
     }
 
-    setIsImporting(true)
-    setImportProgress(0)
-
-    try {
-      const formData = new FormData()
-      formData.append('file', uploadedFile)
-      formData.append('supplier_name', parserType)
-      if (orderInfo.order_number) formData.append('order_number', orderInfo.order_number)
-      if (orderInfo.order_date) formData.append('order_date', orderInfo.order_date)
-      if (orderInfo.notes) formData.append('notes', orderInfo.notes)
-      
-      // Add enrichment capabilities
-      if (selectedEnrichmentCapabilities && selectedEnrichmentCapabilities.length > 0) {
-        formData.append('enable_enrichment', 'true')
-        formData.append('enrichment_capabilities', selectedEnrichmentCapabilities.join(','))
-      } else {
-        formData.append('enable_enrichment', 'false')
-      }
-
-      setImportProgress(25)
-
-      const result = await apiClient.post('/api/import/file', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-
-      setImportProgress(100)
-
-      if (result.status === 'success') {
-        const importResult: ImportResult = {
-          success_parts: result.data.part_ids || [],
-          failed_parts: result.data.failed_items || []
-        }
-
-        const successfulImports = result.data.imported_count || 0
-        const skippedCount = result.data.skipped_count || 0
-        const failedCount = result.data.failed_count || 0
-        const totalProcessed = successfulImports + skippedCount + failedCount
-        
-        setImportedPartsCount(successfulImports)
-        
-        // Debug logging
-        console.log('CSV Import Result:', result.data)
-        console.log(`Import stats: ${successfulImports} imported, ${skippedCount} skipped, ${failedCount} failed`)
-        
-        // Build success message
-        let message = `Processed ${totalProcessed} parts: `
-        const messageParts = []
-        if (successfulImports > 0) messageParts.push(`${successfulImports} imported`)
-        if (skippedCount > 0) messageParts.push(`${skippedCount} skipped`)
-        if (failedCount > 0) messageParts.push(`${failedCount} failed`)
-        message += messageParts.join(', ')
-        
-        // Check if enrichment task was created
-        if (result.data.enrichment_task_id) {
-          setEnrichmentTaskId(result.data.enrichment_task_id)
-          setShowEnrichmentModal(true)
-          toast.success(`${message}. Starting enrichment...`)
-        } else {
-          toast.success(message)
-        }
-        
-        onImportComplete?.(importResult)
-      } else {
-        throw new Error(result.message || 'Import failed')
-      }
-    } catch (error) {
-      console.error('Import error:', error)
-      toast.error(error instanceof Error ? error.message : 'Import failed')
-    } finally {
-      setIsImporting(false)
-      setImportProgress(0)
+    if (file.size > 15 * 1024 * 1024) { // 15MB limit for all files
+      toast.error('File too large. Files should be smaller than 15MB.');
+      return false;
     }
-  }
+
+    return true;
+  };
+
+  const orderImport = useOrderImport({
+    parserType,
+    parserName,
+    onImportComplete,
+    validateFile,
+    extractOrderInfoFromFilename,
+  });
 
   return (
-    <div className="card p-6 space-y-6">
-      <div className="text-center">
-        <h4 className="text-lg font-semibold text-primary mb-2 flex items-center justify-center gap-2">
-          <Package className="w-5 h-5" />
-          Import from {parserName}
-        </h4>
-        <p className="text-secondary">{description}</p>
-      </div>
-
-      {/* File Information */}
-      <div className="bg-background-secondary rounded-lg p-4">
-        <div className="flex items-center gap-3 mb-4">
-          <FileText className="w-8 h-8 text-primary" />
-          <div>
-            <h5 className="font-medium text-primary">{uploadedFile.name}</h5>
-            <p className="text-sm text-secondary">
-              {(uploadedFile.size / 1024).toFixed(1)} KB • {filePreview?.total_rows || 0} rows
-            </p>
-          </div>
-        </div>
-
-        {filePreview && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-secondary">Format:</span>
-              <span className="text-primary ml-2 font-medium">
-                {filePreview.file_format?.toUpperCase() || 'Unknown'}
-              </span>
-            </div>
-            <div>
-              <span className="text-secondary">Parser:</span>
-              <span className="text-primary ml-2 font-medium">{parserName}</span>
-            </div>
-            <div>
-              <span className="text-secondary">Supported:</span>
-              <span className={`ml-2 font-medium ${filePreview.is_supported ? 'text-success' : 'text-error'}`}>
-                {filePreview.is_supported ? 'Yes' : 'No'}
-              </span>
-            </div>
-            <div>
-              <button
-                onClick={() => setShowPreview(!showPreview)}
-                className="text-primary hover:text-primary-dark font-medium text-sm"
-              >
-                {showPreview ? 'Hide' : 'Show'} Preview
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Preview Data */}
-        {showPreview && filePreview?.preview_rows && (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  {filePreview.headers.slice(0, 5).map((header: string, index: number) => (
-                    <th key={index} className="text-left p-2 text-secondary font-medium">
-                      {header}
-                    </th>
-                  ))}
-                  {filePreview.headers.length > 5 && (
-                    <th className="text-left p-2 text-secondary font-medium">...</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filePreview.preview_rows.slice(0, 3).map((row: any, rowIndex: number) => (
-                  <tr key={rowIndex} className="border-b border-border">
-                    {filePreview.headers.slice(0, 5).map((header: string, cellIndex: number) => (
-                      <td key={cellIndex} className="p-2 text-primary">
-                        {String(row[header] || '').slice(0, 30)}
-                        {String(row[header] || '').length > 30 ? '...' : ''}
-                      </td>
-                    ))}
-                    {filePreview.headers.length > 5 && (
-                      <td className="p-2 text-secondary">...</td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Order Information */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h5 className="font-medium text-primary">Order Information (Optional)</h5>
-          {((parserType === 'lcsc' && uploadedFile?.name.match(/^LCSC_Exported__\d{8}_\d{6}\.csv$/i)) ||
-            (parserType === 'digikey' && uploadedFile?.name.match(/^DK_PRODUCTS_\d+\.csv$/i)) ||
-            (parserType === 'mouser' && uploadedFile?.name.match(/^\d+\.xls$/i))) && (
-            <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full">
-              Auto-extracted from filename
-            </span>
-          )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-primary mb-1">
-              Order Number
-            </label>
-            <input
-              type="text"
-              className="input w-full"
-              value={orderInfo.order_number}
-              onChange={(e) => setOrderInfo(prev => ({ ...prev, order_number: e.target.value }))}
-              placeholder="e.g., ORD-2024-001"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-primary mb-1">
-              Order Date
-            </label>
-            <input
-              type="date"
-              className="input w-full"
-              value={orderInfo.order_date}
-              onChange={(e) => setOrderInfo(prev => ({ ...prev, order_date: e.target.value }))}
-            />
-          </div>
-        </div>
+    <div className="space-y-6">
+      <div className="text-center space-y-4">
         <div>
-          <label className="block text-sm font-medium text-primary mb-1">
-            Notes
-          </label>
-          <textarea
-            className="input w-full h-20 resize-none"
-            value={orderInfo.notes}
-            onChange={(e) => setOrderInfo(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder="Any additional notes about this import..."
-          />
+          <h3 className="text-lg font-semibold text-primary flex items-center justify-center gap-2 mb-2">
+            <Upload className="w-5 h-5" />
+            Import {parserName} Parts
+          </h3>
+          <p className="text-secondary mb-4">{description}</p>
         </div>
       </div>
 
-      {/* Import Progress */}
-      {isImporting && (
-        <div className="bg-background-secondary rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-primary">Importing...</span>
-            <span className="text-sm text-secondary">{importProgress}%</span>
-          </div>
-          <div className="w-full bg-background-tertiary rounded-full h-2">
-            <motion.div
-              className="bg-primary h-2 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${importProgress}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </div>
-      )}
+      <ImportProgress showProgress={orderImport.showProgress} importProgress={orderImport.importProgress} />
 
-      {/* Validation Errors */}
-      {filePreview?.validation_errors && filePreview.validation_errors.length > 0 && (
-        <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-warning mt-0.5" />
-            <div>
-              <h6 className="font-medium text-warning mb-1">Validation Warnings</h6>
-              <ul className="text-sm text-warning space-y-1">
-                {filePreview.validation_errors.map((error: string, index: number) => (
-                  <li key={index}>• {error}</li>
-                ))}
-              </ul>
-              <p className="text-xs text-warning/80 mt-2">
-                These issues may affect import quality but won't prevent the import.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Import Button */}
-      <div className="flex gap-4">
-        <button
-          onClick={handleImport}
-          disabled={isImporting || !filePreview?.is_supported}
-          className="btn btn-primary flex-1 flex items-center justify-center gap-2"
-        >
-          {isImporting ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              Importing...
-            </>
-          ) : (
-            <>
-              <Upload className="w-4 h-4" />
-              Import Parts
-            </>
-          )}
-        </button>
-      </div>
-
-      {!filePreview?.is_supported && (
-        <div className="bg-error/10 border border-error/20 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-error" />
-            <div>
-              <h6 className="font-medium text-error">File Not Supported</h6>
-              <p className="text-sm text-error mt-1">
-                This file format is not supported by the {parserName} parser. 
-                Please check the file format or try a different parser.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* CSV Enrichment Progress Modal */}
-      <CSVEnrichmentProgressModal
-        isOpen={showEnrichmentModal}
-        onClose={() => setShowEnrichmentModal(false)}
-        enrichmentTaskId={enrichmentTaskId || undefined}
-        importedPartsCount={importedPartsCount}
-        fileName={uploadedFile?.name || 'Unknown'}
+      <FileUpload
+        file={orderImport.file}
+        totalRows={orderImport.previewData?.total_rows}
+        parserName={parserName}
+        description={`${parserName} order files`}
+        onFileChange={orderImport.handleFileChange}
+        onDrop={orderImport.handleDrop}
+        onDragOver={orderImport.handleDragOver}
+        onClear={orderImport.clearFile}
+        onFileSelect={orderImport.handleFileSelect}
+        fileInputRef={orderImport.fileInputRef}
       />
-    </div>
-  )
-}
 
-export default UnifiedFileImporter
+      {orderImport.loading && (
+        <div className="text-center py-4">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
+          <p className="text-secondary mt-2">Analyzing file...</p>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {orderImport.previewData && !orderImport.loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-4"
+          >
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-medium text-primary">File Analysis</h4>
+                <div className="flex items-center gap-2">
+                  {orderImport.previewData.is_supported ? (
+                    <span className="flex items-center gap-1 text-accent">
+                      <CheckCircle className="w-4 h-4" />
+                      Supported Format
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-destructive">
+                      <AlertCircle className="w-4 h-4" />
+                      Unsupported Format
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">Detected Parser</label>
+                  <div className="text-sm text-secondary">
+                    <p><strong>Type:</strong> {orderImport.previewData.detected_parser || 'Unknown'}</p>
+                    <p><strong>Rows:</strong> {orderImport.previewData.total_rows || 0}</p>
+                    <p><strong>Columns:</strong> {orderImport.previewData.headers?.length || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              {orderImport.previewData.validation_errors && orderImport.previewData.validation_errors.length > 0 && (
+                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-destructive">Validation Issues:</p>
+                      <ul className="text-sm text-destructive/80 mt-1">
+                        {orderImport.previewData.validation_errors.map((error, index) => (
+                          <li key={index}>• {error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="card p-4">
+              <h4 className="font-medium text-primary mb-4">Order Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    Order Number
+                    {orderImport.orderInfo.order_number && (
+                      <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    value={orderImport.orderInfo.order_number || ''}
+                    onChange={(e) => orderImport.updateOrderInfo({ order_number: e.target.value })}
+                    placeholder="Optional order number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    Order Date
+                    {orderImport.orderInfo.order_date && orderImport.orderInfo.order_date !== new Date().toISOString().split('T')[0] && (
+                      <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
+                    )}
+                  </label>
+                  <input
+                    type="date"
+                    className="input w-full cursor-pointer"
+                    value={orderImport.orderInfo.order_date || ''}
+                    onChange={(e) => orderImport.updateOrderInfo({ order_date: e.target.value })}
+                    placeholder="Select order date"
+                    onClick={(e) => e.currentTarget.showPicker?.()}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-primary mb-2">Notes</label>
+                  <textarea
+                    className="input w-full h-20 resize-none"
+                    value={orderImport.orderInfo.notes || ''}
+                    onChange={(e) => orderImport.updateOrderInfo({ notes: e.target.value })}
+                    placeholder="Optional notes about this order"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => orderImport.setShowPreview(!orderImport.showPreview)}
+                className="btn btn-secondary flex items-center gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                {orderImport.showPreview ? 'Hide Preview' : 'Show Preview'}
+              </button>
+
+              <div className="flex gap-2">
+                <button onClick={orderImport.clearFile} className="btn btn-secondary flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Clear
+                </button>
+                <button
+                  onClick={orderImport.handleImport}
+                  disabled={!orderImport.previewData?.is_supported || orderImport.importing}
+                  className="btn btn-primary flex items-center gap-2"
+                >
+                  {orderImport.importing ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {orderImport.importing ? 'Importing...' : 'Import Parts'}
+                </button>
+              </div>
+            </div>
+
+            <FilePreview showPreview={orderImport.showPreview} previewData={orderImport.previewData} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default UnifiedFileImporter;

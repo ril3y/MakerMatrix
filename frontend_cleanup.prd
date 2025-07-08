@@ -1,0 +1,130 @@
+# Instructions
+- Always update this `@frontend_cleanup.prd` as tasks are completed summarizing the work done.
+- Always write tests to make sure the new code works.
+- Monitor the `dev_manager.log` file to see backend and frontend logs.
+- After completing tasks do a git commit on the changed front end files.
+- Then proceed to the next step.
+
+---
+
+# MakerMatrix Frontend Codebase Cleanup PRD
+
+## 1. Overview
+
+This document outlines a comprehensive cleanup and refactoring plan for the MakerMatrix frontend codebase. The analysis is based on a review of the components, services, and stores, and it identifies areas of code duplication, legacy patterns, dead code, and opportunities for architectural improvements. This plan is designed to be a counterpart to the backend `cleanup.prd`, addressing the frontend-specific issues identified in the initial analysis (Steps 4 and 5).
+
+## 2. Objectives
+
+*   **Reduce Code Duplication:** Consolidate redundant components, hooks, and service logic.
+*   **Improve Maintainability:** Introduce better abstractions and simplify the component architecture.
+*   **Enhance Performance:** Optimize data fetching, state management, and rendering.
+*   **Align with Backend Changes:** Update API services to match the new backend routes and data models.
+*   **Remove Dead and Legacy Code:** Eliminate unused components, styles, and functions.
+
+## 3. Analysis Summary
+
+The initial analysis (`cleanup.prd`, Steps 4 & 5) revealed several critical areas for improvement. This detailed analysis expands on those findings.
+
+### 3.1. Component-Level Issues
+
+*   **Critical Duplication in Importer Components:** The `LCSCImporter`, `DigiKeyImporter`, and `MouserImporter` components are almost identical. They share the same layout, state management, and workflow. This is a prime candidate for consolidation into a single `UnifiedFileImporter` component.
+*   **Redundant Modal Components:** There are multiple modal components (`AddCategoryModal`, `EditCategoryModal`, `AddLocationModal`, `EditLocationModal`, `PrinterModal`, etc.) with very similar structures and logic. A generic `CrudModal` or a more flexible `Modal` component with slots could significantly reduce this duplication.
+*   **Inconsistent Form Handling:** Form logic (state management, validation, submission) is duplicated across many components. A custom hook like `useForm` or a library like `react-hook-form` (which is already a dependency) should be used consistently.
+*   **Large, Monolithic Components:** `TasksManagement.tsx` is overly large and complex, handling state management, UI rendering, and business logic in one file. It should be broken down into smaller, more focused components and hooks.
+*   **Inconsistent UI Elements:** There are multiple `Button` components and inconsistent styling for common UI elements. The `components/ui/Button.tsx` should be the single source of truth for all buttons.
+
+### 3.2. Service-Level Issues
+
+*   **API Endpoint Mismatches:** Several frontend services are still calling deprecated or changed backend API endpoints. For example, the `parts.service.ts` has data transformation logic that is no longer necessary due to backend model changes.
+*   **Duplicated Data Fetching Logic:** Many components fetch their own data, leading to duplicated `useEffect` hooks and state management for loading/error states. This should be centralized in the Zustand stores or custom hooks.
+*   **Inconsistent Error Handling:** There are multiple patterns for handling API errors. The `handleApiError` utility in `api.ts` should be used universally.
+*   **Lack of a Base Service:** There is no base service for common CRUD operations, leading to repeated code in `parts.service.ts`, `locations.service.ts`, and `categories.service.ts`.
+
+### 3.3. State Management (Zustand)
+
+*   **Overloaded Stores:** The `partsStore` is responsible for managing parts, locations, and categories, which violates the Single Responsibility Principle.
+*   **Inconsistent State Updates:** Some components update the store directly, while others go through service layers. A consistent pattern should be enforced.
+*   **Lack of Optimistic Updates:** The UI waits for API calls to complete before updating, which can feel slow. Optimistic updates should be implemented for a better user experience.
+
+### 3.4. Code Quality and Dead Code
+
+*   **Unused Exports:** The `.ts-unused-exports.json` file indicates a significant number of unused exports. While some are intentional (e.g., for Storybook), many are likely dead code.
+*   **Disabled ESLint Rules:** The `.eslintrc.json` file has several important rules disabled (`@typescript-eslint/no-unused-vars`, `@typescript-eslint/no-explicit-any`, `react-hooks/rules-of-hooks`). These should be re-enabled and the corresponding issues fixed.
+*   **Legacy Test Files:** There are several test files that appear to be outdated or redundant (e.g., `DigiKeyImporter.test.tsx` after the move to a unified importer).
+
+## 4. Implementation Plan
+
+This plan is divided into phases, similar to the backend cleanup.
+
+### Phase 1: High-Impact Consolidation (Est: 3-4 days)
+
+*   **Step 1: Consolidate Importer Components**
+    *   **Action:** Create a `UnifiedFileImporter` component that takes the parser type as a prop.
+    *   **Details:** Abstract the file handling, preview, and import logic into the new component. The specific parsing logic can be handled by a factory function that returns the correct parser based on the type.
+    *   **Files to Modify:** `LCSCImporter.tsx`, `DigiKeyImporter.tsx`, `MouserImporter.tsx`, `ImportSelector.tsx`.
+    *   **Expected Reduction:** ~500 lines.
+
+*   **Step 2: Create a Generic Modal System**
+    *   **Action:** Enhance the existing `Modal` component in `components/ui/Modal.tsx` to be more flexible, or create a new `CrudModal` component.
+    *   **Details:** The modal should handle the open/close state, title, and action buttons, while the form content is passed in as children.
+    *   **Files to Modify:** All `*Modal.tsx` files.
+    *   **Expected Reduction:** ~800 lines.
+
+*   **Step 3: Standardize Form Handling**
+    *   **Action:** Refactor all forms to use `react-hook-form` and `zod` for validation, which are already in `package.json`.
+    *   **Details:** Create reusable form components and validation schemas.
+    *   **Files to Modify:** All components with forms.
+    *   **Expected Reduction:** ~800 lines.
+
+### Phase 2: Service Layer and State Management Refactoring (Est: 2-3 days)
+
+*   **Step 4: Align API Services with Backend**
+    *   **Action:** Update all `*.service.ts` files to use the new API routes and data models.
+    *   **Details:** Remove any unnecessary data transformation logic. Ensure all services use the `apiClient` for requests.
+    *   **Files to Modify:** All files in `src/services`.
+
+*   **Step 5: Refactor Zustand Stores**
+    *   **Action:** Split the `partsStore` into separate stores for `locations` and `categories`.
+    *   **Details:** Create `locationsStore.ts` and `categoriesStore.ts`. Move the relevant state and actions from `partsStore`.
+    *   **Files to Modify:** `partsStore.ts`, and all components that use location/category data.
+
+*   **Step 6: Implement a Base CRUD Service**
+    *   **Action:** Create a `baseCrud.service.ts` to handle generic `getAll`, `getById`, `create`, `update`, and `delete` operations.
+    *   **Details:** The other services can then extend this base service.
+    *   **Files to Modify:** `parts.service.ts`, `locations.service.ts`, `categories.service.ts`.
+
+### Phase 3: Code Quality and Cleanup (Est: 2-3 days)
+
+*   **Step 7: Remove Dead Code**
+    *   **Action:** Run `ts-unused-exports` and manually review the findings.
+    *   **Details:** Remove all unused components, hooks, and utilities.
+    *   **Files to Modify:** Project-wide.
+
+*   **Step 8: Re-enable ESLint Rules**
+    *   **Action:** Re-enable the disabled ESLint rules in `.eslintrc.json` one by one and fix the reported issues.
+    *   **Files to Modify:** `.eslintrc.json` and any files with linting errors.
+
+*   **Step 9: Consolidate UI Components**
+    *   **Action:** Ensure all UI elements (buttons, inputs, etc.) use the components from `src/components/ui`.
+    *   **Details:** Replace any custom-styled elements with the standardized components.
+    *   **Files to Modify:** Project-wide.
+
+### Phase 4: Testing and Validation (Est: 2-3 days)
+
+*   **Step 10: Update and Consolidate Tests**
+    *   **Action:** Review all frontend tests.
+    *   **Details:** Remove tests for deleted components. Update tests to reflect the new component architecture and API services. Consolidate duplicated test setup and mock data.
+    *   **Files to Modify:** All files in `src/__tests__` and `tests/e2e`.
+
+*   **Step 11: Full Frontend Test Suite Run**
+    *   **Action:** Run all unit, integration, and E2E tests.
+    *   **Details:** Ensure all tests pass and that there are no regressions.
+    *   **Command:** `npm test -- --all`
+
+## 5. Success Metrics
+
+*   **Code Reduction:** 25-35% reduction in frontend code (components and services).
+*   **Component Count:** 30-40% reduction in the number of component files.
+*   **Code Quality:** All critical ESLint rules enabled and passing.
+*   **Performance:** Measurable improvement in initial page load and component rendering times.
+*   **Test Coverage:** Maintain or increase test coverage percentage.

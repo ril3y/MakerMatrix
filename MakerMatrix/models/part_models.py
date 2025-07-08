@@ -580,4 +580,4 @@ if False:  # Type checking only - prevents circular imports at runtime
     from .location_models import LocationModel
     from .category_models import CategoryModel
     from .order_models import OrderItemModel
-    from .part_metadata_models import PartEnrichmentMetadata, PartPricingHistory, PartSystemMetadata
+    from .part_metadata_models import PartSystemMetadata

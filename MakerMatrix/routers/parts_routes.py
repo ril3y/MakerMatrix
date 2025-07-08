@@ -2,12 +2,11 @@ from typing import Dict, Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette import status
 
-from MakerMatrix.models.models import PartModel, AdvancedPartSearch
+from MakerMatrix.models.models import AdvancedPartSearch
 from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, ResourceNotFoundError
 from MakerMatrix.schemas.part_create import PartCreate, PartUpdate
 from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
-from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.auth.dependencies import get_current_user

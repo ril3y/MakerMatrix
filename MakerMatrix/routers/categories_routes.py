@@ -1,8 +1,7 @@
-from typing import Optional, Dict, Any
+from typing import Optional
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
 
 from MakerMatrix.models.models import CategoryModel, CategoryUpdate
 from MakerMatrix.models.user_models import UserModel
