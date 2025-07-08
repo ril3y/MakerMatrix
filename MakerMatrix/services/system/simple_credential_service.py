@@ -9,10 +9,11 @@ import os
 import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from MakerMatrix.models.supplier_credentials import SimpleSupplierCredentials
 from MakerMatrix.models.models import engine
+from MakerMatrix.repositories.credential_repository import CredentialRepository
 from MakerMatrix.suppliers import SupplierRegistry
 from MakerMatrix.suppliers.exceptions import SupplierNotFoundError
 import logging
@@ -22,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 class SimpleCredentialService:
     """Simple credential management with database storage and environment fallback"""
+    
+    def __init__(self):
+        self.credential_repo = CredentialRepository(engine)
     
     async def save_credentials(
         self, 
@@ -48,30 +52,9 @@ class SimpleCredentialService:
                 raise ValueError("No valid credentials provided")
             
             with Session(engine) as session:
-                # Check if credentials already exist
-                existing = session.exec(
-                    select(SimpleSupplierCredentials).where(
-                        SimpleSupplierCredentials.supplier_name == supplier_name.lower()
-                    )
-                ).first()
-                
-                if existing:
-                    # Update existing
-                    existing.credentials = filtered_credentials
-                    existing.updated_at = datetime.utcnow()
-                    existing.test_status = None  # Reset test status
-                    existing.test_error_message = None
-                    existing.last_tested_at = None
-                else:
-                    # Create new
-                    credential_record = SimpleSupplierCredentials(
-                        id=str(uuid.uuid4()),
-                        supplier_name=supplier_name.lower(),
-                        credentials=filtered_credentials
-                    )
-                    session.add(credential_record)
-                
-                session.commit()
+                # Use repository to save credentials
+                CredentialRepository.save_credentials(session, supplier_name, filtered_credentials)
+                logger.info(f"Saved credentials for supplier: {supplier_name}")
                 return True
                 
         except Exception as e:
@@ -83,13 +66,9 @@ class SimpleCredentialService:
         try:
             credentials = {}
             
-            # Get database credentials first
+            # Get database credentials first using repository
             with Session(engine) as session:
-                credential_record = session.exec(
-                    select(SimpleSupplierCredentials).where(
-                        SimpleSupplierCredentials.supplier_name == supplier_name.lower()
-                    )
-                ).first()
+                credential_record = CredentialRepository.get_credentials(session, supplier_name)
                 
                 if credential_record and credential_record.credentials:
                     credentials.update(credential_record.credentials)
@@ -121,11 +100,7 @@ class SimpleCredentialService:
             test_info = {}
             
             with Session(engine) as session:
-                credential_record = session.exec(
-                    select(SimpleSupplierCredentials).where(
-                        SimpleSupplierCredentials.supplier_name == supplier_name.lower()
-                    )
-                ).first()
+                credential_record = CredentialRepository.get_credentials(session, supplier_name)
                 
                 if credential_record:
                     db_credentials = credential_record.credentials or {}
@@ -209,17 +184,7 @@ class SimpleCredentialService:
         """Delete stored credentials"""
         try:
             with Session(engine) as session:
-                credential_record = session.exec(
-                    select(SimpleSupplierCredentials).where(
-                        SimpleSupplierCredentials.supplier_name == supplier_name.lower()
-                    )
-                ).first()
-                
-                if credential_record:
-                    session.delete(credential_record)
-                    session.commit()
-                    return True
-                return False
+                return CredentialRepository.delete_credentials(session, supplier_name)
                 
         except Exception as e:
             logger.error(f"Failed to delete credentials for {supplier_name}: {e}")
@@ -267,27 +232,7 @@ class SimpleCredentialService:
         """Update test status in database"""
         try:
             with Session(engine) as session:
-                credential_record = session.exec(
-                    select(SimpleSupplierCredentials).where(
-                        SimpleSupplierCredentials.supplier_name == supplier_name.lower()
-                    )
-                ).first()
-                
-                if not credential_record:
-                    # Create minimal record for test status
-                    credential_record = SimpleSupplierCredentials(
-                        id=str(uuid.uuid4()),
-                        supplier_name=supplier_name.lower(),
-                        credentials={}
-                    )
-                    session.add(credential_record)
-                
-                credential_record.last_tested_at = datetime.utcnow()
-                credential_record.test_status = "success" if success else "failed"
-                if hasattr(credential_record, 'test_error_message'):
-                    credential_record.test_error_message = message if not success else None
-                
-                session.commit()
+                CredentialRepository.update_test_status(session, supplier_name, success, message)
                 
         except Exception as e:
             logger.error(f"Failed to update test status for {supplier_name}: {e}")

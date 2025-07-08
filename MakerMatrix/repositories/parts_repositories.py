@@ -424,6 +424,33 @@ class PartRepository:
         return results, total_count
 
     @staticmethod
+    def get_orphaned_parts(session: Session, page: int = 1, page_size: int = 10) -> tuple[List[PartModel], int]:
+        """
+        Get parts that have NULL location_id (orphaned parts).
+        Returns a tuple of (results, total_count).
+        """
+        # Base query for orphaned parts
+        query = select(PartModel).options(
+            joinedload(PartModel.categories)
+        ).where(PartModel.location_id.is_(None))
+        
+        # Count query for orphaned parts
+        count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel).where(PartModel.location_id.is_(None))
+        
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+        
+        # Order by part name for consistent results
+        query = query.order_by(PartModel.part_name)
+        
+        # Execute queries
+        results = session.exec(query).unique().all()
+        total_count = session.exec(count_query).one()
+        
+        return results, total_count
+
+    @staticmethod
     def search_parts_text(session: Session, query: str, page: int = 1, page_size: int = 20) -> tuple[List[PartModel], int]:
         """
         Simple text search across part names, part numbers, and descriptions.

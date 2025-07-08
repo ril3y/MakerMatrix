@@ -6,6 +6,7 @@ from .location_repositories import LocationRepository
 from .user_repository import UserRepository
 from .printer_repository import PrinterRepository
 from .printer_db_repository import PrinterDatabaseRepository
+from .credential_repository import CredentialRepository
 
 __all__ = [
     "BaseRepository",
@@ -15,5 +16,6 @@ __all__ = [
     "LocationRepository",
     "UserRepository",
     "PrinterRepository",
-    "PrinterDatabaseRepository"
+    "PrinterDatabaseRepository",
+    "CredentialRepository"
 ]

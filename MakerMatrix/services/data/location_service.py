@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from MakerMatrix.models.models import LocationModel, LocationQueryModel, engine, PartModel
 from MakerMatrix.repositories.location_repositories import LocationRepository
+from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.database.db import get_session
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError,
@@ -258,10 +259,10 @@ class LocationService(BaseService):
         # Delete location and its children
         LocationRepository.delete_location(session, location)
 
-        # Debug: Verify parts with NULL location_id
-        orphaned_parts = session.query(PartModel).filter(PartModel.location_id == None).all()
+        # Debug: Verify parts with NULL location_id using repository
+        orphaned_parts, total_count = PartRepository.get_orphaned_parts(session, page=1, page_size=1000)
         if orphaned_parts:
-            logger.info(f"Location deletion resulted in {len(orphaned_parts)} orphaned parts")
+            logger.info(f"Location deletion resulted in {total_count} orphaned parts")
 
         logger.info(f"Successfully deleted location: '{location_name}' (ID: {location_id})")
         return {

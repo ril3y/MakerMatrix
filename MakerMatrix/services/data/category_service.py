@@ -8,7 +8,6 @@ from MakerMatrix.repositories.category_repositories import CategoryRepository
 from MakerMatrix.database.db import get_session
 from MakerMatrix.repositories.custom_exceptions import CategoryAlreadyExistsError, ResourceNotFoundError
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
-from sqlalchemy import select, delete
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -109,22 +108,8 @@ class CategoryService(BaseService):
                 raise ValueError("Either 'id' or 'name' must be provided")
 
             session = next(get_session())
-            if id:
-                identifier = id
-                field = "ID"
-                rm_cat = session.get(CategoryModel, id)
-            else:
-                identifier = name
-                field = "name"
-                rm_cat = session.exec(select(CategoryModel).where(CategoryModel.name == name)).first()
-
-            if not rm_cat:
-                logger.warning(f"Category removal failed - not found with {field}: {identifier}")
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Category with {field} {identifier} not found",
-                    data=None
-                )
+            rm_cat = CategoryRepository.get_category(session, category_id=id, name=name)
+            identifier = rm_cat.name
             
             logger.info(f"Removing category: {rm_cat.name} (ID: {rm_cat.id})")
             result = CategoryService.category_repo.remove_category(session, rm_cat)
@@ -162,12 +147,7 @@ class CategoryService(BaseService):
         logger.warning("Attempting to delete ALL categories from the system")
         try:
             session = next(get_session())
-            categories = session.exec(select(CategoryModel)).all()
-            count = len(categories)
-            
-            logger.info(f"Deleting {count} categories from the system")
-            session.exec(delete(CategoryModel))
-            session.commit()
+            count = CategoryRepository.delete_all_categories(session)
             
             logger.warning(f"Successfully deleted all {count} categories from the system")
             return {
