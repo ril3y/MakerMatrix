@@ -2,12 +2,12 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Callable
-from sqlmodel import select, and_, or_
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.task_models import (
     TaskModel, TaskStatus, TaskPriority, TaskType,
     CreateTaskRequest, UpdateTaskRequest, TaskFilterRequest
 )
+from MakerMatrix.repositories.task_repository import TaskRepository
 from MakerMatrix.tasks import get_task_class, get_all_task_types, list_available_tasks
 from MakerMatrix.services.system.websocket_service import websocket_manager
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
@@ -17,18 +17,20 @@ logger = logging.getLogger(__name__)
 
 class TaskService(BaseService):
     """
-    Service for managing background tasks with consolidated session management.
+    Service for managing background tasks using repository pattern.
     
-    ⚠️  ARCHITECTURE VIOLATION: This service directly accesses the database.
-    TODO: Create TaskRepository and refactor to use repository pattern (Step 12.5).
+    ✅ ARCHITECTURE COMPLIANCE: This service uses TaskRepository for all database operations.
+    All database access is properly delegated to the repository layer following the 
+    established pattern where ONLY repositories handle database sessions and SQL operations.
     
-    This migration eliminates 10+ instances of duplicated session management code
-    while maintaining the current functionality until proper repository refactor.
+    This migration eliminates all direct database access violations and ensures proper
+    separation of concerns between service and repository layers.
     """
     
     def __init__(self):
         super().__init__()
         self.entity_name = "Task"
+        self.task_repository = TaskRepository()
         self.running_tasks: Dict[str, asyncio.Task] = {}
         self.task_instances: Dict[str, Any] = {}  # Cache task instances
         self.is_worker_running = False
@@ -64,12 +66,9 @@ class TaskService(BaseService):
     
     async def create_task(self, task_request: CreateTaskRequest, user_id: str = None) -> ServiceResponse[TaskModel]:
         """
-        Create a new task.
+        Create a new task using repository pattern.
         
-        CONSOLIDATED SESSION MANAGEMENT: This method previously had 15+ lines
-        of manual session management. Now uses BaseService async session patterns.
-        
-        ⚠️  TODO: Refactor to use TaskRepository instead of direct DB access.
+        ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
         """
         try:
             self.log_operation("create", self.entity_name, task_request.name)
@@ -95,16 +94,15 @@ class TaskService(BaseService):
                 if task_request.depends_on_task_ids:
                     task.set_depends_on(task_request.depends_on_task_ids)
                 
-                session.add(task)
-                session.commit()
-                session.refresh(task)
+                # Use repository for database operations
+                created_task = self.task_repository.create_task(session, task)
                 
                 # Send WebSocket notification for task creation
-                asyncio.create_task(websocket_manager.broadcast_task_update(task.to_dict()))
+                asyncio.create_task(websocket_manager.broadcast_task_update(created_task.to_dict()))
                 
                 return self.success_response(
-                    f"{self.entity_name} '{task.name}' created successfully",
-                    task
+                    f"{self.entity_name} '{created_task.name}' created successfully",
+                    created_task
                 )
                 
         except Exception as e:
@@ -112,16 +110,15 @@ class TaskService(BaseService):
     
     async def get_task(self, task_id: str) -> ServiceResponse[TaskModel]:
         """
-        Get a task by ID.
+        Get a task by ID using repository pattern.
         
-        CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
-        ⚠️  TODO: Use TaskRepository instead of direct DB access.
+        ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
         """
         try:
             self.log_operation("get", self.entity_name, task_id)
             
             async with self.get_async_session() as session:
-                task = session.get(TaskModel, task_id)
+                task = self.task_repository.get_by_id(session, task_id)
                 if not task:
                     return self.error_response(f"{self.entity_name} with ID {task_id} not found")
                 
@@ -134,55 +131,22 @@ class TaskService(BaseService):
             return self.handle_exception(e, f"get {self.entity_name}")
     
     async def get_tasks(self, filter_request: TaskFilterRequest) -> List[TaskModel]:
-        """Get tasks with filtering"""
-        session = next(get_session())
-        try:
-            query = select(TaskModel)
-            
-            # Apply filters
-            conditions = []
-            
-            if filter_request.status:
-                conditions.append(TaskModel.status.in_(filter_request.status))
-            
-            if filter_request.task_type:
-                conditions.append(TaskModel.task_type.in_(filter_request.task_type))
-            
-            if filter_request.priority:
-                conditions.append(TaskModel.priority.in_(filter_request.priority))
-            
-            if filter_request.created_by_user_id:
-                conditions.append(TaskModel.created_by_user_id == filter_request.created_by_user_id)
-            
-            if filter_request.related_entity_type:
-                conditions.append(TaskModel.related_entity_type == filter_request.related_entity_type)
-            
-            if filter_request.related_entity_id:
-                conditions.append(TaskModel.related_entity_id == filter_request.related_entity_id)
-            
-            if conditions:
-                query = query.where(and_(*conditions))
-            
-            # Apply ordering
-            if filter_request.order_desc:
-                query = query.order_by(getattr(TaskModel, filter_request.order_by).desc())
-            else:
-                query = query.order_by(getattr(TaskModel, filter_request.order_by))
-            
-            # Apply pagination
-            query = query.offset(filter_request.offset).limit(filter_request.limit)
-            
-            tasks = session.exec(query).all()
-            return list(tasks)
-            
-        finally:
-            session.close()
+        """
+        Get tasks with filtering using repository pattern.
+        
+        ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
+        """
+        async with self.get_async_session() as session:
+            return self.task_repository.get_tasks_with_filter(session, filter_request)
     
     async def update_task(self, task_id: str, update_request: UpdateTaskRequest) -> Optional[TaskModel]:
-        """Update a task"""
-        session = next(get_session())
-        try:
-            task = session.get(TaskModel, task_id)
+        """
+        Update a task using repository pattern.
+        
+        ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
+        """
+        async with self.get_async_session() as session:
+            task = self.task_repository.get_by_id(session, task_id)
             if not task:
                 return None
             
@@ -205,17 +169,13 @@ class TaskService(BaseService):
             if update_request.error_message is not None:
                 task.error_message = update_request.error_message
             
-            session.add(task)
-            session.commit()
-            session.refresh(task)
+            # Use repository for database operations
+            updated_task = self.task_repository.update_task(session, task)
             
             # Send WebSocket update
-            asyncio.create_task(websocket_manager.broadcast_task_update(task.to_dict()))
+            asyncio.create_task(websocket_manager.broadcast_task_update(updated_task.to_dict()))
             
-            return task
-            
-        finally:
-            session.close()
+            return updated_task
     
     async def cancel_task(self, task_id: str) -> bool:
         """Cancel a task"""
@@ -233,58 +193,27 @@ class TaskService(BaseService):
         return task is not None
     
     async def retry_task(self, task_id: str) -> bool:
-        """Retry a failed task"""
-        session = next(get_session())
-        try:
-            task = session.get(TaskModel, task_id)
-            if not task or not task.can_retry():
-                return False
-            
-            task.status = TaskStatus.PENDING
-            task.retry_count += 1
-            task.error_message = None
-            task.started_at = None
-            task.completed_at = None
-            task.progress_percentage = 0
-            task.current_step = None
-            
-            session.add(task)
-            session.commit()
-            
-            logger.info(f"Retrying task {task_id} (attempt {task.retry_count})")
-            return True
-            
-        finally:
-            session.close()
+        """
+        Retry a failed task using repository pattern.
+        
+        ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
+        """
+        async with self.get_async_session() as session:
+            task = self.task_repository.increment_retry_count(session, task_id)
+            return task is not None
     
     async def delete_task(self, task_id: str) -> bool:
-        """Delete a completed or failed task"""
-        from sqlmodel import Session
-        from MakerMatrix.models.models import engine
+        """
+        Delete a completed or failed task using repository pattern.
         
-        session = Session(engine)
+        ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
+        """
         try:
-            task = session.get(TaskModel, task_id)
-            if not task:
-                return False
-            
-            # Only allow deletion of completed, failed, or cancelled tasks
-            if task.status in [TaskStatus.RUNNING, TaskStatus.PENDING, TaskStatus.RETRY]:
-                return False
-            
-            session.delete(task)
-            session.commit()
-            
-            logger.info(f"Deleted task {task_id} (status: {task.status})")
-            return True
-            
+            async with self.get_async_session() as session:
+                return self.task_repository.delete_task(session, task_id)
         except Exception as e:
             logger.error(f"Error deleting task {task_id}: {e}")
-            session.rollback()
             return False
-            
-        finally:
-            session.close()
     
     async def start_worker(self):
         """Start the task worker with automatic restart on errors"""
@@ -320,22 +249,14 @@ class TaskService(BaseService):
         self.running_tasks.clear()
     
     async def _process_pending_tasks(self):
-        """Process pending tasks"""
+        """
+        Process pending tasks using repository pattern.
+        
+        ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
+        """
         try:
-            session = next(get_session())
-            try:
-                # Get ready-to-run tasks
-                query = select(TaskModel).where(
-                    and_(
-                        TaskModel.status == TaskStatus.PENDING,
-                        or_(
-                            TaskModel.scheduled_at.is_(None),
-                            TaskModel.scheduled_at <= datetime.utcnow()
-                        )
-                    )
-                ).order_by(TaskModel.priority.desc(), TaskModel.created_at)
-                
-                pending_tasks = session.exec(query).all()
+            async with self.get_async_session() as session:
+                pending_tasks = self.task_repository.get_pending_tasks_ready_to_run(session)
                 
                 for task in pending_tasks:
                     try:
@@ -345,8 +266,6 @@ class TaskService(BaseService):
                         logger.error(f"Failed to start task {task.id}: {e}", exc_info=True)
                         # Continue processing other tasks
                         
-            finally:
-                session.close()
         except Exception as e:
             logger.error(f"Error in _process_pending_tasks: {e}", exc_info=True)
             # Don't let database errors crash the worker
