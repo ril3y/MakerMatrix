@@ -12,122 +12,151 @@ from MakerMatrix.repositories.custom_exceptions import (
     InvalidReferenceError
 )
 from MakerMatrix.schemas.location_delete_response import LocationDeleteResponse
+from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class LocationService:
-    location_repo = LocationRepository(engine)
+class LocationService(BaseService):
+    """
+    Location service with consolidated session management using BaseService.
+    
+    This migration eliminates 8+ instances of duplicated session management code.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.location_repo = LocationRepository(engine)
+        self.entity_name = "Location"
 
-    @staticmethod
-    def get_all_locations() -> List[LocationModel]:
-        session = next(get_session())
+    def get_all_locations(self) -> ServiceResponse[List[LocationModel]]:
+        """
+        Get all locations.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
+        """
         try:
-            return LocationService.location_repo.get_all_locations(session)
+            self.log_operation("get_all", self.entity_name)
+            
+            with self.get_session() as session:
+                locations = self.location_repo.get_all_locations(session)
+                return self.success_response(
+                    f"Retrieved {len(locations)} {self.entity_name.lower()}s",
+                    locations
+                )
+                
         except Exception as e:
-            raise ValueError(f"Failed to retrieve all locations: {str(e)}")
+            return self.handle_exception(e, f"get all {self.entity_name.lower()}s")
 
-    @staticmethod
-    def get_location(location_query: LocationQueryModel) -> Optional[LocationModel]:
-        session = next(get_session())
+    def get_location(self, location_query: LocationQueryModel) -> ServiceResponse[LocationModel]:
+        """
+        Get a location by query parameters.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
+        """
         try:
-            location = LocationService.location_repo.get_location(session, location_query)
-            if location:
-                return location
+            self.log_operation("get", self.entity_name)
+            
+            with self.get_session() as session:
+                location = self.location_repo.get_location(session, location_query)
+                if location:
+                    return self.success_response(
+                        f"{self.entity_name} retrieved successfully",
+                        location
+                    )
+                else:
+                    return self.error_response(f"{self.entity_name} not found")
 
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
         except Exception as e:
-            raise ValueError(f"Failed to retrieve location: {str(e)}")
+            return self.handle_exception(e, f"retrieve {self.entity_name}")
 
-    @staticmethod
-    def add_location(location_data: Dict[str, Any]) -> LocationModel:
-        session = next(get_session())
+    def add_location(self, location_data: Dict[str, Any]) -> ServiceResponse[LocationModel]:
+        """
+        Add a new location.
+        
+        CONSOLIDATED SESSION MANAGEMENT: This method previously had 15+ lines
+        of manual session and error handling. Now uses BaseService patterns.
+        """
         try:
+            # Validate required fields
+            self.validate_required_fields(location_data, ["name"])
+            
             location_name = location_data.get("name", "Unknown")
             parent_id = location_data.get("parent_id")
-            location_type = location_data.get("location_type", "Unknown")
+            location_type = location_data.get("location_type", "standard")
             
-            logger.info(f"Attempting to create new location: {location_name} (type: {location_type})")
+            self.log_operation("create", self.entity_name, location_name)
             if parent_id:
-                logger.debug(f"Creating location '{location_name}' with parent ID: {parent_id}")
+                self.logger.debug(f"Creating location '{location_name}' with parent ID: {parent_id}")
             
-            result = LocationService.location_repo.add_location(session, location_data)
-            logger.info(f"Successfully created location: {location_name} (ID: {result.id})")
-            return result
+            with self.get_session() as session:
+                result = self.location_repo.add_location(session, location_data)
+                return self.success_response(
+                    f"{self.entity_name} '{location_name}' created successfully",
+                    result
+                )
+                
         except Exception as e:
-            logger.error(f"Failed to create location '{location_data.get('name', 'Unknown')}': {e}")
-            raise ValueError(f"Failed to add location: {str(e)}")
+            return self.handle_exception(e, f"create {self.entity_name}")
 
-    @staticmethod
-    def update_location(location_id: str, location_data: Dict[str, Any]) -> LocationModel:
+    def update_location(self, location_id: str, location_data: Dict[str, Any]) -> ServiceResponse[LocationModel]:
         """
         Update a location's fields. This method can update any combination of name, description, parent_id, and location_type.
         
-        Args:
-            location_id: The ID of the location to update
-            location_data: Dictionary containing the fields to update
-            
-        Returns:
-            LocationModel: The updated location model
-            
-        Raises:
-            ResourceNotFoundError: If the location or parent location is not found
+        CONSOLIDATED SESSION MANAGEMENT: This method previously had 20+ lines
+        of manual session and error handling. Now uses BaseService patterns.
         """
-        session = next(get_session())
         try:
-            logger.info(f"Attempting to update location: {location_id}")
+            self.log_operation("update", self.entity_name, location_id)
             
-            # Get the current location to show before/after changes
-            query_model = LocationQueryModel(id=location_id)
-            current_location = LocationService.location_repo.get_location(session, query_model)
-            
-            if not current_location:
-                logger.error(f"Location update failed: Location with ID '{location_id}' not found")
-                raise ResourceNotFoundError(
-                    status="error", 
-                    message=f"Location with ID '{location_id}' not found",
-                    data=None
+            with self.get_session() as session:
+                # Get the current location to show before/after changes
+                query_model = LocationQueryModel(id=location_id)
+                current_location = self.location_repo.get_location(session, query_model)
+                
+                if not current_location:
+                    return self.error_response(f"{self.entity_name} with ID '{location_id}' not found")
+                
+                # Log current state and planned changes
+                self.logger.debug(f"Current location state: '{current_location.name}' (ID: {location_id})")
+                updated_fields = []
+                
+                for field, new_value in location_data.items():
+                    if hasattr(current_location, field):
+                        old_value = getattr(current_location, field)
+                        if old_value != new_value:
+                            if field == "name":
+                                self.logger.info(f"Updating location name (ID: {location_id}): '{old_value}' → '{new_value}'")
+                                updated_fields.append(f"name: '{old_value}' → '{new_value}'")
+                            elif field == "description":
+                                self.logger.info(f"Updating location description for '{current_location.name}' (ID: {location_id})")
+                                updated_fields.append(f"description updated")
+                            elif field == "parent_id":
+                                self.logger.info(f"Updating parent for location '{current_location.name}' (ID: {location_id}): {old_value} → {new_value}")
+                                updated_fields.append(f"parent: {old_value} → {new_value}")
+                            elif field == "location_type":
+                                self.logger.info(f"Updating type for location '{current_location.name}' (ID: {location_id}): '{old_value}' → '{new_value}'")
+                                updated_fields.append(f"type: '{old_value}' → '{new_value}'")
+                            else:
+                                self.logger.info(f"Updating {field} for location '{current_location.name}' (ID: {location_id}): {old_value} → {new_value}")
+                                updated_fields.append(f"{field}: {old_value} → {new_value}")
+                
+                result = self.location_repo.update_location(session, location_id, location_data)
+                
+                if updated_fields:
+                    changes_message = f"Changes: {', '.join(updated_fields)}"
+                    self.logger.info(f"Successfully updated location '{result.name}' (ID: {location_id}). {changes_message}")
+                else:
+                    self.logger.info(f"No changes made to location '{result.name}' (ID: {location_id})")
+                
+                return self.success_response(
+                    f"{self.entity_name} '{result.name}' updated successfully",
+                    result
                 )
-            
-            # Log current state and planned changes
-            logger.debug(f"Current location state: '{current_location.name}' (ID: {location_id})")
-            updated_fields = []
-            
-            for field, new_value in location_data.items():
-                if hasattr(current_location, field):
-                    old_value = getattr(current_location, field)
-                    if old_value != new_value:
-                        if field == "name":
-                            logger.info(f"Updating location name (ID: {location_id}): '{old_value}' → '{new_value}'")
-                            updated_fields.append(f"name: '{old_value}' → '{new_value}'")
-                        elif field == "description":
-                            logger.info(f"Updating location description for '{current_location.name}' (ID: {location_id})")
-                            updated_fields.append(f"description updated")
-                        elif field == "parent_id":
-                            logger.info(f"Updating parent for location '{current_location.name}' (ID: {location_id}): {old_value} → {new_value}")
-                            updated_fields.append(f"parent: {old_value} → {new_value}")
-                        elif field == "location_type":
-                            logger.info(f"Updating type for location '{current_location.name}' (ID: {location_id}): '{old_value}' → '{new_value}'")
-                            updated_fields.append(f"type: '{old_value}' → '{new_value}'")
-                        else:
-                            logger.info(f"Updating {field} for location '{current_location.name}' (ID: {location_id}): {old_value} → {new_value}")
-                            updated_fields.append(f"{field}: {old_value} → {new_value}")
-            
-            result = LocationService.location_repo.update_location(session, location_id, location_data)
-            
-            if updated_fields:
-                logger.info(f"Successfully updated location '{result.name}' (ID: {location_id}). Changes: {', '.join(updated_fields)}")
-            else:
-                logger.info(f"No changes made to location '{result.name}' (ID: {location_id})")
-            
-            return result
-        except ResourceNotFoundError as rnfe:
-            raise rnfe  # Re-raise the ResourceNotFoundError to be handled by the route
+                
         except Exception as e:
-            logger.error(f"Failed to update location {location_id}: {e}")
-            raise ValueError(f"Failed to update location: {str(e)}")
+            return self.handle_exception(e, f"update {self.entity_name}")
 
     @staticmethod
     def get_location_details(location_id: str) -> dict:

@@ -6,67 +6,87 @@ from MakerMatrix.models.order_models import (
     CreateOrderRequest, CreateOrderItemRequest, UpdateOrderRequest
 )
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
+from MakerMatrix.services.base_service import BaseService, ServiceResponse
 from sqlalchemy import func
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class OrderService:
-    """Service for managing orders and order items"""
+class OrderService(BaseService):
+    """
+    Service for managing orders and order items with consolidated session management.
+    
+    This migration eliminates 8+ instances of duplicated session management code.
+    """
 
     def __init__(self):
-        pass
+        super().__init__()
+        self.entity_name = "Order"
 
-    async def create_order(self, order_data: CreateOrderRequest) -> OrderModel:
-        """Create a new order"""
-        session = next(get_session())
+    async def create_order(self, order_data: CreateOrderRequest) -> ServiceResponse[OrderModel]:
+        """
+        Create a new order.
+        
+        CONSOLIDATED SESSION MANAGEMENT: This method previously had 15+ lines
+        of manual session/transaction management. Now uses BaseService patterns.
+        """
         try:
-            # Create order
-            order = OrderModel(
-                order_number=order_data.order_number,
-                supplier=order_data.supplier,
-                order_date=order_data.order_date,
-                status=order_data.status,
-                tracking_number=order_data.tracking_number,
-                subtotal=order_data.subtotal,
-                tax=order_data.tax,
-                shipping=order_data.shipping,
-                total=order_data.total,
-                currency=order_data.currency,
-                notes=order_data.notes,
-                import_source=order_data.import_source,
-                order_metadata=order_data.order_metadata or {}
-            )
+            self.log_operation("create", self.entity_name, order_data.order_number)
             
-            session.add(order)
-            session.commit()
-            session.refresh(order)
-            
-            logger.info(f"Created order {order.id} for supplier {order.supplier}")
-            return order
-            
+            async with self.get_async_session() as session:
+                # Create order
+                order = OrderModel(
+                    order_number=order_data.order_number,
+                    supplier=order_data.supplier,
+                    order_date=order_data.order_date,
+                    status=order_data.status,
+                    tracking_number=order_data.tracking_number,
+                    subtotal=order_data.subtotal,
+                    tax=order_data.tax,
+                    shipping=order_data.shipping,
+                    total=order_data.total,
+                    currency=order_data.currency,
+                    notes=order_data.notes,
+                    import_source=order_data.import_source,
+                    order_metadata=order_data.order_metadata or {}
+                )
+                
+                session.add(order)
+                session.commit()
+                session.refresh(order)
+                
+                return self.success_response(
+                    f"{self.entity_name} {order.order_number} created successfully for supplier {order.supplier}",
+                    order
+                )
+                
         except Exception as e:
-            session.rollback()
-            logger.error(f"Failed to create order: {e}")
-            raise
-        finally:
-            session.close()
+            return self.handle_exception(e, f"create {self.entity_name}")
 
-    async def get_order(self, order_id: str) -> OrderModel:
-        """Get order by ID"""
-        session = next(get_session())
+    async def get_order(self, order_id: str) -> ServiceResponse[OrderModel]:
+        """
+        Get order by ID.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
+        """
         try:
-            statement = select(OrderModel).where(OrderModel.id == order_id)
-            order = session.exec(statement).first()
+            self.log_operation("get", self.entity_name, order_id)
             
-            if not order:
-                raise ResourceNotFoundError(f"Order with id {order_id} not found")
-            
-            return order
-            
-        finally:
-            session.close()
+            async with self.get_async_session() as session:
+                statement = select(OrderModel).where(OrderModel.id == order_id)
+                order = session.exec(statement).first()
+                
+                if not order:
+                    return self.error_response(f"{self.entity_name} with ID {order_id} not found")
+                
+                return self.success_response(
+                    f"{self.entity_name} retrieved successfully",
+                    order
+                )
+                
+        except Exception as e:
+            return self.handle_exception(e, f"get {self.entity_name}")
 
     async def get_orders(self, 
                         supplier: Optional[str] = None,
