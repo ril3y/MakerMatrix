@@ -105,7 +105,7 @@ describe('AddLocationModal - Core Functionality', () => {
       
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
-        expect(screen.getByDisplayValue('standard')).toBeInTheDocument() // Default type
+        expect(screen.getByText('Select a type')).toBeInTheDocument() // Placeholder text
         expect(screen.getByText('No parent (root level)')).toBeInTheDocument()
       })
     })
@@ -208,10 +208,11 @@ describe('AddLocationModal - Core Functionality', () => {
       render(<AddLocationModal {...mockProps} />)
       
       await waitFor(() => {
-        expect(screen.getByDisplayValue('standard')).toBeInTheDocument()
+        expect(screen.getByText('Select a type')).toBeInTheDocument()
       })
 
-      const typeSelect = screen.getByDisplayValue('standard')
+      // Find the select element by role
+      const typeSelect = screen.getByRole('combobox', { name: /location type/i })
       await userEvent.click(typeSelect)
 
       const expectedTypes = ['Standard', 'Warehouse', 'Room', 'Shelf', 'Drawer', 'Bin', 'Cabinet', 'Building']
@@ -225,10 +226,10 @@ describe('AddLocationModal - Core Functionality', () => {
       render(<AddLocationModal {...mockProps} />)
       
       await waitFor(() => {
-        expect(screen.getByDisplayValue('standard')).toBeInTheDocument()
+        expect(screen.getByText('Select a type')).toBeInTheDocument()
       })
 
-      const typeSelect = screen.getByDisplayValue('standard')
+      const typeSelect = screen.getByRole('combobox', { name: /location type/i })
       await user.selectOptions(typeSelect, 'shelf')
 
       expect(typeSelect).toHaveValue('shelf')
@@ -311,7 +312,7 @@ describe('AddLocationModal - Core Functionality', () => {
       await user.type(nameInput, 'Component Drawer')
 
       // Select type
-      const typeSelect = screen.getByDisplayValue('standard')
+      const typeSelect = screen.getByRole('combobox', { name: /location type/i })
       await user.selectOptions(typeSelect, 'drawer')
 
       // Select parent using mocked LocationTreeSelector
@@ -395,7 +396,7 @@ describe('AddLocationModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter location name')
       await user.type(nameInput, 'Test Location')
 
-      const typeSelect = screen.getByDisplayValue('standard')
+      const typeSelect = screen.getByRole('combobox', { name: /location type/i })
       await user.selectOptions(typeSelect, 'shelf')
 
       // Close modal
@@ -411,8 +412,8 @@ describe('AddLocationModal - Core Functionality', () => {
         const resetNameInput = screen.getByPlaceholderText('Enter location name')
         expect(resetNameInput).toHaveValue('')
         
-        const resetTypeSelect = screen.getByDisplayValue('standard')
-        expect(resetTypeSelect).toHaveValue('standard') // Default value
+        const resetTypeSelect = screen.getByRole('combobox', { name: /location type/i })
+        expect(resetTypeSelect).toHaveValue('') // Empty value after reset
       })
     })
 

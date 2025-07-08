@@ -4,6 +4,7 @@ export * from './parts'
 export * from './locations'
 export * from './categories'
 export * from './auth'
+export * from './credentials'
 
 // Additional schemas can be added here as they are created
 // export * from './suppliers'

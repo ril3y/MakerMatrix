@@ -228,9 +228,14 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
             description="What type of storage location is this?"
             registration={form.register('location_type')}
             error={form.getFieldError('location_type')}
-            options={locationTypes}
             placeholder="Select a type"
-          />
+          >
+            {locationTypes.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </FormSelect>
 
           <FormField label="Parent Location" description="Select a parent location to create a hierarchy (optional)">
             <LocationTreeSelector

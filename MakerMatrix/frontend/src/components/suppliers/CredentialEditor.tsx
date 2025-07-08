@@ -5,29 +5,24 @@
  * Shows masked current values, allows editing, and includes test functionality.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, TestTube, Save, HelpCircle, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react'
+import { Eye, EyeOff, TestTube, Save, HelpCircle, CheckCircle, XCircle } from 'lucide-react'
+import { useFormWithValidation } from '@/hooks/useFormWithValidation'
+import { createCredentialFormSchema, type CredentialField, type CredentialFormData, type CredentialTestResult, type CredentialStatus } from '@/schemas/credentials'
+import { FormInput } from '@/components/forms'
+import toast from 'react-hot-toast'
 
-interface CredentialField {
-  name: string;
-  label: string;
-  field_type: string;
-  required: boolean;
-  description?: string;
-  placeholder?: string;
-  help_text?: string;
-}
 
 interface CredentialEditorProps {
-  supplierName: string;
-  credentialSchema: CredentialField[];
-  currentlyConfigured?: boolean; // Whether credentials are already set on backend
-  credentialStatus?: any; // Full credential status from backend
-  onCredentialChange?: (credentials: Record<string, string>) => void;
-  onTest?: (credentials: Record<string, string>) => Promise<{ success: boolean; message?: string }>;
-  onSave?: (credentials: Record<string, string>) => Promise<void>;
-  loading?: boolean;
-  onCredentialsReady?: (credentials: Record<string, string>) => void; // Expose current credentials
+  supplierName: string
+  credentialSchema: CredentialField[]
+  currentlyConfigured?: boolean // Whether credentials are already set on backend
+  credentialStatus?: CredentialStatus // Full credential status from backend
+  onCredentialChange?: (credentials: CredentialFormData) => void
+  onTest?: (credentials: CredentialFormData) => Promise<CredentialTestResult>
+  onSave?: (credentials: CredentialFormData) => Promise<void>
+  loading?: boolean
+  onCredentialsReady?: (credentials: CredentialFormData) => void // Expose current credentials
 }
 
 export const CredentialEditor: React.FC<CredentialEditorProps> = ({
@@ -41,154 +36,140 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
   loading = false,
   onCredentialsReady
 }) => {
-  const [credentials, setCredentials] = useState<Record<string, string>>({});
-  const [showValues, setShowValues] = useState<Record<string, boolean>>({});
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message?: string } | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [showValues, setShowValues] = useState<Record<string, boolean>>({})
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<CredentialTestResult | null>(null)
+  const [initialCredentials, setInitialCredentials] = useState<CredentialFormData>({})
+
+  // Create dynamic form schema based on credential fields
+  const formSchema = useMemo(() => {
+    return createCredentialFormSchema(credentialSchema)
+  }, [credentialSchema])
+
+  // Form with validation
+  const form = useFormWithValidation<CredentialFormData>({
+    schema: formSchema,
+    onSubmit: async (data) => {
+      if (onSave) {
+        await onSave(data)
+        toast.success('Credentials saved successfully')
+      }
+    },
+    onError: (error) => {
+      console.error('Failed to save credentials:', error)
+      toast.error('Failed to save credentials')
+    },
+  })
 
   // Initialize credentials when schema changes or credential status loads
   useEffect(() => {
-    if (credentialSchema.length === 0) return;
+    if (credentialSchema.length === 0) return
     
     const initializeCredentials = async () => {
-      const initialCredentials: Record<string, string> = {};
-      const initialShowValues: Record<string, boolean> = {};
+      const credentials: CredentialFormData = {}
+      const showValuesState: Record<string, boolean> = {}
       
       // Fetch actual credentials if any are configured
-      let actualCredentials: Record<string, string> = {};
+      let actualCredentials: CredentialFormData = {}
       if (credentialStatus && (credentialStatus.has_database_credentials || credentialStatus.has_environment_credentials)) {
         try {
-          const apiUrl = `/api/suppliers/${supplierName.toLowerCase()}/credentials`;
-          console.log('Fetching credentials for:', supplierName);
-          console.log('API URL:', apiUrl);
+          const apiUrl = `/api/suppliers/${supplierName.toLowerCase()}/credentials`
           const response = await fetch(apiUrl, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
-          });
-          console.log('Credentials API response status:', response.status);
+          })
           if (response.ok) {
-            const data = await response.json();
-            console.log('Credentials API response data:', JSON.stringify(data, null, 2));
-            console.log('data.data:', JSON.stringify(data.data, null, 2));
-            console.log('Object.keys(data.data):', Object.keys(data.data || {}));
-            actualCredentials = data.data || data || {};
-            console.log('Extracted actualCredentials:', JSON.stringify(actualCredentials, null, 2));
+            const data = await response.json()
+            actualCredentials = data.data || data || {}
           } else {
-            console.error('Credentials API failed:', response.status, response.statusText);
+            console.error('Credentials API failed:', response.status, response.statusText)
           }
         } catch (error) {
-          console.error('Failed to fetch credentials:', error);
+          console.error('Failed to fetch credentials:', error)
         }
-      } else {
-        console.log('No credentials configured, credentialStatus:', credentialStatus);
       }
       
       credentialSchema.forEach(field => {
         // Use actual value if available, otherwise empty string
-        const actualValue = actualCredentials[field.name];
-        initialCredentials[field.name] = actualValue || '';
+        const actualValue = actualCredentials[field.name]
+        credentials[field.name] = actualValue || ''
         
         // Password fields start hidden, text fields start visible
-        initialShowValues[field.name] = field.field_type !== 'password';
-      });
+        showValuesState[field.name] = field.field_type !== 'password'
+      })
       
-      setCredentials(initialCredentials);
-      setShowValues(initialShowValues);
-      setHasChanges(false);
-    };
+      setInitialCredentials(credentials)
+      setShowValues(showValuesState)
+      
+      // Reset form with initial data
+      form.reset(credentials)
+    }
     
-    initializeCredentials();
-  }, [credentialSchema, credentialStatus, supplierName]);
+    initializeCredentials()
+  }, [credentialSchema, credentialStatus, supplierName, form])
 
-  // Separate effect to notify parent of credentials (only when credentials actually change)
+  // Watch form values and notify parent of changes
+  const currentCredentials = form.watch()
   useEffect(() => {
-    if (onCredentialsReady && Object.keys(credentials).length > 0) {
-      onCredentialsReady(credentials);
+    if (Object.keys(currentCredentials).length > 0) {
+      onCredentialChange?.(currentCredentials)
+      onCredentialsReady?.(currentCredentials)
     }
-  }, [credentials, onCredentialsReady]);
-
-  const handleFieldChange = (fieldName: string, value: string) => {
-    const updatedCredentials = { ...credentials, [fieldName]: value };
-    setCredentials(updatedCredentials);
-    setHasChanges(true);
-    
-    if (onCredentialChange) {
-      onCredentialChange(updatedCredentials);
-    }
-    
-    if (onCredentialsReady) {
-      onCredentialsReady(updatedCredentials);
-    }
-  };
+  }, [currentCredentials, onCredentialChange, onCredentialsReady])
 
   const toggleShowValue = (fieldName: string) => {
-    setShowValues(prev => ({ ...prev, [fieldName]: !prev[fieldName] }));
-  };
+    setShowValues(prev => ({ ...prev, [fieldName]: !prev[fieldName] }))
+  }
 
   const handleTest = async () => {
-    if (!onTest) return;
+    if (!onTest) return
     
     try {
-      setTesting(true);
-      setTestResult(null);
-      const result = await onTest(credentials);
-      setTestResult(result);
+      setTesting(true)
+      setTestResult(null)
+      const result = await onTest(currentCredentials)
+      setTestResult(result)
     } catch (error) {
       setTestResult({ 
         success: false, 
         message: error instanceof Error ? error.message : 'Test failed' 
-      });
+      })
     } finally {
-      setTesting(false);
+      setTesting(false)
     }
-  };
+  }
 
-  const handleSave = async () => {
-    if (!onSave) return;
-    
-    try {
-      setSaving(true);
-      await onSave(credentials);
-      setHasChanges(false);
-    } catch (error) {
-      console.error('Failed to save credentials:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const getConfiguredStatus = (): boolean => {
-    if (!credentialStatus) return false;
-    return credentialStatus.fully_configured || false;
-  };
+    if (!credentialStatus) return false
+    return credentialStatus.fully_configured || false
+  }
 
   const getStatusText = (): string => {
-    if (!credentialStatus) return 'Loading...';
+    if (!credentialStatus) return 'Loading...'
     
     if (credentialStatus.error) {
-      return 'Error Loading Status';
+      return 'Error Loading Status'
     }
     
-    const hasDb = credentialStatus.has_database_credentials;
-    const hasEnv = credentialStatus.has_environment_credentials;
-    const isConfigured = credentialStatus.fully_configured;
+    const hasDb = credentialStatus.has_database_credentials
+    const hasEnv = credentialStatus.has_environment_credentials
+    const isConfigured = credentialStatus.fully_configured
     
     if (isConfigured) {
       if (hasDb && hasEnv) {
-        return 'Credentials Set (DB + Environment)';
+        return 'Credentials Set (DB + Environment)'
       } else if (hasDb) {
-        return 'Credentials Set (Database)';
+        return 'Credentials Set (Database)'
       } else if (hasEnv) {
-        return 'Credentials Set (Environment)';
+        return 'Credentials Set (Environment)'
       } else {
-        return 'Configured';
+        return 'Configured'
       }
     } else {
-      const missing = credentialStatus.missing_required?.length || 0;
-      return missing > 0 ? `Missing ${missing} Required Field${missing > 1 ? 's' : ''}` : 'No Credentials Set';
+      const missing = credentialStatus.missing_required?.length || 0
+      return missing > 0 ? `Missing ${missing} Required Field${missing > 1 ? 's' : ''}` : 'No Credentials Set'
     }
-  };
+  }
 
   if (credentialSchema.length === 0) {
     return (
@@ -263,22 +244,22 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
         </div>
       )}
 
-      {/* Credential Fields - Compact */}
+      {/* Credential Fields - Using FormInput */}
       <div className="space-y-3">
         {credentialSchema.map((field) => {
-          const isPassword = field.field_type === 'password';
-          const currentValue = credentials[field.name] || '';
-          const isConfigured = credentialStatus?.configured_fields?.includes(field.name) || false;
-          const shouldShow = showValues[field.name];
-          const hasValue = currentValue.length > 0;
+          const isPassword = field.field_type === 'password'
+          const currentValue = form.watch(field.name) || ''
+          const isConfigured = credentialStatus?.configured_fields?.includes(field.name) || false
+          const shouldShow = showValues[field.name]
+          const hasValue = currentValue.length > 0
           
           return (
             <div key={field.name} className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex items-center space-x-2 mb-1">
+                <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {field.label}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
-                </label>
+                </span>
                 
                 {/* Status Indicator */}
                 <div className="flex items-center space-x-1">
@@ -306,20 +287,20 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
               </div>
               
               <div className="relative">
-                <input
+                <FormInput
                   type={shouldShow ? 'text' : 'password'}
-                  value={currentValue}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white pr-10"
+                  placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                  registration={form.register(field.name)}
+                  error={form.getFieldError(field.name)}
                   disabled={loading}
+                  className="pr-10"
                 />
                 
                 {(isPassword || hasValue) && (
                   <button
                     type="button"
                     onClick={() => toggleShowValue(field.name)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 z-10"
                     title="Toggle visibility"
                   >
                     {shouldShow ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -327,24 +308,35 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
                 )}
               </div>
             </div>
-          );
+          )
         })}
       </div>
 
       {/* Action Buttons */}
-      {onSave && (
-        <div className="flex items-center space-x-3 pt-4">
+      <div className="flex items-center space-x-3 pt-4">
+        {onTest && (
           <button
-            onClick={handleSave}
-            disabled={!hasChanges || saving || loading}
+            onClick={handleTest}
+            disabled={testing || loading}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            <TestTube className={`w-4 h-4 mr-2 ${testing ? 'animate-pulse' : ''}`} />
+            {testing ? 'Testing...' : 'Test Connection'}
+          </button>
+        )}
+        
+        {onSave && (
+          <button
+            onClick={form.onSubmit}
+            disabled={!form.isDirty || form.loading || loading}
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
           >
-            <Save className={`w-4 h-4 mr-2 ${saving ? 'animate-pulse' : ''}`} />
-            {saving ? 'Saving...' : 'Save Credentials'}
+            <Save className={`w-4 h-4 mr-2 ${form.loading ? 'animate-pulse' : ''}`} />
+            {form.loading ? 'Saving...' : 'Save Credentials'}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
-  );
-};
+  )
+}
