@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/services/api'
 import { previewFile } from '@/utils/filePreview'
+import { tasksService } from '@/services/tasks.service'
 
 export interface FilePreviewData {
   detected_parser: string | null
@@ -34,6 +35,9 @@ export interface ImportProgress {
   total_parts: number
   current_operation: string
   is_complete: boolean
+  task_id?: string
+  task_status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  progress_percentage?: number
 }
 
 export interface UseOrderImportProps {
@@ -152,19 +156,66 @@ export const useOrderImport = ({
     event.preventDefault()
   }, [])
 
-  const pollProgress = useCallback(async () => {
+  const pollProgress = useCallback(async (taskId?: string) => {
+    if (!taskId) {
+      console.log('No task ID available for progress tracking')
+      return
+    }
+    
     try {
-      // TODO: Implement task-based progress tracking
-      // The unified import system uses tasks for progress tracking
-      // For now, we'll disable progress polling until task ID is available
-      console.log('Progress polling disabled - waiting for task-based implementation')
+      const response = await tasksService.getTask(taskId)
+      const task = response.data
+      
+      if (task) {
+        const progress: ImportProgress = {
+          processed_parts: 0,
+          total_parts: 0,
+          current_operation: task.current_step || 'Processing...',
+          is_complete: task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled',
+          task_id: taskId,
+          task_status: task.status,
+          progress_percentage: task.progress_percentage || 0
+        }
+        
+        // Try to extract part counts from task data if available
+        if (task.input_data && task.input_data.part_ids) {
+          progress.total_parts = task.input_data.part_ids.length
+          progress.processed_parts = Math.round((task.progress_percentage || 0) * progress.total_parts / 100)
+        }
+        
+        setImportProgress(progress)
+        
+        if (progress.is_complete) {
+          if (progressPollInterval.current) {
+            clearInterval(progressPollInterval.current)
+            progressPollInterval.current = null
+          }
+          setShowProgress(false)
+          setImporting(false)
+          
+          if (task.status === 'completed') {
+            toast.success('Import and enrichment completed successfully!')
+          } else if (task.status === 'failed') {
+            toast.error(`Import task failed: ${task.error_message || 'Unknown error'}`)
+          } else if (task.status === 'cancelled') {
+            toast.error('Import task was cancelled')
+          }
+        }
+      }
     } catch (error: any) {
-      console.error('Failed to fetch import progress:', error)
+      console.error('Failed to fetch task progress:', error)
+      if (error.response?.status !== 404) {
+        toast.error('Failed to fetch import progress')
+      }
     }
   }, [])
 
-  const startProgressPolling = useCallback(() => {
-    progressPollInterval.current = setInterval(pollProgress, 1000)
+  const startProgressPolling = useCallback((taskId?: string) => {
+    if (!taskId) {
+      console.log('No task ID provided for progress polling')
+      return
+    }
+    progressPollInterval.current = setInterval(() => pollProgress(taskId), 2000)
   }, [pollProgress])
 
   const stopProgressPolling = useCallback(() => {
@@ -193,9 +244,7 @@ export const useOrderImport = ({
         is_complete: false
       })
       
-      setTimeout(() => {
-        startProgressPolling()
-      }, 500)
+      // Progress polling will be started after response if task ID is available
       
       let response
       const fileName = file.name.toLowerCase()
@@ -208,6 +257,10 @@ export const useOrderImport = ({
       formData.append('order_date', orderInfo.order_date || new Date().toISOString())
       formData.append('notes', orderInfo.notes)
       
+      // Enable enrichment for better user experience
+      formData.append('enable_enrichment', 'true')
+      formData.append('enrichment_capabilities', 'get_part_details,fetch_datasheet')
+      
       response = await apiClient.post('/api/import/file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -216,10 +269,37 @@ export const useOrderImport = ({
 
       const result = response.data || response
       
-      toast.success(`Imported ${result.success_parts?.length || 0} parts successfully`)
+      toast.success(`Imported ${result.imported_count || 0} parts successfully`)
       
-      if (result.failed_parts?.length > 0) {
-        toast.error(`${result.failed_parts.length} parts failed to import`)
+      if (result.failed_count > 0) {
+        toast.error(`${result.failed_count} parts failed to import`)
+      }
+      
+      if (result.skipped_count > 0) {
+        toast.info(`${result.skipped_count} parts were skipped (already exist)`)
+      }
+      
+      // Extract task ID from warnings if available
+      let taskId: string | undefined
+      if (result.warnings && Array.isArray(result.warnings)) {
+        for (const warning of result.warnings) {
+          if (typeof warning === 'string' && warning.includes('Enrichment task created:')) {
+            taskId = warning.split('Enrichment task created: ')[1]?.trim()
+            break
+          }
+        }
+      }
+      
+      if (taskId) {
+        toast.info('Starting enrichment process...')
+        setTimeout(() => {
+          startProgressPolling(taskId)
+        }, 1000)
+      } else {
+        // No enrichment task, complete immediately
+        setImporting(false)
+        setShowProgress(false)
+        setImportProgress(null)
       }
 
       onImportComplete?.(result)

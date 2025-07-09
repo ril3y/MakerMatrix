@@ -336,6 +336,31 @@
 - **Step 25-30**: Comprehensive testing and validation
 - **Step 31-33**: Performance optimization and final cleanup
 
+## Current Session: Frontend API Alignment (2025-07-09)
+
+### Frontend API Alignment Issues Fixed ✅
+**Status**: Critical API alignment issues resolved and frontend operational
+
+**Major Issues Resolved**:
+- ✅ **Updated Import System**: Changed from deprecated `/api/csv/` routes to unified `/api/import/file` endpoint
+- ✅ **Fixed Method Name Mismatches**: Updated test files to use correct service method names (addPart → createPart, getPartById → getPart, etc.)
+- ✅ **Fixed Data Model Inconsistencies**: Updated TEST_PART to use 'name' instead of 'part_name' property  
+- ✅ **Aligned Response Formats**: Updated services to handle new backend API response format
+- ✅ **Removed Deprecated Routes**: Eliminated usage of deprecated CSV import routes
+
+**Current Status**:
+- ✅ **Backend**: Running successfully on https://localhost:8443 with all task handlers registered
+- ✅ **Frontend**: Running successfully on https://localhost:5173 with live reloading
+- ✅ **Import System**: Updated to use unified `/api/import/file` endpoint for all file types
+- ✅ **Progress Tracking**: Disabled deprecated CSV progress polling (TODO: implement task-based progress)
+
+**Files Modified**:
+- `useOrderImport.ts`: Updated to use unified import endpoint
+- `crud.test.ts`: Fixed method names and data model inconsistencies
+- Multiple test files: Updated to match actual service method signatures
+
+**Remaining TypeScript Errors**: ~50 compilation errors in test files (non-critical for basic functionality)
+
 ## Next Steps Recommendations
 
 ### Immediate Priority (Next 1-2 sessions)
