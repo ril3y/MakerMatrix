@@ -143,22 +143,24 @@ class SupplierConfigService(BaseService):
             # Use repository to create the configuration
             return self.supplier_config_repo.create_supplier_config(session, config)
     
-    def get_supplier_config(self, supplier_name: str, include_credentials: bool = False) -> SupplierConfigModel:
+    def get_supplier_config(self, supplier_name: str, include_credentials: bool = False) -> Dict[str, Any]:
         """
-        Get supplier configuration by name
+        Get supplier configuration by name as a dictionary
         
         Args:
             supplier_name: Name of the supplier
             include_credentials: Ignored (kept for compatibility)
             
         Returns:
-            Supplier configuration
+            Supplier configuration as dictionary
             
         Raises:
             ResourceNotFoundError: If supplier not found
         """
         with self.get_session() as session:
-            return self.supplier_config_repo.get_by_supplier_name_required(session, supplier_name)
+            config = self.supplier_config_repo.get_by_supplier_name_required(session, supplier_name)
+            # Convert to dictionary while in session to avoid detached instance issues
+            return config.to_dict()
     
     def get_all_supplier_configs(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
         """
@@ -353,31 +355,32 @@ class SupplierConfigService(BaseService):
                 "tested_at": datetime.utcnow().isoformat()
             }
     
-    def _create_api_client(self, config: SupplierConfigModel, credentials: Optional[Dict[str, str]] = None) -> BaseSupplier:
+    def _create_api_client(self, config: Dict[str, Any], credentials: Optional[Dict[str, str]] = None) -> BaseSupplier:
         """
         Create supplier instance using new supplier registry
         
         Args:
-            config: Supplier configuration
+            config: Supplier configuration dictionary
             credentials: Decrypted credentials
             
         Returns:
             Configured supplier instance
         """
         # Get supplier from new registry
-        supplier = get_supplier(config.supplier_name.lower())
+        supplier = get_supplier(config['supplier_name'].lower())
         
         # Configure the supplier with credentials and config
         config_dict = {
-            'base_url': config.base_url,
-            'request_timeout': config.timeout_seconds,
-            'max_retries': config.max_retries,
-            'rate_limit_per_minute': config.rate_limit_per_minute,
+            'base_url': config.get('base_url', ''),
+            'request_timeout': config.get('timeout_seconds', 30),
+            'max_retries': config.get('max_retries', 3),
+            'rate_limit_per_minute': config.get('rate_limit_per_minute', 60),
         }
         
         # Add custom parameters if available
-        if config.custom_parameters:
-            config_dict.update(config.custom_parameters)
+        custom_params = config.get('custom_parameters', {})
+        if custom_params:
+            config_dict.update(custom_params)
         
         # Check if supplier requires credentials by looking at its schema
         try:
@@ -385,26 +388,26 @@ class SupplierConfigService(BaseService):
             required_creds = [field for field in credential_schema if field.required]
             
             if required_creds and not credentials:
-                self.logger.warning(f"Supplier {config.supplier_name} requires credentials but none provided")
+                self.logger.warning(f"Supplier {config['supplier_name']} requires credentials but none provided")
                 # Still configure - some suppliers (like McMaster scraper mode) can work without creds
             
             # Configure the supplier
             supplier.configure(credentials or {}, config_dict)
             
         except Exception as e:
-            self.logger.warning(f"Error checking credential requirements for {config.supplier_name}: {e}")
+            self.logger.warning(f"Error checking credential requirements for {config['supplier_name']}: {e}")
             # Still try to configure
             supplier.configure(credentials or {}, config_dict)
         
-        self.logger.info(f"Successfully created {config.supplier_name} supplier instance")
+        self.logger.info(f"Successfully created {config['supplier_name']} supplier instance")
         return supplier
     
-    def initialize_default_suppliers(self) -> List[SupplierConfigModel]:
+    def initialize_default_suppliers(self) -> List[Dict[str, Any]]:
         """
         Initialize default supplier configurations if they don't exist
         
         Returns:
-            List of created or existing supplier configurations
+            List of created or existing supplier configurations as dictionaries
         """
         created_configs = []
         
@@ -418,7 +421,11 @@ class SupplierConfigService(BaseService):
                 # Create default supplier
                 config_data['supplier_name'] = supplier_name
                 created_config = self.create_supplier_config(config_data)
-                created_configs.append(created_config)
+                # Convert to dictionary for consistent return type
+                with self.get_session() as session:
+                    # Refresh the created config to ensure it's attached to session
+                    fresh_config = self.supplier_config_repo.get_by_id(session, created_config.id)
+                    created_configs.append(fresh_config.to_dict())
                 self.logger.info(f"Created default supplier configuration: {supplier_name}")
         
         return created_configs

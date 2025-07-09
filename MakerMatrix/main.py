@@ -60,6 +60,21 @@ async def lifespan(app: FastAPI):
         print(f"Failed to initialize rate limiting: {e}")
         # Don't fail startup if rate limiting initialization fails
     
+    # Initialize default supplier configurations
+    print("Initializing default supplier configurations...")
+    try:
+        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+        
+        config_service = SupplierConfigService()
+        # Initialize default suppliers (will skip if they already exist)
+        configs = config_service.initialize_default_suppliers()
+        print(f"Initialized {len(configs)} supplier configurations")
+        
+        print("Default supplier initialization completed!")
+    except Exception as e:
+        print(f"Failed to initialize default suppliers: {e}")
+        # Don't fail startup if supplier initialization fails
+    
     # Auto-initialize suppliers with environment credentials
     print("Auto-initializing suppliers with environment credentials...")
     try:

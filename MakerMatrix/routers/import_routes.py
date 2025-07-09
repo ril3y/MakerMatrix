@@ -108,7 +108,7 @@ async def import_file(
                     continue
             
             # Supplier must be configured and enabled
-            if not supplier_config or not supplier_config.enabled:
+            if not supplier_config or not supplier_config.get('enabled', False):
                 raise HTTPException(
                     status_code=403,
                     detail=f"Supplier {supplier_name} is not configured or enabled. Please configure the supplier in Settings -> Suppliers before importing files."

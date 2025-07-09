@@ -33,8 +33,8 @@ def main():
     print(f"Initialized {len(configs)} supplier configurations:")
     
     for config in configs:
-        capabilities = config.get_capabilities()
-        print(f"  - {config.supplier_name}: {len(capabilities)} capabilities")
+        capabilities = config.get('capabilities', [])
+        print(f"  - {config['supplier_name']}: {len(capabilities)} capabilities")
         print(f"    Capabilities: {', '.join(capabilities)}")
     
     print("\nSupplier initialization complete!")
