@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 
 from MakerMatrix.models.models import CategoryModel, CategoryUpdate
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, CategoryAlreadyExistsError
+from MakerMatrix.exceptions import ResourceNotFoundError, CategoryAlreadyExistsError
 from MakerMatrix.schemas.part_response import CategoryResponse, DeleteCategoriesResponse, CategoriesListResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.category_service import CategoryService
@@ -25,15 +25,19 @@ async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
         ResponseSchema: A response containing all categories
     """
     try:
-        response = CategoryService.get_all_categories()
-        print(f"Service response: {response}")  # Debug log
+        category_service = CategoryService()
+        service_response = category_service.get_all_categories()
+        
+        if not service_response.success:
+            raise HTTPException(status_code=400, detail=service_response.message)
+        
         return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=CategoriesListResponse(**response["data"])
+            status="success",
+            message=service_response.message,
+            data=CategoriesListResponse(**service_response.data)
         )
     except Exception as e:
-        print(f"Error in get_all_categories: {str(e)}")  # Debug log
+        logger.error(f"Error in get_all_categories: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -55,41 +59,46 @@ async def add_category(
     try:
         if not category_data.name:
             raise HTTPException(status_code=400, detail="Category name is required")
-            
-        response = CategoryService.add_category(category_data)
-        print(f"Service response: {response}")  # Debug log
         
-        # Ensure we have a data field in the response
-        if "data" not in response:
-            raise HTTPException(status_code=500, detail="Invalid response format from service")
+        category_service = CategoryService()
+        service_response = category_service.add_category(category_data)
+        
+        if not service_response.success:
+            if "already exists" in service_response.message:
+                raise HTTPException(status_code=409, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
         
         # Convert response data to CategoryResponse for type safety
-        category_response_data = CategoryResponse.model_validate(response["data"])
+        category_response_data = CategoryResponse.model_validate(service_response.data)
         
         # Log activity
         try:
             from MakerMatrix.services.activity_service import get_activity_service
             activity_service = get_activity_service()
             await activity_service.log_category_created(
-                category_id=response["data"]["id"],
-                category_name=response["data"]["name"],
+                category_id=service_response.data["id"],
+                category_name=service_response.data["name"],
                 user=current_user,
                 request=request
             )
         except Exception as activity_error:
-            print(f"Failed to log category creation activity: {activity_error}")
+            logger.warning(f"Failed to log category creation activity: {activity_error}")
             
         return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
+            status="success",
+            message=service_response.message,
             data=category_response_data
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like the 409 raised above) as-is
+        raise
     except CategoryAlreadyExistsError as cae:
-        raise HTTPException(status_code=400, detail=str(cae))
+        raise HTTPException(status_code=409, detail=str(cae))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        print(f"Error in add_category: {str(e)}")  # Debug log
+        logger.error(f"Unexpected error in add_category: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -114,7 +123,14 @@ async def update_category(
         if not category_id:
             raise HTTPException(status_code=400, detail="Category ID is required")
             
-        response = CategoryService.update_category(category_id, category_data)
+        category_service = CategoryService()
+        service_response = category_service.update_category(category_id, category_data)
+        
+        if not service_response.success:
+            if "not found" in service_response.message:
+                raise HTTPException(status_code=404, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
         
         # Log activity
         try:
@@ -126,24 +142,28 @@ async def update_category(
             
             await activity_service.log_category_updated(
                 category_id=category_id,
-                category_name=response["data"]["name"],
+                category_name=service_response.data["name"],
                 changes=changes,
                 user=current_user,
                 request=request
             )
         except Exception as activity_error:
-            print(f"Failed to log category update activity: {activity_error}")
+            logger.warning(f"Failed to log category update activity: {activity_error}")
         
         return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=CategoryResponse.model_validate(response["data"])
+            status="success",
+            message=service_response.message,
+            data=CategoryResponse.model_validate(service_response.data)
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like the 404 raised above) as-is
+        raise
     except ResourceNotFoundError as rnfe:
         raise HTTPException(status_code=404, detail=str(rnfe))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
+        logger.error(f"Unexpected error in update_category: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -163,17 +183,29 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
         if not category_id and not name:
             raise HTTPException(status_code=400, detail="Either 'category_id' or 'name' must be provided")
             
-        response = CategoryService.get_category(category_id=category_id, name=name)
+        category_service = CategoryService()
+        service_response = category_service.get_category(category_id=category_id, name=name)
+        
+        if not service_response.success:
+            if "not found" in service_response.message:
+                raise HTTPException(status_code=404, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
+        
         return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=CategoryResponse.model_validate(response["data"])
+            status="success",
+            message=service_response.message,
+            data=CategoryResponse.model_validate(service_response.data)
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like the 404 raised above) as-is
+        raise
     except ResourceNotFoundError as rnfe:
         raise HTTPException(status_code=404, detail=str(rnfe))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
+        logger.error(f"Unexpected error in get_category: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -201,31 +233,42 @@ async def remove_category(
         )
             
     try:
-        response = CategoryService.remove_category(id=cat_id, name=name)
+        category_service = CategoryService()
+        service_response = category_service.remove_category(id=cat_id, name=name)
+        
+        if not service_response.success:
+            if "not found" in service_response.message:
+                raise HTTPException(status_code=404, detail=service_response.message)
+            else:
+                raise HTTPException(status_code=400, detail=service_response.message)
         
         # Log activity
         try:
             from MakerMatrix.services.activity_service import get_activity_service
             activity_service = get_activity_service()
             await activity_service.log_category_deleted(
-                category_id=response["data"]["id"],
-                category_name=response["data"]["name"],
+                category_id=service_response.data["id"],
+                category_name=service_response.data["name"],
                 user=current_user,
                 request=request
             )
         except Exception as activity_error:
-            print(f"Failed to log category deletion activity: {activity_error}")
+            logger.warning(f"Failed to log category deletion activity: {activity_error}")
         
         return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=CategoryResponse.model_validate(response["data"])
+            status="success",
+            message=service_response.message,
+            data=CategoryResponse.model_validate(service_response.data)
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like the 404 raised above) as-is
+        raise
     except ResourceNotFoundError as rnfe:
         raise HTTPException(status_code=404, detail=str(rnfe))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
+        logger.error(f"Unexpected error in remove_category: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

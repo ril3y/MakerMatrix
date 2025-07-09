@@ -545,7 +545,7 @@ def log_exception(exception: Exception, context: str = None,
         # Log MakerMatrix exceptions with full details
         log_data = {
             "error_code": exception.error_code,
-            "message": exception.message,
+            "error_message": exception.message,  # Renamed to avoid conflict with LogRecord.message
             "details": exception.details,
             "context": context
         }
@@ -558,7 +558,7 @@ def log_exception(exception: Exception, context: str = None,
         # Log other exceptions with basic information
         log_data = {
             "exception_type": type(exception).__name__,
-            "message": str(exception),
+            "error_message": str(exception),  # Renamed to avoid conflict with LogRecord.message
             "context": context
         }
         
