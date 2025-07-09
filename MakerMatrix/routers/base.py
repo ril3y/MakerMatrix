@@ -14,8 +14,14 @@ from fastapi.responses import Response
 
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError, 
-    PartAlreadyExistsError
+    PartAlreadyExistsError,
+    UserAlreadyExistsError,
+    CategoryAlreadyExistsError,
+    LocationAlreadyExistsError,
+    InvalidReferenceError,
+    SupplierConfigAlreadyExistsError
 )
+from MakerMatrix.exceptions import InvalidLabelSizeError
 from MakerMatrix.schemas.response import ResponseSchema
 
 logger = logging.getLogger(__name__)
@@ -76,8 +82,14 @@ class BaseRouter:
             return e
         elif isinstance(e, ResourceNotFoundError):
             return HTTPException(status_code=404, detail=str(e))
-        elif isinstance(e, PartAlreadyExistsError):
+        elif isinstance(e, (PartAlreadyExistsError, UserAlreadyExistsError, 
+                           CategoryAlreadyExistsError, LocationAlreadyExistsError,
+                           SupplierConfigAlreadyExistsError)):
             return HTTPException(status_code=409, detail=str(e))
+        elif isinstance(e, InvalidReferenceError):
+            return HTTPException(status_code=400, detail=str(e))
+        elif isinstance(e, InvalidLabelSizeError):
+            return HTTPException(status_code=422, detail=str(e))
         elif isinstance(e, ValueError):
             return HTTPException(status_code=400, detail=str(e))
         elif isinstance(e, PermissionError):

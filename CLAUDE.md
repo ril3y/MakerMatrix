@@ -195,9 +195,35 @@ GET /api/tasks/capabilities/find/{capability_type}     # Find suppliers with cap
 
 - **Auto-creation**: Database is created automatically on first run
 - **Default admin user**: `admin` / `Admin123!`
-- **Reset users**: `python MakerMatrix/scripts/setup_admin.py`
+- **Clean database setup**: `python MakerMatrix/scripts/setup_admin.py`
+- **Development test data**: `python MakerMatrix/scripts/dev/create_test_data.py`
 - **Session management**: Use `Session(engine)` pattern in tasks
 - **Repository pattern**: Always use repositories for database operations
+
+#### Database Initialization Scripts
+
+**Primary Setup Script:**
+```bash
+# Complete database setup with tables, roles, and admin user
+python MakerMatrix/scripts/setup_admin.py
+```
+
+**Development Scripts:**
+```bash
+# Create comprehensive test data (locations, categories, parts)
+python MakerMatrix/scripts/dev/create_test_data.py
+
+# Create parts directly via service layer
+python MakerMatrix/scripts/dev/create_parts_direct.py
+
+# Create parts manually via repository
+python MakerMatrix/scripts/dev/create_parts_manual.py
+```
+
+**Database Troubleshooting:**
+- If WebSocket authentication fails with "no such table: usermodel", run `python MakerMatrix/scripts/setup_admin.py`
+- If database appears empty, check tables exist with: `python -c "from MakerMatrix.models.models import engine; from sqlalchemy import inspect; print(inspect(engine).get_table_names())"`
+- Main database file: `makermatrix.db` (not `makers_matrix.db`)
 
 ### Database Access Architecture (CRITICAL)
 

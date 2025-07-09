@@ -80,7 +80,7 @@ async def get_location(
 
 @router.put("/update_location/{location_id}")
 @standard_error_handling
-@log_activity
+@log_activity("location_updated", "User {username} updated location")
 async def update_location(
     location_id: str, 
     location_data: LocationUpdate,
@@ -135,7 +135,7 @@ async def update_location(
 
 @router.post("/add_location")
 @standard_error_handling
-@log_activity
+@log_activity("location_created", "User {username} created location")
 async def add_location(
     location_data: LocationCreateRequest, 
     request: Request,
@@ -240,7 +240,7 @@ async def preview_location_delete(location_id: str) -> ResponseSchema:
 
 @router.delete("/delete_location/{location_id}")
 @standard_error_handling
-@log_activity
+@log_activity("location_deleted", "User {username} deleted location")
 async def delete_location(
     location_id: str,
     request: Request,

@@ -95,6 +95,174 @@ This server provides a RESTful API for managing an inventory of parts.  It allow
 
    If no credentials are provided, suppliers will operate in limited mode (search only, no enrichment).
 
+## Supplier Architecture
+
+MakerMatrix uses a unified supplier abstraction layer that provides consistent interfaces for all supplier integrations. This architecture eliminates code duplication and provides standardized patterns for adding new suppliers.
+
+### Core Components
+
+#### 1. SupplierHTTPClient (`suppliers/http_client.py`)
+Unified HTTP client that handles all supplier API communications:
+
+- **Defensive null safety**: Automatically handles `response.json() or {}` patterns
+- **Retry logic**: Exponential backoff with configurable retry policies
+- **Rate limiting**: Integrated with the rate limiting service
+- **Session management**: Automatic connection pooling and cleanup
+- **Error handling**: Consistent error patterns across all suppliers
+
+**Usage Example:**
+```python
+from MakerMatrix.suppliers.http_client import SupplierHTTPClient, RetryConfig
+
+# Create client with supplier-specific configuration
+client = SupplierHTTPClient(
+    supplier_name="lcsc",
+    default_timeout=30,
+    retry_config=RetryConfig(max_retries=3, base_delay=1.0)
+)
+
+# Make requests with automatic error handling
+response = await client.get("https://api.example.com/parts", endpoint_type="search")
+if response.success:
+    data = response.data  # Already parsed JSON with null safety
+```
+
+#### 2. Authentication Framework (`suppliers/auth_framework.py`)
+Standardized authentication patterns for all supplier types:
+
+- **OAuth2 client credentials**: Automatic token management and refresh
+- **API key authentication**: Simple header-based authentication
+- **Bearer token authentication**: JWT and similar token patterns
+- **Token lifecycle management**: Automatic expiry handling and refresh
+
+**Usage Example:**
+```python
+from MakerMatrix.suppliers.auth_framework import AuthenticationManager
+
+# Set up authentication
+auth_manager = AuthenticationManager("digikey", http_client)
+auth_manager.register_oauth2_client_credentials("https://api.digikey.com/token")
+
+# Authenticate and make requests
+result = await auth_manager.authenticate("oauth2_client_credentials", {
+    "client_id": "your_client_id",
+    "client_secret": "your_client_secret"
+})
+
+# Authentication headers are automatically added to requests
+headers = auth_manager.get_auth_headers()
+```
+
+#### 3. Data Extraction Utilities (`suppliers/data_extraction.py`)
+Standardized data parsing and normalization:
+
+- **Safe data access**: Defensive nested dictionary access
+- **Pricing extraction**: Standardized pricing break parsing
+- **URL validation**: Image and datasheet URL validation
+- **Specification parsing**: Consistent specification normalization
+- **Type conversion**: Safe type casting with fallbacks
+
+**Usage Example:**
+```python
+from MakerMatrix.suppliers.data_extraction import DataExtractor
+
+extractor = DataExtractor("lcsc")
+
+# Safe nested data access
+price = extractor.safe_get(api_data, ["pricing", "breaks", 0, "price"], 0.0)
+
+# Extract pricing with multiple fallback paths
+pricing_result = extractor.extract_pricing(
+    api_data, 
+    pricing_paths=["pricing.breaks", "price_breaks", "standard_pricing"]
+)
+
+# Validate and extract URLs
+datasheet_result = extractor.extract_datasheet_url(
+    api_data, 
+    datasheet_paths=["datasheet.url", "documents.datasheet"]
+)
+```
+
+### Creating New Suppliers
+
+To add a new supplier, follow these steps:
+
+1. **Create supplier class** inheriting from `BaseSupplier`
+2. **Use unified components** (HTTP client, auth, data extraction)
+3. **Implement required methods** following the established patterns
+4. **Register with the supplier registry**
+
+**Example supplier implementation:**
+```python
+from .base import BaseSupplier
+from .registry import register_supplier
+from .http_client import SupplierHTTPClient
+from .data_extraction import DataExtractor
+
+@register_supplier("example")
+class ExampleSupplier(BaseSupplier):
+    def __init__(self):
+        super().__init__()
+        self._http_client = None
+        self._data_extractor = None
+    
+    def _get_http_client(self) -> SupplierHTTPClient:
+        if not self._http_client:
+            self._http_client = SupplierHTTPClient(
+                supplier_name="example",
+                default_timeout=30,
+                default_headers={"User-Agent": "MakerMatrix/1.0"}
+            )
+        return self._http_client
+    
+    def _get_data_extractor(self) -> DataExtractor:
+        if not self._data_extractor:
+            self._data_extractor = DataExtractor("example")
+        return self._data_extractor
+    
+    async def get_part_details(self, part_number: str):
+        http_client = self._get_http_client()
+        extractor = self._get_data_extractor()
+        
+        # Make API request with unified client
+        response = await http_client.get(
+            f"https://api.example.com/parts/{part_number}",
+            endpoint_type="get_part_details"
+        )
+        
+        if response.success:
+            # Extract data with unified utilities
+            description = extractor.safe_get(response.data, ["description"], "")
+            pricing = extractor.extract_pricing(response.data, ["pricing"])
+            
+            return PartSearchResult(
+                supplier_part_number=part_number,
+                description=description,
+                pricing=pricing.value if pricing.success else None
+            )
+        
+        return None
+```
+
+### Benefits of the Unified Architecture
+
+1. **Code Reduction**: Eliminates 450+ lines of duplicate code per supplier
+2. **Consistency**: All suppliers follow the same patterns and behaviors
+3. **Maintainability**: Common issues are fixed once in the shared components
+4. **Reliability**: Defensive programming patterns prevent common errors
+5. **Testability**: Shared components have comprehensive test coverage
+
+### Migration from Legacy Suppliers
+
+Existing suppliers are being migrated to use the unified architecture:
+
+- **LCSC**: ✅ Migrated (reduced from 800+ to 400 lines)
+- **DigiKey**: 🔄 In progress  
+- **Mouser**: 🔄 Planned
+
+The migration process maintains backward compatibility while providing the benefits of the unified architecture.
+
 ### Running the Server
 
 1. Start the server:

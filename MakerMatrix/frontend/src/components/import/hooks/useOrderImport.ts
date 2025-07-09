@@ -154,25 +154,12 @@ export const useOrderImport = ({
 
   const pollProgress = useCallback(async () => {
     try {
-      const response = await apiClient.get('/api/import/import/progress')
-      const progress = response.data || response
-      if (progress && progress.processed_parts !== undefined) {
-        setImportProgress(progress)
-        
-        if (progress.is_complete) {
-          if (progressPollInterval.current) {
-            clearInterval(progressPollInterval.current)
-            progressPollInterval.current = null
-          }
-          setShowProgress(false)
-          setImporting(false)
-        }
-      }
+      // TODO: Implement task-based progress tracking
+      // The unified import system uses tasks for progress tracking
+      // For now, we'll disable progress polling until task ID is available
+      console.log('Progress polling disabled - waiting for task-based implementation')
     } catch (error: any) {
-      // Don't log 404 errors (no progress available yet)
-      if (error.response?.status !== 404) {
-        console.error('Failed to fetch import progress:', error)
-      }
+      console.error('Failed to fetch import progress:', error)
     }
   }, [])
 
@@ -213,33 +200,19 @@ export const useOrderImport = ({
       let response
       const fileName = file.name.toLowerCase()
       
-      if (fileName.endsWith('.csv')) {
-        // Handle CSV files with text content
-        const fileContent = await file.text()
-        response = await apiClient.post('/api/import/import/with-progress', {
-          csv_content: fileContent,
-          parser_type: parserType,
-          order_info: {
-            ...orderInfo,
-            supplier: previewData.detected_parser || previewData.type_info,
-            order_date: orderInfo.order_date || new Date().toISOString()
-          }
-        })
-      } else {
-        // Handle XLS files with file upload
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('supplier_name', parserType)
-        formData.append('order_number', orderInfo.order_number)
-        formData.append('order_date', orderInfo.order_date || new Date().toISOString())
-        formData.append('notes', orderInfo.notes)
-        
-        response = await apiClient.post('/api/import/file', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        })
-      }
+      // Use unified import endpoint for all file types (CSV, XLS, XLSX)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('supplier_name', parserType)
+      formData.append('order_number', orderInfo.order_number)
+      formData.append('order_date', orderInfo.order_date || new Date().toISOString())
+      formData.append('notes', orderInfo.notes)
+      
+      response = await apiClient.post('/api/import/file', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
 
       const result = response.data || response
       

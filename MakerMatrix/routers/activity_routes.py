@@ -9,6 +9,7 @@ from MakerMatrix.services.activity_service import get_activity_service, Activity
 from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
+from MakerMatrix.schemas.response import ResponseSchema
 
 
 router = APIRouter()
@@ -31,7 +32,7 @@ class ActivityListResponse(BaseModel):
     total: int
 
 
-@router.get("/recent", response_model=ActivityListResponse)
+@router.get("/recent")
 @standard_error_handling
 async def get_recent_activities(
     limit: int = Query(50, ge=1, le=100, description="Number of activities to return"),
@@ -39,7 +40,7 @@ async def get_recent_activities(
     hours: int = Query(24, ge=1, le=168, description="Hours back to look for activities"),
     current_user: UserModel = Depends(get_current_user),
     activity_service: ActivityService = Depends(get_activity_service)
-):
+) -> ResponseSchema:
     """Get recent activities."""
     
     activities = activity_service.get_recent_activities(
@@ -62,9 +63,12 @@ async def get_recent_activities(
         for activity in activities
     ]
     
-    return ActivityListResponse(
-        activities=activity_responses,
-        total=len(activity_responses)
+    return base_router.build_success_response(
+        data={
+            "activities": [r.model_dump() for r in activity_responses],
+            "total": len(activity_responses)
+        },
+        message="Recent activities retrieved successfully"
     )
 
 
@@ -74,7 +78,7 @@ async def get_activity_stats(
     hours: int = Query(24, ge=1, le=168, description="Hours back to analyze"),
     current_user: UserModel = Depends(get_current_user),
     activity_service: ActivityService = Depends(get_activity_service)
-):
+) -> ResponseSchema:
     """Get activity statistics."""
     
     activities = activity_service.get_recent_activities(
@@ -102,7 +106,10 @@ async def get_activity_stats(
         username = activity.username or "system"
         stats["by_user"][username] = stats["by_user"].get(username, 0) + 1
     
-    return stats
+    return base_router.build_success_response(
+        data=stats,
+        message="Activity statistics retrieved successfully"
+    )
 
 
 @router.post("/cleanup")
@@ -111,7 +118,7 @@ async def cleanup_old_activities(
     keep_days: int = Query(90, ge=7, le=365, description="Days of activities to keep"),
     current_user: UserModel = Depends(get_current_user),
     activity_service: ActivityService = Depends(get_activity_service)
-):
+) -> ResponseSchema:
     """Clean up old activity records (admin only)."""
     
     # Check if user has admin permissions
@@ -121,8 +128,10 @@ async def cleanup_old_activities(
     
     deleted_count = activity_service.cleanup_old_activities(keep_days=keep_days)
     
-    return {
-        "success": True,
-        "message": f"Cleaned up {deleted_count} old activity records",
-        "deleted_count": deleted_count
-    }
+    return base_router.build_success_response(
+        data={
+            "deleted_count": deleted_count,
+            "keep_days": keep_days
+        },
+        message=f"Cleaned up {deleted_count} old activity records"
+    )

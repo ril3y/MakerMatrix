@@ -12,7 +12,7 @@ const TEST_USER = {
 }
 
 const TEST_PART = {
-  part_name: 'Test Part ' + Date.now(),
+  name: 'Test Part ' + Date.now(),
   part_number: 'TEST-' + Date.now(),
   description: 'Test part for CRUD tests',
   quantity: 100,
@@ -37,8 +37,8 @@ describe('CRUD Operations API Tests', () => {
 
   beforeAll(async () => {
     // Login
-    const loginResult = await authService.login(TEST_USER.username, TEST_USER.password)
-    expect(loginResult.success).toBe(true)
+    const loginResult = await authService.login(TEST_USER)
+    expect(loginResult.access_token).toBeDefined()
   })
 
   afterAll(async () => {
@@ -62,11 +62,11 @@ describe('CRUD Operations API Tests', () => {
 
   describe('Parts CRUD', () => {
     it('should create a new part', async () => {
-      const response = await partsService.addPart(TEST_PART)
+      const response = await partsService.createPart(TEST_PART)
       
       expect(response).toBeDefined()
       expect(response.id).toBeDefined()
-      expect(response.part_name).toBe(TEST_PART.part_name)
+      expect(response.name).toBe(TEST_PART.name)
       expect(response.quantity).toBe(TEST_PART.quantity)
       
       createdPartId = response.id
@@ -76,19 +76,19 @@ describe('CRUD Operations API Tests', () => {
       const response = await partsService.getAllParts(1, 10)
       
       expect(response).toBeDefined()
-      expect(response.parts).toBeDefined()
-      expect(Array.isArray(response.parts)).toBe(true)
-      expect(response.parts.length).toBeGreaterThan(0)
+      expect(response.data).toBeDefined()
+      expect(Array.isArray(response.data)).toBe(true)
+      expect(response.data.length).toBeGreaterThan(0)
     })
 
     it('should read a single part', async () => {
       if (!createdPartId) throw new Error('No part created')
       
-      const response = await partsService.getPartById(createdPartId)
+      const response = await partsService.getPart(createdPartId)
       
       expect(response).toBeDefined()
       expect(response.id).toBe(createdPartId)
-      expect(response.part_name).toBe(TEST_PART.part_name)
+      expect(response.name).toBe(TEST_PART.name)
     })
 
     it('should update a part', async () => {
@@ -113,19 +113,18 @@ describe('CRUD Operations API Tests', () => {
         quantity: -10  // Negative quantity should fail
       }
       
-      await expect(partsService.addPart(invalidPart as any)).rejects.toThrow()
+      await expect(partsService.createPart(invalidPart as any)).rejects.toThrow()
     })
 
     it('should delete a part', async () => {
       if (!createdPartId) throw new Error('No part created')
       
-      const response = await partsService.deletePart(createdPartId)
+      await partsService.deletePart(createdPartId)
       
-      expect(response).toBeDefined()
-      expect(response.success).toBe(true)
+      // deletePart returns void on success
       
       // Verify deletion
-      await expect(partsService.getPartById(createdPartId)).rejects.toThrow()
+      await expect(partsService.getPart(createdPartId)).rejects.toThrow()
       
       createdPartId = undefined // Clear ID after deletion
     })
@@ -133,7 +132,7 @@ describe('CRUD Operations API Tests', () => {
 
   describe('Locations CRUD', () => {
     it('should create a new location', async () => {
-      const response = await locationsService.addLocation(TEST_LOCATION)
+      const response = await locationsService.createLocation(TEST_LOCATION)
       
       expect(response).toBeDefined()
       expect(response.id).toBeDefined()
@@ -154,7 +153,7 @@ describe('CRUD Operations API Tests', () => {
     it('should read a single location', async () => {
       if (!createdLocationId) throw new Error('No location created')
       
-      const response = await locationsService.getLocationById(createdLocationId)
+      const response = await locationsService.getLocation({ id: createdLocationId })
       
       expect(response).toBeDefined()
       expect(response.id).toBe(createdLocationId)
@@ -168,7 +167,7 @@ describe('CRUD Operations API Tests', () => {
         description: 'Updated test location description'
       }
       
-      const response = await locationsService.updateLocation(createdLocationId, updateData)
+      const response = await locationsService.updateLocation({ id: createdLocationId, ...updateData })
       
       expect(response).toBeDefined()
       expect(response.description).toBe(updateData.description)
@@ -176,13 +175,13 @@ describe('CRUD Operations API Tests', () => {
 
     it('should handle location hierarchy properly', async () => {
       // Create parent location
-      const parentLocation = await locationsService.addLocation({
+      const parentLocation = await locationsService.createLocation({
         name: 'Parent Location ' + Date.now(),
         description: 'Parent location for hierarchy test'
       })
       
       // Create child location
-      const childLocation = await locationsService.addLocation({
+      const childLocation = await locationsService.createLocation({
         name: 'Child Location ' + Date.now(),
         description: 'Child location for hierarchy test',
         parent_id: parentLocation.id
@@ -201,7 +200,7 @@ describe('CRUD Operations API Tests', () => {
       const response = await locationsService.deleteLocation(createdLocationId)
       
       expect(response).toBeDefined()
-      expect(response.success).toBe(true)
+      expect(response.affected_parts).toBeDefined() // LocationDeleteResponse has affected_parts
       
       createdLocationId = undefined
     })
@@ -209,7 +208,7 @@ describe('CRUD Operations API Tests', () => {
 
   describe('Categories CRUD', () => {
     it('should create a new category', async () => {
-      const response = await categoriesService.addCategory(TEST_CATEGORY)
+      const response = await categoriesService.createCategory(TEST_CATEGORY)
       
       expect(response).toBeDefined()
       expect(response.id).toBeDefined()
@@ -230,7 +229,7 @@ describe('CRUD Operations API Tests', () => {
     it('should read a single category', async () => {
       if (!createdCategoryId) throw new Error('No category created')
       
-      const response = await categoriesService.getCategoryById(createdCategoryId)
+      const response = await categoriesService.getCategory({ id: createdCategoryId })
       
       expect(response).toBeDefined()
       expect(response.id).toBe(createdCategoryId)
@@ -244,7 +243,7 @@ describe('CRUD Operations API Tests', () => {
         description: 'Updated test category description'
       }
       
-      const response = await categoriesService.updateCategory(createdCategoryId, updateData)
+      const response = await categoriesService.updateCategory({ id: createdCategoryId, ...updateData })
       
       expect(response).toBeDefined()
       expect(response.description).toBe(updateData.description)
@@ -252,7 +251,7 @@ describe('CRUD Operations API Tests', () => {
 
     it('should handle duplicate category names', async () => {
       // Try to create category with same name
-      await expect(categoriesService.addCategory({
+      await expect(categoriesService.createCategory({
         name: TEST_CATEGORY.name,
         description: 'Duplicate category'
       })).rejects.toThrow()
@@ -261,10 +260,10 @@ describe('CRUD Operations API Tests', () => {
     it('should delete a category', async () => {
       if (!createdCategoryId) throw new Error('No category created')
       
-      const response = await categoriesService.deleteCategory(createdCategoryId)
+      const response = await categoriesService.deleteCategory({ id: createdCategoryId })
       
       expect(response).toBeDefined()
-      expect(response.success).toBe(true)
+      expect(response.name).toBe(TEST_CATEGORY.name) // deleteCategory returns the deleted category
       
       createdCategoryId = undefined
     })
@@ -296,7 +295,7 @@ describe('CRUD Operations API Tests', () => {
     it('should handle error responses consistently', async () => {
       // Test 404 error
       try {
-        await partsService.getPartById('non-existent-id')
+        await partsService.getPart('non-existent-id')
         expect.fail('Should have thrown an error')
       } catch (error: any) {
         expect(error.response?.status).toBe(404)
@@ -308,20 +307,20 @@ describe('CRUD Operations API Tests', () => {
   describe('Cross-Entity Operations', () => {
     it('should handle part with location and category', async () => {
       // Create location and category
-      const location = await locationsService.addLocation({
+      const location = await locationsService.createLocation({
         name: 'Cross-test Location ' + Date.now(),
         description: 'Location for cross-entity test'
       })
       
-      const category = await categoriesService.addCategory({
+      const category = await categoriesService.createCategory({
         name: 'Cross-test Category ' + Date.now(),
         description: 'Category for cross-entity test'
       })
       
       // Create part with location and category
-      const part = await partsService.addPart({
+      const part = await partsService.createPart({
         ...TEST_PART,
-        part_name: 'Cross-test Part ' + Date.now(),
+        name: 'Cross-test Part ' + Date.now(),
         location_id: location.id,
         category_names: [category.name]
       })

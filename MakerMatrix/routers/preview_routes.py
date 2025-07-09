@@ -15,7 +15,7 @@ from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 
 
-router = APIRouter(prefix="/api/preview", tags=["Label Preview"])
+router = APIRouter(tags=["Label Preview"])
 base_router = BaseRouter()
 
 
@@ -73,24 +73,28 @@ def get_preview_manager():
 
 @router.get("/printers")
 @standard_error_handling
-async def get_available_printers() -> Dict[str, Any]:
+async def get_available_printers() -> ResponseSchema[Dict[str, Any]]:
     """Get list of available printers for preview."""
     manager = get_preview_manager()
-    return {
+    data = {
         "printers": manager.get_registered_printers(),
         "default": "mock_preview" if "mock_preview" in manager.get_registered_printers() else None
     }
+    return base_router.build_success_response(
+        data=data,
+        message="Available printers retrieved successfully"
+    )
 
 
 @router.get("/labels/sizes")
 @standard_error_handling
-async def get_label_sizes(printer_id: Optional[str] = None) -> Dict[str, Any]:
+async def get_label_sizes(printer_id: Optional[str] = None) -> ResponseSchema[Dict[str, Any]]:
     """Get available label sizes for preview."""
     manager = get_preview_manager()
     service = manager.get_preview_service(printer_id)
     sizes = service.get_available_label_sizes()
     
-    return {
+    data = {
         "sizes": [
             {
                 "name": size.name,
@@ -103,6 +107,11 @@ async def get_label_sizes(printer_id: Optional[str] = None) -> Dict[str, Any]:
             for size in sizes
         ]
     }
+    
+    return base_router.build_success_response(
+        data=data,
+        message="Available label sizes retrieved successfully"
+    )
 
 
 @router.post("/part/qr_code/{part_id}", response_model=PreviewResponse)
@@ -218,7 +227,7 @@ async def preview_combined_label(part_id: str, custom_text: Optional[str] = None
 
 @router.get("/validate/size/{label_size}")
 @standard_error_handling
-async def validate_label_size(label_size: str, printer_id: Optional[str] = None) -> Dict[str, Any]:
+async def validate_label_size(label_size: str, printer_id: Optional[str] = None) -> ResponseSchema[Dict[str, Any]]:
     """Validate if a label size is supported."""
     manager = get_preview_manager()
     service = manager.get_preview_service(printer_id)
@@ -226,8 +235,13 @@ async def validate_label_size(label_size: str, printer_id: Optional[str] = None)
     is_valid = service.validate_label_size(label_size)
     sizes = service.get_available_label_sizes()
     
-    return {
+    data = {
         "valid": is_valid,
         "label_size": label_size,
         "supported_sizes": [size.name for size in sizes]
     }
+    
+    return base_router.build_success_response(
+        data=data,
+        message="Label size validation completed"
+    )
