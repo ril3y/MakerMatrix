@@ -1,4 +1,4 @@
-"""
+from MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n"""
 Integration tests for rate limiting with supplier APIs
 
 Tests the complete rate limiting flow with real supplier implementations.
@@ -11,7 +11,6 @@ from unittest.mock import patch, AsyncMock
 
 from MakerMatrix.services.rate_limit_service import RateLimitService
 from MakerMatrix.suppliers.registry import get_supplier
-from MakerMatrix.models.models import engine
 from MakerMatrix.models.rate_limiting_models import SupplierRateLimitModel
 from sqlalchemy.orm import Session
 
@@ -213,7 +212,7 @@ class TestRateLimitingIntegration:
         # Use the global engine instance
         
         # Update rate limits for Mouser
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             rate_limit = session.query(SupplierRateLimitModel).filter_by(
                 supplier_name="MOUSER"
             ).first()

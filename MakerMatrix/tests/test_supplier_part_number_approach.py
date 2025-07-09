@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+from MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n#!/usr/bin/env python3
 """
 Test the new supplier_part_number approach for enrichment
 """
@@ -11,7 +11,6 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'MakerMatrix'))
 
 from MakerMatrix.suppliers.lcsc import LCSCSupplier
-from MakerMatrix.models.models import engine
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.data.part_service import PartService
 from sqlmodel import Session
@@ -55,7 +54,7 @@ C25804,,10K 1% 0603,0603WAF1002T5E,UNI-ROYAL(厚声),0603,resistors,0.004,0.004,
                 
                 # Test 3: Verify database storage
                 print(f"\n🔍 Step 3: Verifying database storage...")
-                with Session(engine) as session:
+                with Session(isolated_test_engine) as session:
                     part_repo = PartRepository(engine)
                     db_part = part_repo.get_part_by_id(session, part_id)
                     

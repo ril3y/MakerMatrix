@@ -11,6 +11,9 @@ from MakerMatrix.auth.dependencies import oauth2_scheme
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+# BaseRouter infrastructure
+from MakerMatrix.routers.base import BaseRouter, standard_error_handling
+
 # Define a standard OAuth2 token response model
 class Token(BaseModel):
     access_token: str
@@ -156,6 +159,7 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 @router.post("/auth/mobile-refresh", response_model=ResponseSchema[Token])
+@standard_error_handling
 async def mobile_refresh_token(refresh_request: RefreshRequest) -> ResponseSchema[Token]:
     """Mobile-friendly token refresh endpoint using JSON body instead of cookies."""
     try:
@@ -182,10 +186,9 @@ async def mobile_refresh_token(refresh_request: RefreshRequest) -> ResponseSchem
             }
         )
 
-        return ResponseSchema(
-            status="success",
-            message="Token refreshed successfully",
-            data=Token(access_token=access_token, token_type="bearer")
+        return BaseRouter.build_success_response(
+            data=Token(access_token=access_token, token_type="bearer"),
+            message="Token refreshed successfully"
         )
 
     except JWTError:
@@ -195,6 +198,7 @@ async def mobile_refresh_token(refresh_request: RefreshRequest) -> ResponseSchem
         )
 
 @router.post("/auth/refresh")
+@standard_error_handling
 async def refresh_token(refresh_token: Optional[str] = Cookie(None)) -> JSONResponse:
     if not refresh_token:
         raise HTTPException(
@@ -226,17 +230,16 @@ async def refresh_token(refresh_token: Optional[str] = Cookie(None)) -> JSONResp
             }
         )
 
-        return JSONResponse(
-            content=ResponseSchema(
-                status="success",
-                message="Token refreshed successfully",
-                data={
-                    "access_token": access_token,
-                    "token_type": "bearer",
-                    "password_change_required": user.password_change_required
-                }
-            ).model_dump()
+        response_data = BaseRouter.build_success_response(
+            data={
+                "access_token": access_token,
+                "token_type": "bearer",
+                "password_change_required": user.password_change_required
+            },
+            message="Token refreshed successfully"
         )
+
+        return JSONResponse(content=response_data.model_dump())
 
     except JWTError:
         raise HTTPException(
@@ -246,14 +249,14 @@ async def refresh_token(refresh_token: Optional[str] = Cookie(None)) -> JSONResp
 
 
 @router.post("/auth/logout")
+@standard_error_handling
 async def logout() -> JSONResponse:
-    response = JSONResponse(
-        content=ResponseSchema(
-            status="success",
-            message="Logout successful",
-            data=None
-        ).model_dump()
+    response_data = BaseRouter.build_success_response(
+        data=None,
+        message="Logout successful"
     )
+    
+    response = JSONResponse(content=response_data.model_dump())
 
     # Clear the refresh token cookie
     response.delete_cookie(

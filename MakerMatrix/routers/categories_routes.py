@@ -12,11 +12,15 @@ from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
 
+# BaseRouter infrastructure
+from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.get("/get_all_categories", response_model=ResponseSchema[CategoriesListResponse])
+@standard_error_handling
 async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
     """
     Get all categories in the system.
@@ -24,24 +28,19 @@ async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
     Returns:
         ResponseSchema: A response containing all categories
     """
-    try:
-        category_service = CategoryService()
-        service_response = category_service.get_all_categories()
-        
-        if not service_response.success:
-            raise HTTPException(status_code=400, detail=service_response.message)
-        
-        return ResponseSchema(
-            status="success",
-            message=service_response.message,
-            data=CategoriesListResponse(**service_response.data)
-        )
-    except Exception as e:
-        logger.error(f"Error in get_all_categories: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    category_service = CategoryService()
+    service_response = category_service.get_all_categories()
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=CategoriesListResponse(**data),
+        message=service_response.message
+    )
 
 
 @router.post("/add_category", response_model=ResponseSchema[CategoryResponse])
+@standard_error_handling
+@log_activity("category_created", "User {username} created category")
 async def add_category(
     category_data: CategoryModel,
     request: Request,
@@ -56,53 +55,21 @@ async def add_category(
     Returns:
         ResponseSchema: A response containing the created category
     """
-    try:
-        if not category_data.name:
-            raise HTTPException(status_code=400, detail="Category name is required")
-        
-        category_service = CategoryService()
-        service_response = category_service.add_category(category_data)
-        
-        if not service_response.success:
-            if "already exists" in service_response.message:
-                raise HTTPException(status_code=409, detail=service_response.message)
-            else:
-                raise HTTPException(status_code=400, detail=service_response.message)
-        
-        # Convert response data to CategoryResponse for type safety
-        category_response_data = CategoryResponse.model_validate(service_response.data)
-        
-        # Log activity
-        try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            await activity_service.log_category_created(
-                category_id=service_response.data["id"],
-                category_name=service_response.data["name"],
-                user=current_user,
-                request=request
-            )
-        except Exception as activity_error:
-            logger.warning(f"Failed to log category creation activity: {activity_error}")
-            
-        return ResponseSchema(
-            status="success",
-            message=service_response.message,
-            data=category_response_data
-        )
-    except HTTPException:
-        # Re-raise HTTP exceptions (like the 409 raised above) as-is
-        raise
-    except CategoryAlreadyExistsError as cae:
-        raise HTTPException(status_code=409, detail=str(cae))
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        logger.error(f"Unexpected error in add_category: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    if not category_data.name:
+        raise ValueError("Category name is required")
+    
+    category_service = CategoryService()
+    service_response = category_service.add_category(category_data)
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=CategoryResponse.model_validate(data),
+        message=service_response.message
+    )
 
 
 @router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryResponse])
+@standard_error_handling
 async def update_category(
     category_id: str, 
     category_data: CategoryUpdate,
@@ -119,55 +86,39 @@ async def update_category(
     Returns:
         ResponseSchema: A response containing the updated category
     """
+    if not category_id:
+        raise ValueError("Category ID is required")
+        
+    category_service = CategoryService()
+    service_response = category_service.update_category(category_id, category_data)
+    data = validate_service_response(service_response)
+    
+    # Log activity
     try:
-        if not category_id:
-            raise HTTPException(status_code=400, detail="Category ID is required")
-            
-        category_service = CategoryService()
-        service_response = category_service.update_category(category_id, category_data)
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
         
-        if not service_response.success:
-            if "not found" in service_response.message:
-                raise HTTPException(status_code=404, detail=service_response.message)
-            else:
-                raise HTTPException(status_code=400, detail=service_response.message)
+        # Create changes dict from the update data
+        changes = {k: v for k, v in category_data.model_dump().items() if v is not None}
         
-        # Log activity
-        try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            
-            # Create changes dict from the update data
-            changes = {k: v for k, v in category_data.model_dump().items() if v is not None}
-            
-            await activity_service.log_category_updated(
-                category_id=category_id,
-                category_name=service_response.data["name"],
-                changes=changes,
-                user=current_user,
-                request=request
-            )
-        except Exception as activity_error:
-            logger.warning(f"Failed to log category update activity: {activity_error}")
-        
-        return ResponseSchema(
-            status="success",
-            message=service_response.message,
-            data=CategoryResponse.model_validate(service_response.data)
+        await activity_service.log_category_updated(
+            category_id=category_id,
+            category_name=data["name"],
+            changes=changes,
+            user=current_user,
+            request=request
         )
-    except HTTPException:
-        # Re-raise HTTP exceptions (like the 404 raised above) as-is
-        raise
-    except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=str(rnfe))
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        logger.error(f"Unexpected error in update_category: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as activity_error:
+        logger.warning(f"Failed to log category update activity: {activity_error}")
+    
+    return BaseRouter.build_success_response(
+        data=CategoryResponse.model_validate(data),
+        message=service_response.message
+    )
 
 
 @router.get("/get_category", response_model=ResponseSchema[CategoryResponse])
+@standard_error_handling
 async def get_category(category_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[CategoryResponse]:
     """
     Get a category by ID or name.
@@ -179,37 +130,22 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
     Returns:
         ResponseSchema: A response containing the requested category
     """
-    try:
-        if not category_id and not name:
-            raise HTTPException(status_code=400, detail="Either 'category_id' or 'name' must be provided")
-            
-        category_service = CategoryService()
-        service_response = category_service.get_category(category_id=category_id, name=name)
+    if not category_id and not name:
+        raise ValueError("Either 'category_id' or 'name' must be provided")
         
-        if not service_response.success:
-            if "not found" in service_response.message:
-                raise HTTPException(status_code=404, detail=service_response.message)
-            else:
-                raise HTTPException(status_code=400, detail=service_response.message)
-        
-        return ResponseSchema(
-            status="success",
-            message=service_response.message,
-            data=CategoryResponse.model_validate(service_response.data)
-        )
-    except HTTPException:
-        # Re-raise HTTP exceptions (like the 404 raised above) as-is
-        raise
-    except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=str(rnfe))
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        logger.error(f"Unexpected error in get_category: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    category_service = CategoryService()
+    service_response = category_service.get_category(category_id=category_id, name=name)
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=CategoryResponse.model_validate(data),
+        message=service_response.message
+    )
 
 
 @router.delete("/remove_category", response_model=ResponseSchema[CategoryResponse])
+@standard_error_handling
+@log_activity("category_deleted", "User {username} deleted category")
 async def remove_category(
     request: Request,
     current_user: UserModel = Depends(get_current_user),
@@ -227,52 +163,21 @@ async def remove_category(
         ResponseSchema: A response containing the removed category
     """
     if not cat_id and not name:
-        raise HTTPException(
-            status_code=400,
-            detail="Either category ID or name must be provided"
-        )
-            
-    try:
-        category_service = CategoryService()
-        service_response = category_service.remove_category(id=cat_id, name=name)
+        raise ValueError("Either category ID or name must be provided")
         
-        if not service_response.success:
-            if "not found" in service_response.message:
-                raise HTTPException(status_code=404, detail=service_response.message)
-            else:
-                raise HTTPException(status_code=400, detail=service_response.message)
-        
-        # Log activity
-        try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            await activity_service.log_category_deleted(
-                category_id=service_response.data["id"],
-                category_name=service_response.data["name"],
-                user=current_user,
-                request=request
-            )
-        except Exception as activity_error:
-            logger.warning(f"Failed to log category deletion activity: {activity_error}")
-        
-        return ResponseSchema(
-            status="success",
-            message=service_response.message,
-            data=CategoryResponse.model_validate(service_response.data)
-        )
-    except HTTPException:
-        # Re-raise HTTP exceptions (like the 404 raised above) as-is
-        raise
-    except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=str(rnfe))
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        logger.error(f"Unexpected error in remove_category: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    category_service = CategoryService()
+    service_response = category_service.remove_category(id=cat_id, name=name)
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=CategoryResponse.model_validate(data),
+        message=service_response.message
+    )
 
 
 @router.delete("/delete_all_categories", response_model=ResponseSchema[DeleteCategoriesResponse])
+@standard_error_handling
+@log_activity("categories_cleared", "User {username} cleared all categories")
 async def delete_all_categories(
     current_user: UserModel = Depends(require_permission("admin"))
 ) -> ResponseSchema[DeleteCategoriesResponse]:
@@ -282,27 +187,9 @@ async def delete_all_categories(
     Returns:
         ResponseSchema: A response containing the deletion status
     """
-    try:
-        response = CategoryService.delete_all_categories()
-        
-        # Log the activity
-        try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            await activity_service.log_activity(
-                action="cleared",
-                entity_type="categories",
-                entity_name="All categories",
-                user=current_user,
-                details=response["data"]
-            )
-        except Exception as activity_error:
-            logger.warning(f"Failed to log categories clear activity: {activity_error}")
-        
-        return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=DeleteCategoriesResponse(deleted_count=response["data"]["deleted_count"])
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    response = CategoryService.delete_all_categories()
+    
+    return BaseRouter.build_success_response(
+        data=DeleteCategoriesResponse(deleted_count=response["data"]["deleted_count"]),
+        message=response["message"]
+    )

@@ -1,4 +1,4 @@
-"""
+from MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n"""
 Integration tests for analytics fixes.
 
 Tests the analytics system to ensure:
@@ -11,7 +11,6 @@ Tests the analytics system to ensure:
 import pytest
 from datetime import datetime, timedelta
 from sqlmodel import Session, select
-from MakerMatrix.models.models import engine
 from MakerMatrix.models.order_models import OrderModel, OrderItemModel
 from MakerMatrix.services.data.analytics_service import analytics_service
 
@@ -21,7 +20,7 @@ class TestAnalyticsFixes:
     
     def test_no_unknown_suppliers(self):
         """Test that no orders have 'Unknown' as supplier."""
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             unknown_orders = session.exec(
                 select(OrderModel).where(OrderModel.supplier == "Unknown")
             ).all()
@@ -30,7 +29,7 @@ class TestAnalyticsFixes:
     
     def test_extended_prices_calculated(self):
         """Test that all order items with unit_price > 0 have extended_price > 0."""
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             # Get items with unit price but no extended price
             items_missing_extended = session.exec(
                 select(OrderItemModel).where(
@@ -59,7 +58,7 @@ class TestAnalyticsFixes:
         # Get orders from today
         today = datetime.now().date()
         
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             recent_orders = session.exec(
                 select(OrderModel).where(OrderModel.order_date >= today)
             ).all()
@@ -78,7 +77,7 @@ class TestAnalyticsFixes:
     
     def test_spending_by_supplier_all_time(self):
         """Test that all-time spending includes all suppliers with orders."""
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             # Get all unique suppliers from orders
             all_suppliers = session.exec(
                 select(OrderModel.supplier).distinct()
@@ -102,7 +101,7 @@ class TestAnalyticsFixes:
     
     def test_order_totals_match_items(self):
         """Test that order totals match sum of order item extended prices."""
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             orders = session.exec(select(OrderModel)).all()
             
             for order in orders:
@@ -145,7 +144,7 @@ class TestAnalyticsFixes:
         assert isinstance(spending_trend, list), "Spending trend should return a list"
         
         # Should have at least some data if there are orders
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             order_count = session.exec(select(OrderModel)).all()
             
             if len(order_count) > 0:

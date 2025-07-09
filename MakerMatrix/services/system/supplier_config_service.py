@@ -9,15 +9,13 @@ import logging
 import json
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.exc import IntegrityError
 
 from MakerMatrix.database.db import engine
 from MakerMatrix.models.supplier_config_models import (
     SupplierConfigModel,
     EnrichmentProfileModel
 )
-# Encryption service removed - using environment variables only
+from MakerMatrix.repositories.supplier_config_repository import SupplierConfigRepository
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError,
     SupplierConfigAlreadyExistsError,
@@ -25,11 +23,12 @@ from MakerMatrix.repositories.custom_exceptions import (
 )
 from MakerMatrix.suppliers.base import BaseSupplier
 from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
+from MakerMatrix.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
 
-class SupplierConfigService:
+class SupplierConfigService(BaseService):
     """
     Service for managing supplier configurations and credentials
     
@@ -38,7 +37,9 @@ class SupplierConfigService:
     """
     
     def __init__(self):
+        super().__init__()
         self.logger = logging.getLogger(f"{__name__}.SupplierConfigService")
+        self.supplier_config_repo = SupplierConfigRepository()
         
         # Load default supplier configurations from config files
         self.default_suppliers = self._load_default_supplier_configs()
@@ -107,66 +108,40 @@ class SupplierConfigService:
         Raises:
             SupplierConfigAlreadyExistsError: If supplier already exists
         """
-        with Session(engine) as session:
-            try:
-                supplier_name = config_data.get('supplier_name', '').upper()
-                self.logger.info(f"Creating supplier configuration: {supplier_name}")
-                
-                # Check if supplier already exists (case-insensitive)
-                existing = session.query(SupplierConfigModel).filter(
-                    SupplierConfigModel.supplier_name.ilike(supplier_name)
-                ).first()
-                
-                if existing:
-                    raise SupplierConfigAlreadyExistsError(
-                        f"Supplier configuration for '{supplier_name}' already exists. Only one configuration per supplier type is allowed."
-                    )
-                
-                # Create configuration with normalized supplier name
-                config = SupplierConfigModel(
-                    supplier_name=supplier_name,
-                    display_name=config_data.get('display_name', config_data['supplier_name']),
-                    description=config_data.get('description'),
-                    api_type=config_data.get('api_type', 'rest'),
-                    base_url=config_data['base_url'],
-                    api_version=config_data.get('api_version'),
-                    rate_limit_per_minute=config_data.get('rate_limit_per_minute'),
-                    timeout_seconds=config_data.get('timeout_seconds', 30),
-                    max_retries=config_data.get('max_retries', 3),
-                    retry_backoff=config_data.get('retry_backoff', 1.0),
-                    enabled=config_data.get('enabled', True),
-                    supports_datasheet=config_data.get('supports_datasheet', False),
-                    supports_image=config_data.get('supports_image', False),
-                    supports_pricing=config_data.get('supports_pricing', False),
-                    supports_stock=config_data.get('supports_stock', False),
-                    supports_specifications=config_data.get('supports_specifications', False),
-                    created_by_user_id=user_id
-                )
-                
-                # Set custom headers and parameters
-                if 'custom_headers' in config_data:
-                    config.set_custom_headers(config_data['custom_headers'])
-                
-                if 'custom_parameters' in config_data:
-                    config.set_custom_parameters(config_data['custom_parameters'])
-                
-                session.add(config)
-                session.commit()
-                session.refresh(config)
-                
-                self.logger.info(f"Created supplier configuration: {config.supplier_name} (ID: {config.id})")
-                return config
-                
-            except IntegrityError as e:
-                session.rollback()
-                self.logger.error(f"Integrity error creating supplier config: {e}")
-                raise SupplierConfigAlreadyExistsError(
-                    f"Supplier configuration '{config_data.get('supplier_name')}' already exists"
-                )
-            except Exception as e:
-                session.rollback()
-                self.logger.error(f"Error creating supplier configuration: {e}")
-                raise
+        with self.get_session() as session:
+            supplier_name = config_data.get('supplier_name', '').upper()
+            self.logger.info(f"Creating supplier configuration: {supplier_name}")
+            
+            # Create configuration with normalized supplier name
+            config = SupplierConfigModel(
+                supplier_name=supplier_name,
+                display_name=config_data.get('display_name', config_data['supplier_name']),
+                description=config_data.get('description'),
+                api_type=config_data.get('api_type', 'rest'),
+                base_url=config_data['base_url'],
+                api_version=config_data.get('api_version'),
+                rate_limit_per_minute=config_data.get('rate_limit_per_minute'),
+                timeout_seconds=config_data.get('timeout_seconds', 30),
+                max_retries=config_data.get('max_retries', 3),
+                retry_backoff=config_data.get('retry_backoff', 1.0),
+                enabled=config_data.get('enabled', True),
+                supports_datasheet=config_data.get('supports_datasheet', False),
+                supports_image=config_data.get('supports_image', False),
+                supports_pricing=config_data.get('supports_pricing', False),
+                supports_stock=config_data.get('supports_stock', False),
+                supports_specifications=config_data.get('supports_specifications', False),
+                created_by_user_id=user_id
+            )
+            
+            # Set custom headers and parameters
+            if 'custom_headers' in config_data:
+                config.set_custom_headers(config_data['custom_headers'])
+            
+            if 'custom_parameters' in config_data:
+                config.set_custom_parameters(config_data['custom_parameters'])
+            
+            # Use repository to create the configuration
+            return self.supplier_config_repo.create_supplier_config(session, config)
     
     def get_supplier_config(self, supplier_name: str, include_credentials: bool = False) -> SupplierConfigModel:
         """
@@ -182,15 +157,8 @@ class SupplierConfigService:
         Raises:
             ResourceNotFoundError: If supplier not found
         """
-        with Session(engine) as session:
-            config = session.query(SupplierConfigModel).filter(
-                SupplierConfigModel.supplier_name == supplier_name
-            ).first()
-            
-            if not config:
-                raise ResourceNotFoundError("error", f"Supplier configuration '{supplier_name}' not found")
-            
-            return config
+        with self.get_session() as session:
+            return self.supplier_config_repo.get_by_supplier_name_required(session, supplier_name)
     
     def get_all_supplier_configs(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
         """
@@ -202,13 +170,8 @@ class SupplierConfigService:
         Returns:
             List of supplier configuration dictionaries
         """
-        with Session(engine) as session:
-            query = session.query(SupplierConfigModel)
-            
-            if enabled_only:
-                query = query.filter(SupplierConfigModel.enabled == True)
-            
-            configs = query.all()
+        with self.get_session() as session:
+            configs = self.supplier_config_repo.get_all_configs(session, enabled_only)
             
             # Convert to dictionaries while in session
             config_dicts = []
@@ -233,13 +196,8 @@ class SupplierConfigService:
         Raises:
             ResourceNotFoundError: If supplier not found
         """
-        with Session(engine) as session:
-            config = session.query(SupplierConfigModel).filter(
-                SupplierConfigModel.supplier_name == supplier_name
-            ).first()
-            
-            if not config:
-                raise ResourceNotFoundError("error", f"Supplier configuration '{supplier_name}' not found")
+        with self.get_session() as session:
+            config = self.supplier_config_repo.get_by_supplier_name_required(session, supplier_name)
             
             # Update fields
             updatable_fields = [
@@ -264,13 +222,7 @@ class SupplierConfigService:
             if 'capabilities' in update_data:
                 config.set_capabilities(update_data['capabilities'])
             
-            config.updated_at = datetime.utcnow()
-            
-            session.commit()
-            session.refresh(config)
-            
-            self.logger.info(f"Updated supplier configuration: {supplier_name}")
-            return config
+            return self.supplier_config_repo.update_supplier_config(session, config)
     
     def delete_supplier_config(self, supplier_name: str) -> None:
         """
@@ -282,18 +234,10 @@ class SupplierConfigService:
         Raises:
             ResourceNotFoundError: If supplier not found
         """
-        with Session(engine) as session:
-            config = session.query(SupplierConfigModel).filter(
-                SupplierConfigModel.supplier_name == supplier_name
-            ).first()
-            
-            if not config:
+        with self.get_session() as session:
+            deleted = self.supplier_config_repo.delete_supplier_config(session, supplier_name)
+            if not deleted:
                 raise ResourceNotFoundError("error", f"Supplier configuration '{supplier_name}' not found")
-            
-            session.delete(config)
-            session.commit()
-            
-            self.logger.info(f"Deleted supplier configuration: {supplier_name}")
     
     def set_supplier_credentials(self, supplier_name: str, credentials: Dict[str, str], 
                                user_id: Optional[str] = None) -> None:
@@ -378,15 +322,12 @@ class SupplierConfigService:
             test_duration = (datetime.utcnow() - start_time).total_seconds()
             
             # Update test status
-            with Session(engine) as session:
-                config_db = session.query(SupplierConfigModel).filter(
-                    SupplierConfigModel.supplier_name == supplier_name
-                ).first()
-                
-                if config_db:
-                    config_db.last_tested_at = start_time
-                    config_db.test_status = "success" if success else "failed"
-                    session.commit()
+            with self.get_session() as session:
+                self.supplier_config_repo.update_test_status(
+                    session, supplier_name, 
+                    "success" if success else "failed", 
+                    start_time
+                )
             
             result = {
                 "supplier_name": supplier_name,

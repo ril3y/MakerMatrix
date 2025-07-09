@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+from MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n#!/usr/bin/env python3
 """
 Test script to verify LCSC supplier fixes for datasheet and image downloading
 """
@@ -11,7 +11,6 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'MakerMatrix'))
 
 from MakerMatrix.suppliers.lcsc import LCSCSupplier
-from MakerMatrix.models.models import engine
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from sqlmodel import Session
 
@@ -21,7 +20,7 @@ def get_lcsc_parts_from_db():
     print("🔍 Finding LCSC parts in database...")
     
     try:
-        with Session(engine) as session:
+        with Session(isolated_test_engine) as session:
             part_repo = PartRepository(engine)
             
             # Get all parts and filter for LCSC supplier

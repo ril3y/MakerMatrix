@@ -159,14 +159,13 @@ class TestAuthenticationIsolated:
     def test_database_isolation_validation(self, isolated_test_engine):
         """Test that we're using isolated database and not main database"""
         # This test validates that our test database is isolated
-        with Session(isolated_test_engine) as session:
-            # Check that we can access the admin user in test database
-            user_repo = UserRepository()
-            user_repo.engine = isolated_test_engine
-            
-            admin_user = user_repo.get_user_by_username(session, "admin")
-            assert admin_user is not None
-            assert admin_user.username == "admin"
+        # Check that we can access the admin user in test database
+        user_repo = UserRepository()
+        user_repo.engine = isolated_test_engine
+        
+        admin_user = user_repo.get_user_by_username("admin")
+        assert admin_user is not None
+        assert admin_user.username == "admin"
         
         # Verify that the isolated engine is not the main engine
         from MakerMatrix.models.models import engine as main_engine

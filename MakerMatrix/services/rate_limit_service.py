@@ -20,6 +20,8 @@ from MakerMatrix.schemas.websocket_schemas import (
     create_rate_limit_update_message,
     WebSocketEventType
 )
+from MakerMatrix.repositories.rate_limit_repository import RateLimitRepository
+from MakerMatrix.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +35,14 @@ class RateLimitExceeded(Exception):
         super().__init__(f"Rate limit exceeded for {supplier_name} ({limit_type}). Retry after {retry_after} seconds.")
 
 
-class RateLimitService:
+class RateLimitService(BaseService):
     """Service for managing supplier API rate limits"""
     
     def __init__(self, engine, websocket_manager=None):
+        super().__init__()
         self.engine = engine
         self.websocket_manager = websocket_manager
+        self.rate_limit_repo = RateLimitRepository()
         self._default_limits = {
             "mouser": {"per_minute": 30, "per_hour": 1000, "per_day": 1000},
             "lcsc": {"per_minute": 60, "per_hour": 3600, "per_day": 10000},
@@ -49,26 +53,8 @@ class RateLimitService:
     
     async def initialize_default_limits(self):
         """Initialize default rate limits for known suppliers"""
-        with Session(self.engine) as session:
-            for supplier_name, limits in self._default_limits.items():
-                existing = session.exec(
-                    select(SupplierRateLimitModel).where(
-                        SupplierRateLimitModel.supplier_name == supplier_name
-                    )
-                ).first()
-                
-                if not existing:
-                    rate_limit = SupplierRateLimitModel(
-                        supplier_name=supplier_name,
-                        requests_per_minute=limits["per_minute"],
-                        requests_per_hour=limits["per_hour"],
-                        requests_per_day=limits["per_day"],
-                        enabled=True
-                    )
-                    session.add(rate_limit)
-                    logger.info(f"Created default rate limits for {supplier_name}")
-            
-            session.commit()
+        with self.get_session() as session:
+            self.rate_limit_repo.initialize_default_limits(session, self._default_limits)
     
     async def check_rate_limit(self, supplier_name: str, endpoint_type: str = "general") -> Dict[str, Any]:
         """
@@ -79,13 +65,9 @@ class RateLimitService:
         """
         supplier_name = supplier_name.upper()
         
-        with Session(self.engine) as session:
+        with self.get_session() as session:
             # Get rate limit configuration
-            rate_limit = session.exec(
-                select(SupplierRateLimitModel).where(
-                    SupplierRateLimitModel.supplier_name == supplier_name
-                )
-            ).first()
+            rate_limit = self.rate_limit_repo.get_rate_limit_config(session, supplier_name)
             
             if not rate_limit or not rate_limit.enabled:
                 return {
@@ -165,17 +147,21 @@ class RateLimitService:
         """Record a supplier API request for tracking"""
         supplier_name = supplier_name.upper()
         
-        with Session(self.engine) as session:
-            usage_record = SupplierUsageTrackingModel(
+        with self.get_session() as session:
+            # Convert response_time_ms to seconds for repository
+            response_time_seconds = response_time_ms / 1000.0 if response_time_ms else None
+            
+            # Use repository to record the request
+            usage_record = self.rate_limit_repo.record_request(
+                session=session,
                 supplier_name=supplier_name,
                 endpoint_type=endpoint_type,
+                response_time=response_time_seconds,
                 success=success,
                 response_time_ms=response_time_ms,
                 error_message=error_message,
                 request_metadata=request_metadata
             )
-            session.add(usage_record)
-            session.commit()
             
             logger.debug(f"Recorded {endpoint_type} request for {supplier_name}: success={success}")
         
@@ -203,7 +189,7 @@ class RateLimitService:
         """Get detailed usage statistics for a supplier"""
         supplier_name = supplier_name.upper()
         
-        with Session(self.engine) as session:
+        with self.get_session() as session:
             now = datetime.now(timezone.utc)
             
             # Determine time window
@@ -218,65 +204,32 @@ class RateLimitService:
             else:
                 start_time = now - timedelta(days=1)
             
-            # Get usage records
-            usage_records = session.exec(
-                select(SupplierUsageTrackingModel).where(
-                    and_(
-                        SupplierUsageTrackingModel.supplier_name == supplier_name,
-                        SupplierUsageTrackingModel.request_timestamp >= start_time
-                    )
-                ).order_by(SupplierUsageTrackingModel.request_timestamp.desc())
-            ).all()
+            # Use repository to get usage summary
+            usage_summary = self.rate_limit_repo.get_usage_summary(
+                session, supplier_name, start_time, now
+            )
             
-            # Calculate statistics
-            total_requests = len(usage_records)
-            successful_requests = len([r for r in usage_records if r.success])
-            failed_requests = total_requests - successful_requests
-            
-            # Response time statistics
-            response_times = [r.response_time_ms for r in usage_records if r.response_time_ms is not None]
-            avg_response_time = sum(response_times) / len(response_times) if response_times else None
-            
-            # Endpoint breakdown
-            endpoint_breakdown = {}
-            for record in usage_records:
-                endpoint_breakdown[record.endpoint_type] = endpoint_breakdown.get(record.endpoint_type, 0) + 1
-            
+            # Convert to expected format and add time period info
             return {
                 "supplier_name": supplier_name,
                 "time_period": time_period,
                 "start_time": start_time.isoformat(),
                 "end_time": now.isoformat(),
-                "total_requests": total_requests,
-                "successful_requests": successful_requests,
-                "failed_requests": failed_requests,
-                "success_rate": (successful_requests / total_requests * 100) if total_requests > 0 else 0,
-                "avg_response_time_ms": avg_response_time,
-                "endpoint_breakdown": endpoint_breakdown
+                "total_requests": usage_summary["total_requests"],
+                "successful_requests": usage_summary["successful_requests"],
+                "failed_requests": usage_summary["failed_requests"],
+                "success_rate": usage_summary["success_rate"] * 100,  # Convert to percentage
+                "avg_response_time_ms": usage_summary["avg_response_time"] * 1000 if usage_summary["avg_response_time"] else None,
+                "endpoint_breakdown": usage_summary["endpoint_breakdown"]
             }
     
     async def cleanup_old_tracking_data(self, keep_days: int = 30):
         """Clean up old tracking data to prevent database bloat"""
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=keep_days)
-        
-        with Session(self.engine) as session:
-            # Count records to be deleted
-            count = session.exec(
-                select(func.count(SupplierUsageTrackingModel.id)).where(
-                    SupplierUsageTrackingModel.request_timestamp < cutoff_date
-                )
-            ).first()
+        with self.get_session() as session:
+            deleted_count = self.rate_limit_repo.cleanup_old_tracking_data(session, keep_days)
             
-            if count and count > 0:
-                # Delete old records
-                session.exec(
-                    delete(SupplierUsageTrackingModel).where(
-                        SupplierUsageTrackingModel.request_timestamp < cutoff_date
-                    )
-                )
-                session.commit()
-                
-                logger.info(f"Cleaned up {count} old usage tracking records")
+            if deleted_count > 0:
+                logger.info(f"Cleaned up {deleted_count} old usage tracking records")
     
     async def _get_current_usage(
         self,
@@ -291,39 +244,14 @@ class RateLimitService:
         hour_ago = now - timedelta(hours=1)
         day_ago = now - timedelta(days=1)
         
-        # Count requests in each window
-        per_minute = session.exec(
-            select(func.count(SupplierUsageTrackingModel.id)).where(
-                and_(
-                    SupplierUsageTrackingModel.supplier_name == supplier_name,
-                    SupplierUsageTrackingModel.request_timestamp >= minute_ago
-                )
-            )
-        ).first() or 0
+        # Use repository to get usage counts
+        time_windows = [
+            (minute_ago, "per_minute"),
+            (hour_ago, "per_hour"),
+            (day_ago, "per_day")
+        ]
         
-        per_hour = session.exec(
-            select(func.count(SupplierUsageTrackingModel.id)).where(
-                and_(
-                    SupplierUsageTrackingModel.supplier_name == supplier_name,
-                    SupplierUsageTrackingModel.request_timestamp >= hour_ago
-                )
-            )
-        ).first() or 0
-        
-        per_day = session.exec(
-            select(func.count(SupplierUsageTrackingModel.id)).where(
-                and_(
-                    SupplierUsageTrackingModel.supplier_name == supplier_name,
-                    SupplierUsageTrackingModel.request_timestamp >= day_ago
-                )
-            )
-        ).first() or 0
-        
-        return {
-            "per_minute": per_minute,
-            "per_hour": per_hour,
-            "per_day": per_day
-        }
+        return self.rate_limit_repo.get_usage_counts(session, supplier_name, time_windows)
     
     @asynccontextmanager
     async def rate_limited_request(self, supplier_name: str, endpoint_type: str):
@@ -382,8 +310,8 @@ class RateLimitService:
     
     async def get_all_supplier_usage(self) -> List[Dict[str, Any]]:
         """Get usage statistics for all suppliers"""
-        with Session(self.engine) as session:
-            suppliers = session.exec(select(SupplierRateLimitModel)).all()
+        with self.get_session() as session:
+            suppliers = self.rate_limit_repo.get_all_supplier_limits(session)
             
             usage_data = []
             for supplier in suppliers:

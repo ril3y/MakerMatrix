@@ -11,7 +11,6 @@ from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
 
 from MakerMatrix.main import app
-from MakerMatrix.models.models import engine
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 @pytest.fixture
 def client():

@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session
 from MakerMatrix.main import app
 from MakerMatrix.database.db import create_db_and_tables
-from MakerMatrix.models.models import engine
 from MakerMatrix.models.user_models import UserModel, RoleModel, UserCreate, UserUpdate
 from passlib.hash import pbkdf2_sha256
 from passlib.context import CryptContext
@@ -14,23 +13,22 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_database():
-    """Set up the database before running tests and clean up afterward."""
-    # Create tables
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
-    create_db_and_tables()
-    
-    # Create admin user and roles directly
-    from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
+def setup_database(isolated_test_engine):
+    """Set up isolated test database before running tests."""
+    from MakerMatrix.database.db import create_db_and_tables
     from MakerMatrix.repositories.user_repository import UserRepository
+    from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
     
+    # Create user repository with isolated test engine
     user_repo = UserRepository()
+    user_repo.engine = isolated_test_engine
+    
+    # Setup default roles and admin user in test database
     setup_default_roles(user_repo)
     setup_default_admin(user_repo)
     
     yield
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(isolated_test_engine)
 
 
 @pytest.fixture
@@ -398,4 +396,4 @@ def test_invalid_role_assignment():
     # Should return 400 Bad Request for invalid role
     assert response.status_code == 400
     response_data = response.json()
-    assert "not found" in response_data.get("detail", "").lower() or "not found" in str(response_data).lower() 
+    assert "not found" in response_data.get("detail", "").lower() or "not found" in str(response_data).lower() \nfrom MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n

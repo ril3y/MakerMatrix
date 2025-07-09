@@ -6,7 +6,7 @@ from MakerMatrix.models.models import CategoryModel
 from MakerMatrix.models.models import engine
 from MakerMatrix.repositories.category_repositories import CategoryRepository
 from MakerMatrix.database.db import get_session
-from MakerMatrix.repositories.custom_exceptions import CategoryAlreadyExistsError, ResourceNotFoundError
+from MakerMatrix.exceptions import CategoryAlreadyExistsError, ResourceNotFoundError
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
 # Configure logging
@@ -88,53 +88,48 @@ class CategoryService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"retrieve {self.entity_name}")
 
-    @staticmethod
-    def remove_category(id: Optional[str] = None, name: Optional[str] = None) -> dict:
+    def remove_category(self, id: Optional[str] = None, name: Optional[str] = None) -> ServiceResponse[dict]:
         """
         Remove a category by ID or name.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Converted from static method to use BaseService patterns.
         
         Args:
             id: Optional ID of the category to remove
             name: Optional name of the category to remove
             
         Returns:
-            dict: A dictionary containing the status, message, and removed category data
+            ServiceResponse[dict]: Service response with removed category data
         """
-        identifier = id if id else name
-        logger.info(f"Attempting to remove category by {'ID' if id else 'name'}: {identifier}")
         try:
             if not id and not name:
-                logger.error("Category removal failed: Either 'id' or 'name' must be provided")
-                raise ValueError("Either 'id' or 'name' must be provided")
+                return self.error_response("Either 'id' or 'name' must be provided")
 
-            session = next(get_session())
-            rm_cat = CategoryRepository.get_category(session, category_id=id, name=name)
-            identifier = rm_cat.name
+            identifier = id if id else name
+            self.log_operation("delete", self.entity_name, identifier)
             
-            logger.info(f"Removing category: {rm_cat.name} (ID: {rm_cat.id})")
-            result = CategoryService.category_repo.remove_category(session, rm_cat)
-            if not result:
-                logger.error(f"Failed to remove category: {rm_cat.name}")
-                raise ValueError("Failed to remove category")
-            
-            logger.info(f"Successfully removed category: {rm_cat.name} (ID: {rm_cat.id})")
-            cat_dict = rm_cat.model_dump()
-            # Add part count (usually 0 for removed categories)
-            cat_dict['part_count'] = 0
-            return {
-                "status": "success",
-                "message": f"Category with name '{rm_cat.name}' removed",
-                "data": cat_dict
-            }
-            
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
-        except ValueError as ve:
-            logger.error(f"Category removal failed with ValueError: {str(ve)}")
-            raise ve
+            with self.get_session() as session:
+                rm_cat = CategoryRepository.get_category(session, category_id=id, name=name)
+                if not rm_cat:
+                    return self.error_response(
+                        f"{self.entity_name} not found with {'ID' if id else 'name'}: {identifier}"
+                    )
+                
+                result = self.category_repo.remove_category(session, rm_cat)
+                if not result:
+                    return self.error_response(f"Failed to remove {self.entity_name}")
+                
+                cat_dict = rm_cat.model_dump()
+                # Add part count (usually 0 for removed categories)
+                cat_dict['part_count'] = 0
+                
+                return self.success_response(
+                    f"{self.entity_name} '{rm_cat.name}' removed successfully",
+                    cat_dict
+                )
+                
         except Exception as e:
-            logger.error(f"Unexpected error removing category {identifier}: {str(e)}")
-            raise ValueError(f"Failed to remove category: {str(e)}")
+            return self.handle_exception(e, f"remove {self.entity_name}")
     
     @staticmethod
     def delete_all_categories() -> dict:
@@ -159,117 +154,77 @@ class CategoryService(BaseService):
             logger.error(f"Failed to delete all categories: {str(e)}")
             raise ValueError(f"Failed to delete all categories: {str(e)}")
 
-    @staticmethod
-    def get_all_categories() -> dict:
+    def get_all_categories(self) -> ServiceResponse[dict]:
         """
         Get all categories from the system.
         
+        CONSOLIDATED SESSION MANAGEMENT: Converted from static method to use BaseService patterns.
+        
         Returns:
-            dict: A dictionary containing the status, message, and all categories
+            ServiceResponse[dict]: Service response with all categories
         """
-        logger.info("Retrieving all categories from the system")
         try:
-            session = next(get_session())
-            categories = CategoryRepository.get_all_categories(session)
-            logger.info(f"Successfully retrieved {len(categories)} categories")
+            self.log_operation("get_all", self.entity_name)
             
-            # Convert to list of dictionaries with part counts
-            categories_list = []
-            for cat in categories:
-                cat_dict = cat.model_dump()
-                # Add part count
-                cat_dict['part_count'] = len(cat.parts) if hasattr(cat, 'parts') else 0
-                categories_list.append(cat_dict)
-            
-            return {
-                "status": "success",
-                "message": "All categories retrieved successfully",
-                "data": {
-                    "categories": categories_list
-                }
-            }
+            with self.get_session() as session:
+                categories = CategoryRepository.get_all_categories(session)
+                
+                # Convert to list of dictionaries with part counts
+                categories_list = []
+                for cat in categories:
+                    cat_dict = cat.model_dump()
+                    # Add part count
+                    cat_dict['part_count'] = len(cat.parts) if hasattr(cat, 'parts') else 0
+                    categories_list.append(cat_dict)
+                
+                return self.success_response(
+                    "All categories retrieved successfully",
+                    {"categories": categories_list}
+                )
+                
         except Exception as e:
-            logger.error(f"Failed to retrieve all categories: {str(e)}")
-            raise ValueError(f"Failed to retrieve categories: {str(e)}")
+            return self.handle_exception(e, f"retrieve all {self.entity_name}")
     
-    @staticmethod
-    def update_category(category_id: str, category_update) -> dict:
+    def update_category(self, category_id: str, category_update) -> ServiceResponse[dict]:
         """
         Update a category's fields.
+        
+        CONSOLIDATED SESSION MANAGEMENT: Converted from static method to use BaseService patterns.
         
         Args:
             category_id: The ID of the category to update
             category_update: The fields to update
             
         Returns:
-            dict: A dictionary containing the status, message, and updated category data
+            ServiceResponse[dict]: Service response with updated category data
         """
-        logger.info(f"Attempting to update category: {category_id}")
         try:
             if not category_id:
-                logger.error("Category update failed: Category ID is required")
-                raise ValueError("Category ID is required")
+                return self.error_response("Category ID is required")
             
-            session = next(get_session())
+            self.log_operation("update", self.entity_name, category_id)
             
-            # Get the current category to show before/after changes
-            current_category = CategoryRepository.get_category(session, category_id=category_id)
-            if not current_category:
-                logger.error(f"Category update failed: Category with ID '{category_id}' not found")
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Category with ID {category_id} not found",
-                    data=None
+            with self.get_session() as session:
+                # Get the current category to show before/after changes
+                current_category = CategoryRepository.get_category(session, category_id=category_id)
+                if not current_category:
+                    return self.error_response(f"{self.entity_name} with ID '{category_id}' not found")
+                
+                # Convert CategoryUpdate to dict, excluding None values
+                update_dict = {k: v for k, v in category_update.model_dump().items() if v is not None}
+                
+                updated_category = CategoryRepository.update_category(session, category_id, update_dict)
+                if not updated_category:
+                    return self.error_response(f"Failed to update {self.entity_name}")
+                
+                cat_dict = updated_category.model_dump()
+                # Add part count
+                cat_dict['part_count'] = len(updated_category.parts) if hasattr(updated_category, 'parts') else 0
+                
+                return self.success_response(
+                    f"{self.entity_name} '{updated_category.name}' updated successfully",
+                    cat_dict
                 )
-            
-            # Log current state and planned changes
-            logger.debug(f"Current category state: '{current_category.name}' (ID: {category_id})")
-            
-            # Convert CategoryUpdate to dict, excluding None values
-            update_dict = {k: v for k, v in category_update.model_dump().items() if v is not None}
-            updated_fields = []
-            
-            for field, new_value in update_dict.items():
-                if hasattr(current_category, field):
-                    old_value = getattr(current_category, field)
-                    if old_value != new_value:
-                        if field == "name":
-                            logger.info(f"Updating category name (ID: {category_id}): '{old_value}' → '{new_value}'")
-                            updated_fields.append(f"name: '{old_value}' → '{new_value}'")
-                        elif field == "description":
-                            logger.info(f"Updating category description for '{current_category.name}' (ID: {category_id})")
-                            updated_fields.append(f"description updated")
-                        else:
-                            logger.info(f"Updating {field} for category '{current_category.name}' (ID: {category_id}): {old_value} → {new_value}")
-                            updated_fields.append(f"{field}: {old_value} → {new_value}")
-            
-            updated_category = CategoryRepository.update_category(session, category_id, update_dict)
-            if not updated_category:
-                logger.warning(f"Category update failed - repository returned None: {category_id}")
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Category with ID {category_id} not found",
-                    data=None
-                )
-            
-            if updated_fields:
-                logger.info(f"Successfully updated category '{updated_category.name}' (ID: {category_id}). Changes: {', '.join(updated_fields)}")
-            else:
-                logger.info(f"No changes made to category '{updated_category.name}' (ID: {category_id})")
-            
-            cat_dict = updated_category.model_dump()
-            # Add part count
-            cat_dict['part_count'] = len(updated_category.parts) if hasattr(updated_category, 'parts') else 0
-            return {
-                "status": "success",
-                "message": f"Category with ID '{category_id}' updated.",
-                "data": cat_dict
-            }
-        except ResourceNotFoundError as rnfe:
-            raise rnfe
-        except ValueError as ve:
-            logger.error(f"Category update failed with ValueError: {str(ve)}")
-            raise ve
+                
         except Exception as e:
-            logger.error(f"Unexpected error updating category {category_id}: {str(e)}")
-            raise ValueError(f"Failed to update category: {str(e)}")
+            return self.handle_exception(e, f"update {self.entity_name}")

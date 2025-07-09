@@ -92,7 +92,7 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         resource_limits={"max_parts": 100, "batch_size": 10}
     ),
     
-    TaskType.CSV_ENRICHMENT: TaskSecurityPolicy(
+    TaskType.FILE_IMPORT_ENRICHMENT: TaskSecurityPolicy(
         security_level=TaskSecurityLevel.POWER_USER,
         risk_level=TaskRiskLevel.HIGH,
         required_permissions=["parts:write", "csv:import", "tasks:power_user"],

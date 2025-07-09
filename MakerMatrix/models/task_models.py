@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
@@ -24,8 +24,7 @@ class TaskPriority(str, Enum):
 
 class TaskType(str, Enum):
     # Import and processing tasks
-    FILE_IMPORT_ENRICHMENT = "file_import_enrichment"  # Replaces CSV_ENRICHMENT - handles CSV, XLS, etc.
-    CSV_ENRICHMENT = "csv_enrichment"  # Deprecated - kept for backward compatibility
+    FILE_IMPORT_ENRICHMENT = "file_import_enrichment"  # Handles CSV, XLS, etc.
     
     # General maintenance tasks
     PRICE_UPDATE = "price_update"

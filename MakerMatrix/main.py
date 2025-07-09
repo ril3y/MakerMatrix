@@ -17,7 +17,7 @@ from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes, 
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, 
-    supplier_credentials_routes, rate_limit_routes
+    rate_limit_routes
 )
 from MakerMatrix.services.printer.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -239,7 +239,6 @@ task_permissions = {
     "/worker/status": "tasks:read",
     "/stats/summary": "tasks:read",
     "/types/available": "tasks:read",
-    "/quick/csv_enrichment": "tasks:create",
     "/quick/price_update": "tasks:create", 
     "/quick/database_cleanup": "tasks:create",
     "/quick/part_enrichment": "tasks:create",
@@ -301,12 +300,6 @@ rate_limit_permissions = {
     "/initialize": "rate_limits:admin"
 }
 
-credential_permissions = {
-    "/suppliers/{supplier_name}/credentials": "supplier_config:credentials",
-    "/suppliers/{supplier_name}/credentials/status": "supplier_config:read",
-    "/suppliers/{supplier_name}/credentials/test": "supplier_config:credentials",
-    "/suppliers/{supplier_name}/credentials/test-existing": "supplier_config:read"
-}
 
 
 # Define paths that should be excluded from authentication
@@ -325,7 +318,7 @@ secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/static/datasheets/{filename}"])
 # Don't secure auth routes - they need to be accessible without authentication
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
-secure_all_routes(user_management_routes.router)
+secure_all_routes(user_management_routes.router, exclude_paths=["/register"])
 secure_all_routes(ai_routes.router)
 secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
@@ -335,7 +328,6 @@ secure_all_routes(
     permissions=supplier_permissions,
     exclude_paths=["/{supplier_name}/oauth/callback"]  # OAuth callbacks must be public
 )
-secure_all_routes(supplier_credentials_routes.router, permissions=credential_permissions)
 secure_all_routes(rate_limit_routes.router, permissions=rate_limit_permissions)
 secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
@@ -357,12 +349,13 @@ app.include_router(import_routes.router, prefix="/api/import")
 app.include_router(task_routes.router, prefix="/api/tasks")
 app.include_router(supplier_config_routes.router, prefix="/api/suppliers/config", tags=["Supplier Configuration"])
 app.include_router(supplier_routes.router, prefix="/api/suppliers", tags=["Suppliers"])
-app.include_router(supplier_credentials_routes.router, prefix="/api", tags=["Supplier Credentials"])
 app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
 app.include_router(analytics_routes.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
 
+# Include user management router also at /users for backward compatibility
+app.include_router(user_management_routes.router, prefix="/users", tags=["Users Legacy"])
 
 # Static file serving for React frontend
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")

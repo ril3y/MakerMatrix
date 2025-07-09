@@ -12,7 +12,7 @@ from sqlmodel import SQLModel, Session
 from typing import Generator
 
 # Import all models to ensure they're registered
-from MakerMatrix.models.models import *
+import MakerMatrix.models.models
 
 
 class TestDatabaseConfig:

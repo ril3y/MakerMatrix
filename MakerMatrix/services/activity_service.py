@@ -9,13 +9,17 @@ from fastapi import Request
 
 from MakerMatrix.models.models import ActivityLogModel, engine
 from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.repositories.activity_repository import ActivityRepository
+from MakerMatrix.services.base_service import BaseService
 
 
-class ActivityService:
+class ActivityService(BaseService):
     """Service for logging and retrieving user activities."""
     
     def __init__(self, db_engine: Engine = engine):
+        super().__init__()
         self.engine = db_engine
+        self.activity_repo = ActivityRepository()
     
     async def log_activity(
         self,
@@ -60,11 +64,9 @@ class ActivityService:
                 user_agent=user_agent
             )
             
-            # Save to database
-            with Session(self.engine) as session:
-                session.add(activity)
-                session.commit()
-                session.refresh(activity)
+            # Save to database using repository
+            with self.get_session() as session:
+                activity = self.activity_repo.log_activity(session, activity)
             
             # Send real-time update via WebSocket
             await self._broadcast_activity(activity)
@@ -117,27 +119,10 @@ class ActivityService:
             hours: Only activities from last N hours
         """
         try:
-            with Session(self.engine) as session:
-                # Build query
-                statement = select(ActivityLogModel)
-                
-                # Filter by time
-                cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-                statement = statement.where(ActivityLogModel.timestamp >= cutoff_time)
-                
-                # Apply filters
-                if entity_type:
-                    statement = statement.where(ActivityLogModel.entity_type == entity_type)
-                if user_id:
-                    statement = statement.where(ActivityLogModel.user_id == user_id)
-                
-                # Order by most recent first
-                statement = statement.order_by(desc(ActivityLogModel.timestamp))
-                
-                # Apply limit
-                statement = statement.limit(limit)
-                
-                return list(session.exec(statement).all())
+            with self.get_session() as session:
+                return self.activity_repo.get_recent_activities(
+                    session, limit, entity_type, user_id, hours
+                )
                 
         except Exception as e:
             print(f"Failed to retrieve activities: {e}")
@@ -154,21 +139,8 @@ class ActivityService:
             Number of records deleted
         """
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=keep_days)
-            
-            with Session(self.engine) as session:
-                # Get activities to delete
-                statement = select(ActivityLogModel).where(
-                    ActivityLogModel.timestamp < cutoff_date
-                )
-                activities_to_delete = session.exec(statement).all()
-                
-                # Delete them
-                for activity in activities_to_delete:
-                    session.delete(activity)
-                
-                session.commit()
-                return len(activities_to_delete)
+            with self.get_session() as session:
+                return self.activity_repo.cleanup_old_activities(session, keep_days)
                 
         except Exception as e:
             print(f"Failed to cleanup activities: {e}")

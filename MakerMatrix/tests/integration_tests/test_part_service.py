@@ -7,7 +7,6 @@ from MakerMatrix.database.db import get_session
 from MakerMatrix.main import app
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.models.models import CategoryModel, PartModel
-from MakerMatrix.models.models import engine
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.schemas.part_create import PartCreate
 from MakerMatrix.services.data.category_service import CategoryService  # Import PartCreate
@@ -22,24 +21,24 @@ client = TestClient(app)
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_database():
-    """Set up the database before running tests and clean up afterward."""
-    # Create tables
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
-
-    # Set up the database (tables creation)
-    create_db_and_tables()
+def setup_database(isolated_test_engine):
+    """Set up isolated test database before running tests."""
+    from MakerMatrix.database.db import create_db_and_tables
+    from MakerMatrix.repositories.user_repository import UserRepository
+    from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
     
-    # Create default roles and admin user
+    # Create user repository with isolated test engine
     user_repo = UserRepository()
+    user_repo.engine = isolated_test_engine
+    
+    # Setup default roles and admin user in test database
     setup_default_roles(user_repo)
     setup_default_admin(user_repo)
-
+    
     yield  # Let the tests run
 
     # Clean up the tables after running the tests
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(isolated_test_engine)
 
 
 @pytest.fixture
@@ -665,3 +664,4 @@ def setup_part_update_part(admin_token):
         )
         
         return response.json()
+\nfrom MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n

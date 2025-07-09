@@ -150,7 +150,7 @@ class TestServerConfig:
         )
         
         # Import all models to ensure they're registered
-        from MakerMatrix.models.models import *
+        import MakerMatrix.models.models
         
         # Create all tables in test database
         SQLModel.metadata.create_all(cls.TEST_ENGINE)

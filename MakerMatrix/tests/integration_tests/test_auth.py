@@ -5,28 +5,29 @@ from MakerMatrix.main import app
 from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.database.db import create_db_and_tables
-from MakerMatrix.models.models import engine
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 
 client = TestClient(app)
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_database():
-    """Set up the database before running tests and clean up afterward."""
-    # Create tables
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
-    create_db_and_tables()
-
-    # Create default roles and admin user
+def setup_database(isolated_test_engine):
+    """Set up isolated test database before running tests."""
+    from MakerMatrix.database.db import create_db_and_tables
+    from MakerMatrix.repositories.user_repository import UserRepository
+    from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
+    
+    # Create user repository with isolated test engine
     user_repo = UserRepository()
+    user_repo.engine = isolated_test_engine
+    
+    # Setup default roles and admin user in test database
     setup_default_roles(user_repo)
     setup_default_admin(user_repo)
-
+    
     yield  # Let the tests run
     # Clean up the tables after running the tests
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(isolated_test_engine)
 
 
 @pytest.fixture
@@ -76,4 +77,4 @@ def test_public_endpoint():
     """Test that the root endpoint is accessible without authentication."""
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to MakerMatrix API"} 
+    assert response.json() == {"message": "Welcome to MakerMatrix API"} \nfrom MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n

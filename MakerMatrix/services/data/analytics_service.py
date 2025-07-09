@@ -8,26 +8,20 @@ and inventory insights.
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from sqlalchemy import func, and_, or_, select
-from sqlalchemy.orm import Session
 
-from MakerMatrix.models.models import (
-    PartModel, CategoryModel, LocationModel, PartCategoryLink
-)
-from MakerMatrix.models.order_models import (
-    OrderModel, OrderItemModel, OrderSummary
-)
-from MakerMatrix.database.db import engine
+from MakerMatrix.repositories.analytics_repository import AnalyticsRepository
+from MakerMatrix.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
 
-class AnalyticsService:
+class AnalyticsService(BaseService):
     """Service for generating analytics and insights from order and inventory data."""
     
     def __init__(self):
         """Initialize the analytics service."""
-        self.engine = engine
+        super().__init__()
+        self.analytics_repo = AnalyticsRepository()
     
     def get_spending_by_supplier(
         self,
@@ -54,31 +48,8 @@ class AnalyticsService:
             
         logger.info(f"Calculating spending by supplier from {start_date} to {end_date}")
         
-        with Session(self.engine) as session:
-            # Query spending by supplier
-            results = session.query(
-                OrderModel.supplier,
-                func.sum(OrderModel.total).label('total_spent'),
-                func.count(OrderModel.id).label('order_count')
-            ).filter(
-                and_(
-                    OrderModel.order_date >= start_date,
-                    OrderModel.order_date <= end_date
-                )
-            ).group_by(
-                OrderModel.supplier
-            ).order_by(
-                func.sum(OrderModel.total).desc()
-            ).limit(limit).all()
-            
-            return [
-                {
-                    'supplier': result.supplier,
-                    'total_spent': float(result.total_spent or 0),
-                    'order_count': result.order_count
-                }
-                for result in results
-            ]
+        with self.get_session() as session:
+            return self.analytics_repo.get_spending_by_supplier(session, start_date, end_date, limit)
     
     def get_spending_trend(
         self,
@@ -101,38 +72,20 @@ class AnalyticsService:
         end_date = datetime.now()
         if period == 'day':
             start_date = end_date - timedelta(days=lookback_periods)
-            # SQLite compatible: use date function
-            date_trunc = func.date(OrderModel.order_date)
         elif period == 'week':
             start_date = end_date - timedelta(weeks=lookback_periods)
-            # SQLite compatible: use strftime to get week start
-            date_trunc = func.strftime('%Y-%W', OrderModel.order_date)
         elif period == 'month':
             start_date = end_date - timedelta(days=lookback_periods * 30)
-            # SQLite compatible: use strftime to get year-month
-            date_trunc = func.strftime('%Y-%m', OrderModel.order_date)
         else:  # year
             start_date = end_date - timedelta(days=lookback_periods * 365)
-            # SQLite compatible: use strftime to get year
-            date_trunc = func.strftime('%Y', OrderModel.order_date)
         
-        with Session(self.engine) as session:
-            results = session.query(
-                date_trunc.label('period'),
-                func.sum(OrderModel.total).label('total_spent'),
-                func.count(OrderModel.id).label('order_count')
-            ).filter(
-                OrderModel.order_date >= start_date
-            ).group_by(
-                date_trunc
-            ).order_by(
-                date_trunc
-            ).all()
+        with self.get_session() as session:
+            results = self.analytics_repo.get_spending_trend_by_period(session, period, start_date, end_date)
             
             # Format the period string appropriately
             formatted_results = []
             for result in results:
-                period_str = str(result.period)
+                period_str = str(result['period'])
                 
                 # Convert period string to ISO format based on period type
                 if period == 'day':
@@ -163,185 +116,88 @@ class AnalyticsService:
                 
                 formatted_results.append({
                     'period': period_iso,
-                    'total_spent': float(result.total_spent or 0),
-                    'order_count': result.order_count
+                    'total_spent': result['total_spent'],
+                    'order_count': result['order_count']
                 })
             
             return formatted_results
     
     def get_part_order_frequency(
         self,
-        limit: int = 20,
-        min_orders: int = 2
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
         Get most frequently ordered parts.
         
         Args:
+            start_date: Start date for analysis (default: 30 days ago)
+            end_date: End date for analysis (default: now)
             limit: Maximum number of parts to return
-            min_orders: Minimum number of orders to include
             
         Returns:
             List of frequently ordered parts
         """
-        logger.info(f"Getting top {limit} frequently ordered parts")
-        
-        with Session(self.engine) as session:
-            # Calculate order statistics for each part
-            results = session.query(
-                PartModel.id,
-                PartModel.part_name,
-                PartModel.part_number,
-                PartModel.quantity,
-                func.count(func.distinct(OrderItemModel.order_id)).label('total_orders'),
-                func.avg(OrderItemModel.unit_price).label('average_price'),
-                func.max(OrderModel.order_date).label('last_order_date')
-            ).join(
-                OrderItemModel, PartModel.id == OrderItemModel.part_id
-            ).join(
-                OrderModel, OrderItemModel.order_id == OrderModel.id
-            ).group_by(
-                PartModel.id, PartModel.part_name, PartModel.part_number, PartModel.quantity
-            ).having(
-                func.count(func.distinct(OrderItemModel.order_id)) >= min_orders
-            ).order_by(
-                func.count(func.distinct(OrderItemModel.order_id)).desc()
-            ).limit(limit).all()
+        if not start_date:
+            start_date = datetime.now() - timedelta(days=30)
+        if not end_date:
+            end_date = datetime.now()
             
-            return [
-                {
-                    'part_id': result.id,
-                    'name': result.part_name,
-                    'part_number': result.part_number,
-                    'current_quantity': result.quantity,
-                    'total_orders': result.total_orders,
-                    'average_price': float(result.average_price or 0),
-                    'last_order_date': result.last_order_date.isoformat() if result.last_order_date else None
-                }
-                for result in results
-            ]
+        logger.info(f"Getting top {limit} frequently ordered parts from {start_date} to {end_date}")
+        
+        with self.get_session() as session:
+            return self.analytics_repo.get_part_order_frequency(session, start_date, end_date, limit)
     
     def get_price_trends(
         self,
-        part_id: Optional[str] = None,
-        supplier: Optional[str] = None,
-        limit: int = 50
+        part_number: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
         """
         Get price trends for parts.
         
         Args:
-            part_id: Specific part to analyze
-            supplier: Filter by supplier
-            limit: Maximum number of data points
+            part_number: Specific part number to analyze
+            start_date: Start date for analysis (default: 90 days ago)
+            end_date: End date for analysis (default: now)
             
         Returns:
             List of price trend data
         """
-        logger.info(f"Getting price trends for part_id={part_id}, supplier={supplier}")
+        if not start_date:
+            start_date = datetime.now() - timedelta(days=90)
+        if not end_date:
+            end_date = datetime.now()
+            
+        logger.info(f"Getting price trends for part_number={part_number} from {start_date} to {end_date}")
         
-        with Session(self.engine) as session:
-            query = session.query(
-                OrderItemModel.part_id,
-                OrderItemModel.unit_price,
-                OrderModel.order_date,
-                OrderModel.supplier,
-                PartModel.part_name,
-                PartModel.part_number
-            ).join(
-                OrderModel, OrderItemModel.order_id == OrderModel.id
-            ).join(
-                PartModel, OrderItemModel.part_id == PartModel.id
-            )
-            
-            if part_id:
-                query = query.filter(OrderItemModel.part_id == part_id)
-            if supplier:
-                query = query.filter(OrderModel.supplier == supplier)
-                
-            results = query.order_by(
-                OrderModel.order_date.desc()
-            ).limit(limit).all()
-            
-            return [
-                {
-                    'part_id': result.part_id,
-                    'part_name': result.part_name,
-                    'part_number': result.part_number,
-                    'unit_price': float(result.unit_price or 0),
-                    'order_date': result.order_date.isoformat() if result.order_date else None,
-                    'supplier': result.supplier
-                }
-                for result in results
-            ]
+        if not part_number:
+            return []
+        
+        with self.get_session() as session:
+            return self.analytics_repo.get_price_trends(session, part_number, start_date, end_date)
     
     def get_low_stock_parts(
         self,
-        threshold_multiplier: float = 1.5
+        threshold: int = 5,
+        include_zero: bool = True
     ) -> List[Dict[str, Any]]:
         """
-        Get parts that are low in stock based on order history.
+        Get parts that are low in stock.
         
         Args:
-            threshold_multiplier: Multiplier for average order quantity
+            threshold: Stock threshold below which parts are considered low
+            include_zero: Whether to include parts with zero stock
             
         Returns:
             List of low stock parts
         """
-        logger.info(f"Getting low stock parts with threshold multiplier {threshold_multiplier}")
+        logger.info(f"Getting low stock parts with threshold {threshold}, include_zero={include_zero}")
         
-        with Session(self.engine) as session:
-            # Calculate average order quantity for each part
-            avg_quantities = session.query(
-                OrderItemModel.part_id,
-                func.avg(OrderItemModel.quantity_ordered).label('avg_order_qty')
-            ).group_by(
-                OrderItemModel.part_id
-            ).subquery()
-            
-            # Calculate order statistics subquery
-            order_stats = session.query(
-                OrderItemModel.part_id,
-                func.max(OrderModel.order_date).label('last_order_date'),
-                func.count(func.distinct(OrderItemModel.order_id)).label('total_orders')
-            ).join(
-                OrderModel, OrderItemModel.order_id == OrderModel.id
-            ).group_by(
-                OrderItemModel.part_id
-            ).subquery()
-            
-            # Find parts where current quantity is below threshold
-            results = session.query(
-                PartModel.id,
-                PartModel.part_name,
-                PartModel.part_number,
-                PartModel.quantity,
-                avg_quantities.c.avg_order_qty,
-                order_stats.c.last_order_date,
-                order_stats.c.total_orders
-            ).join(
-                avg_quantities, PartModel.id == avg_quantities.c.part_id
-            ).outerjoin(
-                order_stats, PartModel.id == order_stats.c.part_id
-            ).filter(
-                # Below average order quantity threshold
-                PartModel.quantity <= (avg_quantities.c.avg_order_qty * threshold_multiplier)
-            ).all()
-            
-            return [
-                {
-                    'part_id': result.id,
-                    'name': result.part_name,
-                    'part_number': result.part_number,
-                    'current_quantity': result.quantity,
-                    'minimum_quantity': None,  # Field doesn't exist in model
-                    'average_order_quantity': float(result.avg_order_qty or 0),
-                    'suggested_reorder_quantity': int((result.avg_order_qty or 0) * 2),
-                    'last_order_date': result.last_order_date.isoformat() if result.last_order_date else None,
-                    'total_orders': result.total_orders or 0
-                }
-                for result in results
-            ]
+        with self.get_session() as session:
+            return self.analytics_repo.get_low_stock_parts(session, threshold, include_zero)
     
     def get_category_spending(
         self,
@@ -366,39 +222,8 @@ class AnalyticsService:
             
         logger.info(f"Calculating spending by category from {start_date} to {end_date}")
         
-        with Session(self.engine) as session:
-            results = session.query(
-                CategoryModel.name,
-                func.sum(OrderItemModel.extended_price).label('total_spent'),
-                func.count(func.distinct(OrderItemModel.part_id)).label('unique_parts')
-            ).join(
-                PartCategoryLink,
-                CategoryModel.id == PartCategoryLink.category_id
-            ).join(
-                OrderItemModel,
-                PartCategoryLink.part_id == OrderItemModel.part_id
-            ).join(
-                OrderModel,
-                OrderItemModel.order_id == OrderModel.id
-            ).filter(
-                and_(
-                    OrderModel.order_date >= start_date,
-                    OrderModel.order_date <= end_date
-                )
-            ).group_by(
-                CategoryModel.name
-            ).order_by(
-                func.sum(OrderItemModel.extended_price).desc()
-            ).all()
-            
-            return [
-                {
-                    'category': result.name,
-                    'total_spent': float(result.total_spent or 0),
-                    'unique_parts': result.unique_parts
-                }
-                for result in results
-            ]
+        with self.get_session() as session:
+            return self.analytics_repo.get_category_spending(session, start_date, end_date)
     
     def get_inventory_value(self) -> Dict[str, Any]:
         """
@@ -409,46 +234,8 @@ class AnalyticsService:
         """
         logger.info("Calculating inventory value")
         
-        with Session(self.engine) as session:
-            # Calculate average price for each part
-            avg_prices = session.query(
-                OrderItemModel.part_id,
-                func.avg(OrderItemModel.unit_price).label('average_price')
-            ).filter(
-                OrderItemModel.unit_price.isnot(None)
-            ).group_by(
-                OrderItemModel.part_id
-            ).subquery()
-            
-            # Get parts with pricing information
-            results = session.query(
-                func.sum(PartModel.quantity * avg_prices.c.average_price).label('total_value'),
-                func.count(PartModel.id).label('total_parts'),
-                func.sum(PartModel.quantity).label('total_units')
-            ).join(
-                avg_prices, PartModel.id == avg_prices.c.part_id
-            ).filter(
-                avg_prices.c.average_price.isnot(None)
-            ).first()
-            
-            # Get parts without pricing
-            unpriced_count = session.query(
-                func.count(PartModel.id)
-            ).outerjoin(
-                avg_prices, PartModel.id == avg_prices.c.part_id
-            ).filter(
-                or_(
-                    avg_prices.c.average_price.is_(None),
-                    avg_prices.c.part_id.is_(None)
-                )
-            ).scalar()
-            
-            return {
-                'total_value': float(results.total_value or 0) if results else 0,
-                'priced_parts': results.total_parts if results else 0,
-                'unpriced_parts': unpriced_count or 0,
-                'total_units': results.total_units if (results and results.total_units is not None) else 0
-            }
+        with self.get_session() as session:
+            return self.analytics_repo.get_inventory_value(session)
 
 
 # Global service instance

@@ -34,6 +34,7 @@ class PartService(BaseService):
     def __init__(self):
         super().__init__()
         self.part_repo = PartRepository(engine)
+        self.location_service = LocationService()
         self.entity_name = "Part"
 
     def _load_order_relationships(self, session: Session, part: 'PartModel') -> 'PartModel':
@@ -267,10 +268,14 @@ class PartService(BaseService):
                 # Set default "Unsorted" location if no location specified
                 if location_id is None:
                     try:
-                        unsorted_location = LocationService.get_or_create_unsorted_location()
-                        part_data["location_id"] = unsorted_location.id
-                        location_id = unsorted_location.id
-                        self.logger.debug(f"Assigned part '{part_name}' to 'Unsorted' location (ID: {location_id})")
+                        unsorted_response = self.location_service.get_or_create_unsorted_location()
+                        if unsorted_response.success:
+                            unsorted_location = unsorted_response.data
+                            part_data["location_id"] = unsorted_location["id"]
+                            location_id = unsorted_location["id"]
+                            self.logger.debug(f"Assigned part '{part_name}' to 'Unsorted' location (ID: {location_id})")
+                        else:
+                            self.logger.warning(f"Could not assign default 'Unsorted' location to part '{part_name}': {unsorted_response.message}")
                     except Exception as e:
                         self.logger.warning(f"Could not assign default 'Unsorted' location to part '{part_name}': {e}")
                         # Continue without location - don't fail part creation
@@ -278,8 +283,8 @@ class PartService(BaseService):
                 # Verify that the location exists, but only if a location_id is provided
                 if location_id:
                     self.logger.debug(f"Validating location_id: {location_id}")
-                    location = LocationService.get_location(LocationQueryModel(id=location_id))
-                    if not location:
+                    location_response = self.location_service.get_location(LocationQueryModel(id=location_id))
+                    if not location_response.success or not location_response.data:
                         return self.error_response(f"Location with id '{location_id}' does not exist.")
                     self.logger.debug(f"Location validation successful for part '{part_name}'")
 
@@ -336,37 +341,26 @@ class PartService(BaseService):
                         else:
                             filtered_part_data[key] = value
                 
-                # Create the part without categories first
+                # Create the part with categories using repository
                 self.logger.debug(f"Creating PartModel with data: {filtered_part_data}")
                 new_part = PartModel(**filtered_part_data)
-
-                # Add the part to session and flush to get ID
-                session.add(new_part)
-                session.flush()  # Get the ID without committing
                 
-                # Now assign categories after the part has an ID
+                # Assign categories to the part before saving
                 if categories:
                     self.logger.debug(f"Assigning {len(categories)} categories to part")
                     new_part.categories = categories
-                    session.flush()  # Flush category relationships
                 
-                # Commit everything
-                session.commit()
-                
-                # Refresh to get all relationships loaded
-                session.refresh(new_part, ['categories', 'location'])
-                part_obj = new_part
+                # Use repository to create the part
+                part_obj = self.part_repo.add_part(session, new_part)
                 
                 # Create datasheet records if any
                 if datasheets_data:
-                    from MakerMatrix.models.models import DatasheetModel
+                    from MakerMatrix.repositories.datasheet_repository import DatasheetRepository
+                    datasheet_repo = DatasheetRepository()
                     for datasheet_data in datasheets_data:
                         datasheet_data['part_id'] = part_obj.id
-                        datasheet = DatasheetModel(**datasheet_data)
-                        session.add(datasheet)
+                        datasheet_repo.create_datasheet(session, datasheet_data)
                     
-                    session.commit()  # Commit datasheets
-                    session.refresh(part_obj)  # Refresh to get updated datasheets
                     self.logger.info(f"Added {len(datasheets_data)} datasheets to part '{part_name}'")
                 
                 self.logger.info(f"Successfully created part: {part_name} (ID: {part_obj.id}) with {len(categories)} categories")
@@ -587,9 +581,8 @@ class PartService(BaseService):
                         part.categories.clear()  # Clear existing categories
                         part.categories.extend(categories)  # Add new categories
                         
-                        # Commit to ensure the relationship is properly saved
-                        session.commit()
-                        session.refresh(part)
+                        # Use repository to update the part
+                        part = self.part_repo.update_part(session, part)
                         
                         new_categories = [cat.name for cat in categories if hasattr(cat, 'name')]
                         self.logger.info(f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}")

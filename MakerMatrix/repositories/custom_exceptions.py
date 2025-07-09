@@ -34,7 +34,7 @@ class ResourceNotFoundError(_ResourceNotFoundError):
             DeprecationWarning,
             stacklevel=2
         )
-        super().__init__(message, details={"status": status, "data": data})
+        super().__init__(message, resource_type="generic", resource_id=None)
         self.status = status
         self.data = data
 

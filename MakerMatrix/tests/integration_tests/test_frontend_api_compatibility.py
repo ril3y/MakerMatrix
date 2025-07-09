@@ -1,4 +1,4 @@
-"""
+from MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n"""
 Frontend API Compatibility Tests
 
 Tests to ensure the frontend and backend APIs are compatible,
@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
 
 from MakerMatrix.main import app
-from MakerMatrix.models.models import engine
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.repositories.user_repository import UserRepository
@@ -23,8 +22,8 @@ client = TestClient(app)
 @pytest.fixture(scope="function")
 def setup_clean_database():
     """Set up a clean database for each test."""
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.drop_all(isolated_test_engine)
+    SQLModel.metadata.create_all(isolated_test_engine)
     create_db_and_tables()
 
     user_repo = UserRepository()
@@ -34,7 +33,7 @@ def setup_clean_database():
     
     yield
     
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(isolated_test_engine)
 
 
 @pytest.fixture

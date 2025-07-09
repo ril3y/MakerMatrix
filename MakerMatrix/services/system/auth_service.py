@@ -73,7 +73,19 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        user = self.user_repository.get_user_by_username(username)
+        try:
+            user = self.user_repository.get_user_by_username(username)
+        except Exception as e:
+            # Log the database error and raise a proper authentication error
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Database error during user authentication: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication database error",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

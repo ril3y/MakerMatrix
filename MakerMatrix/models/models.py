@@ -20,7 +20,6 @@ from .task_models import *
 from .ai_config_model import *
 from .printer_config_model import *
 from .supplier_config_models import *
-from .supplier_credentials import *
 from .rate_limiting_models import *
 from .csv_import_config_model import *
 

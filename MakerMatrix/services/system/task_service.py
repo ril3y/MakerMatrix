@@ -353,14 +353,6 @@ class TaskService(BaseService):
 task_service = TaskService()
 
 
-async def create_csv_enrichment_task(
-    imported_part_ids: List[str], 
-    supplier: str, 
-    user_id: str
-) -> TaskModel:
-    """DEPRECATED: Use create_file_import_enrichment_task instead"""
-    return await create_file_import_enrichment_task(imported_part_ids, supplier, user_id, file_type="CSV")
-
 
 async def create_file_import_enrichment_task(
     imported_part_ids: List[str], 

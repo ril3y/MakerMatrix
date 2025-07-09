@@ -62,15 +62,16 @@ class LocationService(BaseService):
             self.log_operation("get", self.entity_name)
             
             with self.get_session() as session:
-                location = self.location_repo.get_location(session, location_query)
-                if location:
+                try:
+                    location = self.location_repo.get_location(session, location_query)
                     # Convert to dictionary to avoid DetachedInstanceError
                     location_dict = location.model_dump()
                     return self.success_response(
                         f"{self.entity_name} retrieved successfully",
                         location_dict
                     )
-                else:
+                except ResourceNotFoundError:
+                    # Handle specific case where location doesn't exist
                     return self.error_response(f"{self.entity_name} not found")
 
         except Exception as e:
@@ -291,50 +292,58 @@ class LocationService(BaseService):
         session = next(get_session())
         return LocationService.location_repo.delete_all_locations(session)
 
-    @staticmethod
-    def get_or_create_unsorted_location() -> LocationModel:
+    def get_or_create_unsorted_location(self) -> ServiceResponse[Dict[str, Any]]:
         """
         Get the 'Unsorted' location, creating it if it doesn't exist.
         This is used as a default location for imported parts that don't specify a location.
         
-        Returns:
-            LocationModel: The 'Unsorted' location
-        """
-        session = next(get_session())
-        try:
-            # First, try to find existing "Unsorted" location
-            query = LocationQueryModel(name="Unsorted")
-            existing_location = LocationService.location_repo.get_location(session, query)
-            if existing_location:
-                logger.debug("Found existing 'Unsorted' location")
-                return existing_location
-                
-        except ResourceNotFoundError:
-            # Location doesn't exist, we'll create it below
-            pass
-        except Exception as e:
-            logger.warning(f"Error checking for existing 'Unsorted' location: {e}")
-            # Continue to creation attempt
+        CONSOLIDATED SESSION MANAGEMENT: Uses BaseService patterns for proper session handling.
         
-        # Create the "Unsorted" location
+        Returns:
+            ServiceResponse[Dict[str, Any]]: The 'Unsorted' location data
+        """
         try:
-            location_data = {
-                "name": "Unsorted",
-                "description": "Default location for imported parts that need to be organized",
-                "location_type": "storage",
-                "parent_id": None  # Top-level location
-            }
+            self.log_operation("get_or_create_unsorted", self.entity_name)
             
-            logger.info("Creating 'Unsorted' location for imported parts")
-            unsorted_location = LocationService.location_repo.add_location(session, location_data)
-            logger.info(f"Successfully created 'Unsorted' location (ID: {unsorted_location.id})")
-            return unsorted_location
-            
+            with self.get_session() as session:
+                # First, try to find existing "Unsorted" location
+                query = LocationQueryModel(name="Unsorted")
+                try:
+                    existing_location = self.location_repo.get_location(session, query)
+                    if existing_location:
+                        logger.debug("Found existing 'Unsorted' location")
+                        # Convert to dictionary to avoid DetachedInstanceError
+                        location_data = existing_location.model_dump()
+                        return self.success_response(
+                            "Retrieved existing 'Unsorted' location",
+                            location_data
+                        )
+                except ResourceNotFoundError:
+                    # Location doesn't exist, we'll create it below
+                    pass
+                
+                # Create the "Unsorted" location
+                location_data = {
+                    "name": "Unsorted",
+                    "description": "Default location for imported parts that need to be organized",
+                    "location_type": "storage",
+                    "parent_id": None  # Top-level location
+                }
+                
+                logger.info("Creating 'Unsorted' location for imported parts")
+                unsorted_location = self.location_repo.add_location(session, location_data)
+                logger.info(f"Successfully created 'Unsorted' location (ID: {unsorted_location.id})")
+                
+                # Convert to dictionary to avoid DetachedInstanceError
+                location_response_data = unsorted_location.model_dump()
+                return self.success_response(
+                    f"Successfully created 'Unsorted' {self.entity_name.lower()}",
+                    location_response_data
+                )
+                
         except Exception as e:
-            logger.error(f"Failed to create 'Unsorted' location: {e}")
-            # If we can't create it, return None and let the import continue without a location
-            # This prevents import failures due to location creation issues
-            raise ValueError(f"Could not create or access 'Unsorted' location: {str(e)}")
+            logger.error(f"Failed to get or create 'Unsorted' location: {e}")
+            return self.error_response(f"Could not create or access 'Unsorted' location: {str(e)}")
 
     @staticmethod
     def cleanup_locations() -> dict:

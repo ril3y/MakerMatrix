@@ -1,4 +1,4 @@
-"""
+from MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n"""
 Test supplier configuration API endpoints to ensure they work correctly
 """
 import pytest
@@ -7,7 +7,6 @@ from sqlmodel import SQLModel
 from MakerMatrix.main import app
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.database.db import create_db_and_tables
-from MakerMatrix.models.models import engine
 from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 from MakerMatrix.repositories.user_repository import UserRepository
 
@@ -15,22 +14,24 @@ client = TestClient(app)
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_database():
-    """Set up the database before running tests and clean up afterward."""
-    # Create tables
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
-    create_db_and_tables()
+def setup_database(isolated_test_engine):
+    """Set up isolated test database before running tests."""
+    from MakerMatrix.database.db import create_db_and_tables
+    from MakerMatrix.repositories.user_repository import UserRepository
+    from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
     
-    # Set up default roles and admin
+    # Create user repository with isolated test engine
     user_repo = UserRepository()
+    user_repo.engine = isolated_test_engine
+    
+    # Setup default roles and admin user in test database
     setup_default_roles(user_repo)
     setup_default_admin(user_repo)
     
     yield
     
     # Clean up
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(isolated_test_engine)
 
 
 class TestSupplierConfigurationAPI:

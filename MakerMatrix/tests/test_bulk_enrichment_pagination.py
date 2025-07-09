@@ -12,7 +12,6 @@ from MakerMatrix.services.system.enrichment_coordinator_service import Enrichmen
 from MakerMatrix.models.task_models import TaskModel, TaskType, TaskStatus
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.services.data.part_service import PartService
-from MakerMatrix.models.models import engine
 
 
 async def test_pagination():

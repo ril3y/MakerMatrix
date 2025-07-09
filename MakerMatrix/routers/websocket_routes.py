@@ -9,11 +9,13 @@ from typing import Optional
 from MakerMatrix.services.system.websocket_service import websocket_manager
 from MakerMatrix.auth.dependencies import get_current_user_from_token
 from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.routers.base import BaseRouter
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+base_router = BaseRouter()
 
 
 @router.websocket("/ws/tasks")
@@ -30,6 +32,8 @@ async def websocket_tasks_endpoint(
             user = await get_current_user_from_token(token)
         except Exception as e:
             logger.warning(f"WebSocket authentication failed: {e}")
+            # Don't continue with authentication if there's an error
+            user = None
     
     user_id = user.id if user else None
     
@@ -76,6 +80,8 @@ async def websocket_general_endpoint(
             user = await get_current_user_from_token(token)
         except Exception as e:
             logger.warning(f"General WebSocket authentication failed: {e}")
+            # Don't continue with authentication if there's an error
+            user = None
     
     user_id = user.id if user else None
     

@@ -4,7 +4,6 @@ import os
 
 from MakerMatrix.main import app
 from MakerMatrix.scripts.setup_admin import DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
-from MakerMatrix.models.models import engine
 from sqlmodel import SQLModel
 
 def get_auth_token(client):

@@ -8,9 +8,11 @@ from pydantic import BaseModel
 from MakerMatrix.services.activity_service import get_activity_service, ActivityService
 from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 
 
 router = APIRouter()
+base_router = BaseRouter()
 
 
 class ActivityResponse(BaseModel):
@@ -30,6 +32,7 @@ class ActivityListResponse(BaseModel):
 
 
 @router.get("/recent", response_model=ActivityListResponse)
+@standard_error_handling
 async def get_recent_activities(
     limit: int = Query(50, ge=1, le=100, description="Number of activities to return"),
     entity_type: Optional[str] = Query(None, description="Filter by entity type (part, printer, label, etc.)"),
@@ -66,6 +69,7 @@ async def get_recent_activities(
 
 
 @router.get("/stats")
+@standard_error_handling
 async def get_activity_stats(
     hours: int = Query(24, ge=1, le=168, description="Hours back to analyze"),
     current_user: UserModel = Depends(get_current_user),
@@ -102,6 +106,7 @@ async def get_activity_stats(
 
 
 @router.post("/cleanup")
+@standard_error_handling
 async def cleanup_old_activities(
     keep_days: int = Query(90, ge=7, le=365, description="Days of activities to keep"),
     current_user: UserModel = Depends(get_current_user),

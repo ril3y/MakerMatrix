@@ -116,34 +116,42 @@ class UserRepository:
             return detached_user
 
     def get_user_by_username(self, username: str) -> UserModel:
-        with Session(self.engine) as session:
-            statement = select(UserModel).options(joinedload(UserModel.roles)).where(UserModel.username == username)
-            user = session.exec(statement).first()
-            if not user:
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"User with username '{username}' not found",
-                    data=None
-                )
-            
-            # Create a dictionary of the user data while the session is still open
-            user_dict = {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "is_active": user.is_active,
-                "password_change_required": user.password_change_required,
-                "created_at": datetime.fromisoformat(user.created_at.isoformat()) if isinstance(user.created_at, datetime) else datetime.fromisoformat(user.created_at),
-                "last_login": datetime.fromisoformat(user.last_login.isoformat()) if user.last_login and isinstance(user.last_login, datetime) else user.last_login,
-                "hashed_password": user.hashed_password,
-                "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
-            }
-            
-            # Create a new detached instance with the loaded data
-            detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
-            detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
-            
-            return detached_user
+        try:
+            with Session(self.engine) as session:
+                statement = select(UserModel).options(joinedload(UserModel.roles)).where(UserModel.username == username)
+                user = session.exec(statement).first()
+                if not user:
+                    raise ResourceNotFoundError(
+                        status="error",
+                        message=f"User with username '{username}' not found",
+                        data=None
+                    )
+                
+                # Create a dictionary of the user data while the session is still open
+                user_dict = {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "is_active": user.is_active,
+                    "password_change_required": user.password_change_required,
+                    "created_at": datetime.fromisoformat(user.created_at.isoformat()) if isinstance(user.created_at, datetime) else datetime.fromisoformat(user.created_at),
+                    "last_login": datetime.fromisoformat(user.last_login.isoformat()) if user.last_login and isinstance(user.last_login, datetime) else user.last_login,
+                    "hashed_password": user.hashed_password,
+                    "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
+                }
+                
+                # Create a new detached instance with the loaded data
+                detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
+                detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
+                
+                return detached_user
+        except Exception as e:
+            # Log the database error and re-raise with more context
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Database error in get_user_by_username: {e}")
+            logger.error(f"Database URL: {self.engine.url}")
+            raise
 
     def get_user_by_email(self, email: str) -> UserModel:
         with Session(self.engine) as session:

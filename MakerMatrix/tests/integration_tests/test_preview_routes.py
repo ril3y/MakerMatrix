@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from MakerMatrix.main import app
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.repositories.parts_repositories import PartRepository
-from MakerMatrix.models.models import engine
 
 
 @pytest.mark.integration

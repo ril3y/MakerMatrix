@@ -6,7 +6,6 @@ from .location_repositories import LocationRepository
 from .user_repository import UserRepository
 from .printer_repository import PrinterRepository
 from .printer_db_repository import PrinterDatabaseRepository
-from .credential_repository import CredentialRepository
 from .datasheet_repository import DatasheetRepository
 from .csv_import_config_repository import CSVImportConfigRepository
 
@@ -19,7 +18,6 @@ __all__ = [
     "UserRepository",
     "PrinterRepository",
     "PrinterDatabaseRepository",
-    "CredentialRepository",
     "DatasheetRepository",
     "CSVImportConfigRepository"
 ]

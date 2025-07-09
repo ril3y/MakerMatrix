@@ -26,9 +26,12 @@ from MakerMatrix.schemas.websocket_schemas import (
     create_notification_message
 )
 from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
+from MakerMatrix.suppliers.base import SupplierCapability
 
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.services.data.part_service import PartService
+from MakerMatrix.repositories.parts_repositories import PartRepository
+from MakerMatrix.exceptions import ResourceNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +44,8 @@ class EnhancedImportService:
     def __init__(self):
         self.rate_limit_service = RateLimitService(engine)
         self.enrichment_queue = EnrichmentQueueManager(self.rate_limit_service)
-        self.csv_import_service = CSVImportService()
         self.part_service = PartService()
+        self.part_repository = PartRepository(engine)
         
         # WebSocket broadcasting function (to be set by calling code)
         self._websocket_broadcast = None
@@ -192,42 +195,117 @@ class EnhancedImportService:
         order_info: Dict[str, Any] = None,
         import_id: str = None
     ) -> Dict[str, Any]:
-        """Import CSV data using existing CSV import service"""
+        """Import CSV/file data using the supplier-based import system"""
         
         try:
+            # Read file content if file_path provided
             if file_path:
-                # Read file content
                 file_path_obj = Path(file_path)
                 if file_path_obj.suffix.lower() in ['.xls', '.xlsx']:
                     # Handle Excel files
-                    import pandas as pd
-                    df = pd.read_excel(file_path)
-                    csv_content = df.to_csv(index=False)
+                    with open(file_path, 'rb') as f:
+                        file_content = f.read()
+                    filename = file_path_obj.name
                 else:
                     # Handle CSV files
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        csv_content = f.read()
+                    with open(file_path, 'rb') as f:
+                        file_content = f.read()
+                    filename = file_path_obj.name
+            elif csv_content:
+                # Handle CSV content as bytes
+                file_content = csv_content.encode('utf-8')
+                filename = "import.csv"
+            else:
+                raise ValueError("No file content provided")
             
-            if not csv_content:
-                raise ValueError("No CSV content provided")
+            # Get supplier
+            supplier_name = parser_type or "lcsc"  # Default to LCSC
+            try:
+                supplier = get_supplier(supplier_name)
+            except Exception as e:
+                raise ValueError(f"Unknown supplier: {supplier_name}")
             
-            # Use existing CSV import service
-            import_request = {
-                "csv_content": csv_content,
-                "parser_type": parser_type,
-                "order_info": order_info or {}
+            # Check if supplier supports imports
+            if SupplierCapability.IMPORT_ORDERS not in supplier.get_capabilities():
+                raise ValueError(f"{supplier_name} does not support file imports")
+            
+            # Check if supplier can handle this file
+            if not supplier.can_import_file(filename, file_content):
+                raise ValueError(f"{supplier_name} cannot import this file type")
+            
+            # Import using supplier
+            file_type = filename.split('.')[-1].lower() if '.' in filename else 'csv'
+            import_result = await supplier.import_order_file(file_content, file_type, filename)
+            
+            if not import_result.success:
+                error_msg = import_result.error_message or "Import failed"
+                logger.error(f"Import failed for {supplier_name}: {error_msg}")
+                return {
+                    "success": False,
+                    "message": error_msg,
+                    "data": {}
+                }
+            
+            if not import_result.parts:
+                logger.warning(f"No parts found in {filename} for supplier {supplier_name}")
+                return {
+                    "success": False,
+                    "message": "No parts found in file",
+                    "data": {}
+                }
+            
+            # Create parts in database using PartService
+            part_ids = []
+            failed_items = []
+            
+            for part_data in import_result.parts:
+                try:
+                    # Create part using PartService
+                    result = await self.part_service.create_part_async(part_data)
+                    if result.get("success"):
+                        part_ids.append(result["data"]["id"])
+                    else:
+                        failed_items.append({
+                            "part_data": part_data,
+                            "error": result.get("message", "Unknown error")
+                        })
+                except Exception as e:
+                    failed_items.append({
+                        "part_data": part_data,
+                        "error": str(e)
+                    })
+            
+            # Format result similar to expected structure
+            imported_parts = []
+            for part_id in part_ids:
+                try:
+                    with Session(engine) as session:
+                        part = self.part_repository.get_part_by_id(session, part_id)
+                        imported_parts.append({
+                            "id": part.id,
+                            "part_name": part.part_name,
+                            "part_number": part.part_number,
+                            "supplier": part.supplier
+                        })
+                except ResourceNotFoundError:
+                    continue
+            
+            return {
+                "success": True,
+                "message": f"Successfully imported {len(imported_parts)} parts",
+                "data": {
+                    "imported_parts": imported_parts,
+                    "parser_type": supplier_name,
+                    "failed_items": failed_items,
+                    "order_created": False  # Could be enhanced later
+                }
             }
             
-            # Call existing import service
-            result = await self.csv_import_service.import_csv_async(import_request)
-            
-            return result
-            
         except Exception as e:
-            logger.error(f"CSV import failed: {e}")
+            logger.error(f"File import failed: {e}")
             return {
                 "success": False,
-                "message": f"CSV import failed: {str(e)}",
+                "message": f"File import failed: {str(e)}",
                 "data": {}
             }
     
@@ -243,28 +321,42 @@ class EnhancedImportService:
         enrichment_results = []
         
         # Check if parser type supports enrichment
-        if not supports_enrichment(parser_type):
-            logger.info(f"Parser type '{parser_type}' does not support enrichment - supplier not configured or enabled")
-            
-            # Notify user that enrichment is disabled due to supplier configuration
-            await self._broadcast_message({
-                "type": "notification",
-                "data": {
-                    "title": "Enrichment Disabled",
-                    "message": f"Parts imported successfully, but enrichment is disabled because the {parser_type.upper()} supplier is not configured. To enable enrichment with additional part data, images, and datasheets, please configure the {parser_type.upper()} supplier in settings.",
-                    "level": "warning",
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-            })
-            
-            return enrichment_results
-        
-        # Get supplier for this parser type using direct name matching
         supplier_name = parser_type.upper()  # e.g., 'lcsc' -> 'LCSC'
         
-        enrichment_supplier = get_enrichment_client(parser_type)
-        if not enrichment_supplier:
-            logger.warning(f"No enrichment supplier '{supplier_name}' available for parser type '{parser_type}'")
+        # Get supplier and check enrichment capabilities
+        try:
+            supplier = get_supplier(parser_type)
+            
+            # Check if supplier supports enrichment capabilities
+            enrichment_capabilities = [
+                SupplierCapability.FETCH_PART_DETAILS,
+                SupplierCapability.FETCH_DATASHEET,
+                SupplierCapability.FETCH_PRICING_STOCK
+            ]
+            
+            supports_enrichment = any(
+                cap in supplier.get_capabilities() and supplier.is_capability_available(cap)
+                for cap in enrichment_capabilities
+            )
+            
+            if not supports_enrichment:
+                logger.info(f"Parser type '{parser_type}' does not support enrichment - supplier not configured or enabled")
+                
+                # Notify user that enrichment is disabled due to supplier configuration
+                await self._broadcast_message({
+                    "type": "notification",
+                    "data": {
+                        "title": "Enrichment Disabled",
+                        "message": f"Parts imported successfully, but enrichment is disabled because the {parser_type.upper()} supplier is not configured. To enable enrichment with additional part data, images, and datasheets, please configure the {parser_type.upper()} supplier in settings.",
+                        "level": "warning",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                })
+                
+                return enrichment_results
+                
+        except Exception as e:
+            logger.warning(f"Could not check enrichment support for '{parser_type}': {e}")
             return enrichment_results
         
         # Queue enrichment tasks for each part
@@ -350,10 +442,11 @@ class EnhancedImportService:
             
             for i, part_id in enumerate(part_ids):
                 try:
-                    # Get part details
+                    # Get part details using repository pattern
                     with Session(engine) as session:
-                        part = session.query(PartModel).filter(PartModel.id == part_id).first()
-                        if not part:
+                        try:
+                            part = self.part_repository.get_part_by_id(session, part_id)
+                        except ResourceNotFoundError:
                             continue
                     
                     # Auto-detect supplier if not provided

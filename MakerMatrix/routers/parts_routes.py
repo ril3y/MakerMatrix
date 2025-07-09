@@ -16,6 +16,9 @@ from MakerMatrix.suppliers.registry import get_available_suppliers
 from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority
 
+# BaseRouter infrastructure
+from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
+
 router = APIRouter()
 
 import logging
@@ -24,153 +27,58 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
+@standard_error_handling
+@log_activity("part_created", "User {username} created part")
 async def add_part(
     part: PartCreate, 
     request: Request,
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[PartResponse]:
-    try:
-        # Convert PartCreate to dict and include category_names
-        part_data = part.model_dump()
-        
-        # Extract enrichment parameters before processing
-        auto_enrich = part_data.pop('auto_enrich', False)
-        enrichment_supplier = part_data.pop('enrichment_supplier', None)
-        enrichment_capabilities = part_data.pop('enrichment_capabilities', [])
-        
-        # Process to add part
-        part_service = PartService()
-        service_response = part_service.add_part(part_data)
-        if not service_response.success:
-            if "already exists" in service_response.message:
-                raise HTTPException(status_code=409, detail=service_response.message)
-            else:
-                raise HTTPException(status_code=400, detail=service_response.message)
-        created_part = service_response.data
-        part_id = created_part["id"]
-        response = {"status": "success", "message": service_response.message, "data": created_part}
+    # Convert PartCreate to dict and include category_names
+    part_data = part.model_dump()
+    
+    # Extract enrichment parameters before processing
+    auto_enrich = part_data.pop('auto_enrich', False)
+    enrichment_supplier = part_data.pop('enrichment_supplier', None)
+    enrichment_capabilities = part_data.pop('enrichment_capabilities', [])
+    
+    # Process to add part
+    part_service = PartService()
+    service_response = part_service.add_part(part_data)
+    created_part = validate_service_response(service_response)
+    part_id = created_part["id"]
 
-        # Handle automatic enrichment if requested
-        enrichment_message = ""
-        if auto_enrich and enrichment_supplier:
-            try:
-                # Validate supplier exists
-                available_suppliers = get_available_suppliers()
-                if enrichment_supplier not in available_suppliers:
-                    enrichment_message = f" Warning: Supplier '{enrichment_supplier}' not configured on backend."
-                else:
-                    # Check if supplier is properly configured
-                    supplier_config_service = SupplierConfigService()
-                    try:
-                        # Try enrichment_supplier as-is first, then try uppercase version
-                        try:
-                            supplier_config_service.get_supplier_config(enrichment_supplier)
-                        except ResourceNotFoundError:
-                            # Try uppercase version for backward compatibility
-                            supplier_config_service.get_supplier_config(enrichment_supplier.upper())
-                        
-                        # Create enrichment task
-                        enrichment_data = {
-                            'part_id': part_id,
-                            'supplier': enrichment_supplier,
-                            'capabilities': enrichment_capabilities or ['fetch_datasheet', 'fetch_image', 'fetch_pricing']
-                        }
-                        
-                        task_request = CreateTaskRequest(
-                            task_type=TaskType.PART_ENRICHMENT,
-                            name=f"QR Part Enrichment - {created_part.get('part_name', 'Unknown')}",
-                            description=f"Auto-enrich part from {enrichment_supplier} (QR code scan)",
-                            priority=TaskPriority.HIGH,
-                            input_data=enrichment_data,
-                            related_entity_type="part",
-                            related_entity_id=part_id
-                        )
-                        
-                        enrichment_task = await task_service.create_task(task_request, user_id=current_user.id)
-                        enrichment_message = f" Enrichment task created (ID: {enrichment_task.id})."
-                        
-                        # Wait for enrichment to complete and return enriched part
-                        # Note: This is a simplified approach - in production you might want to use WebSocket or polling
-                        import asyncio
-                        enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task.id, timeout=30)
-                        if enriched_part:
-                            created_part = enriched_part
-                            enrichment_message = f" Part successfully enriched from {enrichment_supplier}."
-                        else:
-                            enrichment_message = f" Enrichment task started but did not complete within timeout."
-                            
-                    except ResourceNotFoundError:
-                        enrichment_message = f" Warning: Supplier '{enrichment_supplier}' not properly configured."
-                    except Exception as e:
-                        logger.error(f"Enrichment task creation failed: {e}")
-                        enrichment_message = f" Warning: Enrichment failed - {str(e)}"
-                        
-            except Exception as e:
-                logger.error(f"Enrichment process failed: {e}")
-                enrichment_message = f" Warning: Enrichment failed - {str(e)}"
-
-        # Log activity
-        try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            await activity_service.log_part_created(
-                part_id=part_id,
-                part_name=created_part.get("part_name"),
-                user=current_user,
-                request=request
-            )
-        except Exception as e:
-            logger.warning(f"Failed to log part creation activity: {e}")
-
-        # noinspection PyArgumentList
-        return ResponseSchema(
-            status=response["status"],
-            message=response["message"] + enrichment_message,
-            data=PartResponse.model_validate(created_part)
+    # Handle automatic enrichment if requested
+    enrichment_message = ""
+    if auto_enrich and enrichment_supplier:
+        enrichment_message = await _handle_enrichment(
+            part_id, created_part, enrichment_supplier, enrichment_capabilities, current_user
         )
-    except PartAlreadyExistsError as pae:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Part with name '{part_data['part_name']}' already exists"
-        )
-    except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=str(rnfe))
-    except ValueError as ve:
-        if "Input should be a valid string" in str(ve):
-            raise HTTPException(
-                status_code=422,
-                detail=[{
-                    "loc": ["body", "category_names", 0],
-                    "msg": "Input should be a valid string",
-                    "type": "string_type"
-                }]
-            )
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    return BaseRouter.build_success_response(
+        data=PartResponse.model_validate(created_part),
+        message=service_response.message + enrichment_message
+    )
 
 
 @router.get("/get_part_counts", response_model=ResponseSchema[int])
+@standard_error_handling
 async def get_part_counts() -> ResponseSchema[int]:
-    try:
-        part_service = PartService()
-        service_response = part_service.get_part_counts()
-        if not service_response.success:
-            raise HTTPException(status_code=500, detail=service_response.message)
-        response = {"status": "success", "message": service_response.message, "total_parts": service_response.data["total_parts"]}
-        return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=response["total_parts"]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    part_service = PartService()
+    service_response = part_service.get_part_counts()
+    data = validate_service_response(service_response)
+    return BaseRouter.build_success_response(
+        data=data["total_parts"],
+        message=service_response.message
+    )
 
 
 ###
 
 
 @router.delete("/delete_part", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
+@log_activity("part_deleted", "User {username} deleted part")
 async def delete_part(
         request: Request,
         current_user: UserModel = Depends(get_current_user),
@@ -183,263 +91,149 @@ async def delete_part(
     Raises HTTP 400 if no identifier is provided.
     Raises HTTP 404 if the part is not found.
     """
-    try:
-        # Validate that at least one identifier is provided
-        if not part_id and not part_name and not part_number:
-            raise HTTPException(
-                status_code=400,
-                detail="At least one identifier (part_id, part_name, or part_number) must be provided"
-            )
-        
-        # Retrieve part using details
-        part_service = PartService()
-        service_response = part_service.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
-        
-        if not service_response.success:
-            identifier = part_id or part_name or part_number
-            raise HTTPException(
-                status_code=404,
-                detail=f"Part not found with the provided identifier: {identifier}"
-            )
-        
-        part = service_response.data
+    # Validate that at least one identifier is provided
+    if not part_id and not part_name and not part_number:
+        raise ValueError("At least one identifier (part_id, part_name, or part_number) must be provided")
+    
+    # Retrieve part using details
+    part_service = PartService()
+    service_response = part_service.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
+    part = validate_service_response(service_response)
 
-        # Store part info for activity logging before deletion
-        part_info = {
-            "id": part['id'],
-            "name": part['part_name']
-        }
-
-        # Perform the deletion using the actual part ID
-        delete_response = part_service.delete_part(part['id'])
-        
-        if not delete_response.success:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to delete part: {delete_response.message}"
-            )
-        
-        # Log activity
-        try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            await activity_service.log_part_deleted(
-                part_id=part_info["id"],
-                part_name=part_info["name"],
-                user=current_user,
-                request=request
-            )
-        except Exception as e:
-            logger.warning(f"Failed to log part deletion activity: {e}")
-
-        # Convert PartResponse to dict for the response
-        part_response_obj = PartResponse.model_validate(delete_response.data)
-        return ResponseSchema(
-            status="success",
-            message=delete_response.message,
-            data=part_response_obj.model_dump()
-        )
-
-    except HTTPException:
-        # Re-raise HTTPExceptions (like our 400 and 404 errors)
-        raise
-    except ResourceNotFoundError as rnfe:
-        raise HTTPException(status_code=404, detail=rnfe.message)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete part: {str(e)}")
+    # Perform the deletion using the actual part ID
+    delete_response = part_service.delete_part(part['id'])
+    deleted_part = validate_service_response(delete_response)
+    
+    # Convert PartResponse to dict for the response
+    part_response_obj = PartResponse.model_validate(deleted_part)
+    return BaseRouter.build_success_response(
+        data=part_response_obj.model_dump(),
+        message=delete_response.message
+    )
 
 
 ###
 
 @router.get("/get_all_parts", response_model=ResponseSchema[List[PartResponse]])
+@standard_error_handling
 async def get_all_parts(
         page: int = Query(default=1, ge=1),
         page_size: int = Query(default=10, ge=1)
 ) -> ResponseSchema[List[PartResponse]]:
-    try:
-        part_service = PartService()
-        service_response = part_service.get_all_parts(page, page_size)
-        if not service_response.success:
-            raise HTTPException(status_code=500, detail=service_response.message)
-        response = {"status": "success", "message": service_response.message, "data": service_response.data["items"], "page": service_response.data["page"], "page_size": service_response.data["page_size"], "total_parts": service_response.data["total"]}
+    part_service = PartService()
+    service_response = part_service.get_all_parts(page, page_size)
+    data = validate_service_response(service_response)
 
-        return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=[PartResponse.model_validate(part) for part in response["data"]],
-            page=response["page"],
-            page_size=response["page_size"],
-            total_parts=response["total_parts"]
-        )
-
-    except ResourceNotFoundError as rnfe:
-        raise rnfe
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return BaseRouter.build_success_response(
+        data=[PartResponse.model_validate(part) for part in data["items"]],
+        message=service_response.message,
+        page=data["page"],
+        page_size=data["page_size"],
+        total_parts=data["total"]
+    )
 
 
 @router.get("/get_part")
+@standard_error_handling
 async def get_part(
         part_id: Optional[str] = Query(None),
         part_number: Optional[str] = Query(None),
         part_name: Optional[str] = Query(None),
         include: Optional[str] = Query(None, description="Comma-separated list of additional data to include (orders, datasheets, all)")
 ) -> ResponseSchema[PartResponse]:
-    try:
-        # Parse include parameter
-        include_list = []
-        if include:
-            include_list = [item.strip() for item in include.split(",")]
-        
-        # Use the PartService to determine which parameter to use for fetching
-        if part_id:
-            part_service = PartService()
-            service_response = part_service.get_part_by_id(part_id, include=include_list)
-            if not service_response.success:
-                raise HTTPException(
-                    status_code=404,
-                    detail=service_response.message
-                )
-            response = {"status": "success", "message": service_response.message, "data": service_response.data}
-        elif part_number:
-            part_service = PartService()
-            service_response = part_service.get_part_by_part_number(part_number, include=include_list)
-            if not service_response.success:
-                raise HTTPException(
-                    status_code=404,
-                    detail=service_response.message
-                )
-            response = {"status": "success", "message": service_response.message, "data": service_response.data}
-        elif part_name:
-            if 'part_service' not in locals():
-                part_service = PartService()
-            service_response = part_service.get_part_by_part_name(part_name, include=include_list)
-            if not service_response.success:
-                raise HTTPException(
-                    status_code=404,
-                    detail=service_response.message
-                )
-            response = {"status": "success", "message": service_response.message, "data": service_response.data}
-        else:
-            # If no identifier is provided, return a 400 error
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="At least one identifier (part_id, part_number, or part_name) must be provided"
-            )
-
-        return ResponseSchema(
-
-            status=response["status"],
-            message=response["message"],
-            data=PartResponse.model_validate(response["data"])
-        )
-
-    except ResourceNotFoundError as rnfe:
-        raise rnfe
-
-    except HTTPException as http_exc:
-        # Re-raise any caught HTTP exceptions
-        raise http_exc
-    except Exception as e:
-        # For other exceptions, raise a general HTTP error
-        raise HTTPException(status_code=500, detail=str(e))
+    # Parse include parameter
+    include_list = []
+    if include:
+        include_list = [item.strip() for item in include.split(",")]
+    
+    # Validate that at least one identifier is provided
+    if not part_id and not part_number and not part_name:
+        raise ValueError("At least one identifier (part_id, part_number, or part_name) must be provided")
+    
+    # Use the PartService to determine which parameter to use for fetching
+    part_service = PartService()
+    if part_id:
+        service_response = part_service.get_part_by_id(part_id, include=include_list)
+    elif part_number:
+        service_response = part_service.get_part_by_part_number(part_number, include=include_list)
+    else:  # part_name
+        service_response = part_service.get_part_by_part_name(part_name, include=include_list)
+    
+    data = validate_service_response(service_response)
+    return BaseRouter.build_success_response(
+        data=PartResponse.model_validate(data),
+        message=service_response.message
+    )
 
 
 # Duplicate endpoint removed - use /get_all_parts instead
 
 
 @router.put("/update_part/{part_id}", response_model=ResponseSchema[PartResponse])
+@standard_error_handling
 async def update_part(
     part_id: str, 
     part_data: PartUpdate,
     request: Request,
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[PartResponse]:
+    # Capture original data for change tracking
+    part_service = PartService()
+    original_part_response = part_service.get_part_by_id(part_id)
+    original_part = validate_service_response(original_part_response)
+    
+    # Update the part
+    service_response = part_service.update_part(part_id, part_data)
+    updated_part = validate_service_response(service_response)
+
+    # Log activity with changes
     try:
-        # Capture original data for change tracking
-        part_service = PartService()
-        original_part_response = part_service.get_part_by_id(part_id)
-        if not original_part_response.success:
-            raise HTTPException(status_code=404, detail=original_part_response.message)
-        original_part = original_part_response.data
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
         
-        # Use part_id from the path  
-        part_service = PartService()
-        service_response = part_service.update_part(part_id, part_data)
-        if not service_response.success:
-            raise HTTPException(status_code=404, detail=service_response.message)
-        response = {"status": "success", "message": service_response.message, "data": service_response.data}
-
-        if response["status"] == "error":
-            raise HTTPException(status_code=404, detail=response["message"])
-
-        # Log activity with changes
-        try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            
-            # Track what changed
-            changes = {}
-            update_dict = part_data.model_dump(exclude_unset=True)
-            if original_part and original_part.get("status") == "success":
-                original_dict = original_part["data"]  # original_part is already a dict from service
-                for key, new_value in update_dict.items():
-                    if key in original_dict and original_dict[key] != new_value:
-                        changes[key] = {
-                            "from": original_dict[key],
-                            "to": new_value
-                        }
-            
-            await activity_service.log_part_updated(
-                part_id=response["data"]["id"],
-                part_name=response["data"]["part_name"],
-                changes=changes,
-                user=current_user,
-                request=request
-            )
-        except Exception as e:
-            logger.warning(f"Failed to log part update activity: {e}")
-
-        # noinspection PyArgumentList
-        return ResponseSchema(
-            status="success",
-            message="Part updated successfully.",
-            data=PartResponse.model_validate(response["data"])
+        # Track what changed
+        changes = {}
+        update_dict = part_data.model_dump(exclude_unset=True)
+        for key, new_value in update_dict.items():
+            if key in original_part and original_part[key] != new_value:
+                changes[key] = {
+                    "from": original_part[key],
+                    "to": new_value
+                }
+        
+        await activity_service.log_part_updated(
+            part_id=updated_part["id"],
+            part_name=updated_part["part_name"],
+            changes=changes,
+            user=current_user,
+            request=request
         )
-
-    except ResourceNotFoundError as rnfe:
-        # Let the custom exception handler handle this
-        raise rnfe
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.warning(f"Failed to log part update activity: {e}")
+
+    return BaseRouter.build_success_response(
+        data=PartResponse.model_validate(updated_part),
+        message="Part updated successfully."
+    )
 
 @router.post("/search", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
 async def advanced_search(search_params: AdvancedPartSearch) -> ResponseSchema[Dict[str, Any]]:
     """
     Perform an advanced search on parts with multiple filters and sorting options.
     """
-    try:
-        part_service = PartService()
-        service_response = part_service.advanced_search(search_params)
-        
-        if not service_response.success:
-            raise HTTPException(
-                status_code=500,
-                detail=service_response.message
-            )
-        
-        response = {"status": "success", "message": service_response.message, "data": service_response.data}
-        return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=response["data"]
-        )
-    except Exception as e:
-        logger.error(f"Error in advanced search: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    part_service = PartService()
+    service_response = part_service.advanced_search(search_params)
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=data,
+        message=service_response.message
+    )
 
 
 @router.get("/search_text", response_model=ResponseSchema[List[PartResponse]])
+@standard_error_handling
 async def search_parts_text(
     query: str = Query(..., min_length=1, description="Search term"),
     page: int = Query(default=1, ge=1),
@@ -448,31 +242,21 @@ async def search_parts_text(
     """
     Simple text search across part names, numbers, and descriptions.
     """
-    try:
-        part_service = PartService()
-        service_response = part_service.search_parts_text(query, page, page_size)
-        
-        if not service_response.success:
-            raise HTTPException(
-                status_code=500,
-                detail=service_response.message
-            )
-        
-        response = {"status": "success", "message": service_response.message, "data": service_response.data}
-        return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=[PartResponse.model_validate(part) for part in response["data"]["items"]],
-            page=response["data"]["page"],
-            page_size=response["data"]["page_size"],
-            total_parts=response["data"]["total"]
-        )
-    except Exception as e:
-        logger.error(f"Error in text search: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    part_service = PartService()
+    service_response = part_service.search_parts_text(query, page, page_size)
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=[PartResponse.model_validate(part) for part in data["items"]],
+        message=service_response.message,
+        page=data["page"],
+        page_size=data["page_size"],
+        total_parts=data["total"]
+    )
 
 
 @router.get("/suggestions", response_model=ResponseSchema[List[str]])
+@standard_error_handling
 async def get_part_suggestions(
     query: str = Query(..., min_length=3, description="Search term for suggestions"),
     limit: int = Query(default=10, ge=1, le=20)
@@ -481,68 +265,102 @@ async def get_part_suggestions(
     Get autocomplete suggestions for part names based on search query.
     Returns up to 'limit' part names that start with or contain the query.
     """
-    try:
-        part_service = PartService()
-        service_response = part_service.get_part_suggestions(query, limit)
-        
-        if not service_response.success:
-            raise HTTPException(
-                status_code=500,
-                detail=service_response.message
-            )
-        
-        response = {"status": "success", "message": service_response.message, "data": service_response.data}
-        return ResponseSchema(
-            status=response["status"],
-            message=response["message"],
-            data=response["data"]
-        )
-    except Exception as e:
-        logger.error(f"Error getting suggestions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    part_service = PartService()
+    service_response = part_service.get_part_suggestions(query, limit)
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=data,
+        message=service_response.message
+    )
 
 
 
 @router.delete("/clear_all", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
+@log_activity("parts_cleared", "User {username} cleared all parts")
 async def clear_all_parts(
     current_user: UserModel = Depends(require_permission("admin"))
 ) -> ResponseSchema[Dict[str, Any]]:
     """Clear all parts from the database - USE WITH CAUTION! (Admin only)"""
+    part_service = PartService()
+    service_response = part_service.clear_all_parts()
+    data = validate_service_response(service_response)
+    
+    return BaseRouter.build_success_response(
+        data=data,
+        message="All parts have been cleared successfully"
+    )
+
+
+async def _handle_enrichment(
+    part_id: str, 
+    created_part: dict, 
+    enrichment_supplier: str, 
+    enrichment_capabilities: List[str], 
+    current_user: UserModel
+) -> str:
+    """
+    Handle automatic enrichment for a newly created part.
+    
+    Returns:
+        String message about enrichment status
+    """
     try:
-        part_service = PartService()
-        service_response = part_service.clear_all_parts()
-        if not service_response.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=service_response.message
-            )
-        result = service_response.data
+        # Validate supplier exists
+        available_suppliers = get_available_suppliers()
+        if enrichment_supplier not in available_suppliers:
+            return f" Warning: Supplier '{enrichment_supplier}' not configured on backend."
         
-        # Log the activity
+        # Check if supplier is properly configured
+        supplier_config_service = SupplierConfigService()
         try:
-            from MakerMatrix.services.activity_service import get_activity_service
-            activity_service = get_activity_service()
-            await activity_service.log_activity(
-                action="cleared",
-                entity_type="parts",
-                entity_name="All parts",
-                user=current_user,
-                details=result
+            # Try enrichment_supplier as-is first, then try uppercase version
+            try:
+                supplier_config_service.get_supplier_config(enrichment_supplier)
+            except ResourceNotFoundError:
+                # Try uppercase version for backward compatibility
+                supplier_config_service.get_supplier_config(enrichment_supplier.upper())
+            
+            # Create enrichment task
+            enrichment_data = {
+                'part_id': part_id,
+                'supplier': enrichment_supplier,
+                'capabilities': enrichment_capabilities or ['fetch_datasheet', 'fetch_image', 'fetch_pricing']
+            }
+            
+            task_request = CreateTaskRequest(
+                task_type=TaskType.PART_ENRICHMENT,
+                name=f"QR Part Enrichment - {created_part.get('part_name', 'Unknown')}",
+                description=f"Auto-enrich part from {enrichment_supplier} (QR code scan)",
+                priority=TaskPriority.HIGH,
+                input_data=enrichment_data,
+                related_entity_type="part",
+                related_entity_id=part_id
             )
-        except Exception as activity_error:
-            logger.warning(f"Failed to log parts clear activity: {activity_error}")
-        
-        return ResponseSchema(
-            status="success", 
-            message="All parts have been cleared successfully",
-            data=result
-        )
+            
+            enrichment_task = await task_service.create_task(task_request, user_id=current_user.id)
+            enrichment_message = f" Enrichment task created (ID: {enrichment_task.id})."
+            
+            # Wait for enrichment to complete and return enriched part
+            # Note: This is a simplified approach - in production you might want to use WebSocket or polling
+            import asyncio
+            enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task.id, timeout=30)
+            if enriched_part:
+                created_part.update(enriched_part)
+                return f" Part successfully enriched from {enrichment_supplier}."
+            else:
+                return f" Enrichment task started but did not complete within timeout."
+                
+        except ResourceNotFoundError:
+            return f" Warning: Supplier '{enrichment_supplier}' not properly configured."
+        except Exception as e:
+            logger.error(f"Enrichment task creation failed: {e}")
+            return f" Warning: Enrichment failed - {str(e)}"
+            
     except Exception as e:
-        logger.error(f"Error clearing all parts: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to clear all parts: {str(e)}"
-        )
+        logger.error(f"Enrichment process failed: {e}")
+        return f" Warning: Enrichment failed - {str(e)}"
 
 
 async def _wait_for_enrichment_completion(part_id: str, task_id: str, timeout: int = 30) -> Optional[Dict[str, Any]]:

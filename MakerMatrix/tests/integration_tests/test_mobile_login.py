@@ -5,7 +5,6 @@ import json
 
 from MakerMatrix.main import app
 from MakerMatrix.scripts.setup_admin import DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
-from MakerMatrix.models.models import engine
 from sqlmodel import SQLModel
 
 # Ensure test DB is always clean and tables are created for both app and test client
@@ -14,9 +13,9 @@ def setup_test_db():
     # Remove test DB file if it exists (for file-based SQLite)
     if os.path.exists("./test.db"):
         os.remove("./test.db")
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(isolated_test_engine)
     yield
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(isolated_test_engine)
 
 def test_mobile_login():
     """Test that the mobile login endpoint works correctly."""
@@ -56,4 +55,4 @@ def test_mobile_login():
             "password": "invalid_password"
         }
         invalid_response = client.post("/auth/login", json=invalid_login)
-        assert invalid_response.status_code == 401  # Unauthorized 
+        assert invalid_response.status_code == 401  # Unauthorized \nfrom MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n
