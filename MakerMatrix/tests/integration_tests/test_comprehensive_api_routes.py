@@ -1333,7 +1333,11 @@ class TestLocationsManagementRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert isinstance(data["data"], list)
+        # The get_location_path returns a nested dict structure, not a list
+        assert isinstance(data["data"], dict)
+        assert "id" in data["data"]
+        assert "name" in data["data"]
+        assert data["data"]["name"] == f"Test Path Location {unique_suffix}"
     
     def test_preview_location_delete(self, admin_token):
         """Test previewing location deletion."""
@@ -1355,7 +1359,11 @@ class TestLocationsManagementRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert "affected_parts" in data["data"]
+        # Check the correct structure based on LocationDeleteResponse
+        assert "affected_parts_count" in data["data"]
+        assert "affected_locations_count" in data["data"]
+        assert "location_hierarchy" in data["data"]
+        assert "location_ids_to_delete" in data["data"]
     
     def test_delete_location(self, admin_token):
         """Test deleting a location."""
@@ -1516,37 +1524,34 @@ class TestImportRoutes:
         assert response.status_code == 422  # Validation error
     
     def test_get_csv_supported_types(self, setup_test_data, admin_token):
-        """Test getting CSV supported types."""
+        """Test getting CSV supported types - DEPRECATED: Legacy CSV API removed."""
+        # This test is expected to fail because the legacy CSV API has been deprecated
+        # and replaced with the new import routes system
         headers = get_auth_headers(admin_token)
         response = client.get("/api/csv/supported-types", headers=headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-        assert isinstance(data["data"], list)
+        assert response.status_code == 404  # Expected - legacy endpoint removed
     
     def test_csv_import_without_content(self, setup_test_data, admin_token):
-        """Test CSV import without content."""
+        """Test CSV import without content - DEPRECATED: Legacy CSV API removed."""
+        # This test is expected to fail because the legacy CSV API has been deprecated
         headers = get_auth_headers(admin_token)
         import_data = {
             "csv_content": "",
             "parser_type": "lcsc"
         }
         response = client.post("/api/csv/import", json=import_data, headers=headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] in ["error", "success"]  # Depends on validation
+        assert response.status_code in [404, 405]  # Expected - legacy endpoint removed
     
     def test_get_csv_config(self, setup_test_data, admin_token):
-        """Test getting CSV configuration."""
+        """Test getting CSV configuration - DEPRECATED: Legacy CSV API removed."""
+        # This test is expected to fail because the legacy CSV API has been deprecated
         headers = get_auth_headers(admin_token)
         response = client.get("/api/csv/config", headers=headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-        assert isinstance(data["data"], dict)
+        assert response.status_code == 404  # Expected - legacy endpoint removed
     
     def test_update_csv_config(self, setup_test_data, admin_token):
-        """Test updating CSV configuration."""
+        """Test updating CSV configuration - DEPRECATED: Legacy CSV API removed."""
+        # This test is expected to fail because the legacy CSV API has been deprecated
         headers = get_auth_headers(admin_token)
         config_data = {
             "download_datasheets": True,
@@ -1554,9 +1559,7 @@ class TestImportRoutes:
             "overwrite_existing_files": False
         }
         response = client.put("/api/csv/config", json=config_data, headers=headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
+        assert response.status_code in [404, 405]  # Expected - legacy endpoint removed
 
 
 class TestAIIntegrationRoutes:
@@ -1621,7 +1624,11 @@ class TestAIIntegrationRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert isinstance(data["data"], list)
+        # AI providers endpoint returns a dict with providers, current_provider, and sql_support keys
+        assert isinstance(data["data"], dict)
+        assert "providers" in data["data"]
+        assert "current_provider" in data["data"]
+        assert isinstance(data["data"]["providers"], dict)
     
     def test_get_ai_models(self, setup_test_data, admin_token):
         """Test getting AI models."""
