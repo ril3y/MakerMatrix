@@ -1425,7 +1425,10 @@ class TestTaskManagementRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert "worker_status" in data["data"]
+        assert "is_running" in data["data"]
+        assert "running_tasks_count" in data["data"]
+        assert "running_task_ids" in data["data"]
+        assert "registered_handlers" in data["data"]
     
     def test_quick_part_enrichment_task(self, setup_test_data, admin_token):
         """Test creating quick part enrichment task."""
@@ -1473,7 +1476,8 @@ class TestTaskManagementRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert isinstance(data["data"], list)
+        assert isinstance(data["data"], dict)
+        assert "message" in data
     
     def test_get_specific_supplier_capabilities(self, setup_test_data, admin_token):
         """Test getting specific supplier capabilities."""

@@ -64,7 +64,7 @@ class TaskService(BaseService):
         
         return task_types
     
-    async def create_task(self, task_request: CreateTaskRequest, user_id: str = None) -> ServiceResponse[TaskModel]:
+    async def create_task(self, task_request: CreateTaskRequest, user_id: str = None) -> ServiceResponse[Dict[str, Any]]:
         """
         Create a new task using repository pattern.
         
@@ -97,18 +97,21 @@ class TaskService(BaseService):
                 # Use repository for database operations
                 created_task = self.task_repository.create_task(session, task)
                 
+                # Convert to dict within session to prevent DetachedInstanceError
+                task_dict = created_task.to_dict()
+                
                 # Send WebSocket notification for task creation
-                asyncio.create_task(websocket_manager.broadcast_task_update(created_task.to_dict()))
+                asyncio.create_task(websocket_manager.broadcast_task_update(task_dict))
                 
                 return self.success_response(
                     f"{self.entity_name} '{created_task.name}' created successfully",
-                    created_task
+                    task_dict
                 )
                 
         except Exception as e:
             return self.handle_exception(e, f"create {self.entity_name}")
     
-    async def get_task(self, task_id: str) -> ServiceResponse[TaskModel]:
+    async def get_task(self, task_id: str) -> ServiceResponse[Dict[str, Any]]:
         """
         Get a task by ID using repository pattern.
         
@@ -122,22 +125,27 @@ class TaskService(BaseService):
                 if not task:
                     return self.error_response(f"{self.entity_name} with ID {task_id} not found")
                 
+                # Convert to dict within session to prevent DetachedInstanceError
+                task_dict = task.to_dict()
+                
                 return self.success_response(
                     f"{self.entity_name} retrieved successfully",
-                    task
+                    task_dict
                 )
                 
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name}")
     
-    async def get_tasks(self, filter_request: TaskFilterRequest) -> List[TaskModel]:
+    async def get_tasks(self, filter_request: TaskFilterRequest) -> List[Dict[str, Any]]:
         """
         Get tasks with filtering using repository pattern.
         
         ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
         """
         async with self.get_async_session() as session:
-            return self.task_repository.get_tasks_with_filter(session, filter_request)
+            tasks = self.task_repository.get_tasks_with_filter(session, filter_request)
+            # Convert to dict within session to prevent DetachedInstanceError
+            return [task.to_dict() for task in tasks]
     
     async def update_task(self, task_id: str, update_request: UpdateTaskRequest) -> Optional[TaskModel]:
         """

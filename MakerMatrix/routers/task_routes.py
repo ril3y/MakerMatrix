@@ -54,7 +54,7 @@ async def get_tasks(
         
         return {
             "status": "success",
-            "data": [task.to_dict() for task in tasks],
+            "data": tasks,
             "total": len(tasks),
             "limit": limit,
             "offset": offset
@@ -90,7 +90,7 @@ async def get_my_tasks(
         
         return {
             "status": "success",
-            "data": [task.to_dict() for task in tasks],
+            "data": tasks,
             "total": len(tasks)
         }
     except Exception as e:
@@ -144,30 +144,38 @@ async def get_task_stats(
         
         for task in tasks:
             # By status
-            status = task.status
+            status = task["status"]
             stats["by_status"][status] = stats["by_status"].get(status, 0) + 1
             
             # By type
-            task_type = task.task_type
+            task_type = task["task_type"]
             stats["by_type"][task_type] = stats["by_type"].get(task_type, 0) + 1
             
             # By priority
-            priority = task.priority
+            priority = task["priority"]
             stats["by_priority"][priority] = stats["by_priority"].get(priority, 0) + 1
             
             # Running tasks
-            if task.status == TaskStatus.RUNNING:
+            if task["status"] == TaskStatus.RUNNING:
                 stats["running_tasks"] += 1
             
             # Failed tasks
-            if task.status == TaskStatus.FAILED:
+            if task["status"] == TaskStatus.FAILED:
                 stats["failed_tasks"] += 1
             
             # Completed today
-            if (task.status == TaskStatus.COMPLETED and 
-                task.completed_at and 
-                task.completed_at.date() == today):
-                stats["completed_today"] += 1
+            if (task["status"] == TaskStatus.COMPLETED and 
+                task.get("completed_at")):
+                # Handle datetime string or datetime object
+                completed_at = task["completed_at"]
+                if isinstance(completed_at, str):
+                    try:
+                        completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                    except ValueError:
+                        completed_at = None
+                
+                if completed_at and completed_at.date() == today:
+                    stats["completed_today"] += 1
         
         return {
             "status": "success",
@@ -300,14 +308,17 @@ async def quick_create_part_enrichment_task(
         )
         
         # Create the task
-        task = await task_service.create_task(task_request, user_id=current_user.id)
+        task_response = await task_service.create_task(task_request, user_id=current_user.id)
         
-        logger.info(f"Created part enrichment task {task.id} for part {part_id} with {supplier}")
+        if not task_response.success:
+            raise HTTPException(status_code=500, detail=task_response.message)
+        
+        logger.info(f"Created part enrichment task {task_response.data['id']} for part {part_id} with {supplier}")
         
         return {
             "status": "success",
             "message": "Part enrichment task created successfully",
-            "data": task.to_dict()
+            "data": task_response.data
         }
     except HTTPException:
         raise
@@ -345,12 +356,15 @@ async def quick_create_datasheet_fetch_task(
             related_entity_id=part_id
         )
         
-        task = await task_service.create_task(task_request, user_id=current_user.id)
+        task_response = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        if not task_response.success:
+            raise HTTPException(status_code=500, detail=task_response.message)
         
         return {
             "status": "success", 
             "message": "Datasheet fetch task created successfully",
-            "data": task.to_dict()
+            "data": task_response.data
         }
     except HTTPException:
         raise
@@ -388,12 +402,15 @@ async def quick_create_image_fetch_task(
             related_entity_id=part_id
         )
         
-        task = await task_service.create_task(task_request, user_id=current_user.id)
+        task_response = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        if not task_response.success:
+            raise HTTPException(status_code=500, detail=task_response.message)
         
         return {
             "status": "success",
             "message": "Image fetch task created successfully", 
-            "data": task.to_dict()
+            "data": task_response.data
         }
     except HTTPException:
         raise
@@ -439,12 +456,15 @@ async def quick_create_bulk_enrichment_task(
             }
         )
         
-        task = await task_service.create_task(task_request, user_id=current_user.id)
+        task_response = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        if not task_response.success:
+            raise HTTPException(status_code=500, detail=task_response.message)
         
         return {
             "status": "success",
             "message": "Bulk enrichment task created successfully",
-            "data": task.to_dict()
+            "data": task_response.data
         }
     except HTTPException:
         raise
@@ -480,12 +500,15 @@ async def quick_create_price_update_task(
             }
         )
         
-        task = await task_service.create_task(task_request, user_id=current_user.id)
+        task_response = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        if not task_response.success:
+            raise HTTPException(status_code=500, detail=task_response.message)
         
         return {
             "status": "success",
             "message": "Price update task created successfully",
-            "data": task.to_dict()
+            "data": task_response.data
         }
     except HTTPException:
         raise
@@ -525,12 +548,15 @@ async def quick_create_database_backup_task(
             related_entity_id="database"
         )
         
-        task = await task_service.create_task(task_request, user_id=current_user.id)
+        task_response = await task_service.create_task(task_request, user_id=current_user.id)
+        
+        if not task_response.success:
+            raise HTTPException(status_code=500, detail=task_response.message)
         
         return {
             "status": "success",
             "message": "Database backup task created successfully",
-            "data": task.to_dict()
+            "data": task_response.data
         }
     except HTTPException:
         raise
@@ -751,14 +777,14 @@ async def get_task(
 ):
     """Get a specific task by ID"""
     try:
-        task = await task_service.get_task(task_id)
+        task_response = await task_service.get_task(task_id)
         
-        if not task:
+        if not task_response.success:
             raise HTTPException(status_code=404, detail="Task not found")
         
         return {
             "status": "success",
-            "data": task.to_dict()
+            "data": task_response.data
         }
     except HTTPException:
         raise
