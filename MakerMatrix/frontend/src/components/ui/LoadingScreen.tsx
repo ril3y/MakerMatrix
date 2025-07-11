@@ -11,7 +11,7 @@ const LoadingScreen = () => {
       >
         <div className="relative">
           <motion.div
-            className="w-16 h-16 border-4 border-primary/20 rounded-full"
+            className="w-16 h-16 border-4 border-primary-20 rounded-full"
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           />

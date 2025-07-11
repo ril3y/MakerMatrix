@@ -191,10 +191,10 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
           {value ? (
             <>
               <span className="text-2xl select-none">{value}</span>
-              <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Selected emoji</span>
+              <span className="text-theme-secondary text-sm font-medium">Selected emoji</span>
             </>
           ) : (
-            <span className="text-gray-500 dark:text-gray-400">{placeholder}</span>
+            <span className="text-theme-muted">{placeholder}</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -202,36 +202,36 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
             <button
               type="button"
               onClick={handleRemove}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              className="p-1 hover:bg-theme-secondary rounded transition-colors"
               title="Remove emoji"
             >
-              <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <X className="w-4 h-4 text-theme-muted" />
             </button>
           )}
-          <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-4 h-4 text-theme-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl z-[100] max-h-96 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-theme-primary border border-theme-primary rounded-lg shadow-xl z-[100] max-h-96 overflow-hidden">
           {/* Search Bar */}
-          <div className="p-3 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+          <div className="p-3 border-b border-theme-primary bg-theme-secondary">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-theme-muted" />
               <input
                 type="text"
                 placeholder="Search emojis... (e.g., 'tool', 'box', 'storage')"
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-8 py-2 text-sm border border-theme-primary rounded-lg bg-theme-primary text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-primary"
               />
               {searchTerm && (
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-theme-tertiary rounded transition-colors"
                 >
-                  <X className="w-3 h-3 text-gray-400" />
+                  <X className="w-3 h-3 text-theme-muted" />
                 </button>
               )}
             </div>
@@ -239,7 +239,7 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
 
           {/* Category Tabs (hidden when searching) */}
           {!searchTerm.trim() && (
-            <div className="border-b border-gray-200 dark:border-gray-600 overflow-x-auto bg-gray-50 dark:bg-gray-700">
+            <div className="border-b border-theme-primary overflow-x-auto bg-theme-secondary">
               <div className="flex">
                 {Object.keys(EMOJI_CATEGORIES).map((category) => (
                   <button
@@ -248,8 +248,8 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
                     onClick={() => setSelectedCategory(category)}
                     className={`px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
                       selectedCategory === category
-                        ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800'
-                        : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-gray-800'
+                        ? 'border-primary text-primary-accent bg-theme-primary'
+                        : 'border-transparent text-theme-secondary hover:text-primary-accent hover:bg-theme-primary'
                     }`}
                   >
                     {category}
@@ -261,15 +261,15 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
 
           {/* Search Results Header */}
           {searchTerm.trim() && (
-            <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-gray-600">
-              <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+            <div className="px-4 py-2 bg-primary-10 border-b border-theme-primary">
+              <p className="text-sm text-primary-accent font-medium">
                 Search results for "{searchTerm}" ({getDisplayEmojis().length} found)
               </p>
             </div>
           )}
 
           {/* Emoji Grid */}
-          <div className="p-4 max-h-64 overflow-y-auto bg-white dark:bg-gray-800">
+          <div className="p-4 max-h-64 overflow-y-auto bg-theme-primary">
             {getDisplayEmojis().length > 0 ? (
               <div className="grid grid-cols-6 gap-1">
                 {getDisplayEmojis().map((emoji) => (
@@ -277,7 +277,7 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
                     key={emoji}
                     type="button"
                     onClick={() => handleEmojiSelect(emoji)}
-                    className="p-3 text-2xl hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="p-3 text-2xl hover:bg-theme-secondary rounded-lg transition-colors border border-transparent hover:border-theme-primary focus:outline-none focus:ring-2 focus:ring-primary"
                     title={`Select ${emoji} - ${EMOJI_KEYWORDS[emoji]?.join(', ') || 'emoji'}`}
                   >
                     {emoji}
@@ -286,17 +286,17 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
               </div>
             ) : searchTerm.trim() ? (
               <div className="text-center py-8">
-                <Search className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <Search className="w-8 h-8 text-theme-muted mx-auto mb-2" />
+                <p className="text-sm text-theme-secondary">
                   No emojis found for "{searchTerm}"
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-xs text-theme-muted mt-1">
                   Try searching for 'tool', 'box', 'storage', 'power', etc.
                 </p>
               </div>
             ) : (
               <div className="text-center py-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-theme-secondary">
                   Select a category or search for emojis
                 </p>
               </div>
@@ -305,11 +305,11 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
 
           {/* Clear Option */}
           {value && (
-            <div className="border-t border-gray-200 dark:border-gray-600 p-3 bg-gray-50 dark:bg-gray-700">
+            <div className="border-t border-theme-primary p-3 bg-theme-secondary">
               <button
                 type="button"
                 onClick={() => { onChange(null); setIsOpen(false) }}
-                className="w-full text-left px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-sm font-medium text-error hover:bg-theme-tertiary rounded-lg transition-colors flex items-center gap-2"
               >
                 <X className="w-4 h-4" />
                 Remove emoji

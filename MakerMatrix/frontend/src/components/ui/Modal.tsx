@@ -53,15 +53,15 @@ const Modal = ({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`relative w-full ${sizeClasses[size]} bg-theme-elevated border border-theme-primary rounded-lg shadow-xl ${className}`}
+              className={`relative w-full ${sizeClasses[size]} bg-background-primary border border-border rounded-lg shadow-xl text-primary ${className}`}
             >
               {/* Header */}
               {showHeader && (
-                <div className="flex items-center justify-between p-6 border-b border-theme-primary">
+                <div className="flex items-center justify-between p-6 border-b border-border">
                   <h2 className="text-xl font-semibold text-primary">{title}</h2>
                   <button
                     onClick={onClose}
-                    className="p-1 rounded-md hover:bg-theme-secondary transition-colors"
+                    className="p-1 rounded-md hover:bg-background-secondary transition-colors"
                     disabled={loading}
                   >
                     <X className="w-5 h-5 text-secondary" />
@@ -76,7 +76,7 @@ const Modal = ({
 
               {/* Footer */}
               {showFooter && footer && (
-                <div className="px-6 py-4 border-t border-theme-primary bg-theme-secondary/30">
+                <div className="px-6 py-4 border-t border-border bg-background-secondary">
                   {footer}
                 </div>
               )}

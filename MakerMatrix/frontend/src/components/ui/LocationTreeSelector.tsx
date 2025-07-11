@@ -45,8 +45,8 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
         return (
           <div key={location.id}>
             <div 
-              className={`flex items-start gap-2 p-2 rounded hover:bg-background-secondary transition-colors cursor-pointer min-w-0 ${
-                isSelected ? 'bg-primary/10 border border-primary/20' : ''
+              className={`flex items-start gap-2 p-2 rounded hover:bg-theme-secondary transition-colors cursor-pointer min-w-0 ${
+                isSelected ? 'bg-primary-10 border border-primary-20' : ''
               }`}
               style={{ paddingLeft: `${level * (compact ? 16 : 24) + 8}px` }}
               onClick={() => onLocationSelect(isSelected ? undefined : location.id)}
@@ -59,12 +59,12 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                       e.stopPropagation();
                       toggleExpanded(location.id.toString());
                     }}
-                    className="p-1 hover:bg-background-tertiary rounded transition-colors"
+                    className="p-1 hover:bg-theme-tertiary rounded transition-colors"
                   >
                     {isExpanded ? (
-                      <ChevronDown className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-secondary`} />
+                      <ChevronDown className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-theme-secondary`} />
                     ) : (
-                      <ChevronRight className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-secondary`} />
+                      <ChevronRight className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-theme-secondary`} />
                     )}
                   </button>
                 ) : (
@@ -78,28 +78,28 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                     <img
                       src={location.image_url}
                       alt={location.name}
-                      className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} object-cover rounded border border-border`}
+                      className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} object-cover rounded border border-theme-primary`}
                     />
                   ) : (
-                    <MapPin className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-primary`} />
+                    <MapPin className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-primary-accent`} />
                   )}
                 </div>
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`font-medium text-primary ${compact ? 'text-sm' : 'text-base'} truncate`}>
+                    <span className={`font-medium text-theme-primary ${compact ? 'text-sm' : 'text-base'} truncate`}>
                       {location.name}
                     </span>
                     
                     {!compact && (
-                      <span className="text-sm text-secondary whitespace-nowrap">
+                      <span className="text-sm text-theme-secondary whitespace-nowrap">
                         ({location.location_type || 'General'})
                       </span>
                     )}
                   </div>
                   
                   {!compact && location.description && (
-                    <div className="text-sm text-muted mt-1 line-clamp-2">
+                    <div className="text-sm text-theme-muted mt-1 line-clamp-2">
                       {location.description}
                     </div>
                   )}
@@ -204,7 +204,7 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
       <FormField label={label} description={description} error={error} className={className}>
         <div className="p-4 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-          <p className="text-secondary text-sm mt-2">Loading locations...</p>
+          <p className="text-theme-secondary text-sm mt-2">Loading locations...</p>
         </div>
       </FormField>
     );
@@ -237,7 +237,7 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
           )}
         </div>
 
-        <div className={`border border-border rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto`}>
+        <div className={`border border-theme-primary rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto`}>
           {locationTree && locationTree.length > 0 ? (
             <div className="p-2">
               <LocationTreeNode
@@ -251,8 +251,8 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
             </div>
           ) : (
             <div className="p-4 text-center">
-              <MapPin className="w-8 h-8 text-muted mx-auto mb-2" />
-              <p className="text-secondary text-sm">No locations available</p>
+              <MapPin className="w-8 h-8 text-theme-muted mx-auto mb-2" />
+              <p className="text-theme-secondary text-sm">No locations available</p>
               {showAddButton && onAddNewLocation && (
                 <button
                   type="button"
@@ -267,7 +267,7 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
         </div>
 
         {selectedLocationId && (
-          <div className="text-sm text-secondary">
+          <div className="text-sm text-theme-secondary">
             Selected: {(() => {
               const findLocation = (locs: Location[]): string | null => {
                 for (const loc of locs) {

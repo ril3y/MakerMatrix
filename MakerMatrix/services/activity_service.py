@@ -67,9 +67,24 @@ class ActivityService(BaseService):
             # Save to database using repository
             with self.get_session() as session:
                 activity = self.activity_repo.log_activity(session, activity)
+                
+                # Convert to dictionary within session context for WebSocket broadcast
+                activity_dict = {
+                    'id': activity.id,
+                    'action': activity.action,
+                    'entity_type': activity.entity_type,
+                    'entity_id': activity.entity_id,
+                    'entity_name': activity.entity_name,
+                    'user_id': activity.user_id,
+                    'username': activity.username,
+                    'details': activity.details or {},
+                    'timestamp': activity.timestamp,
+                    'ip_address': activity.ip_address,
+                    'user_agent': activity.user_agent
+                }
             
-            # Send real-time update via WebSocket
-            await self._broadcast_activity(activity)
+            # Send real-time update via WebSocket using dictionary
+            await self._broadcast_activity(activity_dict)
             
             return activity
             
@@ -78,7 +93,7 @@ class ActivityService(BaseService):
             # Don't fail the main operation if logging fails
             return None
     
-    async def _broadcast_activity(self, activity: ActivityLogModel):
+    async def _broadcast_activity(self, activity: Dict[str, Any]):
         """Broadcast activity to connected WebSocket clients using standardized schemas."""
         try:
             from MakerMatrix.services.system.websocket_service import broadcast_message
@@ -86,13 +101,13 @@ class ActivityService(BaseService):
             
             # Create standardized WebSocket message
             ws_message = create_entity_event_message(
-                action=activity.action,
-                entity_type=activity.entity_type,
-                entity_id=activity.entity_id or "",
-                entity_name=activity.entity_name or "",
-                user_id=activity.user_id,
-                username=activity.username,
-                details=activity.details or {}
+                action=activity['action'],
+                entity_type=activity['entity_type'],
+                entity_id=activity['entity_id'] or "",
+                entity_name=activity['entity_name'] or "",
+                user_id=activity['user_id'],
+                username=activity['username'],
+                details=activity['details'] or {}
             )
             
             # Broadcast to general connections (for activity monitoring)
@@ -108,7 +123,7 @@ class ActivityService(BaseService):
         entity_type: Optional[str] = None,
         user_id: Optional[str] = None,
         hours: int = 24
-    ) -> List[ActivityLogModel]:
+    ) -> List[Dict[str, Any]]:
         """
         Get recent activities from the database.
         
@@ -117,12 +132,35 @@ class ActivityService(BaseService):
             entity_type: Filter by entity type
             user_id: Filter by user
             hours: Only activities from last N hours
+        
+        Returns:
+            List of activity dictionaries (not SQLModel instances)
         """
         try:
             with self.get_session() as session:
-                return self.activity_repo.get_recent_activities(
+                activities = self.activity_repo.get_recent_activities(
                     session, limit, entity_type, user_id, hours
                 )
+                
+                # Convert to dictionaries within session context to avoid detached instance errors
+                activity_dicts = []
+                for activity in activities:
+                    activity_dict = {
+                        'id': activity.id,
+                        'action': activity.action,
+                        'entity_type': activity.entity_type,
+                        'entity_id': activity.entity_id,
+                        'entity_name': activity.entity_name,
+                        'user_id': activity.user_id,
+                        'username': activity.username,
+                        'details': activity.details or {},
+                        'timestamp': activity.timestamp,
+                        'ip_address': activity.ip_address,
+                        'user_agent': activity.user_agent
+                    }
+                    activity_dicts.append(activity_dict)
+                
+                return activity_dicts
                 
         except Exception as e:
             print(f"Failed to retrieve activities: {e}")

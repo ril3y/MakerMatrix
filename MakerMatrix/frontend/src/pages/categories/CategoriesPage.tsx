@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Tag, Plus, Search, Filter, Tags, Hash, Edit2, Trash2, Package } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import EditCategoryModal from '@/components/categories/EditCategoryModal'
 import { categoriesService } from '@/services/categories.service'
@@ -71,8 +71,8 @@ const CategoriesPage = () => {
     mostUsed: categories.length > 0 ? categories[0].name : '-'
   }
 
-  // Get existing category names for validation
-  const existingCategories = categories.map(cat => cat.name)
+  // Get existing category names for validation (memoized to prevent unnecessary re-renders)
+  const existingCategories = useMemo(() => categories.map(cat => cat.name), [categories])
 
   return (
     <div className="space-y-6">
@@ -174,7 +174,7 @@ const CategoriesPage = () => {
             {categories.slice(0, 10).map((category) => (
               <span
                 key={category.id}
-                className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm cursor-pointer hover:bg-primary/20 transition-colors"
+                className="px-3 py-1 bg-primary-10 text-primary rounded-full text-sm cursor-pointer hover:bg-primary-20 transition-colors"
                 onClick={() => handleEdit(category)}
                 title={category.description || 'Click to edit'}
               >
