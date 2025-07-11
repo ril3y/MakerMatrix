@@ -10,6 +10,7 @@ Modernized implementation using unified supplier architecture:
 
 import re
 import logging
+import pandas as pd
 from typing import List, Dict, Any, Optional
 
 from .base import (
@@ -24,6 +25,8 @@ from .exceptions import (
     SupplierError, SupplierConfigurationError, SupplierAuthenticationError,
     SupplierConnectionError, SupplierRateLimitError
 )
+from MakerMatrix.services.data.unified_column_mapper import UnifiedColumnMapper
+from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
 
 logger = logging.getLogger(__name__)
 
@@ -417,7 +420,7 @@ class LCSCSupplier(BaseSupplier):
         return file_ext == 'csv' and 'lcsc' in filename.lower()
     
     async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
-        """Import LCSC CSV order file using unified patterns"""
+        """Import LCSC CSV order file using unified patterns and proper data extraction"""
         async def _impl():
             if file_type.lower() != 'csv':
                 return ImportResult(
@@ -432,66 +435,105 @@ class LCSCSupplier(BaseSupplier):
                 except UnicodeDecodeError:
                     csv_text = file_content.decode('utf-8', errors='ignore')
                 
-                lines = csv_text.strip().split('\n')
+                # Use pandas for robust CSV parsing
+                from io import StringIO
+                df = pd.read_csv(StringIO(csv_text))
                 
-                if len(lines) < 2:  # Must have header + at least one data row
+                if df.empty:
                     return ImportResult(
                         success=False,
-                        error_message="CSV file must contain header and at least one data row"
+                        error_message="CSV file contains no data rows"
                     )
                 
-                # Parse CSV using defensive patterns
-                header = [col.strip().strip('"') for col in lines[0].split(',')]
+                # Initialize column mapper with LCSC-specific mappings
+                column_mapper = UnifiedColumnMapper()
+                lcsc_mappings = column_mapper.get_supplier_specific_mappings('lcsc')
+                
+                # Map columns using flexible matching
+                mapped_columns = column_mapper.map_columns(df.columns.tolist(), lcsc_mappings)
+                
+                # Validate required columns
+                required_fields = ['part_number', 'quantity']
+                if not column_mapper.validate_required_columns(mapped_columns, required_fields):
+                    return ImportResult(
+                        success=False,
+                        error_message=f"Required columns not found. Available columns: {list(df.columns)}"
+                    )
+                
                 parts = []
                 failed_items = []
+                supplier_mapper = SupplierDataMapper()
                 
-                # Find expected LCSC CSV columns using defensive search
-                lcsc_part_col = None
-                qty_col = None
-                
-                for i, col in enumerate(header):
-                    col_lower = col.lower()
-                    if 'lcsc' in col_lower or ('part' in col_lower and 'number' in col_lower):
-                        lcsc_part_col = i
-                    elif 'qty' in col_lower or 'quantity' in col_lower:
-                        qty_col = i
-                
-                if lcsc_part_col is None:
-                    return ImportResult(
-                        success=False,
-                        error_message="Could not find LCSC part number column in CSV"
-                    )
-                
-                # Process data rows with defensive error handling
-                for i, line in enumerate(lines[1:], 1):
+                # Process each row with full data extraction
+                for index, row in df.iterrows():
                     try:
-                        cols = [col.strip().strip('"') for col in line.split(',')]
-                        if len(cols) <= lcsc_part_col:
+                        # Extract all available data using column mapping
+                        extracted_data = column_mapper.extract_row_data(row, mapped_columns)
+                        
+                        # Skip rows without part numbers
+                        if not extracted_data.get('part_number'):
                             continue
                         
-                        lcsc_part = cols[lcsc_part_col].strip()
+                        # Parse quantity safely
                         quantity = 1
-                        
-                        if qty_col is not None and len(cols) > qty_col:
+                        if extracted_data.get('quantity'):
                             try:
-                                quantity = max(1, int(cols[qty_col].strip()))
-                            except (ValueError, IndexError):
+                                quantity = max(1, int(float(str(extracted_data['quantity']).replace(',', ''))))
+                            except (ValueError, TypeError):
                                 quantity = 1
                         
-                        if lcsc_part:
-                            parts.append({
-                                'part_number': lcsc_part,
-                                'part_name': lcsc_part,  # Use part number as name
-                                'quantity': quantity,
-                                'supplier': 'LCSC',
-                                'description': f'Imported from {filename or "LCSC CSV"}'
-                            })
+                        # Parse pricing safely
+                        unit_price = None
+                        order_price = None
+                        if extracted_data.get('unit_price'):
+                            try:
+                                unit_price = float(str(extracted_data['unit_price']).replace('$', '').replace(',', ''))
+                            except (ValueError, TypeError):
+                                pass
+                        
+                        if extracted_data.get('order_price'):
+                            try:
+                                order_price = float(str(extracted_data['order_price']).replace('$', '').replace(',', ''))
+                            except (ValueError, TypeError):
+                                pass
+                        
+                        # Create smart part name from available data
+                        part_name = column_mapper.create_smart_part_name(extracted_data)
+                        
+                        # Build comprehensive additional_properties
+                        additional_properties = self._build_lcsc_additional_properties(
+                            extracted_data, unit_price, order_price, index
+                        )
+                        
+                        # Create PartSearchResult object for SupplierDataMapper
+                        from .base import PartSearchResult
+                        part_search_result = PartSearchResult(
+                            supplier_part_number=str(extracted_data['part_number']).strip(),
+                            manufacturer=extracted_data.get('manufacturer', '').strip() if extracted_data.get('manufacturer') else None,
+                            manufacturer_part_number=extracted_data.get('manufacturer_part_number', '').strip() if extracted_data.get('manufacturer_part_number') else None,
+                            description=extracted_data.get('description', '').strip() if extracted_data.get('description') else None,
+                            additional_data=additional_properties
+                        )
+                        
+                        # Use SupplierDataMapper for standardization
+                        standardized_part = supplier_mapper.map_supplier_result_to_part_data(
+                            part_search_result, 'LCSC', enrichment_capabilities=['csv_import']
+                        )
+                        
+                        # Add import-specific fields that aren't in PartSearchResult
+                        standardized_part['part_name'] = part_name
+                        standardized_part['quantity'] = quantity
+                        standardized_part['supplier'] = 'LCSC'
+                        
+                        parts.append(standardized_part)
+                        
                     except Exception as e:
                         failed_items.append({
-                            'line_number': i,
+                            'line_number': index + 2,  # +2 for header and 0-based index
                             'error': str(e),
-                            'data': line
+                            'data': row.to_dict()
                         })
+                        logger.warning(f"Failed to process LCSC CSV row {index + 2}: {e}")
                 
                 return ImportResult(
                     success=True,
@@ -503,12 +545,71 @@ class LCSCSupplier(BaseSupplier):
                 )
                 
             except Exception as e:
+                logger.error(f"Failed to parse LCSC CSV: {e}")
                 return ImportResult(
                     success=False,
                     error_message=f"Failed to parse LCSC CSV: {str(e)}"
                 )
         
         return await self._tracked_api_call("import_orders", _impl)
+    
+    def _build_lcsc_additional_properties(self, extracted_data: Dict[str, Any], unit_price: Optional[float], order_price: Optional[float], row_index: int) -> Dict[str, Any]:
+        """Build comprehensive additional_properties for LCSC parts"""
+        additional_properties = {
+            'supplier_data': {
+                'supplier': 'LCSC',
+                'supplier_part_number': extracted_data.get('part_number'),
+                'row_index': row_index,
+                'import_source': 'csv'
+            },
+            'order_info': {},
+            'technical_specs': {},
+            'compliance': {}
+        }
+        
+        # Add customer reference if available
+        if extracted_data.get('customer_reference'):
+            additional_properties['order_info']['customer_reference'] = extracted_data['customer_reference']
+        
+        # Add minimum order quantity if available
+        if extracted_data.get('min_order_qty'):
+            try:
+                min_qty_str = str(extracted_data['min_order_qty'])
+                # Handle format like "5\5" - take the first number
+                min_qty = int(min_qty_str.split('\\')[0]) if '\\' in min_qty_str else int(min_qty_str)
+                additional_properties['order_info']['minimum_order_quantity'] = min_qty
+            except (ValueError, TypeError):
+                pass
+        
+        # Add pricing information
+        if unit_price is not None:
+            additional_properties['order_info']['unit_price'] = unit_price
+        if order_price is not None:
+            additional_properties['order_info']['order_price'] = order_price
+        
+        # Add package information to technical specs
+        if extracted_data.get('package'):
+            package_info = str(extracted_data['package']).strip()
+            additional_properties['technical_specs']['package'] = package_info
+            
+            # Extract mounting type from package info
+            if 'smd' in package_info.lower():
+                additional_properties['technical_specs']['mounting_type'] = 'SMT'
+            elif 'through' in package_info.lower() or 'th' in package_info.lower():
+                additional_properties['technical_specs']['mounting_type'] = 'Through Hole'
+        
+        # Add RoHS compliance
+        if extracted_data.get('rohs'):
+            rohs_value = str(extracted_data['rohs']).strip().upper()
+            if rohs_value in ['YES', 'Y', 'TRUE', '1']:
+                additional_properties['compliance']['rohs_compliant'] = True
+            elif rohs_value in ['NO', 'N', 'FALSE', '0']:
+                additional_properties['compliance']['rohs_compliant'] = False
+        
+        # Clean up empty sections
+        additional_properties = {k: v for k, v in additional_properties.items() if v}
+        
+        return additional_properties
     
     # ========== Cleanup ==========
     

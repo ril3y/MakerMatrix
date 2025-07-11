@@ -9,6 +9,7 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 import aiohttp
+import pandas as pd
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
@@ -20,6 +21,8 @@ from .exceptions import (
     SupplierError, SupplierConfigurationError, SupplierAuthenticationError,
     SupplierConnectionError, SupplierRateLimitError
 )
+from MakerMatrix.services.data.unified_column_mapper import UnifiedColumnMapper
+from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
 
 logger = logging.getLogger(__name__)
 
@@ -697,99 +700,91 @@ class MouserSupplier(BaseSupplier):
             parts = []
             errors = []
             
-            # Try to detect Mouser Excel format
-            columns = [col.lower() for col in df.columns]
+            # Use unified column mapping for consistent data extraction
+            column_mapper = UnifiedColumnMapper()
+            mouser_mappings = column_mapper.get_supplier_specific_mappings('mouser')
             
-            # Common Mouser column mappings
-            column_mappings = {
-                'part_number': ['mouser #:', 'mouser part #', 'mouser part number', 'part number', 'mouser p/n'],
-                'manufacturer': ['manufacturer', 'mfr', 'mfg'],
-                'manufacturer_part_number': ['mfr. #:', 'manufacturer part number', 'mfr part #', 'mfg part #', 'customer #'],
-                'description': ['desc.:', 'description', 'product description'],
-                'quantity': ['order qty.', 'quantity', 'qty', 'order qty'],
-                'unit_price': ['price (usd)', 'unit price', 'price', 'unit cost'],
-                'extended_price': ['ext. (usd)', 'extended price', 'total price', 'line total']
-            }
+            # Map columns using flexible matching
+            mapped_columns = column_mapper.map_columns(df.columns.tolist(), mouser_mappings)
             
-            # Find actual column names
-            mapped_columns = {}
-            for field, possible_names in column_mappings.items():
-                for possible_name in possible_names:
-                    matching_cols = [col for col in df.columns if possible_name.lower() in col.lower()]
-                    if matching_cols:
-                        mapped_columns[field] = matching_cols[0]
-                        break
-            
-            # Validate we have minimum required columns
+            # Validate required columns using unified validation
             required_fields = ['part_number', 'quantity']
-            missing_fields = [field for field in required_fields if field not in mapped_columns]
-            
-            if missing_fields:
+            if not column_mapper.validate_required_columns(mapped_columns, required_fields):
                 return ImportResult(
                     success=False,
-                    error_message=f"Missing required columns: {', '.join(missing_fields)}",
-                    warnings=[f"Available columns: {', '.join(df.columns)}"]
+                    error_message=f"Required columns not found. Available columns: {list(df.columns)}",
+                    warnings=[f"Missing required fields: {[field for field in required_fields if field not in mapped_columns]}"]
                 )
             
-            # Parse rows
+            # Initialize SupplierDataMapper for standardization
+            supplier_mapper = SupplierDataMapper()
+            
+            # Parse rows using unified data extraction
             for index, row in df.iterrows():
                 try:
-                    # Skip empty rows
-                    if pd.isna(row.get(mapped_columns['part_number'], '')) or row.get(mapped_columns['part_number'], '').strip() == '':
+                    # Extract all available data using column mapping
+                    extracted_data = column_mapper.extract_row_data(row, mapped_columns)
+                    
+                    # Skip rows without part numbers
+                    if not extracted_data.get('part_number'):
                         continue
                     
-                    # Extract pricing values
-                    unit_price = 0.0
-                    extended_price = 0.0
-                    
-                    if 'unit_price' in mapped_columns:
-                        unit_price_str = str(row.get(mapped_columns['unit_price'], '0')).replace('$', '').replace(',', '').strip()
+                    # Parse quantity safely
+                    quantity = 1
+                    if extracted_data.get('quantity'):
                         try:
-                            unit_price = float(unit_price_str) if unit_price_str else 0.0
-                        except ValueError:
-                            unit_price = 0.0
+                            quantity = max(1, int(float(str(extracted_data['quantity']).replace(',', ''))))
+                        except (ValueError, TypeError):
+                            quantity = 1
                     
-                    if 'extended_price' in mapped_columns:
-                        extended_price_str = str(row.get(mapped_columns['extended_price'], '0')).replace('$', '').replace(',', '').strip()
+                    # Parse pricing safely
+                    unit_price = None
+                    order_price = None
+                    if extracted_data.get('unit_price'):
                         try:
-                            extended_price = float(extended_price_str) if extended_price_str else 0.0
-                        except ValueError:
-                            extended_price = 0.0
+                            unit_price = float(str(extracted_data['unit_price']).replace('$', '').replace(',', ''))
+                        except (ValueError, TypeError):
+                            pass
                     
-                    # Extract quantity
-                    quantity_str = str(row.get(mapped_columns['quantity'], '0')).replace(',', '').strip()
-                    try:
-                        quantity = int(float(quantity_str)) if quantity_str else 0
-                    except ValueError:
-                        quantity = 0
+                    if extracted_data.get('order_price'):
+                        try:
+                            order_price = float(str(extracted_data['order_price']).replace('$', '').replace(',', ''))
+                        except (ValueError, TypeError):
+                            pass
                     
-                    part = {
-                        'part_name': str(row.get(mapped_columns.get('description', ''), 
-                                               row.get(mapped_columns.get('manufacturer_part_number', ''), ''))).strip(),
-                        'supplier_part_number': str(row.get(mapped_columns['part_number'], '')).strip(),  # Changed from part_number to supplier_part_number
-                        'manufacturer': str(row.get(mapped_columns.get('manufacturer', ''), '')).strip(),
-                        'manufacturer_part_number': str(row.get(mapped_columns.get('manufacturer_part_number', ''), '')).strip(),
-                        'description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
-                        'quantity': quantity,
-                        'unit_price': unit_price,
-                        'currency': 'USD',  # Mouser pricing is typically in USD
-                        'supplier': 'Mouser',
-                        'additional_properties': {
-                            'row_index': index + 1,
-                            'extended_price': extended_price  # Move extended_price to additional_properties
-                        }
-                    }
+                    # Create smart part name from available data
+                    part_name = column_mapper.create_smart_part_name(extracted_data)
                     
-                    # Use manufacturer part number as part name if description is empty
-                    if not part['part_name'] and part['manufacturer_part_number']:
-                        part['part_name'] = part['manufacturer_part_number']
+                    # Build comprehensive additional_properties
+                    additional_properties = self._build_mouser_additional_properties(
+                        extracted_data, unit_price, order_price, index
+                    )
                     
-                    # Only add parts with valid part numbers
-                    if part['part_number']:
-                        parts.append(part)
+                    # Create PartSearchResult object for SupplierDataMapper
+                    from .base import PartSearchResult
+                    part_search_result = PartSearchResult(
+                        supplier_part_number=str(extracted_data['part_number']).strip(),
+                        manufacturer=extracted_data.get('manufacturer', '').strip() if extracted_data.get('manufacturer') else None,
+                        manufacturer_part_number=extracted_data.get('manufacturer_part_number', '').strip() if extracted_data.get('manufacturer_part_number') else None,
+                        description=extracted_data.get('description', '').strip() if extracted_data.get('description') else None,
+                        additional_data=additional_properties
+                    )
+                    
+                    # Use SupplierDataMapper for standardization
+                    standardized_part = supplier_mapper.map_supplier_result_to_part_data(
+                        part_search_result, 'Mouser', enrichment_capabilities=['excel_import']
+                    )
+                    
+                    # Add import-specific fields that aren't in PartSearchResult
+                    standardized_part['part_name'] = part_name
+                    standardized_part['quantity'] = quantity
+                    standardized_part['supplier'] = 'Mouser'
+                    
+                    parts.append(standardized_part)
                         
                 except Exception as e:
                     errors.append(f"Error parsing row {index + 1}: {str(e)}")
+                    logger.warning(f"Failed to process Mouser Excel row {index + 1}: {e}")
             
             if not parts:
                 return ImportResult(
@@ -813,3 +808,36 @@ class MouserSupplier(BaseSupplier):
                 error_message=f"Error importing Mouser Excel file: {str(e)}",
                 warnings=[traceback.format_exc()]
             )
+    
+    def _build_mouser_additional_properties(self, extracted_data: Dict[str, Any], unit_price: Optional[float], order_price: Optional[float], row_index: int) -> Dict[str, Any]:
+        """Build comprehensive additional_properties for Mouser parts"""
+        additional_properties = {
+            'supplier_data': {
+                'supplier': 'Mouser',
+                'supplier_part_number': extracted_data.get('part_number'),
+                'row_index': row_index + 1,
+                'import_source': 'excel'
+            },
+            'order_info': {},
+            'technical_specs': {}
+        }
+        
+        # Add customer reference if available
+        if extracted_data.get('customer_reference'):
+            additional_properties['order_info']['customer_reference'] = extracted_data['customer_reference']
+        
+        # Add pricing information
+        if unit_price is not None:
+            additional_properties['order_info']['unit_price'] = unit_price
+            additional_properties['order_info']['currency'] = 'USD'  # Mouser pricing is typically in USD
+        if order_price is not None:
+            additional_properties['order_info']['extended_price'] = order_price
+        
+        # Add package information to technical specs if available
+        if extracted_data.get('package'):
+            additional_properties['technical_specs']['package'] = str(extracted_data['package']).strip()
+        
+        # Clean up empty sections
+        additional_properties = {k: v for k, v in additional_properties.items() if v}
+        
+        return additional_properties
