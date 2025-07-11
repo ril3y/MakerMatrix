@@ -815,7 +815,7 @@ const SettingsPage = () => {
                   onClick={() => isDarkMode && toggleDarkMode()}
                   className={`flex flex-col items-center gap-3 p-4 rounded-lg border transition-all ${
                     !isDarkMode 
-                      ? 'border-primary bg-primary/10 text-primary' 
+                      ? 'border-primary bg-primary-10 text-primary' 
                       : 'border-border hover:border-primary/30 hover:bg-primary/5'
                   }`}
                 >
@@ -830,7 +830,7 @@ const SettingsPage = () => {
                   onClick={() => !isDarkMode && toggleDarkMode()}
                   className={`flex flex-col items-center gap-3 p-4 rounded-lg border transition-all ${
                     isDarkMode 
-                      ? 'border-primary bg-primary/10 text-primary' 
+                      ? 'border-primary bg-primary-10 text-primary' 
                       : 'border-border hover:border-primary/30 hover:bg-primary/5'
                   }`}
                 >

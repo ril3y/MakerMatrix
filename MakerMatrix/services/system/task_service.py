@@ -508,7 +508,7 @@ async def create_file_import_enrichment_task(
                     try:
                         supplier_service = SupplierConfigService()
                         supplier_config = supplier_service.get_supplier_config(supplier.upper())
-                        available_capabilities = supplier_config.get_capabilities()
+                        available_capabilities = supplier_config.get('capabilities', [])
                         part_data['additional_properties']['available_capabilities'] = available_capabilities
                         logger.info(f"Using capabilities for {supplier}: {available_capabilities}")
                     except Exception as e:

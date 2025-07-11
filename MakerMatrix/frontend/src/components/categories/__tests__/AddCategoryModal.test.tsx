@@ -502,7 +502,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const suggestionButtons = screen.getAllByRole('button').filter(btn => 
         btn.textContent && 
         !['Create Category', 'Cancel'].includes(btn.textContent) &&
-        btn.className.includes('bg-primary/10')
+        btn.className.includes('bg-primary-10')
       )
       
       expect(suggestionButtons.length).toBeLessThanOrEqual(8)

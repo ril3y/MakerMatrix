@@ -137,7 +137,7 @@ const DashboardPage = () => {
                   </div>
                 )}
               </div>
-              <div className="p-3 bg-background-secondary rounded-lg group-hover:bg-primary/10 transition-colors">
+              <div className="p-3 bg-background-secondary rounded-lg group-hover:bg-primary-10 transition-colors">
                 <stat.icon className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
               </div>
             </div>
@@ -170,28 +170,28 @@ const DashboardPage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button 
               onClick={() => navigate('/parts')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary/10 transition-colors"
+              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
             >
               <Package className="w-5 h-5" />
               <span>Parts</span>
             </button>
             <button 
               onClick={() => navigate('/locations')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary/10 transition-colors"
+              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
             >
               <MapPin className="w-5 h-5" />
               <span>Add Location</span>
             </button>
             <button 
               onClick={() => navigate('/categories')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary/10 transition-colors"
+              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
             >
               <Tags className="w-5 h-5" />
               <span>Manage Categories</span>
             </button>
             <button 
               onClick={() => navigate('/users')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary/10 transition-colors"
+              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
             >
               <Users className="w-5 h-5" />
               <span>Manage Users</span>

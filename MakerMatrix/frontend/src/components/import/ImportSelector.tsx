@@ -419,7 +419,13 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
             accept=".csv,.xls,.xlsx"
             onChange={(e) => {
               const file = e.target.files?.[0]
-              if (file) handleFileSelect(file)
+              if (file) {
+                handleFileSelect(file)
+                // Clear the input value to allow re-selection of the same file
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = ''
+                }
+              }
             }}
           />
 
@@ -660,7 +666,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {selectedParserInfo?.supported ? (
+              {selectedParserInfo ? (
                 <UnifiedFileImporter
                   uploadedFile={uploadedFile}
                   filePreview={filePreview}
@@ -681,12 +687,10 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                     <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
                   </div>
                   <h4 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">
-                    File Not Supported
+                    Parser Not Available
                   </h4>
                   <p className="text-red-700 dark:text-red-300 mb-4">
-                    This file format is not supported by the {selectedParserInfo?.name} parser.
-                    <br />
-                    Please check the file format or try a different parser.
+                    The selected parser is not available. Please select a different parser or check your configuration.
                   </p>
                   {selectedParserInfo && !selectedParserInfo.is_configured && (
                     <div className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded border border-yellow-300 dark:border-yellow-700">

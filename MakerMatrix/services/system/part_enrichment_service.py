@@ -144,7 +144,7 @@ class PartEnrichmentService(BaseService):
         except Exception as e:
             raise ValueError(f"Supplier configuration not found for: {supplier}") from e
         
-        if not supplier_config.enabled:
+        if not supplier_config.get('enabled', False):
             raise ValueError(f"Supplier {supplier} is not enabled")
         
         return supplier_config
@@ -156,7 +156,7 @@ class PartEnrichmentService(BaseService):
         requested_capabilities: List[str]
     ) -> List[str]:
         """Determine which capabilities to use for enrichment."""
-        available_capabilities = supplier_config.get_capabilities()
+        available_capabilities = supplier_config.get('capabilities', [])
         
         if requested_capabilities:
             # Validate requested capabilities
@@ -182,7 +182,7 @@ class PartEnrichmentService(BaseService):
         
         # Configure the supplier with credentials and config
         credentials = self.supplier_config_service.get_supplier_credentials(supplier.upper())
-        config = supplier_config.custom_parameters or {}
+        config = supplier_config.get('custom_parameters', {})
         client.configure(credentials or {}, config)
         
         return client

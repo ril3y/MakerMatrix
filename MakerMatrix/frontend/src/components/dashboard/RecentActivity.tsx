@@ -62,10 +62,10 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
     // Update last updated time
     setLastUpdated(new Date())
 
-    // Show toast notification for new activities
-    const entityDisplayName = activityService.formatEntityType(data.entity_type)
-    const actionDisplayName = activityService.formatActivityAction(data.action)
-    toast.success(`${actionDisplayName} ${entityDisplayName}: ${data.entity_name}`)
+    // TOAST NOTIFICATIONS PERMANENTLY DISABLED (2025-07-11)
+    // Component-level toasts in modals provide better user feedback
+    // This component is for activity tracking and display only
+    console.log('RecentActivity: Entity event received (NO TOAST):', data.action, data.entity_type, data.entity_name)
   }, [limit])
 
   useEffect(() => {
@@ -92,7 +92,7 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
         clearInterval(interval)
       }
     }
-  }, [limit, refreshInterval, handleEntityEvent])
+  }, [handleEntityEvent, refreshInterval])
 
   if (loading && activities.length === 0) {
     return (

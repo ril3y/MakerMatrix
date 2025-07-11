@@ -127,7 +127,7 @@ describe('SettingsPage - Appearance Tab', () => {
     it('highlights current mode (light mode)', () => {
       const lightButtons = screen.getAllByText('Light')
       const lightButton = lightButtons[lightButtons.length - 1].closest('button')
-      expect(lightButton).toHaveClass('border-primary', 'bg-primary/10')
+      expect(lightButton).toHaveClass('border-primary', 'bg-primary-10')
       
       const darkButtons = screen.getAllByText('Dark')
       const darkButton = darkButtons[darkButtons.length - 1].closest('button')
@@ -144,7 +144,7 @@ describe('SettingsPage - Appearance Tab', () => {
       
       const darkButtons = screen.getAllByText('Dark')
       const darkButton = darkButtons[darkButtons.length - 1].closest('button')
-      expect(darkButton).toHaveClass('border-primary', 'bg-primary/10')
+      expect(darkButton).toHaveClass('border-primary', 'bg-primary-10')
       
       const lightButtons = screen.getAllByText('Light')
       const lightButton = lightButtons[lightButtons.length - 1].closest('button')

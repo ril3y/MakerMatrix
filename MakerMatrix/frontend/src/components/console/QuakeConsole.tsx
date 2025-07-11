@@ -52,7 +52,7 @@ const QuakeConsole: React.FC = () => {
       setIsProcessing(true);
       
       // Send command to real AI service using apiClient (handles auth automatically)
-      const aiResult = await apiClient.post('/ai/chat', {
+      const aiResult = await apiClient.post('/api/ai/chat', {
         message: input,
         conversation_history: []
       });

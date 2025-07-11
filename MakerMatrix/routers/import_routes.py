@@ -91,7 +91,7 @@ async def import_file(
             from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
             config_service = SupplierConfigService()
             # Try multiple case variations to find the supplier config
-            supplier_config = None
+            supplier_config_dict = None
             name_variations = [
                 supplier_name,                    # Original case (e.g., "digikey")
                 supplier_name.upper(),           # Uppercase (e.g., "DIGIKEY")
@@ -101,17 +101,28 @@ async def import_file(
             
             for name_variant in name_variations:
                 try:
-                    supplier_config = config_service.get_supplier_config(name_variant)
+                    # The get_supplier_config method should return a dictionary
+                    supplier_config_dict = config_service.get_supplier_config(name_variant)
                     logger.info(f"Found supplier config for '{name_variant}' (original: '{supplier_name}')")
                     break
-                except:
+                except Exception as e:
+                    logger.debug(f"Config not found for variant '{name_variant}': {e}")
                     continue
             
             # Supplier must be configured and enabled
-            if not supplier_config or not supplier_config.get('enabled', False):
+            if not supplier_config_dict:
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Supplier {supplier_name} is not configured or enabled. Please configure the supplier in Settings -> Suppliers before importing files."
+                    detail=f"Supplier {supplier_name} is not configured. Please configure the supplier in Settings -> Suppliers before importing files."
+                )
+            
+            # At this point supplier_config_dict should be a dictionary from the service
+            # The service guarantees it returns a dict via the to_dict() conversion
+            enabled = supplier_config_dict.get('enabled', False)
+            if not enabled:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Supplier {supplier_name} is not enabled. Please enable the supplier in Settings -> Suppliers before importing files."
                 )
                 
         except ImportError:
@@ -205,8 +216,13 @@ async def import_file(
                     import_source=f"File import: {filename}",
                     status="imported"
                 )
-                order = await order_service.create_order(order_request)
-                order_id = order.id
+                order_response = await order_service.create_order(order_request)
+                if order_response.success:
+                    order = order_response.data
+                    order_id = order.id if hasattr(order, 'id') else order.get('id') if isinstance(order, dict) else None
+                else:
+                    logger.warning(f"Failed to create order: {order_response.message}")
+                    order_id = None
             except Exception as e:
                 logger.warning(f"Failed to create order: {e}")
         
@@ -225,17 +241,28 @@ async def import_file(
                 logger.info(f"Creating part with data: {part_data}")
                 created_part_response = part_service.add_part(part_data)
                 logger.info(f"Part creation response: {created_part_response}")
-                if created_part_response.get('status') == 'success':
-                    created_part = created_part_response.get('data')
-                    if created_part and created_part.get('id'):
+                
+                # ServiceResponse uses attributes, not dictionary-style access
+                if created_part_response.success:
+                    created_part = created_part_response.data
+                    if created_part and hasattr(created_part, 'id'):
+                        part_ids.append(created_part.id)
+                    elif isinstance(created_part, dict) and created_part.get('id'):
                         part_ids.append(created_part['id'])
                     else:
                         logger.warning(f"Part created but no ID returned: {created_part_response}")
                 else:
-                    raise Exception(f"Failed to create part: {created_part_response.get('message', 'Unknown error')}")
+                    error_msg = created_part_response.message or 'Unknown error'
+                    raise Exception(f"Failed to create part: {error_msg}")
                 
                 # Link to order if we have one
-                if order_id and created_part and created_part.get('id'):
+                part_id = None
+                if hasattr(created_part, 'id'):
+                    part_id = created_part.id
+                elif isinstance(created_part, dict) and created_part.get('id'):
+                    part_id = created_part['id']
+                
+                if order_id and part_id:
                     try:
                         from MakerMatrix.models.order_models import CreateOrderItemRequest
                         order_item_request = CreateOrderItemRequest(

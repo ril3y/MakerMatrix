@@ -36,11 +36,11 @@ const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
           ref={ref}
           type={type}
           className={`
-            w-full px-3 py-2 border border-border rounded-md 
-            bg-background text-primary
-            focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent
-            disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed
-            ${error ? 'border-red-500' : 'border-border'}
+            w-full px-3 py-2 border border-theme-primary rounded-md 
+            bg-theme-primary text-theme-primary
+            focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+            disabled:bg-theme-tertiary disabled:text-theme-muted disabled:cursor-not-allowed
+            ${error ? 'border-red-500' : 'border-theme-primary'}
             ${fieldClassName || ''}
           `}
           {...registration}

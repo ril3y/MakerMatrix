@@ -199,7 +199,7 @@ const UsersPage = () => {
                   <tr key={user.id} className="border-b border-border hover:bg-background-secondary/50">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                        <div className="w-8 h-8 bg-primary-20 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-primary">
                             {user.username.charAt(0).toUpperCase()}
                           </span>
@@ -213,7 +213,7 @@ const UsersPage = () => {
                         {user.roles.map((role) => (
                           <span 
                             key={role.id}
-                            className="inline-block px-2 py-1 text-xs rounded-full bg-primary/20 text-primary"
+                            className="inline-block px-2 py-1 text-xs rounded-full bg-primary-20 text-primary"
                           >
                             {role.name}
                           </span>

@@ -421,11 +421,9 @@ class SupplierConfigService(BaseService):
                 # Create default supplier
                 config_data['supplier_name'] = supplier_name
                 created_config = self.create_supplier_config(config_data)
-                # Convert to dictionary for consistent return type
-                with self.get_session() as session:
-                    # Refresh the created config to ensure it's attached to session
-                    fresh_config = self.supplier_config_repo.get_by_id(session, created_config.id)
-                    created_configs.append(fresh_config.to_dict())
+                # Convert to dictionary immediately after creation while still in session context
+                created_config_dict = self.get_supplier_config(supplier_name)
+                created_configs.append(created_config_dict)
                 self.logger.info(f"Created default supplier configuration: {supplier_name}")
         
         return created_configs

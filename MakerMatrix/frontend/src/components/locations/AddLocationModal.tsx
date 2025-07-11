@@ -42,6 +42,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
     onClose,
     defaultValues: {
       name: '',
+      description: '',
       location_type: 'standard',
       parent_id: undefined,
       image_url: undefined,
@@ -211,7 +212,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
       {loadingData ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-secondary mt-2">Loading...</p>
+          <p className="text-theme-secondary mt-2">Loading...</p>
         </div>
       ) : (
         <>
@@ -248,9 +249,9 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
 
           {/* Preview of full path */}
           {form.watch('parent_id') && (
-            <div className="p-3 bg-background-secondary rounded-md">
-              <p className="text-sm text-secondary mb-1">Full path will be:</p>
-              <p className="text-sm font-medium text-primary">
+            <div className="p-3 bg-theme-secondary rounded-md border border-theme-primary">
+              <p className="text-sm text-theme-muted mb-1">Full path will be:</p>
+              <p className="text-sm font-medium text-theme-primary">
                 {(() => {
                   const parent = parentLocations.find(loc => loc.id === form.watch('parent_id'))
                   if (parent) {
@@ -280,7 +281,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
                   <img
                     src={imagePreview}
                     alt="Location preview"
-                    className="w-32 h-32 object-cover rounded-lg border border-border"
+                    className="w-32 h-32 object-cover rounded-lg border border-theme-primary"
                   />
                   <button
                     type="button"
@@ -292,7 +293,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
                   </button>
                 </div>
               ) : (
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                <div className="border-2 border-dashed border-theme-primary rounded-lg p-6 text-center hover:border-primary-20 transition-colors">
                   <input
                     type="file"
                     accept="image/*"
@@ -308,13 +309,13 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
                     {uploadingImage ? (
                       <>
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        <span className="text-sm text-secondary">Uploading...</span>
+                        <span className="text-sm text-primary">Uploading...</span>
                       </>
                     ) : (
                       <>
-                        <Upload className="w-8 h-8 text-secondary" />
-                        <span className="text-sm text-primary">Click to upload an image</span>
-                        <span className="text-xs text-secondary">PNG, JPG, GIF up to 5MB</span>
+                        <Upload className="w-8 h-8 text-theme-muted" />
+                        <span className="text-sm text-theme-primary">Click to upload an image</span>
+                        <span className="text-xs text-theme-muted">PNG, JPG, GIF up to 5MB</span>
                       </>
                     )}
                   </label>

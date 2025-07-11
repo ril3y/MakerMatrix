@@ -51,14 +51,14 @@ async def get_recent_activities(
     
     activity_responses = [
         ActivityResponse(
-            id=activity.id,
-            action=activity.action,
-            entity_type=activity.entity_type,
-            entity_id=activity.entity_id,
-            entity_name=activity.entity_name,
-            username=activity.username or "system",
-            timestamp=activity.timestamp.isoformat(),
-            details=activity.details or {}
+            id=activity['id'],
+            action=activity['action'],
+            entity_type=activity['entity_type'],
+            entity_id=activity['entity_id'],
+            entity_name=activity['entity_name'],
+            username=activity['username'] or "system",
+            timestamp=activity['timestamp'].isoformat(),
+            details=activity['details'] or {}
         )
         for activity in activities
     ]

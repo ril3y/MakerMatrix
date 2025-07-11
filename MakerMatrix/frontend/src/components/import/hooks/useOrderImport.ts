@@ -46,6 +46,8 @@ export interface UseOrderImportProps {
   onImportComplete?: (result: ImportResult) => void
   validateFile?: (file: File) => boolean
   extractOrderInfoFromFilename?: (filename: string) => Promise<Partial<OrderInfo> | null>
+  initialFile?: File | null
+  initialPreviewData?: FilePreviewData | null
 }
 
 export const useOrderImport = ({
@@ -53,10 +55,12 @@ export const useOrderImport = ({
   parserName,
   onImportComplete,
   validateFile,
-  extractOrderInfoFromFilename
+  extractOrderInfoFromFilename,
+  initialFile,
+  initialPreviewData
 }: UseOrderImportProps) => {
-  const [file, setFile] = useState<File | null>(null)
-  const [previewData, setPreviewData] = useState<FilePreviewData | null>(null)
+  const [file, setFile] = useState<File | null>(initialFile || null)
+  const [previewData, setPreviewData] = useState<FilePreviewData | null>(initialPreviewData || null)
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
@@ -79,6 +83,13 @@ export const useOrderImport = ({
       }
     }
   }, [])
+
+  // Set showPreview if initial preview data is provided
+  useEffect(() => {
+    if (initialPreviewData && initialFile) {
+      setShowPreview(true)
+    }
+  }, [initialPreviewData, initialFile])
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     if (!selectedFile) return
@@ -296,23 +307,57 @@ export const useOrderImport = ({
           startProgressPolling(taskId)
         }, 1000)
       } else {
-        // No enrichment task, complete immediately
-        setImporting(false)
-        setShowProgress(false)
-        setImportProgress(null)
+        // No enrichment task, show completion feedback
+        setImportProgress({
+          processed_parts: result.imported_count || 0,
+          total_parts: result.imported_count || 0,
+          current_operation: 'Import completed',
+          is_complete: true
+        })
+        setTimeout(() => {
+          setImporting(false)
+          setShowProgress(false)
+          setImportProgress(null)
+        }, 2000) // Show completion for 2 seconds
       }
 
       onImportComplete?.(result)
       clearFile()
 
-    } catch (error) {
-      toast.error('Failed to import parts from file')
+    } catch (error: any) {
+      let errorMessage = 'Failed to import parts from file'
+      
+      // Provide more specific error messages
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.'
+      } else if (error.response?.status === 413) {
+        errorMessage = 'File too large. Please select a smaller file.'
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.'
+      } else if (error.message?.includes('Network Error')) {
+        errorMessage = 'Network error. Please check your connection.'
+      }
+      
+      toast.error(errorMessage)
       console.error('File import error:', error)
+      
+      // Show error in progress
+      setImportProgress({
+        processed_parts: 0,
+        total_parts: 0,
+        current_operation: 'Import failed',
+        is_complete: true
+      })
+      
+      setTimeout(() => {
+        setImportProgress(null)
+        setShowProgress(false)
+      }, 3000) // Show error for 3 seconds
     } finally {
       stopProgressPolling()
       setImporting(false)
-      setShowProgress(false)
-      setImportProgress(null)
     }
   }, [file, previewData, parserType, orderInfo, onImportComplete, startProgressPolling, stopProgressPolling])
 

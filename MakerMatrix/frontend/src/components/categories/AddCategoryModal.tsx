@@ -1,4 +1,5 @@
 import { Tag } from 'lucide-react'
+import { useMemo } from 'react'
 import CrudModal from '@/components/ui/CrudModal'
 import FormField from '@/components/ui/FormField'
 import { useModalForm } from '@/hooks/useModalForm'
@@ -13,9 +14,9 @@ interface AddCategoryModalProps {
 }
 
 const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] }: AddCategoryModalProps) => {
-  const initialData: CreateCategoryRequest = {
+  const initialData: CreateCategoryRequest = useMemo(() => ({
     name: ''
-  }
+  }), [])
 
   const validate = (data: CreateCategoryRequest): Record<string, string> => {
     const errors: Record<string, string> = {}
@@ -114,7 +115,7 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
 
       {/* Character count */}
       <div className="text-right">
-        <span className={`text-xs ${formData.name.length > 40 ? 'text-orange-500' : 'text-secondary'}`}>
+        <span className={`text-xs ${formData.name.length > 40 ? 'text-warning' : 'text-theme-secondary'}`}>
           {formData.name.length}/50 characters
         </span>
       </div>
@@ -122,20 +123,20 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
       {/* Suggested categories */}
       {availableSuggestions.length > 0 && (
         <div className="space-y-3">
-          <label className="text-sm font-medium text-primary">Quick Select</label>
+          <label className="text-sm font-medium text-theme-primary">Quick Select</label>
           <div className="flex flex-wrap gap-2">
             {availableSuggestions.slice(0, 8).map((suggestion) => (
               <button
                 key={suggestion}
                 type="button"
                 onClick={() => updateField('name', suggestion)}
-                className="px-3 py-1 text-sm bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+                className="px-3 py-1 text-sm bg-primary-10 text-primary rounded-full hover:bg-primary-20 transition-colors"
               >
                 {suggestion}
               </button>
             ))}
           </div>
-          <p className="text-xs text-secondary">
+          <p className="text-xs text-theme-secondary">
             Click a suggestion to use it, or type your own category name
           </p>
         </div>
@@ -143,11 +144,11 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
 
       {/* Preview */}
       {formData.name.trim() && (
-        <div className="p-3 bg-background-secondary rounded-md">
-          <p className="text-sm text-secondary mb-1">Preview:</p>
+        <div className="p-3 bg-theme-secondary rounded-md border border-theme-primary">
+          <p className="text-sm text-theme-muted mb-1">Preview:</p>
           <div className="flex items-center gap-2">
-            <Tag className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">
+            <Tag className="w-4 h-4 text-primary-accent" />
+            <span className="text-sm font-medium text-theme-primary">
               {formData.name.trim()}
             </span>
           </div>

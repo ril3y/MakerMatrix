@@ -70,7 +70,7 @@ class ImageHandlerService(BaseService):
             
             # Validate supplier configuration
             supplier_config = self._get_supplier_config(supplier)
-            if not supplier_config.enabled:
+            if not supplier_config.get('enabled', False):
                 raise ValueError(f"Supplier {supplier} is not enabled")
             
             # Get supplier client
@@ -159,7 +159,7 @@ class ImageHandlerService(BaseService):
         
         # Configure the supplier with credentials and config
         credentials = self.supplier_config_service.get_supplier_credentials(supplier.upper())
-        config = supplier_config.custom_parameters or {}
+        config = supplier_config.get('custom_parameters', {})
         client.configure(credentials or {}, config)
         
         return client

@@ -3,7 +3,7 @@ import { User, LoginRequest, LoginResponse } from '@/types/auth'
 
 export class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>('/auth/login', credentials)
+    const response = await apiClient.post<LoginResponse>('/api/auth/login', credentials)
 
     if (response.access_token) {
       apiClient.setAuthToken(response.access_token)
@@ -15,7 +15,7 @@ export class AuthService {
 
   async logout(): Promise<void> {
     try {
-      await apiClient.post('/auth/logout')
+      await apiClient.post('/api/auth/logout')
     } finally {
       this.clearAuth()
     }

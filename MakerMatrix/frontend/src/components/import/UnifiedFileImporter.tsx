@@ -13,9 +13,22 @@ interface UnifiedFileImporterProps {
   parserType: string;
   parserName: string;
   description: string;
+  uploadedFile?: File | null;
+  filePreview?: any;
+  selectedEnrichmentCapabilities?: string[];
+  supplierCapabilities?: any;
 }
 
-const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({ onImportComplete, parserType, parserName, description }) => {
+const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({ 
+  onImportComplete, 
+  parserType, 
+  parserName, 
+  description,
+  uploadedFile,
+  filePreview,
+  selectedEnrichmentCapabilities,
+  supplierCapabilities 
+}) => {
   const validateFile = (file: File): boolean => {
     const fileName = file.name.toLowerCase();
     const isCsv = fileName.endsWith('.csv');
@@ -45,6 +58,8 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({ onImportCompl
     onImportComplete,
     validateFile,
     extractOrderInfoFromFilename,
+    initialFile: uploadedFile,
+    initialPreviewData: filePreview,
   });
 
   return (
