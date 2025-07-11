@@ -196,6 +196,7 @@ app = FastAPI(
     title="MakerMatrix",
     description="A comprehensive part inventory management system with label printing capabilities.",
     version="1.0.0",
+    lifespan=lifespan
 )
 
 # Register exception handlers
@@ -357,7 +358,7 @@ app.include_router(categories_routes.router, prefix="/api/categories", tags=["ca
 app.include_router(printer_routes.router, prefix="/api/printer", tags=["printer"])
 app.include_router(preview_routes.router, prefix="/api/preview", tags=["Label Preview"])
 app.include_router(utility_routes.router, prefix="/api/utility", tags=["utility"])
-app.include_router(auth_routes.router, tags=["Authentication"])
+app.include_router(auth_routes.router, prefix="/api", tags=["Authentication"])
 app.include_router(user_management_routes.router, prefix="/api/users", tags=["Users"])
 app.include_router(ai_routes.router, prefix="/api/ai", tags=["AI Configuration"])
 app.include_router(import_routes.router, prefix="/api/import")
