@@ -130,9 +130,9 @@ class SupplierConfigModel(SQLModel, table=True):
         if self.supports_part_validation:
             capabilities.append("validate_part_number")
         
-        # Always include fetch_details if any other capability is supported
+        # Always include get_part_details if any other capability is supported
         if capabilities:
-            capabilities.append("fetch_details")
+            capabilities.append("get_part_details")
             
         return capabilities
     
