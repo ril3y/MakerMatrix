@@ -266,13 +266,19 @@ class TaskService(BaseService):
             async with self.get_async_session() as session:
                 pending_tasks = self.task_repository.get_pending_tasks_ready_to_run(session)
                 
+                # Extract task IDs while session is active to avoid DetachedInstanceError
+                task_ids_to_start = []
                 for task in pending_tasks:
-                    try:
-                        if task.id not in self.running_tasks:
-                            await self._start_task(task)
-                    except Exception as e:
-                        logger.error(f"Failed to start task {task.id}: {e}", exc_info=True)
-                        # Continue processing other tasks
+                    if task.id not in self.running_tasks:
+                        task_ids_to_start.append(task.id)
+                
+            # Start tasks using IDs (outside session to avoid conflicts)
+            for task_id in task_ids_to_start:
+                try:
+                    await self._start_task_by_id(task_id)
+                except Exception as e:
+                    logger.error(f"Failed to start task {task_id}: {e}", exc_info=True)
+                    # Continue processing other tasks
                         
         except Exception as e:
             logger.error(f"Error in _process_pending_tasks: {e}", exc_info=True)
@@ -292,6 +298,33 @@ class TaskService(BaseService):
         # Create and start the task
         async_task = asyncio.create_task(self._execute_task(task))
         self.running_tasks[task.id] = async_task
+    
+    async def _start_task_by_id(self, task_id: str):
+        """Start executing a task by ID (session-safe version) - Fixed DetachedInstanceError"""
+        # Fetch fresh task instance in new session to avoid DetachedInstanceError
+        async with self.get_async_session() as session:
+            task = self.task_repository.get_by_id(session, task_id)
+            if not task:
+                logger.error(f"Task {task_id} not found when trying to start")
+                return
+                
+            # Extract data while session is active
+            task_type = task.task_type
+            task_name = task.name
+                
+        # Check if task type has a handler
+        if task_type not in self.task_instances:
+            await self.update_task(task_id, UpdateTaskRequest(
+                status=TaskStatus.FAILED,
+                error_message=f"No handler found for task type: {task_type}"
+            ))
+            return
+        
+        logger.info(f"Starting task {task_id}: {task_name}")
+        
+        # Create and start the task
+        async_task = asyncio.create_task(self._execute_task_by_id(task_id))
+        self.running_tasks[task_id] = async_task
     
     async def _execute_task(self, task: TaskModel):
         """Execute a task with error handling and timeout"""
@@ -347,6 +380,87 @@ class TaskService(BaseService):
             # Remove from running tasks
             if task.id in self.running_tasks:
                 del self.running_tasks[task.id]
+
+    async def _execute_task_by_id(self, task_id: str):
+        """Execute a task by ID with error handling and timeout (session-safe version)"""
+        try:
+            # Mark as running
+            await self.update_task(task_id, UpdateTaskRequest(
+                status=TaskStatus.RUNNING,
+                current_step="Starting task execution"
+            ))
+            
+            # Fetch fresh task instance in new session
+            task_type = None
+            timeout_seconds = None
+            async with self.get_async_session() as session:
+                task = self.task_repository.get_by_id(session, task_id)
+                if not task:
+                    await self.update_task(task_id, UpdateTaskRequest(
+                        status=TaskStatus.FAILED,
+                        error_message="Task not found when executing"
+                    ))
+                    return
+                
+                # Extract data while session is active
+                task_type = task.task_type
+                timeout_seconds = task.timeout_seconds
+            
+            # Get the task instance and execute it
+            task_instance = self.task_instances[task_type]
+            
+            # Fetch task again for execution (fresh session)
+            async with self.get_async_session() as session:
+                task = self.task_repository.get_by_id(session, task_id)
+                if not task:
+                    await self.update_task(task_id, UpdateTaskRequest(
+                        status=TaskStatus.FAILED,
+                        error_message="Task not found during execution"
+                    ))
+                    return
+                
+                if timeout_seconds:
+                    result_data = await asyncio.wait_for(
+                        task_instance.execute(task), 
+                        timeout=timeout_seconds
+                    )
+                else:
+                    result_data = await task_instance.execute(task)
+            
+            # Mark as completed
+            await self.update_task(task_id, UpdateTaskRequest(
+                status=TaskStatus.COMPLETED,
+                progress_percentage=100,
+                current_step="Task completed successfully"
+            ))
+            
+            logger.info(f"Task {task_id} completed successfully")
+            
+        except asyncio.TimeoutError:
+            await self.update_task(task_id, UpdateTaskRequest(
+                status=TaskStatus.FAILED,
+                error_message=f"Task timed out after {timeout_seconds} seconds"
+            ))
+            logger.error(f"Task {task_id} timed out")
+            
+        except asyncio.CancelledError:
+            await self.update_task(task_id, UpdateTaskRequest(
+                status=TaskStatus.CANCELLED,
+                error_message="Task was cancelled"
+            ))
+            logger.info(f"Task {task_id} was cancelled")
+            
+        except Exception as e:
+            await self.update_task(task_id, UpdateTaskRequest(
+                status=TaskStatus.FAILED,
+                error_message=str(e)
+            ))
+            logger.error(f"Task {task_id} failed: {e}", exc_info=True)
+            
+        finally:
+            # Remove from running tasks
+            if task_id in self.running_tasks:
+                del self.running_tasks[task_id]
 
 
 # Global task service instance
