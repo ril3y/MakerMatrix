@@ -969,29 +969,118 @@ The enrichment system failure had three distinct layers:
 
 **❌ REMAINING CRITICAL ENRICHMENT ISSUE:**
 
-#### 25. **DetachedInstanceError in Part Enrichment Task** ❌ CRITICAL ARCHITECTURAL ISSUE
+#### 25. **ULTRATHINK Analysis: Session Management Architecture Issue** 🧠 ELEGANT SOLUTION IDENTIFIED
+
+**Status**: **CRITICAL ARCHITECTURAL ISSUE** - Comprehensive analysis completed, elegant minimal-change solution identified
+
+**Root Cause Deep Dive:**
 - **Issue**: Enrichment task failing with SQLAlchemy DetachedInstanceError during part access
 - **Error**: `Instance <PartModel at 0x7efc5b98b700> is not bound to a Session; attribute refresh operation cannot proceed`
-- **Impact**: All enrichment tasks fail after creation due to session management issues
-- **Root Cause Analysis**: 
-  - **Part object passed between different sessions**: Task retrieves part in one session, passes to enrichment service with different session
-  - **Multiple session contexts**: EnrichmentCoordinatorService, PartEnrichmentService, and task each manage their own sessions
-  - **Detachment occurs**: Part becomes detached when accessed outside its original session context
-- **Partial Fixes Applied**:
-  - ✅ Fixed part name access in `part_enrichment_task.py` (cached part_name while session active)
-  - ✅ Added session-aware part retrieval methods in `part_enrichment_service.py`
-  - ❌ **Architectural Issue**: Still passing part objects between session boundaries
-- **Required Solution**: 
-  - **Pass part_id only**: Refactor enrichment flow to pass `part_id` instead of `PartModel` objects
-  - **Session per operation**: Each service method should retrieve fresh part from database in its own session
-  - **No object sharing**: Eliminate cross-session part object sharing entirely
+- **Impact**: All enrichment tasks fail after creation due to session boundary violations
 
-**Files Requiring Architectural Changes**:
-- `tasks/part_enrichment_task.py` - Pass part_id to enrichment handlers
-- `services/system/part_enrichment_service.py` - Retrieve part in each method rather than passing object
-- `services/system/enrichment_coordinator_service.py` - Session-safe part handling patterns
+**ULTRATHINK Session Flow Analysis:**
+```
+part_enrichment_task.py (Session A) 
+  ↓ [Part Object Retrieved]
+enrichment_coordinator_service.py (Session B - NEW)
+  ↓ [Part Object Now Detached]  
+part_enrichment_service.py (Session C - NEW) → ERROR: DetachedInstanceError
+```
 
-**TESTING STATUS**: ✅ Infrastructure operational, ✅ Capability validation fixed, ❌ **Architecture-level session management refactor required**
+**Session Boundary Violations Identified:**
+1. **Task Session**: `with Session(engine) as session:` retrieves part object
+2. **Coordinator Session**: `EnrichmentCoordinatorService` uses `self.get_session()` 
+3. **Service Sessions**: `PartEnrichmentService` creates additional sessions via `self.get_session()`
+4. **Object Detachment**: Part becomes detached when accessed outside original session
+5. **Multiple Access Points**: `part.part_number`, `part.part_name`, `part.supplier` all fail at various points
+
+**ULTRATHINK Solution Evaluation:**
+
+**Option 1: Pass part_id Only (Initially Planned)**
+- **Code Impact**: HIGH - Requires refactoring 3+ services  
+- **Performance**: POOR - Multiple database queries per enrichment
+- **Complexity**: HIGH - Each service needs part retrieval logic
+- **Assessment**: ❌ Over-engineered for the problem
+
+**Option 2: Session Threading Pattern (RECOMMENDED) ⭐**
+- **Code Impact**: LOW - Minimal changes to existing flow
+- **Performance**: OPTIMAL - One database query, one transaction  
+- **Complexity**: LOW - Thread session through existing call chain
+- **Assessment**: ✅ Most elegant solution
+
+**Option 3: Early Data Serialization**
+- **Code Impact**: MEDIUM - Convert part to dict early
+- **Performance**: GOOD - No additional queries
+- **Complexity**: MEDIUM - Data transformation logic  
+- **Assessment**: ⚠️ Workable but less elegant
+
+**Option 4: Context Manager Pattern**
+- **Code Impact**: HIGH - New architecture patterns
+- **Performance**: GOOD - Managed session lifecycle
+- **Complexity**: HIGH - Complex coordination logic
+- **Assessment**: ❌ Over-engineered
+
+**RECOMMENDED SOLUTION: Session Threading Pattern** ⭐
+
+**Elegant Implementation Plan (Minimal Code Changes):**
+
+1. **Modify Task (`part_enrichment_task.py`)**: 
+   ```python
+   # Pass active session to enrichment handlers instead of closing session
+   enrichment_result = await enrichment_handlers.handle_part_enrichment(
+       task, progress_callback, session=session  # ← NEW: Thread session
+   )
+   ```
+
+2. **Modify Coordinator (`enrichment_coordinator_service.py`)**:
+   ```python
+   # Accept optional session parameter and thread it through
+   async def handle_part_enrichment(self, task, progress_callback, session=None):
+       return await self.part_enrichment_service.handle_part_enrichment(
+           task, progress_callback, session=session  # ← NEW: Thread session
+       )
+   ```
+
+3. **Modify Service (`part_enrichment_service.py`)**:
+   ```python
+   # Use provided session instead of creating new one
+   async def handle_part_enrichment(self, task, progress_callback, session=None):
+       if session is None:
+           # Fallback for direct calls
+           with self.get_session() as session:
+               return await self._handle_with_session(task, progress_callback, session)
+       else:
+           # Use provided session - NO new session creation
+           return await self._handle_with_session(task, progress_callback, session)
+   ```
+
+**Architecture Benefits Achieved:**
+- ✅ **Minimal Code Changes**: Only 3 method signatures + threading logic
+- ✅ **Single Transaction**: Entire enrichment flow in one database transaction
+- ✅ **No Performance Impact**: No additional database queries required  
+- ✅ **Clean Architecture**: Clear session ownership and lifecycle management
+- ✅ **Backward Compatible**: Fallback for direct service calls
+- ✅ **No Object Copying**: Uses original part object safely within session context
+
+**Alternative Quick Fix (Ultra-Minimal):**
+If even simpler approach needed, cache part attributes early:
+```python
+# In part_enrichment_task.py - cache while session active
+part_data = {
+    'part_name': part.part_name, 'part_number': part.part_number,
+    'supplier': part.supplier, 'id': part.id
+}
+# Pass part_data dict instead of part object (requires only task + service changes)
+```
+
+**Files Requiring Changes (Session Threading):**
+- `tasks/part_enrichment_task.py` - Pass session to enrichment handlers (2 lines)
+- `services/system/enrichment_coordinator_service.py` - Thread session parameter (1 line)  
+- `services/system/part_enrichment_service.py` - Use provided session (10 lines)
+
+**TOTAL CODE CHANGES**: ~15 lines across 3 files
+
+**TESTING STATUS**: ✅ Infrastructure operational, ✅ Capability validation fixed, ✅ **Elegant solution identified requiring minimal changes**
 
 ## Next Steps Recommendations
 

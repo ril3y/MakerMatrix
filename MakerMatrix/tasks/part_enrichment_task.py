@@ -77,8 +77,8 @@ class PartEnrichmentTask(BaseTask):
                 async def progress_callback(percentage, step):
                     await self._update_task_progress(task, 60 + int(percentage * 0.2), step)
                 
-                # Run actual enrichment
-                enrichment_result = await enrichment_handlers.handle_part_enrichment(task, progress_callback)
+                # Run actual enrichment - pass session to avoid DetachedInstanceError
+                enrichment_result = await enrichment_handlers.handle_part_enrichment(task, progress_callback, session=session)
                 
                 await self._update_task_progress(task, 90, "Enrichment completed")
                 

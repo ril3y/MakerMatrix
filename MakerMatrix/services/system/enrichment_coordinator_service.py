@@ -97,9 +97,9 @@ class EnrichmentCoordinatorService(BaseService):
             raise
 
     # Backward compatibility methods for legacy code
-    async def handle_part_enrichment(self, task: TaskModel, progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
+    async def handle_part_enrichment(self, task: TaskModel, progress_callback: Optional[Callable] = None, session=None) -> Dict[str, Any]:
         """Backward compatibility method for part enrichment."""
-        return await self.part_enrichment_service.handle_part_enrichment(task, progress_callback)
+        return await self.part_enrichment_service.handle_part_enrichment(task, progress_callback, session=session)
 
     async def handle_datasheet_fetch(self, task: TaskModel, progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """Backward compatibility method for datasheet fetch."""

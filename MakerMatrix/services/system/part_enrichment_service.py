@@ -33,13 +33,14 @@ class PartEnrichmentService(BaseService):
         self.data_mapper = EnrichmentDataMapper(SupplierDataMapper())
         self.supplier_integration_service = SupplierIntegrationService(self.supplier_config_service)
 
-    async def handle_part_enrichment(self, task: TaskModel, progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
+    async def handle_part_enrichment(self, task: TaskModel, progress_callback: Optional[Callable] = None, session=None) -> Dict[str, Any]:
         """
         Handle comprehensive part enrichment using the supplier configuration system.
         
         Args:
             task: The task model containing enrichment parameters
             progress_callback: Optional callback for progress updates
+            session: Optional database session to use (avoids DetachedInstanceError)
             
         Returns:
             Dict containing enrichment results and statistics
@@ -56,11 +57,30 @@ class PartEnrichmentService(BaseService):
             if not part_id:
                 raise ValueError("part_id is required for part enrichment")
             
+            # Use provided session or create new one for backward compatibility
+            if session is not None:
+                # Use provided session - avoid DetachedInstanceError
+                return await self._handle_with_session(task, progress_callback, session, part_id, preferred_supplier, requested_capabilities, force_refresh)
+            else:
+                # Fallback for direct calls - create new session
+                with self.get_session() as session:
+                    return await self._handle_with_session(task, progress_callback, session, part_id, preferred_supplier, requested_capabilities, force_refresh)
+    
+    async def _handle_with_session(self, task: TaskModel, progress_callback: Optional[Callable], session, part_id: str, preferred_supplier: str, requested_capabilities: list, force_refresh: bool) -> Dict[str, Any]:
+        """Handle enrichment within a session context."""
+        try:
             # Get the part and determine supplier - access attributes while session is active
-            with self.get_session() as session:
-                part = self._get_part_by_id_in_session(session, part_id)
-                # Determine which supplier to use
-                supplier = self._determine_supplier(part, preferred_supplier)
+            part = self._get_part_by_id_in_session(session, part_id)
+            
+            # Cache part attributes while session is active to avoid DetachedInstanceError
+            part_name = part.part_name
+            part_supplier = part.supplier
+            part_vendor = getattr(part, 'part_vendor', None)
+            part_number = part.part_number
+            lcsc_part_number = getattr(part, 'lcsc_part_number', None)
+            
+            # Determine which supplier to use
+            supplier = self._determine_supplier_from_cached_data(part_supplier, part_vendor, preferred_supplier)
             
             # Get supplier configuration and validate
             supplier_config = self._get_supplier_config(supplier)
@@ -79,10 +99,8 @@ class PartEnrichmentService(BaseService):
             # Convert capabilities to supplier capability enums
             supplier_capabilities = self._convert_capabilities_to_enums(capabilities)
             
-            # Get appropriate part number for the supplier - access attributes while session is active
-            with self.get_session() as session:
-                fresh_part = self._get_part_by_id_in_session(session, part_id)
-                part_number = self._get_supplier_part_number(fresh_part, supplier)
+            # Get appropriate part number for the supplier using cached data
+            supplier_part_number = self._get_supplier_part_number_from_cached_data(part_number, lcsc_part_number)
             
             # Progress callback wrapper
             async def enrichment_progress(message):
@@ -90,11 +108,11 @@ class PartEnrichmentService(BaseService):
                     await progress_callback(50, message)
             
             # Perform enrichment
-            logger.info(f"Starting unified enrichment for part {part.part_name} using {supplier}")
+            logger.info(f"Starting unified enrichment for part {part_name} using {supplier}")
             if progress_callback:
                 await progress_callback(20, f"Enriching part from {supplier}...")
             
-            enrichment_result = await client.enrich_part(part_number, supplier_capabilities)
+            enrichment_result = await client.enrich_part(supplier_part_number, supplier_capabilities)
             
             # Process enrichment results
             enrichment_results = self._process_enrichment_result(enrichment_result)
@@ -129,11 +147,21 @@ class PartEnrichmentService(BaseService):
         part = PartRepository.get_part_by_id(session, part_id)
         if not part:
             raise ValueError(f"Part not found: {part_id}")
+        
+        # Ensure part is bound to the current session
+        session.refresh(part)
         return part
 
     def _determine_supplier(self, part: PartModel, preferred_supplier: Optional[str]) -> str:
         """Determine which supplier to use for enrichment."""
         supplier = preferred_supplier or part.supplier or part.part_vendor
+        if not supplier:
+            raise ValueError("No supplier specified for part enrichment")
+        return supplier
+    
+    def _determine_supplier_from_cached_data(self, part_supplier: Optional[str], part_vendor: Optional[str], preferred_supplier: Optional[str]) -> str:
+        """Determine which supplier to use for enrichment using cached data."""
+        supplier = preferred_supplier or part_supplier or part_vendor
         if not supplier:
             raise ValueError("No supplier specified for part enrichment")
         return supplier
@@ -210,6 +238,12 @@ class PartEnrichmentService(BaseService):
         # Implementation would depend on how part numbers are mapped to suppliers
         # For now, use the general part number logic
         return part.part_number or part.lcsc_part_number
+        
+    def _get_supplier_part_number_from_cached_data(self, part_number: Optional[str], lcsc_part_number: Optional[str]) -> str:
+        """Get the appropriate part number for the supplier using cached data."""
+        # Implementation would depend on how part numbers are mapped to suppliers
+        # For now, use the general part number logic
+        return part_number or lcsc_part_number or ""
 
     def _process_enrichment_result(self, enrichment_result: Any) -> Dict[str, Any]:
         """Process enrichment result into expected format."""
