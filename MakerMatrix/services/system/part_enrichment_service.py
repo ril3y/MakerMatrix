@@ -56,11 +56,11 @@ class PartEnrichmentService(BaseService):
             if not part_id:
                 raise ValueError("part_id is required for part enrichment")
             
-            # Get the part using repository
-            part = await self._get_part_by_id(part_id)
-            
-            # Determine which supplier to use
-            supplier = self._determine_supplier(part, preferred_supplier)
+            # Get the part and determine supplier - access attributes while session is active
+            with self.get_session() as session:
+                part = self._get_part_by_id_in_session(session, part_id)
+                # Determine which supplier to use
+                supplier = self._determine_supplier(part, preferred_supplier)
             
             # Get supplier configuration and validate
             supplier_config = self._get_supplier_config(supplier)
@@ -79,8 +79,10 @@ class PartEnrichmentService(BaseService):
             # Convert capabilities to supplier capability enums
             supplier_capabilities = self._convert_capabilities_to_enums(capabilities)
             
-            # Get appropriate part number for the supplier
-            part_number = self._get_supplier_part_number(part, supplier)
+            # Get appropriate part number for the supplier - access attributes while session is active
+            with self.get_session() as session:
+                fresh_part = self._get_part_by_id_in_session(session, part_id)
+                part_number = self._get_supplier_part_number(fresh_part, supplier)
             
             # Progress callback wrapper
             async def enrichment_progress(message):
@@ -122,13 +124,12 @@ class PartEnrichmentService(BaseService):
             logger.error(f"Error in part enrichment task: {e}", exc_info=True)
             raise
 
-    async def _get_part_by_id(self, part_id: str) -> PartModel:
-        """Get part by ID using repository."""
-        with self.get_session() as session:
-            part = PartRepository.get_part_by_id(session, part_id)
-            if not part:
-                raise ValueError(f"Part not found: {part_id}")
-            return part
+    def _get_part_by_id_in_session(self, session, part_id: str) -> PartModel:
+        """Get part by ID using repository within an existing session."""
+        part = PartRepository.get_part_by_id(session, part_id)
+        if not part:
+            raise ValueError(f"Part not found: {part_id}")
+        return part
 
     def _determine_supplier(self, part: PartModel, preferred_supplier: Optional[str]) -> str:
         """Determine which supplier to use for enrichment."""

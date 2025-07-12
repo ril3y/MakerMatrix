@@ -969,16 +969,29 @@ The enrichment system failure had three distinct layers:
 
 **❌ REMAINING CRITICAL ENRICHMENT ISSUE:**
 
-#### 25. **DetachedInstanceError in Part Enrichment Task** ❌ BLOCKING
+#### 25. **DetachedInstanceError in Part Enrichment Task** ❌ CRITICAL ARCHITECTURAL ISSUE
 - **Issue**: Enrichment task failing with SQLAlchemy DetachedInstanceError during part access
 - **Error**: `Instance <PartModel at 0x7efc5b98b700> is not bound to a Session; attribute refresh operation cannot proceed`
 - **Impact**: All enrichment tasks fail after creation due to session management issues
-- **Investigation Required**: 
-  - Check part retrieval in `part_enrichment_task.py` line 57
-  - Verify session management in enrichment coordinator service
-  - Ensure parts are properly attached to active session during enrichment
+- **Root Cause Analysis**: 
+  - **Part object passed between different sessions**: Task retrieves part in one session, passes to enrichment service with different session
+  - **Multiple session contexts**: EnrichmentCoordinatorService, PartEnrichmentService, and task each manage their own sessions
+  - **Detachment occurs**: Part becomes detached when accessed outside its original session context
+- **Partial Fixes Applied**:
+  - ✅ Fixed part name access in `part_enrichment_task.py` (cached part_name while session active)
+  - ✅ Added session-aware part retrieval methods in `part_enrichment_service.py`
+  - ❌ **Architectural Issue**: Still passing part objects between session boundaries
+- **Required Solution**: 
+  - **Pass part_id only**: Refactor enrichment flow to pass `part_id` instead of `PartModel` objects
+  - **Session per operation**: Each service method should retrieve fresh part from database in its own session
+  - **No object sharing**: Eliminate cross-session part object sharing entirely
 
-**TESTING STATUS**: ✅ Infrastructure operational, ✅ Capability validation fixed, ❌ Session management blocking enrichment
+**Files Requiring Architectural Changes**:
+- `tasks/part_enrichment_task.py` - Pass part_id to enrichment handlers
+- `services/system/part_enrichment_service.py` - Retrieve part in each method rather than passing object
+- `services/system/enrichment_coordinator_service.py` - Session-safe part handling patterns
+
+**TESTING STATUS**: ✅ Infrastructure operational, ✅ Capability validation fixed, ❌ **Architecture-level session management refactor required**
 
 ## Next Steps Recommendations
 

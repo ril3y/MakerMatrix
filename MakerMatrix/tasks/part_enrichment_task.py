@@ -61,7 +61,9 @@ class PartEnrichmentTask(BaseTask):
                     else:
                         raise
                 
-                await self._update_task_progress(task, 40, f"Found part: {part.part_name}")
+                # Capture part details while session is active to avoid DetachedInstanceError
+                part_name = part.part_name
+                await self._update_task_progress(task, 40, f"Found part: {part_name}")
                 
                 # Use the real enrichment task handlers
                 await self._update_task_progress(task, 60, f"Enriching data from {supplier}...")
@@ -84,7 +86,7 @@ class PartEnrichmentTask(BaseTask):
                 # Just update the task result
                 return {
                     "status": "success",
-                    "message": f"Successfully enriched part {part.part_name} using {supplier}",
+                    "message": f"Successfully enriched part {part_name} using {supplier}",
                     "enrichment_result": enrichment_result
                 }
                 
