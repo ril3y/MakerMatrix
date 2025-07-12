@@ -159,13 +159,13 @@ class SessionThreadingTester:
                             return False
                         
                         # Check if task completed
-                        if status == "COMPLETED":
+                        if status == "completed":  # Fix: status is lowercase
                             print(f"✅ SUCCESS: Task completed without DetachedInstanceError!")
                             result_data = task_data.get("result_data")
                             if result_data:
                                 print(f"📄 Result: {json.dumps(result_data, indent=2)}")
                             return True
-                        elif status == "FAILED":
+                        elif status == "failed":  # Fix: status is lowercase
                             print(f"❌ Task failed: {error_message}")
                             return False
                 

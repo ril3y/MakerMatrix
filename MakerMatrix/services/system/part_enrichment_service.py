@@ -65,6 +65,10 @@ class PartEnrichmentService(BaseService):
                 # Fallback for direct calls - create new session
                 with self.get_session() as session:
                     return await self._handle_with_session(task, progress_callback, session, part_id, preferred_supplier, requested_capabilities, force_refresh)
+        
+        except Exception as e:
+            logger.error(f"Error in part enrichment task: {e}", exc_info=True)
+            raise
     
     async def _handle_with_session(self, task: TaskModel, progress_callback: Optional[Callable], session, part_id: str, preferred_supplier: str, requested_capabilities: list, force_refresh: bool) -> Dict[str, Any]:
         """Handle enrichment within a session context."""
