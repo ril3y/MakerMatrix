@@ -298,7 +298,12 @@ class LCSCSupplier(BaseSupplier):
                 
                 response = await http_client.get(url, endpoint_type="get_part_details")
                 
-                if not response.success or not response.data.get("result"):
+                if not response.success:
+                    return None
+                
+                # Check if result exists and has data
+                result_data = response.data.get("result")
+                if result_data is None:
                     return None
                 
                 # Parse response using unified data extractor
