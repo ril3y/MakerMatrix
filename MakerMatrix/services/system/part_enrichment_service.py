@@ -383,13 +383,13 @@ class PartEnrichmentService(BaseService):
             
             # Create PartSearchResult
             return PartSearchResult(
-                part_number=part.part_number or part.lcsc_part_number,
+                supplier_part_number=part.part_number or part.lcsc_part_number,
                 manufacturer=manufacturer,
                 manufacturer_part_number=manufacturer_part_number,
                 description=description,
                 category=category,
                 datasheet_url=datasheet_url,
-                primary_image_url=image_url,
+                image_url=image_url,
                 stock_quantity=stock_quantity,
                 pricing=pricing,
                 specifications=specifications,

@@ -50,13 +50,15 @@ class LCSCSupplier(BaseSupplier):
         
         # LCSC-specific data extraction configuration
         self._extraction_config = {
-            "description_paths": ["dataStr.head.c_para.Value", "title", "description"],
-            "image_paths": ["image_url", "thumbnail", "photo"],
+            "description_paths": ["title", "dataStr.head.c_para.Value", "description"],
+            "image_paths": ["thumb", "image_url", "thumbnail", "photo"],
             "datasheet_paths": [
                 "packageDetail.dataStr.head.c_para.link",
                 "dataStr.head.c_para.link", 
                 "dataStr.head.c_para.Datasheet",
-                "szlcsc.attributes.Datasheet"
+                "szlcsc.attributes.Datasheet",
+                "packageDetail.datasheet_pdf",
+                "datasheet_pdf"
             ],
             "specifications": {
                 "manufacturer": ["dataStr.head.c_para.Manufacturer"],
@@ -65,7 +67,8 @@ class LCSCSupplier(BaseSupplier):
                 "value": ["dataStr.head.c_para.Value"],
                 "mounting": ["SMT"]
             },
-            "base_url": "https://easyeda.com"
+            # Note: Don't use base_url here as EasyEDA thumb paths need special handling
+            "base_url": None
         }
     
     def _get_http_client(self) -> SupplierHTTPClient:
@@ -315,6 +318,30 @@ class LCSCSupplier(BaseSupplier):
         
         return await self._tracked_api_call("get_part_details", _impl)
     
+    def _preprocess_lcsc_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Preprocess LCSC data to fix protocol-relative URLs and other format issues"""
+        if not isinstance(data, dict):
+            return data
+        
+        # Create a deep copy to avoid modifying original data
+        import copy
+        processed_data = copy.deepcopy(data)
+        
+        # Fix protocol-relative URLs (starting with //)
+        def fix_urls(obj):
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if isinstance(value, str) and value.startswith("//"):
+                        obj[key] = "https:" + value
+                    elif isinstance(value, (dict, list)):
+                        fix_urls(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    fix_urls(item)
+        
+        fix_urls(processed_data)
+        return processed_data
+    
     async def _parse_easyeda_response(self, data: Dict[str, Any], lcsc_id: str) -> PartSearchResult:
         """Parse EasyEDA API response using unified data extraction"""
         extractor = self._get_data_extractor()
@@ -322,8 +349,11 @@ class LCSCSupplier(BaseSupplier):
         # Extract result data safely using defensive null safety
         result = extractor.safe_get(data, "result", {})
         
+        # Pre-process the data to fix protocol-relative URLs before extraction
+        processed_result = self._preprocess_lcsc_data(result)
+        
         # Extract common part data using unified extraction config
-        extracted_data = extract_common_part_data(extractor, result, self._extraction_config)
+        extracted_data = extract_common_part_data(extractor, processed_result, self._extraction_config)
         
         # Extract LCSC-specific data using safe access patterns
         manufacturer = extractor.safe_get(result, ["dataStr", "head", "c_para", "Manufacturer"])
@@ -375,6 +405,27 @@ class LCSCSupplier(BaseSupplier):
         if not datasheet_url:
             datasheet_url = extractor.safe_get(result, ["dataStr", "head", "c_para", "link"])
         
+        # Process image URL with enhanced handling for LCSC/EasyEDA URLs
+        image_url = extracted_data.get("image_url")
+        
+        # If no image URL from extraction, try manual thumb field extraction
+        if not image_url:
+            thumb_value = extractor.safe_get(result, ["thumb"])
+            if thumb_value:
+                image_url = thumb_value
+        
+        # Handle different URL formats from EasyEDA API
+        if image_url:
+            if image_url.startswith("//"):
+                # Protocol-relative URLs (older format)
+                image_url = "https:" + image_url
+            elif image_url.startswith("/component/"):
+                # Relative component URLs - use EasyEDA base
+                image_url = "https://easyeda.com" + image_url
+            elif not image_url.startswith("http"):
+                # Other relative URLs - try EasyEDA base first
+                image_url = "https://easyeda.com" + (image_url if image_url.startswith("/") else "/" + image_url)
+        
         return PartSearchResult(
             supplier_part_number=lcsc_id,
             manufacturer=manufacturer,
@@ -382,7 +433,7 @@ class LCSCSupplier(BaseSupplier):
             description=extracted_data.get("description", value or ""),
             category=category or (part_type.title() if part_type else ""),
             datasheet_url=datasheet_url,
-            image_url=extracted_data.get("image_url"),
+            image_url=image_url,
             stock_quantity=extracted_data.get("stock_quantity"),
             pricing=extracted_data.get("pricing"),
             specifications=specifications if specifications else None,
