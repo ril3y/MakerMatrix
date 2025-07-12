@@ -189,11 +189,23 @@ class PartEnrichmentService(BaseService):
         requested_capabilities: List[str]
     ) -> List[str]:
         """Determine which capabilities to use for enrichment."""
-        available_capabilities = supplier_config.get('capabilities', [])
+        # Get actual capabilities from the supplier implementation rather than database config
+        try:
+            from MakerMatrix.suppliers.registry import get_supplier_class
+            supplier_class = get_supplier_class(supplier.lower())
+            if supplier_class:
+                supplier_instance = supplier_class()
+                actual_capabilities = [cap.value for cap in supplier_instance.get_capabilities()]
+            else:
+                # Fallback to database config if supplier not found
+                actual_capabilities = supplier_config.get('capabilities', [])
+        except Exception:
+            # Fallback to database config if there's any error
+            actual_capabilities = supplier_config.get('capabilities', [])
         
         if requested_capabilities:
-            # Validate requested capabilities
-            invalid_caps = [cap for cap in requested_capabilities if cap not in available_capabilities]
+            # Validate requested capabilities against actual supplier capabilities
+            invalid_caps = [cap for cap in requested_capabilities if cap not in actual_capabilities]
             if invalid_caps:
                 raise ValueError(f"Capabilities not supported by {supplier}: {invalid_caps}")
             return requested_capabilities
@@ -203,7 +215,7 @@ class PartEnrichmentService(BaseService):
                 recommended = ['fetch_datasheet', 'get_part_details', 'fetch_pricing_stock']
             else:
                 recommended = ['fetch_datasheet', 'get_part_details', 'fetch_pricing_stock']
-            return [cap for cap in recommended if cap in available_capabilities]
+            return [cap for cap in recommended if cap in actual_capabilities]
 
     def _get_supplier_client(self, supplier: str, supplier_config: Any) -> Any:
         """Get and configure supplier client."""
@@ -323,8 +335,8 @@ class PartEnrichmentService(BaseService):
         )
         
         if part_search_result:
-            # Use EnrichmentDataMapper to get standardized part data
-            standardized_data = self.data_mapper.map_supplier_result_to_part_data(
+            # Use SupplierDataMapper to get standardized part data
+            standardized_data = self.data_mapper.supplier_data_mapper.map_supplier_result_to_part_data(
                 part_search_result, 
                 supplier,
                 list(enrichment_results.keys())
@@ -439,6 +451,10 @@ class PartEnrichmentService(BaseService):
                 if field in standardized_data and standardized_data[field] is not None:
                     old_value = part.additional_properties.get(field)
                     new_value = standardized_data[field]
+                    
+                    # Ensure JSON serializable values
+                    new_value = self._ensure_json_serializable(new_value)
+                    
                     if old_value != new_value:
                         part.additional_properties[field] = new_value
                         updated_fields.append(f"additional_properties.{field}: '{old_value}' -> '{new_value}'")
@@ -452,6 +468,17 @@ class PartEnrichmentService(BaseService):
         except Exception as e:
             logger.error(f"Error applying standardized data to part: {e}")
             raise
+
+    def _ensure_json_serializable(self, value):
+        """Ensure a value is JSON serializable by converting datetime objects to strings."""
+        if hasattr(value, 'isoformat'):  # datetime object
+            return value.isoformat()
+        elif isinstance(value, dict):
+            return {k: self._ensure_json_serializable(v) for k, v in value.items()}
+        elif isinstance(value, (list, tuple)):
+            return [self._ensure_json_serializable(item) for item in value]
+        else:
+            return value
 
     async def _apply_legacy_enrichment_to_part(self, part: PartModel, enrichment_results: Dict[str, Any]) -> None:
         """Apply enrichment results using legacy processing."""

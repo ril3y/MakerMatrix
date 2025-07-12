@@ -35,7 +35,7 @@ def test_enrichment_fix():
     enrichment_data = {
         "part_id": part_id,
         "supplier": "LCSC", 
-        "capabilities": ["fetch_datasheet"]  # Use only capability that we know works
+        "capabilities": ["get_part_details", "fetch_datasheet"]  # Test both capabilities now
     }
     
     response = requests.post(
