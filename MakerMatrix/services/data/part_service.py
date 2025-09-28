@@ -292,11 +292,22 @@ class PartService(BaseService):
                 category_names = part_data.pop("category_names", [])
                 categories = []
 
+                # Check for digikey_category in additional_properties and auto-assign
+                additional_props = part_data.get("additional_properties", {})
+                if isinstance(additional_props, dict) and "digikey_category" in additional_props:
+                    digikey_category = additional_props["digikey_category"]
+                    if digikey_category and isinstance(digikey_category, str):
+                        # Convert to lowercase as requested by user
+                        auto_category_name = digikey_category.lower()
+                        if auto_category_name not in category_names:
+                            category_names.append(auto_category_name)
+                            self.logger.info(f"Auto-assigned category '{auto_category_name}' from digikey_category '{digikey_category}' for part '{part_name}'")
+
                 if category_names:
                     self.logger.debug(f"Processing {len(category_names)} categories for part '{part_name}': {category_names}")
                     # Use the handle_categories function from the repository
                     categories = handle_categories(session, category_names)
-                    
+
                     category_names_for_log = [cat.name for cat in categories if hasattr(cat, 'name')]
                     self.logger.info(f"Assigned {len(categories)} categories to part '{part_name}': {category_names_for_log}")
 

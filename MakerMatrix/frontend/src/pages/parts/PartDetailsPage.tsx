@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion'
-import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign, Copy, Check, Factory, Cpu, Leaf, AlertCircle, Layers, ShieldCheck } from 'lucide-react'
+import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign, Copy, Check, Factory, Cpu, Leaf, AlertCircle, Layers, ShieldCheck, Plus } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
+import { categoriesService } from '@/services/categories.service'
 import { Part, Datasheet } from '@/types/parts'
+import { Category } from '@/types/categories'
 import { getPDFProxyUrl } from '@/services/api'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
@@ -11,6 +13,8 @@ import PDFViewer from '@/components/ui/PDFViewer'
 import PartEnrichmentModal from '@/components/parts/PartEnrichmentModal'
 import PrinterModal from '@/components/printer/PrinterModal'
 import PartImage from '@/components/parts/PartImage'
+import AddCategoryModal from '@/components/categories/AddCategoryModal'
+import CategorySelector from '@/components/ui/CategorySelector'
 import { analyticsService } from '@/services/analytics.service'
 import { Line } from 'react-chartjs-2'
 
@@ -79,6 +83,14 @@ const PartDetailsPage = () => {
   const [copiedPartNumber, setCopiedPartNumber] = useState(false)
   const [copiedPartName, setCopiedPartName] = useState(false)
 
+  // Category management state
+  const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false)
+  const [categoryManagementOpen, setCategoryManagementOpen] = useState(false)
+  const [allCategories, setAllCategories] = useState<Category[]>([])
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [openedFromManagement, setOpenedFromManagement] = useState(false)
+
   // Inline editing states
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
@@ -89,6 +101,18 @@ const PartDetailsPage = () => {
       loadPart(id)
     }
   }, [id])
+
+  // Load all categories for category management
+  useEffect(() => {
+    loadAllCategories()
+  }, [])
+
+  // Update selected categories when part changes
+  useEffect(() => {
+    if (part?.categories) {
+      setSelectedCategoryIds(part.categories.map(cat => cat.id))
+    }
+  }, [part?.categories])
 
   const loadPart = async (partId: string) => {
     try {
@@ -243,6 +267,77 @@ const PartDetailsPage = () => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  // Category management functions
+  const loadAllCategories = async () => {
+    try {
+      setLoadingCategories(true)
+      const categories = await categoriesService.getAllCategories()
+      console.log('Loaded categories:', categories)
+      setAllCategories(categories || [])
+    } catch (error) {
+      console.error('Failed to load categories:', error)
+      setError('Failed to load categories')
+    } finally {
+      setLoadingCategories(false)
+    }
+  }
+
+  const handleToggleCategory = (categoryId: string) => {
+    setSelectedCategoryIds(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    )
+  }
+
+  const saveCategoryChanges = async () => {
+    if (!part || !id) return
+
+    try {
+      setSaving(true)
+      const selectedCategories = allCategories.filter(cat => selectedCategoryIds.includes(cat.id))
+
+      // Update part with new categories
+      await partsService.updatePart({
+        id: id,
+        categories: selectedCategories.map(cat => cat.name)
+      })
+
+      // Refresh the part to get updated data
+      await loadPart(id)
+      setCategoryManagementOpen(false)
+    } catch (error) {
+      console.error('Failed to update categories:', error)
+      setError('Failed to update categories')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddCategorySuccess = async () => {
+    await loadAllCategories()
+    setAddCategoryModalOpen(false)
+    // If opened from management modal, return to it
+    if (openedFromManagement) {
+      setCategoryManagementOpen(true)
+      setOpenedFromManagement(false)
+    }
+  }
+
+  const handleAddCategoryFromManagement = () => {
+    // Mark that this was opened from management modal
+    setOpenedFromManagement(true)
+    // Close management modal first, then open add category modal
+    setCategoryManagementOpen(false)
+    setAddCategoryModalOpen(true)
+  }
+
+  const handleAddCategoryDirect = () => {
+    // Opened directly from main buttons
+    setOpenedFromManagement(false)
+    setAddCategoryModalOpen(true)
   }
 
   if (loading) {
@@ -714,26 +809,48 @@ const PartDetailsPage = () => {
             </div>
           </motion.div>
 
-          {/* Enhanced Categories Section */}
-          {part.categories && part.categories.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
-            >
-              <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+          {/* Enhanced Categories Section - Always Visible */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
+          >
+            <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+              <div className="flex items-center justify-between">
                 <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
                   <div className="p-2 bg-primary-10 rounded-lg">
                     <Tag className="w-5 h-5 text-primary-accent" />
                   </div>
                   Categories
                   <span className="text-sm bg-primary-10 text-primary-accent px-3 py-1 rounded-full font-medium">
-                    {part.categories.length}
+                    {part.categories?.length || 0}
                   </span>
                 </h2>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAddCategoryDirect}
+                    className="btn btn-secondary btn-sm flex items-center gap-2"
+                    title="Create new category"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Category
+                  </button>
+                  <button
+                    onClick={() => setCategoryManagementOpen(true)}
+                    className="btn btn-primary btn-sm flex items-center gap-2"
+                    title="Manage categories for this part"
+                  >
+                    <Tag className="w-4 h-4" />
+                    Manage Categories
+                  </button>
+                </div>
               </div>
-              <div className="p-6">
+            </div>
+
+            <div className="p-6">
+              {part.categories && part.categories.length > 0 ? (
                 <div className="flex flex-wrap gap-3">
                   {part.categories.map((category) => (
                     <span
@@ -745,9 +862,32 @@ const PartDetailsPage = () => {
                     </span>
                   ))}
                 </div>
-              </div>
-            </motion.div>
-          )}
+              ) : (
+                <div className="text-center py-8">
+                  <Tag className="w-12 h-12 text-theme-muted mx-auto mb-3" />
+                  <p className="text-theme-muted text-sm mb-4">
+                    No categories assigned to this part yet.
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => setCategoryManagementOpen(true)}
+                      className="btn btn-primary btn-sm flex items-center gap-2"
+                    >
+                      <Tag className="w-4 h-4" />
+                      Assign Existing Category
+                    </button>
+                    <button
+                      onClick={handleAddCategoryDirect}
+                      className="btn btn-secondary btn-sm flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create New Category
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
 
           {/* Enhanced Description Section */}
           {part.description && (
@@ -1218,6 +1358,75 @@ const PartDetailsPage = () => {
           additional_properties: part.additional_properties || {}
         }}
       />
+
+      {/* Add Category Modal */}
+      <AddCategoryModal
+        isOpen={addCategoryModalOpen}
+        onClose={() => setAddCategoryModalOpen(false)}
+        onSuccess={handleAddCategorySuccess}
+        existingCategories={allCategories.map(cat => cat.name)}
+      />
+
+      {/* Category Management Modal */}
+      {categoryManagementOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-theme-elevated border border-theme-primary rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+              <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
+                <Tag className="w-5 h-5 text-primary-accent" />
+                Manage Categories for {part?.name}
+              </h2>
+            </div>
+
+            <div className="p-6">
+              {loadingCategories ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-accent mx-auto"></div>
+                  <p className="text-theme-muted mt-3">Loading categories...</p>
+                </div>
+              ) : (
+                <CategorySelector
+                  categories={allCategories}
+                  selectedCategories={selectedCategoryIds}
+                  onToggleCategory={handleToggleCategory}
+                  onAddNewCategory={handleAddCategoryFromManagement}
+                  label="Select Categories"
+                  description="Choose which categories to assign to this part"
+                  showAddButton={true}
+                  layout="checkboxes"
+                />
+              )}
+            </div>
+
+            <div className="bg-theme-tertiary border-t border-theme-primary px-6 py-4 flex items-center justify-between">
+              <button
+                onClick={() => setCategoryManagementOpen(false)}
+                className="btn btn-secondary"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveCategoryChanges}
+                className="btn btn-primary flex items-center gap-2"
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Tag className="w-4 h-4" />
+                    Save Categories
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Debug Section */}
       <motion.div
