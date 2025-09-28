@@ -1230,6 +1230,7 @@ class DigiKeySupplier(BaseSupplier):
             
             # Use pandas for robust CSV/Excel parsing
             from io import StringIO
+            import pandas as pd
             df = pd.read_csv(StringIO(content_str))
             
             # Clean up column names
