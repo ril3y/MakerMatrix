@@ -38,10 +38,8 @@ class PartResponse(BaseModel):
     supplier: Optional[str] = None
     supplier_url: Optional[str] = None
     
-    # Media & compliance
+    # Media
     image_url: Optional[str] = None
-    rohs_status: Optional[str] = None
-    lifecycle_status: Optional[str] = None
     
     # Part-specific properties (resistor values, screwdriver type, etc.)
     additional_properties: Optional[Dict[str, Any]] = {}

@@ -425,15 +425,16 @@ class PartEnrichmentService(BaseService):
             
             # Update only fields that exist on PartModel
             model_fields = [
-                'manufacturer', 'manufacturer_part_number', 'component_type', 
-                'rohs_status', 'lifecycle_status', 'image_url', 'description'
+                'manufacturer', 'manufacturer_part_number', 'component_type',
+                'image_url', 'description'
             ]
-            
+
             # Fields that should go into additional_properties instead
             additional_fields = [
-                'package', 'mounting_type', 'unit_price', 'currency', 'stock_quantity', 
+                'package', 'mounting_type', 'unit_price', 'currency', 'stock_quantity',
                 'last_stock_update', 'pricing_data', 'last_price_update', 'price_source',
-                'last_enrichment_date', 'enrichment_source', 'data_quality_score'
+                'last_enrichment_date', 'enrichment_source', 'data_quality_score',
+                'rohs_status', 'lifecycle_status'  # Moved from model_fields to additional_properties
             ]
             
             updated_fields = []

@@ -312,9 +312,9 @@ class PartService(BaseService):
                     # Pricing fields
                     'unit_price', 'currency', 'pricing_data',
                     # Enhanced fields from PartModel
-                    'manufacturer', 'manufacturer_part_number', 'component_type', 
-                    'package', 'mounting_type', 'rohs_status', 'lifecycle_status',
-                    'last_price_update', 'price_source', 'stock_quantity', 
+                    'manufacturer', 'manufacturer_part_number', 'component_type',
+                    'package', 'mounting_type',
+                    'last_price_update', 'price_source', 'stock_quantity',
                     'last_stock_update', 'last_enrichment_date', 'enrichment_source',
                     'data_quality_score'
                 }
@@ -325,8 +325,8 @@ class PartService(BaseService):
                     if key in valid_part_fields:
                         # Convert empty strings to None for optional fields
                         if value == "" and key in ['location_id', 'image_url', 'description', 'part_number', 'supplier', 'supplier_part_number', 'supplier_url',
-                                                  'manufacturer', 'manufacturer_part_number', 'component_type', 
-                                                  'package', 'mounting_type', 'rohs_status', 'lifecycle_status',
+                                                  'manufacturer', 'manufacturer_part_number', 'component_type',
+                                                  'package', 'mounting_type',
                                                   'price_source', 'enrichment_source']:
                             filtered_part_data[key] = None
                         # Handle additional_properties - convert None/undefined to empty dict
