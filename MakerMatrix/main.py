@@ -384,6 +384,7 @@ def custom_openapi():
         return app.openapi_schema
 
     try:
+        # Try to generate the full OpenAPI schema
         openapi_schema = get_openapi(
             title=app.title,
             version=app.version,
@@ -393,7 +394,44 @@ def custom_openapi():
         app.openapi_schema = openapi_schema
         return app.openapi_schema
     except Exception as e:
-        # If OpenAPI generation fails, return a minimal schema
+        # Log the specific error for debugging
+        print(f"OpenAPI generation error: {type(e).__name__}: {str(e)}")
+
+        # Try to generate schema route by route to identify problematic routes
+        try:
+            from fastapi.openapi.utils import get_openapi
+            from fastapi.routing import APIRoute
+
+            # Get all non-problematic routes
+            working_routes = []
+            for route in app.routes:
+                if isinstance(route, APIRoute):
+                    try:
+                        # Test if this specific route can be serialized
+                        test_schema = get_openapi(
+                            title="Test",
+                            version="1.0.0",
+                            routes=[route]
+                        )
+                        working_routes.append(route)
+                    except Exception as route_error:
+                        print(f"Problematic route: {route.path} - {type(route_error).__name__}: {str(route_error)}")
+
+            # Generate schema with working routes only
+            if working_routes:
+                openapi_schema = get_openapi(
+                    title=app.title,
+                    version=app.version,
+                    description=app.description,
+                    routes=working_routes,
+                )
+                app.openapi_schema = openapi_schema
+                return app.openapi_schema
+
+        except Exception as fallback_error:
+            print(f"Fallback generation also failed: {type(fallback_error).__name__}: {str(fallback_error)}")
+
+        # Final fallback - return minimal schema
         return {
             "openapi": "3.0.2",
             "info": {"title": app.title, "version": app.version},
