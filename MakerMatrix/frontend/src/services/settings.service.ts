@@ -113,30 +113,48 @@ export class SettingsService {
       }
     }
 
-    // Check if the response is actually JSON (error response) instead of a blob
+    // The API returns JSON with base64 image data, not a raw blob
     const contentType = response.headers.get('content-type')
     console.log('[DEBUG] Response content-type:', contentType)
 
     if (contentType && contentType.includes('application/json')) {
-      // This is likely an error response returned as JSON
+      // Parse the JSON response which contains base64 image data
       try {
-        const errorData = await response.json()
-        console.error('[ERROR] Received JSON instead of image blob:', errorData)
+        const responseData = await response.json()
+        console.log('[DEBUG] Received JSON preview response:', responseData)
 
-        if (!errorData.success && errorData.error) {
-          throw new Error(errorData.error)
-        } else if (!errorData.success && errorData.message) {
-          throw new Error(errorData.message)
+        // Check if this is an error response
+        if (!responseData.success) {
+          const errorMessage = responseData.error || responseData.message || 'Preview generation failed'
+          throw new Error(errorMessage)
+        }
+
+        // Extract base64 image data and convert to blob
+        if (responseData.success && responseData.preview_data) {
+          const base64Data = responseData.preview_data
+          const format = responseData.format || 'png'
+
+          // Convert base64 to blob
+          const binaryString = atob(base64Data)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+
+          const blob = new Blob([bytes], { type: `image/${format}` })
+          console.log('[DEBUG] Successfully converted base64 to blob')
+          return blob
         } else {
-          throw new Error('Preview generation returned error response')
+          throw new Error('Preview response missing image data')
         }
       } catch (parseError) {
-        console.error('[ERROR] Failed to parse JSON error response:', parseError)
-        throw new Error('Preview generation failed with unexpected response format')
+        console.error('[ERROR] Failed to parse or convert preview response:', parseError)
+        throw new Error('Failed to process preview response')
       }
     }
 
-    console.log('[DEBUG] Returning blob response')
+    // Fallback to blob response (for backward compatibility)
+    console.log('[DEBUG] Returning blob response (fallback)')
     return await response.blob()
   }
 

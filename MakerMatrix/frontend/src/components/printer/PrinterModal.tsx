@@ -424,7 +424,6 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                       alt="Label Preview"
                       className="
       max-w-full max-h-48 border border-border rounded
-      -rotate-90                /* 90 ° CCW (same as 270 ° CW) */
       mx-auto                   /* keep horizontally centred */
       block                     /* needed for mx-auto on an <img> */
     "

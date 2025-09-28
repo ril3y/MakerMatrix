@@ -397,11 +397,33 @@ class PrinterManagerService:
             text_width = width - text_x - 10
             text_area = (text_x, 0, width - 10, height)
             
-            # Draw text in remaining area
-            try:
-                font_size = 14 if label_info.name in ["12", "12mm"] else 18
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except:
+            # Draw text in remaining area with dynamic sizing
+            target_height = int(height * 0.7)  # Use 70% of label height for QR+text layout
+            max_text_width = text_width
+
+            # Start with a reasonable font size and scale to fit
+            font_size = max(target_height // 3, 10)  # Start smaller for combined layout
+            font = None
+
+            # Try to find the best font size that fits the text area
+            while font_size > 8:
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+                    break
+
+                # Check if text fits within the available text area
+                test_bbox = draw.textbbox((0, 0), processed_text.replace('\n', ' '), font=font)
+                test_width = test_bbox[2] - test_bbox[0]
+                test_height = test_bbox[3] - test_bbox[1]
+
+                if test_width <= max_text_width and test_height <= target_height:
+                    break
+
+                font_size = int(font_size * 0.9)
+
+            if font is None:
                 font = ImageFont.load_default()
             
             # Split text into lines and fit in available space
@@ -417,30 +439,38 @@ class PrinterManagerService:
                         line = line[:-1]
                     draw.text((text_x, y), line, fill='black', font=font)
         else:
-            # Text only layout
-            try:
-                font_size = 16 if label_info.name in ["12", "12mm"] else 24
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except:
-                font = ImageFont.load_default()
-            
-            # Adjust font size to fit if requested
-            if options.get('fit_to_label', True):
-                # Try to fit text width - be more aggressive with fitting
+            # Text only layout with dynamic sizing (same as preview service)
+            target_height = int(height * 0.8)  # Use 80% of label height
+            max_width = int(width * 0.9)       # Use 90% of label width
+
+            # Start with a large font size and scale down to fit
+            font_size = max(target_height, 12)  # Start with target height or minimum 12
+            font = None
+
+            # Try to find the best font size that fits
+            while font_size > 8:
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+                    break
+
+                # Check if text fits within bounds
                 test_text = processed_text.replace('\n', ' ')
-                available_width = width - 40  # More margin
-                bbox = font.getbbox(test_text)
+                bbox = draw.textbbox((0, 0), test_text, font=font)
                 text_width = bbox[2] - bbox[0]
-                
-                # Start with current font size and reduce until it fits
-                while text_width > available_width and font_size > 6:  # Go smaller if needed
-                    font_size -= 1
-                    try:
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                    except:
-                        font = ImageFont.load_default()
-                    bbox = font.getbbox(test_text)
-                    text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+
+                # If text fits both width and height constraints, we're done
+                if text_width <= max_width and text_height <= target_height:
+                    break
+
+                # Otherwise, reduce font size and try again
+                font_size = int(font_size * 0.9)
+
+            # If we couldn't load a TrueType font, use default
+            if font is None:
+                font = ImageFont.load_default()
             
             # Draw text centered
             lines = processed_text.strip().split('\n')
@@ -568,29 +598,39 @@ class PrinterManagerService:
         image = Image.new('RGB', (width, height), 'white')
         draw = ImageDraw.Draw(image)
         
-        # Try to load a better font with appropriate size
-        try:
-            font_size = 16 if label_info.name == "12" else 24
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-        except:
+        # Dynamic font sizing to fit label dimensions (same as preview service)
+        target_height = int(height * 0.8)  # Use 80% of label height
+        max_width = int(width * 0.9)       # Use 90% of label width
+
+        # Start with a large font size and scale down to fit
+        font_size = max(target_height, 12)  # Start with target height or minimum 12
+        font = None
+
+        # Try to find the best font size that fits
+        while font_size > 8:
             try:
-                font = ImageFont.load_default()
+                # Try to use a proper font
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
             except:
-                font = None
-        
-        # Adjust font size to fit text width if needed
-        if font and label_info.name in ["12", "12mm"]:
+                # Fall back to default font - note: default font size cannot be changed
+                font = ImageFont.load_default()
+                break
+
+            # Check if text fits within bounds
             bbox = draw.textbbox((0, 0), text, font=font)
             text_width = bbox[2] - bbox[0]
-            font_size = 16
-            while text_width > width - 20 and font_size > 8:  # Leave margins
-                font_size -= 1
-                try:
-                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                except:
-                    font = ImageFont.load_default()
-                bbox = draw.textbbox((0, 0), text, font=font)
-                text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            # If text fits both width and height constraints, we're done
+            if text_width <= max_width and text_height <= target_height:
+                break
+
+            # Otherwise, reduce font size and try again
+            font_size = int(font_size * 0.9)
+
+        # If we couldn't load a TrueType font, use default
+        if font is None:
+            font = ImageFont.load_default()
         
         # Calculate text position (centered)
         if font:
