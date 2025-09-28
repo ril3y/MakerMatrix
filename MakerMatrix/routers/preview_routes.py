@@ -37,38 +37,80 @@ class TextPreviewRequest(BaseModel):
     printer_id: Optional[str] = None
 
 
+class AdvancedPreviewOptions(BaseModel):
+    """Options for advanced preview."""
+    fit_to_label: bool = True
+    include_qr: bool = False
+    qr_data: Optional[str] = None
+
+
+class AdvancedPreviewRequest(BaseModel):
+    """Request model for advanced preview."""
+    template: str
+    text: str
+    label_size: str = "12"
+    label_length: Optional[int] = None
+    options: AdvancedPreviewOptions = AdvancedPreviewOptions()
+    data: Optional[Dict[str, Any]] = None
+    printer_id: Optional[str] = None
+
+
 # Global preview manager instance
 preview_manager = PreviewManager()
 
 # Initialize with default printers
 def get_preview_manager():
     """Get or initialize the preview manager."""
-    if not preview_manager.get_registered_printers():
-        # Register mock printer for testing
-        mock_printer = MockPrinter(
-            printer_id="mock_preview",
-            name="Mock Preview Printer",
-            model="MockQL-800",
-            backend="mock",
-            identifier="mock://preview"
-        )
-        preview_manager.register_printer("mock_preview", mock_printer)
-        
-        # Register Brother QL printer if configured
-        try:
-            brother_ql = BrotherQLModern(
-                printer_id="brother_ql_preview",
-                name="Brother QL Preview",
-                model="QL-800",
-                backend="network",
-                identifier="tcp://192.168.1.100:9100"
-            )
-            preview_manager.register_printer("brother_ql_preview", brother_ql)
-        except Exception:
-            # Brother QL not available, use mock only
-            pass
-    
-    return preview_manager
+    try:
+        print(f"[DEBUG] get_preview_manager called, registered printers: {preview_manager.get_registered_printers()}")
+
+        if not preview_manager.get_registered_printers():
+            print(f"[DEBUG] No printers registered, initializing default printers...")
+
+            # Register mock printer for testing
+            try:
+                print(f"[DEBUG] Creating mock printer...")
+                mock_printer = MockPrinter(
+                    printer_id="mock_preview",
+                    name="Mock Preview Printer",
+                    model="MockQL-800",
+                    backend="mock",
+                    identifier="mock://preview"
+                )
+                print(f"[DEBUG] Mock printer created, registering...")
+                preview_manager.register_printer("mock_preview", mock_printer)
+                print(f"[DEBUG] Mock printer registered successfully")
+            except Exception as e:
+                print(f"[ERROR] Failed to register mock printer: {e}")
+                import traceback
+                traceback.print_exc()
+                raise Exception(f"Failed to initialize mock printer: {str(e)}")
+
+            # Register Brother QL printer if configured
+            try:
+                print(f"[DEBUG] Attempting to register Brother QL printer...")
+                brother_ql = BrotherQLModern(
+                    printer_id="brother_ql_preview",
+                    name="Brother QL Preview",
+                    model="QL-800",
+                    backend="network",
+                    identifier="tcp://192.168.1.100:9100"
+                )
+                preview_manager.register_printer("brother_ql_preview", brother_ql)
+                print(f"[DEBUG] Brother QL printer registered successfully")
+            except Exception as e:
+                # Brother QL not available, use mock only
+                print(f"[DEBUG] Brother QL not available, using mock only: {e}")
+                pass
+
+        print(f"[DEBUG] Preview manager ready with {len(preview_manager.get_registered_printers())} printers")
+        return preview_manager
+
+    except Exception as e:
+        print(f"[ERROR] Fatal error in get_preview_manager: {e}")
+        import traceback
+        traceback.print_exc()
+        raise Exception(f"Preview manager initialization failed: {str(e)}")
 
 
 @router.get("/printers")
@@ -231,17 +273,234 @@ async def validate_label_size(label_size: str, printer_id: Optional[str] = None)
     """Validate if a label size is supported."""
     manager = get_preview_manager()
     service = manager.get_preview_service(printer_id)
-    
+
     is_valid = service.validate_label_size(label_size)
     sizes = service.get_available_label_sizes()
-    
+
     data = {
         "valid": is_valid,
         "label_size": label_size,
         "supported_sizes": [size.name for size in sizes]
     }
-    
+
     return base_router.build_success_response(
         data=data,
         message="Label size validation completed"
     )
+
+
+@router.get("/health")
+@standard_error_handling
+async def preview_system_health() -> ResponseSchema[Dict[str, Any]]:
+    """Health check endpoint for the preview system."""
+    health_data = {
+        "status": "unknown",
+        "preview_manager": "not_initialized",
+        "registered_printers": [],
+        "dependencies": {
+            "pil": "not_checked",
+            "fonts": "not_checked"
+        },
+        "errors": []
+    }
+
+    try:
+        # Check preview manager initialization
+        print(f"[DEBUG] Health check: Testing preview manager initialization")
+        manager = get_preview_manager()
+        health_data["preview_manager"] = "initialized"
+        health_data["registered_printers"] = manager.get_registered_printers()
+        print(f"[DEBUG] Health check: Preview manager OK, printers: {health_data['registered_printers']}")
+
+        # Check PIL dependency
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            health_data["dependencies"]["pil"] = "available"
+            print(f"[DEBUG] Health check: PIL available")
+        except ImportError as e:
+            health_data["dependencies"]["pil"] = "missing"
+            health_data["errors"].append(f"PIL import failed: {str(e)}")
+            print(f"[ERROR] Health check: PIL missing: {e}")
+
+        # Check font availability
+        try:
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            ]
+
+            fonts_found = []
+            for font_path in font_paths:
+                try:
+                    font = ImageFont.truetype(font_path, 12)
+                    fonts_found.append(font_path)
+                except:
+                    continue
+
+            # Try default font as fallback
+            try:
+                default_font = ImageFont.load_default()
+                fonts_found.append("default_font")
+            except:
+                pass
+
+            if fonts_found:
+                health_data["dependencies"]["fonts"] = f"available ({len(fonts_found)} found)"
+                health_data["available_fonts"] = fonts_found
+                print(f"[DEBUG] Health check: Fonts available: {fonts_found}")
+            else:
+                health_data["dependencies"]["fonts"] = "none_available"
+                health_data["errors"].append("No fonts available for text rendering")
+                print(f"[ERROR] Health check: No fonts available")
+
+        except Exception as e:
+            health_data["dependencies"]["fonts"] = "error"
+            health_data["errors"].append(f"Font check failed: {str(e)}")
+            print(f"[ERROR] Health check: Font check failed: {e}")
+
+        # Test basic preview generation if possible
+        if health_data["registered_printers"]:
+            try:
+                print(f"[DEBUG] Health check: Testing basic preview generation")
+                service = manager.get_preview_service()
+
+                # Create a simple test image
+                test_image = Image.new('RGB', (100, 50), 'white')
+                draw = ImageDraw.Draw(test_image)
+                draw.text((10, 10), "TEST", fill='black')
+
+                # Try to generate preview
+                result = await service.preview_text_label("Test", "12")
+                health_data["test_preview"] = {
+                    "status": "success",
+                    "image_size": f"{result.width_px}x{result.height_px}",
+                    "format": result.format
+                }
+                print(f"[DEBUG] Health check: Preview generation successful")
+
+            except Exception as e:
+                health_data["test_preview"] = {
+                    "status": "failed",
+                    "error": str(e)
+                }
+                health_data["errors"].append(f"Preview generation test failed: {str(e)}")
+                print(f"[ERROR] Health check: Preview generation failed: {e}")
+
+        # Determine overall status
+        if not health_data["errors"]:
+            health_data["status"] = "healthy"
+        elif health_data["preview_manager"] == "initialized" and health_data["dependencies"]["pil"] == "available":
+            health_data["status"] = "degraded"
+        else:
+            health_data["status"] = "unhealthy"
+
+        print(f"[DEBUG] Health check completed: {health_data['status']}")
+
+    except Exception as e:
+        health_data["status"] = "error"
+        health_data["errors"].append(f"Health check failed: {str(e)}")
+        print(f"[ERROR] Health check: Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return base_router.build_success_response(
+        data=health_data,
+        message=f"Preview system health check completed - Status: {health_data['status']}"
+    )
+
+
+@router.post("/advanced", response_model=PreviewResponse)
+@standard_error_handling
+async def preview_advanced_label(request: AdvancedPreviewRequest):
+    """Generate preview of an advanced label with template processing."""
+    try:
+        print(f"[DEBUG] Received preview_advanced_label request: {request}")
+        print(f"[DEBUG] Request template: {request.template}")
+        print(f"[DEBUG] Request options: {request.options}")
+        print(f"[DEBUG] Request printer_id: {request.printer_id}")
+
+        # Initialize preview manager with comprehensive error handling
+        print(f"[DEBUG] Initializing preview manager...")
+        try:
+            manager = get_preview_manager()
+            print(f"[DEBUG] Preview manager initialized successfully")
+            print(f"[DEBUG] Registered printers: {manager.get_registered_printers()}")
+        except Exception as e:
+            print(f"[ERROR] Failed to initialize preview manager: {e}")
+            import traceback
+            traceback.print_exc()
+            return PreviewResponse(
+                success=False,
+                error=f"Preview system initialization failed: {str(e)}",
+                message="Failed to initialize preview system"
+            )
+
+        # Get preview service with error handling
+        print(f"[DEBUG] Getting preview service for printer_id: {request.printer_id}")
+        try:
+            service = manager.get_preview_service(request.printer_id)
+            print(f"[DEBUG] Preview service obtained successfully")
+        except Exception as e:
+            print(f"[ERROR] Failed to get preview service: {e}")
+            return PreviewResponse(
+                success=False,
+                error=f"No preview service available: {str(e)}",
+                message="Preview service not available"
+            )
+
+        # Process template with data
+        print(f"[DEBUG] Processing template...")
+        processed_text = request.template
+        if request.data:
+            print(f"[DEBUG] Applying template data: {request.data}")
+            for key, value in request.data.items():
+                processed_text = processed_text.replace(f"{{{key}}}", str(value))
+        print(f"[DEBUG] Processed text: {processed_text}")
+
+        # Use the processed text for preview
+        print(f"[DEBUG] Generating preview with label_size: {request.label_size}")
+        try:
+            result = await service.preview_text_label(processed_text, request.label_size)
+            print(f"[DEBUG] Preview generated successfully: {result.width_px}x{result.height_px}")
+        except Exception as e:
+            print(f"[ERROR] Failed to generate preview: {e}")
+            import traceback
+            traceback.print_exc()
+            return PreviewResponse(
+                success=False,
+                error=f"Preview generation failed: {str(e)}",
+                message="Failed to generate preview image"
+            )
+
+        # Encode image data as base64
+        print(f"[DEBUG] Encoding image data to base64...")
+        try:
+            preview_data = base64.b64encode(result.image_data).decode('utf-8')
+            print(f"[DEBUG] Base64 encoding successful, length: {len(preview_data)}")
+        except Exception as e:
+            print(f"[ERROR] Failed to encode image data: {e}")
+            return PreviewResponse(
+                success=False,
+                error=f"Image encoding failed: {str(e)}",
+                message="Failed to encode preview image"
+            )
+
+        print(f"[DEBUG] Returning successful preview response")
+        return PreviewResponse(
+            success=True,
+            preview_data=preview_data,
+            format=result.format,
+            width_px=result.width_px,
+            height_px=result.height_px,
+            message=result.message
+        )
+
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in preview_advanced_label: {e}")
+        import traceback
+        traceback.print_exc()
+        return PreviewResponse(
+            success=False,
+            error=f"Unexpected error: {str(e)}",
+            message="Internal server error during preview generation"
+        )

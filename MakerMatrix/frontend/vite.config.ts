@@ -24,49 +24,49 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite /api paths - pass them through as-is
         },
         '/static': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite static paths - pass them through as-is
         },
         '/utility': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite utility paths - pass them through as-is
         },
         '/printer': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite printer paths - pass them through as-is
         },
         '/auth': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite auth paths - pass them through as-is
         },
         '/users': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite users paths - pass them through as-is
         },
         '/categories': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite categories paths - pass them through as-is
         },
         '/locations': {
-          target: env.VITE_API_URL || 'https://localhost:8443',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite locations paths - pass them through as-is

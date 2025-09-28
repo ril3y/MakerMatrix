@@ -42,20 +42,37 @@ export class WebSocketService {
 
       this.isConnecting = true
       const token = localStorage.getItem('auth_token')
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      
-      // Handle development environment where frontend might be on different port
-      let host = window.location.host
+
+      const envApiUrl = (import.meta as any).env?.VITE_API_URL as string | undefined
       const currentPort = window.location.port
+      const currentProtocol = window.location.protocol
       console.log(`🔍 Current port: ${currentPort}`)
-      
-      if (currentPort === '5173' || currentPort === '3000') {
-        // Development: frontend on 5173/3000, backend on 8443 (HTTPS) or 8080 (HTTP)
-        const backendPort = protocol === 'wss:' ? '8443' : '8080'
-        host = window.location.hostname + ':' + backendPort
-        console.log(`🔧 Development mode detected, redirecting to backend: ${host}`)
+
+      let protocol = currentProtocol === 'https:' ? 'wss:' : 'ws:'
+      let host = window.location.host
+      let resolvedFromEnv = false
+
+      if (envApiUrl) {
+        try {
+          const parsedUrl = new URL(envApiUrl)
+          const { hostname, port, protocol: apiProtocol } = parsedUrl
+          protocol = apiProtocol === 'https:' ? 'wss:' : 'ws:'
+          host = `${hostname}${port ? `:${port}` : ''}`
+          resolvedFromEnv = true
+          console.log(`🌐 Using VITE_API_URL for WebSocket host: ${parsedUrl.origin}`)
+        } catch (error) {
+          console.warn('⚠️ Failed to parse VITE_API_URL for WebSocket usage:', error)
+        }
       }
-      
+
+      if (!resolvedFromEnv && (currentPort === '5173' || currentPort === '5174' || currentPort === '3000')) {
+        // Fall back to default backend port in dev if env override is missing
+        protocol = 'ws:'
+        const backendPort = '8080'
+        host = `${window.location.hostname}:${backendPort}`
+        console.log(`🔧 Dev fallback engaged, forcing WS connection to backend: ${host}`)
+      }
+
       const wsUrl = `${protocol}//${host}${this.endpoint}${token ? `?token=${token}` : ''}`
 
       console.log(`🔗 Attempting WebSocket connection to: ${wsUrl}`)

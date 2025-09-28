@@ -50,11 +50,15 @@ vi.mock('framer-motion', () => ({
 }))
 
 // Mock react-hot-toast
+const toastMock = vi.hoisted(() => {
+  const fn: any = vi.fn()
+  fn.success = vi.fn()
+  fn.error = vi.fn()
+  return fn
+})
+
 vi.mock('react-hot-toast', () => ({
-  default: {
-    success: vi.fn(),
-    error: vi.fn(),
-  }
+  default: toastMock
 }))
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (

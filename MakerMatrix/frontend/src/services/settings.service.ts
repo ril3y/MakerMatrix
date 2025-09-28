@@ -37,7 +37,7 @@ export class SettingsService {
   }
 
   async previewLabel(text: string, labelSize: string = "12"): Promise<Blob> {
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/printer/preview/text`, {
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/text`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,7 +85,9 @@ export class SettingsService {
     }
     data?: any
   }): Promise<Blob> {
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/printer/preview/advanced`, {
+    console.log('[DEBUG] previewAdvancedLabel called with:', requestData)
+
+    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/advanced`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -93,11 +95,48 @@ export class SettingsService {
       },
       body: JSON.stringify(requestData)
     })
-    
+
+    console.log('[DEBUG] Preview response status:', response.status, response.statusText)
+
     if (!response.ok) {
-      throw new Error('Failed to generate advanced preview')
+      // Try to parse error response as JSON to get detailed error message
+      try {
+        const errorData = await response.json()
+        console.error('[ERROR] Preview API error response:', errorData)
+
+        // Extract meaningful error message
+        const errorMessage = errorData.error || errorData.message || 'Failed to generate preview'
+        throw new Error(errorMessage)
+      } catch (parseError) {
+        console.error('[ERROR] Failed to parse error response:', parseError)
+        throw new Error(`Preview request failed with status ${response.status}: ${response.statusText}`)
+      }
     }
-    
+
+    // Check if the response is actually JSON (error response) instead of a blob
+    const contentType = response.headers.get('content-type')
+    console.log('[DEBUG] Response content-type:', contentType)
+
+    if (contentType && contentType.includes('application/json')) {
+      // This is likely an error response returned as JSON
+      try {
+        const errorData = await response.json()
+        console.error('[ERROR] Received JSON instead of image blob:', errorData)
+
+        if (!errorData.success && errorData.error) {
+          throw new Error(errorData.error)
+        } else if (!errorData.success && errorData.message) {
+          throw new Error(errorData.message)
+        } else {
+          throw new Error('Preview generation returned error response')
+        }
+      } catch (parseError) {
+        console.error('[ERROR] Failed to parse JSON error response:', parseError)
+        throw new Error('Preview generation failed with unexpected response format')
+      }
+    }
+
+    console.log('[DEBUG] Returning blob response')
     return await response.blob()
   }
 
@@ -181,9 +220,8 @@ export class SettingsService {
     return await apiClient.post<ApiResponse>('/api/ai/reset')
   }
 
-  async getAvailableModels(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<{models: any[], provider: string}>>('/api/ai/models')
-    return response.data?.models || []
+  async getAvailableModels(): Promise<ApiResponse<{models: any[], provider: string, current_model?: string}>> {
+    return await apiClient.get<ApiResponse<{models: any[], provider: string, current_model?: string}>>('/api/ai/models')
   }
 
   // Backup & Export

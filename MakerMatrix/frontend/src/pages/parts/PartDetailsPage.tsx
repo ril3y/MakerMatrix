@@ -310,15 +310,8 @@ const PartDetailsPage = () => {
   const lastEnrichmentIso = additionalProps?.metadata?.last_enrichment || additionalProps?.last_enrichment || additionalProps?.last_enrichment_date
   const lastEnrichmentDisplay = formatDateTime(lastEnrichmentIso)
 
-  // Determine if this is an electronic component
-  const isElectronicComponent = part.component_type ||
-                                part.rohs_status ||
-                                additionalProps?.specifications ||
-                                additionalProps?.supplier_data ||
-                                ['resistor', 'capacitor', 'inductor', 'ic', 'transistor', 'diode'].some(type =>
-                                  part.name?.toLowerCase().includes(type) ||
-                                  part.description?.toLowerCase().includes(type)
-                                )
+  // Simple check if we have additional properties to display
+  const hasAdditionalProperties = additionalProps && Object.keys(additionalProps).length > 0
 
   return (
     <div className="min-h-screen bg-theme-secondary">
@@ -689,45 +682,6 @@ const PartDetailsPage = () => {
                       </div>
                     </div>
 
-                    {/* Electronic Component Specific Fields */}
-                    {isElectronicComponent && (
-                      <>
-                        {/* Component Type Field */}
-                        <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 bg-primary-10 rounded-lg shrink-0">
-                              <Layers className="w-4 h-4 text-primary-accent" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-theme-secondary mb-1">Component Type</p>
-                              <p className="font-semibold text-theme-primary">
-                                {formatEnumValue(part.component_type)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* RoHS Compliance Field */}
-                        <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 bg-primary-10 rounded-lg shrink-0">
-                              <Leaf className="w-4 h-4 text-primary-accent" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-theme-secondary mb-1">RoHS Compliance</p>
-                              <div className="flex items-center gap-2">
-                                <p className={`font-semibold ${part.rohs_status ? 'text-theme-primary' : 'text-theme-muted'}`}>
-                                  {part.rohs_status ? formatEnumValue(part.rohs_status) : 'Unknown'}
-                                </p>
-                                {part.rohs_status && (
-                                  <div className="w-2 h-2 bg-success rounded-full"></div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
 
                     {/* Created Date Field */}
                     <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
@@ -1088,8 +1042,8 @@ const PartDetailsPage = () => {
         </motion.div>
       )}
 
-      {/* Enhanced Technical Specifications */}
-      {propertyLeafCount > 0 && (
+      {/* Additional Properties */}
+      {hasAdditionalProperties && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1103,7 +1057,7 @@ const PartDetailsPage = () => {
                   <div className="p-2 bg-primary-10 rounded-lg">
                     <Cpu className="w-5 h-5 text-primary-accent" />
                   </div>
-                  Technical Specifications
+                  Additional Properties
                 </h2>
                 {lastEnrichmentDisplay && (
                   <p className="text-sm text-theme-secondary mt-1 flex items-center gap-2">
@@ -1331,110 +1285,22 @@ function CleanPropertiesDisplay({ properties }: { properties: Record<string, any
   const entries = Object.entries(properties)
   if (!entries.length) return null
 
-  // Organize properties by importance and type
-  const supplierData = entries.find(([key]) => key.toLowerCase().includes('supplier'))?.[1] || {}
-  const technicalSpecs = supplierData?.['Technical Specs'] || {}
-  const orderInfo = supplierData?.['Order Info'] || {}
-  const metadata = entries.find(([key]) => key.toLowerCase().includes('metadata'))?.[1] || {}
-
-  // Collect all remaining properties that aren't handled above
-  const remainingProperties = entries.filter(([key]) =>
-    !key.toLowerCase().includes('supplier') &&
-    !key.toLowerCase().includes('metadata')
-  ).reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-
-  // Flatten all nested objects into a single specifications object
-  const allSpecs = {
-    ...technicalSpecs,
-    ...remainingProperties
-  }
-
   return (
-    <div className="space-y-8">
-      {/* Technical Specifications Section */}
-      {Object.keys(allSpecs).length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-primary-accent" />
-            Component Specifications
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(allSpecs).map(([key, value]) => (
-              <SpecificationCard key={key} label={key} value={value} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Order & Pricing Information */}
-      {Object.keys(orderInfo).length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-primary-accent" />
-            Pricing & Order Information
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.entries(orderInfo).map(([key, value]) => (
-              <SpecificationCard key={key} label={key} value={value} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Supplier Information */}
-      {(() => {
-        const filteredSupplierEntries = Object.entries(supplierData)
-          .filter(([key, value]) => {
-            // Exclude nested objects we handle separately
-            if (['Technical Specs', 'Order Info'].includes(key)) return false
-            // Only show meaningful values, not objects that would display as [object Object]
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) return false
-            return true
-          })
-
-        return filteredSupplierEntries.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-              <Globe className="w-5 h-5 text-primary-accent" />
-              Supplier Data
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredSupplierEntries.map(([key, value]) => (
-                <SpecificationCard key={key} label={key} value={value} />
-              ))}
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* Enrichment Metadata */}
-      {metadata && Object.keys(metadata).length > 0 && (
-        <details className="bg-theme-secondary border border-theme-primary rounded-lg">
-          <summary className="cursor-pointer p-4 hover:bg-theme-tertiary transition-colors">
-            <span className="text-sm font-medium text-theme-secondary flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Enrichment Information
-              <span className="text-xs bg-theme-tertiary px-2 py-1 rounded">
-                {Object.keys(metadata).length} items
-              </span>
-            </span>
-          </summary>
-          <div className="border-t border-theme-primary p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(metadata).map(([key, value]) => (
-                <SpecificationCard key={key} label={key} value={value} small />
-              ))}
-            </div>
-          </div>
-        </details>
-      )}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {entries.map(([key, value]) => (
+        <SpecificationCard key={key} label={key} value={value} />
+      ))}
     </div>
   )
 }
 
 function SpecificationCard({ label, value, small = false }: { label: string; value: any; small?: boolean }) {
-  const formattedValue = formatSpecValue(value)
   const isImportant = ['Package', 'Unit Price', 'Minimum Order Quantity'].includes(label)
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  // Check if this is a complex object that could be expanded
+  const isComplexObject = typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 1
+  const formattedValue = formatSpecValue(value)
 
   return (
     <div className={`
@@ -1443,18 +1309,38 @@ function SpecificationCard({ label, value, small = false }: { label: string; val
       ${small ? 'p-3' : ''}
     `}>
       <div className="space-y-2">
-        <dt className={`text-xs font-medium text-theme-secondary uppercase tracking-wide ${small ? 'text-[10px]' : ''}`}>
-          {formatEnumValue(label)}
+        <dt className={`text-xs font-medium text-theme-secondary uppercase tracking-wide ${small ? 'text-[10px]' : ''} flex items-center justify-between`}>
+          <span>{formatEnumValue(label)}</span>
+          {isComplexObject && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-primary-accent hover:text-primary transition-colors"
+              title={isExpanded ? 'Collapse' : 'Expand details'}
+            >
+              {isExpanded ? '▲' : '▼'}
+            </button>
+          )}
         </dt>
         <dd className={`font-semibold text-theme-primary ${small ? 'text-sm' : 'text-base'}`}>
-          {formattedValue}
+          {isExpanded && isComplexObject ? (
+            <div className="space-y-1">
+              {Object.entries(value).map(([key, val]) => (
+                <div key={key} className="text-sm">
+                  <span className="text-theme-secondary">{formatEnumValue(key)}:</span>{' '}
+                  <span className="text-theme-primary">{formatSpecValue(val)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            formattedValue
+          )}
         </dd>
       </div>
     </div>
   )
 }
 
-function formatSpecValue(value: any): string {
+function formatSpecValue(value: any): string | JSX.Element {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'number') {
@@ -1468,28 +1354,54 @@ function formatSpecValue(value: any): string {
   // Handle arrays
   if (Array.isArray(value)) {
     if (value.length === 0) return '—'
-    if (value.length === 1) return formatSpecValue(value[0])
+    if (value.length === 1) return formatSpecValue(value[0]) as string
     return value.map(item => formatSpecValue(item)).join(', ')
   }
 
-  // Handle objects - don't display as [object Object]
+  // Handle objects - show actual key-value pairs as separate lines
   if (typeof value === 'object') {
     if (value === null) return '—'
-    // Try to extract meaningful data from objects
+
+    // Try to extract meaningful data from objects first
     if (value.name) return String(value.name)
     if (value.value) return String(value.value)
     if (value.label) return String(value.label)
     if (value.title) return String(value.title)
-    // If object has one key, try to show its value
+
     const keys = Object.keys(value)
+    if (keys.length === 0) return '—'
+
+    // If object has one key, try to show its value
     if (keys.length === 1) {
-      return formatSpecValue(value[keys[0]])
+      const key = keys[0]
+      const val = formatSpecValue(value[key])
+      return `${key}: ${val}`
     }
-    // If it's a small object, try to show key-value pairs
-    if (keys.length <= 3) {
-      return keys.map(key => `${key}: ${formatSpecValue(value[key])}`).join(', ')
-    }
-    return `Complex Object (${keys.length} properties)`
+
+    // For objects with multiple keys, return JSX with clean line breaks
+    const pairs = keys
+      .filter(key => value[key] !== null && value[key] !== undefined)
+      .slice(0, 5) // Show more items since we're not cramming them together
+      .map(key => {
+        const val = formatSpecValue(value[key])
+        return { key, val }
+      })
+
+    return (
+      <div className="space-y-1">
+        {pairs.map(({ key, val }, index) => (
+          <div key={index} className="text-sm">
+            <span className="text-theme-secondary font-medium">{key}:</span>{' '}
+            <span className="text-theme-primary">{val}</span>
+          </div>
+        ))}
+        {keys.length > 5 && (
+          <div className="text-xs text-theme-secondary italic">
+            +{keys.length - 5} more properties
+          </div>
+        )}
+      </div>
+    )
   }
 
   const stringValue = String(value)

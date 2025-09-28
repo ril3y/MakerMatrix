@@ -8,7 +8,6 @@ Supports part search, pricing, stock, datasheets, and comprehensive part data.
 import os
 import logging
 from typing import List, Dict, Any, Optional
-import aiohttp
 import pandas as pd
 
 from .base import (
@@ -250,6 +249,33 @@ class MouserSupplier(BaseSupplier):
         
         return headers
     
+    def _get_http_client(self):
+        """Get or create HTTP client with Mouser-specific configuration"""
+        if not hasattr(self, '_http_client') or not self._http_client:
+            from .http_client import SupplierHTTPClient, RetryConfig
+            
+            config = self._config or {}
+            
+            # Configure for API usage with rate limiting
+            rate_limit = config.get("rate_limit_requests_per_minute", 120)  # 2 requests per second default
+            delay_seconds = 60.0 / max(rate_limit, 1)
+            
+            retry_config = RetryConfig(
+                max_retries=3,
+                base_delay=delay_seconds,
+                max_delay=30.0,
+                retry_on_status=[429, 500, 502, 503, 504]
+            )
+            
+            self._http_client = SupplierHTTPClient(
+                supplier_name="mouser",
+                default_headers=self._get_headers(),
+                default_timeout=config.get("request_timeout", 30),
+                retry_config=retry_config
+            )
+        
+        return self._http_client
+    
     async def authenticate(self) -> bool:
         """Authenticate with Mouser API using API key"""
         if not self.is_configured():
@@ -273,9 +299,8 @@ class MouserSupplier(BaseSupplier):
             )
         
         try:
-            # Test authentication with a simple API call (without calling test_connection to avoid recursion)
-            session = await self._get_session()
-            headers = self._get_headers()
+            # Test authentication with a simple API call using unified HTTP client
+            http_client = self._get_http_client()
             
             url = f"{self._get_base_url()}/search/keyword"
             params = {"apiKey": api_key}
@@ -288,12 +313,10 @@ class MouserSupplier(BaseSupplier):
                 }
             }
             
-            config = self._config or {}
-            timeout = config.get("request_timeout", 30)
+            response = await http_client.post(url, endpoint_type="authenticate", params=params, json_data=search_data)
             
-            async with session.post(url, headers=headers, params=params, json=search_data, timeout=timeout) as response:
-                # Any response (even error) means API key is being accepted
-                return response.status in [200, 400, 401, 403]  # 401/403 means API key was processed
+            # Any response (even error) means API key is being accepted
+            return response.status in [200, 400, 401, 403]  # 401/403 means API key was processed
                 
         except SupplierError:
             # Re-raise supplier errors as-is
@@ -343,9 +366,8 @@ class MouserSupplier(BaseSupplier):
                     }
                 }
             
-            # Test with a lightweight search
-            session = await self._get_session()
-            headers = self._get_headers()
+            # Test with a lightweight search using unified HTTP client
+            http_client = self._get_http_client()
             
             url = f"{self._get_base_url()}/search/keyword"
             params = {
@@ -360,15 +382,11 @@ class MouserSupplier(BaseSupplier):
                 }
             }
             
-            config = self._config or {}  # Handle case where _config might be None
-            timeout = config.get("request_timeout", 30)
+            response = await http_client.post(url, endpoint_type="test_connection", params=params, json_data=search_data)
             
-            async with session.post(url, headers=headers, params=params, json=search_data, timeout=timeout) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    data = data or {}  # Handle case where response.json() returns None
-                    search_results = data.get("SearchResults", {}) or {}  # Handle case where SearchResults is None
-                    return {
+            if response.success:
+                search_results = response.data.get("SearchResults", {}) or {}  # Defensive null safety already handled
+                return {
                         "success": True,
                         "message": "Mouser API connection successful",
                         "details": {
@@ -379,46 +397,45 @@ class MouserSupplier(BaseSupplier):
                             "api_ready": True
                         }
                     }
-                elif response.status == 429:
-                    return {
-                        "success": False,
-                        "message": "Rate limit exceeded",
-                        "details": {
-                            "error": "Too many API requests",
-                            "status_code": response.status,
-                            "rate_limit": "30 calls per minute, 1000 calls per day",
-                            "suggestion": "Wait before retrying or upgrade API plan"
-                        }
+            elif response.status == 429:
+                return {
+                    "success": False,
+                    "message": "Rate limit exceeded",
+                    "details": {
+                        "error": "Too many API requests",
+                        "status_code": response.status,
+                        "rate_limit": "30 calls per minute, 1000 calls per day",
+                        "suggestion": "Wait before retrying or upgrade API plan"
                     }
-                elif response.status == 401:
-                    return {
-                        "success": False,
-                        "message": "Invalid API key",
-                        "details": {
-                            "error": "API key authentication failed",
-                            "status_code": response.status,
-                            "configuration_needed": True,
-                            "setup_url": "https://www.mouser.com/api-signup/"
-                        }
+                }
+            elif response.status == 401:
+                return {
+                    "success": False,
+                    "message": "Invalid API key",
+                    "details": {
+                        "error": "API key authentication failed",
+                        "status_code": response.status,
+                        "configuration_needed": True,
+                        "setup_url": "https://www.mouser.com/api-signup/"
                     }
-                elif response.status == 403:
-                    return {
-                        "success": False,
-                        "message": "API access forbidden",
-                        "details": {
-                            "error": "API key may not have required permissions",
-                            "status_code": response.status,
-                            "suggestion": "Contact Mouser support to verify API access"
-                        }
+                }
+            elif response.status == 403:
+                return {
+                    "success": False,
+                    "message": "API access forbidden",
+                    "details": {
+                        "error": "API key may not have required permissions",
+                        "status_code": response.status,
+                        "suggestion": "Contact Mouser support to verify API access"
                     }
-                else:
-                    error_text = await response.text()
-                    return {
-                        "success": False,
-                        "message": f"Mouser API error: {response.status}",
-                        "details": {
-                            "error": error_text,
-                            "status_code": response.status,
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Mouser API error: {response.status}",
+                    "details": {
+                        "error": response.error_message or f"HTTP {response.status}",
+                        "status_code": response.status,
                             "api_call_failed": True,
                             "suggestion": "Check API key and network connectivity"
                         }
@@ -449,8 +466,7 @@ class MouserSupplier(BaseSupplier):
         if not await self.authenticate():
             raise SupplierAuthenticationError("Authentication required", supplier_name="mouser")
         
-        session = await self._get_session()
-        headers = self._get_headers()
+        http_client = self._get_http_client()
         credentials = self._credentials or {}
         api_key = credentials.get("api_key")
         
@@ -471,20 +487,21 @@ class MouserSupplier(BaseSupplier):
         }
         
         try:
-            async with session.post(url, headers=headers, params=params, json=search_data) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    data = data or {}  # Handle case where response.json() returns None
-                    return self._parse_search_results(data)
-                elif response.status == 429:
-                    raise SupplierRateLimitError("Rate limit exceeded", supplier_name="mouser")
-                else:
-                    error_text = await response.text()
-                    raise SupplierConnectionError(
-                        f"Search failed: {response.status} - {error_text}",
-                        supplier_name="mouser"
-                    )
-        except aiohttp.ClientError as e:
+            response = await http_client.post(url, endpoint_type="search_parts", params=params, json_data=search_data)
+            
+            if response.success:
+                return self._parse_search_results(response.data)
+            elif response.status == 429:
+                raise SupplierRateLimitError("Rate limit exceeded", supplier_name="mouser")
+            else:
+                raise SupplierConnectionError(
+                    f"Search failed: {response.status} - {response.error_message}",
+                    supplier_name="mouser"
+                )
+        except SupplierError:
+            # Re-raise supplier errors as-is
+            raise
+        except Exception as e:
             raise SupplierConnectionError(
                 f"Network error during search: {str(e)}",
                 supplier_name="mouser"
@@ -558,8 +575,7 @@ class MouserSupplier(BaseSupplier):
         if not await self.authenticate():
             raise SupplierAuthenticationError("Authentication required", supplier_name="mouser")
         
-        session = await self._get_session()
-        headers = self._get_headers()
+        http_client = self._get_http_client()
         credentials = self._credentials or {}
         api_key = credentials.get("api_key")
         
@@ -577,18 +593,17 @@ class MouserSupplier(BaseSupplier):
         }
         
         try:
-            async with session.post(url, headers=headers, params=params, json=search_data) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    data = data or {}  # Handle case where response.json() returns None
-                    search_results = data.get("SearchResults", {})
-                    parts = search_results.get("Parts", [])
-                    if parts:
-                        # Return first matching part with detailed info
-                        return self._parse_search_results(data)[0]
-                    return None
-                else:
-                    return None
+            response = await http_client.post(url, endpoint_type="get_part_details", params=params, json_data=search_data)
+            
+            if response.success:
+                search_results = response.data.get("SearchResults", {})
+                parts = search_results.get("Parts", [])
+                if parts:
+                    # Return first matching part with detailed info
+                    return self._parse_search_results(response.data)[0]
+                return None
+            else:
+                return None
         except Exception:
             return None
     

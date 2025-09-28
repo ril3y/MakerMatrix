@@ -27,6 +27,9 @@ export interface Part {
   supplier?: string
   supplier_url?: string
   image_url?: string
+  manufacturer?: string
+  manufacturer_part_number?: string
+  component_type?: string
   additional_properties?: Record<string, any>
   location_id?: string
   location?: Location
@@ -66,6 +69,9 @@ export interface CreatePartRequest {
   supplier?: string
   supplier_url?: string
   image_url?: string
+  manufacturer?: string
+  manufacturer_part_number?: string
+  component_type?: string
   additional_properties?: Record<string, any>
   location_id?: string
   categories?: string[]

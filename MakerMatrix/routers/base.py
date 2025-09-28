@@ -39,7 +39,7 @@ class BaseRouter:
     
     @staticmethod
     def build_success_response(
-        data: Any = None, 
+        data: Any = None,
         message: str = "Operation completed successfully",
         page: Optional[int] = None,
         page_size: Optional[int] = None,
@@ -47,14 +47,14 @@ class BaseRouter:
     ) -> ResponseSchema:
         """
         Build a standardized success response.
-        
+
         Args:
             data: Response data
             message: Success message
             page: Page number for paginated responses
             page_size: Items per page for paginated responses
             total_parts: Total count for paginated responses
-            
+
         Returns:
             Standardized ResponseSchema
         """
@@ -65,6 +65,27 @@ class BaseRouter:
             page=page,
             page_size=page_size,
             total_parts=total_parts
+        )
+
+    @staticmethod
+    def build_error_response(
+        message: str = "Operation failed",
+        data: Any = None
+    ) -> ResponseSchema:
+        """
+        Build a standardized error response.
+
+        Args:
+            message: Error message
+            data: Optional error data
+
+        Returns:
+            Standardized ResponseSchema with error status
+        """
+        return ResponseSchema(
+            status="error",
+            message=message,
+            data=data
         )
     
     @staticmethod

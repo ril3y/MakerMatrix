@@ -6,7 +6,6 @@ part details, pricing, and specifications from product pages.
 """
 
 from typing import List, Dict, Any, Optional
-import aiohttp
 import re
 from bs4 import BeautifulSoup
 from decimal import Decimal
@@ -125,12 +124,38 @@ class BoltDepotSupplier(BaseSupplier):
             "Upgrade-Insecure-Requests": "1",
         }
     
+    def _get_http_client(self):
+        """Get or create HTTP client with Bolt Depot-specific configuration for web scraping"""
+        if not hasattr(self, '_http_client') or not self._http_client:
+            from .http_client import SupplierHTTPClient, RetryConfig
+            
+            config = self._config or {}
+            
+            # Configure for web scraping with conservative rate limiting
+            request_delay = config.get("request_delay_seconds", 2.0)
+            
+            retry_config = RetryConfig(
+                max_retries=2,
+                base_delay=request_delay, 
+                max_delay=10.0,
+                retry_on_status=[429, 500, 502, 503, 504]
+            )
+            
+            self._http_client = SupplierHTTPClient(
+                supplier_name="bolt_depot",
+                default_headers=self._get_headers(),
+                default_timeout=config.get("timeout_seconds", 30),
+                retry_config=retry_config
+            )
+        
+        return self._http_client
+    
     async def authenticate(self) -> bool:
         """No authentication required for public web scraping"""
         return True
     
     async def test_connection(self) -> Dict[str, Any]:
-        """Test connection to Bolt Depot website"""
+        """Test connection to Bolt Depot website using unified HTTP client"""
         if not self._configured:
             return {
                 "success": False,
@@ -138,45 +163,40 @@ class BoltDepotSupplier(BaseSupplier):
                 "details": {"error": "Unconfigured supplier"}
             }
         try:
-            session = await self._get_session()
-            headers = self._get_headers()
-            
+            http_client = self._get_http_client()
             url = self._get_base_url()
-            timeout = aiohttp.ClientTimeout(
-                total=self._config.get("timeout_seconds", 30)
-            )
             
-            async with session.get(url, headers=headers, timeout=timeout) as response:
-                if response.status == 200:
-                    content = await response.text()
-                    soup = BeautifulSoup(content, 'html.parser')
-                    
-                    # Check if this looks like the Bolt Depot website
-                    title = soup.find('title')
-                    title_text = title.get_text() if title else ""
-                    
-                    if "bolt depot" in title_text.lower():
-                        return {
-                            "success": True,
-                            "message": "Connection successful",
-                            "details": {
-                                "base_url": url,
-                                "page_title": title_text.strip(),
-                                "status_code": response.status
-                            }
+            response = await http_client.get(url, endpoint_type="test_connection")
+            
+            if response.success:
+                soup = BeautifulSoup(response.raw_content, 'html.parser')
+                
+                # Check if this looks like the Bolt Depot website
+                title = soup.find('title')
+                title_text = title.get_text() if title else ""
+                
+                if "bolt depot" in title_text.lower():
+                    return {
+                        "success": True,
+                        "message": "Connection successful",
+                        "details": {
+                            "base_url": url,
+                            "page_title": title_text.strip(),
+                            "status_code": response.status
                         }
-                    else:
-                        return {
-                            "success": False,
-                            "message": "Website content doesn't match expected Bolt Depot format",
-                            "details": {"page_title": title_text.strip()}
-                        }
+                    }
                 else:
                     return {
                         "success": False,
-                        "message": f"HTTP error: {response.status}",
-                        "details": {"status_code": response.status}
+                        "message": "Website content doesn't match expected Bolt Depot format",
+                        "details": {"page_title": title_text.strip()}
                     }
+            else:
+                return {
+                    "success": False,
+                    "message": f"HTTP error: {response.status}",
+                    "details": {"status_code": response.status}
+                }
         
         except Exception as e:
             return {
@@ -200,32 +220,26 @@ class BoltDepotSupplier(BaseSupplier):
         return []
     
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
-        """Get detailed information about a specific Bolt Depot part"""
+        """Get detailed information about a specific Bolt Depot part using unified HTTP client"""
         try:
             if not supplier_part_number.isdigit():
                 logger.warning(f"Bolt Depot part number should be numeric: {supplier_part_number}")
                 return None
             
-            session = await self._get_session()
-            headers = self._get_headers()
+            http_client = self._get_http_client()
             
             # Construct product URL
             base_url = self._get_base_url()
             url = f"{base_url}/Product-Details?product={supplier_part_number}"
             
-            timeout = aiohttp.ClientTimeout(
-                total=self._config.get("timeout_seconds", 30)
-            )
+            response = await http_client.get(url, endpoint_type="get_part_details")
             
-            async with session.get(url, headers=headers, timeout=timeout) as response:
-                if response.status != 200:
-                    logger.warning(f"Failed to fetch product {supplier_part_number}: HTTP {response.status}")
-                    return None
-                
-                content = await response.text()
-                soup = BeautifulSoup(content, 'html.parser')
-                
-                return self._parse_product_page(soup, supplier_part_number, url)
+            if not response.success:
+                logger.warning(f"Failed to fetch product {supplier_part_number}: HTTP {response.status}")
+                return None
+            
+            soup = BeautifulSoup(response.raw_content, 'html.parser')
+            return self._parse_product_page(soup, supplier_part_number, url)
         
         except Exception as e:
             logger.error(f"Error fetching part details for {supplier_part_number}: {e}")

@@ -31,9 +31,10 @@ class HTTPResponse:
     duration_ms: int
     success: bool = True
     error_message: Optional[str] = None
+    raw_content: Optional[str] = None  # For HTML/text content
     
     @classmethod
-    def from_aiohttp_response(cls, response: aiohttp.ClientResponse, data: Dict[str, Any], duration_ms: int):
+    def from_aiohttp_response(cls, response: aiohttp.ClientResponse, data: Dict[str, Any], duration_ms: int, raw_content: Optional[str] = None):
         """Create HTTPResponse from aiohttp response"""
         return cls(
             status=response.status,
@@ -41,7 +42,8 @@ class HTTPResponse:
             headers=dict(response.headers),
             url=str(response.url),
             duration_ms=duration_ms,
-            success=200 <= response.status < 300
+            success=200 <= response.status < 300,
+            raw_content=raw_content
         )
     
     @classmethod
@@ -252,8 +254,8 @@ class SupplierHTTPClient:
                     # Parse JSON with defensive null safety
                     data = self._safe_json_parse(response_text)
                     
-                    # Create response object
-                    http_response = HTTPResponse.from_aiohttp_response(response, data, duration_ms)
+                    # Create response object with raw content for HTML/text responses
+                    http_response = HTTPResponse.from_aiohttp_response(response, data, duration_ms, raw_content=response_text)
                     
                     # Record successful request
                     await self._record_request(

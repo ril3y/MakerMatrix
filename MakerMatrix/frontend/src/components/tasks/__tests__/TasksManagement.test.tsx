@@ -10,6 +10,19 @@ import toast from 'react-hot-toast'
 // Mock the services
 vi.mock('@/services/tasks.service')
 vi.mock('@/services/parts.service')
+vi.mock('@/services/task-websocket.service', () => ({
+  taskWebSocket: {
+    isConnected: false,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    startHeartbeat: vi.fn(),
+    onTaskUpdate: vi.fn(() => vi.fn()),
+    onTaskCreated: vi.fn(() => vi.fn()),
+    onTaskDeleted: vi.fn(() => vi.fn()),
+    onWorkerStatusUpdate: vi.fn(() => vi.fn()),
+    onTaskStatsUpdate: vi.fn(() => vi.fn())
+  }
+}))
 
 const mockTasksService = tasksService as any
 const mockPartsService = partsService as any
@@ -102,16 +115,39 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 describe('TasksManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
-    
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+
     // Default mock responses
     mockTasksService.getTasks.mockResolvedValue({ data: mockTasks })
     mockTasksService.getWorkerStatus.mockResolvedValue({ data: mockWorkerStatus })
     mockTasksService.getTaskStats.mockResolvedValue({ data: mockTaskStats })
     mockPartsService.getAll.mockResolvedValue([
-      { id: 'part1', name: 'Arduino Uno' },
-      { id: 'part2', name: 'Resistor 10K' }
+      { id: 'part1', name: 'Arduino Uno', supplier: 'digikey' },
+      { id: 'part2', name: 'Resistor 10K', supplier: 'digikey' }
     ])
+
+    ;(global as any).fetch = vi.fn((input: any) => {
+      const url = typeof input === 'string' ? input : input.toString()
+
+      if (url.includes('/api/suppliers/configured')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'digikey' }] })
+        })
+      }
+
+      if (url.includes('/api/tasks/capabilities/suppliers')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { digikey: { capabilities: ['fetch_pricing'] } } })
+        })
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({})
+      })
+    })
   })
 
   afterEach(() => {
@@ -120,13 +156,11 @@ describe('TasksManagement', () => {
   })
 
   describe('Basic Rendering', () => {
-    it('renders header with worker status', async () => {
+    it('renders header with worker status', () => {
       render(<TasksManagement />, { wrapper: TestWrapper })
-      
-      await waitFor(() => {
-        expect(screen.getByText('Background Tasks')).toBeInTheDocument()
-        expect(screen.getByText('Worker Running')).toBeInTheDocument()
-      })
+
+      expect(screen.getByText('Background Tasks')).toBeInTheDocument()
+      expect(screen.getByText('Worker Running')).toBeInTheDocument()
     })
 
     it('shows worker stopped status when not running', async () => {

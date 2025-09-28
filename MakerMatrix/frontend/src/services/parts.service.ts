@@ -7,6 +7,13 @@ import {
 } from '@/types/parts'
 
 export class PartsService {
+  // Helper function to map backend part format to frontend format
+  private mapPartFromBackend(backendPart: any): Part {
+    return {
+      ...backendPart,
+      name: backendPart.part_name, // Map part_name to name
+    }
+  }
   async createPart(data: CreatePartRequest): Promise<Part> {
     // Map frontend format to backend format
     const backendData = {
@@ -14,60 +21,76 @@ export class PartsService {
       part_name: data.name,
       category_names: data.categories || []
     }
-    
+
     // Remove frontend-only fields
     delete backendData.name
     delete backendData.categories
-    
-    const response = await apiClient.post<ApiResponse<Part>>('/api/parts/add_part', backendData)
-    
+
+    // Convert empty strings to null for foreign key fields to prevent constraint errors
+    if (backendData.location_id === '') {
+      backendData.location_id = null
+    }
+    if (backendData.supplier_url === '') {
+      backendData.supplier_url = null
+    }
+
+    const response = await apiClient.post<ApiResponse<any>>('/api/parts/add_part', backendData)
+
     if (response.status === 'success' && response.data) {
-      return response.data
+      return this.mapPartFromBackend(response.data)
     }
     throw new Error(response.message || 'Failed to create part')
   }
 
   async getPart(id: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<Part>>(`/api/parts/get_part?part_id=${id}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_id=${id}`)
     if (response.status === 'success' && response.data) {
-      return response.data
+      return this.mapPartFromBackend(response.data)
     }
     throw new Error(response.message || 'Failed to get part')
   }
 
   async getPartByName(name: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<Part>>(`/api/parts/get_part?part_name=${name}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_name=${name}`)
     if (response.status === 'success' && response.data) {
-      return response.data
+      return this.mapPartFromBackend(response.data)
     }
     throw new Error(response.message || 'Failed to get part')
   }
 
   async getPartByNumber(partNumber: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<Part>>(`/api/parts/get_part?part_number=${partNumber}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_number=${partNumber}`)
     if (response.status === 'success' && response.data) {
-      return response.data
+      return this.mapPartFromBackend(response.data)
     }
     throw new Error(response.message || 'Failed to get part')
   }
 
   async updatePart(data: UpdatePartRequest): Promise<Part> {
     const { id, ...updateData } = data
-    
+
     // Map frontend format to backend format
     const backendData = {
       ...updateData,
       part_name: updateData.name,
       category_names: updateData.categories || []
     }
-    
+
     // Remove frontend-only fields
     delete backendData.name
     delete backendData.categories
-    
-    const response = await apiClient.put<ApiResponse<Part>>(`/api/parts/update_part/${id}`, backendData)
+
+    // Convert empty strings to null for foreign key fields to prevent constraint errors
+    if (backendData.location_id === '') {
+      backendData.location_id = null
+    }
+    if (backendData.supplier_url === '') {
+      backendData.supplier_url = null
+    }
+
+    const response = await apiClient.put<ApiResponse<any>>(`/api/parts/update_part/${id}`, backendData)
     if (response.status === 'success' && response.data) {
-      return response.data
+      return this.mapPartFromBackend(response.data)
     }
     throw new Error(response.message || 'Failed to update part')
   }
@@ -80,27 +103,27 @@ export class PartsService {
   }
 
   async getAllParts(page = 1, pageSize = 20): Promise<{ data: Part[], total_parts: number }> {
-    const response = await apiClient.get<ApiResponse<Part[]>>('/api/parts/get_all_parts', {
+    const response = await apiClient.get<ApiResponse<any[]>>('/api/parts/get_all_parts', {
       params: { page, page_size: pageSize }
     })
-    
+
     if (response.status === 'success' && response.data) {
       return {
-        data: response.data,
+        data: response.data.map(part => this.mapPartFromBackend(part)),
         total_parts: response.total_parts || 0
       }
     }
-    
+
     return { data: [], total_parts: 0 }
   }
 
   async getAll(): Promise<Part[]> {
-    const response = await apiClient.get<ApiResponse<Part[]>>('/api/parts/get_all_parts')
-    
+    const response = await apiClient.get<ApiResponse<any[]>>('/api/parts/get_all_parts')
+
     if (response.status === 'success' && response.data) {
-      return response.data
+      return response.data.map(part => this.mapPartFromBackend(part))
     }
-    
+
     return []
   }
 
@@ -122,17 +145,17 @@ export class PartsService {
   }
 
   async searchPartsText(query: string, page = 1, pageSize = 20): Promise<{ data: Part[], total_parts: number }> {
-    const response = await apiClient.get<ApiResponse<Part[]>>('/api/parts/search_text', {
+    const response = await apiClient.get<ApiResponse<any[]>>('/api/parts/search_text', {
       params: { query, page, page_size: pageSize }
     })
-    
+
     if (response.status === 'success' && response.data) {
       return {
-        data: response.data,
+        data: response.data.map(part => this.mapPartFromBackend(part)),
         total_parts: response.total_parts || 0
       }
     }
-    
+
     return { data: [], total_parts: 0 }
   }
 

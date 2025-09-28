@@ -50,6 +50,16 @@ async def register_user(user_data: UserCreate):
     )
 
 
+@router.get("/me", response_model=ResponseSchema)
+@standard_error_handling
+async def get_current_user_info(current_user=Depends(get_current_user)):
+    """Get current authenticated user information"""
+    return base_router.build_success_response(
+        message="Current user retrieved successfully",
+        data=current_user.to_dict()
+    )
+
+
 @router.get("/all", response_model=ResponseSchema)
 @standard_error_handling
 async def get_all_users(current_user=Depends(get_current_user)):

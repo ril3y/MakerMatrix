@@ -191,8 +191,9 @@ class PartEnrichmentService(BaseService):
         """Determine which capabilities to use for enrichment."""
         # Get actual capabilities from the supplier implementation rather than database config
         try:
-            from MakerMatrix.suppliers.registry import get_supplier_class
-            supplier_class = get_supplier_class(supplier.lower())
+            from MakerMatrix.suppliers.registry import get_supplier_registry
+            supplier_registry = get_supplier_registry()
+            supplier_class = supplier_registry.get(supplier.lower())
             if supplier_class:
                 supplier_instance = supplier_class()
                 actual_capabilities = [cap.value for cap in supplier_instance.get_capabilities()]
@@ -384,8 +385,13 @@ class PartEnrichmentService(BaseService):
                     image_url = part_data_result.get('image_url')
                     pricing = part_data_result.get('pricing')
                     stock_quantity = part_data_result.get('stock_quantity')
-                    specifications = part_data_result.get('specifications') or {}
+                    # NO LONGER extracting specifications separately - flatten them into additional_data
+                    specifications_data = part_data_result.get('specifications') or {}
                     additional_data = part_data_result.get('additional_data') or {}
+
+                    # Flatten any nested specifications directly into additional_data
+                    flattened_specs = self._flatten_nested_objects(specifications_data) if specifications_data else {}
+                    additional_data.update(flattened_specs)
                     
                     # Extract core fields from part_data_result
                     manufacturer = part_data_result.get('manufacturer')
@@ -404,7 +410,7 @@ class PartEnrichmentService(BaseService):
                 image_url=image_url,
                 stock_quantity=stock_quantity,
                 pricing=pricing,
-                specifications=specifications,
+                specifications={},  # No longer using nested specifications - all data in additional_data
                 additional_data=additional_data
             )
             
@@ -458,10 +464,23 @@ class PartEnrichmentService(BaseService):
                     if old_value != new_value:
                         part.additional_properties[field] = new_value
                         updated_fields.append(f"additional_properties.{field}: '{old_value}' -> '{new_value}'")
-            
+
+            # Merge structured additional_properties payload from standardized data
+            # Flatten any nested objects to keep database schema simple
+            additional_payload = standardized_data.get('additional_properties')
+            if isinstance(additional_payload, dict):
+                serialized_payload = self._ensure_json_serializable(additional_payload)
+                flattened_payload = self._flatten_nested_objects(serialized_payload)
+                payload_updates = self._merge_additional_properties_dict(
+                    part.additional_properties,
+                    flattened_payload,
+                    path='additional_properties'
+                )
+                updated_fields.extend(payload_updates)
+
             # Update last enrichment timestamp
             part.additional_properties['last_enrichment'] = datetime.utcnow().isoformat()
-            
+
             if updated_fields:
                 logger.info(f"Updated fields for part {part.part_name}: {updated_fields}")
             
@@ -479,6 +498,70 @@ class PartEnrichmentService(BaseService):
             return [self._ensure_json_serializable(item) for item in value]
         else:
             return value
+
+    def _merge_additional_properties_dict(self, current: Dict[str, Any], updates: Dict[str, Any], path: str = '') -> List[str]:
+        """Recursively merge additional_properties dictionaries."""
+        updated_fields: List[str] = []
+
+        for key, value in updates.items():
+            full_path = f"{path}.{key}" if path else key
+
+            if isinstance(value, dict):
+                existing = current.get(key)
+                if not isinstance(existing, dict):
+                    old_value = existing
+                    current[key] = {}
+                    updated_fields.append(f"{full_path}: '{old_value}' -> '{{}}'")
+                    existing = current[key]
+                updated_fields.extend(
+                    self._merge_additional_properties_dict(existing, value, full_path)
+                )
+            else:
+                old_value = current.get(key)
+                if old_value != value:
+                    current[key] = value
+                    updated_fields.append(f"{full_path}: '{old_value}' -> '{value}'")
+
+        return updated_fields
+
+    def _flatten_nested_objects(self, obj: Dict[str, Any], prefix: str = '') -> Dict[str, Any]:
+        """
+        Flatten nested objects into simple key-value pairs.
+
+        Example:
+        {"specifications": {"voltage": "3.3V", "package": "SOT-23"}}
+        becomes:
+        {"voltage": "3.3V", "package": "SOT-23"}
+
+        Args:
+            obj: Dictionary that may contain nested objects
+            prefix: Optional prefix for keys (used in recursion)
+
+        Returns:
+            Flattened dictionary with simple key-value pairs
+        """
+        flattened = {}
+
+        for key, value in obj.items():
+            if isinstance(value, dict):
+                # For certain known nested structures, flatten them directly
+                if key.lower() in ['specifications', 'technical_specs', 'attributes', 'specs']:
+                    # Flatten the nested object directly without prefixing
+                    nested_flattened = self._flatten_nested_objects(value, '')
+                    flattened.update(nested_flattened)
+                else:
+                    # For other nested objects, use a prefix
+                    current_prefix = f"{prefix}{key}_" if prefix else f"{key}_"
+                    nested_flattened = self._flatten_nested_objects(value, current_prefix)
+                    flattened.update(nested_flattened)
+            else:
+                # Simple value - add with appropriate key
+                final_key = f"{prefix}{key}" if prefix else key
+                # Clean up the key to be more readable
+                final_key = final_key.lower().replace(' ', '_').replace('-', '_')
+                flattened[final_key] = value
+
+        return flattened
 
     async def _apply_legacy_enrichment_to_part(self, part: PartModel, enrichment_results: Dict[str, Any]) -> None:
         """Apply enrichment results using legacy processing."""

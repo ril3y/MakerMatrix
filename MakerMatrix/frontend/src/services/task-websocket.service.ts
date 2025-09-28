@@ -29,7 +29,7 @@ export class TaskWebSocketService extends WebSocketService {
 
   // Task-specific event handlers
   onTaskUpdate(handler: (task: Task) => void) {
-    this.on('task_update', (message: TaskWebSocketMessage) => {
+    const wrapped = (message: TaskWebSocketMessage) => {
       console.log('🔥 WebSocket received task_update:', message)
       if (message.data?.task) {
         handler(message.data.task)
@@ -37,42 +37,57 @@ export class TaskWebSocketService extends WebSocketService {
         // Handle case where task data is directly in message.data
         handler(message.data as Task)
       }
-    })
+    }
+
+    this.on('task_update', wrapped)
+    return () => this.off('task_update', wrapped as any)
   }
 
   onTaskCreated(handler: (task: Task) => void) {
-    this.on('task_created', (message: TaskWebSocketMessage) => {
+    const wrapped = (message: TaskWebSocketMessage) => {
       console.log('🆕 WebSocket received task_created:', message)
       if (message.data?.task) {
         handler(message.data.task)
       } else if (message.data) {
         handler(message.data as Task)
       }
-    })
+    }
+
+    this.on('task_created', wrapped)
+    return () => this.off('task_created', wrapped as any)
   }
 
   onTaskDeleted(handler: (taskId: string) => void) {
-    this.on('task_deleted', (message: TaskWebSocketMessage) => {
+    const wrapped = (message: TaskWebSocketMessage) => {
       if (message.data?.task_id) {
         handler(message.data.task_id)
       }
-    })
+    }
+
+    this.on('task_deleted', wrapped)
+    return () => this.off('task_deleted', wrapped as any)
   }
 
   onWorkerStatusUpdate(handler: (status: WorkerStatus) => void) {
-    this.on('worker_status_update', (message: TaskWebSocketMessage) => {
+    const wrapped = (message: TaskWebSocketMessage) => {
       if (message.data?.worker_status) {
         handler(message.data.worker_status)
       }
-    })
+    }
+
+    this.on('worker_status_update', wrapped)
+    return () => this.off('worker_status_update', wrapped as any)
   }
 
   onTaskStatsUpdate(handler: (stats: TaskStats) => void) {
-    this.on('task_stats_update', (message: TaskWebSocketMessage) => {
+    const wrapped = (message: TaskWebSocketMessage) => {
       if (message.data?.task_stats) {
         handler(message.data.task_stats)
       }
-    })
+    }
+
+    this.on('task_stats_update', wrapped)
+    return () => this.off('task_stats_update', wrapped as any)
   }
 
   // Task subscription management

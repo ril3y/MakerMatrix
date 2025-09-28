@@ -82,9 +82,14 @@ def create_locations():
                 "parent_id": parent_id,
                 "location_type": "storage"
             }
-            location_model = LocationService.add_location(location_dict)
-            location_map[location_data["name"]] = location_model.id
-            print(f"  ✓ Created location: {location_data['name']}")
+            location_service = LocationService()
+            result = location_service.add_location(location_dict)
+
+            if result.success:
+                location_map[location_data["name"]] = result.data["id"]
+                print(f"  ✓ Created location: {location_data['name']}")
+            else:
+                print(f"  ✗ Failed to create location {location_data['name']}: {result.message}")
         except Exception as e:
             print(f"  ✗ Failed to create location {location_data['name']}: {e}")
     
@@ -122,18 +127,26 @@ def create_categories():
     
     category_map = {}
     
+    category_service = CategoryService()
+
     for category_name in categories:
         try:
             category_model = CategoryModel(name=category_name)
-            result = CategoryService.add_category(category_model)
-            category_map[category_name] = result["data"]["id"]
-            print(f"  ✓ Created category: {category_name}")
+            result = category_service.add_category(category_model)
+            if result.success:
+                category_map[category_name] = result.data["id"]
+                print(f"  ✓ Created category: {category_name}")
+            else:
+                print(f"  ✗ Failed to create category {category_name}: {result.message}")
         except Exception as e:
             # If category already exists, try to get its ID
             try:
-                existing_category = CategoryService.get_category(name=category_name)
-                category_map[category_name] = existing_category["data"]["id"]
-                print(f"  ○ Using existing category: {category_name}")
+                existing_category = category_service.get_category(name=category_name)
+                if existing_category.success:
+                    category_map[category_name] = existing_category.data["id"]
+                    print(f"  ○ Using existing category: {category_name}")
+                else:
+                    print(f"  ✗ Failed to get existing category {category_name}: {existing_category.message}")
             except Exception as get_error:
                 print(f"  ✗ Failed to create or get category {category_name}: {e}")
     
@@ -357,9 +370,10 @@ def create_parts(location_map, category_map):
             "categories": ["Consumables", "Cleaning Supplies"]
         }
     ]
-    
+
     created_parts = []
-    
+    part_service = PartService()
+
     for part_data in parts_data:
         try:
             # Get location ID
@@ -385,10 +399,13 @@ def create_parts(location_map, category_map):
                 "category_names": category_names
             }
             
-            result = PartService.add_part(part_create_data)
-            created_parts.append(result["data"])
-            print(f"  ✓ Created part: {part_data['name']} with {len(category_names)} categories")
-            
+            result = part_service.add_part(part_create_data)
+            if result.success:
+                created_parts.append(result.data)
+                print(f"  ✓ Created part: {part_data['name']} with {len(category_names)} categories")
+            else:
+                print(f"  ✗ Failed to create part {part_data['name']}: {result.message}")
+
         except Exception as e:
             print(f"  ✗ Failed to create part {part_data['name']}: {e}")
     

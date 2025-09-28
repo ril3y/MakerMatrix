@@ -37,6 +37,63 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     setPreviewUrl(currentImageUrl || null)
   }, [currentImageUrl])
 
+  const validateFile = (file: File): boolean => {
+    // Check file type
+    if (!acceptedTypes.includes(file.type)) {
+      toast.error(`Invalid file type. Accepted types: ${acceptedTypes.join(', ')}`)
+      return false
+    }
+
+    // Check file size (5MB limit)
+    const maxFileSize = maxSize * 1024 * 1024 // Convert MB to bytes
+    if (file.size > maxFileSize) {
+      toast.error(`File too large. Maximum size: ${maxSize}MB`)
+      return false
+    }
+
+    return true
+  }
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    console.log('🚀 handleFileUpload called with file:', file.name, file.size, file.type)
+    if (!validateFile(file)) {
+      console.log('❌ File validation failed')
+      return
+    }
+
+    try {
+      console.log('⏳ Setting uploading to true...')
+      setUploading(true)
+
+      // Create preview URL immediately
+      const tempPreviewUrl = URL.createObjectURL(file)
+      setPreviewUrl(tempPreviewUrl)
+
+      // Upload to server using utilityService
+      const { utilityService } = await import('@/services/utility.service')
+      console.log('🔄 Starting image upload...')
+      const imageUrl = await utilityService.uploadImage(file)
+      console.log('✅ Upload successful, imageUrl:', imageUrl)
+
+      // Clean up temp preview URL
+      URL.revokeObjectURL(tempPreviewUrl)
+
+      // Set final preview URL
+      setPreviewUrl(imageUrl)
+      onImageUploaded(imageUrl)
+      console.log('📷 Set preview URL and called onImageUploaded with:', imageUrl)
+
+      toast.success('✅ Image uploaded successfully!')
+
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast.error('❌ Failed to upload image')
+      setPreviewUrl(currentImageUrl || null) // Reset to original
+    } finally {
+      setUploading(false)
+    }
+  }, [currentImageUrl, onImageUploaded])
+
   // Handle paste events
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
@@ -63,6 +120,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           e.preventDefault()
           const file = item.getAsFile()
           if (file) {
+            console.log('📋 Image pasted from clipboard:', file.name, file.type)
             toast.success('📎 Image detected in clipboard - uploading...')
             await handleFileUpload(file)
           }
@@ -73,56 +131,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [pasteListening, disabled])
+  }, [pasteListening, disabled, handleFileUpload])
 
-  const validateFile = (file: File): boolean => {
-    // Check file type
-    if (!acceptedTypes.includes(file.type)) {
-      toast.error(`Invalid file type. Accepted types: ${acceptedTypes.join(', ')}`)
-      return false
-    }
 
-    // Check file size
-    const fileSizeMB = file.size / (1024 * 1024)
-    if (fileSizeMB > maxSize) {
-      toast.error(`File too large. Maximum size: ${maxSize}MB`)
-      return false
-    }
-
-    return true
-  }
-
-  const handleFileUpload = async (file: File) => {
-    if (!validateFile(file)) return
-
-    try {
-      setUploading(true)
-      
-      // Create preview URL immediately
-      const tempPreviewUrl = URL.createObjectURL(file)
-      setPreviewUrl(tempPreviewUrl)
-
-      // Upload to server using utilityService
-      const { utilityService } = await import('@/services/utility.service')
-      const imageUrl = await utilityService.uploadImage(file)
-      
-      // Clean up temp preview URL
-      URL.revokeObjectURL(tempPreviewUrl)
-      
-      // Set final preview URL
-      setPreviewUrl(imageUrl)
-      onImageUploaded(imageUrl)
-      
-      toast.success('✅ Image uploaded successfully!')
-      
-    } catch (error) {
-      console.error('Upload error:', error)
-      toast.error('❌ Failed to upload image')
-      setPreviewUrl(currentImageUrl || null) // Reset to original
-    } finally {
-      setUploading(false)
-    }
-  }
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -145,7 +156,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     if (files && files[0]) {
       await handleFileUpload(files[0])
     }
-  }, [disabled])
+  }, [disabled, handleFileUpload])
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files

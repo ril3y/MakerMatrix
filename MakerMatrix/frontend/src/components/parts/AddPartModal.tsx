@@ -27,6 +27,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [formData, setFormData] = useState<CreatePartRequest>({
     name: '',
     part_number: '',
+    description: '',
     quantity: 0,
     minimum_quantity: 0,
     supplier: '',
@@ -190,6 +191,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setFormData({
       name: '',
       part_number: '',
+      description: '',
       quantity: 0,
       minimum_quantity: 0,
       supplier: '',
@@ -304,6 +306,20 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 placeholder="Enter part number"
               />
             </FormField>
+          </div>
+
+          {/* Description Field - Full Width */}
+          <FormField label="Description" error={errors.description}>
+            <textarea
+              className="input w-full min-h-[100px] resize-y"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Enter part description (optional)"
+              rows={3}
+            />
+          </FormField>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             <FormField label="Quantity" required error={errors.quantity}>
               <input

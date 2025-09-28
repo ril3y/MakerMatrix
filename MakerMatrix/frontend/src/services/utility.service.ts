@@ -15,11 +15,18 @@ class UtilityService {
       },
     })
 
+    console.log('🔍 Upload response:', response)
+    console.log('📊 Response status:', response.status)
+    console.log('📦 Response data:', response.data)
+
     if (response.status === 'success' && response.data) {
       // Return the full image URL - backend handles extension lookup
       const imageId = response.data.image_id
-      return `/api/utility/get_image/${imageId}`
+      const imageUrl = `/api/utility/get_image/${imageId}`
+      console.log('🖼️ Generated image URL:', imageUrl)
+      return imageUrl
     }
+    console.error('❌ Upload failed - response:', response)
     throw new Error(response.message || 'Failed to upload image')
   }
 }

@@ -556,3 +556,4 @@ POST /api/ai/test
 ---
 
 **Note**: This documentation reflects the current state of the project during the active cleanup process. Always refer to the latest cleanup.prd for current cleanup status and priorities.
+- never try to start the server directly use dev_manager.py to do this

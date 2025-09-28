@@ -219,7 +219,13 @@ async def import_file(
                 order_response = await order_service.create_order(order_request)
                 if order_response.success:
                     order = order_response.data
-                    order_id = order.id if hasattr(order, 'id') else order.get('id') if isinstance(order, dict) else None
+                    # Extract order ID immediately to avoid DetachedInstanceError
+                    if hasattr(order, 'id'):
+                        order_id = str(order.id)  # Convert to string to avoid session issues
+                    elif isinstance(order, dict) and order.get('id'):
+                        order_id = str(order['id'])
+                    else:
+                        order_id = None
                 else:
                     logger.warning(f"Failed to create order: {order_response.message}")
                     order_id = None
@@ -236,7 +242,10 @@ async def import_file(
                 # Ensure supplier is set
                 if 'supplier' not in part_data:
                     part_data['supplier'] = supplier_name.upper()
-                
+
+                # SupplierDataMapper will handle flattening into clean custom_fields
+                # No need for import-level flattening as it creates unwanted string concatenations
+
                 # Create part using the correct method
                 logger.info(f"Creating part with data: {part_data}")
                 created_part_response = part_service.add_part(part_data)
@@ -330,9 +339,12 @@ async def import_file(
                         input_data=enrichment_input,
                         timeout_seconds=3600  # 1 hour timeout
                     )
-                    enrichment_task = await task_service.create_task(task_request, current_user.id)
-                    
-                    enrichment_task_id = enrichment_task.id
+                    enrichment_task_response = await task_service.create_task(task_request, current_user.id)
+
+                    if enrichment_task_response.success:
+                        enrichment_task_id = enrichment_task_response.data.id
+                    else:
+                        raise Exception(f"Task creation failed: {enrichment_task_response.message}")
                     logger.info(f"Created enrichment task {enrichment_task_id} for {len(part_ids)} parts")
                     
                     # Add task info to warnings
@@ -498,5 +510,84 @@ async def get_import_suppliers(
     except Exception as e:
         logger.error(f"Error getting import suppliers: {e}")
         raise HTTPException(status_code=500, detail="Failed to get suppliers")
+
+
+# ========== Helper Functions ==========
+
+def _flatten_nested_objects(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Flatten nested objects in additional_properties to ensure clean key-value pairs.
+
+    This ensures that imported parts show simple key-value pairs instead of
+    nested objects like {"specifications": {...}} or {"supplier_data": {...}}.
+
+    Args:
+        data: Dictionary that may contain nested objects
+
+    Returns:
+        Flattened dictionary with simple key-value pairs
+    """
+    if not isinstance(data, dict):
+        return {}
+
+    flattened = {}
+
+    try:
+        for key, value in data.items():
+            if isinstance(value, dict):
+                # Flatten nested dictionaries
+                for nested_key, nested_value in value.items():
+                    # Create clean key name
+                    clean_key = str(nested_key).lower().replace(' ', '_').replace('-', '_')
+
+                    # Convert value to string for display
+                    if nested_value is not None:
+                        if isinstance(nested_value, (dict, list)):
+                            # For complex nested objects, create a summary string
+                            if isinstance(nested_value, dict) and len(nested_value) > 0:
+                                # Try to create meaningful key-value string
+                                pairs = []
+                                for k, v in nested_value.items():
+                                    if not isinstance(v, (dict, list)):
+                                        pairs.append(f"{k}: {v}")
+                                if pairs:
+                                    flattened[clean_key] = "; ".join(pairs)
+                                else:
+                                    flattened[clean_key] = str(nested_value)
+                            else:
+                                flattened[clean_key] = str(nested_value)
+                        else:
+                            flattened[clean_key] = str(nested_value)
+                    else:
+                        flattened[clean_key] = ""
+            elif isinstance(value, list):
+                # Handle lists by converting to string
+                if value:
+                    # Convert list items to strings
+                    string_items = []
+                    for item in value:
+                        if isinstance(item, dict):
+                            # For dict items in list, try to extract meaningful info
+                            if 'name' in item:
+                                string_items.append(str(item['name']))
+                            elif 'value' in item:
+                                string_items.append(str(item['value']))
+                            else:
+                                string_items.append(str(item))
+                        else:
+                            string_items.append(str(item))
+                    flattened[key] = ", ".join(string_items)
+                else:
+                    flattened[key] = ""
+            else:
+                # Keep simple key-value pairs
+                flattened[key] = str(value) if value is not None else ""
+
+    except Exception as e:
+        logger.warning(f"Error flattening nested objects: {e}")
+        # Return original data if flattening fails
+        return data
+
+    return flattened
 
 

@@ -101,10 +101,8 @@ class PartModel(SQLModel, table=True):
         sa_relationship_kwargs={"lazy": "selectin"}
     )
 
-    # === MEDIA & COMPLIANCE ===
+    # === MEDIA ===
     image_url: Optional[str] = None
-    rohs_status: Optional[str] = Field(default=None, description="RoHS compliance status")
-    lifecycle_status: Optional[str] = Field(default=None, description="Part lifecycle status (active, obsolete, etc.)")
     
     # === PART-SPECIFIC PROPERTIES ===
     # Examples:
@@ -115,7 +113,7 @@ class PartModel(SQLModel, table=True):
     additional_properties: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
         sa_column=Column(JSON),
-        description="Part-specific properties (resistance, capacitance, package, type, size, etc.)"
+        description="Part-specific properties as FLAT key-value pairs only (resistance, capacitance, package, type, size, etc.)"
     )
     
     # === TIMESTAMPS ===

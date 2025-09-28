@@ -1,4 +1,4 @@
-from MakerMatrix.tests.test_database_config import setup_test_database_with_admin\n#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Test the new supplier_part_number approach for enrichment
 """

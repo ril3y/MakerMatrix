@@ -468,14 +468,23 @@ const PartsPage = () => {
         
         <div className="card-content p-0">
           {parts.length === 0 && !loading ? (
-            <div className="text-center py-8">
+            <div className="text-center py-12">
               <Package className="w-16 h-16 text-muted mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-primary mb-2">
                 No Parts Found
               </h3>
-              <p className="text-secondary">
+              <p className="text-secondary mb-6">
                 {searchTerm ? 'No parts match your search criteria.' : 'Start by adding your first part to the inventory.'}
               </p>
+              {!searchTerm && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="btn btn-primary flex items-center gap-2 mx-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Your First Part
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

@@ -19,11 +19,14 @@ vi.mock('@/services/task-websocket.service', () => ({
     connect: vi.fn(),
     disconnect: vi.fn(),
     sendMessage: vi.fn(),
+    startHeartbeat: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
-    onTaskUpdate: vi.fn(),
-    onWorkerStatusUpdate: vi.fn(),
-    onTaskStatsUpdate: vi.fn(),
+    onTaskUpdate: vi.fn(() => vi.fn()),
+    onTaskCreated: vi.fn(() => vi.fn()),
+    onTaskDeleted: vi.fn(() => vi.fn()),
+    onWorkerStatusUpdate: vi.fn(() => vi.fn()),
+    onTaskStatsUpdate: vi.fn(() => vi.fn()),
   }
 }))
 
@@ -62,7 +65,7 @@ describe('TasksManagement - Real-time Monitoring', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     
     // Default mock responses
     mockTasksService.getTasks.mockResolvedValue({ 
@@ -98,6 +101,29 @@ describe('TasksManagement - Real-time Monitoring', () => {
         failed_tasks: 0,
         completed_today: 5
       }
+    })
+
+    ;(global as any).fetch = vi.fn((input: any) => {
+      const url = typeof input === 'string' ? input : input.toString()
+
+      if (url.includes('/api/suppliers/configured')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'digikey' }] })
+        })
+      }
+
+      if (url.includes('/api/tasks/capabilities/suppliers')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { digikey: { capabilities: ['fetch_pricing'] } } })
+        })
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({})
+      })
     })
   })
 

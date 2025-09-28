@@ -1,392 +1,348 @@
-# Part Inventory Server
+# MakerMatrix - Electronic Parts Inventory Management System
 
-This server provides a RESTful API for managing an inventory of parts.  It allows you to create, read, update, and delete part records.
+MakerMatrix is a comprehensive electronic parts inventory management system built with FastAPI backend and React frontend. It provides full CRUD operations for parts, locations, and categories, with advanced features like supplier integration, task management, and real-time updates.
 
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-* Python 3.7+
-* A database supported by SQLAlchemy (e.g., PostgreSQL, MySQL, SQLite)
+- Python 3.12+
+- Node.js 18+ and npm
+- SQLite (default) or PostgreSQL/MySQL
 
 ### Installation
 
-1. Clone the repository:
-
+1. **Clone the repository:**
    ```bash
    git clone <repository_url>
+   cd MakerMatrix
    ```
 
-2. Create a virtual environment:
-
+2. **Set up Python environment:**
    ```bash
-   python3 -m venv .venv
-   ```
-
-3. Activate the virtual environment:
-
-   ```bash
-   source .venv/bin/activate  # On Linux/macOS
-   .venv\Scripts\activate  # On Windows
-   ```
-
-4. Install the dependencies:
-
-   ```bash
+   python3 -m venv venv_test
+   source venv_test/bin/activate  # On Linux/macOS
+   # or venv_test\Scripts\activate on Windows
    pip install -r requirements.txt
    ```
 
-5. Configure the database connection:
-
-   * Create a `.env` file in the root directory of the project.
-   * Add the following environment variables, replacing the placeholders with your database credentials:
-
-     ```
-     DATABASE_URL=dialect+driver://username:password@host:port/database
-     ```
-
-     For example, for a PostgreSQL database:
-
-     ```
-     DATABASE_URL=postgresql://user:password@localhost:5432/part_inventory
-     ```
-
-     Or for an SQLite database:
-
-     ```
-     DATABASE_URL=sqlite:///part_inventory.db
-     ```
-
-6. (Optional) Configure supplier API credentials:
-
-   Supplier API keys and credentials can be configured using environment variables. Add them to your `.env` file or set them in your shell environment.
-
-   **Environment Variable Naming Convention:**
-   ```
-   {SUPPLIER_NAME}_{CREDENTIAL_TYPE}
-   ```
-
-   **Supported Suppliers and Credentials:**
-
-   **McMaster-Carr (Official API):**
+3. **Set up frontend dependencies:**
    ```bash
-   MCMASTER_CARR_USERNAME=your_api_username
-   MCMASTER_CARR_PASSWORD=your_api_password
-   MCMASTER_CARR_CLIENT_CERT_PATH=/path/to/your/certificate.p12
-   MCMASTER_CARR_CLIENT_CERT_PASSWORD=certificate_password
-   ```
-   *Note: McMaster-Carr API access requires approval. Contact eCommerce@mcmaster.com*
-
-   **Mouser Electronics:**
-   ```bash
-   MOUSER_API_KEY=your_mouser_api_key
+   cd MakerMatrix/frontend
+   npm install
+   cd ../..
    ```
 
-   **DigiKey:**
-   ```bash
-   DIGIKEY_CLIENT_ID=your_digikey_client_id
-   DIGIKEY_CLIENT_SECRET=your_digikey_client_secret
-   ```
+### Development with Rich TUI Manager
 
-   **LCSC:**
-   ```bash
-   LCSC_API_KEY=your_lcsc_api_key
-   ```
+**Use the development manager for the best development experience:**
 
-   If no credentials are provided, suppliers will operate in limited mode (search only, no enrichment).
-
-## Supplier Architecture
-
-MakerMatrix uses a unified supplier abstraction layer that provides consistent interfaces for all supplier integrations. This architecture eliminates code duplication and provides standardized patterns for adding new suppliers.
-
-### Core Components
-
-#### 1. SupplierHTTPClient (`suppliers/http_client.py`)
-Unified HTTP client that handles all supplier API communications:
-
-- **Defensive null safety**: Automatically handles `response.json() or {}` patterns
-- **Retry logic**: Exponential backoff with configurable retry policies
-- **Rate limiting**: Integrated with the rate limiting service
-- **Session management**: Automatic connection pooling and cleanup
-- **Error handling**: Consistent error patterns across all suppliers
-
-**Usage Example:**
-```python
-from MakerMatrix.suppliers.http_client import SupplierHTTPClient, RetryConfig
-
-# Create client with supplier-specific configuration
-client = SupplierHTTPClient(
-    supplier_name="lcsc",
-    default_timeout=30,
-    retry_config=RetryConfig(max_retries=3, base_delay=1.0)
-)
-
-# Make requests with automatic error handling
-response = await client.get("https://api.example.com/parts", endpoint_type="search")
-if response.success:
-    data = response.data  # Already parsed JSON with null safety
+```bash
+python dev_manager.py
 ```
 
-#### 2. Authentication Framework (`suppliers/auth_framework.py`)
-Standardized authentication patterns for all supplier types:
+The development manager provides:
+- **Rich TUI interface** for managing both backend and frontend
+- **Auto-restart functionality** with file watching
+- **Real-time log monitoring** and health checks
+- **HTTPS/HTTP mode switching**
+- **Process management** and port conflict resolution
 
-- **OAuth2 client credentials**: Automatic token management and refresh
-- **API key authentication**: Simple header-based authentication
-- **Bearer token authentication**: JWT and similar token patterns
-- **Token lifecycle management**: Automatic expiry handling and refresh
+### Manual Development Setup
 
-**Usage Example:**
-```python
-from MakerMatrix.suppliers.auth_framework import AuthenticationManager
-
-# Set up authentication
-auth_manager = AuthenticationManager("digikey", http_client)
-auth_manager.register_oauth2_client_credentials("https://api.digikey.com/token")
-
-# Authenticate and make requests
-result = await auth_manager.authenticate("oauth2_client_credentials", {
-    "client_id": "your_client_id",
-    "client_secret": "your_client_secret"
-})
-
-# Authentication headers are automatically added to requests
-headers = auth_manager.get_auth_headers()
+**Backend (Alternative):**
+```bash
+source venv_test/bin/activate
+python -m MakerMatrix.main
 ```
 
-#### 3. Data Extraction Utilities (`suppliers/data_extraction.py`)
-Standardized data parsing and normalization:
-
-- **Safe data access**: Defensive nested dictionary access
-- **Pricing extraction**: Standardized pricing break parsing
-- **URL validation**: Image and datasheet URL validation
-- **Specification parsing**: Consistent specification normalization
-- **Type conversion**: Safe type casting with fallbacks
-
-**Usage Example:**
-```python
-from MakerMatrix.suppliers.data_extraction import DataExtractor
-
-extractor = DataExtractor("lcsc")
-
-# Safe nested data access
-price = extractor.safe_get(api_data, ["pricing", "breaks", 0, "price"], 0.0)
-
-# Extract pricing with multiple fallback paths
-pricing_result = extractor.extract_pricing(
-    api_data, 
-    pricing_paths=["pricing.breaks", "price_breaks", "standard_pricing"]
-)
-
-# Validate and extract URLs
-datasheet_result = extractor.extract_datasheet_url(
-    api_data, 
-    datasheet_paths=["datasheet.url", "documents.datasheet"]
-)
+**Frontend (Alternative):**
+```bash
+cd MakerMatrix/frontend
+npm run dev
 ```
 
-### Creating New Suppliers
+### Access Points
 
-To add a new supplier, follow these steps:
+- **Frontend**: https://localhost:5173 (development)
+- **Backend API**: http://localhost:8080
+- **API Documentation**: http://localhost:8080/docs (Swagger UI)
+- **OpenAPI Schema**: http://localhost:8080/openapi.json
 
-1. **Create supplier class** inheriting from `BaseSupplier`
-2. **Use unified components** (HTTP client, auth, data extraction)
-3. **Implement required methods** following the established patterns
-4. **Register with the supplier registry**
-
-**Example supplier implementation:**
-```python
-from .base import BaseSupplier
-from .registry import register_supplier
-from .http_client import SupplierHTTPClient
-from .data_extraction import DataExtractor
-
-@register_supplier("example")
-class ExampleSupplier(BaseSupplier):
-    def __init__(self):
-        super().__init__()
-        self._http_client = None
-        self._data_extractor = None
-    
-    def _get_http_client(self) -> SupplierHTTPClient:
-        if not self._http_client:
-            self._http_client = SupplierHTTPClient(
-                supplier_name="example",
-                default_timeout=30,
-                default_headers={"User-Agent": "MakerMatrix/1.0"}
-            )
-        return self._http_client
-    
-    def _get_data_extractor(self) -> DataExtractor:
-        if not self._data_extractor:
-            self._data_extractor = DataExtractor("example")
-        return self._data_extractor
-    
-    async def get_part_details(self, part_number: str):
-        http_client = self._get_http_client()
-        extractor = self._get_data_extractor()
-        
-        # Make API request with unified client
-        response = await http_client.get(
-            f"https://api.example.com/parts/{part_number}",
-            endpoint_type="get_part_details"
-        )
-        
-        if response.success:
-            # Extract data with unified utilities
-            description = extractor.safe_get(response.data, ["description"], "")
-            pricing = extractor.extract_pricing(response.data, ["pricing"])
-            
-            return PartSearchResult(
-                supplier_part_number=part_number,
-                description=description,
-                pricing=pricing.value if pricing.success else None
-            )
-        
-        return None
-```
-
-### Benefits of the Unified Architecture
-
-1. **Code Reduction**: Eliminates 450+ lines of duplicate code per supplier
-2. **Consistency**: All suppliers follow the same patterns and behaviors
-3. **Maintainability**: Common issues are fixed once in the shared components
-4. **Reliability**: Defensive programming patterns prevent common errors
-5. **Testability**: Shared components have comprehensive test coverage
-
-### Migration from Legacy Suppliers
-
-Existing suppliers are being migrated to use the unified architecture:
-
-- **LCSC**: ✅ Migrated (reduced from 800+ to 400 lines)
-- **DigiKey**: 🔄 In progress  
-- **Mouser**: 🔄 Planned
-
-The migration process maintains backward compatibility while providing the benefits of the unified architecture.
-
-### Running the Server
-
-1. Start the server:
-
-   ```bash
-   python -m MakerMatrix.main
-   ```
-
-   This will start the server on port 57891.
-
-## Authentication
-
-The API uses JWT (JSON Web Token) authentication. Most endpoints require authentication.
+## 🔐 Authentication
 
 ### Default Admin User
 
-When the application starts for the first time, a default admin user is created with the following credentials:
+The system creates a default admin user on first startup:
+- **Username**: `admin`
+- **Password**: `Admin123!`
 
-- **Username**: admin
-- **Password**: Admin123!
+**Change this password after first login!**
 
-You should change this password after the first login.
+### API Authentication
 
-### Using the Swagger UI
-
-1. Go to the Swagger UI at `http://localhost:57891/docs`
-2. Click the "Authorize" button at the top right
-3. Enter the admin credentials (or your user credentials)
-4. Click "Authorize" to log in
-5. Now you can use all the authenticated endpoints
-
-### Authentication Endpoints
-
-- **POST /auth/login**: Log in with username and password to get an access token (form-based, used by Swagger UI)
-- **POST /auth/mobile-login**: Log in with username and password to get an access token (JSON-based, ideal for mobile apps)
-- **POST /auth/refresh**: Refresh an expired access token
-- **POST /auth/logout**: Log out (invalidate the current token)
-- **POST /users/register**: Register a new user (admin only)
-
-### Mobile Application Integration
-
-For mobile applications (like an iPhone app), use the `/auth/mobile-login` endpoint:
-
-```json
-POST /auth/mobile-login
-Content-Type: application/json
-
-{
-  "username": "admin",
-  "password": "Admin123!"
-}
+The API uses JWT authentication. Include the token in requests:
+```
+Authorization: Bearer <your_jwt_token>
 ```
 
-Response:
+#### Authentication Endpoints
 
-```json
-{
-  "status": "success",
-  "message": "Login successful",
-  "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "token_type": "bearer"
-  }
-}
+- `POST /api/auth/login` - Web login (form-based)
+- `POST /api/auth/mobile-login` - JSON login for APIs/mobile
+- `POST /api/auth/refresh` - Refresh expired tokens
+- `POST /api/auth/logout` - Logout/invalidate token
+
+#### Example Login
+```bash
+curl -X POST http://localhost:8080/api/auth/mobile-login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "Admin123!"}'
 ```
 
-Then use the token in subsequent requests:
+## 🏗️ Architecture
 
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+### Core Features
 
-### Role-Based Access Control
+- **Parts Management**: Full CRUD with search, categorization, and location tracking
+- **Location Hierarchy**: Multi-level storage organization with parent-child relationships
+- **Category System**: Flexible part categorization with counts and associations
+- **Task System**: Background processing for long-running operations
+- **Supplier Integration**: Automated part enrichment from multiple suppliers
+- **File Import**: CSV/XLS import from supplier order files
+- **Real-time Updates**: WebSocket integration for live updates
+- **Analytics**: Comprehensive reporting and data visualization
 
-The API uses role-based access control with the following default roles:
+### Technology Stack
 
-- **admin**: Full access to all endpoints
-- **manager**: Read, write, and update access
-- **user**: Read-only access
+**Backend:**
+- FastAPI with async/await
+- SQLAlchemy with SQLite/PostgreSQL
+- JWT authentication with role-based access control
+- Background task processing
+- WebSocket support
+- Comprehensive API documentation
 
-## API Endpoints
+**Frontend:**
+- React 18 with TypeScript
+- Vite for development and building
+- Modern responsive UI with real-time updates
+- WebSocket integration
+- Chart.js for analytics visualization
 
-The following endpoints are available:
+### Database
 
-* **GET /parts**: Retrieve all parts.
-* **GET /parts/{part_id}**: Retrieve a specific part by ID.
-* **POST /parts**: Create a new part.
-* **PUT /parts/{part_id}**: Update an existing part.
-* **DELETE /parts/{part_id}**: Delete a part.
+- **Auto-creation**: Database and tables created automatically on first run
+- **Default data**: Includes default roles, admin user, and sample locations
+- **Migrations**: Automatic schema updates
+- **Backup system**: Task-based backup with full data export
 
+## 📊 Supplier Integration
 
-## Data Model
+MakerMatrix integrates with multiple electronic component suppliers:
 
-The part data model includes the following fields:
+### Supported Suppliers
 
-* **id (int)**: Unique identifier for the part.
-* **name (str)**: Name of the part.
-* **description (str, optional)**: Description of the part.
-* **quantity (int)**: Quantity of the part in stock.
+- **LCSC Electronics**: Part enrichment, pricing, datasheets
+- **DigiKey**: Part details, pricing, stock information
+- **Mouser Electronics**: Order file import, part enrichment
+- **McMaster-Carr**: Industrial parts integration
+- **Bolt Depot**: Fasteners and hardware
 
-## Example Usage
+### Configuration
 
-### Creating a new part:
+Add supplier credentials to your `.env` file:
 
 ```bash
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_TOKEN" -d '{"name": "Example Part", "description": "A test part", "quantity": 10}' http://localhost:57891/parts
+# DigiKey
+DIGIKEY_CLIENT_ID=your_client_id
+DIGIKEY_CLIENT_SECRET=your_client_secret
+
+# Mouser
+MOUSER_API_KEY=your_api_key
+
+# LCSC
+LCSC_API_KEY=your_api_key
+
+# McMaster-Carr (requires approval)
+MCMASTER_CARR_USERNAME=your_username
+MCMASTER_CARR_PASSWORD=your_password
 ```
 
-### Retrieving all parts:
+### File Import
+
+Import parts from supplier order files:
 
 ```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:57891/parts
+# Via API
+curl -X POST http://localhost:8080/api/import/file \
+  -H "Authorization: Bearer <token>" \
+  -F "supplier_name=lcsc" \
+  -F "file=@order.csv" \
+  -F "enable_enrichment=true"
 ```
 
-### Updating a part:
+Supported formats:
+- **CSV**: LCSC, DigiKey, and other CSV formats
+- **XLS**: Mouser Electronics order files
+
+## 🔧 Task Management
+
+Background tasks handle long-running operations:
+
+### Quick Task Creation
 
 ```bash
-curl -X PUT -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_TOKEN" -d '{"name": "Updated Part", "quantity": 5}' http://localhost:57891/parts/1
+# Enrich a part with supplier data
+POST /api/tasks/quick/part_enrichment
+
+# Fetch datasheet for a part
+POST /api/tasks/quick/datasheet_fetch
+
+# Bulk enrich multiple parts
+POST /api/tasks/quick/bulk_enrichment
+
+# Create database backup
+POST /api/tasks/quick/database_backup
 ```
 
-### Deleting a part:
+### Task Monitoring
+
+- **WebSocket**: Real-time task updates via `/ws/tasks`
+- **REST API**: Query task status via `/api/tasks/`
+- **Dashboard**: Built-in task monitoring in the web interface
+
+## 🧪 Testing
+
+### Backend Testing
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=MakerMatrix
+
+# Run specific test categories
+pytest -m integration          # Integration tests
+pytest -m "not integration"    # Unit tests only
+```
+
+### Frontend Testing
+```bash
+cd MakerMatrix/frontend
+
+# Unit tests
+npm test
+
+# E2E tests with Playwright
+npm run test:e2e
+
+# All test suites
+npm run test:ci
+```
+
+## 🔧 Configuration
+
+### Environment Files
+- `.env` - Main configuration
+- `.env.https` - HTTPS-specific settings
+
+### Key Configuration Options
 
 ```bash
-curl -X DELETE -H "Authorization: Bearer YOUR_TOKEN" http://localhost:57891/parts/1
+# Database
+DATABASE_URL=sqlite:///makermatrix.db
+
+# Server
+PORT=8080
+HOST=0.0.0.0
+
+# Security
+SECRET_KEY=your-secret-key
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# Development
+DEBUG=true
+LOG_LEVEL=INFO
 ```
 
+### HTTPS Setup
 
+For production or DigiKey OAuth integration:
+
+```bash
+# Quick setup with self-signed certificates
+python scripts/setup_https.py
+
+# Better setup with mkcert (no browser warnings)
+python scripts/setup_https.py --method mkcert
+```
+
+## 📚 API Documentation
+
+### Core Endpoints
+
+**Parts Management:**
+- `GET /api/parts/get_all_parts` - List all parts with pagination
+- `POST /api/parts/add_part` - Create new part
+- `PUT /api/parts/update_part/{part_id}` - Update part
+- `DELETE /api/parts/delete_part` - Delete part
+- `POST /api/parts/search` - Advanced search with filters
+
+**Locations:**
+- `GET /api/locations/get_all_locations` - List all locations
+- `POST /api/locations/add_location` - Create location
+- `PUT /api/locations/update_location/{location_id}` - Update location
+
+**Categories:**
+- `GET /api/categories/get_all_categories` - List all categories
+- `POST /api/categories/add_category` - Create category
+
+**Full API documentation available at `/docs` when running the server.**
+
+## 🔄 WebSocket Endpoints
+
+- `/ws/general` - General application updates
+- `/ws/tasks` - Task progress and completion notifications
+- `/ws/admin` - Administrative monitoring (admin only)
+
+## 📁 Project Structure
+
+```
+MakerMatrix/
+├── dev_manager.py              # Rich TUI development manager
+├── CLAUDE.md                   # Claude Code instructions
+├── api.md                      # Complete API documentation
+├── MakerMatrix/
+│   ├── main.py                 # FastAPI application entry point
+│   ├── models/                 # SQLAlchemy database models
+│   ├── repositories/           # Data access layer
+│   ├── services/               # Business logic layer
+│   ├── routers/                # FastAPI route handlers
+│   ├── suppliers/              # Supplier integration
+│   ├── tasks/                  # Background task handlers
+│   ├── frontend/               # React frontend application
+│   └── scripts/                # Utility scripts
+├── scripts/                    # Development and setup scripts
+└── venv_test/                  # Python virtual environment
+```
+
+## 🤝 Contributing
+
+1. **Follow the architecture patterns**: Use repositories for data access, services for business logic
+2. **Use the development manager**: `python dev_manager.py` for consistent development experience
+3. **Update documentation**: Keep `CLAUDE.md` and `api.md` current with code changes
+4. **Test thoroughly**: Both unit and integration tests for new features
+5. **Follow security practices**: Never commit secrets, use proper authentication
+
+## 📄 License
+
+This project is for electronic parts inventory management. See the project documentation for more details.
+
+## 🔗 Additional Documentation
+
+- **[CLAUDE.md](CLAUDE.md)** - Comprehensive development guide and instructions
+- **[api.md](api.md)** - Complete API reference documentation
+- **[scripts/HTTPS_SETUP.md](scripts/HTTPS_SETUP.md)** - HTTPS configuration guide
+- **[suppliers.md](suppliers.md)** - Current supplier integration status
+- **[project_status.md](project_status.md)** - Recent project milestones and updates

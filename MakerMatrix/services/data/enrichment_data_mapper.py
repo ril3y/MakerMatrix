@@ -59,9 +59,11 @@ class EnrichmentDataMapper:
                 image_url=extracted_data.get('image_url'),
                 pricing=extracted_data.get('pricing'),
                 stock_quantity=extracted_data.get('stock_quantity'),
-                specifications=extracted_data.get('specifications', {}),
+                specifications={},  # No longer using nested specifications - all data goes to additional_data
                 additional_data={
                     **extracted_data.get('additional_data', {}),
+                    # Flatten any specifications directly into additional_data
+                    **self._flatten_specifications(extracted_data.get('specifications', {})),
                     'enrichment_source': supplier_name,
                     'enrichment_timestamp': datetime.utcnow().isoformat()
                 }
@@ -401,5 +403,30 @@ class EnrichmentDataMapper:
         except Exception as e:
             logger.warning(f"Error normalizing specifications: {e}")
             normalized = specifications  # Return original if normalization fails
-        
+
         return normalized
+
+    def _flatten_specifications(self, specifications: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Flatten nested specifications into simple key-value pairs.
+        Specifications should not be nested - flatten them directly into additional_data.
+        """
+        if not isinstance(specifications, dict):
+            return {}
+
+        flattened = {}
+        try:
+            for key, value in specifications.items():
+                if isinstance(value, dict):
+                    # Flatten nested dictionaries
+                    for nested_key, nested_value in value.items():
+                        clean_key = str(nested_key).lower().replace(' ', '_').replace('-', '_')
+                        flattened[clean_key] = str(nested_value) if nested_value is not None else ""
+                else:
+                    # Keep simple key-value pairs
+                    clean_key = str(key).lower().replace(' ', '_').replace('-', '_')
+                    flattened[clean_key] = str(value) if value is not None else ""
+        except Exception as e:
+            logger.warning(f"Error flattening specifications: {e}")
+
+        return flattened

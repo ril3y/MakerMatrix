@@ -11,7 +11,6 @@ import base64
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-import aiohttp
 import pandas as pd
 
 # Import the official DigiKey API library
@@ -250,6 +249,39 @@ class DigiKeySupplier(BaseSupplier):
         
         return f"{protocol}://{host}:{port}"
     
+    def _get_http_client(self):
+        """Get or create HTTP client with DigiKey-specific configuration"""
+        if not hasattr(self, '_http_client') or not self._http_client:
+            from .http_client import SupplierHTTPClient, RetryConfig
+            
+            config = self._config or {}
+            
+            # Configure for API usage with OAuth2 rate limiting
+            rate_limit = config.get("rate_limit_requests_per_minute", 240)  # 4 requests per second default
+            delay_seconds = 60.0 / max(rate_limit, 1)
+            
+            retry_config = RetryConfig(
+                max_retries=3,
+                base_delay=delay_seconds,
+                max_delay=60.0,
+                retry_on_status=[429, 500, 502, 503, 504]
+            )
+            
+            # Set up default headers for OAuth2 API
+            default_headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            }
+            
+            self._http_client = SupplierHTTPClient(
+                supplier_name="digikey",
+                default_headers=default_headers,
+                default_timeout=config.get("request_timeout", 30),
+                retry_config=retry_config
+            )
+        
+        return self._http_client
+    
     async def authenticate(self) -> bool:
         """Authenticate with DigiKey production API using cached tokens when possible"""
         # First check if we have a valid cached token
@@ -407,7 +439,6 @@ class DigiKeySupplier(BaseSupplier):
             print(f"DEBUG: token_url={token_url}")
             
             # Workaround: Use requests library since aiohttp has connection issues with DigiKey
-            import requests
             
             data = {
                 "grant_type": "client_credentials",
@@ -421,13 +452,14 @@ class DigiKeySupplier(BaseSupplier):
                 "Accept": "*/*"
             }
             
-            print(f"DEBUG: Sending POST to {token_url} using requests library")
+            print(f"DEBUG: Sending POST to {token_url} using unified HTTP client")
             
-            response = requests.post(token_url, data=data, headers=headers, timeout=30)
-            print(f"DEBUG: Response status: {response.status_code}")
+            http_client = self._get_http_client()
+            response = await http_client.post(token_url, endpoint_type="client_credentials", headers=headers, data=data)
+            print(f"DEBUG: Response status: {response.status}")
             
-            if response.status_code == 200:
-                token_data = response.json() or {}
+            if response.success:
+                token_data = response.data or {}
                 access_token = token_data.get("access_token")
                 self._token_type = token_data.get("token_type", "Bearer")
                 
@@ -441,8 +473,8 @@ class DigiKeySupplier(BaseSupplier):
                 print(f"✅ Access token: {access_token[:20]}...")
                 return True
             else:
-                error_text = response.text
-                print(f"❌ DigiKey client credentials failed: {response.status_code} - {error_text}")
+                error_text = response.error_message or f"HTTP {response.status}"
+                print(f"❌ DigiKey client credentials failed: {response.status} - {error_text}")
                 return False
             
         except Exception as e:
@@ -512,8 +544,6 @@ class DigiKeySupplier(BaseSupplier):
         if not self._refresh_token:
             return False
         
-        session = await self._get_session()
-        
         # Prepare basic auth header
         credentials = self._credentials or {}
         client_id = credentials.get("client_id")
@@ -531,16 +561,18 @@ class DigiKeySupplier(BaseSupplier):
         }
         
         try:
-            async with session.post(self._get_token_url(), headers=headers, data=data) as response:
-                if response.status == 200:
-                    token_data = await response.json() or {}
-                    self._access_token = token_data.get("access_token")
-                    expires_in = token_data.get("expires_in", 3600)
-                    self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
-                    await self._save_tokens()
-                    return True
-                else:
-                    return False
+            http_client = self._get_http_client()
+            response = await http_client.post(self._get_token_url(), endpoint_type="refresh_token", headers=headers, data=data)
+            
+            if response.success:
+                token_data = response.data or {}
+                self._access_token = token_data.get("access_token")
+                expires_in = token_data.get("expires_in", 3600)
+                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                await self._save_tokens()
+                return True
+            else:
+                return False
         except Exception:
             return False
     
@@ -562,8 +594,6 @@ class DigiKeySupplier(BaseSupplier):
     
     async def exchange_code_for_tokens(self, authorization_code: str) -> bool:
         """Exchange authorization code for access/refresh tokens"""
-        session = await self._get_session()
-        
         credentials = self._credentials or {}
         client_id = credentials.get("client_id")
         client_secret = credentials.get("client_secret")
@@ -584,22 +614,27 @@ class DigiKeySupplier(BaseSupplier):
         }
         
         try:
-            async with session.post(self._get_token_url(), headers=headers, data=data) as response:
-                if response.status == 200:
-                    token_data = await response.json() or {}
-                    self._access_token = token_data.get("access_token")
-                    self._refresh_token = token_data.get("refresh_token")
-                    expires_in = token_data.get("expires_in", 3600)
-                    self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
-                    await self._save_tokens()
-                    return True
-                else:
-                    error_data = await response.text()
-                    raise SupplierAuthenticationError(
-                        f"Token exchange failed: {error_data}",
-                        supplier_name="digikey"
+            http_client = self._get_http_client()
+            response = await http_client.post(self._get_token_url(), endpoint_type="exchange_code", headers=headers, data=data)
+            
+            if response.success:
+                token_data = response.data or {}
+                self._access_token = token_data.get("access_token")
+                self._refresh_token = token_data.get("refresh_token")
+                expires_in = token_data.get("expires_in", 3600)
+                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                await self._save_tokens()
+                return True
+            else:
+                error_data = response.error_message or f"HTTP {response.status}"
+                raise SupplierAuthenticationError(
+                    f"Token exchange failed: {error_data}",
+                    supplier_name="digikey"
                     )
-        except aiohttp.ClientError as e:
+        except SupplierError:
+            # Re-raise supplier errors as-is
+            raise
+        except Exception as e:
             raise SupplierConnectionError(
                 f"Connection error during token exchange: {str(e)}",
                 supplier_name="digikey"
@@ -664,7 +699,6 @@ class DigiKeySupplier(BaseSupplier):
                     # Authentication successful! Now test API subscription with a simple call
                     try:
                         # Test API subscription with a simple product search
-                        session = await self._get_session()
                         headers = {
                             'Authorization': f'Bearer {self._access_token}',
                             'X-DIGIKEY-Client-Id': self._credentials.get('client_id'),
@@ -673,8 +707,10 @@ class DigiKeySupplier(BaseSupplier):
                         
                         # Try a simple API call to test subscription
                         test_url = f"{self._get_base_url()}/products/v4/search/test/productdetails"
-                        async with session.get(test_url, headers=headers) as response:
-                            if response.status == 401 and "not subscribed to this API" in await response.text():
+                        http_client = self._get_http_client()
+                        response = await http_client.get(test_url, endpoint_type="test_subscription", headers=headers)
+                        
+                        if response.status == 401 and "not subscribed to this API" in (response.raw_content or ""):
                                 return {
                                     "success": False,
                                     "message": "DigiKey API subscription required",
@@ -819,8 +855,7 @@ class DigiKeySupplier(BaseSupplier):
                 raise SupplierConfigurationError("DigiKey API library not available", supplier_name="digikey")
             
             try:
-                # Make direct API call using our authentication
-                session = await self._get_session()
+                # Make direct API call using our authentication with unified HTTP client
                 headers = {
                     'Authorization': f'Bearer {self._access_token}',
                     'X-DIGIKEY-Client-Id': self._credentials.get('client_id'),
@@ -831,143 +866,145 @@ class DigiKeySupplier(BaseSupplier):
                 # Try the product details endpoint (might be included in Product Information V4)
                 search_url = f"{self._get_base_url()}/products/v4/search/{supplier_part_number}/productdetails"
                 
-                async with session.get(search_url, headers=headers) as response:
-                    if response.status == 200:
-                        result_data = await response.json() or {}
-                        # Product details endpoint returns product directly
-                        product = result_data.get('Product')
-                        
-                        # Log successful API response retrieval
-                        logger.debug(f"🔍 DigiKey API Response keys: {list(result_data.keys()) if result_data else 'None'}")
-                        
-                        # Log successful data retrieval  
-                        if product:
-                            logger.info(f"✅ DigiKey retrieved part data for {supplier_part_number}: {product.get('ManufacturerProductNumber', 'Unknown MPN')}")
-                        else:
-                            logger.warning(f"⚠️ DigiKey: No product found in response for {supplier_part_number}")
-                        
-                        if product:
-                            # Extract nested data properly with null safety
-                            description_data = product.get("Description", {}) or {}
-                            manufacturer_data = product.get("Manufacturer", {}) or {}
-                            category_data = product.get("Category", {}) or {}
-                            series_data = product.get("Series", {}) or {}
-                            product_status = product.get("ProductStatus", {}) or {}
-                            classifications = product.get("Classifications", {}) or {}
-                            
-                            # Extract component type from category hierarchy
-                            category_name = category_data.get("Name", "") if category_data else ""
-                            component_type = self._determine_component_type_from_category(category_data)
-                            
-                            # Extract RoHS and lifecycle status from classifications and product status
-                            rohs_status = self._extract_rohs_status(classifications)
-                            lifecycle_status = self._extract_lifecycle_status(product_status, product)
-                            
-                            # Build rich additional_data with DigiKey-specific information
-                            # but exclude pricing (goes to PartPricingHistory table)
-                            additional_data = {
-                                # Core fields that can be mapped to PartModel top-level fields
-                                "component_type": component_type,
-                                "rohs_status": rohs_status,
-                                "lifecycle_status": lifecycle_status,
-                                
-                                # DigiKey-specific identifiers
-                                "digikey_part_number": supplier_part_number,
-                                "product_url": product.get("ProductUrl", ""),
-                                "base_product_number": product.get("BaseProductNumber", {}).get("Name", "") if product.get("BaseProductNumber") else "",
-                                
-                                # Detailed descriptions
-                                "detailed_description": description_data.get("DetailedDescription", ""),
-                                
-                                # Technical specifications from Parameters
-                                "series": series_data.get("Name", "") if series_data else "",
-                                "package_case": self._extract_package_from_parameters(product),
-                                "mounting_type": self._extract_mounting_type_from_parameters(product),
-                                "supplier_device_package": self._extract_supplier_device_package(product),
-                                
-                                # Manufacturing and lead times (no pricing here)
-                                "manufacturer_lead_weeks": int(product.get("ManufacturerLeadWeeks", 0)) if product.get("ManufacturerLeadWeeks") else 0,
-                                "factory_stock_availability": product.get("ManufacturerPublicQuantity", 0),
-                                "normally_stocking": product.get("NormallyStocking", False),
-                                "back_order_not_allowed": product.get("BackOrderNotAllowed", False),
-                                
-                                # DigiKey category hierarchy (helpful for part organization)
-                                "digikey_category_id": category_data.get("CategoryId") if category_data else None,
-                                "digikey_category_name": category_name,
-                                "digikey_parent_category": self._extract_parent_category_name(category_data),
-                                "digikey_subcategory": self._extract_subcategory_name(category_data),
-                                
-                                # Product status and lifecycle
-                                "product_status_id": product_status.get("Id") if product_status else None,
-                                "product_status_name": product_status.get("Status") if product_status else "",
-                                "discontinued": product.get("Discontinued", False),
-                                "end_of_life": product.get("EndOfLife", False),
-                                "date_last_buy_chance": product.get("DateLastBuyChance"),
-                                "ncnr": product.get("Ncnr", False),  # Non-Cancelable Non-Returnable
-                                
-                                # Compliance and certifications
-                                "reach_status": classifications.get("ReachStatus", ""),
-                                "moisture_sensitivity_level": classifications.get("MoistureSensitivityLevel", ""),
-                                "export_control_class_number": classifications.get("ExportControlClassNumber", ""),
-                                "htsus_code": classifications.get("HtsusCode", ""),
-                                
-                                # Media
-                                "primary_video_url": product.get("PrimaryVideoUrl"),
-                                
-                                # Alternative names and identifiers
-                                "other_names": product.get("OtherNames", []),
-                                
-                                # Data enrichment metadata
-                                "enrichment_source": "digikey_api_v4",
-                                "enrichment_timestamp": datetime.utcnow().isoformat(),
-                                "api_response_version": "v4"
-                            }
-                            
-                            # Remove None values and empty strings to keep additional_data clean
-                            additional_data = {k: v for k, v in additional_data.items() if v is not None and v != ""}
-                            
-                            return PartSearchResult(
-                                supplier_part_number=supplier_part_number,  # Use the requested part number
-                                manufacturer=manufacturer_data.get("Name", ""),
-                                manufacturer_part_number=product.get("ManufacturerProductNumber", ""),
-                                description=description_data.get("ProductDescription", ""),
-                                category=category_name,
-                                datasheet_url=self._normalize_url(product.get("DatasheetUrl", "")),
-                                image_url=self._normalize_url(product.get("PhotoUrl", "")),
-                                stock_quantity=product.get("QuantityAvailable", 0),
-                                pricing=self._extract_pricing_from_dict(product),
-                                specifications=self._extract_specifications_from_dict(product),
-                                additional_data=additional_data
-                            )
-                        else:
-                            logger.warning(f"🔍 DigiKey: No product found in response for {supplier_part_number}")
-                            return None
+                http_client = self._get_http_client()
+                response = await http_client.get(search_url, endpoint_type="get_part_details", headers=headers)
+                
+                if response.success:
+                    result_data = response.data or {}
+                    # Product details endpoint returns product directly
+                    product = result_data.get('Product')
+                    
+                    # Log successful API response retrieval
+                    logger.debug(f"🔍 DigiKey API Response keys: {list(result_data.keys()) if result_data else 'None'}")
+                    
+                    # Log successful data retrieval  
+                    if product:
+                        logger.info(f"✅ DigiKey retrieved part data for {supplier_part_number}: {product.get('ManufacturerProductNumber', 'Unknown MPN')}")
                     else:
-                        error_text = await response.text()
-                        logger.error(f"🔍 DigiKey API call failed: {response.status} - {error_text}")
+                        logger.warning(f"⚠️ DigiKey: No product found in response for {supplier_part_number}")
+                    
+                    if product:
+                        # Extract nested data properly with null safety
+                        description_data = product.get("Description", {}) or {}
+                        manufacturer_data = product.get("Manufacturer", {}) or {}
+                        category_data = product.get("Category", {}) or {}
+                        series_data = product.get("Series", {}) or {}
+                        product_status = product.get("ProductStatus", {}) or {}
+                        classifications = product.get("Classifications", {}) or {}
                         
-                        # Handle specific API subscription errors
-                        if response.status == 401 and "not subscribed to this API" in error_text:
-                            raise SupplierConfigurationError(
-                                "DigiKey API subscription required: Your DigiKey developer account is not subscribed to the Product Information V4 API. "
-                                "Please visit the DigiKey Developer Portal and subscribe to the Product Information V4 API to enable part enrichment.",
-                                supplier_name="digikey",
-                                details={
-                                    'error_type': 'api_subscription_required',
-                                    'api_name': 'Product Information V4',
-                                    'action_required': 'Subscribe to API in DigiKey Developer Portal'
-                                }
-                            )
-                        elif response.status == 401:
-                            raise SupplierAuthenticationError(
-                                f"DigiKey authentication failed: {error_text}",
-                                supplier_name="digikey"
-                            )
-                        else:
-                            raise SupplierConnectionError(
-                                f"DigiKey API error ({response.status}): {error_text}",
-                                supplier_name="digikey"
-                            )
+                        # Extract component type from category hierarchy
+                        category_name = category_data.get("Name", "") if category_data else ""
+                        component_type = self._determine_component_type_from_category(category_data)
+                        
+                        # Extract RoHS and lifecycle status from classifications and product status
+                        rohs_status = self._extract_rohs_status(classifications)
+                        lifecycle_status = self._extract_lifecycle_status(product_status, product)
+                        
+                        # Build rich additional_data with DigiKey-specific information
+                        # but exclude pricing (goes to PartPricingHistory table)
+                        additional_data = {
+                            # Core fields that can be mapped to PartModel top-level fields
+                            "component_type": component_type,
+                            "rohs_status": rohs_status,
+                            "lifecycle_status": lifecycle_status,
+                            
+                            # DigiKey-specific identifiers
+                            "digikey_part_number": supplier_part_number,
+                            "product_url": product.get("ProductUrl", ""),
+                            "base_product_number": product.get("BaseProductNumber", {}).get("Name", "") if product.get("BaseProductNumber") else "",
+                            
+                            # Detailed descriptions
+                            "detailed_description": description_data.get("DetailedDescription", ""),
+                            
+                            # Technical specifications from Parameters
+                            "series": series_data.get("Name", "") if series_data else "",
+                            "package_case": self._extract_package_from_parameters(product),
+                            "mounting_type": self._extract_mounting_type_from_parameters(product),
+                            "supplier_device_package": self._extract_supplier_device_package(product),
+                            
+                            # Manufacturing and lead times (no pricing here)
+                            "manufacturer_lead_weeks": int(product.get("ManufacturerLeadWeeks", 0)) if product.get("ManufacturerLeadWeeks") else 0,
+                            "factory_stock_availability": product.get("ManufacturerPublicQuantity", 0),
+                            "normally_stocking": product.get("NormallyStocking", False),
+                            "back_order_not_allowed": product.get("BackOrderNotAllowed", False),
+                            
+                            # DigiKey category hierarchy (helpful for part organization)
+                            "digikey_category_id": category_data.get("CategoryId") if category_data else None,
+                            "digikey_category_name": category_name,
+                            "digikey_parent_category": self._extract_parent_category_name(category_data),
+                            "digikey_subcategory": self._extract_subcategory_name(category_data),
+                            
+                            # Product status and lifecycle
+                            "product_status_id": product_status.get("Id") if product_status else None,
+                            "product_status_name": product_status.get("Status") if product_status else "",
+                            "discontinued": product.get("Discontinued", False),
+                            "end_of_life": product.get("EndOfLife", False),
+                            "date_last_buy_chance": product.get("DateLastBuyChance"),
+                            "ncnr": product.get("Ncnr", False),  # Non-Cancelable Non-Returnable
+                            
+                            # Compliance and certifications
+                            "reach_status": classifications.get("ReachStatus", ""),
+                            "moisture_sensitivity_level": classifications.get("MoistureSensitivityLevel", ""),
+                            "export_control_class_number": classifications.get("ExportControlClassNumber", ""),
+                            "htsus_code": classifications.get("HtsusCode", ""),
+                            
+                            # Media
+                            "primary_video_url": product.get("PrimaryVideoUrl"),
+                            
+                            # Alternative names and identifiers
+                            "other_names": product.get("OtherNames", []),
+                            
+                            # Data enrichment metadata
+                            "enrichment_source": "digikey_api_v4",
+                            "enrichment_timestamp": datetime.utcnow().isoformat(),
+                            "api_response_version": "v4"
+                        }
+                        
+                        # Remove None values and empty strings to keep additional_data clean
+                        additional_data = {k: v for k, v in additional_data.items() if v is not None and v != ""}
+                        
+                        return PartSearchResult(
+                            supplier_part_number=supplier_part_number,  # Use the requested part number
+                            manufacturer=manufacturer_data.get("Name", ""),
+                            manufacturer_part_number=product.get("ManufacturerProductNumber", ""),
+                            description=description_data.get("ProductDescription", ""),
+                            category=category_name,
+                            datasheet_url=self._normalize_url(product.get("DatasheetUrl", "")),
+                            image_url=self._normalize_url(product.get("PhotoUrl", "")),
+                            stock_quantity=product.get("QuantityAvailable", 0),
+                            pricing=self._extract_pricing_from_dict(product),
+                            specifications=self._extract_specifications_from_dict(product),
+                            additional_data=additional_data
+                        )
+                    else:
+                        logger.warning(f"🔍 DigiKey: No product found in response for {supplier_part_number}")
+                        return None
+                else:
+                    error_text = response.error_message or f"HTTP {response.status}"
+                    logger.error(f"🔍 DigiKey API call failed: {response.status} - {error_text}")
+                    
+                    # Handle specific API subscription errors
+                    if response.status == 401 and "not subscribed to this API" in error_text:
+                        raise SupplierConfigurationError(
+                            "DigiKey API subscription required: Your DigiKey developer account is not subscribed to the Product Information V4 API. "
+                            "Please visit the DigiKey Developer Portal and subscribe to the Product Information V4 API to enable part enrichment.",
+                            supplier_name="digikey",
+                            details={
+                                'error_type': 'api_subscription_required',
+                                'api_name': 'Product Information V4',
+                                'action_required': 'Subscribe to API in DigiKey Developer Portal'
+                            }
+                        )
+                    elif response.status == 401:
+                        raise SupplierAuthenticationError(
+                            f"DigiKey authentication failed: {error_text}",
+                            supplier_name="digikey"
+                        )
+                    else:
+                        raise SupplierConnectionError(
+                            f"DigiKey API error ({response.status}): {error_text}",
+                            supplier_name="digikey"
+                        )
                     
             except Exception as e:
                 raise SupplierConnectionError(f"DigiKey part details failed: {str(e)}", supplier_name="digikey")

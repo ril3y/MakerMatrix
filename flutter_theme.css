@@ -1,0 +1,326 @@
+/* MakerMatrix Default Theme for Flutter Application */
+/* Based on the "Matrix" cyberpunk/tech theme */
+
+:root {
+  /* Primary Colors - Cyberpunk Green */
+  --primary: #00ff9d;
+  --primary-dark: #00cc7d;
+  --primary-light: #33ffa8;
+  --primary-rgb: 0, 255, 157;
+
+  /* Background Colors - Dark Theme */
+  --bg-primary: #0f172a;        /* Main background (dark slate) */
+  --bg-secondary: #1e293b;      /* Card backgrounds */
+  --bg-tertiary: #334155;       /* Section backgrounds */
+  --bg-accent: #475569;         /* Subtle accents */
+
+  /* Text Colors - Light for dark backgrounds */
+  --text-primary: #ffffff;      /* Main text (white) */
+  --text-secondary: #e2e8f0;    /* Secondary text (light gray) */
+  --text-muted: #94a3b8;        /* Muted text (gray) */
+  --text-on-primary: #0f172a;   /* Text on primary (dark) */
+  --text-accent: #00ff9d;       /* Accent text (matrix green) */
+
+  /* Border Colors - Dark theme borders */
+  --border-primary: #00ff9d;    /* Primary borders (matrix green) */
+  --border-secondary: #334155;  /* Secondary borders (dark) */
+  --border-muted: #475569;      /* Muted borders (darker) */
+
+  /* Shadow and Elevation */
+  --shadow-light: rgba(0, 255, 157, 0.1);
+  --shadow-medium: rgba(0, 255, 157, 0.15);
+  --shadow-heavy: rgba(0, 255, 157, 0.25);
+
+  /* Status Colors */
+  --success: #00ff9d;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+
+  /* Typography */
+  --font-family-primary: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --font-family-display: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --font-family-body: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  /* Font Sizes */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+
+  /* Font Weights */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Spacing Scale */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+
+  /* Border Radius */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+  --border-radius-2xl: 24px;
+  --border-radius-full: 9999px;
+
+  /* Animation Durations */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+
+  /* Z-Index Scale */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+}
+
+/* Light Mode Override (if needed) */
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Background Colors - Light Green Tints */
+    --bg-primary: #f8fcf9;        /* Main background */
+    --bg-secondary: #f0faf4;      /* Card backgrounds */
+    --bg-tertiary: #e6f7ed;       /* Section backgrounds */
+    --bg-accent: #dcf4e6;         /* Subtle accents */
+
+    /* Text Colors */
+    --text-primary: #064e3b;      /* Main text (dark green) */
+    --text-secondary: #065f46;    /* Secondary text */
+    --text-muted: #047857;        /* Muted text */
+    --text-on-primary: #ffffff;   /* Text on primary color */
+
+    /* Border Colors */
+    --border-secondary: #bbf7d0;  /* Secondary borders */
+    --border-muted: #dcf4e6;      /* Muted borders */
+  }
+}
+
+/* Base Styles for Flutter Web/Hybrid Apps */
+body {
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+/* Utility Classes */
+
+/* Background Colors */
+.bg-primary { background-color: var(--primary); }
+.bg-primary-dark { background-color: var(--primary-dark); }
+.bg-primary-light { background-color: var(--primary-light); }
+.bg-surface { background-color: var(--bg-primary); }
+.bg-surface-secondary { background-color: var(--bg-secondary); }
+.bg-surface-tertiary { background-color: var(--bg-tertiary); }
+
+/* Text Colors */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-accent { color: var(--text-accent); }
+.text-on-primary { color: var(--text-on-primary); }
+
+/* Border Colors */
+.border-primary { border-color: var(--border-primary); }
+.border-secondary { border-color: var(--border-secondary); }
+.border-muted { border-color: var(--border-muted); }
+
+/* Component Styles */
+
+/* Cards */
+.card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: 0 1px 3px var(--shadow-light);
+}
+
+.card-elevated {
+  box-shadow: 0 4px 6px var(--shadow-medium);
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--text-on-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  box-shadow: 0 2px 4px var(--shadow-medium);
+}
+
+.btn-secondary {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-primary);
+}
+
+/* Input Fields */
+.input {
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-base);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--border-radius-md);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color var(--duration-fast) ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--shadow-light);
+}
+
+/* Navigation */
+.nav {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-secondary);
+  padding: var(--spacing-md);
+}
+
+.nav-item {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  transition: all var(--duration-fast) ease;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  color: var(--text-accent);
+  background-color: var(--bg-tertiary);
+}
+
+/* Status Indicators */
+.status-success { color: var(--success); }
+.status-warning { color: var(--warning); }
+.status-error { color: var(--error); }
+.status-info { color: var(--info); }
+
+.badge-success {
+  background-color: var(--success);
+  color: var(--text-on-primary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Typography */
+.h1, .heading-1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.h2, .heading-2 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.h3, .heading-3 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.subtitle {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-normal);
+}
+
+.caption {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+/* Layout Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+.flex { display: flex; }
+.flex-column { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.align-center { align-items: center; }
+.flex-1 { flex: 1; }
+
+/* Spacing Utilities */
+.p-xs { padding: var(--spacing-xs); }
+.p-sm { padding: var(--spacing-sm); }
+.p-md { padding: var(--spacing-md); }
+.p-lg { padding: var(--spacing-lg); }
+.p-xl { padding: var(--spacing-xl); }
+
+.m-xs { margin: var(--spacing-xs); }
+.m-sm { margin: var(--spacing-sm); }
+.m-md { margin: var(--spacing-md); }
+.m-lg { margin: var(--spacing-lg); }
+.m-xl { margin: var(--spacing-xl); }
+
+/* Responsive Utilities */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+
+  .h1, .heading-1 { font-size: var(--font-size-3xl); }
+  .h2, .heading-2 { font-size: var(--font-size-2xl); }
+  .h3, .heading-3 { font-size: var(--font-size-xl); }
+}

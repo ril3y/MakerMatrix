@@ -27,15 +27,26 @@ class MockPrinter(BasePrinter):
     Simulates all printer operations without requiring actual hardware.
     """
     
-    # Mock label sizes (Brother QL compatible)
+    # Mock label sizes (Brother QL compatible) - support both "12" and "12mm" formats
     SUPPORTED_SIZES = [
         LabelSize("12", 12.0, 29.0, 106, 164),
+        LabelSize("12mm", 12.0, 29.0, 106, 164),  # Alternative format
+        LabelSize("17", 17.0, 54.0, 201, 614),
+        LabelSize("17mm", 17.0, 54.0, 201, 614),
+        LabelSize("23", 23.0, 23.0, 202, 202),
+        LabelSize("23mm", 23.0, 23.0, 202, 202),
         LabelSize("29", 29.0, 90.0, 306, 991),
+        LabelSize("29mm", 29.0, 90.0, 306, 991),
         LabelSize("38", 38.0, 90.0, 413, 991),
+        LabelSize("38mm", 38.0, 90.0, 413, 991),
         LabelSize("50", 50.0, 30.0, 554, 331),
+        LabelSize("50mm", 50.0, 30.0, 554, 331),
         LabelSize("54", 54.0, 30.0, 590, 331),
+        LabelSize("54mm", 54.0, 30.0, 590, 331),
         LabelSize("62", 62.0, 29.0, 696, 271),
+        LabelSize("62mm", 62.0, 29.0, 696, 271),
         LabelSize("102", 102.0, 51.0, 1164, 565),
+        LabelSize("102mm", 102.0, 51.0, 1164, 565),
         LabelSize("17x54", 17.0, 54.0, 201, 614),
         LabelSize("17x87", 17.0, 87.0, 201, 956),
         LabelSize("23x23", 23.0, 23.0, 202, 202)
@@ -97,8 +108,10 @@ class MockPrinter(BasePrinter):
     
     async def preview_label(self, image: Image.Image, label_size: str) -> PreviewResult:
         """Generate a preview image with label border and info."""
+        print(f"[DEBUG] MockPrinter.preview_label called with label_size: {label_size}")
         if not self._is_valid_label_size(label_size):
             supported = [size.name for size in self.SUPPORTED_SIZES]
+            print(f"[ERROR] MockPrinter: Invalid label size '{label_size}'. Supported sizes: {supported}")
             raise InvalidLabelSizeError(label_size, self.printer_id, supported)
         
         # Get label dimensions
@@ -120,17 +133,23 @@ class MockPrinter(BasePrinter):
         # Paste the label image
         preview.paste(image, (border_width, border_width))
         
-        # Add label info text
-        try:
-            font = ImageFont.load_default()
-        except:
-            font = None
-            
+        # Add label info text with improved font handling
+        print(f"[DEBUG] MockPrinter loading font for preview...")
+        font = self._get_safe_font()
+        print(f"[DEBUG] Font loaded: {font}")
+
         info_text = f"Label: {label_size}mm ({label_info.width_mm}x{label_info.height_mm}mm)"
         size_text = f"Image: {image.width}x{image.height}px"
-        
-        draw.text((border_width, image.height + border_width + 10), info_text, fill='black', font=font)
-        draw.text((border_width, image.height + border_width + 30), size_text, fill='gray', font=font)
+
+        print(f"[DEBUG] Drawing text: {info_text}")
+        try:
+            draw.text((border_width, image.height + border_width + 10), info_text, fill='black', font=font)
+            draw.text((border_width, image.height + border_width + 30), size_text, fill='gray', font=font)
+            print(f"[DEBUG] Text drawn successfully")
+        except Exception as e:
+            print(f"[ERROR] Failed to draw text: {e}")
+            # Fall back to no text if drawing fails
+            pass
         
         # Convert to bytes
         img_byte_arr = io.BytesIO()
@@ -209,7 +228,43 @@ class MockPrinter(BasePrinter):
     def _is_valid_label_size(self, label_size: str) -> bool:
         """Check if label size is supported."""
         return any(size.name == label_size for size in self.SUPPORTED_SIZES)
-    
+
+    def _get_safe_font(self):
+        """Get a safe font for text rendering with comprehensive fallbacks."""
+        print(f"[DEBUG] _get_safe_font called")
+
+        # List of font paths to try in order of preference
+        font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+            "/System/Library/Fonts/Arial.ttf",  # macOS
+            "C:/Windows/Fonts/arial.ttf",  # Windows
+        ]
+
+        # Try TrueType fonts first
+        for font_path in font_paths:
+            try:
+                print(f"[DEBUG] Trying font: {font_path}")
+                font = ImageFont.truetype(font_path, 12)
+                print(f"[DEBUG] Successfully loaded font: {font_path}")
+                return font
+            except Exception as e:
+                print(f"[DEBUG] Font {font_path} failed: {e}")
+                continue
+
+        # Fall back to default font
+        try:
+            print(f"[DEBUG] Falling back to default font")
+            font = ImageFont.load_default()
+            print(f"[DEBUG] Default font loaded successfully")
+            return font
+        except Exception as e:
+            print(f"[ERROR] Even default font failed: {e}")
+            # Return None as absolute fallback
+            return None
+
     def _get_label_size_info(self, label_size: str) -> LabelSize:
         """Get label size information."""
         for size in self.SUPPORTED_SIZES:

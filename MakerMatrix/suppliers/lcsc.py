@@ -9,7 +9,11 @@ Modernized implementation using unified supplier architecture:
 """
 
 import re
+import json
 import logging
+import html
+from urllib.parse import urljoin
+from html.parser import HTMLParser
 import pandas as pd
 from typing import List, Dict, Any, Optional
 
@@ -29,6 +33,98 @@ from MakerMatrix.services.data.unified_column_mapper import UnifiedColumnMapper
 from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
 
 logger = logging.getLogger(__name__)
+
+
+class _LCSCProductPageTableParser(HTMLParser):
+    """Lightweight HTML parser to extract key/value rows from LCSC tables."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows: List[Dict[str, Any]] = []
+        self._current_row: List[Dict[str, Optional[str]]] = []
+        self._in_td: bool = False
+        self._skip_depth: int = 0
+        self._current_text_parts: List[str] = []
+        self._current_links: List[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self._skip_depth += 1
+            return
+
+        if self._skip_depth > 0:
+            return
+
+        if tag == "tr":
+            self._current_row = []
+        elif tag == "td":
+            self._in_td = True
+            self._current_text_parts = []
+            self._current_links = []
+        elif tag == "a" and self._in_td:
+            href = dict(attrs).get("href")
+            if href:
+                self._current_links.append(href)
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            if self._skip_depth > 0:
+                self._skip_depth -= 1
+            return
+
+        if self._skip_depth > 0:
+            return
+
+        if tag == "td" and self._in_td:
+            text = ''.join(self._current_text_parts)
+            cleaned_text = self._clean_text(text)
+            link = self._current_links[0] if self._current_links else None
+            self._current_row.append({"text": cleaned_text, "link": link})
+            self._in_td = False
+        elif tag == "tr" and self._current_row:
+            if len(self._current_row) >= 2:
+                label = self._current_row[0].get("text", "").strip()
+                value = self._current_row[1].get("text", "").strip()
+                link = self._current_row[1].get("link")
+                if label:
+                    self.rows.append({
+                        "label": label,
+                        "value": value,
+                        "link": link
+                    })
+            self._current_row = []
+
+    def handle_data(self, data):
+        if self._skip_depth > 0 or not self._in_td:
+            return
+        if data:
+            self._current_text_parts.append(data)
+
+    def handle_entityref(self, name):
+        self.handle_data(f"&{name};")
+
+    def handle_charref(self, name):
+        self.handle_data(f"&#{name};")
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        if not text:
+            return ""
+        unescaped = html.unescape(text)
+        # Collapse whitespace while preserving hyphenated values
+        return ' '.join(unescaped.split())
+
+
+def _decode_js_string(value: str) -> str:
+    """Decode JavaScript-style escaped string."""
+    if value is None:
+        return ""
+    if '\\u' in value or '\\x' in value:
+        try:
+            return bytes(value, 'utf-8').decode('unicode_escape').strip()
+        except UnicodeDecodeError:
+            pass
+    return value.strip()
 
 
 @register_supplier("lcsc")
@@ -341,6 +437,294 @@ class LCSCSupplier(BaseSupplier):
         
         fix_urls(processed_data)
         return processed_data
+
+    async def _fetch_product_page_details(self, lcsc_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch the public LCSC product page for additional metadata."""
+        try:
+            http_client = self._get_http_client()
+            product_url = f"https://www.lcsc.com/product-detail/{lcsc_id}.html"
+            response = await http_client.get(product_url, endpoint_type="product_page")
+
+            if not response.success or not response.raw_content:
+                logger.debug(
+                    "LCSC product page fetch failed for %s (status=%s)",
+                    lcsc_id,
+                    response.status,
+                )
+                return None
+
+            return self._parse_product_page_html(response.raw_content, product_url)
+
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch LCSC product page for %s: %s",
+                lcsc_id,
+                exc,
+            )
+            return None
+
+    def _parse_product_page_html(self, html_text: str, page_url: str) -> Dict[str, Any]:
+        """Parse key metadata from the LCSC product detail page HTML."""
+        page_details: Dict[str, Any] = {
+            "attributes": {},
+            "attribute_links": {},
+            "product_url": page_url,
+        }
+
+        nuxt_value_map = self._extract_nuxt_value_map(html_text)
+
+        # Extract structured JSON-LD blocks for canonical product metadata
+        try:
+            script_pattern = re.compile(
+                r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>',
+                re.IGNORECASE | re.DOTALL,
+            )
+            for match in script_pattern.finditer(html_text):
+                raw_block = match.group(1).strip()
+                if not raw_block:
+                    continue
+
+                try:
+                    data = json.loads(raw_block)
+                except json.JSONDecodeError:
+                    continue
+
+                # Some pages emit a list of JSON-LD objects
+                if isinstance(data, list):
+                    for item in data:
+                        self._merge_json_ld_item(item, page_details)
+                else:
+                    self._merge_json_ld_item(data, page_details)
+        except Exception as exc:
+            logger.debug("Failed parsing JSON-LD for LCSC page %s: %s", page_url, exc)
+
+        # Extract tabular key/value data (Manufacturer, Package, Key Attributes, etc.)
+        table_parser = _LCSCProductPageTableParser()
+        table_parser.feed(html_text)
+
+        for row in table_parser.rows:
+            label = row.get("label", "")
+            value_text = row.get("value", "")
+            link = row.get("link")
+
+            if not label:
+                continue
+
+            if value_text:
+                page_details.setdefault("attributes", {})[label] = value_text
+
+            if link:
+                page_details.setdefault("attribute_links", {})[label] = urljoin(page_url, link)
+
+        datasheet_link = page_details.get("attribute_links", {}).get("Datasheet")
+        if datasheet_link:
+            page_details["datasheet_url"] = datasheet_link
+
+        # Extract dynamic specification data embedded in __NUXT__ payload
+        specs_from_nuxt = self._extract_nuxt_specifications(html_text, nuxt_value_map)
+        for spec_name, spec_value in specs_from_nuxt.items():
+            if spec_value:
+                page_details.setdefault("attributes", {}).setdefault(spec_name, spec_value)
+
+        return page_details
+
+    def _extract_nuxt_value_map(self, html_text: str) -> Dict[str, Any]:
+        """Build mapping from short parameter names to their values in __NUXT__ payload."""
+        try:
+            function_match = re.search(r'window.__NUXT__=\(function\((.*?)\)\{', html_text, re.DOTALL)
+            call_match = re.search(r'\}\((.*)\);</script>', html_text, re.DOTALL)
+            if not function_match or not call_match:
+                return {}
+
+            params = [p.strip() for p in function_match.group(1).split(',')]
+            raw_args = call_match.group(1).replace('\n', '')
+
+            args: List[str] = []
+            current = ''
+            brackets = 0
+            quotes: Optional[str] = None
+            escape = False
+
+            for ch in raw_args:
+                if escape:
+                    current += ch
+                    escape = False
+                    continue
+                if ch == '\\':
+                    current += ch
+                    escape = True
+                    continue
+                if quotes:
+                    current += ch
+                    if ch == quotes:
+                        quotes = None
+                    continue
+                if ch in ('"', "'"):
+                    current += ch
+                    quotes = ch
+                    continue
+                if ch in '([{':
+                    brackets += 1
+                    current += ch
+                    continue
+                if ch in ')]}':
+                    brackets -= 1
+                    current += ch
+                    continue
+                if ch == ',' and brackets == 0:
+                    args.append(current.strip())
+                    current = ''
+                    continue
+                current += ch
+
+            if current.strip():
+                args.append(current.strip())
+
+            value_map: Dict[str, Any] = {}
+            for name, value in zip(params, args):
+                parsed_value = self._convert_js_token(value)
+                value_map[name] = parsed_value
+
+            return value_map
+
+        except Exception as exc:
+            logger.debug("Failed to parse __NUXT__ value map: %s", exc)
+            return {}
+
+    def _convert_js_token(self, token: str) -> Any:
+        """Convert primitive JS token to Python value."""
+        if token is None:
+            return None
+
+        token = token.strip()
+        if not token:
+            return None
+
+        if token.lower() in {'null', 'undefined'}:
+            return None
+        if token in {'true', 'True'}:
+            return True
+        if token in {'false', 'False'}:
+            return False
+
+        if token.startswith(('"', "'")) and token.endswith(('"', "'")):
+            inner = token[1:-1]
+            inner = inner.replace('\\u002F', '/')
+            return _decode_js_string(inner)
+
+        # Numeric values
+        try:
+            if token.startswith('.'):
+                token = '0' + token
+            if '.' in token:
+                return float(token)
+            return int(token)
+        except ValueError:
+            pass
+
+        return token
+
+    def _extract_nuxt_specifications(self, html_text: str, value_map: Dict[str, Any]) -> Dict[str, str]:
+        """Extract specification list defined in __NUXT__ payload."""
+        specifications: Dict[str, str] = {}
+
+        if not value_map:
+            return specifications
+
+        try:
+            pattern = re.compile(
+                r'paramNameEn:"([^"]+)"[^}]*?paramValueEn:([^,}\]]+)',
+                re.DOTALL
+            )
+
+            for match in pattern.finditer(html_text):
+                spec_name = match.group(1).strip()
+                value_token = match.group(2).strip()
+
+                if not spec_name or spec_name.startswith('param_'):
+                    continue
+
+                resolved_value = self._resolve_nuxt_value_token(value_token, value_map)
+                if resolved_value:
+                    specifications[spec_name] = resolved_value
+
+        except Exception as exc:
+            logger.debug("Failed to extract __NUXT__ specifications: %s", exc)
+
+        return specifications
+
+    def _resolve_nuxt_value_token(self, token: str, value_map: Dict[str, Any]) -> Optional[str]:
+        token = token.strip()
+        if not token:
+            return None
+
+        # Remove trailing characters such as ')' from invocation wrappers
+        token = token.rstrip(')')
+
+        if token.startswith(('"', "'")) and token.endswith(('"', "'")):
+            value = self._convert_js_token(token)
+            return str(value) if value is not None else None
+
+        if token in value_map:
+            value = value_map[token]
+            if isinstance(value, str):
+                return value
+            return str(value) if value is not None else None
+
+        return None
+
+    def _merge_json_ld_item(self, item: Dict[str, Any], page_details: Dict[str, Any]) -> None:
+        """Merge a parsed JSON-LD item into the page details structure."""
+        if not isinstance(item, dict):
+            return
+
+        item_type = item.get("@type")
+
+        if item_type == "ImageObject":
+            image_url = item.get("contentUrl") or item.get("thumbnail")
+            if image_url:
+                page_details["image_url"] = image_url
+            if item.get("description") and not page_details.get("description"):
+                page_details["description"] = item["description"]
+
+        elif item_type == "Product":
+            # Core identifiers
+            for key in ("name", "description", "mpn", "sku", "category"):
+                value = item.get(key)
+                if value and not page_details.get(key):
+                    page_details[key] = value
+
+            brand = item.get("brand")
+            if brand:
+                if isinstance(brand, dict):
+                    brand_name = brand.get("name")
+                else:
+                    brand_name = brand
+                if brand_name:
+                    page_details["brand"] = brand_name
+
+            # Offers block can contain pricing and inventory data
+            offers = item.get("offers")
+            if isinstance(offers, dict):
+                price = offers.get("price")
+                currency = offers.get("priceCurrency")
+                inventory_level = offers.get("inventoryLevel")
+
+                try:
+                    if price is not None:
+                        page_details["price"] = float(price)
+                except (TypeError, ValueError):
+                    pass
+
+                if currency:
+                    page_details["price_currency"] = currency
+
+                try:
+                    if inventory_level is not None:
+                        page_details["inventory_level"] = int(inventory_level)
+                except (TypeError, ValueError):
+                    pass
+
     
     async def _parse_easyeda_response(self, data: Dict[str, Any], lcsc_id: str) -> PartSearchResult:
         """Parse EasyEDA API response using unified data extraction"""
@@ -376,68 +760,141 @@ class LCSCSupplier(BaseSupplier):
         # Check if SMT
         is_smt = result.get('SMT', False)
         
-        # Build specifications using defensive patterns
-        specifications = {}
+        # Build flat additional_data instead of nested specifications
+        # Store simple key-value pairs that will be flattened into additional_properties
+        flat_specs = {}
         if value:
-            specifications['Value'] = value
+            flat_specs['value'] = value
         if package:
-            specifications['Package'] = package
-        if manufacturer:
-            specifications['Manufacturer'] = manufacturer
+            flat_specs['package'] = package
         if is_smt:
-            specifications['Mounting'] = 'SMT'
-        
-        # Merge with extracted specifications
+            flat_specs['mounting_type'] = 'SMT'
+
+        # Merge with extracted specifications but flatten them
         if extracted_data.get("specifications"):
-            specifications.update(extracted_data["specifications"])
+            extracted_specs = extracted_data["specifications"]
+            if isinstance(extracted_specs, dict):
+                # Flatten any nested specifications
+                for spec_key, spec_value in extracted_specs.items():
+                    # Convert to lowercase with underscores for consistency
+                    clean_key = spec_key.lower().replace(' ', '_').replace('-', '_')
+                    flat_specs[clean_key] = spec_value
         
-        # Build additional data
+        # Build additional data with flat specifications merged in
         additional_data = {
             "part_type": part_type,
             "is_smt": is_smt,
             "prefix": prefix,
             "easyeda_data_available": True,
-            "product_url": f"https://lcsc.com/product-detail/{lcsc_id}.html"
+            "product_url": f"https://www.lcsc.com/product-detail/{lcsc_id}.html"
         }
-        
-        # Use extracted datasheet URL or fallback to API data
-        datasheet_url = extracted_data.get("datasheet_url")
-        if not datasheet_url:
-            datasheet_url = extractor.safe_get(result, ["dataStr", "head", "c_para", "link"])
-        
-        # Process image URL with enhanced handling for LCSC/EasyEDA URLs
+        # Merge flat specifications directly into additional_data
+        additional_data.update(flat_specs)
+
+        # Base description, datasheet, pricing, and stock information from EasyEDA
+        description = extracted_data.get("description") or (value or "")
+        datasheet_url = extracted_data.get("datasheet_url") or extractor.safe_get(
+            result, ["dataStr", "head", "c_para", "link"]
+        )
         image_url = extracted_data.get("image_url")
-        
+        stock_quantity = extracted_data.get("stock_quantity")
+        pricing = extracted_data.get("pricing")
+
         # If no image URL from extraction, try manual thumb field extraction
         if not image_url:
             thumb_value = extractor.safe_get(result, ["thumb"])
             if thumb_value:
                 image_url = thumb_value
-        
+
         # Handle different URL formats from EasyEDA API
         if image_url:
             if image_url.startswith("//"):
-                # Protocol-relative URLs (older format)
                 image_url = "https:" + image_url
             elif image_url.startswith("/component/"):
-                # Relative component URLs - use EasyEDA base
                 image_url = "https://easyeda.com" + image_url
             elif not image_url.startswith("http"):
-                # Other relative URLs - try EasyEDA base first
                 image_url = "https://easyeda.com" + (image_url if image_url.startswith("/") else "/" + image_url)
-        
+
+        # Fetch and merge additional metadata from the public product page
+        page_details = await self._fetch_product_page_details(lcsc_id)
+        if page_details:
+            attributes = page_details.get("attributes", {})
+            attribute_links = page_details.get("attribute_links", {})
+
+            # Prefer clean manufacturer and MPN values from the product page when available
+            manufacturer = page_details.get("brand") or attributes.get("Manufacturer") or manufacturer
+            manufacturer_part_number = page_details.get("mpn") or attributes.get("Mfr. Part #") or manufacturer_part_number
+
+            # Rich description overrides the terse EasyEDA title
+            rich_description = attributes.get("Description") or page_details.get("description")
+            if rich_description and len(rich_description) > len(description):
+                description = rich_description
+
+            # Capture key attributes and structured package information as flat data
+            key_attributes = attributes.get("Key Attributes")
+            if key_attributes:
+                additional_data['key_attributes'] = key_attributes
+
+            package_from_page = attributes.get("Package")
+            if package_from_page:
+                additional_data['package'] = package_from_page
+
+            # Datasheet link on the product page tends to be more reliable
+            datasheet_link = page_details.get("datasheet_url") or attribute_links.get("Datasheet")
+            if datasheet_link:
+                datasheet_url = datasheet_link
+
+            # Prefer high-resolution marketing image when present
+            if page_details.get("image_url"):
+                image_url = page_details["image_url"]
+
+            # Update category from structured data if EasyEDA tags were empty
+            category = page_details.get("category") or category
+
+            # Enrich additional metadata with pricing and inventory when provided
+            if page_details.get("price") is not None:
+                additional_data['lcsc_price'] = page_details['price']
+            if page_details.get("price_currency"):
+                additional_data['lcsc_price_currency'] = page_details['price_currency']
+            if page_details.get("inventory_level") is not None:
+                additional_data['lcsc_inventory_level'] = page_details['inventory_level']
+            if page_details.get("name"):
+                additional_data['lcsc_product_name'] = page_details['name']
+
+            # Store the resolved datasheet link for downstream consumers
+            if datasheet_url:
+                additional_data['lcsc_datasheet_url'] = datasheet_url
+
+            # Capture remaining attribute rows as flat additional_data
+            for attr_name, attr_value in attributes.items():
+                if not attr_value:
+                    continue
+
+                normalized_attr = attr_name.strip()
+
+                if normalized_attr in {"Manufacturer", "Mfr. Part #", "LCSC Part #", "Package", "Key Attributes", "Description"}:
+                    continue
+
+                if normalized_attr == "Category":
+                    additional_data['lcsc_category'] = attr_value
+                    continue
+
+                # Convert attribute name to clean key format
+                clean_attr_key = normalized_attr.lower().replace(' ', '_').replace('-', '_')
+                additional_data[clean_attr_key] = attr_value
+
         return PartSearchResult(
             supplier_part_number=lcsc_id,
             manufacturer=manufacturer,
             manufacturer_part_number=manufacturer_part_number,
-            description=extracted_data.get("description", value or ""),
+            description=description,
             category=category or (part_type.title() if part_type else ""),
             datasheet_url=datasheet_url,
             image_url=image_url,
-            stock_quantity=extracted_data.get("stock_quantity"),
-            pricing=extracted_data.get("pricing"),
-            specifications=specifications if specifications else None,
-            additional_data=additional_data
+            stock_quantity=stock_quantity,
+            pricing=pricing,
+            specifications=None,  # No longer using nested specifications
+            additional_data=additional_data  # All data is now flat
         )
     
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:
@@ -610,61 +1067,55 @@ class LCSCSupplier(BaseSupplier):
         return await self._tracked_api_call("import_orders", _impl)
     
     def _build_lcsc_additional_properties(self, extracted_data: Dict[str, Any], unit_price: Optional[float], order_price: Optional[float], row_index: int) -> Dict[str, Any]:
-        """Build comprehensive additional_properties for LCSC parts"""
+        """Build flat additional_properties for LCSC parts (no nested structures)"""
+        # Create flat key-value pairs instead of nested structure
         additional_properties = {
-            'supplier_data': {
-                'supplier': 'LCSC',
-                'supplier_part_number': extracted_data.get('part_number'),
-                'row_index': row_index,
-                'import_source': 'csv'
-            },
-            'order_info': {},
-            'technical_specs': {},
-            'compliance': {}
+            # Supplier information as flat keys
+            'supplier_name': 'LCSC',
+            'supplier_part_number': extracted_data.get('part_number'),
+            'row_index': row_index,
+            'import_source': 'csv'
         }
-        
+
         # Add customer reference if available
         if extracted_data.get('customer_reference'):
-            additional_properties['order_info']['customer_reference'] = extracted_data['customer_reference']
-        
+            additional_properties['customer_reference'] = extracted_data['customer_reference']
+
         # Add minimum order quantity if available
         if extracted_data.get('min_order_qty'):
             try:
                 min_qty_str = str(extracted_data['min_order_qty'])
                 # Handle format like "5\5" - take the first number
                 min_qty = int(min_qty_str.split('\\')[0]) if '\\' in min_qty_str else int(min_qty_str)
-                additional_properties['order_info']['minimum_order_quantity'] = min_qty
+                additional_properties['minimum_order_quantity'] = min_qty
             except (ValueError, TypeError):
                 pass
-        
-        # Add pricing information
+
+        # Add pricing information as flat keys
         if unit_price is not None:
-            additional_properties['order_info']['unit_price'] = unit_price
+            additional_properties['unit_price'] = unit_price
         if order_price is not None:
-            additional_properties['order_info']['order_price'] = order_price
-        
-        # Add package information to technical specs
+            additional_properties['order_price'] = order_price
+
+        # Add package information as flat keys
         if extracted_data.get('package'):
             package_info = str(extracted_data['package']).strip()
-            additional_properties['technical_specs']['package'] = package_info
-            
+            additional_properties['package'] = package_info
+
             # Extract mounting type from package info
             if 'smd' in package_info.lower():
-                additional_properties['technical_specs']['mounting_type'] = 'SMT'
+                additional_properties['mounting_type'] = 'SMT'
             elif 'through' in package_info.lower() or 'th' in package_info.lower():
-                additional_properties['technical_specs']['mounting_type'] = 'Through Hole'
-        
-        # Add RoHS compliance
+                additional_properties['mounting_type'] = 'Through Hole'
+
+        # Add RoHS compliance as flat keys
         if extracted_data.get('rohs'):
             rohs_value = str(extracted_data['rohs']).strip().upper()
             if rohs_value in ['YES', 'Y', 'TRUE', '1']:
-                additional_properties['compliance']['rohs_compliant'] = True
+                additional_properties['rohs_compliant'] = True
             elif rohs_value in ['NO', 'N', 'FALSE', '0']:
-                additional_properties['compliance']['rohs_compliant'] = False
-        
-        # Clean up empty sections
-        additional_properties = {k: v for k, v in additional_properties.items() if v}
-        
+                additional_properties['rohs_compliant'] = False
+
         return additional_properties
     
     # ========== Cleanup ==========

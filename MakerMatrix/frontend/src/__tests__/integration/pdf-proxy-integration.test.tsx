@@ -109,6 +109,14 @@ vi.mock('lucide-react', () => ({
   Globe: () => <div>🌐</div>,
   BookOpen: () => <div>📖</div>,
   Clock: () => <div>⏰</div>,
+  Factory: () => <div>🏭</div>,
+  Cpu: () => <div>🧠</div>,
+  Leaf: () => <div>🍃</div>,
+  Layers: () => <div>🧱</div>,
+  ShieldCheck: () => <div>🛡️</div>,
+  List: () => <div>📋</div>,
+  Copy: () => <div>📋</div>,
+  Check: () => <div>✔️</div>,
   FileText: () => <div data-testid="file-text-icon">📄</div>,
   Download: () => <div data-testid="download-icon">↓</div>,
   Eye: () => <div data-testid="eye-icon">👁️</div>,
@@ -117,6 +125,7 @@ vi.mock('lucide-react', () => ({
   DollarSign: () => <div>💲</div>,
   ChevronLeft: () => <div>←</div>,
   ChevronRight: () => <div>→</div>,
+  ChevronDown: () => <div>↓</div>,
   ZoomIn: () => <div>+</div>,
   ZoomOut: () => <div>-</div>,
   X: () => <div data-testid="close-icon">×</div>,
@@ -204,7 +213,8 @@ describe('PDF Proxy Integration Tests', () => {
         expect(screen.getByText('Supplier Datasheet')).toBeInTheDocument()
       })
 
-      expect(screen.getByText('LCSC')).toBeInTheDocument()
+      const supplierLabels = screen.getAllByText('LCSC')
+      expect(supplierLabels.length).toBeGreaterThan(0)
       expect(screen.getByText('Online')).toBeInTheDocument()
       expect(screen.getByText('Preview PDF')).toBeInTheDocument()
     })
@@ -280,7 +290,7 @@ describe('PDF Proxy Integration Tests', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Failed to load PDF through proxy - the source may not be a valid PDF file')).toBeInTheDocument()
+        expect(screen.getByText(/Failed to load PDF through proxy/i)).toBeInTheDocument()
       })
 
       // Should show fallback download option
@@ -316,9 +326,7 @@ describe('PDF Proxy Integration Tests', () => {
       fireEvent.click(previewButton)
 
       // Wait for PDF to load successfully
-      await waitFor(() => {
-        expect(screen.getByTestId('pdf-page-1')).toBeInTheDocument()
-      })
+      await screen.findByTestId('pdf-page-1')
 
       // Should show navigation controls
       expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
@@ -334,7 +342,7 @@ describe('PDF Proxy Integration Tests', () => {
       })
 
       // Find the external link button (should be next to Preview PDF)
-      const externalLinkIcon = screen.getByText('🔗')
+      const externalLinkIcon = screen.getAllByText('🔗')[0]
       expect(externalLinkIcon).toBeInTheDocument()
       
       const linkElement = externalLinkIcon.closest('a')

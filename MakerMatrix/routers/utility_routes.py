@@ -76,7 +76,10 @@ async def upload_image(
     with open(str(file_path), "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    return {"image_id": image_id, "message": "Image uploaded successfully"}
+    return base_router.build_success_response(
+        data={"image_id": image_id},
+        message="Image uploaded successfully"
+    )
 
 
 @router.get("/")

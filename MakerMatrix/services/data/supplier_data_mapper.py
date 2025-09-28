@@ -67,10 +67,21 @@ class SupplierDataMapper:
             core_data.update(supplier_data.get('core_fields', {}))
             additional_props.custom_fields.update(supplier_data.get('custom_fields', {}))
         
+        # Build FLAT additional_properties (simple key-value pairs only)
+        # Extract only the meaningful custom_fields for clean display
+        flat_additional_properties = {}
+
+        # Add the clean custom fields we extracted
+        flat_additional_properties.update(additional_props.custom_fields)
+
+        # Add enrichment metadata as flat keys
+        flat_additional_properties['last_enrichment_date'] = datetime.utcnow().isoformat()
+        flat_additional_properties['enrichment_source'] = supplier_name
+
         # Combine everything
         result = {
             **core_data,
-            'additional_properties': additional_props.to_dict(),
+            'additional_properties': flat_additional_properties,
             'last_enrichment_date': datetime.utcnow(),
             'enrichment_source': supplier_name
         }
@@ -155,11 +166,11 @@ class SupplierDataMapper:
         
         props = StandardizedAdditionalProperties()
         
-        # Map specifications
-        if result.specifications:
-            props.specifications = self._map_specifications(result.specifications)
+        # NO LONGER mapping specifications - we want flat key-value pairs instead
+        # All specification data should go directly into additional_data as flat keys
+        # This prevents nested {"specifications": {...}} structure
         
-        # Map supplier data
+        # Map supplier data (keep nested structure for supplier_data)
         supplier_data = StandardizedSupplierData(
             supplier_name=supplier_name,
             supplier_part_number=result.supplier_part_number or "",
@@ -167,14 +178,49 @@ class SupplierDataMapper:
             datasheet_url=result.datasheet_url,
             supplier_category=result.category
         )
-        
-        # Add supplier-specific fields
+
+        # Add supplier-specific fields to supplier_data
         if result.additional_data:
             for key, value in result.additional_data.items():
                 if key not in ['product_detail_url']:
                     setattr(supplier_data, key, value)
-        
+
         props.add_supplier_data(supplier_name, supplier_data)
+
+        # Extract meaningful fields as flat key-value pairs in custom_fields
+        # This creates the readable additional_properties that users see
+        if result.additional_data:
+            # Extract specific technical specifications that users care about
+            interesting_fields = {
+                'package': 'Package',
+                'value': 'Value',
+                'mounting_type': 'Mounting Type',
+                'voltage_rating': 'Voltage Rating',
+                'capacitance': 'Capacitance',
+                'tolerance': 'Tolerance',
+                'temperature_coefficient': 'Temperature Coefficient',
+                'rohs_compliant': 'RoHS Compliant',
+                'part_type': 'Component Type',
+                'manufacturer': 'Manufacturer',
+                'manufacturer_part_number': 'Manufacturer Part Number',
+                'key_attributes': 'Key Attributes',
+                'lcsc_price': 'LCSC Price',
+                'lcsc_inventory_level': 'Stock Level',
+                'product_url': 'Product URL'
+            }
+
+            for data_key, display_name in interesting_fields.items():
+                if data_key in result.additional_data and result.additional_data[data_key]:
+                    value = result.additional_data[data_key]
+                    # Format the value nicely for display
+                    if isinstance(value, bool):
+                        props.custom_fields[display_name.lower().replace(' ', '_')] = 'Yes' if value else 'No'
+                    elif isinstance(value, (int, float)) and data_key == 'lcsc_price':
+                        props.custom_fields['price'] = f"${value:.4f}"
+                    elif isinstance(value, (int, float)) and data_key == 'lcsc_inventory_level':
+                        props.custom_fields['stock_level'] = f"{value:,} units"
+                    else:
+                        props.custom_fields[display_name.lower().replace(' ', '_')] = str(value)
         
         # Map metadata
         props.metadata = StandardizedMetadata(

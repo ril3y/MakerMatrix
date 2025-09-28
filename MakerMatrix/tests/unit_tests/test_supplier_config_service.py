@@ -53,7 +53,10 @@ class TestSupplierConfigService:
         # Setup mocks
         mock_session = MagicMock()
         mock_session_class.return_value.__enter__.return_value = mock_session
-        mock_session.query.return_value.filter.return_value.first.return_value = None  # No existing supplier
+
+        exec_result = MagicMock()
+        exec_result.first.return_value = None  # No existing supplier
+        mock_session.exec.return_value = exec_result
         
         # Create mock supplier model
         mock_supplier = MagicMock(spec=SupplierConfigModel)
@@ -84,10 +87,12 @@ class TestSupplierConfigService:
         # Setup mocks
         mock_session = MagicMock()
         mock_session_class.return_value.__enter__.return_value = mock_session
-        
+
         # Mock existing supplier
         existing_supplier = MagicMock()
-        mock_session.query.return_value.filter.return_value.first.return_value = existing_supplier
+        exec_result = MagicMock()
+        exec_result.first.return_value = existing_supplier
+        mock_session.exec.return_value = exec_result
         
         # Execute and verify exception
         with pytest.raises(SupplierConfigAlreadyExistsError) as exc_info:
@@ -104,10 +109,12 @@ class TestSupplierConfigService:
         # Setup mocks
         mock_session = MagicMock()
         mock_session_class.return_value.__enter__.return_value = mock_session
-        
+
         # Mock existing supplier
         existing_supplier = MagicMock()
-        mock_session.query.return_value.filter.return_value.first.return_value = existing_supplier
+        exec_result = MagicMock()
+        exec_result.first.return_value = existing_supplier
+        mock_session.exec.return_value = exec_result
         
         # Test data with lowercase supplier name
         supplier_data = {
@@ -121,7 +128,7 @@ class TestSupplierConfigService:
             service.create_supplier_config(supplier_data, user_id="test-user")
         
         # Verify the query used ilike for case-insensitive comparison
-        mock_session.query.return_value.filter.assert_called_once()
+        mock_session.exec.assert_called()
     
     @patch('MakerMatrix.services.system.supplier_config_service.Session')
     def test_delete_supplier_config_success(self, mock_session_class, service):
@@ -129,11 +136,13 @@ class TestSupplierConfigService:
         # Setup mocks
         mock_session = MagicMock()
         mock_session_class.return_value.__enter__.return_value = mock_session
-        
+
         # Mock existing supplier
         mock_supplier = MagicMock(spec=SupplierConfigModel)
         mock_supplier.supplier_name = "TestSupplier"
-        mock_session.query.return_value.filter.return_value.first.return_value = mock_supplier
+        exec_result = MagicMock()
+        exec_result.first.return_value = mock_supplier
+        mock_session.exec.return_value = exec_result
         
         # Execute
         service.delete_supplier_config("TestSupplier")
@@ -148,7 +157,9 @@ class TestSupplierConfigService:
         # Setup mocks
         mock_session = MagicMock()
         mock_session_class.return_value.__enter__.return_value = mock_session
-        mock_session.query.return_value.filter.return_value.first.return_value = None  # No supplier found
+        exec_result = MagicMock()
+        exec_result.first.return_value = None  # No supplier found
+        mock_session.exec.return_value = exec_result
         
         # Execute and verify exception
         with pytest.raises(ResourceNotFoundError) as exc_info:
@@ -170,7 +181,9 @@ class TestSupplierConfigService:
         # Setup mocks
         mock_session = MagicMock()
         mock_session_class.return_value.__enter__.return_value = mock_session
-        mock_session.query.return_value.filter.return_value.first.return_value = None
+        exec_result = MagicMock()
+        exec_result.first.return_value = None
+        mock_session.exec.return_value = exec_result
         
         mock_supplier = MagicMock(spec=SupplierConfigModel)
         
@@ -195,7 +208,9 @@ class TestSupplierConfigService:
         # Setup mocks
         mock_session = MagicMock()
         mock_session_class.return_value.__enter__.return_value = mock_session
-        mock_session.query.return_value.filter.return_value.first.return_value = None
+        exec_result = MagicMock()
+        exec_result.first.return_value = None
+        mock_session.exec.return_value = exec_result
         
         # Test empty supplier name - should normalize to empty string and succeed in our current implementation
         # (The actual validation happens at the API/Pydantic level, not service level)

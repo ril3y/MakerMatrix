@@ -638,11 +638,15 @@ def extract_common_part_data(
         if datasheet_result.success:
             extracted_data["datasheet_url"] = datasheet_result.value
     
-    # Extract specifications
+    # Extract specifications and flatten them directly into extracted_data
     if "specifications" in config:
         spec_result = extractor.extract_specifications(data, config["specifications"])
-        if spec_result.success:
-            extracted_data["specifications"] = spec_result.value
+        if spec_result.success and isinstance(spec_result.value, dict):
+            # Flatten specifications directly into extracted_data instead of nesting
+            for spec_key, spec_value in spec_result.value.items():
+                # Use clean key format
+                clean_key = spec_key.lower().replace(' ', '_').replace('-', '_')
+                extracted_data[clean_key] = spec_value
     
     # Extract stock quantity
     if "stock_paths" in config:

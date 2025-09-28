@@ -32,7 +32,7 @@ export const useFormWithValidation = <T extends FieldValues>({
     ...formOptions,
   })
 
-  const { handleSubmit, reset, formState: { errors, isValid, isDirty } } = form
+  const { handleSubmit, reset: formReset, formState: { errors, isValid, isDirty } } = form
 
   const onSubmitHandler = useCallback(async (data: T) => {
     try {
@@ -50,7 +50,7 @@ export const useFormWithValidation = <T extends FieldValues>({
       }
       
       if (resetOnSuccess) {
-        reset()
+        formReset()
       }
       
       onSuccess?.(result)
@@ -81,7 +81,7 @@ export const useFormWithValidation = <T extends FieldValues>({
     } finally {
       setLoading(false)
     }
-  }, [onSubmit, onSuccess, onError, successMessage, resetOnSuccess, transformData, reset, form])
+  }, [onSubmit, onSuccess, onError, successMessage, resetOnSuccess, transformData, formReset, form])
 
   // Enhanced field registration with better error handling
   const register = useCallback((name: Path<T>, options?: any) => {
@@ -155,7 +155,7 @@ export const useFormWithValidation = <T extends FieldValues>({
     
     // Utilities
     reset: () => {
-      reset()
+      formReset()
       setLoading(false)
     },
   }

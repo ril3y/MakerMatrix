@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from sqlmodel import select, and_
 
 from MakerMatrix.models.supplier_config_models import (
@@ -96,9 +97,11 @@ class SupplierConfigRepository(BaseRepository[SupplierConfigModel]):
         Returns:
             Supplier configuration or None if not found
         """
+        normalized_name = (supplier_name or "").upper()
+
         config = session.exec(
             select(SupplierConfigModel).where(
-                SupplierConfigModel.supplier_name == supplier_name
+                func.upper(SupplierConfigModel.supplier_name) == normalized_name
             )
         ).first()
         

@@ -42,8 +42,10 @@ const SettingsPage = () => {
       setAiConfig(config)
       
       // Load models for the current provider
-      if (config.provider) {
-        await loadAvailableModels()
+      if (config.provider && config.enabled) {
+        await loadAvailableModels(config)
+      } else {
+        setAvailableModels([])
       }
     } catch (error) {
       toast.error('Failed to load AI configuration')
@@ -52,11 +54,26 @@ const SettingsPage = () => {
     }
   }
 
-  const loadAvailableModels = async () => {
+  const loadAvailableModels = async (configOverride?: AIConfig | null) => {
+    const targetConfig = configOverride ?? aiConfig
+
+    if (!targetConfig?.enabled) {
+      setAvailableModels([])
+      return
+    }
+
     try {
       setLoadingModels(true)
-      const models = await settingsService.getAvailableModels()
+      const response = await settingsService.getAvailableModels()
+      const models = response.data?.models || []
       setAvailableModels(models)
+
+      if (response.status === 'warning') {
+        toast(response.message || 'AI models loaded with warnings', { icon: '⚠️' })
+      } else if (response.status === 'error') {
+        toast.error(response.message || 'Failed to load available models')
+        setAvailableModels([])
+      }
     } catch (error) {
       toast.error('Failed to load available models')
       setAvailableModels([])
@@ -73,7 +90,7 @@ const SettingsPage = () => {
     // Load models for the new provider
     const tempConfig = {...aiConfig, provider: newProvider}
     setAiConfig(tempConfig)
-    await loadAvailableModels()
+    await loadAvailableModels(tempConfig)
   }
 
   const loadPrinters = async () => {
@@ -110,7 +127,7 @@ const SettingsPage = () => {
 
   const saveAIConfig = async () => {
     if (!aiConfig) return
-    
+
     try {
       await settingsService.updateAIConfig(aiConfig)
       toast.success('AI configuration saved successfully')
@@ -121,8 +138,15 @@ const SettingsPage = () => {
 
   const testAIConnection = async () => {
     try {
-      await settingsService.testAIConnection()
-      toast.success('AI connection test successful')
+      const response = await settingsService.testAIConnection()
+
+      if (response.status === 'success') {
+        toast.success(response.message || 'AI connection test successful')
+      } else if (response.status === 'warning') {
+        toast(response.message || 'AI connection test returned warnings', { icon: '⚠️' })
+      } else {
+        toast.error(response.message || 'AI connection test failed')
+      }
     } catch (error) {
       toast.error('AI connection test failed')
     }
@@ -281,7 +305,7 @@ const SettingsPage = () => {
                 <button
                   onClick={loadAvailableModels}
                   className="btn btn-secondary flex items-center gap-2"
-                  disabled={loadingModels}
+                  disabled={loadingModels || !aiConfig?.enabled}
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingModels ? 'animate-spin' : ''}`} />
                   Refresh Models
