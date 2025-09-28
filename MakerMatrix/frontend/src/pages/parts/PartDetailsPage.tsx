@@ -79,6 +79,11 @@ const PartDetailsPage = () => {
   const [copiedPartNumber, setCopiedPartNumber] = useState(false)
   const [copiedPartName, setCopiedPartName] = useState(false)
 
+  // Inline editing states
+  const [editingField, setEditingField] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+
   useEffect(() => {
     if (id) {
       loadPart(id)
@@ -163,6 +168,38 @@ const PartDetailsPage = () => {
       }
     } catch (err) {
       console.error('Failed to copy to clipboard:', err)
+    }
+  }
+
+  const startEditing = (field: string, currentValue: string) => {
+    setEditingField(field)
+    setEditingValue(currentValue || '')
+  }
+
+  const cancelEditing = () => {
+    setEditingField(null)
+    setEditingValue('')
+  }
+
+  const saveField = async (field: string, value: string) => {
+    if (!part) return
+
+    setSaving(true)
+    try {
+      const updateData = {
+        id: part.id,
+        [field]: value
+      }
+      const updatedPart = await partsService.updatePart(updateData)
+
+      // Update local state with the returned data
+      setPart(updatedPart)
+      setEditingField(null)
+      setEditingValue('')
+    } catch (err: any) {
+      setError(err.response?.data?.error || `Failed to update ${field}`)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -270,9 +307,18 @@ const PartDetailsPage = () => {
 
   const additionalProps = part.additional_properties || {}
   const propertyLeafCount = countPropertyLeaves(additionalProps)
-  const topLevelPropertyKeys = Object.keys(additionalProps)
   const lastEnrichmentIso = additionalProps?.metadata?.last_enrichment || additionalProps?.last_enrichment || additionalProps?.last_enrichment_date
   const lastEnrichmentDisplay = formatDateTime(lastEnrichmentIso)
+
+  // Determine if this is an electronic component
+  const isElectronicComponent = part.component_type ||
+                                part.rohs_status ||
+                                additionalProps?.specifications ||
+                                additionalProps?.supplier_data ||
+                                ['resistor', 'capacitor', 'inductor', 'ic', 'transistor', 'diode'].some(type =>
+                                  part.name?.toLowerCase().includes(type) ||
+                                  part.description?.toLowerCase().includes(type)
+                                )
 
   return (
     <div className="min-h-screen bg-theme-secondary">
@@ -417,57 +463,124 @@ const PartDetailsPage = () => {
                 <div className="xl:col-span-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* Part Number Field */}
-                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
+                    <div
+                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
+                      onClick={() => startEditing('part_number', part.part_number || '')}
+                    >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <Hash className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-theme-secondary mb-1">Part Number</p>
-                          {part.part_number ? (
-                            <button
-                              onClick={() => copyToClipboard(part.part_number!, 'part_number')}
-                              className="group hover:bg-primary-10 rounded-lg px-2 py-1 transition-all flex items-center gap-2 min-w-0"
-                              title="Click to copy part number"
-                            >
-                              <p className="font-theme-mono font-semibold text-theme-primary truncate">
-                                {part.part_number}
-                              </p>
-                              {copiedPartNumber ? (
-                                <Check className="w-4 h-4 text-success shrink-0" />
-                              ) : (
-                                <Copy className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                              )}
-                            </button>
+                          {editingField === 'part_number' ? (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                className="flex-1 px-2 py-1 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveField('part_number', editingValue)
+                                  if (e.key === 'Escape') cancelEditing()
+                                }}
+                              />
+                              <button
+                                onClick={() => saveField('part_number', editingValue)}
+                                disabled={saving}
+                                className="px-2 py-1 bg-success text-theme-inverse rounded text-xs disabled:opacity-50"
+                              >
+                                {saving ? '⏳' : '✓'}
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                className="px-2 py-1 bg-error text-theme-inverse rounded text-xs"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           ) : (
-                            <p className="font-semibold text-theme-muted">Not set</p>
+                            part.part_number ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  copyToClipboard(part.part_number!, 'part_number')
+                                }}
+                                className="group hover:bg-primary-10 rounded-lg px-2 py-1 transition-all flex items-center gap-2 min-w-0"
+                                title="Click to copy part number"
+                              >
+                                <p className="font-theme-mono font-semibold text-theme-primary truncate">
+                                  {part.part_number}
+                                </p>
+                                {copiedPartNumber ? (
+                                  <Check className="w-4 h-4 text-success shrink-0" />
+                                ) : (
+                                  <Copy className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                )}
+                              </button>
+                            ) : (
+                              <p className="font-semibold text-theme-muted">Not set</p>
+                            )
                           )}
                         </div>
                       </div>
                     </div>
 
                     {/* Quantity Field */}
-                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
+                    <div
+                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
+                      onClick={() => startEditing('quantity', part.quantity.toString())}
+                    >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <Box className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-theme-secondary mb-1">Quantity</p>
-                          <div className="flex items-center gap-2">
-                            <p className={`font-bold text-lg ${
-                              part.minimum_quantity && part.quantity <= part.minimum_quantity
-                                ? 'text-error'
-                                : 'text-theme-primary'
-                            }`}>
-                              {part.quantity}
-                            </p>
-                            {part.minimum_quantity && (
-                              <span className="text-xs text-theme-muted bg-theme-tertiary px-2 py-1 rounded">
-                                Min: {part.minimum_quantity}
-                              </span>
-                            )}
-                          </div>
+                          {editingField === 'quantity' ? (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="number"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                className="w-20 px-2 py-1 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveField('quantity', editingValue)
+                                  if (e.key === 'Escape') cancelEditing()
+                                }}
+                              />
+                              <button
+                                onClick={() => saveField('quantity', editingValue)}
+                                disabled={saving}
+                                className="px-2 py-1 bg-success text-theme-inverse rounded text-xs disabled:opacity-50"
+                              >
+                                {saving ? '⏳' : '✓'}
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                className="px-2 py-1 bg-error text-theme-inverse rounded text-xs"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <p className={`font-bold text-lg ${
+                                part.minimum_quantity && part.quantity <= part.minimum_quantity
+                                  ? 'text-error'
+                                  : 'text-theme-primary'
+                              }`}>
+                                {part.quantity}
+                              </p>
+                              {part.minimum_quantity && (
+                                <span className="text-xs text-theme-muted bg-theme-tertiary px-2 py-1 rounded">
+                                  Min: {part.minimum_quantity}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -488,27 +601,60 @@ const PartDetailsPage = () => {
                     </div>
 
                     {/* Supplier Field */}
-                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
+                    <div
+                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
+                      onClick={() => startEditing('supplier', part.supplier || '')}
+                    >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <Tag className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-theme-secondary mb-1">Supplier</p>
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
-                            {part.supplier_url && (
-                              <a
-                                href={part.supplier_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary-accent hover:text-primary transition-colors"
-                                title="View supplier page"
+                          {editingField === 'supplier' ? (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                className="flex-1 px-2 py-1 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveField('supplier', editingValue)
+                                  if (e.key === 'Escape') cancelEditing()
+                                }}
+                              />
+                              <button
+                                onClick={() => saveField('supplier', editingValue)}
+                                disabled={saving}
+                                className="px-2 py-1 bg-success text-theme-inverse rounded text-xs disabled:opacity-50"
                               >
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
-                            )}
-                          </div>
+                                {saving ? '⏳' : '✓'}
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                className="px-2 py-1 bg-error text-theme-inverse rounded text-xs"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
+                              {part.supplier_url && (
+                                <a
+                                  href={part.supplier_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary-accent hover:text-primary transition-colors"
+                                  title="View supplier page"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -543,40 +689,45 @@ const PartDetailsPage = () => {
                       </div>
                     </div>
 
-                    {/* Component Type Field */}
-                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-primary-10 rounded-lg shrink-0">
-                          <Layers className="w-4 h-4 text-primary-accent" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">Component Type</p>
-                          <p className="font-semibold text-theme-primary">
-                            {formatEnumValue(part.component_type)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* RoHS Compliance Field */}
-                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-primary-10 rounded-lg shrink-0">
-                          <Leaf className="w-4 h-4 text-primary-accent" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">RoHS Compliance</p>
-                          <div className="flex items-center gap-2">
-                            <p className={`font-semibold ${part.rohs_status ? 'text-theme-primary' : 'text-theme-muted'}`}>
-                              {part.rohs_status ? formatEnumValue(part.rohs_status) : 'Unknown'}
-                            </p>
-                            {part.rohs_status && (
-                              <div className="w-2 h-2 bg-success rounded-full"></div>
-                            )}
+                    {/* Electronic Component Specific Fields */}
+                    {isElectronicComponent && (
+                      <>
+                        {/* Component Type Field */}
+                        <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-primary-10 rounded-lg shrink-0">
+                              <Layers className="w-4 h-4 text-primary-accent" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-theme-secondary mb-1">Component Type</p>
+                              <p className="font-semibold text-theme-primary">
+                                {formatEnumValue(part.component_type)}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
+
+                        {/* RoHS Compliance Field */}
+                        <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-primary-10 rounded-lg shrink-0">
+                              <Leaf className="w-4 h-4 text-primary-accent" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-theme-secondary mb-1">RoHS Compliance</p>
+                              <div className="flex items-center gap-2">
+                                <p className={`font-semibold ${part.rohs_status ? 'text-theme-primary' : 'text-theme-muted'}`}>
+                                  {part.rohs_status ? formatEnumValue(part.rohs_status) : 'Unknown'}
+                                </p>
+                                {part.rohs_status && (
+                                  <div className="w-2 h-2 bg-success rounded-full"></div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     {/* Created Date Field */}
                     <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
@@ -661,10 +812,44 @@ const PartDetailsPage = () => {
                 </h2>
               </div>
               <div className="p-6">
-                <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4">
-                  <p className="text-theme-primary leading-relaxed font-theme-primary">
-                    {part.description}
-                  </p>
+                <div
+                  className="bg-theme-secondary border border-theme-primary rounded-lg p-4 cursor-pointer hover:bg-theme-tertiary transition-colors"
+                  onClick={() => startEditing('description', part.description || '')}
+                >
+                  {editingField === 'description' ? (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <textarea
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        className="w-full h-24 px-3 py-2 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.ctrlKey) saveField('description', editingValue)
+                          if (e.key === 'Escape') cancelEditing()
+                        }}
+                      />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => saveField('description', editingValue)}
+                          disabled={saving}
+                          className="px-3 py-1 bg-success text-theme-inverse rounded text-sm disabled:opacity-50"
+                        >
+                          {saving ? '⏳ Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="px-3 py-1 bg-error text-theme-inverse rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <span className="text-xs text-theme-muted">Ctrl+Enter to save</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-theme-primary leading-relaxed font-theme-primary">
+                      {part.description}
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -927,12 +1112,6 @@ const PartDetailsPage = () => {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 px-3 py-2 bg-primary-10 text-primary-accent rounded-lg text-sm font-medium">
-                  <Zap className="w-4 h-4" />
-                  {propertyLeafCount} data points
-                </span>
-              </div>
             </div>
           </div>
 
@@ -1085,6 +1264,33 @@ const PartDetailsPage = () => {
           additional_properties: part.additional_properties || {}
         }}
       />
+
+      {/* Debug Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
+      >
+        <details className="group">
+          <summary className="cursor-pointer p-4 hover:bg-theme-tertiary transition-colors">
+            <span className="text-sm font-medium text-theme-secondary flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Debug Information
+              <span className="text-xs bg-theme-tertiary px-2 py-1 rounded">
+                Raw Data
+              </span>
+            </span>
+          </summary>
+          <div className="border-t border-theme-primary p-4">
+            <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4">
+              <pre className="text-xs font-mono text-theme-primary overflow-auto max-h-96">
+                {JSON.stringify(part, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </details>
+      </motion.div>
 
       {/* PDF Preview Modal for Supplier Datasheets */}
       {pdfPreviewOpen && pdfPreviewUrl && (
