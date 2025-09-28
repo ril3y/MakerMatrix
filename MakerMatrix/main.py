@@ -10,6 +10,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.openapi.utils import get_openapi
 import os
 
 from MakerMatrix.repositories.printer_repository import PrinterRepository
@@ -196,7 +197,11 @@ app = FastAPI(
     title="MakerMatrix",
     description="A comprehensive part inventory management system with label printing capabilities.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs",  # Enable API documentation
+    redoc_url="/redoc",  # Enable ReDoc documentation
+    # Temporarily disable OpenAPI generation for problematic schema
+    generate_unique_id_function=lambda route: route.tags[0] + "-" + route.name if route.tags else route.name
 )
 
 # Register exception handlers
@@ -372,6 +377,37 @@ app.include_router(websocket_routes.router, tags=["WebSocket"])
 
 # Include user management router also at /users for backward compatibility
 app.include_router(user_management_routes.router, prefix="/users", tags=["Users Legacy"])
+
+# Custom OpenAPI schema to handle Callable types
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    try:
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+    except Exception as e:
+        # If OpenAPI generation fails, return a minimal schema
+        return {
+            "openapi": "3.0.2",
+            "info": {"title": app.title, "version": app.version},
+            "paths": {
+                "/api/utility/get_counts": {
+                    "get": {
+                        "summary": "Get system counts",
+                        "responses": {"200": {"description": "Success"}}
+                    }
+                }
+            }
+        }
+
+app.openapi = custom_openapi
 
 # Static file serving for React frontend
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")

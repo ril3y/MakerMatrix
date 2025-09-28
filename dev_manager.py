@@ -2,6 +2,9 @@
 """
 MakerMatrix Development Server Manager - Rich TUI Version
 A responsive TUI application to manage both backend and frontend development servers using Rich.
+
+Also exposes a lightweight HTTP control API (defaults to http://127.0.0.1:8765)
+for automated agents or LLMs to start, stop, and monitor the dev services.
 """
 
 import asyncio
@@ -18,15 +21,17 @@ import time
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 import requests
 from blessed import Terminal
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 from rich.markup import escape
+from urllib.parse import urlparse, parse_qs
 
 # File watching for auto-restart
 try:
@@ -152,6 +157,13 @@ class EnhancedServerManager:
         self.http_port = 8080
         self.https_port = 8443
 
+        self.api_enabled = os.getenv("DEV_MANAGER_API_ENABLED", "true").lower() == "true"
+        self.api_host = os.getenv("DEV_MANAGER_API_HOST", "0.0.0.0")
+        self.api_port = int(os.getenv("DEV_MANAGER_API_PORT", "8765"))
+        self.api_log_requests = os.getenv("DEV_MANAGER_API_LOG_REQUESTS", "false").lower() == "true"
+        self.api_server: Optional[ThreadingHTTPServer] = None
+        self.api_thread: Optional[threading.Thread] = None
+
         self.local_ip = self._get_local_ip()
         self.backend_port = self.https_port if self.https_enabled else self.http_port
         protocol = "https" if self.https_enabled else "http"
@@ -176,6 +188,8 @@ class EnhancedServerManager:
         self.auto_restart_backend_enabled = True
         self.auto_restart_frontend_enabled = False # Off by default
         self._setup_file_watching()
+
+        self._start_api_server()
 
     def _setup_file_watching(self):
         if not WATCHDOG_AVAILABLE:
@@ -208,6 +222,182 @@ class EnhancedServerManager:
             self.file_observer.start()
         else:
             self.log_message("system", "⚠️ No valid paths found to watch.", "WARN")
+
+
+    def _create_api_handler(self):
+        manager = self
+
+        class ManagerAPIHandler(BaseHTTPRequestHandler):
+            server_version = "MakerMatrixDevManager/1.0"
+
+            def log_message(self, format, *args):
+                if manager.api_log_requests:
+                    manager.log_message("system", f"API {self.address_string()}: {format % args}", "DEBUG")
+
+            def _write_json(self, status_code: int, payload: Dict[str, Any]):
+                body = json.dumps(payload).encode("utf-8")
+                self.send_response(status_code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _read_json_body(self) -> Dict[str, Any]:
+                length = int(self.headers.get("Content-Length", "0") or 0)
+                if length <= 0:
+                    return {}
+                raw = self.rfile.read(length)
+                if not raw:
+                    return {}
+                try:
+                    return json.loads(raw.decode("utf-8"))
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"Invalid JSON body: {exc.msg}") from exc
+
+            def do_OPTIONS(self):
+                self.send_response(204)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.end_headers()
+
+            def do_GET(self):
+                parsed = urlparse(self.path)
+                path = parsed.path.rstrip('/') or '/'
+                try:
+                    if path == '/':
+                        payload = {
+                            "message": "MakerMatrix Development Manager control API",
+                            "docs": "See /docs for endpoint reference",
+                            "status": manager._api_status_payload(),
+                        }
+                        self._write_json(200, payload)
+                    elif path == '/docs':
+                        self._write_json(200, manager._api_docs_payload())
+                    elif path == '/status':
+                        self._write_json(200, manager._api_status_payload())
+                    elif path == '/logs':
+                        query = parse_qs(parsed.query or "")
+                        service = query.get('service', ['all'])[0]
+                        limit_param = query.get('limit', ['100'])[0]
+                        try:
+                            limit = int(limit_param)
+                        except ValueError:
+                            self._write_json(400, {"error": "'limit' must be an integer"})
+                            return
+                        logs = manager.get_logs_snapshot(service=service, limit=limit)
+                        self._write_json(200, {"logs": logs, "service": service, "limit": limit})
+                    else:
+                        self._write_json(404, {"error": "Not found"})
+                except ValueError as exc:
+                    self._write_json(400, {"error": str(exc)})
+                except Exception as exc:
+                    manager.log_message("system", f"API GET {path} failed: {exc}", "ERROR")
+                    self._write_json(500, {"error": "Internal server error"})
+
+            def do_POST(self):
+                parsed = urlparse(self.path)
+                path = parsed.path.rstrip('/') or '/'
+
+                try:
+                    body = self._read_json_body()
+                except ValueError as exc:
+                    self._write_json(400, {"error": str(exc)})
+                    return
+
+                try:
+                    if path == '/backend/start':
+                        manager.start_backend()
+                        self._write_json(200, {"ok": True, "status": manager._api_status_payload()["backend"]})
+                    elif path == '/backend/stop':
+                        manager.stop_backend()
+                        self._write_json(200, {"ok": True, "status": manager._api_status_payload()["backend"]})
+                    elif path == '/backend/restart':
+                        manager.schedule_backend_restart()
+                        self._write_json(202, {"ok": True, "message": "Backend restart scheduled"})
+                    elif path == '/frontend/start':
+                        manager.start_frontend()
+                        self._write_json(200, {"ok": True, "status": manager._api_status_payload()["frontend"]})
+                    elif path == '/frontend/stop':
+                        manager.stop_frontend()
+                        self._write_json(200, {"ok": True, "status": manager._api_status_payload()["frontend"]})
+                    elif path == '/frontend/restart':
+                        manager.schedule_frontend_restart()
+                        self._write_json(202, {"ok": True, "message": "Frontend restart scheduled"})
+                    elif path == '/frontend/build':
+                        manager.schedule_frontend_build()
+                        self._write_json(202, {"ok": True, "message": "Frontend build started"})
+                    elif path == '/all/stop':
+                        manager.stop_all()
+                        self._write_json(200, {"ok": True, "status": manager._api_status_payload()})
+                    elif path == '/logs/clear':
+                        manager.clear_logs()
+                        self._write_json(200, {"ok": True, "message": "Logs cleared"})
+                    elif path == '/mode':
+                        if 'https' not in body:
+                            self._write_json(400, {"error": "Request body must include 'https' boolean"})
+                            return
+                        manager.switch_mode(bool(body['https']))
+                        self._write_json(200, {"ok": True, "https_enabled": manager.https_enabled})
+                    elif path == '/auto-restart':
+                        if not any(key in body for key in ('backend', 'frontend')):
+                            self._write_json(400, {"error": "Provide 'backend' and/or 'frontend' boolean flags"})
+                            return
+                        changes = {}
+                        if 'backend' in body:
+                            manager.set_auto_restart('backend', bool(body['backend']))
+                            changes['backend'] = manager.auto_restart_backend_enabled
+                        if 'frontend' in body:
+                            manager.set_auto_restart('frontend', bool(body['frontend']))
+                            changes['frontend'] = manager.auto_restart_frontend_enabled
+                        self._write_json(200, {"ok": True, "auto_restart": changes})
+                    elif path == '/backend/health':
+                        result = manager._check_backend_health()
+                        status_code = 200 if result.get('ok') else 503
+                        self._write_json(status_code, result)
+                    else:
+                        self._write_json(404, {"error": "Not found"})
+                except Exception as exc:
+                    manager.log_message("system", f"API POST {path} failed: {exc}", "ERROR")
+                    self._write_json(500, {"error": "Internal server error"})
+
+        return ManagerAPIHandler
+
+    def _start_api_server(self):
+        if not self.api_enabled:
+            self.log_message("system", "Control API disabled via DEV_MANAGER_API_ENABLED", "INFO")
+            return
+
+        handler_cls = self._create_api_handler()
+        try:
+            self.api_server = ThreadingHTTPServer((self.api_host, self.api_port), handler_cls)
+        except OSError as exc:
+            self.api_server = None
+            self.log_message("system", f"Failed to start control API on {self.api_host}:{self.api_port} ({exc})", "ERROR")
+            return
+
+        self.api_thread = threading.Thread(target=self.api_server.serve_forever, name="DevManagerAPI", daemon=True)
+        self.api_thread.start()
+        self.log_message("system", f"🛰️ Control API listening on http://{self.api_host}:{self.api_port}", "SUCCESS")
+
+    def _stop_api_server(self):
+        if not self.api_server:
+            return
+
+        try:
+            self.api_server.shutdown()
+            self.api_server.server_close()
+        except Exception as exc:
+            self.log_message("system", f"Error while shutting down API server: {exc}", "WARN")
+        finally:
+            self.api_server = None
+            if self.api_thread and self.api_thread.is_alive():
+                self.api_thread.join(timeout=1)
+            self.api_thread = None
+            self.log_message("system", "Control API stopped", "INFO")
 
 
     def _get_local_ip(self):
@@ -415,6 +605,9 @@ class EnhancedServerManager:
         self.stop_backend()
         self.stop_frontend()
 
+    def schedule_backend_restart(self):
+        threading.Thread(target=self._safe_restart_backend, name="BackendRestart", daemon=True).start()
+
     def _safe_restart_backend(self):
         self.log_message("system", "🔄 Beginning safe backend restart...", "INFO")
         if self.backend_process and self.backend_process.poll() is None:
@@ -426,11 +619,17 @@ class EnhancedServerManager:
         else:
             self.log_message("system", f"⚠️ Backend restart may have failed - status: {self.backend_status}", "WARN")
 
+    def schedule_frontend_restart(self):
+        threading.Thread(target=self.restart_frontend, name="FrontendRestart", daemon=True).start()
+
     def restart_frontend(self):
         self.log_message("system", "🔄 Beginning frontend restart...", "INFO")
         self.stop_frontend()
         time.sleep(1)
         self.start_frontend()
+
+    def schedule_frontend_build(self):
+        threading.Thread(target=self.build_frontend, name="FrontendBuild", daemon=True).start()
 
     def build_frontend(self):
         self.log_message("frontend", "Building frontend for production...", "INFO")
@@ -471,6 +670,17 @@ class EnhancedServerManager:
         }
         return status_map.get(status, "[white]⚪ Unknown[/]")
 
+    def set_auto_restart(self, service: str, enabled: bool):
+        state_label = 'enabled' if enabled else 'disabled'
+        if service == 'backend':
+            self.auto_restart_backend_enabled = enabled
+            self.log_message("system", f"📁 BE Auto-restart {state_label}", "INFO")
+        elif service == 'frontend':
+            self.auto_restart_frontend_enabled = enabled
+            self.log_message("system", f"📁 FE Auto-restart {state_label}", "INFO")
+        else:
+            raise ValueError(f"Unknown service '{service}' for auto-restart toggle")
+
     def clear_logs(self):
         with self.log_lock:
             self.backend_logs.clear()
@@ -480,6 +690,117 @@ class EnhancedServerManager:
             self.scroll_position = 0
             self.auto_scroll = True
         self.log_message("system", "Logs cleared", "INFO")
+
+    def get_logs_snapshot(self, service: str = "all", limit: int = 100) -> List[Dict[str, str]]:
+        if limit <= 0:
+            raise ValueError("'limit' must be positive")
+
+        limit = min(limit, 1000)
+
+        with self.log_lock:
+            if service == "all":
+                selected = list(self.all_logs)
+            elif service == "backend":
+                selected = list(self.backend_logs)
+            elif service == "frontend":
+                selected = list(self.frontend_logs)
+            elif service == "errors":
+                selected = [log for log in self.all_logs if log.level in ["ERROR", "WARN", "CRITICAL", "FATAL"]]
+            elif service == "system":
+                selected = [log for log in self.all_logs if log.service == "system"]
+            else:
+                raise ValueError(f"Unknown service filter '{service}'")
+
+            subset = selected[-limit:]
+
+        return [
+            {
+                "timestamp": log.full_timestamp,
+                "service": log.service,
+                "level": log.level,
+                "message": log.message,
+            }
+            for log in subset
+        ]
+
+    def _api_status_payload(self) -> Dict[str, Any]:
+        backend_pid = self.backend_process.pid if self.backend_process and self.backend_process.poll() is None else None
+        frontend_pid = self.frontend_process.pid if self.frontend_process and self.frontend_process.poll() is None else None
+
+        return {
+            "backend": {
+                "status": self.backend_status,
+                "pid": backend_pid,
+                "port": self.backend_port,
+                "url": self.backend_url,
+                "auto_restart": self.auto_restart_backend_enabled,
+            },
+            "frontend": {
+                "status": self.frontend_status,
+                "pid": frontend_pid,
+                "port": 5173,
+                "url": self.frontend_url,
+                "auto_restart": self.auto_restart_frontend_enabled,
+            },
+            "https_enabled": self.https_enabled,
+            "api": {
+                "host": self.api_host,
+                "port": self.api_port,
+                "log_requests": self.api_log_requests,
+            },
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        }
+
+    def _api_docs_payload(self) -> Dict[str, Any]:
+        base_url = f"http://{self.api_host}:{self.api_port}"
+        endpoints: List[Dict[str, Any]] = [
+            {"method": "GET", "path": "/", "description": "Summary message and latest status snapshot"},
+            {"method": "GET", "path": "/docs", "description": "Structured list of available control endpoints"},
+            {"method": "GET", "path": "/status", "description": "Current status for backend and frontend services"},
+            {
+                "method": "GET",
+                "path": "/logs",
+                "description": "Retrieve recent log entries",
+                "query": {
+                    "service": "all | backend | frontend | errors | system (default all)",
+                    "limit": "Number of entries to return (default 100, max 1000)",
+                },
+            },
+            {"method": "POST", "path": "/backend/start", "description": "Start the FastAPI backend"},
+            {"method": "POST", "path": "/backend/stop", "description": "Stop the FastAPI backend"},
+            {"method": "POST", "path": "/backend/restart", "description": "Restart the FastAPI backend (async)"},
+            {"method": "POST", "path": "/backend/health", "description": "Trigger backend health check"},
+            {"method": "POST", "path": "/frontend/start", "description": "Start the Vite dev server"},
+            {"method": "POST", "path": "/frontend/stop", "description": "Stop the Vite dev server"},
+            {"method": "POST", "path": "/frontend/restart", "description": "Restart the Vite dev server (async)"},
+            {"method": "POST", "path": "/frontend/build", "description": "Run npm run build asynchronously"},
+            {"method": "POST", "path": "/all/stop", "description": "Stop backend and frontend"},
+            {
+                "method": "POST",
+                "path": "/logs/clear",
+                "description": "Clear in-memory log buffers",
+            },
+            {
+                "method": "POST",
+                "path": "/auto-restart",
+                "description": "Toggle auto-restart flags",
+                "body": {"backend": "boolean (optional)", "frontend": "boolean (optional)"},
+            },
+            {
+                "method": "POST",
+                "path": "/mode",
+                "description": "Switch HTTP/HTTPS mode for backend",
+                "body": {"https": "boolean"},
+            },
+        ]
+
+        return {
+            "title": "MakerMatrix Dev Manager Control API",
+            "base_url": base_url,
+            "notes": "All endpoints return application/json and support OPTIONS for CORS preflight.",
+            "endpoints": endpoints,
+            "status": self._api_status_payload(),
+        }
 
     def handle_input(self, key):
         if self.search_mode:
@@ -500,9 +821,9 @@ class EnhancedServerManager:
         elif key == '4': self.stop_frontend()
         elif key == '5': self.start_backend(); self.start_frontend()
         elif key == '6': self.stop_all()
-        elif key == '7': threading.Thread(target=self._safe_restart_backend, daemon=True).start()
-        elif key == '8': threading.Thread(target=self.restart_frontend, daemon=True).start()
-        elif key == '9': threading.Thread(target=self.build_frontend, daemon=True).start()
+        elif key == '7': self.schedule_backend_restart()
+        elif key == '8': self.schedule_frontend_restart()
+        elif key == '9': self.schedule_frontend_build()
         elif key == 'v':
             views = ["all", "backend", "frontend", "errors"]
             self.selected_view = views[(views.index(self.selected_view) + 1) % len(views)]
@@ -516,11 +837,9 @@ class EnhancedServerManager:
             self.auto_scroll = not self.auto_scroll
             self.log_message("system", f"Auto-scroll {'enabled' if self.auto_scroll else 'disabled'}", "INFO")
         elif key == 'r':
-            self.auto_restart_backend_enabled = not self.auto_restart_backend_enabled
-            self.log_message("system", f"📁 BE Auto-restart {'enabled' if self.auto_restart_backend_enabled else 'disabled'}", "INFO")
+            self.set_auto_restart('backend', not self.auto_restart_backend_enabled)
         elif key == 't':
-            self.auto_restart_frontend_enabled = not self.auto_restart_frontend_enabled
-            self.log_message("system", f"📁 FE Auto-restart {'enabled' if self.auto_restart_frontend_enabled else 'disabled'}", "INFO")
+            self.set_auto_restart('frontend', not self.auto_restart_frontend_enabled)
         elif key == 'h': self._check_backend_health()
         elif key.name == 'KEY_ESCAPE':
             self.search_term = ""; self.filtered_logs = []; self.scroll_position = 0; self.auto_scroll = True
@@ -567,21 +886,43 @@ class EnhancedServerManager:
 
     def _check_backend_health(self):
         self.log_message("system", "🏥 Checking backend health...", "INFO")
+        result: Dict[str, Optional[str]] = {"ok": False}
         try:
             response = requests.get(f"{self.backend_url}/api/utility/get_counts", timeout=5)
+            try:
+                response_payload = response.json()
+            except ValueError:
+                response_payload = response.text
+
+            result.update({
+                "status_code": response.status_code,
+                "response": response_payload,
+            })
+
             if response.ok:
                 self.log_message("system", "✅ Backend health check passed", "SUCCESS")
-                if self.backend_status != "Running": self.backend_status = "Running"
+                if self.backend_status != "Running":
+                    self.backend_status = "Running"
+                result["ok"] = True
+                result["message"] = "Backend healthy"
             else:
                 self.log_message("system", f"⚠️ Backend responded with status {response.status_code}", "WARN")
-                if self.backend_status == "Running": self.backend_status = "Error"
+                if self.backend_status == "Running":
+                    self.backend_status = "Error"
+                result["message"] = "Backend responded with non-success status"
         except requests.RequestException as e:
             self.log_message("system", f"❌ Backend health check failed: {e}", "ERROR")
             if self.backend_status == "Running": self.backend_status = "Error"
-
+            result.update({
+                "error": str(e),
+                "exception": e.__class__.__name__,
+                "message": "Exception while contacting backend",
+            })
+        return result
     def cleanup(self):
         self.log_message("system", "Shutting down development manager...", "INFO")
         self.stop_all()
+        self._stop_api_server()
         if self.file_observer:
             self.file_observer.stop()
             self.file_observer.join(timeout=1)
@@ -706,6 +1047,25 @@ Features:
   • Auto-kills stale processes on startup.
   • Real-time server status and log monitoring.
   • Auto-restarts services on file changes (if watchdog is installed).
+  • HTTP control API for automation (defaults to http://127.0.0.1:8765).
+
+HTTP Control API:
+  GET  /docs                   → Endpoint catalog (this document)
+  GET  /status                 → JSON status snapshot
+  GET  /logs?service=all&limit=100
+  POST /backend/start|stop|restart
+  POST /frontend/start|stop|restart|build
+  POST /all/stop               → Stop both services
+  POST /backend/health         → Runs health probe
+  POST /auto-restart           → Body {"backend": true, "frontend": false}
+  POST /mode                   → Body {"https": true}
+  POST /logs/clear             → Clear cached logs
+
+Environment variables:
+  DEV_MANAGER_API_ENABLED=true|false
+  DEV_MANAGER_API_HOST=127.0.0.1
+  DEV_MANAGER_API_PORT=8765
+  DEV_MANAGER_API_LOG_REQUESTS=true|false
 
 Requirements:
   - pip install blessed requests psutil watchdog rich
