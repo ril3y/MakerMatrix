@@ -457,10 +457,62 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
                 processed_text = processed_text.replace(f"{{{key}}}", str(value))
         print(f"[DEBUG] Processed text: {processed_text}")
 
-        # Use the processed text for preview
+        # Check if QR code is requested
+        include_qr = request.options.include_qr if request.options else False
+        print(f"[DEBUG] Include QR code: {include_qr}")
+
+        # Generate preview based on whether QR is requested
         print(f"[DEBUG] Generating preview with label_size: {request.label_size}")
         try:
-            result = await service.preview_text_label(processed_text, request.label_size)
+            if include_qr:
+                # Generate QR + text combined preview
+                print(f"[DEBUG] Generating QR code + text preview")
+
+                # Extract QR data from request options or use part number as fallback
+                qr_data = request.options.qr_data if request.options and request.options.qr_data else "NO_DATA"
+                if request.data and 'part_number' in request.data:
+                    qr_data = request.data['part_number']
+
+                print(f"[DEBUG] QR data: {qr_data}")
+
+                # Generate QR code image
+                qr_image = service.qr_service.generate_qr_code(qr_data, size=(150, 150))
+
+                # Create combined image with text and QR code
+                combined_image = service._create_combined_image(qr_image, processed_text, (400, 200))
+
+                # Convert to preview result format
+                import io
+                img_buffer = io.BytesIO()
+                combined_image.save(img_buffer, format='PNG')
+                img_buffer.seek(0)
+
+                # Get label size info for PreviewResult
+                from MakerMatrix.printers.base import PreviewResult, LabelSize
+
+                # Create a temporary label size object for the preview
+                # We'll use a generic size since this is just for preview formatting
+                temp_label_size = LabelSize(
+                    name=request.label_size,
+                    width_mm=29,  # Default 29mm width
+                    height_mm=90,  # Default 90mm height
+                    width_px=combined_image.width,
+                    height_px=combined_image.height
+                )
+
+                result = PreviewResult(
+                    image_data=img_buffer.getvalue(),
+                    format="png",
+                    width_px=combined_image.width,
+                    height_px=combined_image.height,
+                    label_size=temp_label_size,
+                    message="QR code + text preview generated"
+                )
+            else:
+                # Generate text-only preview
+                print(f"[DEBUG] Generating text-only preview")
+                result = await service.preview_text_label(processed_text, request.label_size)
+
             print(f"[DEBUG] Preview generated successfully: {result.width_px}x{result.height_px}")
         except Exception as e:
             print(f"[ERROR] Failed to generate preview: {e}")

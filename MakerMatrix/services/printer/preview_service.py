@@ -97,27 +97,54 @@ class PreviewService:
         return any(size.name == label_size for size in sizes)
     
     def _generate_text_image(self, text: str, size: tuple[int, int]) -> Image.Image:
-        """Generate a PIL image with the given text."""
+        """Generate a PIL image with the given text, scaled to fit the label height."""
         from PIL import ImageDraw, ImageFont
-        
+
         image = Image.new('RGB', size, 'white')
         draw = ImageDraw.Draw(image)
-        
-        try:
-            # Try to use a proper font
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-        except:
-            # Fall back to default font
+
+        # Define target height as percentage of label height (with some margin)
+        target_height = int(size[1] * 0.8)  # Use 80% of label height
+        max_width = int(size[0] * 0.9)      # Use 90% of label width
+
+        # Start with a large font size and scale down to fit
+        font_size = max(target_height, 12)  # Start with target height or minimum 12
+        font = None
+
+        # Try to find the best font size that fits
+        while font_size > 8:
+            try:
+                # Try to use a proper font
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+            except:
+                # Fall back to default font - note: default font size cannot be changed
+                font = ImageFont.load_default()
+                break
+
+            # Check if text fits within bounds
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            # If text fits both width and height constraints, we're done
+            if text_width <= max_width and text_height <= target_height:
+                break
+
+            # Otherwise, reduce font size and try again
+            font_size = int(font_size * 0.9)
+
+        # If we couldn't load a TrueType font, use default
+        if font is None:
             font = ImageFont.load_default()
-        
-        # Calculate text position to center it
+
+        # Calculate final text position to center it
         bbox = draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
-        
+
         x = (size[0] - text_width) // 2
         y = (size[1] - text_height) // 2
-        
+
         draw.text((x, y), text, fill='black', font=font)
         return image
     
@@ -132,23 +159,82 @@ class PreviewService:
         qr_y = (size[1] - qr_image.height) // 2
         combined.paste(qr_image, (10, qr_y))
         
-        # Add text on the right
+        # Add text on the right with dynamic sizing
         draw = ImageDraw.Draw(combined)
-        
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
-        except:
-            font = ImageFont.load_default()
-        
+
         # Calculate text area (right side after QR code)
         text_x = qr_image.width + 20
         text_width = size[0] - text_x - 10
+
+        # Optimized font sizing for QR+text layout (matching printer manager logic)
+        max_text_width = text_width
+        text_height = size[1] - 20  # Available height minus margins
+
+        # Check if text is single line (no newlines)
+        clean_text = text.strip()
+        is_single_line = '\n' not in clean_text
+
+        # For single line text in narrow labels, try to use maximum height
+        if is_single_line and size[1] <= 200:  # Assume narrow label like 12mm
+            # Try to use most of the available height for single line text
+            max_font_height = int(text_height * 0.9)  # Use 90% of available height
+            print(f"[DEBUG] Preview: Single line text detected, targeting max height: {max_font_height}px")
+
+            # Start with height-based font size and scale down if width doesn't fit
+            font_size = max_font_height
+            font = None
+
+            while font_size > 8:
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+                    break
+
+                # Check if text fits within width constraint
+                test_bbox = draw.textbbox((0, 0), clean_text, font=font)
+                test_width = test_bbox[2] - test_bbox[0]
+
+                print(f"[DEBUG] Preview: Testing font_size={font_size}: text_width={test_width}px, limit={max_text_width}px")
+
+                # For single line, prioritize using maximum height if it fits width
+                if test_width <= max_text_width:
+                    print(f"[DEBUG] Preview: Single line text fits at font_size={font_size}")
+                    break
+
+                # Reduce font size if too wide
+                font_size = int(font_size * 0.95)
+        else:
+            # Multi-line text or wider labels: use balanced approach
+            target_height = int(text_height * 0.8)  # Use 80% of available height
+            font_size = max(target_height // 3, 10)  # Start with reasonable size
+
+            while font_size > 8:
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+                    break
+
+                # Check if text fits within both width and height constraints
+                test_bbox = draw.textbbox((0, 0), clean_text.replace('\n', ' '), font=font)
+                test_width = test_bbox[2] - test_bbox[0]
+                test_height = test_bbox[3] - test_bbox[1]
+
+                if test_width <= max_text_width and test_height <= target_height:
+                    break
+
+                font_size = int(font_size * 0.9)
+
+        # If we couldn't load a TrueType font, use default
+        if font is None:
+            font = ImageFont.load_default()
         
         # Split long text into multiple lines
         lines = self._wrap_text(text, text_width, font, draw)
         
-        # Draw each line
-        line_height = 25
+        # Draw each line with dynamic line height
+        line_height = font_size + 2
         start_y = (size[1] - len(lines) * line_height) // 2
         
         for i, line in enumerate(lines):

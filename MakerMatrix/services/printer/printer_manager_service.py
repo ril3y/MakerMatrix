@@ -377,9 +377,37 @@ class PrinterManagerService:
         draw = ImageDraw.Draw(image)
         
         if has_qr:
-            # Create layout with QR code and text
-            qr_size = min(height - 20, width // 3)  # QR takes up to 1/3 of width
-            
+            # Create optimized layout with QR code and text for actual label dimensions
+
+            # For 12mm labels (39mm x 12mm output), optimize QR size and text placement
+            if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
+                # Calculate actual dimensions in pixels for 39mm x 12mm label
+                # Using 39mm effective output width after printer scaling
+                effective_width_mm = 39.0
+                effective_height_mm = 12.0
+
+                # QR code should be roughly 10mm x 10mm (leaves 2mm margins)
+                qr_size_mm = 10.0
+                qr_size = int(qr_size_mm * 300 / 25.4)  # Convert to pixels at 300 DPI
+
+                # Padding and spacing
+                left_padding = 10  # Left margin
+                qr_text_spacing = 15  # Space between QR and text
+                right_padding = 10  # Right margin
+
+                # Calculate available text area
+                text_x = left_padding + qr_size + qr_text_spacing
+                text_width = width - text_x - right_padding
+                text_height = height - 20  # Leave top/bottom margins
+
+                print(f"[DEBUG] 12mm label QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
+            else:
+                # Generic layout for other label sizes
+                qr_size = min(height - 20, width // 3)  # QR takes up to 1/3 of width
+                text_x = qr_size + 20
+                text_width = width - text_x - 10
+                text_height = height - 20
+
             # Generate QR code
             qr_data = flattened_data.get(qr_matches[0] if qr_matches else 'part_number', 'NO_DATA')
             qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=1, border=1)
@@ -387,41 +415,70 @@ class PrinterManagerService:
             qr.make(fit=True)
             qr_image = qr.make_image(fill_color="black", back_color="white")
             qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
-            
+
             # Paste QR code (left side)
             qr_y = (height - qr_size) // 2
-            image.paste(qr_image, (10, qr_y))
-            
-            # Add text (right side)
-            text_x = qr_size + 20
-            text_width = width - text_x - 10
-            text_area = (text_x, 0, width - 10, height)
-            
-            # Draw text in remaining area with dynamic sizing
-            target_height = int(height * 0.7)  # Use 70% of label height for QR+text layout
+            image.paste(qr_image, (left_padding if 'left_padding' in locals() else 10, qr_y))
+
+            # Optimized text sizing for the available space
             max_text_width = text_width
 
-            # Start with a reasonable font size and scale to fit
-            font_size = max(target_height // 3, 10)  # Start smaller for combined layout
-            font = None
+            # Check if text is single line (no newlines and fits in one line)
+            clean_text = processed_text.strip()
+            is_single_line = '\n' not in clean_text
 
-            # Try to find the best font size that fits the text area
-            while font_size > 8:
-                try:
-                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                except:
-                    font = ImageFont.load_default()
-                    break
+            # For single line text, try to use maximum height (full 12mm for 12mm labels)
+            if is_single_line and label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
+                # For 12mm labels, try to use most of the 12mm height for single line
+                max_font_height = int(text_height * 0.9)  # Use 90% of available height
+                print(f"[DEBUG] Single line text detected, targeting max height: {max_font_height}px")
 
-                # Check if text fits within the available text area
-                test_bbox = draw.textbbox((0, 0), processed_text.replace('\n', ' '), font=font)
-                test_width = test_bbox[2] - test_bbox[0]
-                test_height = test_bbox[3] - test_bbox[1]
+                # Start with height-based font size and scale down if width doesn't fit
+                font_size = max_font_height
+                font = None
 
-                if test_width <= max_text_width and test_height <= target_height:
-                    break
+                while font_size > 8:
+                    try:
+                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                    except:
+                        font = ImageFont.load_default()
+                        break
 
-                font_size = int(font_size * 0.9)
+                    # Check if text fits within width constraint
+                    test_bbox = draw.textbbox((0, 0), clean_text, font=font)
+                    test_width = test_bbox[2] - test_bbox[0]
+                    test_height = test_bbox[3] - test_bbox[1]
+
+                    print(f"[DEBUG] Testing font_size={font_size}: text_size={test_width}x{test_height}px, limits={max_text_width}x{max_font_height}px")
+
+                    # For single line, prioritize using maximum height if it fits width
+                    if test_width <= max_text_width:
+                        print(f"[DEBUG] Single line text fits at font_size={font_size}")
+                        break
+
+                    # Reduce font size if too wide
+                    font_size = int(font_size * 0.95)
+            else:
+                # Multi-line text or non-12mm labels: use balanced approach
+                target_height = int(text_height * 0.8)  # Use 80% of available height
+                font_size = max(target_height // 3, 12)  # Start with reasonable size
+
+                while font_size > 8:
+                    try:
+                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                    except:
+                        font = ImageFont.load_default()
+                        break
+
+                    # Check if text fits within both width and height constraints
+                    test_bbox = draw.textbbox((0, 0), clean_text.replace('\n', ' '), font=font)
+                    test_width = test_bbox[2] - test_bbox[0]
+                    test_height = test_bbox[3] - test_bbox[1]
+
+                    if test_width <= max_text_width and test_height <= target_height:
+                        break
+
+                    font_size = int(font_size * 0.9)
 
             if font is None:
                 font = ImageFont.load_default()
