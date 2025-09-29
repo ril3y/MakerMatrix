@@ -20,6 +20,7 @@ from MakerMatrix.suppliers.exceptions import (
 )
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 
 router = APIRouter()
 
@@ -298,6 +299,131 @@ async def get_supplier_credential_schema(
         raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get credential schema: {str(e)}")
+
+@router.get("/{supplier_name}/credentials/status", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
+async def get_supplier_credentials_status(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get the current credential configuration status for a supplier"""
+    try:
+        # Use supplier config service to create properly configured supplier instance
+        supplier_config_service = SupplierConfigService()
+        config = supplier_config_service.get_supplier_config(supplier_name)
+        credentials = supplier_config_service.get_supplier_credentials(supplier_name)
+        supplier = supplier_config_service._create_api_client(config, credentials)
+
+        # Test connection to determine if credentials are working
+        try:
+            connection_result = await supplier.test_connection()
+            is_configured = connection_result.get('success', False)
+            connection_message = connection_result.get('message', '')
+        except Exception as e:
+            is_configured = False
+            connection_message = str(e)
+
+        # Get credential schema to see what fields are expected
+        credential_schema = supplier.get_credential_schema()
+
+        # Check which credentials are actually set by looking at the supplier's credentials
+        supplier_credentials = supplier._credentials or {}
+
+        # Build status for each credential field
+        field_status = {}
+        configured_field_names = []
+        all_missing_creds = []
+
+        for field in credential_schema:
+            field_name = field.name
+            # Check if credential is actually set (not empty/None)
+            credential_value = supplier_credentials.get(field_name, '').strip()
+            is_set = bool(credential_value)
+
+            field_status[field_name] = {
+                "is_set": is_set,
+                "required": field.required,
+                "label": field.label
+            }
+
+            if is_set:
+                configured_field_names.append(field_name)
+            else:
+                all_missing_creds.append(field_name)
+
+        response_data = {
+            "supplier_name": supplier_name,
+            "is_configured": is_configured,
+            "connection_status": {
+                "success": is_configured,
+                "message": connection_message
+            },
+            "credential_fields": field_status,
+            "missing_credentials": all_missing_creds,
+            "total_fields": len(credential_schema),
+            "configured_fields": configured_field_names,  # Array of field names, not count
+            "configured_fields_count": len(configured_field_names)  # Add count separately
+        }
+
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved credential status for {supplier_name}",
+            data=response_data
+        )
+    except SupplierNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get credential status: {str(e)}")
+
+@router.post("/{supplier_name}/credentials", response_model=ResponseSchema[Dict[str, str]])
+@standard_error_handling
+async def save_supplier_credentials(
+    supplier_name: str,
+    credentials_data: Dict[str, Any],
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Save credentials for a supplier"""
+    try:
+        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+
+        # Extract credentials from the request body
+        credentials = credentials_data.get('credentials', {})
+
+        if not credentials:
+            raise HTTPException(
+                status_code=400,
+                detail="No credentials provided"
+            )
+
+        service = SupplierConfigService()
+
+        # Use credentials as-is without mapping to maintain consistency with credential schema
+        mapped_credentials = credentials
+
+        # Use the existing service to save credentials
+        result = service.set_supplier_credentials(
+            supplier_name.upper(),  # Normalize to uppercase
+            mapped_credentials,
+            user_id=current_user.id
+        )
+
+        return ResponseSchema(
+            status="success",
+            message=f"Saved credentials for {supplier_name}",
+            data={
+                "supplier_name": supplier_name,
+                "credentials_saved": "true",
+                "fields_saved": ", ".join(list(credentials.keys())),
+                "storage_type": result.get("status", "unknown"),
+                "storage_message": result.get("message", "")
+            }
+        )
+    except Exception as e:
+        # More detailed error information
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error saving credentials: {error_details}")  # For debugging
+        raise HTTPException(status_code=500, detail=f"Failed to save credentials: {str(e)}")
 
 @router.get("/{supplier_name}/config-schema", response_model=ResponseSchema[List[FieldDefinitionResponse]])
 @standard_error_handling
