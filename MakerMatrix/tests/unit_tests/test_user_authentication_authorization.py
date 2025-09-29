@@ -10,8 +10,8 @@ from typing import Dict, List, Any, Optional
 from unittest.mock import Mock, patch, AsyncMock
 
 from MakerMatrix.models.models import UserModel, RoleModel, PartModel, LocationModel
-from MakerMatrix.repositories.user_repositories import UserRepository
-from MakerMatrix.repositories.role_repositories import RoleRepository
+from MakerMatrix.repositories.user_repository import UserRepository
+from MakerMatrix.repositories.role_repository import RoleRepository
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.repositories.location_repositories import LocationRepository
 from MakerMatrix.services.auth.auth_service import AuthService

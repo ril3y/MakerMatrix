@@ -1,0 +1,146 @@
+{
+  "test_start_time": 1759088413.875974,
+  "supplier_capabilities": {},
+  "lcsc_results": {
+    "supplier": "LCSC",
+    "total_parts": 4,
+    "parts_with_datasheets": 0,
+    "parts_with_urls": 3,
+    "parts_with_enrichment_data": 4,
+    "validation_errors": [],
+    "validation_warnings": [
+      "Product URL seems truncated for SWPA6045S101MT: https://www.lcsc.com/product-detail/C60633.html",
+      "Product URL seems truncated for RT8205LGQW: https://www.lcsc.com/product-detail/C84681.html",
+      "Product URL seems truncated for LM358DR: https://www.lcsc.com/product-detail/C5149.html"
+    ],
+    "parts_details": [
+      {
+        "part_name": "VEJ101M1VTT-0607L",
+        "part_number": "C7442639",
+        "supplier": "LCSC",
+        "has_datasheet": false,
+        "has_url": false,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": null,
+        "enrichment_source": "LCSC",
+        "enrichment_date": "2025-09-28T19:40:13.931170"
+      },
+      {
+        "part_name": "SWPA6045S101MT",
+        "part_number": "C60633",
+        "supplier": "LCSC",
+        "has_datasheet": false,
+        "has_url": true,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": "https://www.lcsc.com/product-detail/C60633.html",
+        "enrichment_source": "LCSC",
+        "enrichment_date": "2025-09-28T19:40:15.674718"
+      },
+      {
+        "part_name": "RT8205LGQW",
+        "part_number": "C84681",
+        "supplier": "LCSC",
+        "has_datasheet": false,
+        "has_url": true,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": "https://www.lcsc.com/product-detail/C84681.html",
+        "enrichment_source": "LCSC",
+        "enrichment_date": "2025-09-28T19:40:15.127422"
+      },
+      {
+        "part_name": "LM358DR",
+        "part_number": "C5149",
+        "supplier": "LCSC",
+        "has_datasheet": false,
+        "has_url": true,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": "https://www.lcsc.com/product-detail/C5149.html",
+        "enrichment_source": "LCSC",
+        "enrichment_date": "2025-09-28T19:40:15.291599"
+      }
+    ],
+    "datasheet_success_rate": 0.0,
+    "url_success_rate": 75.0,
+    "enrichment_success_rate": 100.0
+  },
+  "digikey_results": {
+    "supplier": "DigiKey",
+    "total_parts": 4,
+    "parts_with_datasheets": 0,
+    "parts_with_urls": 1,
+    "parts_with_enrichment_data": 4,
+    "validation_errors": [],
+    "validation_warnings": [],
+    "parts_details": [
+      {
+        "part_name": "RC0805FR-071KL",
+        "part_number": "311-1.00KCRCT-ND",
+        "supplier": "DigiKey",
+        "has_datasheet": false,
+        "has_url": true,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": "https://www.digikey.com/en/products/detail/yageo/RC0805FR-071KL/727444",
+        "enrichment_source": "DigiKey",
+        "enrichment_date": "2025-09-28T19:40:18.451991"
+      },
+      {
+        "part_name": "C0805C104K5RAC7800",
+        "part_number": "399-11785-1-ND",
+        "supplier": "DigiKey",
+        "has_datasheet": false,
+        "has_url": false,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": null,
+        "enrichment_source": "DigiKey",
+        "enrichment_date": "2025-09-28T19:40:17.099653"
+      },
+      {
+        "part_name": "TXB0108PWR",
+        "part_number": "TXB0108PWRCT-ND",
+        "supplier": "DigiKey",
+        "has_datasheet": false,
+        "has_url": false,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": null,
+        "enrichment_source": "DigiKey",
+        "enrichment_date": "2025-09-28T19:40:17.099803"
+      },
+      {
+        "part_name": "LM358PDR",
+        "part_number": "LM358PDRCT-ND",
+        "supplier": "DigiKey",
+        "has_datasheet": false,
+        "has_url": false,
+        "has_enrichment_data": true,
+        "datasheet_url": null,
+        "product_url": null,
+        "enrichment_source": "DigiKey",
+        "enrichment_date": "2025-09-28T19:40:17.099947"
+      }
+    ],
+    "datasheet_success_rate": 0.0,
+    "url_success_rate": 25.0,
+    "enrichment_success_rate": 100.0
+  },
+  "overall_success": true,
+  "summary": {
+    "total_parts": 8,
+    "total_with_datasheets": 0,
+    "total_with_urls": 4,
+    "total_with_enrichment": 8,
+    "total_errors": 0,
+    "total_warnings": 3,
+    "overall_datasheet_rate": 0.0,
+    "overall_url_rate": 50.0,
+    "overall_enrichment_rate": 100.0
+  },
+  "test_end_time": 1759088420.3075557,
+  "test_duration": 6.431581735610962
+}

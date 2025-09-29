@@ -50,10 +50,18 @@ def clear_database():
     print("\n🧹 Clearing database...")
 
     with Session(engine) as session:
+        # Disable foreign key constraints temporarily for SQLite
+        from sqlalchemy import text
+        session.execute(text("PRAGMA foreign_keys = OFF"))
+
         # Delete all parts, orders, and categories
         session.query(PartModel).delete()
         session.query(OrderModel).delete()
         session.query(CategoryModel).delete()
+
+        # Re-enable foreign key constraints
+        session.execute(text("PRAGMA foreign_keys = ON"))
+
         session.commit()
         print("✅ Database cleared")
 
