@@ -36,6 +36,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
   const [parsers, setParsers] = useState<any[]>([])
   const [isLoadingParsers, setIsLoadingParsers] = useState<boolean>(true)
   const [selectedEnrichmentCapabilities, setSelectedEnrichmentCapabilities] = useState<string[]>([])
+  const [enableAutoEnrichment, setEnableAutoEnrichment] = useState<boolean>(true)
   const [showSupplierModal, setShowSupplierModal] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -205,6 +206,36 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
   }, [loadAvailableSuppliers])
 
   const selectedParserInfo = parsers.find(p => p.id === selectedParser || p.name === selectedParser)
+
+  // Auto-select default enrichment capabilities when parser is selected
+  useEffect(() => {
+    if (selectedParser && selectedParserInfo && selectedParserInfo.enrichment_available) {
+      const capabilities = selectedParserInfo.enrichment_capabilities || []
+
+      // For DigiKey and other suppliers, auto-select recommended capabilities
+      let defaultCapabilities: string[] = []
+
+      if (selectedParser.toLowerCase() === 'digikey') {
+        // DigiKey recommended capabilities
+        defaultCapabilities = capabilities.filter(cap =>
+          cap === 'get_part_details' ||
+          cap === 'fetch_datasheet' ||
+          cap === 'fetch_pricing_stock'
+        )
+      } else {
+        // For other suppliers, select the most common capabilities
+        defaultCapabilities = capabilities.filter(cap =>
+          cap === 'get_part_details' ||
+          cap === 'fetch_datasheet'
+        )
+      }
+
+      if (enableAutoEnrichment && defaultCapabilities.length > 0) {
+        setSelectedEnrichmentCapabilities(defaultCapabilities)
+        toast.success(`Auto-selected ${defaultCapabilities.length} enrichment capabilities for ${selectedParserInfo.name}`)
+      }
+    }
+  }, [selectedParser, selectedParserInfo, enableAutoEnrichment])
   
 
   // File upload functions
@@ -358,6 +389,8 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
     setSelectedParser('')
     setDetectedParser('')
     setAutoDetected(false)
+    setSelectedEnrichmentCapabilities([])
+    setEnableAutoEnrichment(true)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -550,36 +583,95 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                 <div className="flex items-start">
                   <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
                   <div className="flex-1">
-                    <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                      Enrichment Capabilities Available
-                    </h5>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                      {selectedParserInfo.name} can automatically enrich imported parts with additional data.
-                    </p>
-                    <div className="space-y-2">
-                      {selectedParserInfo.enrichment_capabilities.map((capability) => (
-                        <label key={capability} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedEnrichmentCapabilities.includes(capability)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedEnrichmentCapabilities(prev => [...prev, capability])
-                              } else {
-                                setSelectedEnrichmentCapabilities(prev => prev.filter(c => c !== capability))
-                              }
-                            }}
-                            className="mr-2 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <div className="flex items-center space-x-2">
-                            {getCapabilityIcon(capability)}
-                            <span className="text-sm text-blue-700 dark:text-blue-300">
-                              {getCapabilityDisplayName(capability)}
-                            </span>
-                          </div>
-                        </label>
-                      ))}
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="font-medium text-blue-800 dark:text-blue-200">
+                        Auto-Enrichment Options
+                        {selectedParser.toLowerCase() === 'digikey' && (
+                          <span className="ml-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-2 py-1 rounded-full">
+                            Recommended for DigiKey
+                          </span>
+                        )}
+                      </h5>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={enableAutoEnrichment}
+                          onChange={(e) => {
+                            setEnableAutoEnrichment(e.target.checked)
+                            if (!e.target.checked) {
+                              setSelectedEnrichmentCapabilities([])
+                            }
+                          }}
+                          className="mr-2 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                          Enable Auto-Enrichment
+                        </span>
+                      </label>
                     </div>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                      {selectedParserInfo.name} can automatically enrich imported parts with additional data like datasheets, images, and pricing information.
+                    </p>
+
+                    {enableAutoEnrichment && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Select capabilities to enable:
+                          </span>
+                          <button
+                            onClick={() => setSelectedEnrichmentCapabilities(selectedParserInfo.enrichment_capabilities || [])}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                          >
+                            Select All
+                          </button>
+                          <span className="text-xs text-blue-600 dark:text-blue-400">|</span>
+                          <button
+                            onClick={() => setSelectedEnrichmentCapabilities([])}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                        {selectedParserInfo.enrichment_capabilities.map((capability) => (
+                          <label key={capability} className="flex items-center hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 rounded transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedEnrichmentCapabilities.includes(capability)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedEnrichmentCapabilities(prev => [...prev, capability])
+                                } else {
+                                  setSelectedEnrichmentCapabilities(prev => prev.filter(c => c !== capability))
+                                }
+                              }}
+                              className="mr-3 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div className="flex items-center space-x-2 flex-1">
+                              {getCapabilityIcon(capability)}
+                              <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                                {getCapabilityDisplayName(capability)}
+                              </span>
+                              {selectedParser.toLowerCase() === 'digikey' &&
+                               (capability === 'get_part_details' || capability === 'fetch_datasheet' || capability === 'fetch_pricing_stock') && (
+                                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">
+                                  Recommended
+                                </span>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+
+                        {selectedEnrichmentCapabilities.length > 0 && (
+                          <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/30 rounded text-sm">
+                            <p className="text-green-800 dark:text-green-200">
+                              <strong>Selected:</strong> {selectedEnrichmentCapabilities.length} capability(ies) will be applied after import.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {selectedParserInfo.enrichment_missing_credentials?.length > 0 && (
                       <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded text-sm">
                         <p className="text-yellow-800 dark:text-yellow-200">
@@ -587,6 +679,54 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                         </p>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Enrichment Not Available Warning */}
+            {selectedParserInfo && !selectedParserInfo.enrichment_available && selectedParserInfo.enrichment_missing_credentials?.length > 0 && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
+                <div className="flex items-start">
+                  <Zap className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h5 className="font-medium text-red-800 dark:text-red-200 mb-2">
+                      Auto-Enrichment Not Available
+                    </h5>
+                    <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+                      {selectedParserInfo.name} enrichment requires additional configuration to access detailed part information, datasheets, and pricing.
+                    </p>
+                    <div className="bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-700 rounded p-3">
+                      <p className="text-sm text-red-800 dark:text-red-200 font-medium mb-2">
+                        ⚙️ Configuration Required:
+                      </p>
+                      <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                        {selectedParserInfo.enrichment_missing_credentials.map((cred) => (
+                          <li key={cred} className="flex items-center">
+                            <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-2"></span>
+                            {cred.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </li>
+                        ))}
+                      </ul>
+                      {selectedParser.toLowerCase() === 'digikey' && (
+                        <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
+                          <p className="text-xs text-red-600 dark:text-red-400">
+                            💡 <strong>For DigiKey:</strong> Register at{' '}
+                            <a href="https://developer.digikey.com" target="_blank" rel="noopener noreferrer"
+                               className="underline hover:text-red-800 dark:hover:text-red-200">
+                              developer.digikey.com
+                            </a>
+                            {' '}to get API credentials.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 p-2 bg-blue-100 dark:bg-blue-900/40 rounded text-sm">
+                      <p className="text-blue-800 dark:text-blue-200">
+                        <strong>Import will still work</strong> - you'll get basic part information from the file,
+                        but no additional enrichment data like datasheets or real-time pricing.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

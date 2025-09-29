@@ -60,6 +60,7 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
     extractOrderInfoFromFilename,
     initialFile: uploadedFile,
     initialPreviewData: filePreview,
+    selectedEnrichmentCapabilities,
   });
 
   return (

@@ -72,13 +72,14 @@ async def import_file(
     The supplier will handle all parsing and validation.
     Supports various file formats depending on the supplier (CSV, XLS, etc).
     """
+    supplier = None
     try:
         # Get the supplier
         try:
             supplier = get_supplier(supplier_name)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Unknown supplier: {supplier_name}")
-        
+
         # Check if supplier supports imports
         if SupplierCapability.IMPORT_ORDERS not in supplier.get_capabilities():
             raise HTTPException(
@@ -218,14 +219,10 @@ async def import_file(
                 )
                 order_response = await order_service.create_order(order_request)
                 if order_response.success:
-                    order = order_response.data
-                    # Extract order ID immediately to avoid DetachedInstanceError
-                    if hasattr(order, 'id'):
-                        order_id = str(order.id)  # Convert to string to avoid session issues
-                    elif isinstance(order, dict) and order.get('id'):
-                        order_id = str(order['id'])
-                    else:
-                        order_id = None
+                    order_dict = order_response.data
+                    # Order service returns order dict in ServiceResponse.data (from order.to_dict())
+                    order_id = order_dict['id']  # Access 'id' key from dict
+                    logger.info(f"Created order with ID: {order_id}")
                 else:
                     logger.warning(f"Failed to create order: {order_response.message}")
                     order_id = None
@@ -342,7 +339,10 @@ async def import_file(
                     enrichment_task_response = await task_service.create_task(task_request, current_user.id)
 
                     if enrichment_task_response.success:
-                        enrichment_task_id = enrichment_task_response.data.id
+                        # Task service returns a dict in ServiceResponse.data (from task.to_dict())
+                        task_data = enrichment_task_response.data
+                        enrichment_task_id = task_data['id']  # Access 'id' key from dict
+                        logger.info(f"Created enrichment task with ID: {enrichment_task_id}")
                     else:
                         raise Exception(f"Task creation failed: {enrichment_task_response.message}")
                     logger.info(f"Created enrichment task {enrichment_task_id} for {len(part_ids)} parts")
@@ -394,12 +394,20 @@ async def import_file(
             message=message,
             data=result
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error importing file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+    finally:
+        # Always clean up supplier resources
+        if supplier:
+            try:
+                await supplier.close()
+                logger.info(f"Cleaned up supplier {supplier_name} resources")
+            except Exception as e:
+                logger.warning(f"Error closing supplier {supplier_name}: {e}")
 
 
 
@@ -441,9 +449,15 @@ async def get_import_suppliers(
                 
                 info = supplier.get_supplier_info()
                 
-                # Check if supplier is configured
-                is_configured = supplier_name.lower() in configured_suppliers
-                config_status = "configured" if is_configured else "not_configured"
+                # Check if supplier is actually configured (has working credentials)
+                # Test connection to determine if supplier is properly configured
+                try:
+                    connection_result = await supplier.test_connection()
+                    is_configured = connection_result.get('success', False)
+                    config_status = "configured" if is_configured else "not_configured"
+                except Exception:
+                    is_configured = False
+                    config_status = "not_configured"
                 
                 # Check basic import capability (file parsing)
                 import_capable = supplier.is_capability_available(SupplierCapability.IMPORT_ORDERS)

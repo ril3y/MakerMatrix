@@ -48,6 +48,7 @@ export interface UseOrderImportProps {
   extractOrderInfoFromFilename?: (filename: string) => Promise<Partial<OrderInfo> | null>
   initialFile?: File | null
   initialPreviewData?: FilePreviewData | null
+  selectedEnrichmentCapabilities?: string[]
 }
 
 export const useOrderImport = ({
@@ -57,7 +58,8 @@ export const useOrderImport = ({
   validateFile,
   extractOrderInfoFromFilename,
   initialFile,
-  initialPreviewData
+  initialPreviewData,
+  selectedEnrichmentCapabilities
 }: UseOrderImportProps) => {
   const [file, setFile] = useState<File | null>(initialFile || null)
   const [previewData, setPreviewData] = useState<FilePreviewData | null>(initialPreviewData || null)
@@ -268,9 +270,13 @@ export const useOrderImport = ({
       formData.append('order_date', orderInfo.order_date || new Date().toISOString())
       formData.append('notes', orderInfo.notes)
       
-      // Enable enrichment for better user experience
-      formData.append('enable_enrichment', 'true')
-      formData.append('enrichment_capabilities', 'get_part_details,fetch_datasheet')
+      // Enable enrichment based on user selection
+      const hasSelectedCapabilities = selectedEnrichmentCapabilities && selectedEnrichmentCapabilities.length > 0
+      formData.append('enable_enrichment', hasSelectedCapabilities ? 'true' : 'false')
+
+      if (hasSelectedCapabilities) {
+        formData.append('enrichment_capabilities', selectedEnrichmentCapabilities.join(','))
+      }
       
       response = await apiClient.post('/api/import/file', formData, {
         headers: {
