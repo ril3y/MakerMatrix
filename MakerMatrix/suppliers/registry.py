@@ -12,11 +12,11 @@ from .exceptions import SupplierNotFoundError
 class SupplierRegistry:
     """
     Registry for managing supplier implementations.
-    
+
     Suppliers are automatically discovered and registered when imported.
     Use get_supplier() to get instances, get_available_suppliers() to list them.
     """
-    
+
     _suppliers: Dict[str, Type[BaseSupplier]] = {}
     _supplier_info_cache: Dict[str, SupplierInfo] = {}
     

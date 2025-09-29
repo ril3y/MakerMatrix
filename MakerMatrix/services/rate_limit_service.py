@@ -156,9 +156,9 @@ class RateLimitService(BaseService):
                 session=session,
                 supplier_name=supplier_name,
                 endpoint_type=endpoint_type,
-                response_time=response_time_seconds,
                 success=success,
                 response_time_ms=response_time_ms,
+                response_time=response_time_seconds,
                 error_message=error_message,
                 request_metadata=request_metadata
             )

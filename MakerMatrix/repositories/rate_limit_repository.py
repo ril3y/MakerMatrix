@@ -104,11 +104,11 @@ class RateLimitRepository(BaseRepository[SupplierRateLimitModel]):
         
         return usage_counts
     
-    def record_request(self, session: Session, supplier_name: str, 
-                      endpoint_type: str = "general", 
-                      response_time: Optional[float] = None,
+    def record_request(self, session: Session, supplier_name: str,
+                      endpoint_type: str = "general",
                       success: bool = True,
                       response_time_ms: Optional[int] = None,
+                      response_time: Optional[float] = None,
                       error_message: Optional[str] = None,
                       request_metadata: Optional[Dict[str, Any]] = None) -> SupplierUsageTrackingModel:
         """
@@ -127,13 +127,17 @@ class RateLimitRepository(BaseRepository[SupplierRateLimitModel]):
         Returns:
             Created usage tracking record
         """
+        # Convert response_time (seconds) to milliseconds if provided
+        final_response_time_ms = response_time_ms
+        if response_time is not None and final_response_time_ms is None:
+            final_response_time_ms = int(response_time * 1000)
+
         usage_record = SupplierUsageTrackingModel(
             supplier_name=supplier_name,
             endpoint_type=endpoint_type,
             request_timestamp=datetime.now(timezone.utc),
-            response_time=response_time,
+            response_time_ms=final_response_time_ms,
             success=success,
-            response_time_ms=response_time_ms,
             error_message=error_message,
             request_metadata=request_metadata
         )
@@ -174,7 +178,7 @@ class RateLimitRepository(BaseRepository[SupplierRateLimitModel]):
         successful_requests = sum(1 for r in usage_records if r.success)
         failed_requests = total_requests - successful_requests
         
-        response_times = [r.response_time for r in usage_records if r.response_time is not None]
+        response_times = [r.response_time_ms for r in usage_records if r.response_time_ms is not None]
         avg_response_time = sum(response_times) / len(response_times) if response_times else None
         
         # Group by endpoint type

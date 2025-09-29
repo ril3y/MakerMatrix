@@ -72,67 +72,69 @@ class PartEnrichmentService(BaseService):
     
     async def _handle_with_session(self, task: TaskModel, progress_callback: Optional[Callable], session, part_id: str, preferred_supplier: str, requested_capabilities: list, force_refresh: bool) -> Dict[str, Any]:
         """Handle enrichment within a session context."""
+        client = None
+        supplier = None
         try:
             # Get the part and determine supplier - access attributes while session is active
             part = self._get_part_by_id_in_session(session, part_id)
-            
+
             # Cache part attributes while session is active to avoid DetachedInstanceError
             part_name = part.part_name
             part_supplier = part.supplier
             part_vendor = getattr(part, 'part_vendor', None)
             part_number = part.part_number
             lcsc_part_number = getattr(part, 'lcsc_part_number', None)
-            
+
             # Determine which supplier to use
             supplier = self._determine_supplier_from_cached_data(part_supplier, part_vendor, preferred_supplier)
-            
+
             # Get supplier configuration and validate
             supplier_config = self._get_supplier_config(supplier)
-            
+
             # Determine capabilities to use
             capabilities = self._determine_capabilities(
                 supplier, supplier_config, requested_capabilities
             )
-            
+
             if not capabilities:
                 return {"message": "No enrichment capabilities available for this supplier"}
-            
+
             # Get configured supplier client
             client = self._get_supplier_client(supplier, supplier_config)
-            
+
             # Convert capabilities to supplier capability enums
             supplier_capabilities = self._convert_capabilities_to_enums(capabilities)
-            
+
             # Get appropriate part number for the supplier using cached data
             supplier_part_number = self._get_supplier_part_number_from_cached_data(part_number, lcsc_part_number)
-            
+
             # Progress callback wrapper
             async def enrichment_progress(message):
                 if progress_callback:
                     await progress_callback(50, message)
-            
+
             # Perform enrichment
             logger.info(f"Starting unified enrichment for part {part_name} using {supplier}")
             if progress_callback:
                 await progress_callback(20, f"Enriching part from {supplier}...")
-            
+
             enrichment_result = await client.enrich_part(supplier_part_number, supplier_capabilities)
-            
+
             # Process enrichment results
             enrichment_results = self._process_enrichment_result(enrichment_result)
-            
+
             logger.info(f"Enrichment completed: {len(enrichment_result.enriched_fields)} succeeded, {len(enrichment_result.failed_fields)} failed")
-            
+
             if progress_callback:
                 await progress_callback(80, "Processing enrichment results...")
-            
+
             # Apply enrichment results to part
             if enrichment_results:
                 await self._apply_enrichment_to_part(part, enrichment_results, supplier)
-            
+
             if progress_callback:
                 await progress_callback(100, "Enrichment completed")
-            
+
             return {
                 "part_id": part_id,
                 "supplier": supplier,
@@ -141,10 +143,18 @@ class PartEnrichmentService(BaseService):
                 "total_capabilities": len(capabilities),
                 "completed_capabilities": len(enrichment_result.enriched_fields)
             }
-            
+
         except Exception as e:
             logger.error(f"Error in part enrichment task: {e}", exc_info=True)
             raise
+        finally:
+            # Always clean up supplier resources
+            if client:
+                try:
+                    await client.close()
+                    logger.debug(f"Cleaned up supplier {supplier} resources in enrichment task")
+                except Exception as e:
+                    logger.warning(f"Error closing supplier {supplier} in enrichment: {e}")
 
     def _get_part_by_id_in_session(self, session, part_id: str) -> PartModel:
         """Get part by ID using repository within an existing session."""

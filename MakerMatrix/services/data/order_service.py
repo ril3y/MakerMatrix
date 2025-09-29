@@ -56,10 +56,13 @@ class OrderService(BaseService):
                 )
                 
                 created_order = self.order_repo.create_order(session, order)
-                
+
+                # Convert to dict within session to prevent DetachedInstanceError
+                order_dict = created_order.to_dict()
+
                 return self.success_response(
                     f"{self.entity_name} {created_order.order_number} created successfully for supplier {created_order.supplier}",
-                    created_order
+                    order_dict
                 )
                 
         except Exception as e:

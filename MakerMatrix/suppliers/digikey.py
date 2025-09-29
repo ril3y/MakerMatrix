@@ -1513,7 +1513,17 @@ class DigiKeySupplier(BaseSupplier):
         # For now, return empty - we'd need to map parent IDs to names
         # This could be enhanced with a lookup table if needed
         return ""
-    
+
+    async def close(self):
+        """Clean up resources including HTTP client sessions"""
+        # Call parent cleanup
+        await super().close()
+
+        # Close HTTP client if it exists
+        if hasattr(self, '_http_client') and self._http_client:
+            await self._http_client.close()
+            self._http_client = None
+
     def _extract_subcategory_name(self, category_data: Dict[str, Any]) -> str:
         """Extract subcategory name from DigiKey category hierarchy"""
         if not category_data:
