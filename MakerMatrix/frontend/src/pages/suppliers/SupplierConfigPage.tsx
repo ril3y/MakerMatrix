@@ -26,6 +26,9 @@ export const SupplierConfigPage: React.FC = () => {
   
   // Cache for credential requirements to avoid repeated API calls
   const [credentialRequirements, setCredentialRequirements] = useState<Record<string, boolean>>({});
+
+  // Cache for actual credential status
+  const [credentialStatuses, setCredentialStatuses] = useState<Record<string, any>>({});
   
   // Rate limit data
   const [rateLimitData, setRateLimitData] = useState<Record<string, SupplierRateLimitData>>({});
@@ -44,18 +47,34 @@ export const SupplierConfigPage: React.FC = () => {
       const data = await supplierService.getSuppliers();
       setSuppliers(data || []);
       
-      // Load credential requirements for each supplier
+      // Load credential requirements and status for each supplier
       const requirements: Record<string, boolean> = {};
+      const statuses: Record<string, any> = {};
+
       for (const supplier of data || []) {
         try {
+          // Get credential schema to check if credentials are required
           const credentialSchema = await dynamicSupplierService.getCredentialSchema(supplier.supplier_name.toLowerCase());
           requirements[supplier.supplier_name] = Array.isArray(credentialSchema) && credentialSchema.length > 0;
+
+          // Get actual credential status to check if they're configured
+          try {
+            const credentialStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
+            statuses[supplier.supplier_name] = credentialStatus;
+          } catch (statusErr) {
+            console.warn(`Failed to get credential status for ${supplier.supplier_name}:`, statusErr);
+            // Default to assuming not configured if we can't check
+            statuses[supplier.supplier_name] = { is_configured: false, configured_fields: [] };
+          }
         } catch (err) {
           // If we can't get the schema, assume credentials are required
           requirements[supplier.supplier_name] = true;
+          statuses[supplier.supplier_name] = { is_configured: false, configured_fields: [] };
         }
       }
+
       setCredentialRequirements(requirements);
+      setCredentialStatuses(statuses);
       
     } catch (err: any) {
       console.error('Error loading suppliers:', err);
@@ -122,25 +141,39 @@ export const SupplierConfigPage: React.FC = () => {
 
     // Check if this supplier requires credentials
     const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true;
-    
+
+    // If no credentials are required (like LCSC), show green
     if (!requiresCredentials) {
       return <CheckCircle className="w-5 h-5 text-green-500" />; // Public API, no credentials needed
     }
 
-    return <CheckCircle className="w-5 h-5 text-green-500" />;
+    // Check actual credential status for suppliers that need credentials
+    const credentialStatus = credentialStatuses[supplier.supplier_name];
+    if (credentialStatus?.is_configured) {
+      return <CheckCircle className="w-5 h-5 text-green-500" />; // Credentials configured and working
+    } else {
+      return <AlertTriangle className="w-5 h-5 text-yellow-500" />; // Credentials missing or not working
+    }
   };
 
   const getStatusText = (supplier: SupplierConfig) => {
     if (!supplier.enabled) return 'Disabled';
-    
+
     // Check if this supplier requires credentials
     const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true;
-    
+
+    // If no credentials are required (like LCSC), show as configured
     if (!requiresCredentials) {
       return 'Configured'; // Public API, no credentials needed
     }
-    
-    return 'Configured';
+
+    // Check actual credential status for suppliers that need credentials
+    const credentialStatus = credentialStatuses[supplier.supplier_name];
+    if (credentialStatus?.is_configured) {
+      return 'Configured'; // Credentials configured and working
+    } else {
+      return 'Not Configured'; // Credentials missing or not working
+    }
   };
 
   if (loading && suppliers.length === 0) {

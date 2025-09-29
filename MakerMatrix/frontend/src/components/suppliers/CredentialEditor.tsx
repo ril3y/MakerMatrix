@@ -5,7 +5,7 @@
  * Shows masked current values, allows editing, and includes test functionality.
  */
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Eye, EyeOff, TestTube, Save, HelpCircle, CheckCircle, XCircle } from 'lucide-react'
 import { useFormWithValidation } from '@/hooks/useFormWithValidation'
 import { createCredentialFormSchema, type CredentialField, type CredentialFormData, type CredentialTestResult, type CredentialStatus } from '@/schemas/credentials'
@@ -105,16 +105,26 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
     }
     
     initializeCredentials()
-  }, [credentialSchema, credentialStatus, supplierName, form])
+  }, [credentialSchema, credentialStatus, supplierName])
 
   // Watch form values and notify parent of changes
   const currentCredentials = form.watch()
+
+  // Use a ref to track the last notified credentials to prevent infinite loops
+  const lastNotifiedRef = useRef<string>('')
+
   useEffect(() => {
     if (Object.keys(currentCredentials).length > 0) {
-      onCredentialChange?.(currentCredentials)
-      onCredentialsReady?.(currentCredentials)
+      const credentialsString = JSON.stringify(currentCredentials)
+
+      // Only notify if credentials actually changed
+      if (credentialsString !== lastNotifiedRef.current) {
+        lastNotifiedRef.current = credentialsString
+        onCredentialChange?.(currentCredentials)
+        onCredentialsReady?.(currentCredentials)
+      }
     }
-  }, [currentCredentials, onCredentialChange, onCredentialsReady])
+  }, [currentCredentials])
 
   const toggleShowValue = (fieldName: string) => {
     setShowValues(prev => ({ ...prev, [fieldName]: !prev[fieldName] }))
@@ -325,7 +335,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
           </button>
         )}
         
-        {onSave && (
+        {onSave && !['digikey', 'mouser'].includes(supplierName.toLowerCase()) && (
           <button
             onClick={form.onSubmit}
             disabled={!form.isDirty || form.loading || loading}

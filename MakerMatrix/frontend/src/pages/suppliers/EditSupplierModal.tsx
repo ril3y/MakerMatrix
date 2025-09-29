@@ -4,7 +4,7 @@
  * Modal for editing existing supplier configurations with validation and capability management.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, AlertTriangle, Save, TestTube, HelpCircle } from 'lucide-react';
 import { supplierService, SupplierConfig, SupplierConfigUpdate, ConnectionTestResult } from '../../services/supplier.service';
 import { CredentialEditor } from '../../components/suppliers/CredentialEditor';
@@ -146,10 +146,50 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
     }
   };
 
+  // Memoize callback functions to prevent infinite loops
+  const handleCredentialsReady = useCallback((credentials: Record<string, string>) => {
+    setCurrentCredentials(credentials);
+  }, []);
+
+  const handleCredentialsSave = useCallback(async (credentials: Record<string, string>) => {
+    try {
+      await supplierService.saveCredentials(supplier.supplier_name, credentials);
+      // Refresh credential status
+      const newStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
+      setCredentialStatus(newStatus);
+      setSuccessMessage('Credentials saved successfully!');
+    } catch (error) {
+      console.error('Failed to save credentials:', error);
+      setErrors(['Failed to save credentials: ' + (error as Error).message]);
+    }
+  }, [supplier.supplier_name]);
+
   const handleTestConnection = async () => {
     try {
       setTesting(true);
       setTestResult(null);
+
+      // For DigiKey and Mouser, save credentials first before testing
+      if (['digikey', 'mouser'].includes(supplier.supplier_name.toLowerCase()) &&
+          currentCredentials && Object.keys(currentCredentials).length > 0) {
+        try {
+          await supplierService.saveCredentials(supplier.supplier_name, currentCredentials);
+          // Refresh credential status
+          const newStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
+          setCredentialStatus(newStatus);
+        } catch (credError) {
+          console.error('Failed to save credentials before testing:', credError);
+          setTestResult({
+            supplier_name: supplier.supplier_name,
+            success: false,
+            test_duration_seconds: 0,
+            tested_at: new Date().toISOString(),
+            error_message: 'Failed to save credentials before testing: ' + (credError as Error).message
+          });
+          return;
+        }
+      }
+
       const result = await supplierService.testConnection(supplier.supplier_name, currentCredentials);
       setTestResult(result);
     } catch (err: any) {
@@ -180,7 +220,22 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
 
       // Update supplier
       await supplierService.updateSupplier(supplier.supplier_name, config);
-      
+
+      // For DigiKey and Mouser, also save credentials if they've been entered
+      if (['digikey', 'mouser'].includes(supplier.supplier_name.toLowerCase()) &&
+          currentCredentials && Object.keys(currentCredentials).length > 0) {
+        try {
+          await supplierService.saveCredentials(supplier.supplier_name, currentCredentials);
+          // Refresh credential status
+          const newStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
+          setCredentialStatus(newStatus);
+        } catch (credError) {
+          console.error('Failed to save credentials:', credError);
+          setErrors(['Configuration saved, but failed to save credentials: ' + (credError as Error).message]);
+          return;
+        }
+      }
+
       // Show success message briefly before closing
       setSuccessMessage('Configuration saved successfully!');
       setTimeout(() => {
@@ -203,8 +258,15 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
       custom_headers: supplier.custom_headers,
       custom_parameters: supplier.custom_parameters
     };
-    
-    return JSON.stringify(config) !== JSON.stringify(originalConfig);
+
+    const configChanged = JSON.stringify(config) !== JSON.stringify(originalConfig);
+
+    // For DigiKey and Mouser, also check if credentials have been entered
+    const credentialsChanged = ['digikey', 'mouser'].includes(supplier.supplier_name.toLowerCase()) &&
+      currentCredentials && Object.keys(currentCredentials).length > 0 &&
+      Object.values(currentCredentials).some(value => value && value.trim() !== '');
+
+    return configChanged || credentialsChanged;
   };
 
   return (
@@ -343,21 +405,8 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
                   credentialSchema={credentialSchema}
                   currentlyConfigured={credentialStatus?.fully_configured || false}
                   credentialStatus={credentialStatus}
-                  onCredentialsReady={(credentials) => {
-                    setCurrentCredentials(credentials);
-                  }}
-                  onSave={async (credentials) => {
-                    try {
-                      await supplierService.saveCredentials(supplier.supplier_name, credentials);
-                      // Refresh credential status
-                      const newStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
-                      setCredentialStatus(newStatus);
-                      setSuccessMessage('Credentials saved successfully!');
-                    } catch (error) {
-                      console.error('Failed to save credentials:', error);
-                      setErrors(['Failed to save credentials: ' + (error as Error).message]);
-                    }
-                  }}
+                  onCredentialsReady={handleCredentialsReady}
+                  onSave={handleCredentialsSave}
                   loading={loadingCapabilities}
                 />
               )}

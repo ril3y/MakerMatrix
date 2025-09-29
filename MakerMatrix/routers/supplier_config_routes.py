@@ -238,7 +238,7 @@ async def update_supplier(
         return ResponseSchema(
             status="success",
             message=f"Updated supplier configuration: {supplier_name}",
-            data=config.to_dict()
+            data=config
         )
         
     except ResourceNotFoundError as e:

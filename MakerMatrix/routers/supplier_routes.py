@@ -314,14 +314,22 @@ async def get_supplier_credentials_status(
         credentials = supplier_config_service.get_supplier_credentials(supplier_name)
         supplier = supplier_config_service._create_api_client(config, credentials)
 
-        # Test connection to determine if credentials are working
         try:
-            connection_result = await supplier.test_connection()
-            is_configured = connection_result.get('success', False)
-            connection_message = connection_result.get('message', '')
-        except Exception as e:
-            is_configured = False
-            connection_message = str(e)
+            # Test connection to determine if credentials are working
+            try:
+                connection_result = await supplier.test_connection()
+                is_configured = connection_result.get('success', False)
+                connection_message = connection_result.get('message', '')
+            except Exception as e:
+                is_configured = False
+                connection_message = str(e)
+        finally:
+            # Always clean up supplier resources
+            try:
+                await supplier.close()
+            except Exception as cleanup_error:
+                # Log cleanup error but don't fail the request
+                pass
 
         # Get credential schema to see what fields are expected
         credential_schema = supplier.get_credential_schema()
