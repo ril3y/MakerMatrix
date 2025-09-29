@@ -8,295 +8,76 @@ This file provides comprehensive guidance to Claude Code (claude.ai/code) when w
 
 **IMPORTANT**: Use the development manager for all development activities:
 
-```bash
-# Start the Rich TUI development manager (recommended)
-python dev_manager.py
-```
+MakerMatrix Development Manager API Summary
 
-The development manager provides:
-- **Rich TUI interface** for managing both backend and frontend
-- **Auto-restart functionality** with file watching (watchdog)
-- **Real-time log monitoring** and health checks
-- **HTTPS/HTTP mode switching** 
-- **Process management** and port conflict resolution
-- **Development server coordination**
+  The dev_manager.py exposes a REST API on port 8765 for programmatic control of both backend and frontend services.
 
-### Running the Application
+  Base URL
 
-#### Backend API (via dev_manager.py)
-```bash
-# Primary method - use development manager
-python dev_manager.py
+  http://localhost:8765
 
-# Manual method (if needed)
-source venv_test/bin/activate
-python -m MakerMatrix.main
-```
+  Key Endpoints
 
-Application runs on:
-- **HTTP**: `http://localhost:8080` 
-- **HTTPS**: `https://localhost:8443`
-- **Swagger UI**: `/docs` on either protocol
+  Service Control
 
-#### Frontend Development Server (via dev_manager.py)
-```bash
-# Primary method - use development manager
-python dev_manager.py
+  # Start/Stop Services
+  POST /backend/start     # Start FastAPI backend
+  POST /backend/stop      # Stop FastAPI backend  
+  POST /backend/restart   # Restart backend (async)
+  POST /frontend/start    # Start Vite dev server
+  POST /frontend/stop     # Stop Vite dev server
+  POST /frontend/restart  # Restart frontend (async)
+  POST /frontend/build    # Run production build
+  POST /all/stop          # Stop both services
 
-# Manual method (if needed)
-cd MakerMatrix/frontend
-npm install
-npm run dev
-```
+  Monitoring
 
-Frontend development server runs on `http://localhost:5173` by default.
+  # Get Status
+  GET /status             # Current service status, PIDs, URLs
+  GET /logs?service=all&limit=100  # Get recent logs
+  POST /backend/health    # Health check backend
 
-#### HTTPS Setup
+  # Log Management  
+  POST /logs/clear        # Clear log buffers
 
-**Required for DigiKey OAuth and enhanced security:**
+  Configuration
 
-```bash
-# Quick setup with self-signed certificate
-python scripts/setup_https.py
+  # Mode Switching
+  POST /mode              # Body: {"https": true/false}
 
-# Better setup with mkcert (no browser warnings)
-python scripts/setup_https.py --method mkcert
+  # Auto-restart Control
+  POST /auto-restart      # Body: {"backend": true, "frontend": false}
 
-# Start with HTTPS
-./start_https.sh
-```
+  Documentation
 
-See `scripts/HTTPS_SETUP.md` for comprehensive HTTPS configuration guide.
+  GET /docs               # Full API documentation
+  GET /                   # API summary + current status
 
-### Development Environment
-
-- **Auto-restart**: Both backend and frontend auto-restart on file changes
-- **File watching**: Powered by watchdog library with 5-second debounce
-- **Process management**: Automatic port conflict resolution
-- **Health monitoring**: Real-time service health checks
-- **Log aggregation**: Centralized logging in development manager
-
-### Testing
-
-```bash
-# Run all tests (excludes integration tests by default)
-pytest
-
-# Run specific test categories
-pytest -m integration          # Integration tests only
-pytest -m "not integration"    # Unit tests only
-
-# Run with coverage
-pytest --cov=MakerMatrix
-
-# Run repository tests specifically
-python run_repository_tests.py
-
-# Test individual modules
-pytest MakerMatrix/tests/integration_tests/test_auth.py
-pytest MakerMatrix/unit_tests/test_parts_repository.py
-```
-
-### Advanced Frontend Testing Infrastructure
-
-The project includes comprehensive testing capabilities:
-
-```bash
-# Frontend test suite
-cd MakerMatrix/frontend
-
-# Unit tests with Jest
-npm test
-
-# E2E tests with Playwright
-npm run test:e2e
-
-# Visual regression tests
-npm run test:visual
-
-# Accessibility tests
-npm run test:a11y
-
-# Performance tests with Lighthouse
-npm run test:performance
-
-# Bundle size analysis
-npm run analyze
-
-# Run all test suites
-npm run test:ci
-```
-
-**Testing Infrastructure:**
-- **Jest** for unit testing with React Testing Library
-- **Playwright** for E2E testing with multiple browser configurations
-- **Visual regression testing** with screenshot comparisons
-- **Accessibility testing** with @axe-core integration
-- **Performance testing** with Lighthouse automation
-- **MSW (Mock Service Worker)** for API mocking
-- **Bundle analysis** with webpack-bundle-analyzer
-- **Coverage reporting** with Istanbul
-
-### Task-Based Enrichment System Testing
-
-```bash
-# Test task-based enrichment functionality
-pytest MakerMatrix/tests/integration_tests/test_part_enrichment_task.py -v
-pytest MakerMatrix/tests/integration_tests/test_task_api_integration.py -v
-
-# Test specific task functionality
-pytest MakerMatrix/tests/integration_tests/test_part_enrichment_task.py::test_part_enrichment_task_with_real_part -v
-pytest MakerMatrix/tests/integration_tests/test_task_api_integration.py::test_part_enrichment_api_endpoint -v
-
-# Test all task-related functionality
-pytest MakerMatrix/tests/integration_tests/ -k "task" -v
-```
-
-### Task Management API Endpoints for Development
-
-```bash
-# Quick task creation endpoints
-POST /api/tasks/quick/part_enrichment     # Enrich individual part
-POST /api/tasks/quick/datasheet_fetch     # Fetch part datasheet  
-POST /api/tasks/quick/image_fetch         # Fetch part images
-POST /api/tasks/quick/bulk_enrichment     # Bulk enrich multiple parts
-POST /api/tasks/quick/file_import_enrichment  # File import enrichment (CSV/XLS)
-POST /api/tasks/quick/price_update        # Update part prices
-POST /api/tasks/quick/database_backup     # Database backup (admin only)
-
-# Task monitoring and management
-GET /api/tasks/                           # List tasks with filtering
-GET /api/tasks/{task_id}                  # Get specific task details
-POST /api/tasks/{task_id}/cancel          # Cancel running task
-GET /api/tasks/stats/summary              # Get task system statistics
-GET /api/tasks/worker/status              # Get task worker status
-
-# Task capabilities system
-GET /api/tasks/capabilities/suppliers     # Get all supplier capabilities
-GET /api/tasks/capabilities/suppliers/{supplier_name}  # Get specific supplier capabilities
-GET /api/tasks/capabilities/find/{capability_type}     # Find suppliers with capability
-```
-
-### Virtual Environment
-
-- **Always use `venv_test`** for running Python commands
-- **Fresh virtual environment** with all dependencies
-- **Includes critical dependencies**:
-  - `aiohttp` for async HTTP requests and supplier API clients
-  - `rich` for terminal UI components
-  - `blessed` for terminal handling
-  - `watchdog` for file system monitoring
-  - `langchain` ecosystem for AI integration
-  - `pandas`, `openpyxl`, `xlrd` for file processing
-  - `psutil` for process management
-  - `playwright` for E2E testing
-
-### Database Setup
-
-- **Auto-creation**: Database is created automatically on first run
-- **Default admin user**: `admin` / `Admin123!`
-- **Clean database setup**: `python MakerMatrix/scripts/setup_admin.py`
-- **Development test data**: `python MakerMatrix/scripts/dev/create_test_data.py`
-- **Session management**: Use `Session(engine)` pattern in tasks
-- **Repository pattern**: Always use repositories for database operations
-
-#### Database Initialization Scripts
-
-**Primary Setup Script:**
-```bash
-# Complete database setup with tables, roles, and admin user
-python MakerMatrix/scripts/setup_admin.py
-```
-
-**Development Scripts:**
-```bash
-# Create comprehensive test data (locations, categories, parts)
-python MakerMatrix/scripts/dev/create_test_data.py
-
-# Create parts directly via service layer
-python MakerMatrix/scripts/dev/create_parts_direct.py
-
-# Create parts manually via repository
-python MakerMatrix/scripts/dev/create_parts_manual.py
-```
-
-**Database Troubleshooting:**
-- If WebSocket authentication fails with "no such table: usermodel", run `python MakerMatrix/scripts/setup_admin.py`
-- If database appears empty, check tables exist with: `python -c "from MakerMatrix.models.models import engine; from sqlalchemy import inspect; print(inspect(engine).get_table_names())"`
-- Main database file: `makermatrix.db` (not `makers_matrix.db`)
-
-### Database Access Architecture (CRITICAL)
-
-**ONLY REPOSITORIES interact with the database - NEVER services or other layers directly.**
-
-**Repository Pattern for ALL Database Operations:**
-
-```python
-# CORRECT: Only repositories handle database sessions
-from MakerMatrix.database.database import Session, engine
-from MakerMatrix.repository.parts_repository import PartRepository
-
-# In task handlers, services, routes - always use repositories
-with Session(engine) as session:
-    repository = PartRepository(engine)
-    # Repository handles ALL database operations
-    # Proper session commit/rollback handled automatically
-```
-
-**Services use BaseService for consistency but delegate to repositories:**
-```python
-# CORRECT: Services use repositories, not direct database access
-class PartService(BaseService):
-    def get_part(self, part_id: str):
-        with self.get_session() as session:
-            return self.part_repo.get_by_id(session, part_id)  # Repository handles DB
-```
-
-**Architecture Rules:**
-- **ONLY repositories** handle database sessions and SQL operations
-- **Services** use repositories and provide business logic
-- **Routes** use services and handle HTTP concerns  
-- **Tasks** use repositories directly (with session management)
-- **Never bypass repositories** for database operations
-
-**VIOLATION**: Any code outside `/repositories/` that uses `session.add()`, `session.query()`, `session.commit()`, etc.
-
-### Enhanced Parser Integration Patterns
-
-```python
-# Task handlers should use enhanced parsers for supplier-specific operations
-from MakerMatrix.parsers.enhanced_parsers import get_enhanced_parser
-from MakerMatrix.parsers.capabilities import CapabilityType
-
-# Get enhanced parser for supplier
-parser = get_enhanced_parser(supplier)
-if parser and parser.supports_capability(CapabilityType.FETCH_PRICING):
-    pricing_result = await parser.fetch_pricing(part)
-```
-
-### Order File Import Support
-
-**Enhanced file import system:**
-
-- **CSV files**: LCSC, DigiKey, and other CSV formats
-- **XLS files**: Mouser Electronics order files via file upload
-- **Libraries**: `pandas`, `openpyxl`, `xlrd` for Excel file support
-- **Primary endpoint**: `POST /api/import/file` (supports CSV/XLS with enrichment)
-- **Legacy endpoints**: `/api/csv/import-file` (still supported)
-- **Frontend**: Modular import system with supplier-specific components
-- **Test files**: `MakerMatrix/tests/mouser_xls_test/` contains test files
-
-**New Import Workflow:**
-```bash
-# Use the unified import endpoint
-curl -X POST \
-  -H "Authorization: Bearer <token>" \
-  -F "supplier_name=lcsc" \
-  -F "file=@order.csv" \
-  -F "enable_enrichment=true" \
-  -F "enrichment_capabilities=get_part_details,fetch_datasheet" \
-  http://localhost:8080/api/import/file
-```
+  Example Usage
+
+  # Check if services are running
+  curl http://localhost:8765/status
+
+  # Restart backend after code changes
+  curl -X POST http://localhost:8765/backend/restart
+
+  # Get recent error logs
+  curl "http://localhost:8765/logs?service=errors&limit=50"
+
+  # Switch to HTTP mode
+  curl -X POST http://localhost:8765/mode -H "Content-Type: application/json" -d '{"https": false}'
+
+  # Enable frontend auto-restart
+  curl -X POST http://localhost:8765/auto-restart -H "Content-Type: application/json" -d '{"frontend": true}'
+
+  Configuration via Environment Variables
+
+  DEV_MANAGER_API_ENABLED=true     # Enable/disable API (default: true)
+  DEV_MANAGER_API_HOST=0.0.0.0     # API host (default: 0.0.0.0)  
+  DEV_MANAGER_API_PORT=8765        # API port (default: 8765)
+  DEV_MANAGER_API_LOG_REQUESTS=true # Log API requests (default: true)
+
+  The API is designed for automation, CI/CD integration, and programmatic control of the development environment.
 
 ## Current Cleanup Process
 
@@ -557,3 +338,5 @@ POST /api/ai/test
 
 **Note**: This documentation reflects the current state of the project during the active cleanup process. Always refer to the latest cleanup.prd for current cleanup status and priorities.
 - never try to start the server directly use dev_manager.py to do this
+- @dev_manager.py has an api to use to get logs and status stop and start the backend we should always use this.
+- when writing tests always write them in the test dir and use pytest this way we have them in the future.
