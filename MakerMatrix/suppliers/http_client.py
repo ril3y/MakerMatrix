@@ -119,9 +119,21 @@ class SupplierHTTPClient:
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session with proper configuration"""
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=self.default_timeout)
-            connector = aiohttp.TCPConnector(limit=100, limit_per_host=30)
-            
+            import ssl
+            timeout = aiohttp.ClientTimeout(total=self.default_timeout, sock_connect=10)
+
+            # Create permissive SSL context for external API calls
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+
+            connector = aiohttp.TCPConnector(
+                limit=100,
+                limit_per_host=30,
+                ssl=ssl_context,  # Use permissive SSL context
+                enable_cleanup_closed=True  # Enable cleanup of closed connections
+            )
+
             self._session = aiohttp.ClientSession(
                 timeout=timeout,
                 connector=connector,

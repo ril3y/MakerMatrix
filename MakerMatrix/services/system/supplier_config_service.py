@@ -356,16 +356,20 @@ class SupplierConfigService(BaseService):
     def get_supplier_credentials(self, supplier_name: str) -> Optional[Dict[str, str]]:
         """
         Get credentials for a supplier from environment variables
-        
+
         Args:
             supplier_name: Name of the supplier
             decrypt: Ignored (kept for compatibility)
-            
+
         Returns:
             Dictionary of credentials or None if not found
         """
+        # Ensure .env file is loaded (fallback for standalone scripts and edge cases)
+        from dotenv import load_dotenv
+        load_dotenv()
+
         from MakerMatrix.utils.env_credentials import get_supplier_credentials_from_env
-        
+
         env_creds = get_supplier_credentials_from_env(supplier_name)
         if env_creds:
             self.logger.info(f"Using environment credentials for {supplier_name}")
@@ -393,49 +397,57 @@ class SupplierConfigService(BaseService):
         try:
             # Create supplier instance for testing
             supplier = self._create_api_client(config, credentials)
-            
-            # Test connection
-            start_time = datetime.utcnow()
-            success = False
-            error_message = None
-            
+
             try:
-                # New supplier system returns dict with test results
-                test_result = await supplier.test_connection()
-                if isinstance(test_result, dict):
-                    success = test_result.get("success", False)
-                    if not success:
-                        error_message = test_result.get("message", "Connection test failed")
+                # Test connection
+                start_time = datetime.utcnow()
+                success = False
+                error_message = None
+
+                try:
+                    # New supplier system returns dict with test results
+                    test_result = await supplier.test_connection()
+                    if isinstance(test_result, dict):
+                        success = test_result.get("success", False)
+                        if not success:
+                            error_message = test_result.get("message", "Connection test failed")
+                    else:
+                        # Fallback for old-style boolean response
+                        success = bool(test_result)
+                except Exception as e:
+                    error_message = str(e)
+
+                test_duration = (datetime.utcnow() - start_time).total_seconds()
+
+                # Update test status
+                with self.get_session() as session:
+                    self.supplier_config_repo.update_test_status(
+                        session, supplier_name,
+                        "success" if success else "failed",
+                        start_time
+                    )
+
+                result = {
+                    "supplier_name": supplier_name,
+                    "success": success,
+                    "test_duration_seconds": test_duration,
+                    "tested_at": start_time.isoformat(),
+                    "error_message": error_message
+                }
+
+                if success:
+                    self.logger.info(f"Connection test successful for {supplier_name}")
                 else:
-                    # Fallback for old-style boolean response
-                    success = bool(test_result)
-            except Exception as e:
-                error_message = str(e)
-            
-            test_duration = (datetime.utcnow() - start_time).total_seconds()
-            
-            # Update test status
-            with self.get_session() as session:
-                self.supplier_config_repo.update_test_status(
-                    session, supplier_name, 
-                    "success" if success else "failed", 
-                    start_time
-                )
-            
-            result = {
-                "supplier_name": supplier_name,
-                "success": success,
-                "test_duration_seconds": test_duration,
-                "tested_at": start_time.isoformat(),
-                "error_message": error_message
-            }
-            
-            if success:
-                self.logger.info(f"Connection test successful for {supplier_name}")
-            else:
-                self.logger.warning(f"Connection test failed for {supplier_name}: {error_message}")
-            
-            return result
+                    self.logger.warning(f"Connection test failed for {supplier_name}: {error_message}")
+
+                return result
+
+            finally:
+                # Always clean up supplier resources
+                try:
+                    await supplier.close()
+                except Exception as cleanup_error:
+                    self.logger.warning(f"Error cleaning up supplier {supplier_name}: {cleanup_error}")
             
         except Exception as e:
             self.logger.error(f"Error testing supplier connection {supplier_name}: {e}")

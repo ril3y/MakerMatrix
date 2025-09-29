@@ -139,52 +139,127 @@ curl -X POST http://localhost:8080/api/auth/mobile-login \
 
 ## 📊 Supplier Integration
 
-MakerMatrix integrates with multiple electronic component suppliers:
+MakerMatrix integrates with multiple electronic component suppliers for automated part enrichment, order file imports, and real-time pricing/stock data.
 
 ### Supported Suppliers
 
-- **LCSC Electronics**: Part enrichment, pricing, datasheets
-- **DigiKey**: Part details, pricing, stock information
-- **Mouser Electronics**: Order file import, part enrichment
-- **McMaster-Carr**: Industrial parts integration
-- **Bolt Depot**: Fasteners and hardware
+| Supplier | Capabilities | Authentication | Status |
+|----------|-------------|----------------|--------|
+| **LCSC Electronics** | Part details, pricing, datasheets, order import | API Key | ✅ Active |
+| **DigiKey** | Part enrichment, pricing, stock, OAuth flow | OAuth2 Client ID/Secret | ✅ Active |
+| **Mouser Electronics** | Order file import, part enrichment, search | API Key | ✅ Active |
+| **McMaster-Carr** | Industrial parts, client certificates | Username/Password + Cert | 🔧 Planned |
+| **Bolt Depot** | Fasteners and hardware | API Key | 🔧 Planned |
 
-### Configuration
+### How Suppliers Work
+
+1. **Credential Storage**: All supplier credentials are stored as environment variables in `.env` file for security
+2. **Automatic Loading**: Credentials are loaded automatically on application startup
+3. **Fallback System**: The system includes fallback loading for standalone scripts and edge cases
+4. **Configuration Management**: Each supplier has a database configuration with capabilities and settings
+5. **Connection Testing**: Built-in connection testing validates credentials and API accessibility
+
+### Credential Configuration
 
 Add supplier credentials to your `.env` file:
 
 ```bash
-# DigiKey
-DIGIKEY_CLIENT_ID=your_client_id
-DIGIKEY_CLIENT_SECRET=your_client_secret
+# DigiKey OAuth2 (Production)
+DIGIKEY_CLIENT_ID=your_client_id_here
+DIGIKEY_CLIENT_SECRET=your_client_secret_here
+DIGIKEY_CLIENT_SANDBOX=False
 
-# Mouser
-MOUSER_API_KEY=your_api_key
+# Mouser Electronics
+MOUSER_API_KEY=your_mouser_api_key_here
 
-# LCSC
-LCSC_API_KEY=your_api_key
+# LCSC Electronics
+LCSC_API_KEY=your_lcsc_api_key_here
 
-# McMaster-Carr (requires approval)
-MCMASTER_CARR_USERNAME=your_username
-MCMASTER_CARR_PASSWORD=your_password
+# McMaster-Carr (Requires Approved Customer Status)
+MCMASTER_CARR_USERNAME=your_username_here
+MCMASTER_CARR_PASSWORD=your_password_here
+MCMASTER_CARR_CLIENT_CERT_PATH=path/to/client-cert.p12
+MCMASTER_CARR_CLIENT_CERT_PASSWORD=cert_password_here
 ```
 
-### File Import
+### Getting API Keys
 
-Import parts from supplier order files:
+**DigiKey:**
+1. Register at [DigiKey Developer Portal](https://developer.digikey.com/)
+2. Create a production application
+3. Get Client ID and Client Secret
+4. Uses OAuth2 with automatic token management
+
+**Mouser:**
+1. Sign up at [Mouser API Portal](https://www.mouser.com/api-signup/)
+2. Request API access from Mouser support
+3. Receive API key via email
+4. Rate limits: 30 calls/minute, 1000 calls/day
+
+**LCSC:**
+1. Contact LCSC support for API access
+2. Provide business details and use case
+3. Receive API key after approval
+
+### Supplier Management UI
+
+Access supplier configuration through the web interface:
+
+1. Navigate to **Settings** → **Suppliers**
+2. View all configured suppliers and their status
+3. Test connections and view credential requirements
+4. Enable/disable specific suppliers
+5. View capabilities and rate limits
+
+### File Import System
+
+Import parts from supplier order files with automatic enrichment:
 
 ```bash
-# Via API
+# Import with enrichment
 curl -X POST http://localhost:8080/api/import/file \
   -H "Authorization: Bearer <token>" \
-  -F "supplier_name=lcsc" \
-  -F "file=@order.csv" \
-  -F "enable_enrichment=true"
+  -F "supplier_name=mouser" \
+  -F "file=@mouser_order.csv" \
+  -F "enable_enrichment=true" \
+  -F "enrichment_capabilities=get_part_details,fetch_datasheet"
 ```
 
-Supported formats:
-- **CSV**: LCSC, DigiKey, and other CSV formats
-- **XLS**: Mouser Electronics order files
+**Supported File Formats:**
+- **CSV**: LCSC, DigiKey, and generic CSV formats
+- **XLS/XLSX**: Mouser Electronics order files
+- **Auto-detection**: System automatically detects supplier format
+
+**Enrichment Capabilities:**
+- `get_part_details` - Complete part information, images, specifications
+- `fetch_datasheet` - Datasheet URL retrieval and download
+- `fetch_pricing_stock` - Real-time pricing and stock information
+
+### API Integration
+
+**Test Supplier Connection:**
+```bash
+curl -X GET http://localhost:8080/api/suppliers/mouser/credentials/status \
+  -H "Authorization: Bearer <token>"
+```
+
+**Get Supplier Capabilities:**
+```bash
+curl -X GET http://localhost:8080/api/tasks/capabilities/suppliers/mouser \
+  -H "Authorization: Bearer <token>"
+```
+
+**Create Enrichment Task:**
+```bash
+curl -X POST http://localhost:8080/api/tasks/quick/part_enrichment \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "part_id": "uuid-here",
+    "supplier": "mouser",
+    "capabilities": ["get_part_details", "fetch_datasheet"]
+  }'
+```
 
 ## 🔧 Task Management
 

@@ -215,13 +215,38 @@ export class SupplierService {
    * Get credential status for a supplier
    */
   async getCredentialStatus(supplierName: string): Promise<any> {
-    const response = await apiClient.get(`/api/suppliers/${supplierName}/credentials/status`);
-    // Check if response follows standard ResponseSchema format
-    if (response.data && response.data.data) {
-      return response.data.data;
+    try {
+      // Add timeout to prevent infinite loading when supplier connection tests hang
+      const response = await Promise.race([
+        apiClient.get(`/api/suppliers/${supplierName}/credentials/status`),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Credential status check timed out')), 10000)
+        )
+      ]) as any;
+
+      // Check if response follows standard ResponseSchema format
+      if (response.data && response.data.data) {
+        return response.data.data;
+      }
+      // Fallback to direct data if not wrapped
+      return response.data;
+    } catch (error) {
+      // If timeout or other error, return a default "not configured" status
+      console.warn(`Credential status check failed for ${supplierName}:`, error);
+      return {
+        supplier_name: supplierName,
+        is_configured: false,
+        connection_status: {
+          success: false,
+          message: error instanceof Error ? error.message : 'Status check failed'
+        },
+        credential_fields: {},
+        missing_credentials: [],
+        total_fields: 0,
+        configured_fields: [],
+        configured_fields_count: 0
+      };
     }
-    // Fallback to direct data if not wrapped
-    return response.data;
   }
 
   /**

@@ -275,7 +275,15 @@ class MouserSupplier(BaseSupplier):
             )
         
         return self._http_client
-    
+
+    async def close(self):
+        """Clean up HTTP client resources"""
+        if hasattr(self, '_http_client') and self._http_client:
+            await self._http_client.close()
+            self._http_client = None
+        # Also call parent cleanup
+        await super().close()
+
     async def authenticate(self) -> bool:
         """Authenticate with Mouser API using API key"""
         if not self.is_configured():
@@ -451,12 +459,13 @@ class MouserSupplier(BaseSupplier):
                 }
             }
         except Exception as e:
+            import traceback
             return {
                 "success": False,
                 "message": f"Connection test failed: {str(e)}",
                 "details": {
                     "exception": str(e),
-                    "traceback": tb,
+                    "traceback": traceback.format_exc(),
                     "unexpected_error": True
                 }
             }
