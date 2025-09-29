@@ -41,12 +41,139 @@ MakerMatrix is a comprehensive electronic parts inventory management system buil
 python dev_manager.py
 ```
 
-The development manager provides:
-- **Rich TUI interface** for managing both backend and frontend
-- **Auto-restart functionality** with file watching
-- **Real-time log monitoring** and health checks
-- **HTTPS/HTTP mode switching**
-- **Process management** and port conflict resolution
+The development manager provides a comprehensive Rich TUI (Terminal User Interface) for all development tasks:
+
+#### 🚀 **Core Features**
+- **Rich TUI interface** for managing both backend and frontend simultaneously
+- **Auto-restart functionality** with intelligent file watching (5-second debounce)
+- **Real-time log monitoring** with color-coded output and filtering
+- **HTTPS/HTTP mode switching** with automatic certificate management
+- **Process management** and automatic port conflict resolution
+- **Health monitoring** with service status indicators
+
+#### 🎮 **Interactive Controls**
+
+**Keyboard Shortcuts:**
+- `r` - Restart backend server
+- `f` - Restart frontend server
+- `b` - Restart both servers
+- `h` - Toggle HTTPS/HTTP mode
+- `l` - Toggle log filtering
+- `c` - Clear log display
+- `s` - Show system status
+- `q` - Quit development manager
+
+#### 📊 **Real-time Monitoring**
+
+The development manager displays:
+```
+┌─ MakerMatrix Development Manager ─────────────────────────────┐
+│ Backend:  ✅ Running (PID: 12345) - http://localhost:8080    │
+│ Frontend: ✅ Running (PID: 12346) - http://localhost:5173    │
+│ Mode:     🔒 HTTPS Enabled                                   │
+│ Logs:     📝 Auto-scroll ON | Filter: ALL                   │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### 🔍 **Debugging Features**
+
+**Log Analysis:**
+- **Color-coded logs** for different severity levels (INFO, WARN, ERROR)
+- **Service separation** - Backend and frontend logs clearly distinguished
+- **Real-time filtering** - Focus on specific log levels or services
+- **Automatic error highlighting** with stack trace formatting
+- **Search functionality** within log history
+
+**Health Monitoring:**
+- **Port conflict detection** and automatic resolution
+- **Process health checks** with automatic restart on crashes
+- **Memory and CPU usage monitoring** for both services
+- **Database connection status** indicators
+- **External service connectivity** (supplier APIs, etc.)
+
+#### 🛠️ **Advanced Options**
+
+**Command Line Arguments:**
+```bash
+# Start with specific configuration
+python dev_manager.py --https          # Force HTTPS mode
+python dev_manager.py --http           # Force HTTP mode
+python dev_manager.py --no-frontend    # Backend only
+python dev_manager.py --no-backend     # Frontend only
+python dev_manager.py --verbose        # Extra debug logging
+python dev_manager.py --port 8081      # Custom backend port
+```
+
+**Environment Integration:**
+- **Automatic .env loading** and validation
+- **Environment variable display** for debugging
+- **Configuration file monitoring** with automatic reloads
+- **SSL certificate management** and renewal
+
+#### 🐛 **Debugging Workflow**
+
+1. **Start Development Manager:**
+   ```bash
+   python dev_manager.py
+   ```
+
+2. **Monitor Startup Logs** - Watch for any initialization errors
+
+3. **Test Connections** - Both services will show health indicators
+
+4. **Real-time Issue Detection:**
+   - SSL/certificate issues highlighted in red
+   - Database connection problems clearly marked
+   - API failures with detailed error context
+   - Port conflicts automatically resolved
+
+5. **Interactive Debugging:**
+   - Use `r` to restart backend after code changes
+   - Use `f` to restart frontend after dependency updates
+   - Use `l` to filter logs by severity level
+   - Use `c` to clear logs for focused debugging
+
+#### 📁 **File Watching**
+
+The development manager monitors:
+- **Backend Python files** (`MakerMatrix/` directory)
+- **Frontend source files** (`frontend/src/` directory)
+- **Configuration files** (`.env`, `*.json`, `*.toml`)
+- **Template files** and static assets
+
+**Smart Restart Logic:**
+- **Backend changes** → Restart backend only
+- **Frontend changes** → Restart frontend only
+- **Config changes** → Restart both services
+- **Database schema changes** → Full application restart
+
+#### 🚨 **Troubleshooting**
+
+**Common Issues and Solutions:**
+
+| Issue | Solution in Dev Manager |
+|-------|------------------------|
+| Port already in use | Automatic port conflict resolution |
+| SSL certificate errors | Press `h` to toggle HTTPS mode |
+| Frontend build failures | Press `f` to restart with clean cache |
+| Database connection issues | Check logs for detailed connection status |
+| Module import errors | Use `b` to restart both services |
+| Memory leaks | Built-in memory monitoring with warnings |
+
+**Debug Commands:**
+```bash
+# Check current status
+python dev_manager.py --status
+
+# Validate configuration
+python dev_manager.py --check-config
+
+# Test SSL setup
+python dev_manager.py --test-ssl
+
+# Clear all cached data
+python dev_manager.py --clean
+```
 
 ### Manual Development Setup
 
