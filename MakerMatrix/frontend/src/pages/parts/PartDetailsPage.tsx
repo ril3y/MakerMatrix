@@ -1349,6 +1349,7 @@ const PartDetailsPage = () => {
         isOpen={printerModalOpen}
         onClose={() => setPrinterModalOpen(false)}
         partData={{
+          id: part.id,
           part_name: part.name,
           part_number: part.part_number || '',
           location: part.location?.name || '',

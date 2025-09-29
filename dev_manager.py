@@ -160,7 +160,7 @@ class EnhancedServerManager:
         self.api_enabled = os.getenv("DEV_MANAGER_API_ENABLED", "true").lower() == "true"
         self.api_host = os.getenv("DEV_MANAGER_API_HOST", "0.0.0.0")
         self.api_port = int(os.getenv("DEV_MANAGER_API_PORT", "8765"))
-        self.api_log_requests = os.getenv("DEV_MANAGER_API_LOG_REQUESTS", "false").lower() == "true"
+        self.api_log_requests = os.getenv("DEV_MANAGER_API_LOG_REQUESTS", "true").lower() == "true"
         self.api_server: Optional[ThreadingHTTPServer] = None
         self.api_thread: Optional[threading.Thread] = None
 
@@ -561,8 +561,8 @@ class EnhancedServerManager:
                 elif any(error in line.upper() for error in ["CRITICAL", "FATAL", "TRACEBACK"]):
                     self.backend_status = "Error"
                     level = "ERROR"
-                elif "ERROR" in line.upper():
-                    # Only mark as error level in logs, don't change backend status for normal error logs
+                elif line.upper().startswith("ERROR:") or ":ERROR:" in line.upper():
+                    # Only mark as error level in logs if it's actually an ERROR log level, don't change backend status for normal error logs
                     level = "ERROR"
             elif service == "frontend":
                 if "Local:" in line and "http" in line:

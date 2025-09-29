@@ -783,8 +783,9 @@ async def print_advanced_label(
     
     # Extract data from the request or use mock data for testing
     data = request.data or {
+        'id': 'test-part-id-12345',
         'part_name': 'Test Part',
-        'part_number': 'TP-001', 
+        'part_number': 'TP-001',
         'location': 'A1-B2',
         'category': 'Electronics',
         'quantity': '10'

@@ -10,6 +10,7 @@ interface PrinterModalProps {
   title?: string
   showTestMode?: boolean
   partData?: {
+    id?: string
     part_name?: string
     part_number?: string
     location?: string
@@ -138,6 +139,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           qr_data: includeQR ? qrData : undefined
         },
         data: partData || {
+          id: 'test-part-id-12345',
           part_name: 'Test Part',
           part_number: 'TP-001',
           location: 'A1-B2',
@@ -180,6 +182,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           qr_data: includeQR ? qrData : undefined
         },
         data: partData || {
+          id: 'test-part-id-12345',
           part_name: 'Test Part',
           part_number: 'TP-001',
           location: 'A1-B2',

@@ -465,49 +465,32 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         print(f"[DEBUG] Generating preview with label_size: {request.label_size}")
         try:
             if include_qr:
-                # Generate QR + text combined preview
-                print(f"[DEBUG] Generating QR code + text preview")
+                # For QR + text, use the existing combined label method
+                print(f"[DEBUG] Using existing preview_combined_label method for QR + text")
 
-                # Extract QR data from request options or use part number as fallback
-                qr_data = request.options.qr_data if request.options and request.options.qr_data else "NO_DATA"
-                if request.data and 'part_number' in request.data:
-                    qr_data = request.data['part_number']
+                # Create a mock part object with the data
+                from dataclasses import dataclass
 
-                print(f"[DEBUG] QR data: {qr_data}")
+                @dataclass
+                class MockPart:
+                    id: str
+                    part_name: str
+                    part_number: str
+                    quantity: int = 0
 
-                # Generate QR code image
-                qr_image = service.qr_service.generate_qr_code(qr_data, size=(150, 150))
+                # Extract part info from request data
+                part_id = request.data.get('id') or request.data.get('part_id') or 'UNKNOWN'
+                part_name = request.data.get('part_name', 'Unknown Part')
+                part_number = request.data.get('part_number', 'UNKNOWN')
 
-                # Create combined image with text and QR code
-                combined_image = service._create_combined_image(qr_image, processed_text, (400, 200))
-
-                # Convert to preview result format
-                import io
-                img_buffer = io.BytesIO()
-                combined_image.save(img_buffer, format='PNG')
-                img_buffer.seek(0)
-
-                # Get label size info for PreviewResult
-                from MakerMatrix.printers.base import PreviewResult, LabelSize
-
-                # Create a temporary label size object for the preview
-                # We'll use a generic size since this is just for preview formatting
-                temp_label_size = LabelSize(
-                    name=request.label_size,
-                    width_mm=29,  # Default 29mm width
-                    height_mm=90,  # Default 90mm height
-                    width_px=combined_image.width,
-                    height_px=combined_image.height
+                mock_part = MockPart(
+                    id=part_id,
+                    part_name=part_name,
+                    part_number=part_number
                 )
 
-                result = PreviewResult(
-                    image_data=img_buffer.getvalue(),
-                    format="png",
-                    width_px=combined_image.width,
-                    height_px=combined_image.height,
-                    label_size=temp_label_size,
-                    message="QR code + text preview generated"
-                )
+                # Use existing combined label preview method (already has MM:{part_id} format)
+                result = await service.preview_combined_label(mock_part, processed_text, request.label_size)
             else:
                 # Generate text-only preview
                 print(f"[DEBUG] Generating text-only preview")
