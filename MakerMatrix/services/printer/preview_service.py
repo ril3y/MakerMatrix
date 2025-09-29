@@ -35,9 +35,23 @@ class PreviewService:
         if not printer_to_use:
             raise ValueError("No printer available for preview generation")
         
-        # Generate QR code image for the part
-        qr_data = f"PART:{part.part_number}|NAME:{part.part_name}|QTY:{part.quantity}"
-        qr_image = self.qr_service.generate_qr_code(qr_data, size=(200, 200))
+        # Generate optimized QR code image for the part using label service
+        from MakerMatrix.lib.print_settings import PrintSettings
+        from MakerMatrix.services.printer.label_service import LabelService
+
+        # Create print settings based on label size
+        label_height_mm = float(label_size.replace('mm', '')) if 'mm' in label_size else 12.0
+        print_settings = PrintSettings(
+            label_size=label_height_mm,
+            dpi=300,
+            qr_scale=0.95,
+            qr_min_size_mm=8.0,
+            qr_max_margin_mm=1.0
+        )
+
+        part_dict = {'id': part.id}
+        qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
+        print(f"[DEBUG] Preview QR code: Generated optimized QR code for part {part.id}, size: {qr_image.width}x{qr_image.height}")
         
         # Generate preview using the printer's preview method
         return await printer_to_use.preview_label(qr_image, label_size)
@@ -73,9 +87,23 @@ class PreviewService:
         if not printer_to_use:
             raise ValueError("No printer available for preview generation")
         
-        # Generate combined image with QR code and text
-        qr_data = f"PART:{part.part_number}|NAME:{part.part_name}|QTY:{part.quantity}"
-        qr_image = self.qr_service.generate_qr_code(qr_data, size=(150, 150))
+        # Generate optimized QR code image for combined preview
+        from MakerMatrix.lib.print_settings import PrintSettings
+        from MakerMatrix.services.printer.label_service import LabelService
+
+        # Create print settings based on label size for combined layout
+        label_height_mm = float(label_size.replace('mm', '')) if 'mm' in label_size else 12.0
+        print_settings = PrintSettings(
+            label_size=label_height_mm,
+            dpi=300,
+            qr_scale=0.90,  # Slightly smaller for combined layout to leave room for text
+            qr_min_size_mm=6.0,  # Smaller minimum for combined layout
+            qr_max_margin_mm=1.0
+        )
+
+        part_dict = {'id': part.id}
+        qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
+        print(f"[DEBUG] Preview: Generated optimized QR code for combined layout, size: {qr_image.width}x{qr_image.height}")
         
         # Create combined image
         text = custom_text or f"{part.part_name}\n{part.part_number}"

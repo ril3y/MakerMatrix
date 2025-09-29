@@ -23,12 +23,12 @@ class QRService:
         Returns:
             PIL Image containing the QR code
         """
-        # Create QR code instance
+        # Create QR code instance with improved settings for phone scanning
         qr = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,  # Medium error correction for better scanning
             box_size=10,
-            border=4,
+            border=2,  # Reduced border to maximize QR content size
         )
         
         # Add data to QR code

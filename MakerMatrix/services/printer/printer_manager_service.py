@@ -21,6 +21,8 @@ from MakerMatrix.printers.base import (
 )
 from MakerMatrix.printers.drivers.mock.driver import MockPrinter
 from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
+from MakerMatrix.services.printer.label_service import LabelService
+from MakerMatrix.lib.print_settings import PrintSettings
 
 
 @dataclass
@@ -377,44 +379,50 @@ class PrinterManagerService:
         draw = ImageDraw.Draw(image)
         
         if has_qr:
-            # Create optimized layout with QR code and text for actual label dimensions
+            # Create optimized layout with QR code and text using improved sizing logic
 
-            # For 12mm labels (39mm x 12mm output), optimize QR size and text placement
+            # Create print settings for optimal QR sizing
+            label_height_mm = label_info.width_mm if label_info else 12.0  # Label width becomes height in output
+            print_settings = PrintSettings(
+                label_size=label_height_mm,
+                dpi=300,  # Standard Brother QL DPI
+                qr_scale=0.95,  # Use 95% of available height for better scanning
+                qr_min_size_mm=8.0,  # Minimum 8mm for phone scanning
+                qr_max_margin_mm=1.0  # 1mm max margin
+            )
+
+            # Generate optimized QR code using LabelService
+            part_dict = {'id': flattened_data.get('id') or flattened_data.get('part_id') or 'UNKNOWN'}
+            qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
+            qr_size = qr_image.width  # Get actual optimized size
+
+            # Calculate layout with optimized QR size
             if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
-                # Calculate actual dimensions in pixels for 39mm x 12mm label
-                # Using 39mm effective output width after printer scaling
-                effective_width_mm = 39.0
-                effective_height_mm = 12.0
+                # For 12mm labels, use minimal margins to maximize QR size
+                left_padding = 8  # Reduced left margin
+                qr_text_spacing = 12  # Reduced spacing between QR and text
+                right_padding = 8  # Reduced right margin
 
-                # QR code should be roughly 10mm x 10mm (leaves 2mm margins)
-                qr_size_mm = 10.0
-                qr_size = int(qr_size_mm * 300 / 25.4)  # Convert to pixels at 300 DPI
-
-                # Padding and spacing
-                left_padding = 10  # Left margin
-                qr_text_spacing = 15  # Space between QR and text
-                right_padding = 10  # Right margin
-
-                # Calculate available text area
+                # Calculate available text area with optimized QR size
                 text_x = left_padding + qr_size + qr_text_spacing
                 text_width = width - text_x - right_padding
-                text_height = height - 20  # Leave top/bottom margins
+                text_height = height - 16  # Reduced top/bottom margins
 
-                print(f"[DEBUG] 12mm label QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
+                print(f"[DEBUG] Optimized 12mm QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
             else:
-                # Generic layout for other label sizes
-                qr_size = min(height - 20, width // 3)  # QR takes up to 1/3 of width
+                # For other label sizes, use proportional sizing but ensure minimum QR size
+                min_qr_size = max(qr_size, height // 4)  # At least 1/4 of height
+                qr_size = max(min_qr_size, min(height - 20, width // 3))  # But not more than 1/3 width
+
+                # Resize QR if needed for other label sizes
+                if qr_image.width != qr_size:
+                    qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+
                 text_x = qr_size + 20
                 text_width = width - text_x - 10
                 text_height = height - 20
 
-            # Generate QR code
-            qr_data = flattened_data.get(qr_matches[0] if qr_matches else 'part_number', 'NO_DATA')
-            qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=1, border=1)
-            qr.add_data(str(qr_data))
-            qr.make(fit=True)
-            qr_image = qr.make_image(fill_color="black", back_color="white")
-            qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+                print(f"[DEBUG] Generic label QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
 
             # Paste QR code (left side)
             qr_y = (height - qr_size) // 2
@@ -742,19 +750,6 @@ class PrinterManagerService:
                 error=f"Label size {label_size} not supported by printer {printer_id}"
             )
         
-        # Generate QR code
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(data)
-        qr.make(fit=True)
-        
-        # Create QR code image
-        qr_image = qr.make_image(fill_color="black", back_color="white")
-        
         # Create label image with appropriate dimensions
         if label_info.height_mm:  # Die-cut label
             width = int(label_info.width_px or 400)
@@ -762,13 +757,24 @@ class PrinterManagerService:
         else:  # Continuous label
             width = int(label_info.width_px or 400)
             height = max(200, width)  # Square-ish for QR codes
-        
+
+        # Create print settings for optimal QR sizing
+        label_height_mm = label_info.width_mm if label_info else 12.0  # Label width becomes height in output
+        print_settings = PrintSettings(
+            label_size=label_height_mm,
+            dpi=300,  # Standard Brother QL DPI
+            qr_scale=0.98,  # Use 98% of available space for QR-only labels
+            qr_min_size_mm=8.0,  # Minimum 8mm for phone scanning
+            qr_max_margin_mm=0.5  # Minimal margin for QR-only labels
+        )
+
+        # Generate optimized QR code using improved logic
+        part_dict = {'id': data}  # Use the provided data as the ID
+        qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
+        qr_size = qr_image.width  # Get actual optimized size
+
         # Create white background and center the QR code
         image = Image.new('RGB', (width, height), 'white')
-        
-        # Resize QR code to fit label while maintaining aspect ratio
-        qr_size = min(width - 20, height - 20)  # Leave some margin
-        qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
         
         # Center the QR code
         x = (width - qr_size) // 2

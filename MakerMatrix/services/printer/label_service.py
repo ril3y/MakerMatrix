@@ -160,6 +160,68 @@ class LabelService:
         return qr_image
 
     @staticmethod
+    def calculate_optimal_qr_size(print_settings: PrintSettings) -> int:
+        """
+        Calculate the optimal QR code size in pixels for maximum scanability.
+        Takes into account label height, minimum scanning requirements, and margins.
+        """
+        # Get available height in pixels
+        available_height_pixels = LabelService.get_available_height_pixels(print_settings)
+
+        # Calculate minimum QR size in pixels based on qr_min_size_mm
+        min_qr_size_pixels = int((print_settings.qr_min_size_mm / 25.4) * print_settings.dpi)
+
+        # Calculate margin in pixels based on qr_max_margin_mm
+        margin_pixels = int((print_settings.qr_max_margin_mm / 25.4) * print_settings.dpi)
+
+        # Calculate QR size using the scale factor, but respect minimum size
+        scaled_qr_size = int(available_height_pixels * print_settings.qr_scale)
+
+        # For 12mm labels, try to maximize QR size while leaving minimal margins
+        if print_settings.label_size <= 12:
+            # On small labels, use maximum possible size minus small margins
+            max_possible_size = available_height_pixels - (2 * margin_pixels)
+            optimal_size = max(min_qr_size_pixels, max_possible_size)
+        else:
+            # On larger labels, use the scaled size but ensure it's at least minimum
+            optimal_size = max(min_qr_size_pixels, scaled_qr_size)
+
+        # Ensure we don't exceed available height
+        optimal_size = min(optimal_size, available_height_pixels - (2 * margin_pixels))
+
+        return max(optimal_size, min_qr_size_pixels)
+
+    @staticmethod
+    def generate_optimized_qr(part: Dict[str, Any], print_settings: PrintSettings) -> Image.Image:
+        """
+        Generate a QR code with optimal sizing for maximum scanability.
+        Uses the MakerMatrix format: MM:{part_id}
+        """
+        # Generate QR data in MakerMatrix format
+        part_id = getattr(part, "id", None) or part.get("id", "UNKNOWN")
+        qr_data = f"MM:{part_id}"
+
+        # Create QR code with optimized settings for scanning
+        qr = qrcode.QRCode(
+            version=1,  # Let it auto-size based on data
+            error_correction=qrcode.constants.ERROR_CORRECT_M,  # Medium error correction for better scanning
+            box_size=1,  # Will be resized anyway
+            border=1,    # Minimal border to maximize QR size
+        )
+
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+
+        # Generate QR image
+        qr_image = qr.make_image(fill_color="black", back_color="white")
+
+        # Calculate optimal size and resize
+        optimal_size = LabelService.calculate_optimal_qr_size(print_settings)
+        qr_image = qr_image.resize((optimal_size, optimal_size), Image.Resampling.LANCZOS)
+
+        return qr_image
+
+    @staticmethod
     def compute_label_len_mm_for_text_and_qr(
         text_width_px: int,
         margin_px: int,
@@ -323,9 +385,8 @@ class LabelService:
             if custom_text is None:
                 custom_text = part.part_number or part.part_name
 
-        # Calculate the QR code size
-        qr_scale_factor = getattr(print_settings, "qr_scale", 0.99)
-        qr_size_px = int(available_height_pixels * qr_scale_factor)
+        # Calculate the optimal QR code size using new algorithm
+        qr_size_px = LabelService.calculate_optimal_qr_size(print_settings)
 
         # We'll use a 5% margin around the content
         margin_fraction = 0.05
@@ -357,9 +418,11 @@ class LabelService:
             scaling_factor=1.1
         )
 
-        # Create the QR code image
-        qr_image = LabelService.generate_qr(part, print_settings)
-        qr_image = ImageOps.fit(qr_image, (qr_size_px, qr_size_px), Image.Resampling.LANCZOS)
+        # Create the optimized QR code image
+        qr_image = LabelService.generate_optimized_qr(part, print_settings)
+
+        # Get actual QR size from the generated image
+        qr_size_px = qr_image.width  # Should be same as height since QR is square
 
         # Create a blank canvas for the label
         combined_img = Image.new('RGB', (total_label_width_px, available_height_pixels), 'white')
