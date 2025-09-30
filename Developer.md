@@ -148,6 +148,306 @@ python -m MakerMatrix.main     # Backend server
 
 **Security:** JWT authentication required for both upload and retrieval.
 
+## Adding Printer Support
+
+### Printer Driver Architecture
+**Modular Design:** Printer support is implemented through a driver abstraction layer allowing easy addition of new printer types.
+
+**Verified Architecture:**
+- **Location:** `/MakerMatrix/services/printer/` directory
+- **Base Class:** `BasePrinter` interface defines required methods
+- **Current Implementation:** `BrotherQLPrinter` for Brother QL-series printers
+- **Service Layer:** `PrinterManagerService` coordinates printer operations
+
+### Required Implementation Components
+
+#### 1. Printer Driver Class
+**File Pattern:** Create `my_printer_driver.py` in `/MakerMatrix/services/printer/`
+
+**Required Methods:**
+```python
+from typing import Optional, List
+from PIL import Image
+from dataclasses import dataclass
+
+@dataclass
+class LabelSize:
+    """Label size information"""
+    name: str           # Display name (e.g., "12mm", "29x90mm")
+    width_mm: float     # Width in millimeters
+    height_mm: float    # Height in millimeters (optional for continuous)
+    dots_printable: tuple  # (width_dots, height_dots) or (width_dots, 0)
+
+class MyPrinterDriver:
+    """Driver for My Printer Model"""
+
+    def __init__(self, printer_identifier: str, model: str):
+        """
+        Initialize printer driver
+
+        Args:
+            printer_identifier: USB ID, IP address, or serial port
+            model: Specific printer model (e.g., "Model-X100")
+        """
+        self.printer_identifier = printer_identifier
+        self.model = model
+
+    async def connect(self) -> bool:
+        """
+        Establish connection to printer
+
+        Returns:
+            True if connection successful, False otherwise
+        """
+        # Implement connection logic (USB, network, serial)
+        pass
+
+    def get_supported_label_sizes(self) -> List[LabelSize]:
+        """
+        Get list of supported label sizes for this printer
+
+        Returns:
+            List of LabelSize objects with dimensions and capabilities
+        """
+        return [
+            LabelSize(
+                name="12mm",
+                width_mm=12.0,
+                height_mm=0,  # 0 for continuous tape
+                dots_printable=(106, 0)
+            ),
+            # Add more label sizes...
+        ]
+
+    async def print_label(self, image: Image.Image, label_size: str,
+                         copies: int = 1) -> dict:
+        """
+        Print label image to printer
+
+        Args:
+            image: PIL Image object to print
+            label_size: Label size identifier (e.g., "12mm", "29x90")
+            copies: Number of copies to print
+
+        Returns:
+            dict with:
+                success: bool
+                message: str (error message if failed)
+                job_id: Optional[str] (if printer provides job tracking)
+        """
+        # 1. Validate label size
+        # 2. Convert image to printer format (dithering, resolution)
+        # 3. Send print command to printer
+        # 4. Handle response/errors
+        pass
+
+    def get_printer_status(self) -> dict:
+        """
+        Query printer status
+
+        Returns:
+            dict with:
+                online: bool
+                ready: bool
+                error: Optional[str]
+                media_type: Optional[str]
+                media_width: Optional[float]
+        """
+        pass
+```
+
+#### 2. Image Preparation Requirements
+
+**Critical Considerations:**
+- **Resolution Conversion:** Convert image to printer's native DPI
+- **Rotation:** Some printers require 90° rotation (e.g., Brother QL 12mm labels)
+- **Dithering:** Convert color/grayscale images to monochrome with dithering
+- **Size Validation:** Ensure image dimensions match label size
+
+**Verified Pattern from BrotherQLPrinter:**
+```python
+# Example: Brother QL requires 90° rotation for 12mm labels
+if label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0:
+    label_image = label_image.rotate(90, expand=True)
+
+# Dithering for monochrome printers
+if image.mode != '1':  # Not already monochrome
+    image = image.convert('1', dither=Image.FLOYDSTEINBERG)
+```
+
+#### 3. Printer Registration in Database
+
+**Schema:** Printers stored in `PrinterModel` table with configuration JSON.
+
+**Registration Pattern:**
+```python
+from MakerMatrix.models.models import PrinterModel
+from sqlmodel import Session, create_engine
+
+def register_printer(session: Session):
+    """Register printer in database"""
+    printer = PrinterModel(
+        name="My Office Printer",
+        printer_type="my_printer_model",  # Driver identifier
+        connection_type="network",  # "usb", "network", "serial"
+        identifier="192.168.1.100",  # Connection string
+        model="Model-X100",
+        configuration={
+            "dpi": 300,
+            "scaling_factor": 1.0,
+            "rotation_required": False,
+            "supports_color": False,
+            # Add printer-specific settings
+        },
+        is_active=True
+    )
+    session.add(printer)
+    session.commit()
+```
+
+#### 4. Integration with PrinterManagerService
+
+**Update Service:** Modify `printer_manager_service.py` to support new driver.
+
+**Pattern:**
+```python
+def _get_printer_driver(self, printer: PrinterModel):
+    """Factory method to create appropriate driver instance"""
+
+    if printer.printer_type == "brother_ql":
+        return BrotherQLPrinter(
+            printer_identifier=printer.identifier,
+            model=printer.model
+        )
+    elif printer.printer_type == "my_printer_model":
+        from .my_printer_driver import MyPrinterDriver
+        return MyPrinterDriver(
+            printer_identifier=printer.identifier,
+            model=printer.model
+        )
+    else:
+        raise ValueError(f"Unsupported printer type: {printer.printer_type}")
+```
+
+#### 5. API Endpoints (Already Implemented)
+
+**Existing Endpoints Work with New Drivers:**
+- `POST /api/printer/print_label` - Print using template
+- `POST /api/printer/config` - Configure printer settings
+- `GET /api/printer/current_printer` - Get active printer
+- `POST /api/preview/template` - Preview label (printer-independent)
+
+**No Changes Needed** - New drivers automatically work with existing API.
+
+### Testing Checklist
+
+#### Connection Testing
+- [ ] USB connection successful (if applicable)
+- [ ] Network connection successful (if applicable)
+- [ ] Serial connection successful (if applicable)
+- [ ] Printer status query returns valid data
+- [ ] Error handling for offline/disconnected printer
+
+#### Print Testing
+- [ ] Basic text-only label prints correctly
+- [ ] QR code labels print with correct size/position
+- [ ] Multi-line text wraps properly
+- [ ] Images print with correct resolution
+- [ ] Label size validation works
+- [ ] Multiple copies print correctly
+- [ ] Print quality is acceptable (no artifacts, correct density)
+
+#### Integration Testing
+- [ ] Printer appears in frontend printer selection
+- [ ] Configuration saves correctly
+- [ ] Template preview matches actual print output
+- [ ] All label sizes work correctly
+- [ ] Rotation applied correctly (if needed)
+- [ ] Error messages display properly in UI
+
+### Common Implementation Patterns
+
+#### USB Communication
+```python
+import usb.core
+import usb.util
+
+def find_usb_printer(vendor_id: int, product_id: int):
+    """Find USB printer by vendor/product ID"""
+    device = usb.core.find(idVendor=vendor_id, idProduct=product_id)
+    if device is None:
+        raise ValueError("Printer not found")
+    return device
+```
+
+#### Network Communication
+```python
+import socket
+
+def send_to_network_printer(ip: str, port: int, data: bytes):
+    """Send data to network printer"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.connect((ip, port))
+        sock.sendall(data)
+        response = sock.recv(1024)
+    return response
+```
+
+#### Serial Communication
+```python
+import serial
+
+def send_to_serial_printer(port: str, baudrate: int, data: bytes):
+    """Send data to serial printer"""
+    with serial.Serial(port, baudrate, timeout=1) as ser:
+        ser.write(data)
+        response = ser.read(1024)
+    return response
+```
+
+### Troubleshooting Guide
+
+**Common Issues:**
+
+1. **Image Appears Rotated**
+   - Check if printer requires 90° rotation for certain label sizes
+   - Verify image dimensions match expected label size
+
+2. **Print Quality Poor**
+   - Adjust dithering algorithm (Floyd-Steinberg, Ordered, Threshold)
+   - Check printer DPI settings
+   - Verify scaling factor is correct
+
+3. **Label Size Mismatch**
+   - Ensure `LabelSize` definitions match printer capabilities
+   - Check that label size validation accounts for printer margins
+   - Verify dots_printable calculations
+
+4. **Connection Failures**
+   - Check permissions for USB/serial access
+   - Verify network printer IP and port
+   - Test connection outside of application first
+
+5. **Template Rendering Issues**
+   - Template processing is printer-independent
+   - Issues are likely in image preparation, not template parsing
+   - Check `_create_advanced_label_image()` method in PrinterManagerService
+
+### Reference Implementation
+
+**Study Existing Driver:** `/MakerMatrix/services/printer/brother_ql_printer.py`
+
+**Key Features to Review:**
+- Label size definitions for Brother QL-800/700/570
+- USB device discovery and connection
+- Image rotation logic for 12mm labels
+- Print command generation
+- Status checking
+
+**Complete Example:** Brother QL driver implements all required methods and serves as template for new drivers.
+
+---
+
 ## Issues Identified
 
 ### Printer/Preview Functionality Problems

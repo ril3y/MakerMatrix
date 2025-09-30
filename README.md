@@ -388,6 +388,214 @@ curl -X POST http://localhost:8080/api/tasks/quick/part_enrichment \
   }'
 ```
 
+## 🏷️ Label Printing System
+
+MakerMatrix includes a powerful template-based label printing system with support for Brother QL series printers.
+
+### Features
+
+- **Template System**: Save and reuse custom label templates
+- **QR Code Support**: Automatic QR code generation with customizable data
+- **Variable Substitution**: Dynamic field insertion (part name, number, location, etc.)
+- **Text Rotation**: 0°, 90°, 180°, 270° rotation support
+- **Real-time Preview**: See your label before printing
+- **Multi-line Labels**: Automatic line breaks and text sizing
+- **CRUD Operations**: Create, edit, delete, and manage templates
+
+### Supported Printers
+
+- **Brother QL-800** - 300 DPI thermal label printer
+- **Brother QL-700** - 300 DPI thermal label printer
+- **Brother QL-570** - 300 DPI thermal label printer
+- Support for 12mm, 29mm, 62mm label sizes
+
+### Template Syntax
+
+**Variables:**
+```
+{part_name}      - Part name
+{part_number}    - Part/SKU number
+{location}       - Storage location
+{category}       - Part category
+{description}    - Part description
+{quantity}       - Current stock quantity
+```
+
+**QR Codes:**
+```
+{qr}                  - Default QR (MM:part_id format)
+{qr=part_number}      - QR with part number
+{qr=location}         - QR with location
+{qr=custom_field}     - QR with any field
+```
+
+**Formatting:**
+```
+\n                    - Line break
+{rotate=90}           - Rotate label 90° (also 180, 270)
+```
+
+### Usage Examples
+
+**Basic Label:**
+```
+{part_name}
+{part_number}
+```
+
+**QR Code with Text:**
+```
+{qr}{part_name}
+{part_number}
+```
+
+**Vertical Label:**
+```
+{qr}{part_name}
+{part_number}
+{rotate=90}
+```
+
+**Location Label:**
+```
+{qr=location}Location: {location}
+Category: {category}
+```
+
+### Printing Workflow
+
+1. **Open Print Dialog** - Click print button on any part
+2. **Choose Template** - Select saved template or use custom text
+3. **Preview** - Review label layout and QR code
+4. **Configure** - Set label size (12mm, 29mm, etc.) and copies
+5. **Print** - Send to printer
+
+### Template Management
+
+**Create Template:**
+1. Enter template text in custom template field
+2. Click "Save as Template"
+3. Enter template name
+4. Template saved to database
+
+**Edit Template:**
+1. Open template dropdown
+2. Click blue edit icon on saved template
+3. Modify template text
+4. Click "Update Template"
+
+**Delete Template:**
+1. Open template dropdown
+2. Click red delete icon on saved template
+3. Confirm deletion
+
+**Template Features:**
+- Templates auto-reload after create/update/delete
+- Custom template text persists in browser localStorage
+- Preview and print render identically
+- Templates deduplicated by ID
+
+### API Endpoints
+
+**Print with Custom Template:**
+```bash
+POST /api/printer/print/advanced
+{
+  "printer_id": "brother",
+  "template": "{qr}{part_name}\\n{part_number}",
+  "label_size": "12mm",
+  "data": {
+    "part_name": "Resistor 10K",
+    "part_number": "RES-10K-0805"
+  }
+}
+```
+
+**Print with Saved Template:**
+```bash
+POST /api/printer/print/template
+{
+  "printer_id": "brother",
+  "template_id": "uuid-here",
+  "label_size": "12mm",
+  "data": {...}
+}
+```
+
+**Preview Template:**
+```bash
+POST /api/printer/preview/template
+{
+  "template_id": "uuid-here",
+  "data": {...}
+}
+```
+
+**Template CRUD:**
+```bash
+GET    /api/templates/              # List all templates
+POST   /api/templates/              # Create template
+GET    /api/templates/{id}          # Get template
+PUT    /api/templates/{id}          # Update template
+DELETE /api/templates/{id}          # Delete template
+```
+
+### Printer Configuration
+
+**Configure Printer:**
+```bash
+POST /api/printer/config
+{
+  "backend": "network",
+  "driver": "brother_ql",
+  "printer_identifier": "tcp://192.168.1.71:9100",
+  "model": "QL-800",
+  "dpi": 300,
+  "scaling_factor": 1.1
+}
+```
+
+**List Available Printers:**
+```bash
+GET /api/printer/printers
+```
+
+**Test Connection:**
+```bash
+GET /api/printer/printers/{printer_id}
+```
+
+### Template Syntax Help
+
+The print dialog includes a collapsible syntax help section with:
+- Available variables and their usage
+- QR code syntax and options
+- Rotation directives
+- Formatting guidelines
+
+Click the help icon (?) in the custom template section to view full syntax reference.
+
+### Troubleshooting
+
+**Label appears rotated:**
+- 12mm labels are automatically rotated 90° for proper orientation
+- Verify `{rotate=}` directive if using custom rotation
+
+**QR code not appearing:**
+- Ensure `{qr}` is in template text
+- Check QR data length (max varies by label size)
+- Verify printer supports QR codes
+
+**Text too small/large:**
+- System auto-sizes text to fit label
+- Use shorter text for small labels (12mm)
+- Split long text across multiple lines with `\n`
+
+**Template not saving:**
+- Check authentication token is valid
+- Verify template name is unique
+- Review backend logs for validation errors
+
 ## 🔧 Task Management
 
 Background tasks handle long-running operations:
