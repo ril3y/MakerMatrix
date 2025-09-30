@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
-import { X, Printer, TestTube, FileText } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Printer, TestTube, FileText, HelpCircle } from 'lucide-react'
 import { settingsService } from '@/services/settings.service'
 import { templateService, LabelTemplate } from '@/services/template.service'
 import TemplateSelector from './TemplateSelector'
@@ -34,6 +34,25 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [useTemplateSystem, setUseTemplateSystem] = useState(true)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+  const [editingTemplateName, setEditingTemplateName] = useState<string | null>(null)
+  const [showTemplateSyntaxHelp, setShowTemplateSyntaxHelp] = useState(false)
+  const reloadTemplatesRef = useRef<(() => Promise<void>) | null>(null)
+
+  // Load custom template from localStorage on mount
+  useEffect(() => {
+    const savedTemplate = localStorage.getItem('makermatrix_custom_label_template')
+    if (savedTemplate) {
+      setLabelTemplate(savedTemplate)
+    }
+  }, [])
+
+  // Save custom template to localStorage whenever it changes
+  useEffect(() => {
+    if (labelTemplate && !selectedTemplate) {
+      localStorage.setItem('makermatrix_custom_label_template', labelTemplate)
+    }
+  }, [labelTemplate, selectedTemplate])
 
   useEffect(() => {
     if (isOpen) {
@@ -41,8 +60,11 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       // Reset template selection when modal opens
       setSelectedTemplate(null)
       setUseTemplateSystem(true)
-      // Set default template based on whether we have part data
-      if (partData) {
+      // Load saved template from localStorage or use default
+      const savedTemplate = localStorage.getItem('makermatrix_custom_label_template')
+      if (savedTemplate) {
+        setLabelTemplate(savedTemplate)
+      } else if (partData) {
         setLabelTemplate('{part_name}')
       } else {
         setLabelTemplate('Test Label')
@@ -351,6 +373,90 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
     }
   }
 
+  const handleEditTemplateLoad = (templateText: string, templateName: string, templateId: string) => {
+    // Load template for editing
+    setLabelTemplate(templateText)
+    setSelectedTemplate(null) // Clear selected template
+    setEditingTemplateId(templateId)
+    setEditingTemplateName(templateName)
+  }
+
+  const handleSaveCustomTemplate = async () => {
+    if (!labelTemplate.trim()) {
+      toast.error('Please enter template text first')
+      return
+    }
+
+    // Parse label size to get dimensions
+    const heightMm = parseFloat(selectedLabelSize.replace('mm', ''))
+
+    // Detect QR in template
+    const hasQr = labelTemplate.includes('{qr}') || /\{qr=[^}]+\}/.test(labelTemplate)
+
+    // Detect rotation
+    const rotateMatch = labelTemplate.match(/\{rotate=(\d+)\}/)
+    const rotation = rotateMatch ? parseInt(rotateMatch[1]) : 0
+
+    const templateData = {
+      description: 'Custom user template',
+      category: 'custom',
+      label_width_mm: labelLength,
+      label_height_mm: heightMm,
+      layout_type: hasQr ? 'qr_text_horizontal' : 'text_only',
+      text_template: labelTemplate,
+      text_rotation: rotation === 0 ? '0' : rotation === 90 ? '90' : rotation === 180 ? '180' : '270',
+      text_alignment: 'center',
+      qr_enabled: hasQr,
+      qr_position: hasQr ? 'left' : 'center',
+      qr_scale: 0.95,
+      enable_multiline: true,
+      enable_auto_sizing: true,
+      font_config: {},
+      layout_config: {},
+      spacing_config: {}
+    }
+
+    try {
+      if (editingTemplateId) {
+        // Update existing template
+        const templateName = prompt('Update template name:', editingTemplateName || '')
+        if (!templateName) return
+
+        await templateService.updateTemplate(editingTemplateId, {
+          ...templateData,
+          display_name: templateName
+        })
+
+        toast.success(`Template "${templateName}" updated!`)
+        setEditingTemplateId(null)
+        setEditingTemplateName(null)
+      } else {
+        // Create new template
+        const templateName = prompt('Enter a name for this template:')
+        if (!templateName) return
+
+        // Generate unique name from display name
+        const uniqueName = templateName.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now()
+
+        await templateService.createTemplate({
+          name: uniqueName,
+          display_name: templateName,
+          ...templateData
+        })
+
+        toast.success(`Template "${templateName}" saved!`)
+      }
+
+      // Reload templates in the selector
+      if (reloadTemplatesRef.current) {
+        await reloadTemplatesRef.current()
+      }
+    } catch (error: any) {
+      console.error('Failed to save template:', error)
+      toast.error(error.message || 'Failed to save template')
+    }
+  }
+
   const testConnection = async () => {
     if (!selectedPrinter) return
 
@@ -430,6 +536,8 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                 <TemplateSelector
                   selectedTemplateId={selectedTemplate?.id}
                   onTemplateSelect={handleTemplateSelect}
+                  onEditTemplate={handleEditTemplateLoad}
+                  onTemplatesLoaded={(fn) => { reloadTemplatesRef.current = fn }}
                   partData={partData}
                   labelSize={selectedLabelSize}
                   showCustomOption={true}
@@ -438,20 +546,72 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                 {/* Custom Template Input (only show when no template selected) */}
                 {!selectedTemplate && (
                   <div>
-                    <label className="block text-sm font-medium text-primary mb-2">
-                      Custom Template Text
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-primary">
+                        Custom Template Text
+                        {editingTemplateName && (
+                          <span className="text-xs text-blue-500 ml-2">
+                            (Editing: {editingTemplateName})
+                          </span>
+                        )}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveCustomTemplate()}
+                        className="text-xs px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+                      >
+                        {editingTemplateId ? 'Update Template' : 'Save as Template'}
+                      </button>
+                    </div>
                     <textarea
                       className="input w-full h-20 resize-none"
                       value={labelTemplate}
                       onChange={(e) => setLabelTemplate(e.target.value)}
-                      placeholder="Use {part_name}, {part_number}, {qr}, {qr=part_number}, etc."
+                      placeholder="Use {part_name}, {part_number}, {qr}, {qr=part_number}, {rotate=90}, etc."
                     />
-                    <p className="text-xs text-secondary mt-1">
-                      Available: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}
-                      <br />
-                      QR Code: {'{qr}'} (defaults to MM:id format), {'{qr=part_number}'}, {'{qr=location}'}, etc.
-                    </p>
+                    <div className="relative mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowTemplateSyntaxHelp(!showTemplateSyntaxHelp)}
+                        className="flex items-center gap-1 text-xs text-secondary hover:text-primary transition-colors"
+                      >
+                        <HelpCircle className="w-3 h-3" />
+                        Template Syntax Help
+                      </button>
+
+                      {showTemplateSyntaxHelp && (
+                        <div className="absolute left-0 top-full mt-2 z-50 bg-background-primary border border-border rounded-lg shadow-lg p-4 w-96">
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="text-sm font-medium text-primary mb-1">Basic Variables</h4>
+                              <p className="text-xs text-secondary">
+                                {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-primary mb-1">QR Codes</h4>
+                              <p className="text-xs text-secondary">
+                                {'{qr}'} - Defaults to MM:id format
+                                <br />
+                                {'{qr=part_number}'}, {'{qr=location}'} - Use specific field for QR data
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-primary mb-1">Rotation</h4>
+                              <p className="text-xs text-secondary">
+                                {'{rotate=90}'}, {'{rotate=180}'}, {'{rotate=270}'} - Default: 0°
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-primary mb-1">Formatting</h4>
+                              <p className="text-xs text-secondary">
+                                Use \n for line breaks
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, FileText, Sparkles, User, Copy, Eye } from 'lucide-react'
+import { ChevronDown, FileText, Sparkles, User, Copy, Eye, Trash2, Edit } from 'lucide-react'
 import { templateService, LabelTemplate } from '@/services/template.service'
 import toast from 'react-hot-toast'
 
 interface TemplateSelectorProps {
   selectedTemplateId?: string
   onTemplateSelect: (template: LabelTemplate | null) => void
+  onEditTemplate?: (templateText: string, templateName: string, templateId: string) => void
+  onTemplatesLoaded?: (loadFunction: () => Promise<void>) => void
   partData?: Record<string, any>
   labelSize?: string
   showCustomOption?: boolean
@@ -14,6 +16,8 @@ interface TemplateSelectorProps {
 const TemplateSelector = ({
   selectedTemplateId,
   onTemplateSelect,
+  onEditTemplate,
+  onTemplatesLoaded,
   partData,
   labelSize = '12mm',
   showCustomOption = true
@@ -28,6 +32,13 @@ const TemplateSelector = ({
   useEffect(() => {
     loadTemplates()
   }, [labelSize])
+
+  // Pass loadTemplates function to parent
+  useEffect(() => {
+    if (onTemplatesLoaded) {
+      onTemplatesLoaded(loadTemplates)
+    }
+  }, [onTemplatesLoaded])
 
   const loadTemplates = async () => {
     try {
@@ -46,26 +57,29 @@ const TemplateSelector = ({
       setSystemTemplates(systemArray)
       setUserTemplates(userArray)
 
-      // Combine and filter compatible templates if label size is known
+      // Combine and deduplicate templates by ID
       const allTemplates = [...systemArray, ...userArray]
+      const uniqueTemplates = Array.from(
+        new Map(allTemplates.map(t => [t.id, t])).values()
+      )
 
       if (labelSize) {
         const heightMm = parseFloat(labelSize.replace('mm', ''))
         if (!isNaN(heightMm)) {
           // Filter templates compatible with the selected label size
-          const compatible = allTemplates.filter(t =>
+          const compatible = uniqueTemplates.filter(t =>
             Math.abs(t.label_height_mm - heightMm) <= 1 // Allow 1mm tolerance
           )
           setTemplates(compatible)
         } else {
-          setTemplates(allTemplates)
+          setTemplates(uniqueTemplates)
         }
       } else {
-        setTemplates(allTemplates)
+        setTemplates(uniqueTemplates)
       }
 
       // Show info if no templates loaded
-      if (allTemplates.length === 0) {
+      if (uniqueTemplates.length === 0) {
         console.info('No templates available. Check authentication or create templates.')
       }
 
@@ -88,6 +102,43 @@ const TemplateSelector = ({
   const handleCustomSelect = () => {
     onTemplateSelect(null)
     setShowDropdown(false)
+  }
+
+  const handleDeleteTemplate = async (template: LabelTemplate, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent template selection
+
+    if (!confirm(`Delete template "${template.display_name}"?`)) {
+      return
+    }
+
+    try {
+      await templateService.deleteTemplate(template.id)
+      toast.success(`Template "${template.display_name}" deleted`)
+
+      // Reload templates
+      await loadTemplates()
+
+      // If deleted template was selected, clear selection
+      if (selectedTemplateId === template.id) {
+        onTemplateSelect(null)
+      }
+    } catch (error: any) {
+      console.error('Failed to delete template:', error)
+      toast.error(error.message || 'Failed to delete template')
+    }
+  }
+
+  const handleEditTemplate = async (template: LabelTemplate, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent template selection
+
+    // Close dropdown
+    setShowDropdown(false)
+
+    // Load template text into custom template field for editing
+    if (onEditTemplate) {
+      onEditTemplate(template.text_template, template.display_name, template.id)
+      toast.success(`Editing template "${template.display_name}"`)
+    }
   }
 
   const selectedTemplate = selectedTemplateId
@@ -198,44 +249,6 @@ const TemplateSelector = ({
                   </div>
                 )}
 
-                {/* Suggested Templates */}
-                {partData && suggestedTemplates.length > 0 && (
-                  <div>
-                    <div className="px-3 py-2 text-xs font-medium text-secondary bg-background-secondary">
-                      💡 Suggested for your part
-                    </div>
-                    {suggestedTemplates.slice(0, 3).map((template) => (
-                      <button
-                        key={`suggested-${template.id}`}
-                        onClick={() => handleTemplateSelect(template)}
-                        className={`w-full p-3 text-left hover:bg-background-secondary transition-colors ${
-                          selectedTemplateId === template.id ? 'bg-background-secondary' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {getTemplateIcon(template)}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-primary truncate">
-                                {template.display_name}
-                              </span>
-                              <span className="text-xs text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded">
-                                Suggested
-                              </span>
-                            </div>
-                            <div className="text-xs text-secondary truncate">
-                              {template.description}
-                            </div>
-                            <div className="text-xs text-muted">
-                              {getLayoutDescription(template)} • {template.label_width_mm}×{template.label_height_mm}mm
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
                 {/* System Templates */}
                 {systemTemplates.length > 0 && (
                   <div>
@@ -280,28 +293,49 @@ const TemplateSelector = ({
                     {filteredTemplates
                       .filter(t => !t.is_system_template)
                       .map((template) => (
-                        <button
+                        <div
                           key={`user-${template.id}`}
-                          onClick={() => handleTemplateSelect(template)}
-                          className={`w-full p-3 text-left hover:bg-background-secondary transition-colors ${
+                          className={`group relative hover:bg-background-secondary transition-colors ${
                             selectedTemplateId === template.id ? 'bg-background-secondary' : ''
                           }`}
                         >
-                          <div className="flex items-center gap-2">
-                            {getTemplateIcon(template)}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-primary truncate">
-                                {template.display_name}
+                          <button
+                            onClick={() => handleTemplateSelect(template)}
+                            className="w-full p-3 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              {getTemplateIcon(template)}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-primary truncate">
+                                  {template.display_name}
+                                </div>
+                                <div className="text-xs text-secondary truncate">
+                                  {template.description}
+                                </div>
+                                <div className="text-xs text-muted">
+                                  {getLayoutDescription(template)} • {template.label_width_mm}×{template.label_height_mm}mm
+                                </div>
                               </div>
-                              <div className="text-xs text-secondary truncate">
-                                {template.description}
-                              </div>
-                              <div className="text-xs text-muted">
-                                {getLayoutDescription(template)} • {template.label_width_mm}×{template.label_height_mm}mm
+                              {/* Action buttons - always visible */}
+                              <div className="flex items-center gap-1 ml-2">
+                                <button
+                                  onClick={(e) => handleEditTemplate(template, e)}
+                                  className="p-1 hover:bg-background-primary rounded transition-colors"
+                                  title="Edit template"
+                                >
+                                  <Edit className="w-4 h-4 text-blue-500" />
+                                </button>
+                                <button
+                                  onClick={(e) => handleDeleteTemplate(template, e)}
+                                  className="p-1 hover:bg-background-primary rounded transition-colors"
+                                  title="Delete template"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </button>
                               </div>
                             </div>
-                          </div>
-                        </button>
+                          </button>
+                        </div>
                       ))}
                   </div>
                 )}
@@ -325,19 +359,7 @@ const TemplateSelector = ({
       {/* Template Details */}
       {selectedTemplate && (
         <div className="mt-2 p-3 bg-background-secondary rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <h6 className="text-sm font-medium text-primary">Template Details</h6>
-            <div className="flex items-center gap-1">
-              {selectedTemplate.is_system_template && (
-                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                  System
-                </span>
-              )}
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                {selectedTemplate.category}
-              </span>
-            </div>
-          </div>
+          <h6 className="text-sm font-medium text-primary mb-2">Template Details</h6>
 
           <div className="space-y-1 text-xs text-secondary">
             <p><strong>Size:</strong> {selectedTemplate.label_width_mm} × {selectedTemplate.label_height_mm}mm</p>
@@ -347,7 +369,6 @@ const TemplateSelector = ({
                 {selectedTemplate.text_template}
               </code></p>
             )}
-            <p><strong>Used:</strong> {selectedTemplate.usage_count} times</p>
           </div>
         </div>
       )}

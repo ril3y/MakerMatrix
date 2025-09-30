@@ -137,7 +137,7 @@ async def create_template(
                 message=f"Template '{created_template.name}' created successfully"
             )
 
-    except EntityAlreadyExistsError as e:
+    except ResourceAlreadyExistsError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -321,7 +321,7 @@ async def duplicate_template(
 
     except HTTPException:
         raise
-    except EntityAlreadyExistsError as e:
+    except ResourceAlreadyExistsError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(f"Error duplicating template {template_id}: {str(e)}")

@@ -310,7 +310,7 @@ class PrinterManagerService:
     
     async def print_template_label(self, printer_id: str, template_id: str, data: dict,
                                    label_size: str, copies: int = 1) -> PrintJobResult:
-        """Print a label using a saved template."""
+        """Print a label using a saved template - uses text_template directly."""
         printer = await self.get_printer(printer_id)
         if not printer:
             return PrintJobResult(
@@ -335,18 +335,38 @@ class PrinterManagerService:
                         error=f"Template {template_id} not found"
                     )
 
-                # Create print settings
-                print_settings = PrintSettings(
-                    label_size=template.label_height_mm,  # Brother QL uses height as the "size"
-                    dpi=300,
-                    qr_scale=template.qr_scale,
-                    qr_min_size_mm=template.qr_min_size_mm
+                # Use the text_template directly with the advanced label creation method
+                # This ensures the same rendering as custom templates and previews
+                template_label_size = f"{int(template.label_height_mm)}mm"
+                template_label_length = int(template.label_width_mm)
+
+                print(f"[DEBUG] Printing saved template:")
+                print(f"[DEBUG] - Template text: {template.text_template}")
+                print(f"[DEBUG] - Label size: {template_label_size}")
+                print(f"[DEBUG] - Label length: {template_label_length}mm")
+
+                label_image = await self._create_advanced_label_image(
+                    template=template.text_template,
+                    data=data,
+                    label_size=template_label_size,
+                    label_length=template_label_length,
+                    options={}
                 )
 
-                # Process template to create label image
-                label_image = self.template_processor.process_template(
-                    template, data, print_settings
-                )
+                print(f"[DEBUG] - Generated image size: {label_image.width}x{label_image.height}")
+
+                # Apply rotation for 12mm labels for printing (same as custom templates)
+                supported_sizes = printer.get_supported_label_sizes()
+                label_info = None
+                for size in supported_sizes:
+                    if size.name == label_size:
+                        label_info = size
+                        break
+
+                if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
+                    print(f"[DEBUG] Applying 90° rotation for 12mm label")
+                    label_image = label_image.rotate(90, expand=True)
+                    print(f"[DEBUG] - Rotated image size: {label_image.width}x{label_image.height}")
 
                 # Update template usage
                 template.update_usage()
@@ -365,7 +385,7 @@ class PrinterManagerService:
             )
 
     async def preview_template_label(self, template_id: str, data: dict) -> PreviewResult:
-        """Preview a label using a saved template."""
+        """Preview a label using a saved template - uses text_template directly."""
         try:
             from sqlmodel import Session
             from MakerMatrix.models.models import engine
@@ -378,17 +398,17 @@ class PrinterManagerService:
                         error=f"Template {template_id} not found"
                     )
 
-                # Create print settings for preview
-                print_settings = PrintSettings(
-                    label_size=template.label_height_mm,
-                    dpi=300,
-                    qr_scale=template.qr_scale,
-                    qr_min_size_mm=template.qr_min_size_mm
-                )
+                # Use the text_template directly with the advanced label creation method
+                # This ensures the same rendering as custom templates
+                label_size = f"{int(template.label_height_mm)}mm"
+                label_length = int(template.label_width_mm)
 
-                # Process template to create preview image
-                preview_image = self.template_processor.process_template(
-                    template, data, print_settings
+                preview_image = await self._create_advanced_label_image(
+                    template=template.text_template,
+                    data=data,
+                    label_size=label_size,
+                    label_length=label_length,
+                    options={}
                 )
 
                 # Convert image to base64 for preview
@@ -460,11 +480,16 @@ class PrinterManagerService:
             else:
                 height = max(100, 200)  # Default height
         
-        # Parse template for QR codes and text
+        # Parse template for QR codes, text, and rotation
         # Check for both {qr} and {qr=field} syntax
         has_simple_qr = '{qr}' in template
         qr_field_matches = re.findall(r'\{qr=([^}]+)\}', template)
         has_qr = has_simple_qr or len(qr_field_matches) > 0 or options.get('include_qr', False)
+
+        # Extract rotation (default 0 degrees)
+        rotate_match = re.search(r'\{rotate=(\d+)\}', template)
+        rotation_degrees = int(rotate_match.group(1)) if rotate_match else 0
+        print(f"[DEBUG] Rotation: {rotation_degrees}°")
 
         # Replace text placeholders using template processor's method
         processed_text = self.template_processor._process_template_text(template, data)
@@ -677,7 +702,12 @@ class PrinterManagerService:
                     x = (width - line_width) // 2
                     y = start_y + i * line_height
                     draw.text((x, y), line, fill='black', font=font)
-        
+
+        # Apply rotation if specified
+        if rotation_degrees != 0:
+            print(f"[DEBUG] Applying {rotation_degrees}° rotation to label image")
+            image = image.rotate(-rotation_degrees, expand=True, fillcolor='white')
+
         return image
     
     async def _create_advanced_label_image_for_preview(self, template: str, data: dict, label_size: str, 

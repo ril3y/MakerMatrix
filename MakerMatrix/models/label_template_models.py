@@ -340,9 +340,9 @@ class LabelTemplateResponse(SQLModel):
     is_validated: bool
     validation_errors: Optional[List[str]]
 
-    layout_config: Dict[str, Any]
-    font_config: Dict[str, Any]
-    spacing_config: Dict[str, Any]
+    layout_config: Dict[str, Any] = Field(default_factory=dict)
+    font_config: Dict[str, Any] = Field(default_factory=dict)
+    spacing_config: Dict[str, Any] = Field(default_factory=dict)
 
 
 class TemplatePreviewRequest(SQLModel):

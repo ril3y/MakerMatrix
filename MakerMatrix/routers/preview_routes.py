@@ -474,6 +474,12 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
             for key, value in request.data.items():
                 processed_text = processed_text.replace(f"{{{key}}}", str(value))
 
+        # Extract and remove rotation directive (default 0 degrees)
+        rotate_match = re.search(r'\{rotate=(\d+)\}', processed_text)
+        rotation_degrees = int(rotate_match.group(1)) if rotate_match else 0
+        processed_text = re.sub(r'\{rotate=\d+\}', '', processed_text)
+        print(f"[DEBUG] Rotation: {rotation_degrees}°")
+
         # Convert escape sequences to actual characters (e.g., \n to newline)
         processed_text = processed_text.replace('\\n', '\n')
         processed_text = processed_text.replace('\\t', '\t')
@@ -528,6 +534,25 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
                 result = await service.preview_text_label(processed_text, request.label_size)
 
             print(f"[DEBUG] Preview generated successfully: {result.width_px}x{result.height_px}")
+
+            # Apply rotation if specified
+            if rotation_degrees != 0:
+                print(f"[DEBUG] Applying {rotation_degrees}° rotation to preview")
+                from PIL import Image
+                import io
+                # Decode image
+                img = Image.open(io.BytesIO(result.image_data))
+                # Rotate image
+                img = img.rotate(-rotation_degrees, expand=True, fillcolor='white')
+                # Re-encode image
+                img_buffer = io.BytesIO()
+                img.save(img_buffer, format='PNG')
+                result.image_data = img_buffer.getvalue()
+                # Update dimensions
+                result.width_px = img.width
+                result.height_px = img.height
+                print(f"[DEBUG] Rotated preview size: {result.width_px}x{result.height_px}")
+
         except Exception as e:
             print(f"[ERROR] Failed to generate preview: {e}")
             import traceback

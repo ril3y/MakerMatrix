@@ -125,7 +125,7 @@ class TemplateService {
 
   // Create new template
   async createTemplate(template: Partial<LabelTemplate>): Promise<LabelTemplate> {
-    const response = await apiClient.post(this.baseUrl, template)
+    const response = await apiClient.post(`${this.baseUrl}/`, template)
 
     if (response.status === 'success') {
       return response.data
