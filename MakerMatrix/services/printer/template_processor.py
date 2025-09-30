@@ -636,15 +636,32 @@ class TemplateProcessor:
         Generate QR code data from context data.
         Returns MM:id format by default (MakerMatrix ID format).
         Supports {qr=field_name} syntax to use specific field.
+
+        Raises:
+            ValueError: If specified field doesn't exist in data or QR data exceeds size limit
         """
         # Check if template specifies which field to use for QR
         qr_field_match = re.search(r'\{qr=([^}]+)\}', template_text)
         if qr_field_match:
             field_name = qr_field_match.group(1)
-            if field_name in data:
-                return str(data[field_name])
-            else:
-                return field_name  # Return the field name if not in data
+            if field_name not in data:
+                available_fields = ', '.join(data.keys())
+                raise ValueError(
+                    f"Field '{field_name}' not found in data. Available fields: {available_fields}"
+                )
+            qr_data = str(data[field_name])
+
+            # Validate QR data size (11mm x 11mm QR code constraint)
+            # At 300 DPI, 11mm = ~130 pixels
+            # Practical limit for reliable scanning: ~200 characters
+            max_qr_length = 200
+            if len(qr_data) > max_qr_length:
+                raise ValueError(
+                    f"QR data too long: {len(qr_data)} characters (max {max_qr_length} for 11mm QR code). "
+                    f"Field '{field_name}' value: '{qr_data[:50]}...'"
+                )
+
+            return qr_data
 
         # Default: Prefer ID for QR code in MM:id format
         if 'id' in data:

@@ -457,6 +457,13 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         has_qr_placeholder = '{qr}' in processed_text or re.search(r'\{qr=[^}]+\}', processed_text)
         print(f"[DEBUG] Template has QR placeholder: {has_qr_placeholder}")
 
+        # Extract QR field name if specified (e.g., {qr=description})
+        qr_field = None
+        qr_field_match = re.search(r'\{qr=([^}]+)\}', processed_text)
+        if qr_field_match:
+            qr_field = qr_field_match.group(1)
+            print(f"[DEBUG] QR field specified: {qr_field}")
+
         # Remove QR placeholders from text (they will be rendered as actual QR codes)
         if has_qr_placeholder:
             processed_text = re.sub(r'\{qr=[^}]+\}', '', processed_text)
@@ -479,7 +486,36 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
                 # For QR + text, use the existing combined label method
                 print(f"[DEBUG] Using existing preview_combined_label method for QR + text")
 
-                # Create a mock part object with the data
+                # Generate QR code data based on specified field or default
+                if qr_field:
+                    # User specified a field like {qr=description}
+                    if qr_field not in request.data:
+                        return PreviewResponse(
+                            success=False,
+                            error=f"Field '{qr_field}' not found in data. Available fields: {', '.join(request.data.keys())}",
+                            message=f"QR field '{qr_field}' does not exist in part data"
+                        )
+                    qr_data = str(request.data[qr_field])
+                    print(f"[DEBUG] Using custom QR field '{qr_field}': {qr_data}")
+
+                    # Check QR data size constraints (11mm x 11mm QR code)
+                    # At 300 DPI, 11mm = ~130 pixels
+                    # QR code capacity: ~2953 chars (version 40, error correction L)
+                    # But for 11mm practical limit is much lower (~100-200 chars max for reliable scanning)
+                    max_qr_length = 200
+                    if len(qr_data) > max_qr_length:
+                        return PreviewResponse(
+                            success=False,
+                            error=f"QR data too long: {len(qr_data)} characters (max {max_qr_length} for 11mm QR code)",
+                            message=f"QR code data exceeds size limit for 11mm label"
+                        )
+                else:
+                    # Default to MM:id format
+                    part_id = request.data.get('id') or request.data.get('part_id') or 'UNKNOWN'
+                    qr_data = f"MM:{part_id}"
+                    print(f"[DEBUG] Using default MM:id format: {qr_data}")
+
+                # Create a mock part object for preview generation
                 from dataclasses import dataclass
 
                 @dataclass
@@ -490,17 +526,16 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
                     quantity: int = 0
 
                 # Extract part info from request data
-                part_id = request.data.get('id') or request.data.get('part_id') or 'UNKNOWN'
                 part_name = request.data.get('part_name', 'Unknown Part')
                 part_number = request.data.get('part_number', 'UNKNOWN')
 
                 mock_part = MockPart(
-                    id=part_id,
+                    id=qr_data,  # Use the QR data as the ID (will be used for QR generation)
                     part_name=part_name,
                     part_number=part_number
                 )
 
-                # Use existing combined label preview method (already has MM:{part_id} format)
+                # Use existing combined label preview method
                 result = await service.preview_combined_label(mock_part, processed_text, request.label_size)
             else:
                 # Generate text-only preview
