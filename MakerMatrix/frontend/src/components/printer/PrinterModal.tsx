@@ -558,7 +558,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                       <button
                         type="button"
                         onClick={() => handleSaveCustomTemplate()}
-                        className="text-xs px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+                        className="text-xs px-3 py-1 bg-primary text-primary-contrast rounded hover:bg-primary/90 transition-colors"
                       >
                         {editingTemplateId ? 'Update Template' : 'Save as Template'}
                       </button>
