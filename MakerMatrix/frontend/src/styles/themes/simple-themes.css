@@ -13,6 +13,7 @@
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
   --text-inverse: #ffffff;
+  --text-on-primary: #111827;
   
   /* Border colors */
   --border-primary: #e5e7eb;
@@ -44,6 +45,7 @@
   --text-secondary: #e2e8f0;
   --text-muted: #94a3b8;
   --text-inverse: #0f172a;
+  --text-on-primary: #111827;
   
   /* Border colors for dark mode */
   --border-primary: #334155;
@@ -116,6 +118,7 @@
 .text-theme-secondary { color: var(--text-secondary) !important; }
 .text-theme-muted { color: var(--text-muted) !important; }
 .text-theme-inverse { color: var(--text-inverse) !important; }
+.text-on-primary { color: var(--text-on-primary) !important; }
 
 .border-theme-primary { border-color: var(--border-primary) !important; }
 .border-theme-secondary { border-color: var(--border-secondary) !important; }

@@ -85,7 +85,7 @@
   }
   
   .btn-primary {
-    @apply btn bg-primary text-gray-900 font-semibold hover:bg-primary-dark dark:text-gray-900;
+    @apply btn bg-primary text-on-primary font-semibold hover:bg-primary-dark;
   }
   
   .btn-secondary {
