@@ -461,14 +461,13 @@ class PrinterManagerService:
                 height = max(100, 200)  # Default height
         
         # Parse template for QR codes and text
-        qr_matches = re.findall(r'\{qr=([^}]+)\}', template)
-        has_qr = len(qr_matches) > 0 or options.get('include_qr', False)
-
-        # Process text template (remove QR placeholders for now)
-        text_template = re.sub(r'\{qr=[^}]+\}', '', template)
+        # Check for both {qr} and {qr=field} syntax
+        has_simple_qr = '{qr}' in template
+        qr_field_matches = re.findall(r'\{qr=([^}]+)\}', template)
+        has_qr = has_simple_qr or len(qr_field_matches) > 0 or options.get('include_qr', False)
 
         # Replace text placeholders using template processor's method
-        processed_text = self.template_processor._replace_template_variables(text_template, data)
+        processed_text = self.template_processor._process_template_text(template, data)
         
         # Create base image
         image = Image.new('RGB', (width, height), 'white')
@@ -487,38 +486,54 @@ class PrinterManagerService:
                 qr_max_margin_mm=1.0  # 1mm max margin
             )
 
-            # Generate optimized QR code using template processor
-            part_dict = {'id': data.get('id') or data.get('part_id') or 'UNKNOWN'}
-            qr_image = self.template_processor.generate_qr_code(str(part_dict['id']), print_settings)
+            # Generate optimized QR code using LabelService
+            # Determine QR data based on template syntax
+            if qr_field_matches:
+                # User specified {qr=field_name}
+                qr_field = qr_field_matches[0]
+                qr_data = str(data.get(qr_field, 'UNKNOWN'))
+                print(f"[DEBUG] Using QR field '{qr_field}': {qr_data}")
+                part_dict = {'id': qr_data}
+            else:
+                # Default to MM:id format
+                part_id = data.get('id') or data.get('part_id') or 'UNKNOWN'
+                qr_data = f"MM:{part_id}"
+                print(f"[DEBUG] Using default QR data: {qr_data}")
+                part_dict = {'id': qr_data}
+
+            qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
             qr_size = qr_image.width  # Get actual optimized size
 
-            # Calculate layout with optimized QR size
+            # Calculate layout - absolute minimal margins to maximize text size
             if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
-                # For 12mm labels, use minimal margins to maximize QR size
-                left_padding = 8  # Reduced left margin
-                qr_text_spacing = 12  # Reduced spacing between QR and text
-                right_padding = 8  # Reduced right margin
+                # For 12mm labels, use absolute minimal margins
+                left_padding = 2  # ~0.17mm
+                qr_text_spacing = 4  # ~0.34mm between QR and text
+                right_padding = 2  # ~0.17mm
 
-                # Calculate available text area with optimized QR size
+                # Calculate available text area
                 text_x = left_padding + qr_size + qr_text_spacing
                 text_width = width - text_x - right_padding
-                text_height = height - 16  # Reduced top/bottom margins
+                text_height = height - 4  # 2px top/bottom margins (~0.17mm each)
 
-                print(f"[DEBUG] Optimized 12mm QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
+                print(f"[DEBUG] 12mm QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
             else:
-                # For other label sizes, use proportional sizing but ensure minimum QR size
-                min_qr_size = max(qr_size, height // 4)  # At least 1/4 of height
-                qr_size = max(min_qr_size, min(height - 20, width // 3))  # But not more than 1/3 width
+                # For other label sizes, use absolute minimal margins
+                min_qr_size = max(qr_size, height // 4)
+                qr_size = max(min_qr_size, min(height - 6, width // 3))
 
-                # Resize QR if needed for other label sizes
                 if qr_image.width != qr_size:
                     qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
 
-                text_x = qr_size + 20
-                text_width = width - text_x - 10
-                text_height = height - 20
+                left_padding = 2
+                qr_text_spacing = 4
+                right_padding = 2
 
-                print(f"[DEBUG] Generic label QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
+                text_x = left_padding + qr_size + qr_text_spacing
+                text_width = width - text_x - right_padding
+                text_height = height - 4  # 2px top/bottom margins
+
+                print(f"[DEBUG] Other label QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
 
             # Paste QR code (left side)
             qr_y = (height - qr_size) // 2
@@ -527,17 +542,16 @@ class PrinterManagerService:
             # Optimized text sizing for the available space
             max_text_width = text_width
 
-            # Check if text is single line (no newlines and fits in one line)
+            # Maximize text size for available space
             clean_text = processed_text.strip()
             is_single_line = '\n' not in clean_text
 
-            # For single line text, try to use maximum height (full 12mm for 12mm labels)
-            if is_single_line and label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
-                # For 12mm labels, try to use most of the 12mm height for single line
-                max_font_height = int(text_height * 0.9)  # Use 90% of available height
-                print(f"[DEBUG] Single line text detected, targeting max height: {max_font_height}px")
+            # Use nearly all available height for maximum text size
+            if is_single_line:
+                # Single line - use 98% of available height
+                max_font_height = int(text_height * 0.98)
+                print(f"[DEBUG] Single line, max height: {max_font_height}px from {text_height}px available")
 
-                # Start with height-based font size and scale down if width doesn't fit
                 font_size = max_font_height
                 font = None
 
@@ -548,25 +562,27 @@ class PrinterManagerService:
                         font = ImageFont.load_default()
                         break
 
-                    # Check if text fits within width constraint
                     test_bbox = draw.textbbox((0, 0), clean_text, font=font)
                     test_width = test_bbox[2] - test_bbox[0]
-                    test_height = test_bbox[3] - test_bbox[1]
 
-                    print(f"[DEBUG] Testing font_size={font_size}: text_size={test_width}x{test_height}px, limits={max_text_width}x{max_font_height}px")
-
-                    # For single line, prioritize using maximum height if it fits width
                     if test_width <= max_text_width:
-                        print(f"[DEBUG] Single line text fits at font_size={font_size}")
+                        print(f"[DEBUG] Single line fits at font_size={font_size}px")
                         break
 
-                    # Reduce font size if too wide
                     font_size = int(font_size * 0.95)
             else:
-                # Multi-line text or non-12mm labels: use balanced approach
-                target_height = int(text_height * 0.8)  # Use 80% of available height
-                font_size = max(target_height // 3, 12)  # Start with reasonable size
+                # Multi-line - calculate per-line sizing
+                text_lines = clean_text.split('\n')
+                num_lines = len(text_lines)
 
+                # Use 95% of available height, divided by number of lines
+                target_height = int(text_height * 0.95)
+                max_line_height = target_height // num_lines
+                font_size = max(max_line_height - 4, 12)  # Account for line spacing
+
+                print(f"[DEBUG] Multi-line ({num_lines} lines), max line height: {max_line_height}px, starting font: {font_size}px")
+
+                font = None
                 while font_size > 8:
                     try:
                         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
@@ -574,15 +590,21 @@ class PrinterManagerService:
                         font = ImageFont.load_default()
                         break
 
-                    # Check if text fits within both width and height constraints
-                    test_bbox = draw.textbbox((0, 0), clean_text.replace('\n', ' '), font=font)
-                    test_width = test_bbox[2] - test_bbox[0]
-                    test_height = test_bbox[3] - test_bbox[1]
+                    # Check if all lines fit within width
+                    all_fit = True
+                    for line in text_lines:
+                        if line.strip():
+                            test_bbox = draw.textbbox((0, 0), line, font=font)
+                            test_width = test_bbox[2] - test_bbox[0]
+                            if test_width > max_text_width:
+                                all_fit = False
+                                break
 
-                    if test_width <= max_text_width and test_height <= target_height:
+                    if all_fit:
+                        print(f"[DEBUG] All lines fit at font_size={font_size}px")
                         break
 
-                    font_size = int(font_size * 0.9)
+                    font_size = int(font_size * 0.95)
 
             if font is None:
                 font = ImageFont.load_default()
@@ -600,15 +622,23 @@ class PrinterManagerService:
                         line = line[:-1]
                     draw.text((text_x, y), line, fill='black', font=font)
         else:
-            # Text only layout with dynamic sizing (same as preview service)
-            target_height = int(height * 0.8)  # Use 80% of label height
-            max_width = int(width * 0.9)       # Use 90% of label width
+            # Text-only layout - maximize text size
+            target_height = int(height * 0.98)  # Use 98% of label height
+            max_width = int(width * 0.96)       # Use 96% of label width
 
-            # Start with a large font size and scale down to fit
-            font_size = max(target_height, 12)  # Start with target height or minimum 12
+            text_lines = processed_text.strip().split('\n')
+            num_lines = len(text_lines) if '\n' in processed_text else 1
+
+            # For multi-line, divide height by number of lines
+            if num_lines > 1:
+                max_line_height = target_height // num_lines
+                font_size = max(max_line_height - 4, 12)
+                print(f"[DEBUG] Text-only multi-line ({num_lines} lines): starting font={font_size}px")
+            else:
+                font_size = target_height
+                print(f"[DEBUG] Text-only single line: starting font={font_size}px")
+
             font = None
-
-            # Try to find the best font size that fits
             while font_size > 8:
                 try:
                     font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
@@ -616,34 +646,35 @@ class PrinterManagerService:
                     font = ImageFont.load_default()
                     break
 
-                # Check if text fits within bounds
-                test_text = processed_text.replace('\n', ' ')
-                bbox = draw.textbbox((0, 0), test_text, font=font)
-                text_width = bbox[2] - bbox[0]
-                text_height = bbox[3] - bbox[1]
+                # Check if all lines fit within width
+                all_fit = True
+                for line in text_lines:
+                    if line.strip():
+                        bbox = draw.textbbox((0, 0), line, font=font)
+                        line_width = bbox[2] - bbox[0]
+                        if line_width > max_width:
+                            all_fit = False
+                            break
 
-                # If text fits both width and height constraints, we're done
-                if text_width <= max_width and text_height <= target_height:
+                if all_fit:
+                    print(f"[DEBUG] Text-only fits at font_size={font_size}px")
                     break
 
-                # Otherwise, reduce font size and try again
-                font_size = int(font_size * 0.9)
+                font_size = int(font_size * 0.95)
 
-            # If we couldn't load a TrueType font, use default
             if font is None:
                 font = ImageFont.load_default()
-            
-            # Draw text centered
-            lines = processed_text.strip().split('\n')
+
+            # Center text
             line_height = font_size + 2
-            total_height = len(lines) * line_height
+            total_height = len(text_lines) * line_height
             start_y = (height - total_height) // 2
-            
-            for i, line in enumerate(lines):
+
+            for i, line in enumerate(text_lines):
                 if line.strip():
-                    bbox = font.getbbox(line)
-                    text_width = bbox[2] - bbox[0]
-                    x = (width - text_width) // 2
+                    bbox = draw.textbbox((0, 0), line, font=font)
+                    line_width = bbox[2] - bbox[0]
+                    x = (width - line_width) // 2
                     y = start_y + i * line_height
                     draw.text((x, y), line, fill='black', font=font)
         

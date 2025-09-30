@@ -180,14 +180,15 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
 
       let blob: Blob
 
-      if (useTemplateSystem && selectedTemplate) {
-        // Use new template system
+      // Determine which preview method to use (same logic as print)
+      if (selectedTemplate) {
+        // Use saved template system
         blob = await templateService.previewTemplate({
           template_id: selectedTemplate.id,
           data: testData
         })
-      } else {
-        // Use legacy custom template system
+      } else if (labelTemplate.trim()) {
+        // Use custom template text
         const requestData = {
           template: labelTemplate,
           text: "", // Not used anymore
@@ -197,13 +198,51 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           data: testData
         }
         blob = await settingsService.previewAdvancedLabel(requestData)
+      } else {
+        // No template and no custom text
+        toast.error('Please select a template or enter custom label text')
+        return
       }
 
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Preview error:', error)
-      toast.error('Failed to generate preview')
+
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to generate preview'
+
+      if (error instanceof Error) {
+        const message = error.message
+
+        // Check for field not found error
+        if (message.includes('not found in data')) {
+          // Extract field name from error message
+          const fieldMatch = message.match(/Field '([^']+)' not found/)
+          if (fieldMatch) {
+            const fieldName = fieldMatch[1]
+            errorMessage = `QR field '{${fieldName}}' does not exist in part data`
+          } else {
+            errorMessage = message
+          }
+        }
+        // Check for QR data too long error
+        else if (message.includes('QR data too long')) {
+          const lengthMatch = message.match(/(\d+) characters \(max (\d+)/)
+          if (lengthMatch) {
+            const [, actual, max] = lengthMatch
+            errorMessage = `QR code data too long (${actual} chars, max ${max} for 11mm label)`
+          } else {
+            errorMessage = 'QR code data exceeds size limit for 11mm label'
+          }
+        }
+        // Other errors - use the message directly if it's descriptive
+        else if (message && message !== 'Failed to process preview response') {
+          errorMessage = message
+        }
+      }
+
+      toast.error(errorMessage)
     }
   }
 
@@ -215,11 +254,6 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
 
     if (!selectedLabelSize) {
       toast.error('Please select a label size')
-      return
-    }
-
-    if (useTemplateSystem && !selectedTemplate) {
-      toast.error('Please select a template first')
       return
     }
 
@@ -237,8 +271,11 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
 
       let result: any
 
-      if (useTemplateSystem && selectedTemplate) {
-        // Use new template system
+      // Determine which print method to use:
+      // 1. If a saved template is selected, use template system
+      // 2. Otherwise, use custom text with advanced label printing
+      if (selectedTemplate) {
+        // Use saved template system
         result = await templateService.printTemplate({
           printer_id: selectedPrinter,
           template_id: selectedTemplate.id,
@@ -246,8 +283,8 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           label_size: selectedLabelSize,
           copies: 1
         })
-      } else {
-        // Use legacy custom template system
+      } else if (labelTemplate.trim()) {
+        // Use custom template text
         const requestData = {
           printer_id: selectedPrinter,
           template: labelTemplate,
@@ -258,6 +295,10 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           data: testData
         }
         result = await settingsService.printAdvancedLabel(requestData)
+      } else {
+        // No template and no custom text
+        toast.error('Please select a template or enter custom label text')
+        return
       }
 
       // Handle API response format: { status, message, data: { success, error, ... } }
@@ -271,9 +312,42 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       } else {
         toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Print error:', error)
-      toast.error(`Failed to print label: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to print label'
+
+      if (error instanceof Error) {
+        const message = error.message
+
+        // Check for field not found error
+        if (message.includes('not found in data')) {
+          const fieldMatch = message.match(/Field '([^']+)' not found/)
+          if (fieldMatch) {
+            const fieldName = fieldMatch[1]
+            errorMessage = `QR field '{${fieldName}}' does not exist in part data`
+          } else {
+            errorMessage = message
+          }
+        }
+        // Check for QR data too long error
+        else if (message.includes('QR data too long')) {
+          const lengthMatch = message.match(/(\d+) characters \(max (\d+)/)
+          if (lengthMatch) {
+            const [, actual, max] = lengthMatch
+            errorMessage = `QR code data too long (${actual} chars, max ${max} for 11mm label)`
+          } else {
+            errorMessage = 'QR code data exceeds size limit for 11mm label'
+          }
+        }
+        // Use the message directly if available
+        else if (message) {
+          errorMessage = message
+        }
+      }
+
+      toast.error(errorMessage)
     }
   }
 

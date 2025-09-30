@@ -149,7 +149,8 @@ export class SettingsService {
         }
       } catch (parseError) {
         console.error('[ERROR] Failed to parse or convert preview response:', parseError)
-        throw new Error('Failed to process preview response')
+        // Re-throw the original error to preserve the message
+        throw parseError
       }
     }
 

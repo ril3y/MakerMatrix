@@ -235,7 +235,14 @@ class PreviewService:
         else:
             # Multi-line text or wider labels: use balanced approach
             target_height = int(text_height * 0.8)  # Use 80% of available height
-            font_size = max(target_height // 3, 10)  # Start with reasonable size
+
+            # Split text into lines first
+            text_lines = clean_text.split('\n')
+            num_lines = len(text_lines)
+
+            # Calculate max font size based on available height and number of lines
+            max_font_height = int(target_height / num_lines) - 2  # -2 for line spacing
+            font_size = min(max_font_height, 72)  # Cap at 72pt
 
             while font_size > 8:
                 try:
@@ -244,12 +251,17 @@ class PreviewService:
                     font = ImageFont.load_default()
                     break
 
-                # Check if text fits within both width and height constraints
-                test_bbox = draw.textbbox((0, 0), clean_text.replace('\n', ' '), font=font)
-                test_width = test_bbox[2] - test_bbox[0]
-                test_height = test_bbox[3] - test_bbox[1]
+                # Check if all lines fit within width constraint
+                all_lines_fit = True
+                for line in text_lines:
+                    if line.strip():  # Skip empty lines
+                        test_bbox = draw.textbbox((0, 0), line, font=font)
+                        test_width = test_bbox[2] - test_bbox[0]
+                        if test_width > max_text_width:
+                            all_lines_fit = False
+                            break
 
-                if test_width <= max_text_width and test_height <= target_height:
+                if all_lines_fit:
                     break
 
                 font_size = int(font_size * 0.9)
@@ -257,14 +269,19 @@ class PreviewService:
         # If we couldn't load a TrueType font, use default
         if font is None:
             font = ImageFont.load_default()
-        
-        # Split long text into multiple lines
-        lines = self._wrap_text(text, text_width, font, draw)
-        
+
+        # Check if text has explicit newlines - if so, respect them
+        if '\n' in text:
+            # Use explicit newlines, don't wrap
+            lines = text.split('\n')
+        else:
+            # No explicit newlines, use word wrapping
+            lines = self._wrap_text(text, text_width, font, draw)
+
         # Draw each line with dynamic line height
         line_height = font_size + 2
         start_y = (size[1] - len(lines) * line_height) // 2
-        
+
         for i, line in enumerate(lines):
             y = start_y + i * line_height
             draw.text((text_x, y), line, fill='black', font=font)
