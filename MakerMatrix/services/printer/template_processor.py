@@ -614,12 +614,15 @@ class TemplateProcessor:
         return img
 
     def _get_qr_data(self, data: Dict[str, Any]) -> str:
-        """Generate QR code data from context data"""
-        # Prefer ID for QR code, fallback to other identifiers
+        """
+        Generate QR code data from context data.
+        Returns MM:id format by default (MakerMatrix ID format).
+        """
+        # Prefer ID for QR code in MM:id format
         if 'id' in data:
-            return str(data['id'])
+            return f"MM:{data['id']}"
         elif 'part_id' in data:
-            return str(data['part_id'])
+            return f"MM:{data['part_id']}"
         elif 'part_number' in data:
             return str(data['part_number'])
         elif 'location_id' in data:

@@ -31,9 +31,6 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
   const [labelTemplate, setLabelTemplate] = useState('{part_name}')
   const [selectedLabelSize, setSelectedLabelSize] = useState('12mm')
   const [labelLength, setLabelLength] = useState(39)
-  const [fitToLabel, setFitToLabel] = useState(true)
-  const [includeQR, setIncludeQR] = useState(false)
-  const [qrData, setQrData] = useState('part_number')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [useTemplateSystem, setUseTemplateSystem] = useState(true)
@@ -63,9 +60,6 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       // Update label size to match template
       setSelectedLabelSize(`${template.label_height_mm}mm`)
       setLabelLength(template.label_width_mm)
-      // Set QR and other options from template
-      setIncludeQR(template.qr_enabled)
-      setFitToLabel(template.enable_auto_sizing)
     } else {
       // Use legacy custom template system
       setUseTemplateSystem(false)
@@ -144,14 +138,41 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       })
     }
 
-    // Handle QR code placeholders
-    const qrMatch = processed.match(/\{qr=([^}]+)\}/)
-    if (qrMatch) {
-      const qrDataKey = qrMatch[1]
-      processed = processed.replace(/\{qr=[^}]+\}/g, `[QR:${data[qrDataKey as keyof typeof data] || qrDataKey}]`)
+    // Handle QR code placeholders with data
+    const qrWithDataMatch = processed.match(/\{qr=([^}]+)\}/)
+    if (qrWithDataMatch) {
+      const qrDataKey = qrWithDataMatch[1]
+      const qrValue = data[qrDataKey as keyof typeof data] || qrDataKey
+      processed = processed.replace(/\{qr=[^}]+\}/g, `[QR:${qrValue}]`)
+    }
+
+    // Handle plain {qr} - defaults to MM:id format
+    if (processed.includes('{qr}')) {
+      const mmId = data.id || 'test-id'
+      processed = processed.replace(/\{qr\}/g, `[QR:MM:${mmId}]`)
     }
 
     return processed
+  }
+
+  const extractQRInfo = (template: string) => {
+    const data = partData || { id: 'test-id', part_number: 'TP-001' }
+
+    // Check for {qr=data} pattern
+    const qrWithDataMatch = template.match(/\{qr=([^}]+)\}/)
+    if (qrWithDataMatch) {
+      const qrDataKey = qrWithDataMatch[1]
+      const qrValue = data[qrDataKey as keyof typeof data] || qrDataKey
+      return `QR Data: ${qrValue}`
+    }
+
+    // Check for plain {qr}
+    if (template.includes('{qr}')) {
+      const mmId = data.id || 'test-id'
+      return `QR Data: MM:${mmId}`
+    }
+
+    return null
   }
 
   const generatePreview = async () => {
@@ -182,11 +203,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           text: "", // Not used anymore
           label_size: selectedLabelSize,
           label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-          options: {
-            fit_to_label: fitToLabel,
-            include_qr: includeQR,
-            qr_data: includeQR ? qrData : undefined
-          },
+          options: {},
           data: testData
         }
         blob = await settingsService.previewAdvancedLabel(requestData)
@@ -247,11 +264,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           text: "", // Not used anymore
           label_size: selectedLabelSize,
           label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-          options: {
-            fit_to_label: fitToLabel,
-            include_qr: includeQR,
-            qr_data: includeQR ? qrData : undefined
-          },
+          options: {},
           data: testData
         }
         result = await settingsService.printAdvancedLabel(requestData)
@@ -368,10 +381,12 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                       className="input w-full h-20 resize-none"
                       value={labelTemplate}
                       onChange={(e) => setLabelTemplate(e.target.value)}
-                      placeholder="Use {part_name}, {part_number}, {qr=part_number}, etc."
+                      placeholder="Use {part_name}, {part_number}, {qr}, {qr=part_number}, etc."
                     />
                     <p className="text-xs text-secondary mt-1">
-                      Available: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}, {'{qr=data}'}, and any additional_properties fields
+                      Available: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}
+                      <br />
+                      QR Code: {'{qr}'} (defaults to MM:id format), {'{qr=part_number}'}, {'{qr=location}'}, etc.
                     </p>
                   </div>
                 )}
@@ -427,41 +442,6 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
               </div>
 
               {/* Options - only show for custom templates */}
-              {!selectedTemplate && (
-                <div className="bg-background-secondary rounded-lg p-3 space-y-3">
-                  <h5 className="font-medium text-primary">Options</h5>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={fitToLabel}
-                      onChange={(e) => setFitToLabel(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-primary">Fit text to label</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includeQR}
-                      onChange={(e) => setIncludeQR(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-primary">Include QR Code</span>
-                  </label>
-
-                  {includeQR && (
-                    <input
-                      type="text"
-                      className="input w-full text-sm"
-                      value={qrData}
-                      onChange={(e) => setQrData(e.target.value)}
-                      placeholder="QR data field"
-                    />
-                  )}
-                </div>
-              )}
 
               {/* Action Buttons */}
               <div className="flex gap-2">
@@ -530,7 +510,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                     <p className="text-sm text-secondary font-mono">
                       {processLabelTemplate(selectedTemplate.text_template)}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-muted">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                       <FileText className="w-3 h-3" />
                       <span>{selectedTemplate.display_name}</span>
                       {selectedTemplate.qr_enabled && (
@@ -544,11 +524,23 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                         </span>
                       )}
                     </div>
+                    {extractQRInfo(selectedTemplate.text_template) && (
+                      <p className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded border border-green-200">
+                        📊 {extractQRInfo(selectedTemplate.text_template)}
+                      </p>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-sm text-secondary font-mono">
-                    {processLabelTemplate(labelTemplate)}
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-secondary font-mono">
+                      {processLabelTemplate(labelTemplate)}
+                    </p>
+                    {extractQRInfo(labelTemplate) && (
+                      <p className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded border border-green-200">
+                        📊 {extractQRInfo(labelTemplate)}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
