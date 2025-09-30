@@ -2,6 +2,7 @@
 Preview routes for generating label previews without printing.
 """
 import base64
+import re
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -451,15 +452,25 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         # Process template with data
         print(f"[DEBUG] Processing template...")
         processed_text = request.template
+
+        # Check if template contains {qr} placeholder (auto-enable QR)
+        has_qr_placeholder = '{qr}' in processed_text or re.search(r'\{qr=[^}]+\}', processed_text)
+        print(f"[DEBUG] Template has QR placeholder: {has_qr_placeholder}")
+
+        # Remove QR placeholders from text (they will be rendered as actual QR codes)
+        if has_qr_placeholder:
+            processed_text = re.sub(r'\{qr=[^}]+\}', '', processed_text)
+            processed_text = processed_text.replace('{qr}', '')
+
         if request.data:
             print(f"[DEBUG] Applying template data: {request.data}")
             for key, value in request.data.items():
                 processed_text = processed_text.replace(f"{{{key}}}", str(value))
         print(f"[DEBUG] Processed text: {processed_text}")
 
-        # Check if QR code is requested
-        include_qr = request.options.include_qr if request.options else False
-        print(f"[DEBUG] Include QR code: {include_qr}")
+        # Check if QR code is requested (via option or {qr} placeholder)
+        include_qr = (request.options.include_qr if request.options else False) or has_qr_placeholder
+        print(f"[DEBUG] Include QR code: {include_qr} (option: {request.options.include_qr if request.options else False}, placeholder: {has_qr_placeholder})")
 
         # Generate preview based on whether QR is requested
         print(f"[DEBUG] Generating preview with label_size: {request.label_size}")
