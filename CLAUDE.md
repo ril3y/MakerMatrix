@@ -337,6 +337,4 @@ POST /api/ai/test
 ---
 
 **Note**: This documentation reflects the current state of the project during the active cleanup process. Always refer to the latest cleanup.prd for current cleanup status and priorities.
-- never try to start the server directly use dev_manager.py to do this
-- @dev_manager.py has an api to use to get logs and status stop and start the backend we should always use this.
 - when writing tests always write them in the test dir and use pytest this way we have them in the future.
