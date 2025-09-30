@@ -138,19 +138,9 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       })
     }
 
-    // Handle QR code placeholders with data
-    const qrWithDataMatch = processed.match(/\{qr=([^}]+)\}/)
-    if (qrWithDataMatch) {
-      const qrDataKey = qrWithDataMatch[1]
-      const qrValue = data[qrDataKey as keyof typeof data] || qrDataKey
-      processed = processed.replace(/\{qr=[^}]+\}/g, `[QR:${qrValue}]`)
-    }
-
-    // Handle plain {qr} - defaults to MM:id format
-    if (processed.includes('{qr}')) {
-      const mmId = data.id || 'test-id'
-      processed = processed.replace(/\{qr\}/g, `[QR:MM:${mmId}]`)
-    }
+    // Remove QR placeholders from display text (QR will be shown in preview image)
+    processed = processed.replace(/\{qr=[^}]+\}/g, '')
+    processed = processed.replace(/\{qr\}/g, '')
 
     return processed
   }

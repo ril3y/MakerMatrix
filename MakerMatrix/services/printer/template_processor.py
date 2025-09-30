@@ -75,6 +75,17 @@ class TemplateProcessor:
         Returns:
             PIL Image ready for printing
         """
+        # Detect if template text contains {qr} placeholder
+        has_qr_in_text = '{qr}' in template.text_template or re.search(r'\{qr=[^}]+\}', template.text_template)
+
+        # Dynamically enable QR if found in text (for custom templates)
+        if has_qr_in_text and not template.qr_enabled:
+            # Create a modified template with QR enabled
+            template.qr_enabled = True
+            # Default to LEFT position if not set
+            if not template.qr_position or template.qr_position == 'NONE':
+                template.qr_position = 'LEFT'
+
         # Create processing context
         context = self._create_context(template, data, print_settings)
 
@@ -121,9 +132,16 @@ class TemplateProcessor:
         - {part_name}
         - {part_number}
         - {description}
+        - {qr} or {qr=field_name} (removed from text, rendered as actual QR code)
         - etc.
         """
         processed = template_text
+
+        # Remove QR placeholders from text (they will be rendered as actual QR codes)
+        # Handle {qr=field_name} pattern
+        processed = re.sub(r'\{qr=[^}]+\}', '', processed)
+        # Handle plain {qr} pattern
+        processed = processed.replace('{qr}', '')
 
         # Replace placeholders with actual data
         for key, value in data.items():
@@ -532,7 +550,7 @@ class TemplateProcessor:
         img = Image.new('RGB', (context.label_width_px, context.label_height_px), 'white')
 
         # Generate QR code
-        qr_data = self._get_qr_data(context.data)
+        qr_data = self._get_qr_data(context.data, context.template.text_template)
         qr_img = self._generate_qr_image(qr_data, layout.qr_size_px)
 
         # Paste QR code
@@ -553,7 +571,7 @@ class TemplateProcessor:
 
         # Generate and paste QR code if enabled
         if context.template.qr_enabled:
-            qr_data = self._get_qr_data(context.data)
+            qr_data = self._get_qr_data(context.data, context.template.text_template)
             qr_img = self._generate_qr_image(qr_data, layout.qr_size_px)
             img.paste(qr_img, (layout.qr_x, layout.qr_y))
 
@@ -613,12 +631,22 @@ class TemplateProcessor:
 
         return img
 
-    def _get_qr_data(self, data: Dict[str, Any]) -> str:
+    def _get_qr_data(self, data: Dict[str, Any], template_text: str = '') -> str:
         """
         Generate QR code data from context data.
         Returns MM:id format by default (MakerMatrix ID format).
+        Supports {qr=field_name} syntax to use specific field.
         """
-        # Prefer ID for QR code in MM:id format
+        # Check if template specifies which field to use for QR
+        qr_field_match = re.search(r'\{qr=([^}]+)\}', template_text)
+        if qr_field_match:
+            field_name = qr_field_match.group(1)
+            if field_name in data:
+                return str(data[field_name])
+            else:
+                return field_name  # Return the field name if not in data
+
+        # Default: Prefer ID for QR code in MM:id format
         if 'id' in data:
             return f"MM:{data['id']}"
         elif 'part_id' in data:
