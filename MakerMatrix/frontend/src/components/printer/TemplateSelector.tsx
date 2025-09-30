@@ -299,11 +299,11 @@ const TemplateSelector = ({
                             selectedTemplateId === template.id ? 'bg-background-secondary' : ''
                           }`}
                         >
-                          <button
-                            onClick={() => handleTemplateSelect(template)}
-                            className="w-full p-3 text-left"
-                          >
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 p-3">
+                            <button
+                              onClick={() => handleTemplateSelect(template)}
+                              className="flex-1 min-w-0 text-left flex items-center gap-2"
+                            >
                               {getTemplateIcon(template)}
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-primary truncate">
@@ -316,25 +316,25 @@ const TemplateSelector = ({
                                   {getLayoutDescription(template)} • {template.label_width_mm}×{template.label_height_mm}mm
                                 </div>
                               </div>
-                              {/* Action buttons - always visible */}
-                              <div className="flex items-center gap-1 ml-2">
-                                <button
-                                  onClick={(e) => handleEditTemplate(template, e)}
-                                  className="p-1 hover:bg-background-primary rounded transition-colors"
-                                  title="Edit template"
-                                >
-                                  <Edit className="w-4 h-4 text-blue-500" />
-                                </button>
-                                <button
-                                  onClick={(e) => handleDeleteTemplate(template, e)}
-                                  className="p-1 hover:bg-background-primary rounded transition-colors"
-                                  title="Delete template"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-500" />
-                                </button>
-                              </div>
+                            </button>
+                            {/* Action buttons - always visible, outside main button */}
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                onClick={(e) => handleEditTemplate(template, e)}
+                                className="p-1 hover:bg-background-primary rounded transition-colors"
+                                title="Edit template"
+                              >
+                                <Edit className="w-4 h-4 text-blue-500" />
+                              </button>
+                              <button
+                                onClick={(e) => handleDeleteTemplate(template, e)}
+                                className="p-1 hover:bg-background-primary rounded transition-colors"
+                                title="Delete template"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </button>
                             </div>
-                          </button>
+                          </div>
                         </div>
                       ))}
                   </div>
