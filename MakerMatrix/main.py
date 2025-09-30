@@ -20,7 +20,6 @@ from MakerMatrix.routers import (
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
     rate_limit_routes, label_template_routes
 )
-from MakerMatrix.services.printer.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
 from MakerMatrix.auth.guards import secure_all_routes
