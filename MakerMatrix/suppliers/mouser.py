@@ -554,6 +554,69 @@ class MouserSupplier(BaseSupplier):
             except:
                 stock_qty = 0
             
+            # Build comprehensive additional_data with all available Mouser fields
+            from datetime import datetime
+            additional_data = {
+                # Core enrichment metadata
+                "enrichment_source": "mouser_api_v1",
+                "enrichment_timestamp": datetime.utcnow().isoformat(),
+
+                # Mouser-specific identifiers
+                "mouser_part_number": part.get("MouserPartNumber", ""),
+                "product_detail_url": part.get("ProductDetailUrl", ""),
+
+                # Lifecycle and compliance
+                "lifecycle_status": part.get("LifecycleStatus", ""),
+                "rohs_status": part.get("ROHSStatus", ""),  # Fixed: was getting wrong field
+
+                # Availability and ordering
+                "availability": part.get("Availability", ""),
+                "availability_in_stock": part.get("AvailabilityInStock", ""),
+                "factory_stock": part.get("FactoryStock", ""),
+                "min_order_qty": part.get("Min", 1),
+                "mult_order_qty": part.get("Mult", 1),
+                "lead_time": part.get("LeadTime", ""),
+
+                # Packaging information
+                "reeling": part.get("Reeling", False),
+                "suggested_replacement": part.get("SuggestedReplacement", ""),
+
+                # Physical properties
+                "unit_weight_kg": part.get("UnitWeightKg", {}).get("UnitWeight") if isinstance(part.get("UnitWeightKg"), dict) else None,
+
+                # Simulation tools
+                "multisim_blue": part.get("MultiSimBlue", 0),
+
+                # Compliance data (flattened from ProductCompliance array)
+                "eccn": None,  # Export Control Classification Number
+                "ushts": None,  # US Harmonized Tariff Schedule
+                "taric": None,  # EU TARIC code
+            }
+
+            # Extract compliance codes from ProductCompliance array
+            product_compliance = part.get("ProductCompliance", [])
+            if product_compliance and isinstance(product_compliance, list):
+                for compliance_item in product_compliance:
+                    compliance_name = compliance_item.get("ComplianceName", "").upper()
+                    compliance_value = compliance_item.get("ComplianceValue", "")
+                    if compliance_name == "ECCN":
+                        additional_data["eccn"] = compliance_value
+                    elif compliance_name == "USHTS":
+                        additional_data["ushts"] = compliance_value
+                    elif compliance_name == "TARIC":
+                        additional_data["taric"] = compliance_value
+
+            # Extract alternate packaging part numbers
+            alternate_packagings = part.get("AlternatePackagings", [])
+            if alternate_packagings and isinstance(alternate_packagings, list):
+                alt_part_numbers = [ap.get("APMfrPN", "") for ap in alternate_packagings if ap.get("APMfrPN")]
+                if alt_part_numbers:
+                    additional_data["alternate_part_numbers"] = ", ".join(alt_part_numbers)
+
+            # Remove None values and empty strings to keep additional_data clean
+            additional_data = {k: v for k, v in additional_data.items()
+                             if v is not None and v != "" and v != [] and v != False}
+
             result = PartSearchResult(
                 supplier_part_number=part.get("MouserPartNumber", ""),
                 manufacturer=part.get("Manufacturer", ""),
@@ -565,15 +628,7 @@ class MouserSupplier(BaseSupplier):
                 stock_quantity=stock_qty,
                 pricing=pricing if pricing else None,
                 specifications=specifications if specifications else None,
-                additional_data={
-                    "product_detail_url": part.get("ProductDetailUrl", ""),
-                    "lifecycle_status": part.get("LifecycleStatus", ""),
-                    "lead_time": part.get("LeadTime", ""),
-                    "min_order_qty": part.get("Min", 1),
-                    "mult_order_qty": part.get("Mult", 1),
-                    "rohs_status": part.get("RohsStatus", ""),
-                    "packaging": part.get("SuggestedReplacement", "")
-                }
+                additional_data=additional_data
             )
             results.append(result)
         
