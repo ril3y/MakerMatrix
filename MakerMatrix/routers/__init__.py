@@ -1,7 +1,7 @@
 # Router imports
 from . import (
     parts_routes,
-    locations_routes, 
+    locations_routes,
     categories_routes,
     printer_routes,
     preview_routes,
@@ -17,12 +17,13 @@ from . import (
     supplier_config_routes,
     supplier_routes,
     rate_limit_routes,
-    
+    label_template_routes,
+
 )
 
 __all__ = [
     "parts_routes",
-    "locations_routes", 
+    "locations_routes",
     "categories_routes",
     "printer_routes",
     "preview_routes",
@@ -37,5 +38,6 @@ __all__ = [
     "activity_routes",
     "supplier_config_routes",
     "supplier_routes",
-    "rate_limit_routes"
+    "rate_limit_routes",
+    "label_template_routes"
 ]

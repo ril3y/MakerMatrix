@@ -16,9 +16,9 @@ import os
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
-    utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes, 
-    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes, 
-    rate_limit_routes
+    utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
+    websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
+    rate_limit_routes, label_template_routes
 )
 from MakerMatrix.services.printer.printer_service import PrinterService
 from MakerMatrix.database.db import create_db_and_tables
@@ -334,7 +334,7 @@ auth_exclude_paths = [
 secure_all_routes(parts_routes.router, permissions=parts_permissions)
 secure_all_routes(locations_routes.router, permissions=locations_permissions, exclude_paths=["/get_all_locations"])
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
-secure_all_routes(printer_routes.router)
+secure_all_routes(printer_routes.router, exclude_paths=["/preview/template"])
 secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/static/datasheets/{filename}"])
 # Don't secure auth routes - they need to be accessible without authentication
@@ -362,6 +362,7 @@ app.include_router(locations_routes.router, prefix="/api/locations", tags=["loca
 app.include_router(categories_routes.router, prefix="/api/categories", tags=["categories"])
 app.include_router(printer_routes.router, prefix="/api/printer", tags=["printer"])
 app.include_router(preview_routes.router, prefix="/api/preview", tags=["Label Preview"])
+app.include_router(label_template_routes.router, prefix="/api/templates", tags=["Label Templates"])
 app.include_router(utility_routes.router, prefix="/api/utility", tags=["utility"])
 app.include_router(auth_routes.router, prefix="/api", tags=["Authentication"])
 app.include_router(user_management_routes.router, prefix="/api/users", tags=["Users"])

@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { X, Printer, TestTube } from 'lucide-react'
+import { X, Printer, TestTube, FileText } from 'lucide-react'
 import { settingsService } from '@/services/settings.service'
+import { templateService, LabelTemplate } from '@/services/template.service'
+import TemplateSelector from './TemplateSelector'
 import toast from 'react-hot-toast'
 
 interface PrinterModalProps {
@@ -25,6 +27,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
   const [availablePrinters, setAvailablePrinters] = useState<any[]>([])
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
   const [printerInfo, setPrinterInfo] = useState<any>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<LabelTemplate | null>(null)
   const [labelTemplate, setLabelTemplate] = useState('{part_name}')
   const [selectedLabelSize, setSelectedLabelSize] = useState('12mm')
   const [labelLength, setLabelLength] = useState(39)
@@ -33,18 +36,43 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
   const [qrData, setQrData] = useState('part_number')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [useTemplateSystem, setUseTemplateSystem] = useState(true)
 
   useEffect(() => {
     if (isOpen) {
       loadPrinters()
+      // Reset template selection when modal opens
+      setSelectedTemplate(null)
+      setUseTemplateSystem(true)
       // Set default template based on whether we have part data
       if (partData) {
         setLabelTemplate('{part_name}')
       } else {
         setLabelTemplate('Test Label')
       }
+      // Clear preview when modal opens
+      setPreviewUrl(null)
     }
   }, [isOpen, partData])
+
+  const handleTemplateSelect = (template: LabelTemplate | null) => {
+    setSelectedTemplate(template)
+    if (template) {
+      // Use template system for printing/preview
+      setUseTemplateSystem(true)
+      // Update label size to match template
+      setSelectedLabelSize(`${template.label_height_mm}mm`)
+      setLabelLength(template.label_width_mm)
+      // Set QR and other options from template
+      setIncludeQR(template.qr_enabled)
+      setFitToLabel(template.enable_auto_sizing)
+    } else {
+      // Use legacy custom template system
+      setUseTemplateSystem(false)
+    }
+    // Clear preview when template changes
+    setPreviewUrl(null)
+  }
 
   const loadPrinters = async () => {
     try {
@@ -52,7 +80,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       const printers = await settingsService.getAvailablePrinters()
       setAvailablePrinters(printers)
 
-      if (printers.length > 0 && !selectedPrinter) {
+      if (printers.length > 0 && !selectedPrinter && printers[0].printer_id) {
         setSelectedPrinter(printers[0].printer_id)
         await loadPrinterInfo(printers[0].printer_id)
       }
@@ -128,32 +156,46 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
 
   const generatePreview = async () => {
     try {
-      const requestData = {
-        template: labelTemplate,
-        text: "", // Not used anymore
-        label_size: selectedLabelSize,
-        label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-        options: {
-          fit_to_label: fitToLabel,
-          include_qr: includeQR,
-          qr_data: includeQR ? qrData : undefined
-        },
-        data: partData || {
-          id: 'test-part-id-12345',
-          part_name: 'Test Part',
-          part_number: 'TP-001',
-          location: 'A1-B2',
-          category: 'Electronics',
-          quantity: '10',
-          description: 'Test part description',
-          additional_properties: {}
-        }
+      const testData = partData || {
+        id: 'test-part-id-12345',
+        part_name: 'Test Part',
+        part_number: 'TP-001',
+        location: 'A1-B2',
+        category: 'Electronics',
+        quantity: '10',
+        description: 'Test part description',
+        additional_properties: {}
       }
 
-      const blob = await settingsService.previewAdvancedLabel(requestData)
+      let blob: Blob
+
+      if (useTemplateSystem && selectedTemplate) {
+        // Use new template system
+        blob = await templateService.previewTemplate({
+          template_id: selectedTemplate.id,
+          data: testData
+        })
+      } else {
+        // Use legacy custom template system
+        const requestData = {
+          template: labelTemplate,
+          text: "", // Not used anymore
+          label_size: selectedLabelSize,
+          label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
+          options: {
+            fit_to_label: fitToLabel,
+            include_qr: includeQR,
+            qr_data: includeQR ? qrData : undefined
+          },
+          data: testData
+        }
+        blob = await settingsService.previewAdvancedLabel(requestData)
+      }
+
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
     } catch (error) {
+      console.error('Preview error:', error)
       toast.error('Failed to generate preview')
     }
   }
@@ -163,43 +205,63 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       toast.error('Please select a printer first')
       return
     }
-    
+
     if (!selectedLabelSize) {
       toast.error('Please select a label size')
       return
     }
 
+    if (useTemplateSystem && !selectedTemplate) {
+      toast.error('Please select a template first')
+      return
+    }
+
     try {
-      const requestData = {
-        printer_id: selectedPrinter,
-        template: labelTemplate,
-        text: "", // Not used anymore
-        label_size: selectedLabelSize,
-        label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-        options: {
-          fit_to_label: fitToLabel,
-          include_qr: includeQR,
-          qr_data: includeQR ? qrData : undefined
-        },
-        data: partData || {
-          id: 'test-part-id-12345',
-          part_name: 'Test Part',
-          part_number: 'TP-001',
-          location: 'A1-B2',
-          category: 'Electronics',
-          quantity: '10',
-          description: 'Test part description',
-          additional_properties: {}
-        }
+      const testData = partData || {
+        id: 'test-part-id-12345',
+        part_name: 'Test Part',
+        part_number: 'TP-001',
+        location: 'A1-B2',
+        category: 'Electronics',
+        quantity: '10',
+        description: 'Test part description',
+        additional_properties: {}
       }
 
-      const result = await settingsService.printAdvancedLabel(requestData)
-      
+      let result: any
+
+      if (useTemplateSystem && selectedTemplate) {
+        // Use new template system
+        result = await templateService.printTemplate({
+          printer_id: selectedPrinter,
+          template_id: selectedTemplate.id,
+          data: testData,
+          label_size: selectedLabelSize,
+          copies: 1
+        })
+      } else {
+        // Use legacy custom template system
+        const requestData = {
+          printer_id: selectedPrinter,
+          template: labelTemplate,
+          text: "", // Not used anymore
+          label_size: selectedLabelSize,
+          label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
+          options: {
+            fit_to_label: fitToLabel,
+            include_qr: includeQR,
+            qr_data: includeQR ? qrData : undefined
+          },
+          data: testData
+        }
+        result = await settingsService.printAdvancedLabel(requestData)
+      }
+
       // Handle API response format: { status, message, data: { success, error, ... } }
       const printData = result.data || result
       const success = printData.success || result.status === 'success'
       const errorMessage = printData.error || printData.message || result.message
-      
+
       if (success) {
         toast.success('✅ Label printed successfully!')
         onClose()
@@ -285,20 +347,34 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                 </select>
               </div>
 
-              {/* Label Template */}
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  Label Template
-                </label>
-                <textarea
-                  className="input w-full h-20 resize-none"
-                  value={labelTemplate}
-                  onChange={(e) => setLabelTemplate(e.target.value)}
-                  placeholder="Use {part_name}, {part_number}, {qr=part_number}, etc."
+              {/* Template Selection */}
+              <div className="space-y-4">
+                {/* Template Selector */}
+                <TemplateSelector
+                  selectedTemplateId={selectedTemplate?.id}
+                  onTemplateSelect={handleTemplateSelect}
+                  partData={partData}
+                  labelSize={selectedLabelSize}
+                  showCustomOption={true}
                 />
-                <p className="text-xs text-secondary mt-1">
-                  Available: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}, {'{qr=data}'}, and any additional_properties fields
-                </p>
+
+                {/* Custom Template Input (only show when no template selected) */}
+                {!selectedTemplate && (
+                  <div>
+                    <label className="block text-sm font-medium text-primary mb-2">
+                      Custom Template Text
+                    </label>
+                    <textarea
+                      className="input w-full h-20 resize-none"
+                      value={labelTemplate}
+                      onChange={(e) => setLabelTemplate(e.target.value)}
+                      placeholder="Use {part_name}, {part_number}, {qr=part_number}, etc."
+                    />
+                    <p className="text-xs text-secondary mt-1">
+                      Available: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}, {'{qr=data}'}, and any additional_properties fields
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Label Size and Length */}
@@ -350,40 +426,42 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                 </div>
               </div>
 
-              {/* Options */}
-              <div className="bg-background-secondary rounded-lg p-3 space-y-3">
-                <h5 className="font-medium text-primary">Options</h5>
+              {/* Options - only show for custom templates */}
+              {!selectedTemplate && (
+                <div className="bg-background-secondary rounded-lg p-3 space-y-3">
+                  <h5 className="font-medium text-primary">Options</h5>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={fitToLabel}
-                    onChange={(e) => setFitToLabel(e.target.checked)}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-primary">Fit text to label</span>
-                </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={fitToLabel}
+                      onChange={(e) => setFitToLabel(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-primary">Fit text to label</span>
+                  </label>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeQR}
-                    onChange={(e) => setIncludeQR(e.target.checked)}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-primary">Include QR Code</span>
-                </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeQR}
+                      onChange={(e) => setIncludeQR(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-primary">Include QR Code</span>
+                  </label>
 
-                {includeQR && (
-                  <input
-                    type="text"
-                    className="input w-full text-sm"
-                    value={qrData}
-                    onChange={(e) => setQrData(e.target.value)}
-                    placeholder="QR data field"
-                  />
-                )}
-              </div>
+                  {includeQR && (
+                    <input
+                      type="text"
+                      className="input w-full text-sm"
+                      value={qrData}
+                      onChange={(e) => setQrData(e.target.value)}
+                      placeholder="QR data field"
+                    />
+                  )}
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-2">
@@ -400,7 +478,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                 <button
                   onClick={generatePreview}
                   className="btn btn-secondary flex items-center gap-2 flex-1"
-                  disabled={!labelTemplate || !selectedLabelSize}
+                  disabled={(!selectedTemplate && !labelTemplate) || !selectedLabelSize}
                 >
                   👁️ Preview
                 </button>
@@ -409,7 +487,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
               <button
                 onClick={printLabel}
                 className="btn btn-primary w-full flex items-center gap-2 justify-center"
-                disabled={!selectedPrinter || !labelTemplate || !selectedLabelSize}
+                disabled={!selectedPrinter || (!selectedTemplate && !labelTemplate) || !selectedLabelSize}
               >
                 <Printer className="w-4 h-4" />
                 Print Label
@@ -444,10 +522,34 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
 
               {/* Show processed template preview */}
               <div className="bg-background-secondary rounded-lg p-3">
-                <h6 className="text-sm font-medium text-primary mb-2">Processed Text:</h6>
-                <p className="text-sm text-secondary font-mono">
-                  {processLabelTemplate(labelTemplate)}
-                </p>
+                <h6 className="text-sm font-medium text-primary mb-2">
+                  {selectedTemplate ? 'Template Output Preview:' : 'Processed Text:'}
+                </h6>
+                {selectedTemplate ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-secondary font-mono">
+                      {processLabelTemplate(selectedTemplate.text_template)}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted">
+                      <FileText className="w-3 h-3" />
+                      <span>{selectedTemplate.display_name}</span>
+                      {selectedTemplate.qr_enabled && (
+                        <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                          + QR Code
+                        </span>
+                      )}
+                      {selectedTemplate.text_rotation !== 'NONE' && (
+                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                          {selectedTemplate.text_rotation}° rotation
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-secondary font-mono">
+                    {processLabelTemplate(labelTemplate)}
+                  </p>
+                )}
               </div>
             </div>
           </div>

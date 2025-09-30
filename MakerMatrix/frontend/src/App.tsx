@@ -20,6 +20,7 @@ import UsersPage from '@/pages/users/UsersPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 import TasksPage from '@/pages/tasks/TasksPage'
 import AnalyticsDashboard from '@/pages/analytics/AnalyticsDashboard'
+import Templates from '@/pages/Templates'
 import UnauthorizedPage from '@/pages/UnauthorizedPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
@@ -67,7 +68,10 @@ function AppContent() {
               
               {/* Category Management */}
               <Route path="/categories" element={<CategoriesPage />} />
-              
+
+              {/* Template Management */}
+              <Route path="/templates" element={<Templates />} />
+
               {/* User Management - Admin Only */}
               <Route path="/users" element={
                 <ProtectedRoute requireRole="admin">

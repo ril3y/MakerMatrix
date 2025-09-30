@@ -22,7 +22,10 @@ from MakerMatrix.printers.base import (
 from MakerMatrix.printers.drivers.mock.driver import MockPrinter
 from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
 from MakerMatrix.services.printer.label_service import LabelService
+from MakerMatrix.services.printer.template_processor import TemplateProcessor
 from MakerMatrix.lib.print_settings import PrintSettings
+from MakerMatrix.models.label_template_models import LabelTemplateModel
+from MakerMatrix.repositories.label_template_repository import LabelTemplateRepository
 
 
 @dataclass
@@ -51,6 +54,8 @@ class PrinterManagerService:
         self.print_jobs: Dict[str, PrintJob] = {}
         self.default_printer_id: Optional[str] = None
         self._job_lock = asyncio.Lock()
+        self.template_processor = TemplateProcessor()
+        self.template_repository = LabelTemplateRepository()
     
     async def register_printer(self, printer: PrinterInterface) -> bool:
         """
@@ -303,9 +308,113 @@ class PrinterManagerService:
         
         return len(jobs_to_remove)
     
-    async def _create_advanced_label_image(self, template: str, data: dict, label_size: str, 
+    async def print_template_label(self, printer_id: str, template_id: str, data: dict,
+                                   label_size: str, copies: int = 1) -> PrintJobResult:
+        """Print a label using a saved template."""
+        printer = await self.get_printer(printer_id)
+        if not printer:
+            return PrintJobResult(
+                success=False,
+                job_id="",
+                message="",
+                error=f"Printer {printer_id} not found"
+            )
+
+        try:
+            # Get the template from database
+            from sqlmodel import Session
+            from MakerMatrix.models.models import engine
+
+            with Session(engine) as session:
+                template = self.template_repository.get_by_id(session, template_id)
+                if not template:
+                    return PrintJobResult(
+                        success=False,
+                        job_id="",
+                        message="",
+                        error=f"Template {template_id} not found"
+                    )
+
+                # Create print settings
+                print_settings = PrintSettings(
+                    label_size=template.label_height_mm,  # Brother QL uses height as the "size"
+                    dpi=300,
+                    qr_scale=template.qr_scale,
+                    qr_min_size_mm=template.qr_min_size_mm
+                )
+
+                # Process template to create label image
+                label_image = self.template_processor.process_template(
+                    template, data, print_settings
+                )
+
+                # Update template usage
+                template.update_usage()
+                session.add(template)
+                session.commit()
+
+                # Print the label
+                return await printer.print_label(label_image, label_size, copies)
+
+        except Exception as e:
+            return PrintJobResult(
+                success=False,
+                job_id="",
+                message="",
+                error=f"Failed to print template label: {str(e)}"
+            )
+
+    async def preview_template_label(self, template_id: str, data: dict) -> PreviewResult:
+        """Preview a label using a saved template."""
+        try:
+            from sqlmodel import Session
+            from MakerMatrix.models.models import engine
+
+            with Session(engine) as session:
+                template = self.template_repository.get_by_id(session, template_id)
+                if not template:
+                    return PreviewResult(
+                        success=False,
+                        error=f"Template {template_id} not found"
+                    )
+
+                # Create print settings for preview
+                print_settings = PrintSettings(
+                    label_size=template.label_height_mm,
+                    dpi=300,
+                    qr_scale=template.qr_scale,
+                    qr_min_size_mm=template.qr_min_size_mm
+                )
+
+                # Process template to create preview image
+                preview_image = self.template_processor.process_template(
+                    template, data, print_settings
+                )
+
+                # Convert image to base64 for preview
+                import io
+                import base64
+
+                buffer = io.BytesIO()
+                preview_image.save(buffer, format='PNG')
+                image_data = base64.b64encode(buffer.getvalue()).decode()
+
+                return PreviewResult(
+                    success=True,
+                    preview_url=f"data:image/png;base64,{image_data}",
+                    width=preview_image.width,
+                    height=preview_image.height
+                )
+
+        except Exception as e:
+            return PreviewResult(
+                success=False,
+                error=f"Failed to preview template label: {str(e)}"
+            )
+
+    async def _create_advanced_label_image(self, template: str, data: dict, label_size: str,
                                           label_length: int = None, options: dict = None):
-        """Create an advanced label image with template processing and QR codes."""
+        """Create an advanced label image with template processing and QR codes (legacy method)."""
         from PIL import Image, ImageDraw, ImageFont
         import qrcode
         import re
@@ -354,25 +463,12 @@ class PrinterManagerService:
         # Parse template for QR codes and text
         qr_matches = re.findall(r'\{qr=([^}]+)\}', template)
         has_qr = len(qr_matches) > 0 or options.get('include_qr', False)
-        
+
         # Process text template (remove QR placeholders for now)
         text_template = re.sub(r'\{qr=[^}]+\}', '', template)
-        
-        # Replace text placeholders
-        processed_text = text_template
-        
-        # First, flatten additional_properties if present
-        flattened_data = data.copy()
-        if 'additional_properties' in data and isinstance(data['additional_properties'], dict):
-            # Add additional_properties fields to the main data dict
-            for key, value in data['additional_properties'].items():
-                if key not in flattened_data:  # Don't overwrite existing fields
-                    flattened_data[key] = value
-        
-        # Now replace all placeholders with flattened data
-        for key, value in flattened_data.items():
-            if key != 'additional_properties':  # Skip the nested object itself
-                processed_text = processed_text.replace(f'{{{key}}}', str(value or ''))
+
+        # Replace text placeholders using template processor's method
+        processed_text = self.template_processor._replace_template_variables(text_template, data)
         
         # Create base image
         image = Image.new('RGB', (width, height), 'white')
@@ -391,9 +487,9 @@ class PrinterManagerService:
                 qr_max_margin_mm=1.0  # 1mm max margin
             )
 
-            # Generate optimized QR code using LabelService
-            part_dict = {'id': flattened_data.get('id') or flattened_data.get('part_id') or 'UNKNOWN'}
-            qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
+            # Generate optimized QR code using template processor
+            part_dict = {'id': data.get('id') or data.get('part_id') or 'UNKNOWN'}
+            qr_image = self.template_processor.generate_qr_code(str(part_dict['id']), print_settings)
             qr_size = qr_image.width  # Get actual optimized size
 
             # Calculate layout with optimized QR size
@@ -768,9 +864,8 @@ class PrinterManagerService:
             qr_max_margin_mm=0.5  # Minimal margin for QR-only labels
         )
 
-        # Generate optimized QR code using improved logic
-        part_dict = {'id': data}  # Use the provided data as the ID
-        qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
+        # Generate optimized QR code using template processor
+        qr_image = self.template_processor.generate_qr_code(str(data), print_settings)
         qr_size = qr_image.width  # Get actual optimized size
 
         # Create white background and center the QR code

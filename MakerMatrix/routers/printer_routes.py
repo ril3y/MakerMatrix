@@ -69,6 +69,19 @@ class AdvancedPreviewRequest(BaseModel):
     data: Optional[dict] = None
 
 
+class TemplatePrintRequest(BaseModel):
+    printer_id: str
+    template_id: str
+    data: dict
+    label_size: str
+    copies: int = 1
+
+
+class TemplatePreviewRequest(BaseModel):
+    template_id: str
+    data: dict
+
+
 # Printer Management Endpoints
 @router.get("/drivers")
 @standard_error_handling
@@ -770,6 +783,91 @@ async def print_image_label(
     ).dict()
 
 
+@router.post("/print/template")
+@standard_error_handling
+@log_activity("template_label_printed", "User {username} printed template label")
+async def print_template_label(
+    request: TemplatePrintRequest,
+    http_request: Request = None,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Print a label using a saved template."""
+    print(f"Template print request: {request}")
+
+    result = await printer_manager.print_template_label(
+        printer_id=request.printer_id,
+        template_id=request.template_id,
+        data=request.data,
+        label_size=request.label_size,
+        copies=request.copies
+    )
+    print(f"Template print result: {result}")
+
+    # Log activity if print was successful
+    if result.success:
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+
+            # Get printer name
+            printer = await printer_manager.get_printer(request.printer_id)
+            printer_name = "Unknown Printer"
+            if printer:
+                printer_info = printer.get_printer_info()
+                printer_name = printer_info.name
+
+            await activity_service.log_label_printed(
+                printer_id=request.printer_id,
+                printer_name=printer_name,
+                label_type=f"Template: {request.template_id}",
+                user=current_user,
+                request=http_request
+            )
+        except Exception as e:
+            print(f"Failed to log template print activity: {e}")
+
+    response_data = {
+        "success": result.success,
+        "job_id": result.job_id,
+        "message": result.message,
+        "error": result.error
+    }
+    print(f"Returning template print response: {response_data}")
+    return BaseRouter.build_success_response(
+        data=response_data,
+        message=f"Template label print {'successful' if result.success else 'failed'}"
+    ).dict()
+
+
+@router.post("/preview/template")
+@standard_error_handling
+async def preview_template_label(request: TemplatePreviewRequest):
+    """Preview a label using a saved template."""
+    print(f"Template preview request: {request}")
+
+    result = await printer_manager.preview_template_label(
+        template_id=request.template_id,
+        data=request.data
+    )
+    print(f"Template preview result: {result.success}")
+
+    if result.success:
+        response_data = {
+            "preview_url": result.preview_url,
+            "width": result.width,
+            "height": result.height
+        }
+        return BaseRouter.build_success_response(
+            data=response_data,
+            message="Template preview generated successfully"
+        ).dict()
+    else:
+        return BaseRouter.build_error_response(
+            error=result.error,
+            message="Failed to generate template preview"
+        ).dict()
+
+
 @router.post("/print/advanced")
 @standard_error_handling
 @log_activity("advanced_label_printed", "User {username} printed advanced label")
@@ -778,9 +876,9 @@ async def print_advanced_label(
     http_request: Request = None,
     current_user: UserModel = Depends(get_current_user)
 ):
-    """Print an advanced label with template processing."""
+    """Print an advanced label with template processing (legacy)."""
     print(f"Advanced print request: {request}")
-    
+
     # Extract data from the request or use mock data for testing
     data = request.data or {
         'id': 'test-part-id-12345',
@@ -790,7 +888,7 @@ async def print_advanced_label(
         'category': 'Electronics',
         'quantity': '10'
     }
-    
+
     # Use the new advanced label printing method
     result = await printer_manager.print_advanced_label(
         printer_id=request.printer_id,
@@ -802,24 +900,24 @@ async def print_advanced_label(
         copies=1
     )
     print(f"Advanced print result: {result}")
-    
+
     # Log activity if print was successful
     if result.success:
         try:
             from MakerMatrix.services.activity_service import get_activity_service
             activity_service = get_activity_service()
-            
+
             # Get printer name
             printer = await printer_manager.get_printer(request.printer_id)
             printer_name = "Unknown Printer"
             if printer:
                 printer_info = printer.get_printer_info()
                 printer_name = printer_info.name
-            
+
             # Create a descriptive label type
             template_preview = request.template[:30] + "..." if len(request.template) > 30 else request.template
             label_type = f"Advanced: {template_preview}"
-            
+
             await activity_service.log_label_printed(
                 printer_id=request.printer_id,
                 printer_name=printer_name,
@@ -829,7 +927,7 @@ async def print_advanced_label(
             )
         except Exception as e:
             print(f"Failed to log advanced print activity: {e}")
-    
+
     response_data = {
         "success": result.success,
         "job_id": result.job_id,

@@ -17,7 +17,8 @@ import {
   CircuitBoard,
   Settings,
   TrendingUp,
-  Activity
+  Activity,
+  FileText
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,6 +59,11 @@ const MainLayout: React.FC = () => {
       label: 'Categories',
       path: '/categories',
       icon: <Tags className="w-5 h-5" />
+    },
+    {
+      label: 'Templates',
+      path: '/templates',
+      icon: <FileText className="w-5 h-5" />
     },
     {
       label: 'Analytics',

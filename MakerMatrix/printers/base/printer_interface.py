@@ -64,12 +64,18 @@ class PrintJobResult:
 @dataclass
 class PreviewResult:
     """Result of label preview generation."""
-    image_data: bytes
-    format: str  # png, jpg, etc.
-    width_px: int
-    height_px: int
-    label_size: LabelSize
+    image_data: bytes = None
+    format: str = "png"  # png, jpg, etc.
+    width_px: int = None
+    height_px: int = None
+    label_size: LabelSize = None
     message: str = ""
+    # API compatibility fields
+    success: bool = True
+    preview_url: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    error: Optional[str] = None
 
 
 @dataclass
