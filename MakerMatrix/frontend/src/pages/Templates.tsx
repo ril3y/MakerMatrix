@@ -35,9 +35,25 @@ const Templates = () => {
 
       console.log(`Loaded ${systemArray.length} system templates, ${userArray.length} user templates`)
 
-      setSystemTemplates(systemArray)
-      setUserTemplates(userArray)
-      setTemplates([...systemArray, ...userArray])
+      // Deduplicate templates by ID
+      const deduplicateById = (templates: LabelTemplate[]) => {
+        const seen = new Set<string>()
+        return templates.filter(template => {
+          if (seen.has(template.id)) {
+            console.warn(`Duplicate template found: ${template.display_name} (${template.id})`)
+            return false
+          }
+          seen.add(template.id)
+          return true
+        })
+      }
+
+      const uniqueSystemTemplates = deduplicateById(systemArray)
+      const uniqueUserTemplates = deduplicateById(userArray)
+
+      setSystemTemplates(uniqueSystemTemplates)
+      setUserTemplates(uniqueUserTemplates)
+      setTemplates([...uniqueSystemTemplates, ...uniqueUserTemplates])
 
       // Show helpful message if no templates loaded
       if (systemArray.length === 0 && userArray.length === 0) {
@@ -115,11 +131,11 @@ const Templates = () => {
     : userTemplates
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary mb-2">Label Templates</h1>
+          <h2 className="text-2xl font-bold text-primary mb-2">Label Templates</h2>
           <p className="text-secondary">Manage your label templates for printing</p>
         </div>
         <button
@@ -137,7 +153,7 @@ const Templates = () => {
           onClick={() => setSelectedCategory('all')}
           className={`px-4 py-2 rounded-lg transition-colors ${
             selectedCategory === 'all'
-              ? 'bg-primary text-white'
+              ? 'bg-primary-20 text-primary'
               : 'bg-background-secondary text-secondary hover:bg-background-tertiary'
           }`}
         >
@@ -147,7 +163,7 @@ const Templates = () => {
           onClick={() => setSelectedCategory('system')}
           className={`px-4 py-2 rounded-lg transition-colors ${
             selectedCategory === 'system'
-              ? 'bg-primary text-white'
+              ? 'bg-primary-20 text-primary'
               : 'bg-background-secondary text-secondary hover:bg-background-tertiary'
           }`}
         >
@@ -160,7 +176,7 @@ const Templates = () => {
           onClick={() => setSelectedCategory('user')}
           className={`px-4 py-2 rounded-lg transition-colors ${
             selectedCategory === 'user'
-              ? 'bg-primary text-white'
+              ? 'bg-primary-20 text-primary'
               : 'bg-background-secondary text-secondary hover:bg-background-tertiary'
           }`}
         >
@@ -207,10 +223,10 @@ const Templates = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTemplates.map((template) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredTemplates.map((template, index) => (
             <div
-              key={template.id}
+              key={`${template.is_system_template ? 'system' : 'user'}-${template.id}-${index}`}
               className="bg-background-secondary rounded-lg p-4 hover:shadow-lg transition-shadow"
             >
               {/* Template Header */}

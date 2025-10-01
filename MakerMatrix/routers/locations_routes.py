@@ -99,8 +99,19 @@ async def update_location(
     Returns:
         ResponseSchema: A response containing the updated location data
     """
-    # Convert the Pydantic model to a dict and remove None values
-    update_data = {k: v for k, v in location_data.model_dump().items() if v is not None}
+    # Convert the Pydantic model to a dict
+    # Allow None for emoji and image_url (to clear them), but exclude None for other fields
+    all_data = location_data.model_dump(exclude_unset=False)  # Include all fields, even None
+    print(f"[DEBUG] All data from request: {all_data}")
+
+    update_data = {}
+    for k, v in all_data.items():
+        # Include field if it has a value, or if it's emoji/image_url being explicitly cleared
+        if v is not None or k in ['emoji', 'image_url']:
+            update_data[k] = v
+
+    print(f"[DEBUG] Update data being sent to service: {update_data}")
+
     location_service = LocationService()
     service_response = location_service.update_location(location_id, update_data)
     

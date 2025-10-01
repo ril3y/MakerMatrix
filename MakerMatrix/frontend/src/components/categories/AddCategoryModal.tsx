@@ -15,7 +15,8 @@ interface AddCategoryModalProps {
 
 const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] }: AddCategoryModalProps) => {
   const initialData: CreateCategoryRequest = useMemo(() => ({
-    name: ''
+    name: '',
+    description: ''
   }), [])
 
   const validate = (data: CreateCategoryRequest): Record<string, string> => {
@@ -44,7 +45,8 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
 
   const handleSubmit = async (data: CreateCategoryRequest) => {
     const submitData: CreateCategoryRequest = {
-      name: data.name.trim()
+      name: data.name.trim(),
+      description: data.description?.trim() || undefined
     }
 
     await categoriesService.createCategory(submitData)
@@ -97,9 +99,9 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
       mode="create"
       loadingText="Creating..."
     >
-      <FormField 
-        label="Category Name" 
-        required 
+      <FormField
+        label="Category Name"
+        required
         error={errors.name}
         description="Use descriptive names like 'Electronics', 'Resistors', or 'Arduino Components'"
       >
@@ -119,6 +121,20 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
           {formData.name.length}/50 characters
         </span>
       </div>
+
+      <FormField
+        label="Description"
+        error={errors.description}
+        description="Optional description to help identify this category"
+      >
+        <textarea
+          className="input w-full min-h-[80px] resize-y"
+          value={formData.description || ''}
+          onChange={(e) => updateField('description', e.target.value)}
+          placeholder="Enter category description (optional)"
+          rows={3}
+        />
+      </FormField>
 
       {/* Suggested categories */}
       {availableSuggestions.length > 0 && (

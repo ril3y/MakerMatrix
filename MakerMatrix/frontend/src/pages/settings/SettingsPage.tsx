@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
-import { Settings, Shield, Database, Printer, Palette, Globe, Bot, Save, TestTube, RefreshCw, Upload as ImportIcon, Activity, Plus, X, Monitor, Sun, Moon, AlertTriangle } from 'lucide-react'
+import { Settings, Shield, Database, Printer, Palette, Globe, Bot, Save, TestTube, RefreshCw, Upload as ImportIcon, Activity, Plus, X, Monitor, Sun, Moon, AlertTriangle, FileText } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { settingsService } from '@/services/settings.service'
 import { AIConfig, PrinterConfig, BackupStatus } from '@/types/settings'
 import toast from 'react-hot-toast'
@@ -10,11 +11,13 @@ import ThemeSelector from '@/components/ui/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
 import { SupplierConfigPage } from '@/pages/suppliers/SupplierConfigPage'
 import DynamicPrinterModal from '@/components/printer/DynamicPrinterModal'
+import Templates from '@/pages/Templates'
 
 const SettingsPage = () => {
   const { isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode } = useTheme()
   const isDebugMode = import.meta.env.VITE_DEBUG === 'true'
-  const [activeTab, setActiveTab] = useState('general')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'general')
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null)
   const [availableModels, setAvailableModels] = useState<any[]>([])
@@ -186,6 +189,7 @@ const SettingsPage = () => {
             { id: 'ai', label: 'AI Helper', icon: Bot },
             { id: 'suppliers', label: 'Suppliers', icon: Globe },
             { id: 'printer', label: 'Printers', icon: Printer },
+            { id: 'templates', label: 'Label Templates', icon: FileText },
             { id: 'database', label: 'Database', icon: Database },
             { id: 'appearance', label: 'Appearance', icon: Palette },
             { id: 'security', label: 'Security', icon: Shield }
@@ -195,7 +199,7 @@ const SettingsPage = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors font-medium ${
                 activeTab === tab.id
-                  ? 'bg-primary text-white border border-primary shadow-lg font-semibold'
+                  ? 'bg-primary-20 text-primary border border-primary shadow-lg font-semibold'
                   : 'text-secondary hover:text-primary hover:bg-background-secondary border border-border bg-background-primary'
               }`}
             >
@@ -897,6 +901,10 @@ const SettingsPage = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'templates' && (
+          <Templates />
         )}
 
         {activeTab === 'security' && (

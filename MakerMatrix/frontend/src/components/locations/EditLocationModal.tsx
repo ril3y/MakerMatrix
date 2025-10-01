@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { MapPin, AlertCircle, Upload, X, Save } from 'lucide-react'
+import { MapPin, AlertCircle, Save } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import EmojiPicker from '@/components/ui/EmojiPicker'
+import ImageUpload from '@/components/ui/ImageUpload'
 import { locationsService } from '@/services/locations.service'
-import { utilityService } from '@/services/utility.service'
 import { Location, UpdateLocationRequest } from '@/types/locations'
 import toast from 'react-hot-toast'
 
@@ -32,9 +32,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
   const [nameError, setNameError] = useState<string | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageUrl, setImageUrl] = useState<string>('')
   const [imageChanged, setImageChanged] = useState(false)
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
   const [emojiChanged, setEmojiChanged] = useState(false)
@@ -53,8 +51,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
       setError(null)
       setNameError(null)
       // Reset image state
-      setImageFile(null)
-      setImagePreview(location.image_url || null)
+      setImageUrl(location.image_url || '')
       setImageChanged(false)
       // Reset emoji state
       setSelectedEmoji(location.emoji || null)
@@ -76,36 +73,8 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
     }
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file')
-      return
-    }
-
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB')
-      return
-    }
-
-    setImageFile(file)
-    setImageChanged(true)
-
-    // Create preview
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setImagePreview(e.target?.result as string)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const removeImage = () => {
-    setImageFile(null)
-    setImagePreview(null)
+  const handleImageUploaded = (url: string) => {
+    setImageUrl(url)
     setImageChanged(true)
   }
 
@@ -153,31 +122,15 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
     setError(null)
 
     try {
-      // Handle image upload if image was changed
-      let imageUrl = imagePreview
-      if (imageChanged) {
-        if (imageFile) {
-          try {
-            setUploadingImage(true)
-            const uploadResult = await utilityService.uploadImage(imageFile)
-            imageUrl = `/utility/get_image/${uploadResult.image_id}.${imageFile.name.split('.').pop()}`
-          } catch (error) {
-            toast.error('Failed to upload image')
-            return
-          } finally {
-            setUploadingImage(false)
-          }
-        } else {
-          // Image was removed
-          imageUrl = null
-        }
-      }
-
       const updateData: UpdateLocationRequest = {
         ...formData,
-        image_url: imageUrl || undefined,
-        emoji: emojiChanged ? (selectedEmoji || undefined) : undefined
+        image_url: imageChanged ? (imageUrl || null) : undefined,
+        emoji: emojiChanged ? (selectedEmoji || null) : undefined
       }
+
+      console.log('[DEBUG] emojiChanged:', emojiChanged)
+      console.log('[DEBUG] selectedEmoji:', selectedEmoji)
+      console.log('[DEBUG] Update data being sent:', updateData)
 
       await locationsService.updateLocation(updateData)
       toast.success('Location updated successfully')
@@ -290,59 +243,18 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
         </FormField>
 
         {/* Image Upload */}
-        <FormField label="Location Image" description="Add an image to help identify this location (optional)">
-          <div className="space-y-4">
-            {imagePreview ? (
-              <div className="relative inline-block">
-                <img
-                  src={imagePreview}
-                  alt="Location preview"
-                  className="w-32 h-32 object-cover rounded-lg border border-border"
-                />
-                <button
-                  type="button"
-                  onClick={removeImage}
-                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 transition-colors"
-                  disabled={uploadingImage}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                {imageChanged && (
-                  <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded">Modified</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                  id="location-image-upload"
-                  disabled={uploadingImage}
-                />
-                <label
-                  htmlFor="location-image-upload"
-                  className="cursor-pointer flex flex-col items-center gap-2"
-                >
-                  {uploadingImage ? (
-                    <>
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      <span className="text-sm text-secondary">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 text-secondary" />
-                      <span className="text-sm text-primary">Click to upload an image</span>
-                      <span className="text-xs text-secondary">PNG, JPG, GIF up to 5MB</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            )}
-          </div>
+        <FormField label="Location Image" description="Upload, drag & drop, or paste an image to help identify this location (max 5MB)">
+          <ImageUpload
+            onImageUploaded={handleImageUploaded}
+            currentImageUrl={imageUrl}
+            placeholder="Upload location image"
+            className="w-full"
+          />
+          {imageChanged && imageUrl && (
+            <div className="mt-2">
+              <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded">Modified - will update on save</span>
+            </div>
+          )}
         </FormField>
 
         {/* Emoji Picker */}

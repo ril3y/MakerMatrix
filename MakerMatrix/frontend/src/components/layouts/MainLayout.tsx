@@ -61,11 +61,6 @@ const MainLayout: React.FC = () => {
       icon: <Tags className="w-5 h-5" />
     },
     {
-      label: 'Templates',
-      path: '/templates',
-      icon: <FileText className="w-5 h-5" />
-    },
-    {
       label: 'Analytics',
       path: '/analytics',
       icon: <TrendingUp className="w-5 h-5" />

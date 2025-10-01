@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import EditLocationModal from '@/components/locations/EditLocationModal'
+import AuthenticatedImage from '@/components/ui/AuthenticatedImage'
 import { locationsService } from '@/services/locations.service'
 import { Location } from '@/types/locations'
 import LoadingScreen from '@/components/ui/LoadingScreen'
@@ -239,7 +240,7 @@ const LocationsPage = () => {
                             <span className="text-lg">{location.emoji}</span>
                           )}
                           {location.image_url ? (
-                            <img
+                            <AuthenticatedImage
                               src={location.image_url}
                               alt={location.name}
                               className="w-8 h-8 object-cover rounded border border-border"
@@ -373,7 +374,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                     <span className="text-lg">{location.emoji}</span>
                   )}
                   {location.image_url ? (
-                    <img
+                    <AuthenticatedImage
                       src={location.image_url}
                       alt={location.name}
                       className="w-4 h-4 object-cover rounded border border-border"
