@@ -22,6 +22,9 @@ from .base import (
     PartSearchResult, SupplierInfo, ConfigurationOption,
     CapabilityRequirement, ImportResult
 )
+from MakerMatrix.models.enrichment_requirement_models import (
+    EnrichmentRequirements, FieldRequirement, RequirementSeverity
+)
 from .registry import register_supplier
 from .http_client import SupplierHTTPClient, RetryConfig
 from .data_extraction import DataExtractor, extract_common_part_data
@@ -246,7 +249,58 @@ class LCSCSupplier(BaseSupplier):
             )
             for cap in self.get_capabilities()
         }
-    
+
+    def get_enrichment_requirements(self) -> EnrichmentRequirements:
+        """
+        Define what part data is required for enrichment from LCSC.
+
+        LCSC requires the supplier_part_number (LCSC part number starting with 'C')
+        to look up parts in their EasyEDA API.
+
+        Returns:
+            EnrichmentRequirements with required, recommended, and optional fields
+        """
+        return EnrichmentRequirements(
+            supplier_name="lcsc",
+            display_name="LCSC Electronics",
+            description="LCSC can enrich parts with detailed specifications, images, pricing, stock levels, and datasheets using the EasyEDA API",
+            required_fields=[
+                FieldRequirement(
+                    field_name="supplier_part_number",
+                    display_name="LCSC Part Number",
+                    severity=RequirementSeverity.REQUIRED,
+                    description="The LCSC part number (e.g., C25804) is required to look up part details from the EasyEDA API. This is the primary identifier for LCSC parts.",
+                    example="C25804",
+                    validation_pattern="^C\\d+$"
+                )
+            ],
+            recommended_fields=[
+                FieldRequirement(
+                    field_name="manufacturer_part_number",
+                    display_name="Manufacturer Part Number",
+                    severity=RequirementSeverity.RECOMMENDED,
+                    description="Having the manufacturer part number helps validate that the enriched data matches your intended part",
+                    example="STM32F103C8T6"
+                )
+            ],
+            optional_fields=[
+                FieldRequirement(
+                    field_name="description",
+                    display_name="Part Description",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Existing description can help verify the enriched data is correct",
+                    example="ARM Cortex-M3 microcontroller"
+                ),
+                FieldRequirement(
+                    field_name="component_type",
+                    display_name="Component Type",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Component type helps organize enriched specifications",
+                    example="Microcontroller"
+                )
+            ]
+        )
+
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for LCSC public API
         return []

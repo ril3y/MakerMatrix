@@ -16,6 +16,8 @@ from MakerMatrix.suppliers.registry import get_available_suppliers
 from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority
 from MakerMatrix.dependencies import get_part_service
+from MakerMatrix.services.system.enrichment_requirement_validator import EnrichmentRequirementValidator
+from MakerMatrix.models.enrichment_requirement_models import EnrichmentRequirementCheckResponse
 
 # BaseRouter infrastructure
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
@@ -483,3 +485,109 @@ async def transfer_part_quantity(
     except Exception as e:
         logger.error(f"Error transferring quantity: {e}")
         raise HTTPException(status_code=500, detail=f"Transfer failed: {str(e)}")
+
+
+@router.get("/parts/{part_id}/enrichment-requirements/{supplier}", response_model=ResponseSchema[EnrichmentRequirementCheckResponse])
+async def check_enrichment_requirements(
+    part_id: str,
+    supplier: str,
+    current_user: UserModel = Depends(get_current_user),
+    part_service: PartService = Depends(get_part_service)
+) -> ResponseSchema[EnrichmentRequirementCheckResponse]:
+    """
+    Check if a part meets the requirements for enrichment from a specific supplier.
+
+    This endpoint validates that a part has the necessary fields (like supplier_part_number)
+    before attempting enrichment. It returns detailed information about:
+    - Required fields and whether they're present
+    - Recommended fields for better enrichment results
+    - Helpful suggestions for what to add
+
+    Args:
+        part_id: UUID of the part to check
+        supplier: Supplier name (e.g., 'lcsc', 'digikey')
+        current_user: Current authenticated user
+        part_service: Injected part service
+
+    Returns:
+        ResponseSchema containing EnrichmentRequirementCheckResponse with validation results
+
+    Example:
+        GET /api/parts/123e4567-e89b-12d3-a456-426614174000/enrichment-requirements/lcsc
+
+        Response:
+        {
+            "status": "success",
+            "message": "Enrichment requirements check completed",
+            "data": {
+                "supplier_name": "lcsc",
+                "part_id": "123e4567-e89b-12d3-a456-426614174000",
+                "can_enrich": false,
+                "required_checks": [...],
+                "missing_required": ["supplier_part_number"],
+                "suggestions": ["Add LCSC Part Number (e.g., C25804): Required to look up part details"]
+            }
+        }
+    """
+    try:
+        # Get the part
+        part_response = part_service.get_part(part_id=part_id)
+
+        if not part_response.success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Part not found: {part_response.message}"
+            )
+
+        part = part_response.data
+
+        # Create validator and check requirements
+        validator = EnrichmentRequirementValidator()
+        check_result = validator.validate_part_for_enrichment(part, supplier)
+
+        # Convert to response format
+        response_data = EnrichmentRequirementCheckResponse(
+            supplier_name=check_result.supplier_name,
+            part_id=check_result.part_id,
+            can_enrich=check_result.can_enrich,
+            required_checks=[
+                {
+                    "field_name": check.field_name,
+                    "display_name": check.display_name,
+                    "is_present": check.is_present,
+                    "current_value": check.current_value,
+                    "validation_passed": check.validation_passed,
+                    "validation_message": check.validation_message
+                }
+                for check in check_result.required_checks
+            ],
+            recommended_checks=[
+                {
+                    "field_name": check.field_name,
+                    "display_name": check.display_name,
+                    "is_present": check.is_present,
+                    "current_value": check.current_value
+                }
+                for check in check_result.recommended_checks
+            ],
+            missing_required=check_result.missing_required,
+            missing_recommended=check_result.missing_recommended,
+            warnings=check_result.warnings,
+            suggestions=check_result.suggestions
+        )
+
+        message = "Part can be enriched" if check_result.can_enrich else "Part is missing required fields for enrichment"
+
+        return BaseRouter.build_success_response(
+            data=response_data,
+            message=message
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking enrichment requirements: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check enrichment requirements: {str(e)}"
+        )

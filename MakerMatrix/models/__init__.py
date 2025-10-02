@@ -22,3 +22,6 @@ from .printer_config_model import *
 
 # Task management models
 from .task_models import *
+
+# Enrichment requirement models
+from .enrichment_requirement_models import *

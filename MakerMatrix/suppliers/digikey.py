@@ -23,9 +23,12 @@ except ImportError:
     print("Warning: digikey-api package not available. Install with: pip install digikey-api")
 
 from .base import (
-    BaseSupplier, FieldDefinition, FieldType, SupplierCapability, 
+    BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
     PartSearchResult, SupplierInfo, ConfigurationOption,
     CapabilityRequirement, ImportResult
+)
+from MakerMatrix.models.enrichment_requirement_models import (
+    EnrichmentRequirements, FieldRequirement, RequirementSeverity
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -133,7 +136,64 @@ class DigiKeySupplier(BaseSupplier):
                 description="Get real-time pricing and stock levels via API"
             ),
         }
-    
+
+    def get_enrichment_requirements(self) -> EnrichmentRequirements:
+        """
+        Define what part data is required for enrichment from DigiKey.
+
+        DigiKey can search by either supplier_part_number (DigiKey part number)
+        or manufacturer_part_number. Having both provides the best results.
+
+        Returns:
+            EnrichmentRequirements with required, recommended, and optional fields
+        """
+        return EnrichmentRequirements(
+            supplier_name="digikey",
+            display_name="DigiKey Electronics",
+            description="DigiKey can enrich parts with detailed specifications, images, datasheets, pricing, and real-time stock levels using their comprehensive API",
+            required_fields=[
+                FieldRequirement(
+                    field_name="supplier_part_number",
+                    display_name="DigiKey Part Number",
+                    severity=RequirementSeverity.REQUIRED,
+                    description="The DigiKey part number (e.g., 296-1234-ND) is the most reliable way to look up parts in the DigiKey API. Either this OR manufacturer_part_number is required.",
+                    example="296-1234-ND"
+                )
+            ],
+            recommended_fields=[
+                FieldRequirement(
+                    field_name="manufacturer_part_number",
+                    display_name="Manufacturer Part Number",
+                    severity=RequirementSeverity.RECOMMENDED,
+                    description="DigiKey can also search by manufacturer part number. This is recommended if you don't have the DigiKey part number, or as validation.",
+                    example="STM32F103C8T6"
+                ),
+                FieldRequirement(
+                    field_name="manufacturer",
+                    display_name="Manufacturer Name",
+                    severity=RequirementSeverity.RECOMMENDED,
+                    description="Manufacturer name helps narrow down search results when using manufacturer part numbers",
+                    example="STMicroelectronics"
+                )
+            ],
+            optional_fields=[
+                FieldRequirement(
+                    field_name="description",
+                    display_name="Part Description",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Existing description can help verify the enriched data matches your intended part",
+                    example="ARM Cortex-M3 32-bit MCU"
+                ),
+                FieldRequirement(
+                    field_name="component_type",
+                    display_name="Component Type",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Component type helps organize enriched specifications and validate results",
+                    example="Microcontroller"
+                )
+            ]
+        )
+
     def get_credential_schema(self) -> List[FieldDefinition]:
         return [
             FieldDefinition(
