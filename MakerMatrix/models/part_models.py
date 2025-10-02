@@ -87,19 +87,11 @@ class PartModel(SQLModel, table=True):
     component_type: Optional[str] = Field(default=None, index=True, description="Part type: resistor, capacitor, screwdriver, etc.")
     
     # === CURRENT INVENTORY ===
-    quantity: Optional[int] = None
-    location_id: Optional[str] = Field(
-        default=None,
-        sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="SET NULL"))
-    )
+    # NOTE: Quantity and location are managed through allocations (PartLocationAllocation)
+    # Use part.total_quantity and part.primary_location computed properties instead
     supplier: Optional[str] = None  # Primary/preferred supplier
     supplier_part_number: Optional[str] = Field(default=None, index=True, description="Supplier's part number for API calls (e.g., LCSC: C25804, DigiKey: 296-1234-ND)")
     supplier_url: Optional[str] = None  # URL to supplier product page
-
-    location: Optional["LocationModel"] = Relationship(
-        back_populates="parts",
-        sa_relationship_kwargs={"lazy": "selectin"}
-    )
 
     # === MEDIA ===
     image_url: Optional[str] = None
@@ -182,11 +174,10 @@ class PartModel(SQLModel, table=True):
         """
         Calculate total quantity across all location allocations.
 
-        Falls back to single-location quantity field during migration period.
+        Returns 0 if no allocations exist.
         """
         if not hasattr(self, 'allocations') or not self.allocations:
-            # Fallback to legacy single-location quantity
-            return self.quantity or 0
+            return 0
 
         return sum(alloc.quantity_at_location for alloc in self.allocations)
 
@@ -196,11 +187,10 @@ class PartModel(SQLModel, table=True):
         Get the primary storage location.
 
         Returns the location marked as primary storage, or the first allocation if none marked.
-        Falls back to legacy location_id field during migration.
+        Returns None if no allocations exist.
         """
         if not hasattr(self, 'allocations') or not self.allocations:
-            # Fallback to legacy single-location relationship
-            return getattr(self, 'location', None)
+            return None
 
         # Find primary storage allocation
         primary_alloc = next(
@@ -230,11 +220,10 @@ class PartModel(SQLModel, table=True):
             }
         """
         if not hasattr(self, 'allocations') or not self.allocations:
-            # Return legacy format during migration
             return {
-                "total_quantity": self.quantity or 0,
-                "location_count": 1 if self.location_id else 0,
-                "primary_location": self.location.to_dict() if self.location else None,
+                "total_quantity": 0,
+                "location_count": 0,
+                "primary_location": None,
                 "allocations": []
             }
 
@@ -288,8 +277,8 @@ class PartModel(SQLModel, table=True):
         
         # Always exclude metadata relationships unless specifically requested
         exclude_fields = {
-            "location", "enrichment_metadata", "pricing_history", "system_metadata",
-            "order_items", "order_summary"
+            "enrichment_metadata", "pricing_history", "system_metadata",
+            "order_items", "order_summary", "allocations"  # Allocations included separately if needed
         }
         
         # Datasheets are part of core part data (always included)
@@ -310,16 +299,20 @@ class PartModel(SQLModel, table=True):
             for category in self.categories
         ] if self.categories else []
         
-        # Always include location (core part data)
-        if hasattr(self, 'location') and self.location is not None:
+        # Always include primary location from allocations (core part data)
+        primary_loc = self.primary_location
+        if primary_loc:
             base_dict["location"] = {
-                "id": self.location.id,
-                "name": self.location.name,
-                "description": self.location.description,
-                "location_type": self.location.location_type
+                "id": primary_loc.id,
+                "name": primary_loc.name,
+                "description": primary_loc.description,
+                "location_type": primary_loc.location_type
             }
         else:
             base_dict["location"] = None
+
+        # Include total quantity from allocations
+        base_dict["quantity"] = self.total_quantity
         
         # Always include datasheets (core part data)
         if hasattr(self, 'datasheets') and self.datasheets:
