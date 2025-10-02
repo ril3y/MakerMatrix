@@ -43,6 +43,30 @@ python dev_manager.py
 
 The development manager provides a comprehensive Rich TUI (Terminal User Interface) for all development tasks:
 
+#### 🌐 **Development Manager API**
+
+The dev manager also exposes a REST API on **port 8765** for programmatic control:
+
+```bash
+# Check service status
+curl http://localhost:8765/status
+
+# Restart backend
+curl -X POST http://localhost:8765/backend/restart
+
+# Restart frontend
+curl -X POST http://localhost:8765/frontend/restart
+
+# Get recent logs
+curl "http://localhost:8765/logs?service=all&limit=100"
+
+# Toggle HTTPS mode
+curl -X POST http://localhost:8765/mode -H "Content-Type: application/json" \
+  -d '{"https": true}'
+```
+
+Full API documentation available at `http://localhost:8765/docs`
+
 #### 🚀 **Core Features**
 - **Rich TUI interface** for managing both backend and frontend simultaneously
 - **Auto-restart functionality** with intelligent file watching (5-second debounce)
@@ -232,8 +256,15 @@ curl -X POST http://localhost:8080/api/auth/mobile-login \
 ### Core Features
 
 - **Parts Management**: Full CRUD with search, categorization, and location tracking
-- **Location Hierarchy**: Multi-level storage organization with parent-child relationships
+- **Location Hierarchy**: Multi-level storage organization with tree/list views
+  - Tree view (default) for visualizing hierarchical structure
+  - Visual identification with emojis or custom images
+  - Drag-and-drop organization support
 - **Category System**: Flexible part categorization with counts and associations
+- **Label Templates**: 7 pre-designed templates plus custom template creation
+  - QR code support with 8 positioning options
+  - Text rotation, multi-line, and auto-sizing
+  - Template management via Settings → Label Templates
 - **Task System**: Background processing for long-running operations
 - **Supplier Integration**: Automated part enrichment from multiple suppliers
 - **File Import**: CSV/XLS import from supplier order files
@@ -394,20 +425,43 @@ MakerMatrix includes a powerful template-based label printing system with suppor
 
 ### Features
 
-- **Template System**: Save and reuse custom label templates
-- **QR Code Support**: Automatic QR code generation with customizable data
+- **7 Pre-designed Templates**: Ready-to-use system templates for common scenarios
+- **Custom Template System**: Create, save, and reuse your own label templates
+- **QR Code Support**: Automatic QR code generation with 8 positioning options
 - **Variable Substitution**: Dynamic field insertion (part name, number, location, etc.)
 - **Text Rotation**: 0°, 90°, 180°, 270° rotation support
 - **Real-time Preview**: See your label before printing
-- **Multi-line Labels**: Automatic line breaks and text sizing
-- **CRUD Operations**: Create, edit, delete, and manage templates
+- **Multi-line Labels**: Automatic line breaks and auto-sizing text
+- **Template Categories**: COMPONENT, LOCATION, STORAGE, CABLE, INVENTORY, CUSTOM
+- **Template Management**: Full CRUD operations with duplicate/edit features
+- **Template Filtering**: Filter by system vs user templates, category, label size
+
+### Pre-designed System Templates
+
+The system includes 7 ready-to-use templates optimized for common use cases:
+
+| Template | Size | Features | Use Case |
+|----------|------|----------|----------|
+| **MakerMatrix 12mm Box Label** | 39×12mm | QR + part name | Standard component labeling |
+| **Component Vertical Label** | 62×12mm | 90° rotated text | Narrow vertical components |
+| **Location Label** | 29×62mm | Multi-line + QR | Storage area identification |
+| **Inventory Tag** | 25×50mm | Qty + description | Inventory management |
+| **Cable Label** | 102×12mm | Long horizontal text | Cable identification |
+| **Storage Box Label** | 51×102mm | Large format + QR | Container labeling |
+| **Small Parts Label** | 19×6mm | Text-only | Tiny component labels |
+
+**Initialize System Templates:**
+```bash
+source venv_test/bin/activate
+python MakerMatrix/scripts/init_system_templates.py
+```
 
 ### Supported Printers
 
 - **Brother QL-800** - 300 DPI thermal label printer
 - **Brother QL-700** - 300 DPI thermal label printer
 - **Brother QL-570** - 300 DPI thermal label printer
-- Support for 12mm, 29mm, 62mm label sizes
+- Support for 12mm, 29mm, 62mm, 102mm label sizes
 
 ### Template Syntax
 
@@ -472,28 +526,42 @@ Category: {category}
 
 ### Template Management
 
+**Access Templates:**
+Navigate to **Settings** → **Label Templates** tab to manage all templates.
+
+**Template Page Features:**
+- View all templates in responsive grid (1-3 columns)
+- Filter by: All Templates, System Templates, or My Templates
+- See template details: size, layout, usage count, preview
+- Duplicate any template (including system templates) to customize
+- Edit and delete your custom templates
+- Search and filter templates by category
+
 **Create Template:**
-1. Enter template text in custom template field
-2. Click "Save as Template"
-3. Enter template name
-4. Template saved to database
+1. Click "Create New Template" button
+2. Configure label size, layout, QR position, text rotation
+3. Enter template text with variable placeholders
+4. Preview and save
 
 **Edit Template:**
-1. Open template dropdown
-2. Click blue edit icon on saved template
-3. Modify template text
-4. Click "Update Template"
+1. Find your custom template in grid
+2. Click "Edit" button
+3. Modify settings and template text
+4. Save changes
 
-**Delete Template:**
-1. Open template dropdown
-2. Click red delete icon on saved template
-3. Confirm deletion
+**Duplicate Template:**
+1. Find any template (system or custom)
+2. Click "Duplicate" button
+3. New copy created as your custom template
+4. Edit the duplicated template as needed
 
 **Template Features:**
-- Templates auto-reload after create/update/delete
-- Custom template text persists in browser localStorage
-- Preview and print render identically
-- Templates deduplicated by ID
+- Templates organized by category (COMPONENT, LOCATION, STORAGE, etc.)
+- Real-time usage tracking
+- QR code positioning (8 positions: left, right, top, bottom, corners, center)
+- Text alignment options (left, center, right)
+- Multi-line support with auto-sizing
+- System templates cannot be edited or deleted (duplicate them instead)
 
 ### API Endpoints
 
@@ -533,11 +601,18 @@ POST /api/printer/preview/template
 
 **Template CRUD:**
 ```bash
-GET    /api/templates/              # List all templates
-POST   /api/templates/              # Create template
-GET    /api/templates/{id}          # Get template
-PUT    /api/templates/{id}          # Update template
-DELETE /api/templates/{id}          # Delete template
+GET    /api/templates/                           # List all templates
+GET    /api/templates/?is_system=true            # Get system templates only
+GET    /api/templates/?is_system=false           # Get user templates only
+GET    /api/templates/?category=COMPONENT        # Filter by category
+POST   /api/templates/                           # Create template
+GET    /api/templates/{id}                       # Get specific template
+PUT    /api/templates/{id}                       # Update template
+DELETE /api/templates/{id}                       # Delete template (soft delete)
+POST   /api/templates/{id}/duplicate             # Duplicate template
+GET    /api/templates/compatible/{label_height}  # Get compatible templates
+GET    /api/templates/categories                 # List all categories
+GET    /api/templates/stats/summary              # Get template statistics
 ```
 
 ### Printer Configuration
@@ -700,9 +775,13 @@ python scripts/setup_https.py --method mkcert
 - `POST /api/parts/search` - Advanced search with filters
 
 **Locations:**
-- `GET /api/locations/get_all_locations` - List all locations
-- `POST /api/locations/add_location` - Create location
+- `GET /api/locations/get_all_locations` - List all locations with hierarchy
+- `POST /api/locations/add_location` - Create location (supports emoji and image_url)
 - `PUT /api/locations/update_location/{location_id}` - Update location
+- `GET /api/locations/get_location_details/{location_id}` - Get location with children
+- `GET /api/locations/get_location_path/{location_id}` - Get full path to root
+- `DELETE /api/locations/delete_location/{location_id}` - Delete location
+- `GET /api/locations/preview-location-delete/{location_id}` - Preview deletion impact
 
 **Categories:**
 - `GET /api/categories/get_all_categories` - List all categories
