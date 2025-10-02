@@ -695,7 +695,7 @@ class PartEnrichmentService(BaseService):
             from MakerMatrix.repositories.user_repository import UserRepository
             user_repo = UserRepository()
             with self.get_session() as session:
-                return user_repo.get_by_id(session, task.created_by_user_id)
+                return user_repo.get_user_by_id(task.created_by_user_id)
         except Exception as e:
             logger.warning(f"Failed to get user for task: {e}")
             return None

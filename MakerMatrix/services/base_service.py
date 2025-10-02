@@ -57,10 +57,10 @@ class ServiceResponse(BaseModel, Generic[T]):
 class BaseService(ABC):
     """
     Base service class providing centralized session management and error handling.
-    
+
     This class eliminates the massive duplication of session management code
     that was repeated across 50+ service methods in the original codebase.
-    
+
     Usage:
         class PartService(BaseService):
             async def create_part(self, part_data):
@@ -68,28 +68,35 @@ class BaseService(ABC):
                     # Your business logic here
                     return self.success_response("Part created", new_part)
     """
-    
-    def __init__(self):
+
+    def __init__(self, engine_override=None):
+        """
+        Initialize base service.
+
+        Args:
+            engine_override: Optional engine to use instead of global engine (for testing)
+        """
         self.logger = logging.getLogger(self.__class__.__name__)
-    
+        self.engine = engine_override if engine_override is not None else engine
+
     @contextmanager
     def get_session(self):
         """
         Context manager for synchronous database session management.
-        
+
         Provides:
         - Automatic session creation and cleanup
         - Transaction management with auto-commit on success
         - Automatic rollback on exceptions
         - Proper session closure to prevent memory leaks
-        
+
         Usage:
             with self.get_session() as session:
                 # Database operations
                 result = repository.create(session, data)
                 return result
         """
-        session = next(get_session())
+        session = Session(self.engine)
         try:
             self.logger.debug("Database session created")
             yield session
@@ -107,16 +114,16 @@ class BaseService(ABC):
     async def get_async_session(self):
         """
         Async context manager for database session management.
-        
+
         Similar to get_session() but for async operations.
-        
+
         Usage:
             async with self.get_async_session() as session:
                 # Async database operations
                 result = await async_repository.create(session, data)
                 return result
         """
-        session = Session(engine)
+        session = Session(self.engine)
         try:
             self.logger.debug("Async database session created")
             yield session

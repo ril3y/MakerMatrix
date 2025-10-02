@@ -27,15 +27,15 @@ logger = logging.getLogger(__name__)
 class PartService(BaseService):
     """
     Part service with consolidated session management using BaseService.
-    
+
     This migration eliminates 15+ instances of duplicated session management code
     that was previously repeated throughout this service.
     """
-    
-    def __init__(self):
-        super().__init__()
-        self.part_repo = PartRepository(engine)
-        self.location_service = LocationService()
+
+    def __init__(self, engine_override=None):
+        super().__init__(engine_override)
+        self.part_repo = PartRepository(self.engine)
+        self.location_service = LocationService(self.engine)
         self.entity_name = "Part"
 
     def _load_order_relationships(self, session: Session, part: 'PartModel') -> 'PartModel':
@@ -387,7 +387,7 @@ class PartService(BaseService):
                 part_obj = self.part_repo.add_part(session, new_part)
 
                 # Create allocation if location_id and quantity provided
-                if allocation_location_id and allocation_quantity > 0:
+                if allocation_location_id and allocation_quantity is not None and allocation_quantity > 0:
                     allocation = PartLocationAllocation(
                         part_id=part_obj.id,
                         location_id=allocation_location_id,
@@ -966,5 +966,117 @@ class PartService(BaseService):
     #         "children": child_locations
     #     }
     #
+
+    # === ALLOCATION TRANSFER METHODS ===
+
+    def transfer_quantity(
+        self,
+        part_id: str,
+        from_location_id: str,
+        to_location_id: str,
+        quantity: int,
+        notes: Optional[str] = None
+    ) -> ServiceResponse:
+        """
+        Transfer quantity from one location to another for a part.
+
+        Args:
+            part_id: Part to transfer
+            from_location_id: Source location
+            to_location_id: Destination location
+            quantity: Amount to transfer
+            notes: Optional transfer notes
+
+        Returns:
+            ServiceResponse with updated part
+        """
+        try:
+            with Session(self.engine) as session:
+                # Get part
+                part = session.get(PartModel, part_id)
+                if not part:
+                    return ServiceResponse(
+                        success=False,
+                        message=f"Part {part_id} not found",
+                        data=None
+                    )
+
+                # Get source allocation
+                from_alloc = session.exec(
+                    select(PartLocationAllocation).where(
+                        PartLocationAllocation.part_id == part_id,
+                        PartLocationAllocation.location_id == from_location_id
+                    )
+                ).first()
+
+                if not from_alloc:
+                    return ServiceResponse(
+                        success=False,
+                        message=f"No allocation found at source location",
+                        data=None
+                    )
+
+                if from_alloc.quantity_at_location < quantity:
+                    return ServiceResponse(
+                        success=False,
+                        message=f"Insufficient quantity at source (have {from_alloc.quantity_at_location}, need {quantity})",
+                        data=None
+                    )
+
+                # Reduce source quantity
+                from_alloc.quantity_at_location -= quantity
+                from_alloc.last_updated = datetime.utcnow()
+                if notes:
+                    from_alloc.notes = f"{from_alloc.notes or ''}\nTransfer out: {notes}".strip()
+
+                # If source is now empty, delete the allocation
+                if from_alloc.quantity_at_location == 0:
+                    session.delete(from_alloc)
+
+                # Get or create destination allocation
+                to_alloc = session.exec(
+                    select(PartLocationAllocation).where(
+                        PartLocationAllocation.part_id == part_id,
+                        PartLocationAllocation.location_id == to_location_id
+                    )
+                ).first()
+
+                if to_alloc:
+                    # Add to existing allocation
+                    to_alloc.quantity_at_location += quantity
+                    to_alloc.last_updated = datetime.utcnow()
+                    if notes:
+                        to_alloc.notes = f"{to_alloc.notes or ''}\nTransfer in: {notes}".strip()
+                else:
+                    # Create new allocation
+                    to_alloc = PartLocationAllocation(
+                        part_id=part_id,
+                        location_id=to_location_id,
+                        quantity_at_location=quantity,
+                        is_primary_storage=False,  # Transfers are typically to working stock
+                        notes=f"Transferred from {from_location_id}: {notes}" if notes else None
+                    )
+                    session.add(to_alloc)
+
+                session.commit()
+                session.refresh(part)
+
+                logger.info(
+                    f"Transferred {quantity} of part {part.part_name} from {from_location_id} to {to_location_id}"
+                )
+
+                return ServiceResponse(
+                    success=True,
+                    message=f"Successfully transferred {quantity} units",
+                    data=part
+                )
+
+        except Exception as e:
+            logger.error(f"Transfer failed: {e}")
+            return ServiceResponse(
+                success=False,
+                message=f"Transfer failed: {str(e)}",
+                data=None
+            )
 
     #

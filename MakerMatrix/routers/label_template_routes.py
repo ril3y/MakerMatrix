@@ -123,6 +123,7 @@ async def create_template(
     request: Request,
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[LabelTemplateResponse]:
+    logger.info(f"[DEBUG] Received template creation request: {template_data.model_dump()}")
     """
     Create a new label template.
     """
@@ -131,8 +132,10 @@ async def create_template(
             repo = LabelTemplateRepository()
 
             # Create template model from request data
+            # Exclude None values to allow default_factory to work
+            template_dict = template_data.model_dump(exclude_none=True)
             template = LabelTemplateModel(
-                **template_data.model_dump(),
+                **template_dict,
                 created_by_user_id=current_user.id
             )
 
