@@ -69,19 +69,22 @@ class EnrichmentRequirementValidator:
 
     def validate_part_for_enrichment(
         self,
-        part: PartModel,
+        part,
         supplier_name: str
     ) -> EnrichmentRequirementCheck:
         """
         Validate that a part has the necessary data for enrichment.
 
         Args:
-            part: The part to validate
+            part: The part to validate (can be PartModel object or dict)
             supplier_name: Name of the supplier to validate against
 
         Returns:
             EnrichmentRequirementCheck with validation results
         """
+        # Get part ID (handle both dict and object)
+        part_id = part.get('id') if isinstance(part, dict) else part.id
+
         # Get supplier requirements
         requirements = self.get_supplier_requirements(supplier_name)
 
@@ -89,7 +92,7 @@ class EnrichmentRequirementValidator:
             # If supplier doesn't have requirements, assume it can't enrich
             return EnrichmentRequirementCheck(
                 supplier_name=supplier_name,
-                part_id=part.id,
+                part_id=part_id,
                 can_enrich=False,
                 warnings=[f"Supplier '{supplier_name}' does not support enrichment or requirements not defined"]
             )
@@ -155,7 +158,7 @@ class EnrichmentRequirementValidator:
 
         return EnrichmentRequirementCheck(
             supplier_name=supplier_name,
-            part_id=part.id,
+            part_id=part_id,
             can_enrich=can_enrich,
             required_checks=required_checks,
             recommended_checks=recommended_checks,
@@ -166,19 +169,22 @@ class EnrichmentRequirementValidator:
             suggestions=suggestions
         )
 
-    def _check_field(self, part: PartModel, field_req: FieldRequirement) -> FieldCheck:
+    def _check_field(self, part, field_req: FieldRequirement) -> FieldCheck:
         """
         Check a single field requirement against a part.
 
         Args:
-            part: The part to check
+            part: The part to check (can be PartModel object or dict)
             field_req: The field requirement to validate
 
         Returns:
             FieldCheck with validation results
         """
-        # Get the field value from the part
-        field_value = getattr(part, field_req.field_name, None)
+        # Get the field value from the part (handle both dict and object)
+        if isinstance(part, dict):
+            field_value = part.get(field_req.field_name)
+        else:
+            field_value = getattr(part, field_req.field_name, None)
 
         # Check if field is present (not None and not empty string)
         is_present = field_value is not None and (
@@ -219,12 +225,12 @@ class EnrichmentRequirementValidator:
             validation_message=validation_message
         )
 
-    def can_part_be_enriched(self, part: PartModel, supplier_name: str) -> bool:
+    def can_part_be_enriched(self, part, supplier_name: str) -> bool:
         """
         Quick check if a part can be enriched by a supplier.
 
         Args:
-            part: The part to check
+            part: The part to check (can be PartModel object or dict)
             supplier_name: Name of the supplier
 
         Returns:
