@@ -531,7 +531,7 @@ async def check_enrichment_requirements(
     """
     try:
         # Get the part
-        part_response = part_service.get_part(part_id=part_id)
+        part_response = part_service.get_part_by_details(part_id=part_id)
 
         if not part_response.success:
             raise HTTPException(
