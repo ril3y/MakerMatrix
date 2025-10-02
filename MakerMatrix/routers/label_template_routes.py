@@ -64,6 +64,7 @@ async def get_all_templates(
     category: Optional[TemplateCategory] = Query(None, description="Filter by category"),
     layout_type: Optional[LayoutType] = Query(None, description="Filter by layout type"),
     search: Optional[str] = Query(None, description="Search term"),
+    is_system: Optional[bool] = Query(None, description="Filter by system templates (true) or user templates (false)"),
     include_public: bool = Query(True, description="Include public templates"),
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[TemplateListResponse]:
@@ -76,7 +77,15 @@ async def get_all_templates(
         with Session(engine) as session:
             repo = LabelTemplateRepository()
 
-            if search or category or layout_type:
+            # Handle is_system filter
+            if is_system is True:
+                # Get only system templates
+                templates = repo.get_system_templates(session)
+            elif is_system is False:
+                # Get only user's own templates (no public/system)
+                templates = repo.get_by_user(session, current_user.id, include_public=False)
+            elif search or category or layout_type:
+                # Use search with filters
                 templates = repo.search_templates(
                     session=session,
                     search_term=search,
@@ -86,6 +95,7 @@ async def get_all_templates(
                     include_public=include_public
                 )
             else:
+                # Get user templates with optional public/system templates
                 templates = repo.get_by_user(session, current_user.id, include_public)
 
             template_responses = [

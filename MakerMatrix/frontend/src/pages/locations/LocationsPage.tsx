@@ -18,7 +18,7 @@ const LocationsPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'tree'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'tree'>('tree')
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
 
@@ -235,20 +235,17 @@ const LocationsPage = () => {
                   <tr key={location.id} className="border-b border-border hover:bg-background-secondary transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          {location.emoji && (
-                            <span className="text-lg">{location.emoji}</span>
-                          )}
-                          {location.image_url ? (
-                            <AuthenticatedImage
-                              src={location.image_url}
-                              alt={location.name}
-                              className="w-8 h-8 object-cover rounded border border-border"
-                            />
-                          ) : !location.emoji ? (
-                            <MapPin className="w-4 h-4 text-primary" />
-                          ) : null}
-                        </div>
+                        {location.emoji ? (
+                          <span className="text-lg">{location.emoji}</span>
+                        ) : location.image_url ? (
+                          <AuthenticatedImage
+                            src={location.image_url}
+                            alt={location.name}
+                            className="w-8 h-8 object-cover rounded border border-border"
+                          />
+                        ) : (
+                          <MapPin className="w-4 h-4 text-primary" />
+                        )}
                         <span className="font-medium text-primary">{location.name}</span>
                       </div>
                     </td>
@@ -370,18 +367,17 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                 )}
                 {!hasChildren && <div className="w-6" />}
                 <div className="flex items-center gap-2">
-                  {location.emoji && (
+                  {location.emoji ? (
                     <span className="text-lg">{location.emoji}</span>
-                  )}
-                  {location.image_url ? (
+                  ) : location.image_url ? (
                     <AuthenticatedImage
                       src={location.image_url}
                       alt={location.name}
-                      className="w-4 h-4 object-cover rounded border border-border"
+                      className="w-6 h-6 object-cover rounded border border-border"
                     />
-                  ) : !location.emoji ? (
+                  ) : (
                     <MapPin className="w-4 h-4 text-primary" />
-                  ) : null}
+                  )}
                 </div>
                 <span className="font-medium text-primary">{location.name}</span>
                 <span className="text-sm text-secondary ml-2">
