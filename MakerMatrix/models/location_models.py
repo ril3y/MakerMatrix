@@ -113,13 +113,7 @@ class LocationModel(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
-    # Parts stored at this location (DEPRECATED - use allocations instead)
-    parts: List["PartModel"] = Relationship(
-        back_populates="location",
-        sa_relationship_kwargs={"passive_deletes": True}
-    )
-
-    # Part allocations at this location (NEW - multi-location system)
+    # Part allocations at this location (multi-location system)
     allocations: List["PartLocationAllocation"] = Relationship(
         back_populates="location",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
