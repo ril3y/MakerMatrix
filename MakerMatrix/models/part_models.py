@@ -126,9 +126,15 @@ class PartModel(SQLModel, table=True):
         link_model=PartCategoryLink,
         sa_relationship_kwargs={"lazy": "selectin"}
     )
-    
+
     # Datasheet files (one-to-many relationship)
     datasheets: List["DatasheetModel"] = Relationship(
+        back_populates="part",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+    )
+
+    # === MULTI-LOCATION ALLOCATIONS (NEW) ===
+    allocations: List["PartLocationAllocation"] = Relationship(
         back_populates="part",
         sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
@@ -168,6 +174,76 @@ class PartModel(SQLModel, table=True):
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # === COMPUTED PROPERTIES FOR MULTI-LOCATION SUPPORT ===
+
+    @property
+    def total_quantity(self) -> int:
+        """
+        Calculate total quantity across all location allocations.
+
+        Falls back to single-location quantity field during migration period.
+        """
+        if not hasattr(self, 'allocations') or not self.allocations:
+            # Fallback to legacy single-location quantity
+            return self.quantity or 0
+
+        return sum(alloc.quantity_at_location for alloc in self.allocations)
+
+    @property
+    def primary_location(self) -> Optional["LocationModel"]:
+        """
+        Get the primary storage location.
+
+        Returns the location marked as primary storage, or the first allocation if none marked.
+        Falls back to legacy location_id field during migration.
+        """
+        if not hasattr(self, 'allocations') or not self.allocations:
+            # Fallback to legacy single-location relationship
+            return getattr(self, 'location', None)
+
+        # Find primary storage allocation
+        primary_alloc = next(
+            (alloc for alloc in self.allocations if alloc.is_primary_storage),
+            None
+        )
+
+        if primary_alloc:
+            return primary_alloc.location
+
+        # If no primary marked, return first allocation's location
+        if self.allocations:
+            return self.allocations[0].location
+
+        return None
+
+    def get_allocations_summary(self) -> Dict[str, Any]:
+        """
+        Get summary of all location allocations for UI display.
+
+        Returns:
+            {
+                "total_quantity": 4000,
+                "location_count": 2,
+                "primary_location": {...},
+                "allocations": [...]
+            }
+        """
+        if not hasattr(self, 'allocations') or not self.allocations:
+            # Return legacy format during migration
+            return {
+                "total_quantity": self.quantity or 0,
+                "location_count": 1 if self.location_id else 0,
+                "primary_location": self.location.to_dict() if self.location else None,
+                "allocations": []
+            }
+
+        return {
+            "total_quantity": self.total_quantity,
+            "location_count": len(self.allocations),
+            "primary_location": self.primary_location.to_dict() if self.primary_location else None,
+            "allocations": [alloc.to_dict() for alloc in self.allocations]
+        }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> "PartModel":
@@ -579,3 +655,4 @@ if False:  # Type checking only - prevents circular imports at runtime
     from .category_models import CategoryModel
     from .order_models import OrderItemModel
     from .part_metadata_models import PartSystemMetadata
+    from .part_allocation_models import PartLocationAllocation
