@@ -16,13 +16,13 @@ from enum import Enum
 
 class TemplateCategory(str, Enum):
     """Categories for organizing label templates"""
-    GENERAL = "general"
-    COMPONENT = "component"
-    STORAGE = "storage"
-    CABLE = "cable"
-    LOCATION = "location"
-    INVENTORY = "inventory"
-    CUSTOM = "custom"
+    GENERAL = "GENERAL"
+    COMPONENT = "COMPONENT"
+    STORAGE = "STORAGE"
+    CABLE = "CABLE"
+    LOCATION = "LOCATION"
+    INVENTORY = "INVENTORY"
+    CUSTOM = "CUSTOM"
 
 
 class LayoutType(str, Enum):
@@ -37,7 +37,7 @@ class LayoutType(str, Enum):
 
 class TextRotation(str, Enum):
     """Text rotation options"""
-    NONE = "0"
+    NONE = "NONE"
     QUARTER = "90"
     HALF = "180"
     THREE_QUARTER = "270"
@@ -45,22 +45,22 @@ class TextRotation(str, Enum):
 
 class QRPosition(str, Enum):
     """QR code positioning options"""
-    LEFT = "left"
-    RIGHT = "right"
-    TOP = "top"
-    BOTTOM = "bottom"
-    CENTER = "center"
-    TOP_LEFT = "top_left"
-    TOP_RIGHT = "top_right"
-    BOTTOM_LEFT = "bottom_left"
-    BOTTOM_RIGHT = "bottom_right"
+    LEFT = "LEFT"
+    RIGHT = "RIGHT"
+    TOP = "TOP"
+    BOTTOM = "BOTTOM"
+    CENTER = "CENTER"
+    TOP_LEFT = "TOP_LEFT"
+    TOP_RIGHT = "TOP_RIGHT"
+    BOTTOM_LEFT = "BOTTOM_LEFT"
+    BOTTOM_RIGHT = "BOTTOM_RIGHT"
 
 
 class TextAlignment(str, Enum):
     """Text alignment options"""
-    LEFT = "left"
-    CENTER = "center"
-    RIGHT = "right"
+    LEFT = "LEFT"
+    CENTER = "CENTER"
+    RIGHT = "RIGHT"
 
 
 class LabelTemplateModel(SQLModel, table=True):

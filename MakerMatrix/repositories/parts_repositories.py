@@ -184,7 +184,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location),
+                selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
                 selectinload(PartModel.order_summary)
@@ -205,7 +205,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location),
+                selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
                 selectinload(PartModel.order_summary)
@@ -228,7 +228,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location),
+                selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
                 selectinload(PartModel.order_summary)
@@ -252,7 +252,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location)
+                selectinload(PartModel.allocations)
             )
             .offset(offset)
             .limit(page_size)
@@ -340,7 +340,7 @@ class PartRepository:
         # Start with a base query
         query = select(PartModel).options(
             joinedload(PartModel.categories),
-            joinedload(PartModel.location)
+            selectinload(PartModel.allocations)
         )
 
         # Start with a base count query
@@ -445,7 +445,7 @@ class PartRepository:
         # Base query with eager loading
         base_query = select(PartModel).options(
             joinedload(PartModel.categories),
-            joinedload(PartModel.location)
+            selectinload(PartModel.allocations)
         )
         
         # Count query
