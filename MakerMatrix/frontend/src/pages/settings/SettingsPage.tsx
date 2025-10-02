@@ -12,6 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { SupplierConfigPage } from '@/pages/suppliers/SupplierConfigPage'
 import DynamicPrinterModal from '@/components/printer/DynamicPrinterModal'
 import Templates from '@/pages/Templates'
+import ApiKeyManagement from '@/components/settings/ApiKeyManagement'
 
 const SettingsPage = () => {
   const { isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode } = useTheme()
@@ -908,15 +909,7 @@ const SettingsPage = () => {
         )}
 
         {activeTab === 'security' && (
-          <div className="text-center py-8">
-            <Shield className="w-12 h-12 text-muted mx-auto mb-2" />
-            <h3 className="text-lg font-semibold text-primary mb-2">
-              Security Settings Coming Soon
-            </h3>
-            <p className="text-secondary">
-              This section is being developed.
-            </p>
-          </div>
+          <ApiKeyManagement />
         )}
       </motion.div>
     </div>
