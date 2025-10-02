@@ -199,6 +199,38 @@ export class PartsService {
     }
     throw new Error(response.message || 'Failed to import part')
   }
+
+  async checkEnrichmentRequirements(partId: string, supplier: string): Promise<EnrichmentRequirementCheckResponse> {
+    const response = await apiClient.get<ApiResponse<EnrichmentRequirementCheckResponse>>(
+      `/api/parts/parts/${partId}/enrichment-requirements/${supplier}`
+    )
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to check enrichment requirements')
+  }
+}
+
+// Enrichment requirement types
+export interface FieldCheck {
+  field_name: string
+  display_name: string
+  is_present: boolean
+  current_value?: any
+  validation_passed: boolean
+  validation_message?: string
+}
+
+export interface EnrichmentRequirementCheckResponse {
+  supplier_name: string
+  part_id: string
+  can_enrich: boolean
+  required_checks: FieldCheck[]
+  recommended_checks: FieldCheck[]
+  missing_required: string[]
+  missing_recommended: string[]
+  warnings: string[]
+  suggestions: string[]
 }
 
 export const partsService = new PartsService()
