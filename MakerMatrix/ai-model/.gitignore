@@ -1,0 +1,25 @@
+# AI Model Data Files
+
+# LCSC Database (too large for git)
+data/lcsc_raw/*.sqlite3
+data/lcsc_raw/*.zip
+data/lcsc_raw/*.z*
+
+# Training data (can be regenerated)
+data/training/*.jsonl
+data/labeled/*.jsonl
+
+# Trained models (track separately or use Git LFS)
+data/models/*.pkl
+data/models/*.joblib
+data/models/*.h5
+
+# Temporary files
+*.tmp
+*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/

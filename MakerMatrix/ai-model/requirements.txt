@@ -1,0 +1,18 @@
+# AI Model Pipeline Requirements
+
+# Web framework for API
+flask>=3.0.0
+
+# HTTP client for Ollama
+requests>=2.31.0
+
+# Excel file reading
+xlrd>=2.0.1
+
+# ML training dependencies
+torch>=2.0.0
+transformers>=4.35.0
+scikit-learn>=1.3.0
+accelerate>=0.25.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0

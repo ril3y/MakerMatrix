@@ -1,0 +1,18 @@
+{
+  "total_examples": 26,
+  "categories": {
+    "Capacitors": 3,
+    "Connectors": 2,
+    "Key/Switch": 2,
+    "Resistors": 8,
+    "TVS/Fuse/Board Level Protection": 1,
+    "Power Supply Chip": 2,
+    "Switches": 1,
+    "Diodes": 1,
+    "Transistors/Thyristors": 2,
+    "Inductors, Coils, Chokes": 3,
+    "Filters": 1
+  },
+  "avg_specs_per_example": 5.5,
+  "total_specs": 143
+}

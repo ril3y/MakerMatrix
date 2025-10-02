@@ -28,25 +28,37 @@ logger = logging.getLogger(__name__)
 
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
 @standard_error_handling
-@log_activity("part_created", "User {username} created part")
 async def add_part(
-    part: PartCreate, 
+    part: PartCreate,
     request: Request,
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[PartResponse]:
     # Convert PartCreate to dict and include category_names
     part_data = part.model_dump()
-    
+
     # Extract enrichment parameters before processing
     auto_enrich = part_data.pop('auto_enrich', False)
     enrichment_supplier = part_data.pop('enrichment_supplier', None)
     enrichment_capabilities = part_data.pop('enrichment_capabilities', [])
-    
+
     # Process to add part
     part_service = PartService()
     service_response = part_service.add_part(part_data)
     created_part = validate_service_response(service_response)
     part_id = created_part["id"]
+
+    # Log part creation activity
+    try:
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
+        await activity_service.log_part_created(
+            part_id=created_part["id"],
+            part_name=created_part["part_name"],
+            user=current_user,
+            request=request
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log part creation activity: {e}")
 
     # Handle automatic enrichment if requested
     enrichment_message = ""
@@ -78,7 +90,6 @@ async def get_part_counts() -> ResponseSchema[int]:
 
 @router.delete("/delete_part", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
-@log_activity("part_deleted", "User {username} deleted part")
 async def delete_part(
         request: Request,
         current_user: UserModel = Depends(get_current_user),
@@ -94,7 +105,7 @@ async def delete_part(
     # Validate that at least one identifier is provided
     if not part_id and not part_name and not part_number:
         raise ValueError("At least one identifier (part_id, part_name, or part_number) must be provided")
-    
+
     # Retrieve part using details
     part_service = PartService()
     service_response = part_service.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
@@ -103,7 +114,20 @@ async def delete_part(
     # Perform the deletion using the actual part ID
     delete_response = part_service.delete_part(part['id'])
     deleted_part = validate_service_response(delete_response)
-    
+
+    # Log deletion activity
+    try:
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
+        await activity_service.log_part_deleted(
+            part_id=deleted_part["id"],
+            part_name=deleted_part["part_name"],
+            user=current_user,
+            request=request
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log part deletion activity: {e}")
+
     # Convert PartResponse to dict for the response
     part_response_obj = PartResponse.model_validate(deleted_part)
     return BaseRouter.build_success_response(

@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Component Labeling Service</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .stat-box label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .stat-box strong {
+            display: block;
+            font-size: 28px;
+            color: #007bff;
+        }
+
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .control-panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-start {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-save {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-load {
+            background: #6c757d;
+            color: white;
+        }
+
+        .progress-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #00d4ff);
+            transition: width 0.3s;
+            width: 0%;
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .current-component {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-idle {
+            background: #e9ecef;
+            color: #666;
+        }
+
+        .status-running {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .component-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .component-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .meta-value {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .spec-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .spec-field {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            border: 2px solid transparent;
+        }
+
+        .spec-field label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .spec-field input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .file-upload {
+            border: 2px dashed #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Component Labeling Service</h1>
+            <p>Automated LLM-based specification extraction with real-time review</p>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <label>Database</label>
+                    <strong id="db-count">-</strong>
+                </div>
+                <div class="stat-box">
+                    <label>Model</label>
+                    <strong style="font-size: 16px;" id="model-name">-</strong>
+                </div>
+                <div class="stat-box">
+                    <label>Labeled</label>
+                    <strong style="color: #28a745;" id="labeled-count">0</strong>
+                </div>
+                <div class="stat-box">
+                    <label>Success Rate</label>
+                    <strong style="color: #007bff;" id="success-rate">0%</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h2>🎮 Labeling Control</h2>
+
+            <div class="control-row">
+                <div class="form-group">
+                    <label>Data Source</label>
+                    <select id="data-source">
+                        <option value="lcsc">LCSC Database</option>
+                        <option value="digikey">DigiKey Orders</option>
+                        <option value="mouser">Mouser Orders</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Sample Count</label>
+                    <input type="number" id="sample-count" value="10" min="1" max="1000">
+                </div>
+                <div class="form-group">
+                    <label>Category (optional)</label>
+                    <input type="text" id="category-filter" placeholder="e.g., Resistors">
+                </div>
+                <button class="btn btn-start" id="btn-start" onclick="startLabeling()">
+                    ▶️ Start Labeling
+                </button>
+                <button class="btn btn-stop" id="btn-stop" onclick="cancelLabeling()" disabled>
+                    ⏹️ Cancel & Keep
+                </button>
+                <button class="btn btn-stop" id="btn-discard" onclick="discardLabeling()" disabled style="background: #dc3545;">
+                    🗑️ Cancel & Discard
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn btn-save" onclick="downloadResults()">
+                    💾 Download Results
+                </button>
+                <button class="btn btn-load" onclick="loadResultsForReview()">
+                    📂 Load for Review
+                </button>
+                <button class="btn" style="background: #9c27b0; color: white;" onclick="prepareTrainingData()">
+                    🎓 Prepare Training Data
+                </button>
+                <div class="file-upload" onclick="document.getElementById('file-input').click()">
+                    <input type="file" id="file-input" accept=".jsonl" onchange="loadFile(event)">
+                    📁 Or load existing JSONL file
+                </div>
+            </div>
+        </div>
+
+        <div class="progress-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h2 style="font-size: 16px; margin: 0;">Progress</h2>
+                <span class="status-badge status-idle" id="status-badge">Idle</span>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <div class="progress-text">
+                <span id="progress-text">0 / 0 completed</span>
+                <span id="progress-percent">0%</span>
+            </div>
+
+            <div class="current-component" id="current-component" style="display: none;">
+                <div style="margin-bottom: 8px;">
+                    <strong>Currently labeling:</strong>
+                    <span id="current-title"></span>
+                </div>
+                <div id="current-description" style="padding: 10px; background: #fff; border-radius: 4px; font-size: 13px; color: #555; line-height: 1.5; border-left: 3px solid #007bff;"></div>
+            </div>
+        </div>
+
+        <div id="content"></div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let components = [];
+        let currentIndex = 0;
+        let reviewedComponents = [];
+
+        // Initialize - check service status
+        checkStatus();
+        setInterval(checkStatus, 5000);
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                // Update stats
+                document.getElementById('db-count').textContent =
+                    data.database.total_components?.toLocaleString() || '-';
+                document.getElementById('model-name').textContent =
+                    data.ollama.model || '-';
+                document.getElementById('labeled-count').textContent =
+                    data.stats.completed || 0;
+                const successRate = data.stats.success_rate || 0;
+                document.getElementById('success-rate').textContent =
+                    successRate.toFixed(1) + '%';
+
+                // Update UI state
+                if (data.active) {
+                    document.getElementById('btn-start').disabled = true;
+                    document.getElementById('btn-stop').disabled = false;
+                    document.getElementById('btn-discard').disabled = false;
+                    document.getElementById('status-badge').textContent = 'Running';
+                    document.getElementById('status-badge').className = 'status-badge status-running';
+                } else {
+                    document.getElementById('btn-start').disabled = false;
+                    document.getElementById('btn-stop').disabled = true;
+                    document.getElementById('btn-discard').disabled = true;
+                    document.getElementById('status-badge').textContent = 'Idle';
+                    document.getElementById('status-badge').className = 'status-badge status-idle';
+                }
+            } catch (error) {
+                console.error('Status check failed:', error);
+            }
+        }
+
+        async function startLabeling() {
+            const count = parseInt(document.getElementById('sample-count').value);
+            const category = document.getElementById('category-filter').value.trim();
+            const dataSource = document.getElementById('data-source').value;
+
+            try {
+                const response = await fetch('/api/label/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        count: count,
+                        category: category || null,
+                        data_source: dataSource
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log('Labeling started:', data);
+                    connectProgressStream();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Failed to start labeling: ' + error.message);
+            }
+        }
+
+        async function cancelLabeling() {
+            if (!confirm('Cancel the current labeling job? Progress will be saved.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/label/cancel', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(data.message);
+                    if (eventSource) {
+                        eventSource.close();
+                        eventSource = null;
+                    }
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Failed to cancel: ' + error.message);
+            }
+        }
+
+        function connectProgressStream() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/api/label/progress');
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.complete) {
+                    eventSource.close();
+                    eventSource = null;
+                    loadResultsAutomatically();
+                    return;
+                }
+
+                // Update progress
+                const stats = data.stats;
+                const progress = (stats.completed + stats.failed) / stats.total * 100;
+
+                document.getElementById('progress-fill').style.width = progress + '%';
+                document.getElementById('progress-text').textContent =
+                    `${stats.completed} / ${stats.total} completed (${stats.failed} failed)`;
+                document.getElementById('progress-percent').textContent =
+                    progress.toFixed(1) + '%';
+
+                // Show current component
+                if (data.current) {
+                    document.getElementById('current-component').style.display = 'block';
+                    document.getElementById('current-title').textContent =
+                        `[${data.current.index}/${stats.total}] ${data.current.title} (${data.current.category})`;
+                    document.getElementById('current-description').textContent =
+                        data.current.description || 'No description available';
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('EventSource error:', error);
+                eventSource.close();
+                eventSource = null;
+            };
+        }
+
+        async function loadResultsAutomatically() {
+            const response = await fetch('/api/label/results');
+            const data = await response.json();
+
+            if (data.count > 0) {
+                components = data.components;
+                currentIndex = 0;
+                reviewedComponents = [];
+
+                document.getElementById('content').innerHTML = `
+                    <div class="card">
+                        <h2>✅ Labeling Complete!</h2>
+                        <p>${data.count} components labeled successfully</p>
+                        <p style="margin-top: 20px;">
+                            <button class="btn btn-start" onclick="startReview()">
+                                Review Labels
+                            </button>
+                            <button class="btn btn-save" onclick="downloadResults()">
+                                💾 Download Results
+                            </button>
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadResultsForReview() {
+            const response = await fetch('/api/label/results');
+            const data = await response.json();
+
+            if (data.count === 0) {
+                alert('No results available. Start a labeling job first!');
+                return;
+            }
+
+            // Ensure all components have their description field populated
+            components = data.components.map(c => {
+                // If description is missing or generic, try to reconstruct from title
+                if (!c.description || c.description === 'No description available') {
+                    c.description = c.description || 'No description available';
+                }
+                return c;
+            });
+
+            currentIndex = 0;
+            reviewedComponents = [];
+            startReview();
+        }
+
+        function loadFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(l => l.trim());
+
+                components = lines.map(line => {
+                    try {
+                        return JSON.parse(line);
+                    } catch (e) {
+                        return null;
+                    }
+                }).filter(c => c !== null);
+
+                currentIndex = 0;
+                reviewedComponents = [];
+                startReview();
+            };
+
+            reader.readAsText(file);
+        }
+
+        function startReview() {
+            if (components.length === 0) {
+                alert('No components to review!');
+                return;
+            }
+            renderComponent();
+        }
+
+        function renderComponent() {
+            const content = document.getElementById('content');
+
+            if (currentIndex >= components.length) {
+                content.innerHTML = `
+                    <div class="card empty-state">
+                        <h2>🎉 Review Complete!</h2>
+                        <p>You've reviewed all ${components.length} components.</p>
+                        <p style="margin-top: 20px;">
+                            <button class="btn btn-save" onclick="saveReviewedData()">
+                                💾 Save Corrections
+                            </button>
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            const component = components[currentIndex];
+            const specs = component.extracted_specs || {};
+
+            console.log('renderComponent - rendering specs:', specs);
+
+            // Helper to escape HTML
+            const escapeHtml = (str) => {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            };
+
+            let specsHtml = '';
+            for (const [key, value] of Object.entries(specs)) {
+                // Convert value to string if it's an object
+                let displayValue = value;
+                if (value !== null && typeof value === 'object') {
+                    displayValue = JSON.stringify(value);
+                } else if (value === null || value === undefined) {
+                    displayValue = '';
+                }
+
+                // Escape for HTML attribute
+                const escapedValue = escapeHtml(displayValue);
+                const escapedKey = escapeHtml(key);
+
+                specsHtml += `
+                    <div class="spec-field" style="display: flex; gap: 8px; align-items: center;">
+                        <div style="flex: 1;">
+                            <label>${formatLabel(key)}</label>
+                            <input type="text" id="spec-${escapedKey}" value="${escapedValue}"
+                                   placeholder="Enter correct value or leave empty">
+                        </div>
+                        <button
+                            onclick="removeSpecField('${key.replace(/'/g, "\\'")}')"
+                            style="padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin-top: 20px;"
+                            title="Remove this field">
+                            ❌
+                        </button>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = `
+                <div class="card">
+                    <div class="component-title">${component.title}</div>
+
+                    <div class="component-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Part Number</span>
+                            <span class="meta-value">${component.mpn || 'N/A'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Category</span>
+                            <span class="meta-value">${component.main_category}/${component.subcategory}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Package</span>
+                            <span class="meta-value">${component.package || 'N/A'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Manufacturer</span>
+                            <span class="meta-value">${component.manufacturer || 'N/A'}</span>
+                        </div>
+                    </div>
+
+                    ${component.description ? `
+                    <div style="margin: 20px 0; padding: 15px; background: #fff9e6; border-left: 4px solid #ffc107; border-radius: 4px;">
+                        <h3 style="font-size: 14px; margin-bottom: 8px; color: #856404;">
+                            📝 Original Description
+                        </h3>
+                        <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0;">
+                            ${component.description}
+                        </p>
+                    </div>
+                    ` : ''}
+
+                    ${component.attributes && Object.keys(component.attributes).length > 0 ? `
+                    <div style="margin: 20px 0; padding: 15px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                        <h3 style="font-size: 14px; margin-bottom: 10px; color: #2e7d32;">
+                            💡 Database Attributes (click + to add to extracted specs)
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; font-size: 13px;">
+                            ${Object.entries(component.attributes).map(([key, value]) => {
+                                if (!value || value === '-') return '';
+
+                                // Check if this attribute is already in extracted specs
+                                const specKey = key.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '_');
+                                const alreadyAdded = component.extracted_specs && component.extracted_specs[specKey];
+
+                                return `
+                                <div style="padding: 6px 10px; background: white; border-radius: 4px; border: 1px solid #c8e6c9; display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <strong style="color: #2e7d32;">${key}:</strong>
+                                        <span style="color: #555;">${value}</span>
+                                    </div>
+                                    ${alreadyAdded ? `
+                                        <span style="margin-left: 8px; padding: 2px 8px; background: #e0e0e0; color: #666; border-radius: 3px; font-size: 12px;">
+                                            ✓ Added
+                                        </span>
+                                    ` : `
+                                        <button
+                                            onclick="addAttributeToSpecs('${key.replace(/'/g, "\\'")}', '${String(value).replace(/'/g, "\\'")}')"
+                                            style="margin-left: 8px; padding: 2px 8px; background: #4caf50; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;"
+                                            title="Add to extracted specs">
+                                            +
+                                        </button>
+                                    `}
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin: 10px 0 0 0; font-style: italic;">
+                            These are the actual specifications from the database. Click + to add any missing fields to the extracted specs.
+                        </p>
+                    </div>
+                    ` : ''}
+
+                    <div style="margin: 20px 0;">
+                        <h3 style="font-size: 16px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>🤖 Extracted Specifications (${component.labeled_by || 'unknown'})</span>
+                            <button class="btn btn-load" onclick="showAddCustomFieldInputs()" style="font-size: 13px; padding: 6px 12px;">
+                                ➕ Add Custom Field
+                            </button>
+                        </h3>
+                        <div class="spec-grid" id="spec-grid-container">
+                            ${specsHtml}
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                        <button class="btn btn-start" onclick="markCorrect()">✓ Correct</button>
+                        <button class="btn btn-stop" onclick="markIncorrect()">✗ Incorrect</button>
+                        <button class="btn btn-load" onclick="skip()">→ Skip</button>
+                        <button class="btn btn-save" style="margin-left: auto;" onclick="saveAndNext()">💾 Save & Next</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatLabel(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function convertToSnakeCase(str) {
+            return str.toLowerCase()
+                .replace(/[^\w\s]/g, '') // Remove special chars
+                .replace(/\s+/g, '_');   // Replace spaces with underscore
+        }
+
+        function addAttributeToSpecs(attrKey, attrValue) {
+            try {
+                console.log('addAttributeToSpecs called:', attrKey, '=', attrValue);
+                const component = components[currentIndex];
+                const specKey = convertToSnakeCase(attrKey);
+
+                console.log('Converted to spec key:', specKey);
+
+                // Check if this spec already exists
+                if (component.extracted_specs && component.extracted_specs[specKey]) {
+                    alert(`This field already exists as "${formatLabel(specKey)}"`);
+                    return;
+                }
+
+                // Add to extracted specs
+                if (!component.extracted_specs) {
+                    component.extracted_specs = {};
+                }
+                component.extracted_specs[specKey] = attrValue;
+
+                console.log('Updated extracted_specs:', component.extracted_specs);
+
+                // Track that this field came from attributes (for restore functionality)
+                if (!component._addedFromAttributes) {
+                    component._addedFromAttributes = [];
+                }
+                component._addedFromAttributes.push({
+                    key: specKey,
+                    originalKey: attrKey,
+                    value: attrValue
+                });
+
+                // Update components array
+                components[currentIndex] = component;
+
+                // Re-render the component to show the new field
+                renderComponent();
+
+                // Highlight the newly added field
+                setTimeout(() => {
+                    const newInput = document.getElementById(`spec-${specKey}`);
+                    if (newInput) {
+                        newInput.focus();
+                        newInput.style.background = '#ffffcc';
+                        setTimeout(() => {
+                            newInput.style.background = '';
+                        }, 1500);
+                    } else {
+                        console.error('Could not find input for spec:', specKey);
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Error in addAttributeToSpecs:', error);
+                alert('Error adding field: ' + error.message);
+            }
+        }
+
+        function removeSpecField(specKey) {
+            const component = components[currentIndex];
+
+            if (!component.extracted_specs || !component.extracted_specs[specKey]) {
+                return;
+            }
+
+            // Remove from extracted specs
+            delete component.extracted_specs[specKey];
+
+            // Remove from tracking array if it was added from attributes
+            if (component._addedFromAttributes) {
+                component._addedFromAttributes = component._addedFromAttributes.filter(
+                    item => item.key !== specKey
+                );
+            }
+
+            // Update components array
+            components[currentIndex] = component;
+
+            // Re-render to update the UI
+            renderComponent();
+        }
+
+        function showAddCustomFieldInputs() {
+            console.log('showAddCustomFieldInputs called');
+
+            // Check if inputs already exist
+            let inputsDiv = document.getElementById('custom-field-inputs');
+            if (inputsDiv) {
+                console.log('Custom field inputs already exist, showing them');
+                inputsDiv.style.display = 'flex';
+                const nameInput = document.getElementById('custom-field-name');
+                const valueInput = document.getElementById('custom-field-value');
+                if (nameInput && valueInput) {
+                    nameInput.value = '';
+                    valueInput.value = '';
+                    // Use setTimeout to ensure focus happens after any DOM updates
+                    setTimeout(() => {
+                        nameInput.focus();
+                        nameInput.select();
+                    }, 50);
+                }
+                return;
+            }
+
+            // Create the custom field input section
+            const container = document.getElementById('spec-grid-container');
+            if (!container) {
+                console.error('spec-grid-container not found');
+                return;
+            }
+
+            console.log('Creating new custom field inputs');
+            inputsDiv = document.createElement('div');
+            inputsDiv.id = 'custom-field-inputs';
+            inputsDiv.className = 'spec-field';
+            inputsDiv.style.display = 'flex';
+            inputsDiv.style.gap = '8px';
+            inputsDiv.style.alignItems = 'center';
+
+            inputsDiv.innerHTML = `
+                <div style="flex: 1; display: flex; gap: 8px; flex-direction: column;">
+                    <input type="text" id="custom-field-name"
+                           placeholder="Field name (e.g., rows, voltage_rating)"
+                           style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <input type="text" id="custom-field-value"
+                           placeholder="Field value (e.g., 2, 5V)"
+                           style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button onclick="saveCustomField()"
+                            style="padding: 6px 12px; background: #4caf50; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;"
+                            title="Save custom field">
+                        ✓
+                    </button>
+                    <button onclick="cancelCustomField()"
+                            style="padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;"
+                            title="Cancel">
+                        ✕
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(inputsDiv);
+
+            // Use setTimeout to ensure the DOM is fully updated before focusing
+            setTimeout(() => {
+                const nameInput = document.getElementById('custom-field-name');
+                if (nameInput) {
+                    nameInput.focus();
+                    nameInput.select();
+                    console.log('Focused on custom-field-name input');
+                } else {
+                    console.error('custom-field-name input not found after creation');
+                }
+            }, 50);
+        }
+
+        function cancelCustomField() {
+            const inputsDiv = document.getElementById('custom-field-inputs');
+            if (inputsDiv) {
+                inputsDiv.style.display = 'none';
+            }
+        }
+
+        function saveCustomField() {
+            const fieldName = document.getElementById('custom-field-name').value.trim();
+            const fieldValue = document.getElementById('custom-field-value').value.trim();
+
+            if (!fieldName) {
+                alert('Please enter a field name');
+                return;
+            }
+
+            const component = components[currentIndex];
+            const specKey = convertToSnakeCase(fieldName);
+
+            console.log('Adding custom field:', specKey, '=', fieldValue);
+
+            // Check if this spec already exists
+            if (component.extracted_specs && component.extracted_specs[specKey]) {
+                alert(`This field already exists as "${formatLabel(specKey)}"`);
+                return;
+            }
+
+            // Add to extracted specs
+            if (!component.extracted_specs) {
+                component.extracted_specs = {};
+            }
+            component.extracted_specs[specKey] = fieldValue;
+
+            console.log('Component extracted_specs after adding:', component.extracted_specs);
+
+            // Update the components array reference
+            components[currentIndex] = component;
+
+            // Hide the input fields
+            cancelCustomField();
+
+            // Re-render the component to show the new field
+            renderComponent();
+
+            // Highlight the newly added field
+            setTimeout(() => {
+                const newInput = document.getElementById(`spec-${specKey}`);
+                if (newInput) {
+                    newInput.focus();
+                    newInput.style.background = '#ffffcc';
+                    setTimeout(() => {
+                        newInput.style.background = '';
+                    }, 1500);
+                }
+            }, 100);
+        }
+
+        function getCurrentSpecs() {
+            const component = components[currentIndex];
+            const specs = {};
+            for (const key of Object.keys(component.extracted_specs || {})) {
+                const input = document.getElementById(`spec-${key}`);
+                if (input) {
+                    const value = input.value.trim();
+                    specs[key] = value === '' ? null : value;
+                }
+            }
+            return specs;
+        }
+
+        function markCorrect() {
+            const component = { ...components[currentIndex] };
+            component.review_status = 'correct';
+            component.reviewed_at = new Date().toISOString();
+            component.corrected_specs = component.extracted_specs;
+            reviewedComponents.push(component);
+            nextComponent();
+        }
+
+        function markIncorrect() {
+            const component = { ...components[currentIndex] };
+            component.review_status = 'incorrect';
+            component.reviewed_at = new Date().toISOString();
+            component.corrected_specs = getCurrentSpecs();
+            reviewedComponents.push(component);
+            nextComponent();
+        }
+
+        function skip() {
+            nextComponent();
+        }
+
+        function saveAndNext() {
+            const component = { ...components[currentIndex] };
+            component.reviewed_at = new Date().toISOString();
+            component.corrected_specs = getCurrentSpecs();
+
+            const extracted = JSON.stringify(component.extracted_specs);
+            const corrected = JSON.stringify(component.corrected_specs);
+            component.review_status = extracted === corrected ? 'correct' : 'incorrect';
+
+            reviewedComponents.push(component);
+            nextComponent();
+        }
+
+        function nextComponent() {
+            currentIndex++;
+            renderComponent();
+        }
+
+        async function downloadResults() {
+            const response = await fetch('/api/label/results');
+            const data = await response.json();
+
+            if (data.count === 0) {
+                alert('No results to download!');
+                return;
+            }
+
+            const jsonl = data.components.map(c => JSON.stringify(c)).join('\n');
+            const blob = new Blob([jsonl], { type: 'application/jsonl' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `labeled_${new Date().toISOString().split('T')[0]}.jsonl`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function prepareTrainingData() {
+            if (!confirm('This will prepare training data from all reviewed JSONL files in data/labeled/. Continue?')) {
+                return;
+            }
+
+            try {
+                const btn = event.target;
+                btn.disabled = true;
+                btn.textContent = '⏳ Preparing...';
+
+                const response = await fetch('/api/training/prepare', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    alert(
+                        `Training data prepared successfully!\n\n` +
+                        `Total examples: ${result.stats.total_examples || 'N/A'}\n` +
+                        `Total specs: ${result.stats.total_specs || 'N/A'}\n` +
+                        `Avg specs per example: ${result.stats.avg_specs || 'N/A'}\n\n` +
+                        `File: ${result.training_file || 'data/training/'}`
+                    );
+                } else {
+                    alert(`Error: ${result.error || 'Failed to prepare training data'}\n\n${result.details || ''}`);
+                }
+            } catch (error) {
+                alert(`Error preparing training data: ${error.message}`);
+            } finally {
+                const btn = event.target;
+                btn.disabled = false;
+                btn.textContent = '🎓 Prepare Training Data';
+            }
+        }
+
+        async function saveReviewedData() {
+            if (reviewedComponents.length === 0) {
+                alert('No reviewed components to save!');
+                return;
+            }
+
+            const response = await fetch('/api/label/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    reviewed_components: reviewedComponents
+                })
+            });
+
+            const data = await response.json();
+            alert(`Saved ${data.count} reviewed components to ${data.file}`);
+        }
+
+        // Show empty state initially
+        document.getElementById('content').innerHTML = `
+            <div class="card empty-state">
+                <h2>👆 Start a labeling job or load a file</h2>
+                <p>Use the controls above to begin</p>
+            </div>
+        `;
+    </script>
+</body>
+</html>
