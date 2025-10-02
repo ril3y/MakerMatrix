@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlmodel import Session
 
 from MakerMatrix.models.models import CategoryModel, LocationQueryModel, AdvancedPartSearch
+from MakerMatrix.models.part_allocation_models import PartLocationAllocation
 from MakerMatrix.exceptions import ResourceNotFoundError, PartAlreadyExistsError
 from MakerMatrix.repositories.parts_repositories import PartRepository, handle_categories
 from MakerMatrix.models.models import PartModel
@@ -141,12 +142,29 @@ class PartService(BaseService):
                 if not found_part:
                     return self.error_response(f"{self.entity_name} not found using {identifier_type} '{identifier_value}'")
 
-                # Log old quantity before update
-                old_quantity = found_part.quantity
-                
-                # Update the quantity using repository method
-                self.part_repo.update_quantity(session, found_part.id, new_quantity)
-                
+                # Get old quantity from computed property
+                old_quantity = found_part.total_quantity
+
+                # Update the primary allocation quantity
+                if not found_part.allocations:
+                    return self.error_response(f"Part '{found_part.part_name}' has no allocations. Cannot update quantity.")
+
+                # Find primary allocation or use first allocation
+                primary_alloc = next(
+                    (alloc for alloc in found_part.allocations if alloc.is_primary_storage),
+                    found_part.allocations[0] if found_part.allocations else None
+                )
+
+                if not primary_alloc:
+                    return self.error_response(f"Part '{found_part.part_name}' has no primary allocation.")
+
+                # Update the allocation quantity
+                primary_alloc.quantity_at_location = new_quantity
+                from datetime import datetime
+                primary_alloc.last_updated = datetime.utcnow()
+                session.add(primary_alloc)
+                session.commit()
+
                 return self.success_response(
                     f"Quantity updated for part '{found_part.part_name}': {old_quantity} → {new_quantity}",
                     True
@@ -316,10 +334,14 @@ class PartService(BaseService):
                 if datasheets_data:
                     self.logger.debug(f"Processing {len(datasheets_data)} datasheets for part '{part_name}'")
                 
-                # Filter out only valid PartModel fields
+                # Extract allocation data BEFORE filtering (these are not PartModel fields anymore)
+                allocation_quantity = part_data.pop('quantity', 0)
+                allocation_location_id = part_data.pop('location_id', None)
+
+                # Filter out only valid PartModel fields (removed 'quantity' and 'location_id')
                 valid_part_fields = {
-                    'part_number', 'part_name', 'description', 'quantity', 
-                    'supplier', 'supplier_part_number', 'supplier_url', 'location_id', 'image_url', 'additional_properties',
+                    'part_number', 'part_name', 'description',
+                    'supplier', 'supplier_part_number', 'supplier_url', 'image_url', 'additional_properties',
                     # Pricing fields
                     'unit_price', 'currency', 'pricing_data',
                     # Enhanced fields from PartModel
@@ -334,8 +356,8 @@ class PartService(BaseService):
                 filtered_part_data = {}
                 for key, value in part_data.items():
                     if key in valid_part_fields:
-                        # Convert empty strings to None for optional fields
-                        if value == "" and key in ['location_id', 'image_url', 'description', 'part_number', 'supplier', 'supplier_part_number', 'supplier_url',
+                        # Convert empty strings to None for optional fields (removed location_id - no longer a part field)
+                        if value == "" and key in ['image_url', 'description', 'part_number', 'supplier', 'supplier_part_number', 'supplier_url',
                                                   'manufacturer', 'manufacturer_part_number', 'component_type',
                                                   'package', 'mounting_type',
                                                   'price_source', 'enrichment_source']:
@@ -363,7 +385,22 @@ class PartService(BaseService):
                 
                 # Use repository to create the part
                 part_obj = self.part_repo.add_part(session, new_part)
-                
+
+                # Create allocation if location_id and quantity provided
+                if allocation_location_id and allocation_quantity > 0:
+                    allocation = PartLocationAllocation(
+                        part_id=part_obj.id,
+                        location_id=allocation_location_id,
+                        quantity_at_location=allocation_quantity,
+                        is_primary_storage=True,
+                        notes="Initial allocation from part creation"
+                    )
+                    session.add(allocation)
+                    session.commit()
+                    session.refresh(part_obj)  # Refresh to load the new allocation
+
+                    self.logger.info(f"Created allocation for part '{part_name}': {allocation_quantity} units at location {allocation_location_id}")
+
                 # Create datasheet records if any
                 if datasheets_data:
                     from MakerMatrix.repositories.datasheet_repository import DatasheetRepository
@@ -375,20 +412,33 @@ class PartService(BaseService):
                     self.logger.info(f"Added {len(datasheets_data)} datasheets to part '{part_name}'")
                 
                 self.logger.info(f"Successfully created part: {part_name} (ID: {part_obj.id}) with {len(categories)} categories")
-                
-                # Create a safe dict without accessing potentially unloaded relationships
+
+                # Create a safe dict using computed properties for quantity and location
                 safe_part_dict = {
                     "id": part_obj.id,
                     "part_name": part_obj.part_name,
                     "part_number": part_obj.part_number,
                     "description": part_obj.description,
-                    "quantity": part_obj.quantity,
+                    "quantity": part_obj.total_quantity,  # Computed from allocations
                     "supplier": part_obj.supplier,
-                    "location_id": part_obj.location_id,
                     "image_url": part_obj.image_url,
                     "categories": [{"id": cat.id, "name": cat.name} for cat in categories] if categories else []
                 }
-                
+
+                # Add location from computed property if available
+                primary_loc = part_obj.primary_location
+                if primary_loc:
+                    safe_part_dict["location"] = {
+                        "id": primary_loc.id,
+                        "name": primary_loc.name,
+                        "description": primary_loc.description,
+                        "location_type": primary_loc.location_type
+                    }
+                    safe_part_dict["location_id"] = primary_loc.id
+                else:
+                    safe_part_dict["location"] = None
+                    safe_part_dict["location_id"] = None
+
                 return self.success_response("Part added successfully", safe_part_dict)
 
         except Exception as e:
@@ -587,32 +637,76 @@ class PartService(BaseService):
                                         self.logger.warning(f"Category object missing name attribute: {cat}")
                                 except Exception as e:
                                     self.logger.error(f"Error accessing category data: {e}")
-                        
+
                         categories = handle_categories(session, value)
                         part.categories.clear()  # Clear existing categories
                         part.categories.extend(categories)  # Add new categories
-                        
+
                         # Use repository to update the part
                         part = self.part_repo.update_part(session, part)
-                        
+
                         new_categories = [cat.name for cat in categories if hasattr(cat, 'name')]
                         self.logger.info(f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}")
                         updated_fields.append(f"categories: {old_categories} → {new_categories}")
+                    elif key == "quantity":
+                        # Special handling for quantity - update primary allocation
+                        old_quantity = part.total_quantity
+
+                        if not part.allocations:
+                            self.logger.warning(f"Part '{part.part_name}' has no allocations. Skipping quantity update.")
+                            continue
+
+                        # Find primary allocation or use first
+                        primary_alloc = next(
+                            (alloc for alloc in part.allocations if alloc.is_primary_storage),
+                            part.allocations[0] if part.allocations else None
+                        )
+
+                        if primary_alloc:
+                            primary_alloc.quantity_at_location = value
+                            from datetime import datetime
+                            primary_alloc.last_updated = datetime.utcnow()
+                            session.add(primary_alloc)
+                            self.logger.info(f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_quantity} → {value}")
+                            updated_fields.append(f"quantity: {old_quantity} → {value}")
+                    elif key == "location_id":
+                        # Special handling for location_id - move primary allocation to new location
+                        old_location = part.primary_location
+                        old_location_name = old_location.name if old_location else "None"
+
+                        if not part.allocations:
+                            # No allocations exist - create new allocation at this location
+                            allocation = PartLocationAllocation(
+                                part_id=part.id,
+                                location_id=value,
+                                quantity_at_location=0,
+                                is_primary_storage=True,
+                                notes="Location updated from part edit"
+                            )
+                            session.add(allocation)
+                            self.logger.info(f"Created new allocation at location {value} for part '{part.part_name}' (ID: {part_id})")
+                        else:
+                            # Update primary allocation location
+                            primary_alloc = next(
+                                (alloc for alloc in part.allocations if alloc.is_primary_storage),
+                                part.allocations[0] if part.allocations else None
+                            )
+
+                            if primary_alloc:
+                                primary_alloc.location_id = value
+                                from datetime import datetime
+                                primary_alloc.last_updated = datetime.utcnow()
+                                session.add(primary_alloc)
+                                self.logger.info(f"Updated location for part '{part.part_name}' (ID: {part_id}): {old_location_name} → {value}")
+
+                        updated_fields.append(f"location: {old_location_name} → {value}")
                     elif hasattr(part, key):
                         try:
                             old_value = getattr(part, key)
                             setattr(part, key, value)
-                            
+
                             # Log specific field updates with meaningful messages
-                            if key == "location_id":
-                                old_location = old_value
-                                new_location = value
-                                self.logger.info(f"Updated location for part '{part.part_name}' (ID: {part_id}): {old_location} → {new_location}")
-                                updated_fields.append(f"location: {old_location} → {new_location}")
-                            elif key == "quantity":
-                                self.logger.info(f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}")
-                                updated_fields.append(f"quantity: {old_value} → {value}")
-                            elif key == "part_name":
+                            if key == "part_name":
                                 self.logger.info(f"Updated part name (ID: {part_id}): '{old_value}' → '{value}'")
                                 updated_fields.append(f"name: '{old_value}' → '{value}'")
                             elif key == "supplier":
