@@ -16,7 +16,7 @@ from MakerMatrix.models.enrichment_requirement_models import (
     EnrichmentRequirements, FieldRequirement, RequirementSeverity,
     FieldCheck, EnrichmentRequirementCheck
 )
-from MakerMatrix.suppliers.registry import get_supplier_by_name
+from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class EnrichmentRequirementValidator:
             EnrichmentRequirements if supplier supports it, None otherwise
         """
         try:
-            supplier = get_supplier_by_name(supplier_name)
+            supplier = get_supplier(supplier_name)
             if not supplier:
                 self.logger.warning(f"Supplier '{supplier_name}' not found")
                 return None
@@ -240,11 +240,9 @@ class EnrichmentRequirementValidator:
         Returns:
             Dictionary mapping supplier names to their EnrichmentRequirements
         """
-        from MakerMatrix.suppliers.registry import get_all_supplier_names
-
         requirements = {}
 
-        for supplier_name in get_all_supplier_names():
+        for supplier_name in get_available_suppliers():
             supplier_reqs = self.get_supplier_requirements(supplier_name)
             if supplier_reqs:
                 requirements[supplier_name] = supplier_reqs
