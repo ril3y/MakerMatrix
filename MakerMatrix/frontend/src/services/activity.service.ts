@@ -80,16 +80,25 @@ export class ActivityService {
   formatActivityAction(action: string): string {
     const actionMap: Record<string, string> = {
       'created': 'Created',
-      'updated': 'Updated', 
+      'updated': 'Updated',
       'deleted': 'Deleted',
       'printed': 'Printed',
       'registered': 'Registered',
       'imported': 'Imported',
       'exported': 'Exported',
       'logged_in': 'Logged in',
-      'logged_out': 'Logged out'
+      'logged_out': 'Logged out',
+      'enriched': 'Enriched',
+      'enrichment_failed': 'Enrichment Failed',
+      'bulk_enriched': 'Bulk Enriched',
+      'datasheet_downloaded': 'Datasheet Downloaded',
+      'image_downloaded': 'Image Downloaded',
+      'completed': 'Completed',
+      'failed': 'Failed',
+      'cancelled': 'Cancelled',
+      'tested': 'Tested'
     }
-    
+
     return actionMap[action] || action.charAt(0).toUpperCase() + action.slice(1)
   }
 
@@ -101,9 +110,14 @@ export class ActivityService {
       'location': 'Location',
       'category': 'Category',
       'user': 'User',
-      'csv': 'CSV File'
+      'csv': 'CSV File',
+      'order': 'Order',
+      'task': 'Task',
+      'settings': 'Settings',
+      'ai_config': 'AI Config',
+      'supplier_config': 'Supplier Config'
     }
-    
+
     return typeMap[entityType] || entityType.charAt(0).toUpperCase() + entityType.slice(1)
   }
 
@@ -126,9 +140,18 @@ export class ActivityService {
       'imported': '📥',
       'exported': '📤',
       'logged_in': '🔑',
-      'logged_out': '🚪'
+      'logged_out': '🚪',
+      'enriched': '✨',
+      'enrichment_failed': '⚠️',
+      'bulk_enriched': '🌟',
+      'datasheet_downloaded': '📄',
+      'image_downloaded': '🖼️',
+      'completed': '✅',
+      'failed': '❌',
+      'cancelled': '🚫',
+      'tested': '🧪'
     }
-    
+
     return iconMap[activity.action] || '📋'
   }
 
@@ -143,9 +166,18 @@ export class ActivityService {
       'imported': 'text-orange-600',
       'exported': 'text-teal-600',
       'logged_in': 'text-green-500',
-      'logged_out': 'text-gray-500'
+      'logged_out': 'text-gray-500',
+      'enriched': 'text-cyan-600',
+      'enrichment_failed': 'text-red-500',
+      'bulk_enriched': 'text-cyan-700',
+      'datasheet_downloaded': 'text-blue-500',
+      'image_downloaded': 'text-pink-500',
+      'completed': 'text-green-600',
+      'failed': 'text-red-600',
+      'cancelled': 'text-gray-600',
+      'tested': 'text-purple-500'
     }
-    
+
     return colorMap[activity.action] || 'text-gray-600'
   }
 

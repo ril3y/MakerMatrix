@@ -27,8 +27,21 @@ def test_create_part(session):
     session.commit()
     session.refresh(location)
 
-    part = PartModel(part_number="12345", part_name="Resistor", quantity=100, location_id=location.id)
+    # Create part (no longer has location_id and quantity fields)
+    part = PartModel(part_number="12345", part_name="Resistor")
     session.add(part)
+    session.commit()
+    session.refresh(part)
+
+    # Create allocation (replaces old location_id and quantity)
+    from MakerMatrix.models.part_allocation_models import PartLocationAllocation
+    allocation = PartLocationAllocation(
+        part_id=part.id,
+        location_id=location.id,
+        quantity_at_location=100,
+        is_primary_storage=True
+    )
+    session.add(allocation)
     session.commit()
     session.refresh(part)
 
@@ -36,9 +49,10 @@ def test_create_part(session):
 
     assert fetched_part is not None
     assert fetched_part.part_number == "12345"
-    assert fetched_part.location.name == "Warehouse A"
+    assert fetched_part.primary_location.name == "Warehouse A"  # Use computed property
+    assert fetched_part.total_quantity == 100  # Use computed property
 
-    # Verify the part was properly created with location
+    # Verify the part was properly created with allocation
 
 
 # Test function to verify if we can create and read a location model
@@ -63,7 +77,8 @@ def test_create_category_and_assign_to_part(session):
     session.commit()
     session.refresh(category)
 
-    part = PartModel(part_number="54321", part_name="Capacitor", quantity=200, categories=[category])
+    # Create part without quantity (no longer a field)
+    part = PartModel(part_number="54321", part_name="Capacitor", categories=[category])
     session.add(part)
     session.commit()
     session.refresh(part)
@@ -77,23 +92,45 @@ def test_create_category_and_assign_to_part(session):
     # Verify the category was properly assigned
 
 
-# Test updating a part's quantity
+# Test updating a part's quantity via allocation
 def test_update_part_quantity(session):
-    part = PartModel(part_number="11111", part_name="Inductor", quantity=50)
+    from MakerMatrix.models.part_allocation_models import PartLocationAllocation
+
+    # Create location
+    location = LocationModel(name="Test Location")
+    session.add(location)
+    session.commit()
+
+    # Create part (no longer has quantity field)
+    part = PartModel(part_number="11111", part_name="Inductor")
     session.add(part)
     session.commit()
     session.refresh(part)
 
-    # Update the quantity
-    part.quantity = 75
-    session.add(part)
+    # Create allocation with initial quantity
+    allocation = PartLocationAllocation(
+        part_id=part.id,
+        location_id=location.id,
+        quantity_at_location=50,
+        is_primary_storage=True
+    )
+    session.add(allocation)
+    session.commit()
+    session.refresh(part)
+
+    # Verify initial quantity
+    assert part.total_quantity == 50
+
+    # Update the allocation quantity
+    allocation.quantity_at_location = 75
+    session.add(allocation)
     session.commit()
     session.refresh(part)
 
     fetched_part = session.get(PartModel, part.id)
 
     assert fetched_part is not None
-    assert fetched_part.quantity == 75
+    assert fetched_part.total_quantity == 75  # Use computed property
 
     # Verify the update was successful
 
@@ -210,14 +247,23 @@ def test_create_nested_locations_with_categories_and_parts(session):
     session.refresh(hardware_category)
     session.refresh(electronic_components_category)
 
-    # Create Parts
-    screw = PartModel(part_number="S1234", part_name="Screw", quantity=500, location_id=drawer_1.id,
-                      categories=[hardware_category])
-    resistor = PartModel(part_number="R5678", part_name="Resistor", quantity=1000, location_id=drawer_2.id,
-                         categories=[electronic_components_category])
-    microcontroller = PartModel(part_number="MCU910", part_name="Microcontroller", quantity=50, location_id=desk.id,
-                                categories=[electronic_components_category])
+    # Create Parts (without quantity and location_id - use allocations instead)
+    from MakerMatrix.models.part_allocation_models import PartLocationAllocation
+
+    screw = PartModel(part_number="S1234", part_name="Screw", categories=[hardware_category])
+    resistor = PartModel(part_number="R5678", part_name="Resistor", categories=[electronic_components_category])
+    microcontroller = PartModel(part_number="MCU910", part_name="Microcontroller", categories=[electronic_components_category])
     session.add_all([screw, resistor, microcontroller])
+    session.commit()
+    session.refresh(screw)
+    session.refresh(resistor)
+    session.refresh(microcontroller)
+
+    # Create allocations for parts
+    screw_alloc = PartLocationAllocation(part_id=screw.id, location_id=drawer_1.id, quantity_at_location=500, is_primary_storage=True)
+    resistor_alloc = PartLocationAllocation(part_id=resistor.id, location_id=drawer_2.id, quantity_at_location=1000, is_primary_storage=True)
+    micro_alloc = PartLocationAllocation(part_id=microcontroller.id, location_id=desk.id, quantity_at_location=50, is_primary_storage=True)
+    session.add_all([screw_alloc, resistor_alloc, micro_alloc])
     session.commit()
     session.refresh(screw)
     session.refresh(resistor)
@@ -234,9 +280,10 @@ def test_create_nested_locations_with_categories_and_parts(session):
     assert any(room.name == "Room 101" for room in fetched_building.children)
     assert any(room.name == "Room 102" for room in fetched_building.children)
     
-    # Check that parts are properly assigned to locations
+    # Check that parts are properly assigned to locations via allocations
     all_parts = session.exec(select(PartModel)).all()
     assert len(all_parts) == 3
-    assert any(part.part_name == "Screw" and part.location_id == drawer_1.id for part in all_parts)
-    assert any(part.part_name == "Resistor" and part.location_id == drawer_2.id for part in all_parts)
-    assert any(part.part_name == "Microcontroller" and part.location_id == desk.id for part in all_parts)
+    # Check using primary_location computed property instead of location_id
+    assert any(part.part_name == "Screw" and part.primary_location and part.primary_location.id == drawer_1.id for part in all_parts)
+    assert any(part.part_name == "Resistor" and part.primary_location and part.primary_location.id == drawer_2.id for part in all_parts)
+    assert any(part.part_name == "Microcontroller" and part.primary_location and part.primary_location.id == desk.id for part in all_parts)

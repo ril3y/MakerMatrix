@@ -87,19 +87,11 @@ class PartModel(SQLModel, table=True):
     component_type: Optional[str] = Field(default=None, index=True, description="Part type: resistor, capacitor, screwdriver, etc.")
     
     # === CURRENT INVENTORY ===
-    quantity: Optional[int] = None
-    location_id: Optional[str] = Field(
-        default=None,
-        sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="SET NULL"))
-    )
+    # NOTE: Quantity and location are managed through allocations (PartLocationAllocation)
+    # Use part.total_quantity and part.primary_location computed properties instead
     supplier: Optional[str] = None  # Primary/preferred supplier
     supplier_part_number: Optional[str] = Field(default=None, index=True, description="Supplier's part number for API calls (e.g., LCSC: C25804, DigiKey: 296-1234-ND)")
     supplier_url: Optional[str] = None  # URL to supplier product page
-
-    location: Optional["LocationModel"] = Relationship(
-        back_populates="parts",
-        sa_relationship_kwargs={"lazy": "selectin"}
-    )
 
     # === MEDIA ===
     image_url: Optional[str] = None
@@ -126,9 +118,15 @@ class PartModel(SQLModel, table=True):
         link_model=PartCategoryLink,
         sa_relationship_kwargs={"lazy": "selectin"}
     )
-    
+
     # Datasheet files (one-to-many relationship)
     datasheets: List["DatasheetModel"] = Relationship(
+        back_populates="part",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+    )
+
+    # === MULTI-LOCATION ALLOCATIONS (NEW) ===
+    allocations: List["PartLocationAllocation"] = Relationship(
         back_populates="part",
         sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
@@ -168,6 +166,73 @@ class PartModel(SQLModel, table=True):
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # === COMPUTED PROPERTIES FOR MULTI-LOCATION SUPPORT ===
+
+    @property
+    def total_quantity(self) -> int:
+        """
+        Calculate total quantity across all location allocations.
+
+        Returns 0 if no allocations exist.
+        """
+        if not hasattr(self, 'allocations') or not self.allocations:
+            return 0
+
+        return sum(alloc.quantity_at_location for alloc in self.allocations)
+
+    @property
+    def primary_location(self) -> Optional["LocationModel"]:
+        """
+        Get the primary storage location.
+
+        Returns the location marked as primary storage, or the first allocation if none marked.
+        Returns None if no allocations exist.
+        """
+        if not hasattr(self, 'allocations') or not self.allocations:
+            return None
+
+        # Find primary storage allocation
+        primary_alloc = next(
+            (alloc for alloc in self.allocations if alloc.is_primary_storage),
+            None
+        )
+
+        if primary_alloc:
+            return primary_alloc.location
+
+        # If no primary marked, return first allocation's location
+        if self.allocations:
+            return self.allocations[0].location
+
+        return None
+
+    def get_allocations_summary(self) -> Dict[str, Any]:
+        """
+        Get summary of all location allocations for UI display.
+
+        Returns:
+            {
+                "total_quantity": 4000,
+                "location_count": 2,
+                "primary_location": {...},
+                "allocations": [...]
+            }
+        """
+        if not hasattr(self, 'allocations') or not self.allocations:
+            return {
+                "total_quantity": 0,
+                "location_count": 0,
+                "primary_location": None,
+                "allocations": []
+            }
+
+        return {
+            "total_quantity": self.total_quantity,
+            "location_count": len(self.allocations),
+            "primary_location": self.primary_location.to_dict() if self.primary_location else None,
+            "allocations": [alloc.to_dict() for alloc in self.allocations]
+        }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> "PartModel":
@@ -212,8 +277,8 @@ class PartModel(SQLModel, table=True):
         
         # Always exclude metadata relationships unless specifically requested
         exclude_fields = {
-            "location", "enrichment_metadata", "pricing_history", "system_metadata",
-            "order_items", "order_summary"
+            "enrichment_metadata", "pricing_history", "system_metadata",
+            "order_items", "order_summary", "allocations"  # Allocations included separately if needed
         }
         
         # Datasheets are part of core part data (always included)
@@ -234,16 +299,20 @@ class PartModel(SQLModel, table=True):
             for category in self.categories
         ] if self.categories else []
         
-        # Always include location (core part data)
-        if hasattr(self, 'location') and self.location is not None:
+        # Always include primary location from allocations (core part data)
+        primary_loc = self.primary_location
+        if primary_loc:
             base_dict["location"] = {
-                "id": self.location.id,
-                "name": self.location.name,
-                "description": self.location.description,
-                "location_type": self.location.location_type
+                "id": primary_loc.id,
+                "name": primary_loc.name,
+                "description": primary_loc.description,
+                "location_type": primary_loc.location_type
             }
         else:
             base_dict["location"] = None
+
+        # Include total quantity from allocations
+        base_dict["quantity"] = self.total_quantity
         
         # Always include datasheets (core part data)
         if hasattr(self, 'datasheets') and self.datasheets:
@@ -579,3 +648,4 @@ if False:  # Type checking only - prevents circular imports at runtime
     from .category_models import CategoryModel
     from .order_models import OrderItemModel
     from .part_metadata_models import PartSystemMetadata
+    from .part_allocation_models import PartLocationAllocation

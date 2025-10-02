@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 # from MakerMatrix.repositories.base_repository import BaseRepository
 
 from MakerMatrix.models.models import PartModel, CategoryModel, AdvancedPartSearch
+from MakerMatrix.models.part_allocation_models import PartLocationAllocation
 from MakerMatrix.exceptions import ResourceNotFoundError, InvalidReferenceError
 
 # Configure logging
@@ -38,15 +39,16 @@ class PartRepository:
     @staticmethod
     def get_parts_by_location_id(session: Session, location_id: str, recursive: bool = False) -> List[Dict]:
         """
-        Retrieve parts associated with the given location ID.
+        Retrieve parts associated with the given location ID via allocations.
 
         If recursive is True, it will also fetch parts associated with child locations.
         """
-        # Fetch parts directly associated with the given location
+        # Fetch parts via allocation table (join with PartLocationAllocation)
         parts = session.exec(
             select(PartModel)
-            .options(joinedload(PartModel.location))
-            .where(PartModel.location_id == location_id)
+            .join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)
+            .where(PartLocationAllocation.location_id == location_id)
+            .options(selectinload(PartModel.allocations))
         ).all()
 
         if recursive:
@@ -182,7 +184,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location),
+                selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
                 selectinload(PartModel.order_summary)
@@ -203,7 +205,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location),
+                selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
                 selectinload(PartModel.order_summary)
@@ -226,7 +228,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location),
+                selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
                 selectinload(PartModel.order_summary)
@@ -250,7 +252,7 @@ class PartRepository:
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                joinedload(PartModel.location)
+                selectinload(PartModel.allocations)
             )
             .offset(offset)
             .limit(page_size)
@@ -266,36 +268,25 @@ class PartRepository:
         """
         Add a new part to the database. Categories are expected to be already created
         and associated with the part.
-        
+
+        Note: Location is now handled via PartLocationAllocation (created in service layer).
+
         Args:
             session: The database session
             part_data: The PartModel instance to add with categories already set
-            
+
         Returns:
             PartModel: The created part with all relationships loaded
         """
-        # Validate location_id if provided
-        if part_data.location_id:
-            from MakerMatrix.models.models import LocationModel
-            location = session.exec(
-                select(LocationModel).where(LocationModel.id == part_data.location_id)
-            ).first()
-            if not location:
-                raise InvalidReferenceError(
-                    message=f"Location with ID '{part_data.location_id}' does not exist",
-                    reference_type="location",
-                    reference_id=part_data.location_id
-                )
-        
         try:
             # Add the part to the session
             session.add(part_data)
-            
+
             # Commit the transaction
             session.commit()
-            
-            # Refresh the part with relationships loaded
-            session.refresh(part_data, ['categories', 'location'])
+
+            # Refresh the part with relationships loaded (removed 'location' - no longer exists)
+            session.refresh(part_data, ['categories', 'allocations'])
             
             return part_data
             
@@ -321,23 +312,9 @@ class PartRepository:
     @staticmethod
     def update_part(session: Session, part: PartModel) -> PartModel:
         logger.debug(f"[REPO] Attempting to update part in database: {part.part_name} (ID: {part.id})")
-        
-        # Validate location_id if provided
-        if part.location_id:
-            logger.debug(f"[REPO] Validating location_id: {part.location_id}")
-            from MakerMatrix.models.models import LocationModel
-            location = session.exec(
-                select(LocationModel).where(LocationModel.id == part.location_id)
-            ).first()
-            if not location:
-                logger.error(f"[REPO] Location validation failed: Location with ID '{part.location_id}' does not exist")
-                raise InvalidReferenceError(
-                    status="error",
-                    message=f"Location with ID '{part.location_id}' does not exist",
-                    data={"location_id": part.location_id}
-                )
-            logger.debug(f"[REPO] Location validation successful: {location.name}")
-        
+
+        # Note: Location validation removed - location now managed via PartLocationAllocation in service layer
+
         try:
             session.add(part)
             session.commit()
@@ -363,7 +340,7 @@ class PartRepository:
         # Start with a base query
         query = select(PartModel).options(
             joinedload(PartModel.categories),
-            joinedload(PartModel.location)
+            selectinload(PartModel.allocations)
         )
 
         # Start with a base count query
@@ -380,13 +357,13 @@ class PartRepository:
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
 
-        # Apply quantity range filter
+        # Apply quantity range filter - TEMPORARILY DISABLED
+        # Quantity is now computed from allocations, filtering requires aggregation
+        # TODO: Re-implement quantity filtering with allocation aggregation
         if search_params.min_quantity is not None:
-            query = query.where(PartModel.quantity >= search_params.min_quantity)
-            count_query = count_query.where(PartModel.quantity >= search_params.min_quantity)
+            logger.warning("Quantity filtering temporarily disabled during allocation migration")
         if search_params.max_quantity is not None:
-            query = query.where(PartModel.quantity <= search_params.max_quantity)
-            count_query = count_query.where(PartModel.quantity <= search_params.max_quantity)
+            logger.warning("Quantity filtering temporarily disabled during allocation migration")
 
         # Apply category filter
         if search_params.category_names:
@@ -396,10 +373,13 @@ class PartRepository:
             query = query.join(PartModel.categories).where(CategoryModel.id.in_(category_ids))
             count_query = count_query.join(PartModel.categories).where(CategoryModel.id.in_(category_ids))
 
-        # Apply location filter
+        # Apply location filter via allocations
         if search_params.location_id:
-            query = query.where(PartModel.location_id == search_params.location_id)
-            count_query = count_query.where(PartModel.location_id == search_params.location_id)
+            # Join with allocations to filter by location
+            query = query.join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)\
+                         .where(PartLocationAllocation.location_id == search_params.location_id)
+            count_query = count_query.join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)\
+                                     .where(PartLocationAllocation.location_id == search_params.location_id)
 
         # Apply supplier filter
         if search_params.supplier:
@@ -426,16 +406,19 @@ class PartRepository:
     @staticmethod
     def get_orphaned_parts(session: Session, page: int = 1, page_size: int = 10) -> tuple[List[PartModel], int]:
         """
-        Get parts that have NULL location_id (orphaned parts).
+        Get parts that have no allocations (orphaned parts).
         Returns a tuple of (results, total_count).
         """
-        # Base query for orphaned parts
+        # Subquery to find part IDs with allocations
+        allocated_part_ids = select(PartLocationAllocation.part_id).distinct()
+
+        # Base query for orphaned parts (parts NOT in allocated_part_ids)
         query = select(PartModel).options(
             joinedload(PartModel.categories)
-        ).where(PartModel.location_id.is_(None))
-        
+        ).where(~PartModel.id.in_(allocated_part_ids))
+
         # Count query for orphaned parts
-        count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel).where(PartModel.location_id.is_(None))
+        count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel).where(~PartModel.id.in_(allocated_part_ids))
         
         # Apply pagination
         offset = (page - 1) * page_size
@@ -462,7 +445,7 @@ class PartRepository:
         # Base query with eager loading
         base_query = select(PartModel).options(
             joinedload(PartModel.categories),
-            joinedload(PartModel.location)
+            selectinload(PartModel.allocations)
         )
         
         # Count query

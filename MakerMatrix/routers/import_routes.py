@@ -388,7 +388,29 @@ async def import_file(
             message_parts.append(f"{len(failed_items)} parts failed")
         
         message = f"Processed {total_processed} parts from {supplier_name}: " + ", ".join(message_parts)
-        
+
+        # Log import activity
+        try:
+            from MakerMatrix.services.activity_service import get_activity_service
+            activity_service = get_activity_service()
+            await activity_service.log_activity(
+                action="imported",
+                entity_type="order",
+                entity_id=order_id,
+                entity_name=f"{filename} ({len(part_ids)} parts)",
+                user=current_user,
+                details={
+                    "supplier": supplier_name,
+                    "imported_count": len(part_ids),
+                    "failed_count": len(failed_items),
+                    "skipped_count": len(skipped_parts),
+                    "file_name": filename,
+                    "enrichment_enabled": enable_enrichment
+                }
+            )
+        except Exception as log_error:
+            logger.warning(f"Failed to log import activity: {log_error}")
+
         return ResponseSchema(
             status="success",
             message=message,

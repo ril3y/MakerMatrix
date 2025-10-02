@@ -40,7 +40,6 @@ async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
 
 @router.post("/add_category", response_model=ResponseSchema[CategoryResponse])
 @standard_error_handling
-@log_activity("category_created", "User {username} created category")
 async def add_category(
     category_data: CategoryModel,
     request: Request,
@@ -48,20 +47,33 @@ async def add_category(
 ) -> ResponseSchema[CategoryResponse]:
     """
     Add a new category to the system.
-    
+
     Args:
         category_data: The category data to add
-        
+
     Returns:
         ResponseSchema: A response containing the created category
     """
     if not category_data.name:
         raise ValueError("Category name is required")
-    
+
     category_service = CategoryService()
     service_response = category_service.add_category(category_data)
     data = validate_service_response(service_response)
-    
+
+    # Log category creation activity
+    try:
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
+        await activity_service.log_category_created(
+            category_id=data["id"],
+            category_name=data["name"],
+            user=current_user,
+            request=request
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log category creation activity: {e}")
+
     return BaseRouter.build_success_response(
         data=CategoryResponse.model_validate(data),
         message=service_response.message
@@ -145,30 +157,42 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
 
 @router.delete("/remove_category", response_model=ResponseSchema[CategoryResponse])
 @standard_error_handling
-@log_activity("category_deleted", "User {username} deleted category")
 async def remove_category(
     request: Request,
     current_user: UserModel = Depends(get_current_user),
-    cat_id: Optional[str] = None, 
+    cat_id: Optional[str] = None,
     name: Optional[str] = None
 ) -> ResponseSchema[CategoryResponse]:
     """
     Remove a category by ID or name.
-    
+
     Args:
         cat_id: Optional ID of the category to remove
         name: Optional name of the category to remove
-        
+
     Returns:
         ResponseSchema: A response containing the removed category
     """
     if not cat_id and not name:
         raise ValueError("Either category ID or name must be provided")
-        
+
     category_service = CategoryService()
     service_response = category_service.remove_category(id=cat_id, name=name)
     data = validate_service_response(service_response)
-    
+
+    # Log category deletion activity
+    try:
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
+        await activity_service.log_category_deleted(
+            category_id=data["id"],
+            category_name=data["name"],
+            user=current_user,
+            request=request
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log category deletion activity: {e}")
+
     return BaseRouter.build_success_response(
         data=CategoryResponse.model_validate(data),
         message=service_response.message

@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch, AsyncMock
 
 from MakerMatrix.models.models import UserModel, RoleModel, PartModel, LocationModel
 from MakerMatrix.repositories.user_repository import UserRepository
-from MakerMatrix.repositories.role_repository import RoleRepository
+# RoleRepository doesn't exist - UserRepository handles role management
 from MakerMatrix.repositories.parts_repositories import PartRepository
 from MakerMatrix.repositories.location_repositories import LocationRepository
 from MakerMatrix.services.auth.auth_service import AuthService

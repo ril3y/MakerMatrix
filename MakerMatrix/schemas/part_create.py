@@ -6,7 +6,7 @@ from pydantic import BaseModel, model_validator
 class PartCreate(BaseModel):
     part_number: Optional[str] = None
     part_name: Optional[str] = None
-    quantity: Optional[int]
+    quantity: Optional[int] = None  # Fixed: field is now optional, not just type
     description: Optional[str] = None
     supplier: Optional[str] = None
     supplier_url: Optional[str] = None
@@ -14,7 +14,7 @@ class PartCreate(BaseModel):
     image_url: Optional[str] = None
     additional_properties: Optional[dict] = {}
     category_names: Optional[List[str]] = []
-    
+
     # Enrichment parameters
     auto_enrich: Optional[bool] = False
     enrichment_supplier: Optional[str] = None

@@ -15,6 +15,7 @@ from MakerMatrix.services.system.supplier_config_service import SupplierConfigSe
 from MakerMatrix.suppliers.registry import get_available_suppliers
 from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority
+from MakerMatrix.dependencies import get_part_service
 
 # BaseRouter infrastructure
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
@@ -28,25 +29,37 @@ logger = logging.getLogger(__name__)
 
 @router.post("/add_part", response_model=ResponseSchema[PartResponse])
 @standard_error_handling
-@log_activity("part_created", "User {username} created part")
 async def add_part(
-    part: PartCreate, 
+    part: PartCreate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user),
+    part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     # Convert PartCreate to dict and include category_names
     part_data = part.model_dump()
-    
+
     # Extract enrichment parameters before processing
     auto_enrich = part_data.pop('auto_enrich', False)
     enrichment_supplier = part_data.pop('enrichment_supplier', None)
     enrichment_capabilities = part_data.pop('enrichment_capabilities', [])
-    
+
     # Process to add part
-    part_service = PartService()
     service_response = part_service.add_part(part_data)
     created_part = validate_service_response(service_response)
     part_id = created_part["id"]
+
+    # Log part creation activity
+    try:
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
+        await activity_service.log_part_created(
+            part_id=created_part["id"],
+            part_name=created_part["part_name"],
+            user=current_user,
+            request=request
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log part creation activity: {e}")
 
     # Handle automatic enrichment if requested
     enrichment_message = ""
@@ -78,7 +91,6 @@ async def get_part_counts() -> ResponseSchema[int]:
 
 @router.delete("/delete_part", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
-@log_activity("part_deleted", "User {username} deleted part")
 async def delete_part(
         request: Request,
         current_user: UserModel = Depends(get_current_user),
@@ -94,7 +106,7 @@ async def delete_part(
     # Validate that at least one identifier is provided
     if not part_id and not part_name and not part_number:
         raise ValueError("At least one identifier (part_id, part_name, or part_number) must be provided")
-    
+
     # Retrieve part using details
     part_service = PartService()
     service_response = part_service.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
@@ -103,7 +115,20 @@ async def delete_part(
     # Perform the deletion using the actual part ID
     delete_response = part_service.delete_part(part['id'])
     deleted_part = validate_service_response(delete_response)
-    
+
+    # Log deletion activity
+    try:
+        from MakerMatrix.services.activity_service import get_activity_service
+        activity_service = get_activity_service()
+        await activity_service.log_part_deleted(
+            part_id=deleted_part["id"],
+            part_name=deleted_part["part_name"],
+            user=current_user,
+            request=request
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log part deletion activity: {e}")
+
     # Convert PartResponse to dict for the response
     part_response_obj = PartResponse.model_validate(deleted_part)
     return BaseRouter.build_success_response(
@@ -118,9 +143,9 @@ async def delete_part(
 @standard_error_handling
 async def get_all_parts(
         page: int = Query(default=1, ge=1),
-        page_size: int = Query(default=10, ge=1)
+        page_size: int = Query(default=10, ge=1),
+        part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[List[PartResponse]]:
-    part_service = PartService()
     service_response = part_service.get_all_parts(page, page_size)
     data = validate_service_response(service_response)
 
@@ -139,19 +164,19 @@ async def get_part(
         part_id: Optional[str] = Query(None),
         part_number: Optional[str] = Query(None),
         part_name: Optional[str] = Query(None),
-        include: Optional[str] = Query(None, description="Comma-separated list of additional data to include (orders, datasheets, all)")
+        include: Optional[str] = Query(None, description="Comma-separated list of additional data to include (orders, datasheets, all)"),
+        part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     # Parse include parameter
     include_list = []
     if include:
         include_list = [item.strip() for item in include.split(",")]
-    
+
     # Validate that at least one identifier is provided
     if not part_id and not part_number and not part_name:
         raise ValueError("At least one identifier (part_id, part_number, or part_name) must be provided")
-    
+
     # Use the PartService to determine which parameter to use for fetching
-    part_service = PartService()
     if part_id:
         service_response = part_service.get_part_by_id(part_id, include=include_list)
     elif part_number:
@@ -172,13 +197,13 @@ async def get_part(
 @router.put("/update_part/{part_id}", response_model=ResponseSchema[PartResponse])
 @standard_error_handling
 async def update_part(
-    part_id: str, 
+    part_id: str,
     part_data: PartUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user),
+    part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     # Capture original data for change tracking
-    part_service = PartService()
     original_part_response = part_service.get_part_by_id(part_id)
     original_part = validate_service_response(original_part_response)
     
@@ -218,11 +243,13 @@ async def update_part(
 
 @router.post("/search", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
-async def advanced_search(search_params: AdvancedPartSearch) -> ResponseSchema[Dict[str, Any]]:
+async def advanced_search(
+    search_params: AdvancedPartSearch,
+    part_service: PartService = Depends(get_part_service)
+) -> ResponseSchema[Dict[str, Any]]:
     """
     Perform an advanced search on parts with multiple filters and sorting options.
     """
-    part_service = PartService()
     service_response = part_service.advanced_search(search_params)
     data = validate_service_response(service_response)
     
@@ -408,3 +435,51 @@ async def _wait_for_enrichment_completion(part_id: str, task_id: str, timeout: i
     # Timeout reached
     logger.warning(f"Enrichment task {task_id} did not complete within {timeout} seconds")
     return None
+
+
+# === ALLOCATION TRANSFER ENDPOINTS ===
+
+@router.post("/parts/{part_id}/transfer", response_model=ResponseSchema[PartResponse])
+@standard_error_handling
+async def transfer_part_quantity(
+    part_id: str,
+    from_location_id: str = Query(..., description="Source location ID"),
+    to_location_id: str = Query(..., description="Destination location ID"),
+    quantity: int = Query(..., gt=0, description="Quantity to transfer"),
+    notes: Optional[str] = Query(None, description="Transfer notes"),
+    current_user: UserModel = Depends(get_current_user),
+    part_service: PartService = Depends(get_part_service)
+) -> ResponseSchema[PartResponse]:
+    """
+    Transfer quantity from one location to another for a part.
+
+    Example:
+        POST /api/parts/{part_id}/transfer?from_location_id=xxx&to_location_id=yyy&quantity=100
+
+    This will:
+    - Reduce quantity at source location
+    - Increase (or create) quantity at destination location
+    - Track transfer in allocation notes
+    """
+    try:
+        response = part_service.transfer_quantity(
+            part_id=part_id,
+            from_location_id=from_location_id,
+            to_location_id=to_location_id,
+            quantity=quantity,
+            notes=notes
+        )
+
+        if not response.success:
+            raise HTTPException(status_code=400, detail=response.message)
+
+        return BaseRouter.build_success_response(
+            data=PartResponse.model_validate(response.data),
+            message=response.message
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error transferring quantity: {e}")
+        raise HTTPException(status_code=500, detail=f"Transfer failed: {str(e)}")

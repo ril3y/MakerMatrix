@@ -15,6 +15,7 @@ from MakerMatrix.services.data.enrichment_data_mapper import EnrichmentDataMappe
 from MakerMatrix.services.system.supplier_integration_service import SupplierIntegrationService
 from MakerMatrix.services.base_service import BaseService
 from MakerMatrix.suppliers.base import SupplierCapability, PartSearchResult
+from MakerMatrix.services.activity_service import get_activity_service
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,26 @@ class PartEnrichmentService(BaseService):
             if progress_callback:
                 await progress_callback(100, "Enrichment completed")
 
+            # Log successful enrichment activity
+            try:
+                activity_service = get_activity_service()
+                user = self._get_user_from_task(task)
+                await activity_service.log_activity(
+                    action="enriched",
+                    entity_type="part",
+                    entity_id=part_id,
+                    entity_name=part_name,
+                    user=user,
+                    details={
+                        "supplier": supplier,
+                        "capabilities": capabilities,
+                        "successful_count": len(enrichment_result.enriched_fields),
+                        "failed_count": len(enrichment_result.failed_fields)
+                    }
+                )
+            except Exception as log_error:
+                logger.warning(f"Failed to log enrichment activity: {log_error}")
+
             return {
                 "part_id": part_id,
                 "supplier": supplier,
@@ -146,6 +167,25 @@ class PartEnrichmentService(BaseService):
 
         except Exception as e:
             logger.error(f"Error in part enrichment task: {e}", exc_info=True)
+
+            # Log failed enrichment activity
+            try:
+                activity_service = get_activity_service()
+                user = self._get_user_from_task(task)
+                await activity_service.log_activity(
+                    action="enrichment_failed",
+                    entity_type="part",
+                    entity_id=part_id,
+                    entity_name=part_name if 'part_name' in locals() else "Unknown",
+                    user=user,
+                    details={
+                        "supplier": supplier if supplier else "Unknown",
+                        "error": str(e)
+                    }
+                )
+            except Exception as log_error:
+                logger.warning(f"Failed to log enrichment failure activity: {log_error}")
+
             raise
         finally:
             # Always clean up supplier resources
@@ -645,3 +685,17 @@ class PartEnrichmentService(BaseService):
             except Exception as e:
                 logger.error(f"Failed to save enrichment results to database: {e}")
                 raise
+
+    def _get_user_from_task(self, task: TaskModel) -> Optional[Any]:
+        """Get user object from task's created_by_user_id."""
+        if not task.created_by_user_id:
+            return None
+
+        try:
+            from MakerMatrix.repositories.user_repository import UserRepository
+            user_repo = UserRepository()
+            with self.get_session() as session:
+                return user_repo.get_user_by_id(task.created_by_user_id)
+        except Exception as e:
+            logger.warning(f"Failed to get user for task: {e}")
+            return None

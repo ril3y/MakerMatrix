@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 class CategoryService(BaseService):
     """
     Category service with consolidated session management using BaseService.
-    
+
     This migration eliminates 7+ instances of duplicated session management code.
     """
-    
-    def __init__(self):
-        super().__init__()
-        self.category_repo = CategoryRepository(engine)
+
+    def __init__(self, engine_override=None):
+        super().__init__(engine_override)
+        self.category_repo = CategoryRepository(self.engine)
         self.entity_name = "Category"
 
     def add_category(self, category_data: CategoryModel) -> ServiceResponse[dict]:
