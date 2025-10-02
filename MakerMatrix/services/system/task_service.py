@@ -11,6 +11,7 @@ from MakerMatrix.repositories.task_repository import TaskRepository
 from MakerMatrix.tasks import get_task_class, get_all_task_types, list_available_tasks
 from MakerMatrix.services.system.websocket_service import websocket_manager
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
+from MakerMatrix.services.activity_service import get_activity_service
 
 logger = logging.getLogger(__name__)
 
@@ -352,8 +353,27 @@ class TaskService(BaseService):
                 progress_percentage=100,
                 current_step="Task completed successfully"
             ))
-            
+
             logger.info(f"Task {task.id} completed successfully")
+
+            # Log task completion activity
+            try:
+                activity_service = get_activity_service()
+                user = await self._get_user_from_task(task)
+                duration_seconds = (datetime.utcnow() - task.started_at).total_seconds() if task.started_at else None
+                await activity_service.log_activity(
+                    action="completed",
+                    entity_type="task",
+                    entity_id=task.id,
+                    entity_name=task.name,
+                    user=user,
+                    details={
+                        "task_type": task.task_type,
+                        "duration_seconds": duration_seconds
+                    }
+                )
+            except Exception as log_error:
+                logger.warning(f"Failed to log task completion activity: {log_error}")
             
         except asyncio.TimeoutError:
             await self.update_task(task.id, UpdateTaskRequest(
@@ -375,6 +395,24 @@ class TaskService(BaseService):
                 error_message=str(e)
             ))
             logger.error(f"Task {task.id} failed: {e}", exc_info=True)
+
+            # Log task failure activity
+            try:
+                activity_service = get_activity_service()
+                user = await self._get_user_from_task(task)
+                await activity_service.log_activity(
+                    action="failed",
+                    entity_type="task",
+                    entity_id=task.id,
+                    entity_name=task.name,
+                    user=user,
+                    details={
+                        "task_type": task.task_type,
+                        "error": str(e)
+                    }
+                )
+            except Exception as log_error:
+                logger.warning(f"Failed to log task failure activity: {log_error}")
             
         finally:
             # Remove from running tasks
@@ -461,6 +499,20 @@ class TaskService(BaseService):
             # Remove from running tasks
             if task_id in self.running_tasks:
                 del self.running_tasks[task_id]
+
+    async def _get_user_from_task(self, task: TaskModel) -> Optional[Any]:
+        """Get user object from task's created_by_user_id."""
+        if not task.created_by_user_id:
+            return None
+
+        try:
+            from MakerMatrix.repositories.user_repository import UserRepository
+            user_repo = UserRepository()
+            async with self.get_async_session() as session:
+                return user_repo.get_by_id(session, task.created_by_user_id)
+        except Exception as e:
+            logger.warning(f"Failed to get user for task: {e}")
+            return None
 
 
 # Global task service instance

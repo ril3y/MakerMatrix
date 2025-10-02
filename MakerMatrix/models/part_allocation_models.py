@@ -28,13 +28,11 @@ class PartLocationAllocation(SQLModel, table=True):
     # === IDENTITY ===
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     part_id: str = Field(
-        sa_column=Column(String, ForeignKey("partmodel.id", ondelete="CASCADE")),
-        index=True,
+        sa_column=Column(String, ForeignKey("partmodel.id", ondelete="CASCADE"), index=True),
         description="Part that is allocated"
     )
     location_id: str = Field(
-        sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="CASCADE")),
-        index=True,
+        sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="CASCADE"), index=True),
         description="Location where quantity is allocated"
     )
 

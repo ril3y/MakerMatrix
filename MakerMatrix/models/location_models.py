@@ -58,7 +58,6 @@ class LocationModel(SQLModel, table=True):
     )
     smart_device_id: Optional[str] = Field(
         default=None,
-        index=True,
         description="ESP32 or other IoT device ID (e.g., 'esp32-cabinet-01')"
     )
     smart_slot_number: Optional[int] = Field(
