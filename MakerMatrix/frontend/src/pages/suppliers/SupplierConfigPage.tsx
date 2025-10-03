@@ -29,7 +29,10 @@ export const SupplierConfigPage: React.FC = () => {
 
   // Cache for actual credential status
   const [credentialStatuses, setCredentialStatuses] = useState<Record<string, any>>({});
-  
+
+  // Loading state for each supplier's credential status
+  const [loadingCredentialStatus, setLoadingCredentialStatus] = useState<Record<string, boolean>>({});
+
   // Rate limit data
   const [rateLimitData, setRateLimitData] = useState<Record<string, SupplierRateLimitData>>({});
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
@@ -50,7 +53,15 @@ export const SupplierConfigPage: React.FC = () => {
       // Load credential requirements and status for each supplier
       const requirements: Record<string, boolean> = {};
       const statuses: Record<string, any> = {};
+      const loadingStates: Record<string, boolean> = {};
 
+      // Set all suppliers to loading initially
+      for (const supplier of data || []) {
+        loadingStates[supplier.supplier_name] = true;
+      }
+      setLoadingCredentialStatus(loadingStates);
+
+      // Load credential status for each supplier (async operations)
       for (const supplier of data || []) {
         try {
           // Get credential schema to check if credentials are required
@@ -70,6 +81,12 @@ export const SupplierConfigPage: React.FC = () => {
           // If we can't get the schema, assume credentials are required
           requirements[supplier.supplier_name] = true;
           statuses[supplier.supplier_name] = { is_configured: false, configured_fields: [] };
+        } finally {
+          // Mark this supplier as done loading
+          setLoadingCredentialStatus(prev => ({
+            ...prev,
+            [supplier.supplier_name]: false
+          }));
         }
       }
 
@@ -135,6 +152,13 @@ export const SupplierConfigPage: React.FC = () => {
   const filteredSuppliers = suppliers || [];
 
   const getStatusIcon = (supplier: SupplierConfig) => {
+    // Check if we're still loading credential status for this supplier
+    if (loadingCredentialStatus[supplier.supplier_name]) {
+      return (
+        <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-blue-600"></div>
+      );
+    }
+
     if (!supplier.enabled) {
       return <XCircle className="w-5 h-5 text-gray-400" />;
     }
@@ -157,6 +181,11 @@ export const SupplierConfigPage: React.FC = () => {
   };
 
   const getStatusText = (supplier: SupplierConfig) => {
+    // Check if we're still loading credential status for this supplier
+    if (loadingCredentialStatus[supplier.supplier_name]) {
+      return 'Checking...';
+    }
+
     if (!supplier.enabled) return 'Disabled';
 
     // Check if this supplier requires credentials
@@ -315,11 +344,18 @@ export const SupplierConfigPage: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-500 dark:text-gray-400">Status:</span>
-                      <span className={`text-sm font-medium ${
-                        supplier.enabled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {getStatusText(supplier)}
-                      </span>
+                      {loadingCredentialStatus[supplier.supplier_name] ? (
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center">
+                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-gray-300 border-t-blue-600 mr-2"></div>
+                          {getStatusText(supplier)}
+                        </span>
+                      ) : (
+                        <span className={`text-sm font-medium ${
+                          supplier.enabled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {getStatusText(supplier)}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between">
