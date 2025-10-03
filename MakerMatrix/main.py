@@ -320,7 +320,36 @@ rate_limit_permissions = {
     "/initialize": "rate_limits:admin"
 }
 
+user_permissions = {
+    "/register": "users:create",
+    "/all": "users:read",
+    "/{user_id}": "users:read",
+    "/by-username/{username}": "users:read",
+    "/{user_id}/roles": "users:update",
+    "/{user_id}/status": "users:update",
+    "/roles": "users:read",
+    "/roles/add_role": "users:create",
+    "/roles/by-name/{name}": "users:read",
+    "/roles/{role_id}": {
+        "GET": "users:read",
+        "PUT": "users:update",
+        "DELETE": "users:delete"
+    }
+}
 
+api_key_permissions = {
+    "/": {
+        "POST": "api_keys:create",
+        "GET": "api_keys:read"
+    },
+    "/{key_id}": {
+        "GET": "api_keys:read",
+        "PUT": "api_keys:update",
+        "DELETE": "api_keys:delete"
+    },
+    "/{key_id}/revoke": "api_keys:delete",
+    "/admin/all": "api_keys:admin"
+}
 
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
@@ -338,7 +367,8 @@ secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/static/datasheets/{filename}"])
 # Don't secure auth routes - they need to be accessible without authentication
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
-secure_all_routes(user_management_routes.router, exclude_paths=["/register"])
+secure_all_routes(user_management_routes.router, permissions=user_permissions)
+secure_all_routes(api_key_routes.router, permissions=api_key_permissions)
 secure_all_routes(ai_routes.router)
 secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)

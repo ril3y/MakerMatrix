@@ -5,7 +5,7 @@ from MakerMatrix.models.user_models import UserCreate, UserUpdate, PasswordUpdat
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.system.auth_service import AuthService
-from MakerMatrix.auth.dependencies import oauth2_scheme
+from MakerMatrix.auth.dependencies import get_current_user_flexible
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity
 
 router = APIRouter()
@@ -23,10 +23,6 @@ class RoleCreate(BaseModel):
 class RoleUpdate(BaseModel):
     description: Optional[str] = None
     permissions: Optional[List[str]] = None
-
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    return auth_service.get_current_user(token)
 
 
 @router.post("/register", response_model=ResponseSchema)
@@ -52,7 +48,7 @@ async def register_user(user_data: UserCreate):
 
 @router.get("/me", response_model=ResponseSchema)
 @standard_error_handling
-async def get_current_user_info(current_user=Depends(get_current_user)):
+async def get_current_user_info(current_user=Depends(get_current_user_flexible)):
     """Get current authenticated user information"""
     return base_router.build_success_response(
         message="Current user retrieved successfully",
@@ -62,7 +58,7 @@ async def get_current_user_info(current_user=Depends(get_current_user)):
 
 @router.get("/all", response_model=ResponseSchema)
 @standard_error_handling
-async def get_all_users(current_user=Depends(get_current_user)):
+async def get_all_users(current_user=Depends(get_current_user_flexible)):
     # Only admin users can access this route
     if not any(role.name == "admin" for role in getattr(current_user, "roles", [])):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
@@ -76,6 +72,17 @@ async def get_all_users(current_user=Depends(get_current_user)):
     return base_router.build_success_response(
         message=response.message,
         data=response.data
+    )
+
+
+@router.get("/roles", response_model=ResponseSchema)
+@standard_error_handling
+async def get_all_roles() -> ResponseSchema[List[Dict[str, Any]]]:
+    """Get all roles in the system"""
+    roles = user_repository.get_all_roles()
+    return base_router.build_success_response(
+        message="Roles retrieved successfully",
+        data=[role.to_dict() for role in roles]
     )
 
 
@@ -167,6 +174,97 @@ async def delete_user(user_id: str):
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="User not found"
+    )
+
+
+@router.put("/{user_id}/roles", response_model=ResponseSchema)
+@standard_error_handling
+async def update_user_roles(
+    user_id: str,
+    role_ids: List[str] = Body(..., embed=True)
+) -> ResponseSchema[Dict[str, Any]]:
+    """Update user's roles - will revoke API keys if permissions are downgraded"""
+    user = user_repository.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Get current permissions before role change
+    old_permissions = set()
+    for role in user.roles:
+        old_permissions.update(role.permissions)
+
+    # Get new role names from IDs
+    role_names = []
+    new_permissions = set()
+    for role_id in role_ids:
+        role = user_repository.get_role_by_id(role_id)
+        if not role:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Role with ID {role_id} not found"
+            )
+        role_names.append(role.name)
+        new_permissions.update(role.permissions)
+
+    # Detect if this is a permission downgrade
+    permissions_removed = old_permissions - new_permissions
+    is_downgrade = len(permissions_removed) > 0
+
+    # Update user roles (repository expects role names, not objects)
+    updated_user = user_repository.update_user(user_id, roles=role_names)
+
+    # If permissions were removed, revoke all API keys for security
+    warning_message = None
+    if is_downgrade:
+        from MakerMatrix.services.system.api_key_service import APIKeyService
+        from MakerMatrix.models.models import engine
+
+        api_key_service = APIKeyService(engine=engine)
+
+        # Get all user's API keys
+        keys_response = api_key_service.get_user_api_keys(user_id)
+        if keys_response.success and keys_response.data:
+            revoked_count = 0
+            for key in keys_response.data:
+                revoke_response = api_key_service.revoke_api_key(key['id'])
+                if revoke_response.success:
+                    revoked_count += 1
+
+            if revoked_count > 0:
+                warning_message = f"⚠️ User permissions were downgraded. {revoked_count} API key(s) were automatically revoked for security. User must create new API keys with current permissions."
+
+    message = "User roles updated successfully"
+    if warning_message:
+        message = f"{message}. {warning_message}"
+
+    return base_router.build_success_response(
+        message=message,
+        data=updated_user.to_dict()
+    )
+
+
+@router.put("/{user_id}/status", response_model=ResponseSchema)
+@standard_error_handling
+async def update_user_status(
+    user_id: str,
+    is_active: bool = Body(..., embed=True)
+) -> ResponseSchema[Dict[str, Any]]:
+    """Toggle user active status"""
+    user = user_repository.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    updated_user = user_repository.update_user(user_id, is_active=is_active)
+
+    return base_router.build_success_response(
+        message=f"User {'activated' if is_active else 'deactivated'} successfully",
+        data=updated_user.to_dict()
     )
 
 

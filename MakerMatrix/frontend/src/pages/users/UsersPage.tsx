@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { usersService } from '@/services/users.service'
 import { User, UserStats, Role } from '@/types/users'
 import toast from 'react-hot-toast'
+import CreateUserModal from '@/components/users/CreateUserModal'
+import EditUserModal from '@/components/users/EditUserModal'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 const UsersPage = () => {
   const [users, setUsers] = useState<User[]>([])
@@ -64,8 +67,21 @@ const UsersPage = () => {
     }
   }
 
+  const handleCreateUser = async (userData: any) => {
+    await usersService.createUser(userData)
+    await loadData()
+    setShowCreateModal(false)
+  }
+
+  const handleUpdateUserRoles = async (userId: string, roleData: any) => {
+    const response = await usersService.updateUserRoles(userId, roleData)
+    await loadData()
+    setSelectedUser(null)
+    return response // Return response so modal can display warning messages
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-screen-2xl space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -81,13 +97,15 @@ const UsersPage = () => {
             Manage user accounts and permissions
           </p>
         </div>
-        <button 
-          onClick={() => setShowCreateModal(true)}
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add User
-        </button>
+        <PermissionGuard permission="users:create">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add User
+          </button>
+        </PermissionGuard>
       </motion.div>
 
       {/* Search and Filters */}
@@ -234,31 +252,37 @@ const UsersPage = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleToggleUserStatus(user.id, user.is_active)}
-                          className="p-1 rounded hover:bg-background-secondary"
-                          title={user.is_active ? 'Deactivate user' : 'Activate user'}
-                        >
-                          {user.is_active ? (
-                            <UserX className="w-4 h-4 text-red-500" />
-                          ) : (
-                            <UserCheck className="w-4 h-4 text-green-500" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setSelectedUser(user)}
-                          className="p-1 rounded hover:bg-background-secondary"
-                          title="Edit user"
-                        >
-                          <Edit className="w-4 h-4 text-secondary" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="p-1 rounded hover:bg-background-secondary"
-                          title="Delete user"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+                        <PermissionGuard permission="users:update">
+                          <button
+                            onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                            className="p-1 rounded hover:bg-background-secondary"
+                            title={user.is_active ? 'Deactivate user' : 'Activate user'}
+                          >
+                            {user.is_active ? (
+                              <UserX className="w-4 h-4 text-red-500" />
+                            ) : (
+                              <UserCheck className="w-4 h-4 text-green-500" />
+                            )}
+                          </button>
+                        </PermissionGuard>
+                        <PermissionGuard permission="users:update">
+                          <button
+                            onClick={() => setSelectedUser(user)}
+                            className="p-1 rounded hover:bg-background-secondary"
+                            title="Edit user"
+                          >
+                            <Edit className="w-4 h-4 text-secondary" />
+                          </button>
+                        </PermissionGuard>
+                        <PermissionGuard permission="users:delete">
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="p-1 rounded hover:bg-background-secondary"
+                            title="Delete user"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </PermissionGuard>
                       </div>
                     </td>
                   </tr>
@@ -268,6 +292,22 @@ const UsersPage = () => {
           </div>
         )}
       </motion.div>
+
+      {/* Modals */}
+      <CreateUserModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateUser}
+        availableRoles={roles}
+      />
+
+      <EditUserModal
+        isOpen={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        user={selectedUser}
+        onUpdateRoles={handleUpdateUserRoles}
+        availableRoles={roles}
+      />
     </div>
   )
 }

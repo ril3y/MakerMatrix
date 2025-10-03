@@ -13,9 +13,11 @@ import { SupplierConfigPage } from '@/pages/suppliers/SupplierConfigPage'
 import DynamicPrinterModal from '@/components/printer/DynamicPrinterModal'
 import Templates from '@/pages/Templates'
 import ApiKeyManagement from '@/components/settings/ApiKeyManagement'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const SettingsPage = () => {
   const { isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode } = useTheme()
+  const { isAdmin } = usePermissions()
   const isDebugMode = import.meta.env.VITE_DEBUG === 'true'
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'general')
@@ -184,17 +186,17 @@ const SettingsPage = () => {
       >
         <div className="flex flex-wrap gap-1">
           {[
-            { id: 'general', label: 'General', icon: Settings },
-            { id: 'import', label: 'Import/Export', icon: ImportIcon },
-            { id: 'tasks', label: 'Background Tasks', icon: Activity },
-            { id: 'ai', label: 'AI Helper', icon: Bot },
-            { id: 'suppliers', label: 'Suppliers', icon: Globe },
-            { id: 'printer', label: 'Printers', icon: Printer },
-            { id: 'templates', label: 'Label Templates', icon: FileText },
-            { id: 'database', label: 'Database', icon: Database },
-            { id: 'appearance', label: 'Appearance', icon: Palette },
-            { id: 'security', label: 'Security', icon: Shield }
-          ].map((tab) => (
+            { id: 'general', label: 'General', icon: Settings, adminOnly: false },
+            { id: 'import', label: 'Import/Export', icon: ImportIcon, adminOnly: true },
+            { id: 'tasks', label: 'Background Tasks', icon: Activity, adminOnly: true },
+            { id: 'ai', label: 'AI Helper', icon: Bot, adminOnly: true },
+            { id: 'suppliers', label: 'Suppliers', icon: Globe, adminOnly: true },
+            { id: 'printer', label: 'Printers', icon: Printer, adminOnly: true },
+            { id: 'templates', label: 'Label Templates', icon: FileText, adminOnly: true },
+            { id: 'database', label: 'Database', icon: Database, adminOnly: true },
+            { id: 'appearance', label: 'Appearance', icon: Palette, adminOnly: false },
+            { id: 'security', label: 'Security', icon: Shield, adminOnly: false }
+          ].filter(tab => !tab.adminOnly || isAdmin()).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
