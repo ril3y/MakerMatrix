@@ -94,9 +94,13 @@ async def login(request: Request):
     user.last_login = datetime.utcnow()
     user_repository.update_user(user.id, last_login=user.last_login)
 
+    # Reload user to get updated data with roles
+    user_with_roles = user_repository.get_user_by_username(username)
+
     content = {
         "access_token": access_token,
         "token_type": "bearer",
+        "user": user_with_roles.to_dict(),  # Include user object with roles
         "status": "success",
         "message": "Login successful",
     }
