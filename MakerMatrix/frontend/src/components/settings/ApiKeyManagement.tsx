@@ -31,13 +31,14 @@ interface NewKeyData {
 }
 
 const ApiKeyManagement = () => {
-  const { hasRole } = useAuthStore()
+  const { hasRole, user } = useAuthStore()
   const isAdmin = hasRole('admin')
 
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
   const [loading, setLoading] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showAllKeys, setShowAllKeys] = useState(false)
+  const [visiblePrefixes, setVisiblePrefixes] = useState<Set<string>>(new Set())
   const [newKeyData, setNewKeyData] = useState<NewKeyData>({
     name: '',
     description: '',
@@ -121,6 +122,18 @@ const ApiKeyManagement = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     toast.success('Copied to clipboard')
+  }
+
+  const togglePrefixVisibility = (keyId: string) => {
+    setVisiblePrefixes(prev => {
+      const next = new Set(prev)
+      if (next.has(keyId)) {
+        next.delete(keyId)
+      } else {
+        next.add(keyId)
+      }
+      return next
+    })
   }
 
   const formatDate = (dateString: string | null) => {
@@ -317,11 +330,20 @@ const ApiKeyManagement = () => {
                     <p className="text-sm text-secondary mt-1">{key.description}</p>
                   )}
                   <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-secondary">
-                    <span className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       <Key className="w-3 h-3" />
-                      {key.key_prefix}...
-                    </span>
-                    {isAdmin && showAllKeys && (
+                      <span className="font-mono">
+                        {visiblePrefixes.has(key.id) ? key.key_prefix : '••••••'}...
+                      </span>
+                      <button
+                        onClick={() => togglePrefixVisibility(key.id)}
+                        className="p-1 hover:bg-background-tertiary rounded"
+                        title={visiblePrefixes.has(key.id) ? 'Hide prefix' : 'Show prefix'}
+                      >
+                        {visiblePrefixes.has(key.id) ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      </button>
+                    </div>
+                    {isAdmin && showAllKeys && key.user_id !== user?.id && (
                       <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                         User: {key.user_id.slice(0, 8)}...
                       </span>
@@ -385,15 +407,27 @@ const ApiKeyManagement = () => {
       {/* Usage Information */}
       <div className="border-t border-border pt-6">
         <h4 className="font-medium text-primary mb-3">Using API Keys</h4>
-        <div className="space-y-2 text-sm text-secondary">
+        <div className="space-y-3 text-sm text-secondary">
           <p>Include your API key in requests using one of these headers:</p>
           <div className="bg-background-tertiary rounded p-3 space-y-2 font-mono text-xs">
             <div><span className="text-primary">X-API-Key:</span> your_api_key_here</div>
             <div><span className="text-primary">Authorization:</span> ApiKey your_api_key_here</div>
           </div>
-          <p className="pt-2">
-            API keys inherit permissions from your user roles. Keep your keys secure and never commit them to version control.
-          </p>
+
+          <div className="pt-2 space-y-2">
+            <p>
+              <strong>Security:</strong> API keys inherit permissions from your user roles. The full key is only shown once during creation.
+              Only the prefix is stored for identification. Keep your keys secure and never commit them to version control.
+            </p>
+            <p>
+              <strong>Usage Tracking:</strong> Each API request increments the usage counter and updates the last used timestamp.
+              Keys can be revoked or deleted at any time.
+            </p>
+            <p>
+              <strong>Expiration:</strong> Keys with expiration dates will automatically become invalid when they expire.
+              Expired keys cannot be used but can be deleted.
+            </p>
+          </div>
         </div>
       </div>
     </div>
