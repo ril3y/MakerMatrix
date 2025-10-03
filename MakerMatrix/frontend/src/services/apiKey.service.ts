@@ -37,7 +37,7 @@ class APIKeyService {
    */
   async getUserApiKeys(): Promise<APIKey[]> {
     const response = await apiClient.get('/api/api-keys/')
-    return response.data?.data || []
+    return response.data || []
   }
 
   /**
@@ -46,7 +46,7 @@ class APIKeyService {
    */
   async createApiKey(keyData: APIKeyCreate): Promise<APIKeyWithKey> {
     const response = await apiClient.post('/api/api-keys/', keyData)
-    return response.data?.data
+    return response.data
   }
 
   /**
@@ -54,7 +54,7 @@ class APIKeyService {
    */
   async getApiKey(keyId: string): Promise<APIKey> {
     const response = await apiClient.get(`/api/api-keys/${keyId}`)
-    return response.data?.data
+    return response.data
   }
 
   /**
@@ -62,7 +62,7 @@ class APIKeyService {
    */
   async updateApiKey(keyId: string, updates: Partial<APIKeyCreate>): Promise<APIKey> {
     const response = await apiClient.put(`/api/api-keys/${keyId}`, updates)
-    return response.data?.data
+    return response.data
   }
 
   /**
@@ -70,7 +70,7 @@ class APIKeyService {
    */
   async revokeApiKey(keyId: string): Promise<APIKey> {
     const response = await apiClient.post(`/api/api-keys/${keyId}/revoke`)
-    return response.data?.data
+    return response.data
   }
 
   /**
@@ -85,7 +85,7 @@ class APIKeyService {
    */
   async getAllApiKeys(): Promise<APIKey[]> {
     const response = await apiClient.get('/api/api-keys/admin/all')
-    return response.data?.data || []
+    return response.data || []
   }
 }
 
