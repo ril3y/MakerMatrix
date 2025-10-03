@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Key, Plus, Trash2, Copy, Eye, EyeOff, RefreshCw, Shield, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiKeyService } from '@/services/apiKey.service'
+import { useAuthStore } from '@/store/authStore'
 
 interface APIKey {
   id: string
@@ -30,9 +31,13 @@ interface NewKeyData {
 }
 
 const ApiKeyManagement = () => {
+  const { hasRole } = useAuthStore()
+  const isAdmin = hasRole('admin')
+
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
   const [loading, setLoading] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showAllKeys, setShowAllKeys] = useState(false)
   const [newKeyData, setNewKeyData] = useState<NewKeyData>({
     name: '',
     description: '',
@@ -46,12 +51,15 @@ const ApiKeyManagement = () => {
 
   useEffect(() => {
     loadApiKeys()
-  }, [])
+  }, [showAllKeys])
 
   const loadApiKeys = async () => {
     try {
       setLoading(true)
-      const keys = await apiKeyService.getUserApiKeys()
+      // Admin users can view all API keys in the system
+      const keys = (isAdmin && showAllKeys)
+        ? await apiKeyService.getAllApiKeys()
+        : await apiKeyService.getUserApiKeys()
       setApiKeys(keys || [])
     } catch (error: any) {
       // Check if it's an authentication error
@@ -129,16 +137,30 @@ const ApiKeyManagement = () => {
             API Keys
           </h3>
           <p className="text-sm text-secondary mt-1">
-            Manage API keys for programmatic access to MakerMatrix
+            {isAdmin && showAllKeys
+              ? 'Viewing all API keys in the system (Admin)'
+              : 'Manage API keys for programmatic access to MakerMatrix'
+            }
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Create API Key
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => setShowAllKeys(!showAllKeys)}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              {showAllKeys ? 'Show My Keys' : 'Show All Keys'}
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create API Key
+          </button>
+        </div>
       </div>
 
       {/* Created Key Display */}
@@ -299,6 +321,11 @@ const ApiKeyManagement = () => {
                       <Key className="w-3 h-3" />
                       {key.key_prefix}...
                     </span>
+                    {isAdmin && showAllKeys && (
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                        User: {key.user_id.slice(0, 8)}...
+                      </span>
+                    )}
                     <span>Created: {formatDate(key.created_at)}</span>
                     <span>Last used: {formatDate(key.last_used_at)}</span>
                     <span>Uses: {key.usage_count}</span>
