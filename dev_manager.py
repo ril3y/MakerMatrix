@@ -638,16 +638,43 @@ class EnhancedServerManager:
             time.sleep(2)
 
         try:
-            result = subprocess.run(
-                ["npm", "run", "build"], cwd=self.frontend_path, capture_output=True, text=True, check=True
+            # Stream output in real-time instead of capturing
+            process = subprocess.Popen(
+                ["npm", "run", "build"],
+                cwd=self.frontend_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1
             )
-            for line in result.stdout.splitlines():
-                self.log_message("frontend", f"BUILD: {line}", "INFO")
-            self.log_message("frontend", "✅ Frontend build completed successfully!", "SUCCESS")
-        except subprocess.CalledProcessError as e:
-            for line in e.stderr.splitlines():
-                self.log_message("frontend", f"BUILD: {line}", "ERROR")
-            self.log_message("frontend", f"❌ Frontend build failed with code {e.returncode}", "ERROR")
+
+            # Stream output line by line
+            for line in iter(process.stdout.readline, ''):
+                if not line:
+                    break
+                line = line.strip()
+                if line:
+                    # Detect error patterns
+                    level = "INFO"
+                    if any(err in line for err in ["error TS", "Error:", "ERROR", "Failed to compile"]):
+                        level = "ERROR"
+                    elif "warning" in line.lower():
+                        level = "WARN"
+                    elif "✓" in line or "built in" in line.lower():
+                        level = "SUCCESS"
+
+                    self.log_message("frontend", f"BUILD: {line}", level)
+
+            # Wait for process to complete
+            return_code = process.wait()
+
+            if return_code == 0:
+                self.log_message("frontend", "✅ Frontend build completed successfully!", "SUCCESS")
+            else:
+                self.log_message("frontend", f"❌ Frontend build failed with code {return_code}", "ERROR")
+
+        except Exception as e:
+            self.log_message("frontend", f"❌ Build error: {e}", "ERROR")
 
     def get_current_logs(self) -> List[LogEntry]:
         if self.search_term and self.filtered_logs:
