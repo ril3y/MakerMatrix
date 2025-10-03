@@ -322,6 +322,11 @@ class UserRepository:
             session.refresh(role)
             return role
 
+    def get_all_roles(self) -> List[RoleModel]:
+        """Get all roles in the system"""
+        with Session(self.engine) as session:
+            return session.exec(select(RoleModel)).all()
+
     def get_role_by_name(self, name: str) -> Optional[RoleModel]:
         with Session(self.engine) as session:
             role = session.exec(select(RoleModel).where(RoleModel.name == name)).first()
