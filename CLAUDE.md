@@ -338,3 +338,4 @@ POST /api/ai/test
 
 **Note**: This documentation reflects the current state of the project during the active cleanup process. Always refer to the latest cleanup.prd for current cleanup status and priorities.
 - when writing tests always write them in the test dir and use pytest this way we have them in the future.
+- REDACTED_API_KEY is your api key to use for auth for testing and development.
