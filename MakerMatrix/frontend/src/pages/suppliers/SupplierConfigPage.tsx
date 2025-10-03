@@ -51,8 +51,6 @@ export const SupplierConfigPage: React.FC = () => {
       setSuppliers(data || []);
       
       // Load credential requirements and status for each supplier
-      const requirements: Record<string, boolean> = {};
-      const statuses: Record<string, any> = {};
       const loadingStates: Record<string, boolean> = {};
 
       // Set all suppliers to loading initially
@@ -62,36 +60,56 @@ export const SupplierConfigPage: React.FC = () => {
       setLoadingCredentialStatus(loadingStates);
 
       // Load credential status for each supplier (async operations)
+      // Update state immediately after each check to avoid flashing "Not Configured"
       for (const supplier of data || []) {
         try {
           // Get credential schema to check if credentials are required
           const credentialSchema = await dynamicSupplierService.getCredentialSchema(supplier.supplier_name.toLowerCase());
-          requirements[supplier.supplier_name] = Array.isArray(credentialSchema) && credentialSchema.length > 0;
+          const requiresCredentials = Array.isArray(credentialSchema) && credentialSchema.length > 0;
+
+          // Update requirements state immediately
+          setCredentialRequirements(prev => ({
+            ...prev,
+            [supplier.supplier_name]: requiresCredentials
+          }));
 
           // Get actual credential status to check if they're configured
           try {
             const credentialStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
-            statuses[supplier.supplier_name] = credentialStatus;
+
+            // Update status state immediately BEFORE clearing loading
+            setCredentialStatuses(prev => ({
+              ...prev,
+              [supplier.supplier_name]: credentialStatus
+            }));
           } catch (statusErr) {
             console.warn(`Failed to get credential status for ${supplier.supplier_name}:`, statusErr);
-            // Default to assuming not configured if we can't check
-            statuses[supplier.supplier_name] = { is_configured: false, configured_fields: [] };
+
+            // Update status state immediately BEFORE clearing loading
+            setCredentialStatuses(prev => ({
+              ...prev,
+              [supplier.supplier_name]: { is_configured: false, configured_fields: [] }
+            }));
           }
         } catch (err) {
           // If we can't get the schema, assume credentials are required
-          requirements[supplier.supplier_name] = true;
-          statuses[supplier.supplier_name] = { is_configured: false, configured_fields: [] };
+          setCredentialRequirements(prev => ({
+            ...prev,
+            [supplier.supplier_name]: true
+          }));
+
+          setCredentialStatuses(prev => ({
+            ...prev,
+            [supplier.supplier_name]: { is_configured: false, configured_fields: [] }
+          }));
         } finally {
-          // Mark this supplier as done loading
+          // Mark this supplier as done loading AFTER status is set
           setLoadingCredentialStatus(prev => ({
             ...prev,
             [supplier.supplier_name]: false
           }));
         }
       }
-
-      setCredentialRequirements(requirements);
-      setCredentialStatuses(statuses);
       
     } catch (err: any) {
       console.error('Error loading suppliers:', err);
