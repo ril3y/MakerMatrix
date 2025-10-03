@@ -30,6 +30,22 @@ interface NewKeyData {
   allowed_ips: string[]
 }
 
+const AVAILABLE_PERMISSIONS = [
+  { value: 'parts:read', label: 'Parts: Read', category: 'Parts' },
+  { value: 'parts:write', label: 'Parts: Write/Update', category: 'Parts' },
+  { value: 'parts:delete', label: 'Parts: Delete', category: 'Parts' },
+  { value: 'locations:read', label: 'Locations: Read', category: 'Locations' },
+  { value: 'locations:write', label: 'Locations: Write/Update', category: 'Locations' },
+  { value: 'locations:delete', label: 'Locations: Delete', category: 'Locations' },
+  { value: 'categories:read', label: 'Categories: Read', category: 'Categories' },
+  { value: 'categories:write', label: 'Categories: Write/Update', category: 'Categories' },
+  { value: 'categories:delete', label: 'Categories: Delete', category: 'Categories' },
+  { value: 'tasks:read', label: 'Tasks: Read', category: 'Tasks' },
+  { value: 'tasks:create', label: 'Tasks: Create', category: 'Tasks' },
+  { value: 'tasks:update', label: 'Tasks: Update', category: 'Tasks' },
+  { value: 'all', label: 'Full Access (All Permissions)', category: 'Admin' },
+]
+
 const ApiKeyManagement = () => {
   const { hasRole, user } = useAuthStore()
   const isAdmin = hasRole('admin')
@@ -77,8 +93,22 @@ const ApiKeyManagement = () => {
 
   const createApiKey = async () => {
     try {
+      console.log('Creating API key with data:', newKeyData)
       const result = await apiKeyService.createApiKey(newKeyData)
-      setCreatedKey(result.api_key)
+      console.log('Create API key result:', result)
+
+      // Handle different response formats
+      const apiKey = result?.api_key || result?.data?.api_key
+
+      if (!apiKey) {
+        console.error('No API key in response:', result)
+        toast.error('API key created but not returned in response')
+        await loadApiKeys()
+        setShowCreateForm(false)
+        return
+      }
+
+      setCreatedKey(apiKey)
       setShowCreateForm(false)
       setNewKeyData({
         name: '',
@@ -90,8 +120,9 @@ const ApiKeyManagement = () => {
       })
       await loadApiKeys()
       toast.success('API key created successfully')
-    } catch (error) {
-      toast.error('Failed to create API key')
+    } catch (error: any) {
+      console.error('Failed to create API key:', error)
+      toast.error(error?.response?.data?.message || 'Failed to create API key')
     }
   }
 
@@ -248,6 +279,55 @@ const ApiKeyManagement = () => {
 
           <div>
             <label className="block text-sm font-medium text-primary mb-2">
+              Permissions *
+            </label>
+            <div className="border border-border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto">
+              {['Parts', 'Locations', 'Categories', 'Tasks', 'Admin'].map(category => {
+                const categoryPerms = AVAILABLE_PERMISSIONS.filter(p => p.category === category)
+                if (categoryPerms.length === 0) return null
+
+                return (
+                  <div key={category}>
+                    <div className="text-xs font-semibold text-secondary uppercase mb-2">{category}</div>
+                    <div className="space-y-1.5">
+                      {categoryPerms.map(perm => (
+                        <label key={perm.value} className="flex items-center gap-2 cursor-pointer hover:bg-background-secondary p-1.5 rounded">
+                          <input
+                            type="checkbox"
+                            checked={newKeyData.permissions.includes(perm.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewKeyData({
+                                  ...newKeyData,
+                                  permissions: [...newKeyData.permissions, perm.value]
+                                })
+                              } else {
+                                setNewKeyData({
+                                  ...newKeyData,
+                                  permissions: newKeyData.permissions.filter(p => p !== perm.value)
+                                })
+                              }
+                            }}
+                            className="rounded border-border"
+                          />
+                          <span className="text-sm text-primary">{perm.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-xs text-secondary mt-1">
+              {newKeyData.permissions.length === 0
+                ? 'Select at least one permission'
+                : `${newKeyData.permissions.length} permission${newKeyData.permissions.length !== 1 ? 's' : ''} selected`
+              }
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary mb-2">
               Expires In (Days)
             </label>
             <input
@@ -280,7 +360,7 @@ const ApiKeyManagement = () => {
           <div className="flex gap-2 pt-4">
             <button
               onClick={createApiKey}
-              disabled={!newKeyData.name}
+              disabled={!newKeyData.name || newKeyData.permissions.length === 0}
               className="btn btn-primary"
             >
               Create Key
@@ -332,13 +412,13 @@ const ApiKeyManagement = () => {
                   <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-secondary">
                     <div className="flex items-center gap-2">
                       <Key className="w-3 h-3" />
-                      <span className="font-mono">
-                        {visiblePrefixes.has(key.id) ? key.key_prefix : '••••••'}...
+                      <span className="font-mono text-xs" title={visiblePrefixes.has(key.id) ? 'Key prefix (first 8 chars only)' : 'Prefix hidden for security'}>
+                        {visiblePrefixes.has(key.id) ? `${key.key_prefix}...` : '••••••••...'}
                       </span>
                       <button
                         onClick={() => togglePrefixVisibility(key.id)}
                         className="p-1 hover:bg-background-tertiary rounded"
-                        title={visiblePrefixes.has(key.id) ? 'Hide prefix' : 'Show prefix'}
+                        title={visiblePrefixes.has(key.id) ? 'Hide prefix (only first 8 chars stored)' : 'Show prefix'}
                       >
                         {visiblePrefixes.has(key.id) ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                       </button>

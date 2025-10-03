@@ -131,9 +131,9 @@ const Templates = () => {
     : userTemplates
 
   return (
-    <div>
+    <div className="max-w-screen-2xl space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-primary mb-2">Label Templates</h2>
           <p className="text-secondary">Manage your label templates for printing</p>
@@ -148,7 +148,7 @@ const Templates = () => {
       </div>
 
       {/* Category Filter */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2">
         <button
           onClick={() => setSelectedCategory('all')}
           className={`px-4 py-2 rounded-lg transition-colors ${

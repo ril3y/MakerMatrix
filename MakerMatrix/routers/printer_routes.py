@@ -807,7 +807,11 @@ async def print_template_label(
     if result.success:
         try:
             from MakerMatrix.services.activity_service import get_activity_service
+            from MakerMatrix.repositories.label_template_repository import LabelTemplateRepository
+            from MakerMatrix.database.session import get_session
+
             activity_service = get_activity_service()
+            template_repo = LabelTemplateRepository()
 
             # Get printer name
             printer = await printer_manager.get_printer(request.printer_id)
@@ -816,15 +820,64 @@ async def print_template_label(
                 printer_info = printer.get_printer_info()
                 printer_name = printer_info.name
 
+            # Build descriptive label_type with template name and printed data
+            label_type_parts = []
+
+            # Try to get template name
+            print(f"[DEBUG] Looking up template: {request.template_id}")
+            try:
+                with get_session() as session:
+                    template = template_repo.get_by_id(session, request.template_id)
+                    if template:
+                        label_type_parts.append(template.name)
+                        print(f"[DEBUG] Found template name: {template.name}")
+                    else:
+                        print(f"[DEBUG] Template not found in database")
+            except Exception as e:
+                print(f"[DEBUG] Error looking up template: {e}")
+
+            # Extract key data from printed content
+            print(f"[DEBUG] Print request data: {request.data}")
+            data_parts = []
+            if request.data:
+                # Priority order: part_name, part_number, location, category
+                if request.data.get("part_name"):
+                    data_parts.append(request.data["part_name"])
+                    print(f"[DEBUG] Added part_name: {request.data['part_name']}")
+                elif request.data.get("part_number"):
+                    data_parts.append(request.data["part_number"])
+                    print(f"[DEBUG] Added part_number: {request.data['part_number']}")
+
+                if request.data.get("location"):
+                    data_parts.append(f"📍{request.data['location']}")
+                    print(f"[DEBUG] Added location: {request.data['location']}")
+
+            print(f"[DEBUG] label_type_parts: {label_type_parts}")
+            print(f"[DEBUG] data_parts: {data_parts}")
+
+            # Build final label_type string
+            if label_type_parts and data_parts:
+                label_type = f"{' '.join(label_type_parts)} - {', '.join(data_parts)}"
+            elif data_parts:
+                label_type = ', '.join(data_parts)
+            elif label_type_parts:
+                label_type = ' '.join(label_type_parts)
+            else:
+                label_type = f"Template: {request.template_id[:8]}..."
+
+            print(f"[DEBUG] Final label_type: {label_type}")
+
             await activity_service.log_label_printed(
                 printer_id=request.printer_id,
                 printer_name=printer_name,
-                label_type=f"Template: {request.template_id}",
+                label_type=label_type,
                 user=current_user,
                 request=http_request
             )
         except Exception as e:
             print(f"Failed to log template print activity: {e}")
+            import traceback
+            traceback.print_exc()
 
     response_data = {
         "success": result.success,
@@ -914,9 +967,25 @@ async def print_advanced_label(
                 printer_info = printer.get_printer_info()
                 printer_name = printer_info.name
 
-            # Create a descriptive label type
-            template_preview = request.template[:30] + "..." if len(request.template) > 30 else request.template
-            label_type = f"Advanced: {template_preview}"
+            # Build descriptive label_type with actual printed data
+            data_parts = []
+            if data:
+                # Priority order: part_name, part_number, location
+                if data.get("part_name"):
+                    data_parts.append(data["part_name"])
+                elif data.get("part_number"):
+                    data_parts.append(data["part_number"])
+
+                if data.get("location"):
+                    data_parts.append(f"📍{data['location']}")
+
+            # Build label_type string
+            if data_parts:
+                label_type = ', '.join(data_parts)
+            else:
+                # Fallback to template preview if no data
+                template_preview = request.template[:30] + "..." if len(request.template) > 30 else request.template
+                label_type = f"Custom: {template_preview}"
 
             await activity_service.log_label_printed(
                 printer_id=request.printer_id,

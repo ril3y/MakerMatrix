@@ -75,7 +75,7 @@ const CategoriesPage = () => {
   const existingCategories = useMemo(() => categories.map(cat => cat.name), [categories])
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-screen-2xl space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
