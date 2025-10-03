@@ -26,10 +26,8 @@ export class UsersService {
 
   // Role Management
   async getAllRoles(): Promise<Role[]> {
-    // TODO: Backend doesn't have get all roles endpoint yet
-    // This needs to be implemented in the backend
-    console.warn('getAllRoles: Backend endpoint not implemented yet')
-    return []
+    const response = await apiClient.get<ApiResponse<Role[]>>('/api/users/roles')
+    return response.data || []
   }
 
   async createRole(roleData: CreateRoleRequest): Promise<ApiResponse> {

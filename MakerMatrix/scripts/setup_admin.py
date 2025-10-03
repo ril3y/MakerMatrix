@@ -19,6 +19,8 @@ def setup_default_roles(user_repo: UserRepository):
                 "all", "parts:read", "parts:create", "parts:update", "parts:delete",
                 "locations:read", "locations:create", "locations:update", "locations:delete",
                 "categories:read", "categories:create", "categories:update", "categories:delete",
+                "users:read", "users:create", "users:update", "users:delete",
+                "api_keys:read", "api_keys:create", "api_keys:update", "api_keys:delete", "api_keys:admin",
                 "tasks:read", "tasks:create", "tasks:update", "tasks:admin"
             ]
         },

@@ -17,6 +17,8 @@ import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import CategorySelector from '@/components/ui/CategorySelector'
 import { analyticsService } from '@/services/analytics.service'
 import { Line } from 'react-chartjs-2'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // Icon mapping for property explorer
 const getIconForProperty = (propertyKey: string) => {
@@ -95,6 +97,9 @@ const PartDetailsPage = () => {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
   const [saving, setSaving] = useState(false)
+
+  // Permissions
+  const { canUpdate } = usePermissions()
 
   useEffect(() => {
     if (id) {
@@ -468,20 +473,24 @@ const PartDetailsPage = () => {
                   <Printer className="w-4 h-4" />
                   Print Label
                 </button>
-                <button
-                  onClick={handleEdit}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-theme-tertiary border border-theme-primary text-theme-primary rounded-lg hover:bg-theme-secondary transition-colors font-medium"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-error text-theme-inverse rounded-lg hover:opacity-90 transition-opacity font-medium"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </button>
+                <PermissionGuard permission="parts:update">
+                  <button
+                    onClick={handleEdit}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-theme-tertiary border border-theme-primary text-theme-primary rounded-lg hover:bg-theme-secondary transition-colors font-medium"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                </PermissionGuard>
+                <PermissionGuard permission="parts:delete">
+                  <button
+                    onClick={handleDelete}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-error text-theme-inverse rounded-lg hover:opacity-90 transition-opacity font-medium"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </PermissionGuard>
               </div>
             </div>
           </motion.div>
@@ -552,8 +561,8 @@ const PartDetailsPage = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* Part Number Field */}
                     <div
-                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
-                      onClick={() => startEditing('part_number', part.part_number || '')}
+                      className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
+                      onClick={canUpdate('parts') ? () => startEditing('part_number', part.part_number || '') : undefined}
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
@@ -617,8 +626,8 @@ const PartDetailsPage = () => {
 
                     {/* Quantity Field */}
                     <div
-                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
-                      onClick={() => startEditing('quantity', part.quantity.toString())}
+                      className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
+                      onClick={canUpdate('parts') ? () => startEditing('quantity', part.quantity.toString()) : undefined}
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
@@ -690,8 +699,8 @@ const PartDetailsPage = () => {
 
                     {/* Supplier Field */}
                     <div
-                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
-                      onClick={() => startEditing('supplier', part.supplier || '')}
+                      className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
+                      onClick={canUpdate('parts') ? () => startEditing('supplier', part.supplier || '') : undefined}
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
@@ -907,8 +916,8 @@ const PartDetailsPage = () => {
               </div>
               <div className="p-6">
                 <div
-                  className="bg-theme-secondary border border-theme-primary rounded-lg p-4 cursor-pointer hover:bg-theme-tertiary transition-colors"
-                  onClick={() => startEditing('description', part.description || '')}
+                  className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
+                  onClick={canUpdate('parts') ? () => startEditing('description', part.description || '') : undefined}
                 >
                   {editingField === 'description' ? (
                     <div onClick={(e) => e.stopPropagation()}>

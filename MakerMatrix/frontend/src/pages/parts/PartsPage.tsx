@@ -7,6 +7,7 @@ import { Part } from '@/types/parts'
 import AddPartModal from '@/components/parts/AddPartModal'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartImage from '@/components/parts/PartImage'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 const PartsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
@@ -337,13 +338,15 @@ const PartsPage = () => {
             Manage your parts inventory
           </p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Part
-        </button>
+        <PermissionGuard permission="parts:create">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Part
+          </button>
+        </PermissionGuard>
       </motion.div>
 
       {/* Search and Filters */}
