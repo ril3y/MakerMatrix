@@ -52,9 +52,15 @@ const ApiKeyManagement = () => {
     try {
       setLoading(true)
       const keys = await apiKeyService.getUserApiKeys()
-      setApiKeys(keys)
-    } catch (error) {
-      toast.error('Failed to load API keys')
+      setApiKeys(keys || [])
+    } catch (error: any) {
+      // Check if it's an authentication error
+      if (error?.response?.status === 401) {
+        toast.error('Session expired. Please log in again.')
+      } else {
+        toast.error('Failed to load API keys')
+      }
+      setApiKeys([]) // Ensure apiKeys is always an array
     } finally {
       setLoading(false)
     }
