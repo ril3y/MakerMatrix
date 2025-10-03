@@ -36,6 +36,7 @@ class UserModel(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
     roles: List[RoleModel] = Relationship(back_populates="users", link_model=UserRoleLink)
+    api_keys: List["APIKeyModel"] = Relationship(back_populates="user")
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -120,3 +121,7 @@ class PasswordUpdate(SQLModel):
         if not any(c.isdigit() for c in v):
             raise ValueError("Password must contain at least one number")
         return v 
+
+# Forward reference for APIKeyModel
+if False:  # Type checking only
+    from .api_key_models import APIKeyModel

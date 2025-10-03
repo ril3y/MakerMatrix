@@ -25,3 +25,6 @@ from .task_models import *
 
 # Enrichment requirement models
 from .enrichment_requirement_models import *
+
+# API Key models
+from .api_key_models import *
