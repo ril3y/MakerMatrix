@@ -1,6 +1,6 @@
 /**
  * Add Supplier Configuration Modal
- * 
+ *
  * Modal for creating new supplier configurations with predefined templates
  * and custom configuration options.
  */
@@ -11,6 +11,9 @@ import { supplierService, SupplierConfigCreate } from '../../services/supplier.s
 import { DigiKeyConfigForm } from './DigiKeyConfigForm';
 import { LCSCConfigForm } from './LCSCConfigForm';
 import { MouserConfigForm } from './MouserConfigForm';
+import { prepareDigiKeyConfig } from './configs/digikey-config';
+import { prepareLCSCConfig } from './configs/lcsc-config';
+import { prepareMouserConfig } from './configs/mouser-config';
 
 interface AddSupplierModalProps {
   onClose: () => void;
@@ -22,7 +25,8 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
   const [selectedType, setSelectedType] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  
+
+  // Base configuration - supplier-specific fields handled separately
   const [config, setConfig] = useState<SupplierConfigCreate>({
     supplier_name: '',
     display_name: '',
@@ -43,6 +47,9 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
     custom_headers: {},
     custom_parameters: {}
   });
+
+  // Supplier-specific data (e.g., DigiKey fields)
+  const [supplierSpecificData, setSupplierSpecificData] = useState<Record<string, any>>({});
 
   const supplierTypes = supplierService.getAvailableSupplierTypes();
   const capabilities = supplierService.getSupportedCapabilities();
@@ -97,8 +104,14 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
     }
   };
 
-  const handleConfigChange = (field: keyof SupplierConfigCreate, value: any) => {
-    setConfig(prev => ({ ...prev, [field]: value }));
+  const handleConfigChange = (field: string, value: any) => {
+    // Check if this is a base config field or supplier-specific
+    if (field in config) {
+      setConfig(prev => ({ ...prev, [field]: value }));
+    } else {
+      // Store supplier-specific fields separately
+      setSupplierSpecificData(prev => ({ ...prev, [field]: value }));
+    }
     setErrors([]); // Clear errors when user makes changes
   };
 
@@ -129,43 +142,16 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
       setLoading(true);
       setErrors([]);
 
-      // Prepare configuration for API
-      const configForAPI = { ...config };
+      // Prepare configuration using supplier-specific transformation
+      let configForAPI: SupplierConfigCreate = { ...config };
 
-      // Handle supplier-specific configuration fields
+      // Apply supplier-specific transformations
       if (selectedType === 'digikey') {
-        // Move DigiKey-specific fields to custom_parameters
-        const digikeyParams: any = {};
-        
-        if (config.sandbox_mode !== undefined) {
-          digikeyParams.sandbox_mode = config.sandbox_mode;
-          // Update base URL based on sandbox mode
-          configForAPI.base_url = config.sandbox_mode 
-            ? 'https://sandbox-api.digikey.com' 
-            : 'https://api.digikey.com';
-        }
-        
-        if (config.oauth_callback_url) {
-          digikeyParams.oauth_callback_url = config.oauth_callback_url;
-        }
-        
-        if (config.storage_path) {
-          digikeyParams.storage_path = config.storage_path;
-        }
-
-        configForAPI.custom_parameters = { ...configForAPI.custom_parameters, ...digikeyParams };
-        
-        // Remove these fields from the main config since they're now in custom_parameters
-        delete configForAPI.sandbox_mode;
-        delete configForAPI.oauth_callback_url;
-        delete configForAPI.storage_path;
-
-        // Set DigiKey-specific defaults
-        configForAPI.custom_headers = {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          ...configForAPI.custom_headers
-        };
+        configForAPI = prepareDigiKeyConfig(config, supplierSpecificData);
+      } else if (selectedType === 'lcsc') {
+        configForAPI = prepareLCSCConfig(config, supplierSpecificData);
+      } else if (selectedType === 'mouser') {
+        configForAPI = prepareMouserConfig(config, supplierSpecificData);
       }
 
       // Validate configuration
