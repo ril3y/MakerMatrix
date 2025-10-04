@@ -671,7 +671,122 @@ const PartDetailsPage = () => {
                   </div>
                 </div>
 
-                {/* Enhanced Info Grid */}
+                {/* Location & Inventory Section */}
+                <div className="xl:col-span-3 bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+                    <h3 className="text-lg font-semibold text-theme-primary flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-primary-accent" />
+                      Location & Inventory
+                    </h3>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Quantity */}
+                      <div
+                        className={`bg-theme-secondary border border-theme-primary rounded-lg p-5 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
+                        onClick={canUpdate('parts') ? () => startEditing('quantity', part.quantity.toString()) : undefined}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 bg-primary-10 rounded-lg shrink-0">
+                            <Box className="w-6 h-6 text-primary-accent" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-theme-secondary mb-2">Quantity in Stock</p>
+                            {editingField === 'quantity' ? (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="number"
+                                  value={editingValue}
+                                  onChange={(e) => setEditingValue(e.target.value)}
+                                  className="w-24 px-3 py-2 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveField('quantity', editingValue)
+                                    if (e.key === 'Escape') cancelEditing()
+                                  }}
+                                />
+                                <button
+                                  onClick={() => saveField('quantity', editingValue)}
+                                  disabled={saving}
+                                  className="px-3 py-2 bg-success text-theme-inverse rounded text-xs disabled:opacity-50"
+                                >
+                                  {saving ? '⏳' : '✓'}
+                                </button>
+                                <button
+                                  onClick={cancelEditing}
+                                  className="px-3 py-2 bg-error text-theme-inverse rounded text-xs"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <p className={`font-bold text-2xl ${
+                                  part.minimum_quantity && part.quantity <= part.minimum_quantity
+                                    ? 'text-error'
+                                    : 'text-theme-primary'
+                                }`}>
+                                  {part.quantity.toLocaleString()}
+                                </p>
+                                {part.minimum_quantity && (
+                                  <span className={`text-sm px-2 py-1 rounded inline-block ${
+                                    part.quantity <= part.minimum_quantity
+                                      ? 'bg-error/20 text-error'
+                                      : 'bg-theme-tertiary text-theme-muted'
+                                  }`}>
+                                    Min: {part.minimum_quantity}
+                                    {part.quantity <= part.minimum_quantity && ' ⚠️'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Primary Location */}
+                      <div
+                        className="bg-theme-secondary border-2 border-primary/20 rounded-lg p-5 hover:bg-theme-tertiary hover:border-primary/40 transition-all cursor-pointer"
+                        onClick={handleLocationClick}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 bg-primary/10 rounded-lg shrink-0">
+                            <MapPin className="w-6 h-6 text-primary" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-theme-secondary">Primary Location</p>
+                              {!part.location && (
+                                <span className="text-xs bg-warning/20 text-warning px-2 py-1 rounded">
+                                  Not set
+                                </span>
+                              )}
+                            </div>
+                            {part.location ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  {part.location.emoji && (
+                                    <span className="text-2xl">{part.location.emoji}</span>
+                                  )}
+                                  <p className="font-bold text-lg text-theme-primary hover:text-primary transition-colors">
+                                    {part.location.name}
+                                  </p>
+                                </div>
+                                {part.location.description && (
+                                  <p className="text-xs text-theme-muted">{part.location.description}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-theme-muted italic">Click to assign a location</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Part Information Grid */}
                 <div className="xl:col-span-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* Part Number Field */}
@@ -735,87 +850,6 @@ const PartDetailsPage = () => {
                               <p className="font-semibold text-theme-muted">Not set</p>
                             )
                           )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quantity Field */}
-                    <div
-                      className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
-                      onClick={canUpdate('parts') ? () => startEditing('quantity', part.quantity.toString()) : undefined}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-primary-10 rounded-lg shrink-0">
-                          <Box className="w-4 h-4 text-primary-accent" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">Quantity</p>
-                          {editingField === 'quantity' ? (
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="number"
-                                value={editingValue}
-                                onChange={(e) => setEditingValue(e.target.value)}
-                                className="w-20 px-2 py-1 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') saveField('quantity', editingValue)
-                                  if (e.key === 'Escape') cancelEditing()
-                                }}
-                              />
-                              <button
-                                onClick={() => saveField('quantity', editingValue)}
-                                disabled={saving}
-                                className="px-2 py-1 bg-success text-theme-inverse rounded text-xs disabled:opacity-50"
-                              >
-                                {saving ? '⏳' : '✓'}
-                              </button>
-                              <button
-                                onClick={cancelEditing}
-                                className="px-2 py-1 bg-error text-theme-inverse rounded text-xs"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <p className={`font-bold text-lg ${
-                                part.minimum_quantity && part.quantity <= part.minimum_quantity
-                                  ? 'text-error'
-                                  : 'text-theme-primary'
-                              }`}>
-                                {part.quantity}
-                              </p>
-                              {part.minimum_quantity && (
-                                <span className="text-xs text-theme-muted bg-theme-tertiary px-2 py-1 rounded">
-                                  Min: {part.minimum_quantity}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Location Field */}
-                    <div
-                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
-                      onClick={handleLocationClick}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-primary-10 rounded-lg shrink-0">
-                          <MapPin className="w-4 h-4 text-primary-accent" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">
-                            Location
-                            {!part.location && (
-                              <span className="text-xs text-theme-muted ml-2">(click to assign)</span>
-                            )}
-                          </p>
-                          <p className="font-semibold text-theme-primary hover:text-secondary transition-colors">
-                            {part.location?.name || 'Not assigned'}
-                          </p>
                         </div>
                       </div>
                     </div>

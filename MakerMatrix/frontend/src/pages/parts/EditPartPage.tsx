@@ -532,22 +532,81 @@ const EditPartPage: React.FC = () => {
                     <div className="bg-error/5 border border-error/20 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <AlertCircle className="w-4 h-4 text-error" />
-                        <h4 className="text-sm font-semibold text-error">Required Fields</h4>
+                        <h4 className="text-sm font-semibold text-error">Required Fields for Enrichment</h4>
                       </div>
-                      <div className="space-y-2">
-                        {enrichmentRequirements.required_fields.map((field) => (
-                          <div key={field.field_name} className="text-sm">
-                            <div className="flex items-start gap-2">
-                              <span className="font-medium text-primary">{field.display_name}:</span>
-                              <span className="text-secondary flex-1">{field.description}</span>
+                      <div className="space-y-4">
+                        {enrichmentRequirements.required_fields.map((field) => {
+                          // Get current value from part data or additional_properties
+                          const getCurrentValue = () => {
+                            if (!part) return ''
+                            // Check top-level fields first
+                            if (field.field_name === 'part_number') return part.part_number || ''
+                            if (field.field_name === 'manufacturer') return (part.additional_properties?.manufacturer || part.additional_properties?.Manufacturer) || ''
+                            if (field.field_name === 'supplier') return part.supplier || ''
+                            // Check additional_properties
+                            return part.additional_properties?.[field.field_name] || ''
+                          }
+
+                          const currentValue = getCurrentValue()
+                          const hasValue = !!currentValue
+
+                          return (
+                            <div key={field.field_name} className="space-y-2">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <label className="block text-sm font-medium text-primary mb-1">
+                                    {field.display_name}
+                                    {hasValue && <CheckCircle className="w-4 h-4 text-success inline ml-2" />}
+                                  </label>
+                                  <p className="text-xs text-secondary mb-2">{field.description}</p>
+                                </div>
+                              </div>
+
+                              {/* Show current value */}
+                              {field.field_name === 'part_number' ? (
+                                <div className="text-sm p-2 bg-background-secondary rounded border border-border">
+                                  <span className="text-muted">Current: </span>
+                                  <span className={hasValue ? 'text-primary font-medium' : 'text-muted italic'}>
+                                    {currentValue || 'Not set'}
+                                  </span>
+                                  <p className="text-xs text-muted mt-1">Edit in "Basic Information" section above</p>
+                                </div>
+                              ) : field.field_name === 'supplier' ? (
+                                <div className="text-sm p-2 bg-background-secondary rounded border border-border">
+                                  <span className="text-muted">Current: </span>
+                                  <span className={hasValue ? 'text-primary font-medium' : 'text-muted italic'}>
+                                    {currentValue || 'Selected above'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <div className="text-sm p-2 bg-background-secondary rounded border border-border">
+                                    <span className="text-muted">Current: </span>
+                                    <span className={hasValue ? 'text-primary font-medium' : 'text-muted italic'}>
+                                      {currentValue || 'Not set'}
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={additionalProperties[field.field_name] || ''}
+                                    onChange={(e) => setAdditionalProperties(prev => ({
+                                      ...prev,
+                                      [field.field_name]: e.target.value
+                                    }))}
+                                    placeholder={field.example || `Enter ${field.display_name.toLowerCase()}...`}
+                                    className="input w-full text-sm"
+                                  />
+                                </div>
+                              )}
+
+                              {field.example && (
+                                <p className="text-xs text-muted">
+                                  Example: <code className="bg-background-tertiary px-1 rounded">{field.example}</code>
+                                </p>
+                              )}
                             </div>
-                            {field.example && (
-                              <p className="text-xs text-muted mt-1 ml-2">
-                                Example: <code className="bg-background-tertiary px-1 rounded">{field.example}</code>
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -557,22 +616,74 @@ const EditPartPage: React.FC = () => {
                     <div className="bg-info/5 border border-info/20 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <HelpCircle className="w-4 h-4 text-info" />
-                        <h4 className="text-sm font-semibold text-info">Recommended Fields</h4>
+                        <h4 className="text-sm font-semibold text-info">Recommended Fields (Optional)</h4>
                       </div>
-                      <div className="space-y-2">
-                        {enrichmentRequirements.recommended_fields.map((field) => (
-                          <div key={field.field_name} className="text-sm">
-                            <div className="flex items-start gap-2">
-                              <span className="font-medium text-primary">{field.display_name}:</span>
-                              <span className="text-secondary flex-1">{field.description}</span>
+                      <div className="space-y-4">
+                        {enrichmentRequirements.recommended_fields.map((field) => {
+                          // Get current value from part data or additional_properties
+                          const getCurrentValue = () => {
+                            if (!part) return ''
+                            // Check top-level fields first
+                            if (field.field_name === 'description') return part.description || ''
+                            if (field.field_name === 'part_number') return part.part_number || ''
+                            if (field.field_name === 'manufacturer') return (part.additional_properties?.manufacturer || part.additional_properties?.Manufacturer) || ''
+                            // Check additional_properties
+                            return part.additional_properties?.[field.field_name] || ''
+                          }
+
+                          const currentValue = getCurrentValue()
+                          const hasValue = !!currentValue
+
+                          return (
+                            <div key={field.field_name} className="space-y-2">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <label className="block text-sm font-medium text-primary mb-1">
+                                    {field.display_name}
+                                    {hasValue && <CheckCircle className="w-4 h-4 text-success inline ml-2" />}
+                                  </label>
+                                  <p className="text-xs text-secondary mb-2">{field.description}</p>
+                                </div>
+                              </div>
+
+                              {/* Show current value */}
+                              {(field.field_name === 'part_number' || field.field_name === 'description') ? (
+                                <div className="text-sm p-2 bg-background-secondary rounded border border-border">
+                                  <span className="text-muted">Current: </span>
+                                  <span className={hasValue ? 'text-primary font-medium' : 'text-muted italic'}>
+                                    {currentValue || 'Not set'}
+                                  </span>
+                                  <p className="text-xs text-muted mt-1">Edit in "Basic Information" section above</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <div className="text-sm p-2 bg-background-secondary rounded border border-border">
+                                    <span className="text-muted">Current: </span>
+                                    <span className={hasValue ? 'text-primary font-medium' : 'text-muted italic'}>
+                                      {currentValue || 'Not set'}
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={additionalProperties[field.field_name] || ''}
+                                    onChange={(e) => setAdditionalProperties(prev => ({
+                                      ...prev,
+                                      [field.field_name]: e.target.value
+                                    }))}
+                                    placeholder={field.example || `Enter ${field.display_name.toLowerCase()}...`}
+                                    className="input w-full text-sm"
+                                  />
+                                </div>
+                              )}
+
+                              {field.example && (
+                                <p className="text-xs text-muted">
+                                  Example: <code className="bg-background-tertiary px-1 rounded">{field.example}</code>
+                                </p>
+                              )}
                             </div>
-                            {field.example && (
-                              <p className="text-xs text-muted mt-1 ml-2">
-                                Example: <code className="bg-background-tertiary px-1 rounded">{field.example}</code>
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
