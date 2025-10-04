@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion'
-import { MapPin, Plus, Search, Filter, Building, FolderTree, Edit2, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
+import { MapPin, Plus, Search, Filter, Building, FolderTree, Edit2, Trash2, ChevronRight, ChevronDown, Eye } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import EditLocationModal from '@/components/locations/EditLocationModal'
+import LocationDetailsModal from '@/components/locations/LocationDetailsModal'
 import AuthenticatedImage from '@/components/ui/AuthenticatedImage'
 import { locationsService } from '@/services/locations.service'
 import { Location } from '@/types/locations'
@@ -12,7 +13,9 @@ import LoadingScreen from '@/components/ui/LoadingScreen'
 const LocationsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [editingLocation, setEditingLocation] = useState<Location | null>(null)
+  const [viewingLocation, setViewingLocation] = useState<Location | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
   const [locationTree, setLocationTree] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,6 +53,11 @@ const LocationsPage = () => {
     loadLocations()
     setShowEditModal(false)
     setEditingLocation(null)
+  }
+
+  const handleViewDetails = (location: Location) => {
+    setViewingLocation(location)
+    setShowDetailsModal(true)
   }
 
   const handleEdit = (location: Location) => {
@@ -234,7 +242,10 @@ const LocationsPage = () => {
                 {filteredLocations.map((location) => (
                   <tr key={location.id} className="border-b border-border hover:bg-background-secondary transition-colors">
                     <td className="p-4">
-                      <div className="flex items-center gap-3">
+                      <div
+                        className="flex items-center gap-3 cursor-pointer group"
+                        onClick={() => handleViewDetails(location)}
+                      >
                         {location.emoji ? (
                           <span className="text-lg">{location.emoji}</span>
                         ) : location.image_url ? (
@@ -246,7 +257,7 @@ const LocationsPage = () => {
                         ) : (
                           <MapPin className="w-4 h-4 text-primary" />
                         )}
-                        <span className="font-medium text-primary">{location.name}</span>
+                        <span className="font-medium text-primary group-hover:text-secondary transition-colors">{location.name}</span>
                       </div>
                     </td>
                     <td className="p-4 text-secondary">
@@ -260,6 +271,13 @@ const LocationsPage = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleViewDetails(location)}
+                          className="btn btn-icon btn-primary"
+                          title="View details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleEdit(location)}
                           className="btn btn-icon btn-secondary"
@@ -289,10 +307,11 @@ const LocationsPage = () => {
           transition={{ delay: 0.2 }}
           className="card p-4"
         >
-          <LocationTreeNode 
-            locations={locationTree} 
+          <LocationTreeNode
+            locations={locationTree}
             expandedNodes={expandedNodes}
             toggleExpanded={toggleExpanded}
+            onViewDetails={handleViewDetails}
             onEdit={handleEdit}
             onDelete={handleDelete}
           />
@@ -318,6 +337,23 @@ const LocationsPage = () => {
           location={editingLocation}
         />
       )}
+
+      {/* Location Details Modal */}
+      {viewingLocation && (
+        <LocationDetailsModal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false)
+            setViewingLocation(null)
+          }}
+          location={viewingLocation}
+          onRefresh={loadLocations}
+          onOpenLocation={(newLocation) => {
+            // Switch to viewing the new location
+            setViewingLocation(newLocation)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -327,18 +363,20 @@ interface LocationTreeNodeProps {
   locations: Location[]
   expandedNodes: Set<string>
   toggleExpanded: (id: string) => void
+  onViewDetails: (location: Location) => void
   onEdit: (location: Location) => void
   onDelete: (location: Location) => void
   level?: number
 }
 
-const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({ 
-  locations, 
-  expandedNodes, 
-  toggleExpanded, 
-  onEdit, 
+const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
+  locations,
+  expandedNodes,
+  toggleExpanded,
+  onViewDetails,
+  onEdit,
   onDelete,
-  level = 0 
+  level = 0
 }) => {
   return (
     <div className="space-y-1">
@@ -366,28 +404,45 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                   </button>
                 )}
                 {!hasChildren && <div className="w-6" />}
-                <div className="flex items-center gap-2">
-                  {location.emoji ? (
-                    <span className="text-lg">{location.emoji}</span>
-                  ) : location.image_url ? (
-                    <AuthenticatedImage
-                      src={location.image_url}
-                      alt={location.name}
-                      className="w-6 h-6 object-cover rounded border border-border"
-                    />
-                  ) : (
-                    <MapPin className="w-4 h-4 text-primary" />
+                <div
+                  className="flex items-center gap-2 cursor-pointer flex-1"
+                  onClick={() => onViewDetails(location)}
+                >
+                  <div className="flex items-center gap-2">
+                    {location.emoji ? (
+                      <span className="text-lg">{location.emoji}</span>
+                    ) : location.image_url ? (
+                      <AuthenticatedImage
+                        src={location.image_url}
+                        alt={location.name}
+                        className="w-6 h-6 object-cover rounded border border-border"
+                      />
+                    ) : (
+                      <MapPin className="w-4 h-4 text-primary" />
+                    )}
+                  </div>
+                  <span className="font-medium text-primary hover:text-secondary transition-colors">{location.name}</span>
+                  <span className="text-sm text-secondary ml-2">
+                    ({location.location_type || 'General'})
+                  </span>
+                  {location.parts_count && location.parts_count > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded">
+                      {location.parts_count} {location.parts_count === 1 ? 'part' : 'parts'}
+                    </span>
+                  )}
+                  {location.description && (
+                    <span className="text-sm text-muted ml-2">- {location.description}</span>
                   )}
                 </div>
-                <span className="font-medium text-primary">{location.name}</span>
-                <span className="text-sm text-secondary ml-2">
-                  ({location.location_type || 'General'})
-                </span>
-                {location.description && (
-                  <span className="text-sm text-muted ml-2">- {location.description}</span>
-                )}
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onViewDetails(location)}
+                  className="btn btn-icon btn-primary"
+                  title="View details"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => onEdit(location)}
                   className="btn btn-icon btn-secondary"
@@ -409,6 +464,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                 locations={location.children!}
                 expandedNodes={expandedNodes}
                 toggleExpanded={toggleExpanded}
+                onViewDetails={onViewDetails}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 level={level + 1}

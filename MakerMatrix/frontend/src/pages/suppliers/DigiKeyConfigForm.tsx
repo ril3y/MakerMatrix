@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { HelpCircle, AlertTriangle } from 'lucide-react';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 
 interface DigiKeyConfigFormProps {
   config: any;
@@ -97,15 +98,15 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Environment Mode *
             </label>
-            <select
+            <CustomSelect
               value={config.sandbox_mode !== false ? 'sandbox' : 'production'}
-              onChange={(e) => onConfigChange('sandbox_mode', e.target.value === 'sandbox')}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              required
-            >
-              <option value="sandbox">Sandbox (Testing) - api-sandbox.digikey.com</option>
-              <option value="production">Production - api.digikey.com</option>
-            </select>
+              onChange={(val) => onConfigChange('sandbox_mode', val === 'sandbox')}
+              options={[
+                { value: 'sandbox', label: 'Sandbox (Testing) - api-sandbox.digikey.com' },
+                { value: 'production', label: 'Production - api.digikey.com' }
+              ]}
+              placeholder="Select environment mode"
+            />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Sandbox mode is safe for testing. Use production only with valid production credentials.
             </p>
