@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Check } from 'lucide-react'
+import { ChevronDown, Check, Search, X } from 'lucide-react'
 
 interface Option {
   value: string
@@ -27,6 +27,8 @@ interface CustomSelectProps {
   disabled?: boolean
   error?: string
   className?: string
+  searchable?: boolean
+  searchPlaceholder?: string
 }
 
 export const CustomSelect = ({
@@ -37,16 +39,21 @@ export const CustomSelect = ({
   placeholder = 'Select...',
   disabled = false,
   error,
-  className = ''
+  className = '',
+  searchable = false,
+  searchPlaceholder = 'Search...'
 }: CustomSelectProps) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false)
+        setSearchTerm('')
       }
     }
 
@@ -55,6 +62,13 @@ export const CustomSelect = ({
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen])
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchable && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 50)
+    }
+  }, [isOpen, searchable])
 
   // Get display label for current value
   const getDisplayLabel = () => {
@@ -76,7 +90,29 @@ export const CustomSelect = ({
   const handleSelect = (optionValue: string) => {
     onChange(optionValue)
     setIsOpen(false)
+    setSearchTerm('')
   }
+
+  // Filter options based on search term
+  const filterOptions = (opts: Option[]) => {
+    if (!searchTerm) return opts
+    const term = searchTerm.toLowerCase()
+    return opts.filter(opt => opt.label.toLowerCase().includes(term))
+  }
+
+  // Filter option groups based on search term
+  const filterOptionGroups = (groups: OptionGroup[]) => {
+    if (!searchTerm) return groups
+    return groups
+      .map(group => ({
+        ...group,
+        options: filterOptions(group.options)
+      }))
+      .filter(group => group.options.length > 0)
+  }
+
+  const filteredOptions = filterOptions(options)
+  const filteredOptionGroups = filterOptionGroups(optionGroups)
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -100,11 +136,44 @@ export const CustomSelect = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-theme-primary border border-theme-primary rounded-md shadow-lg max-h-60 overflow-auto">
-          {/* Flat Options */}
-          {options.length > 0 && (
-            <div className="py-1">
-              {options.map((option) => (
+        <div className="absolute z-50 w-full mt-1 bg-theme-primary border border-theme-primary rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+          {/* Search Input */}
+          {searchable && (
+            <div className="sticky top-0 p-2 border-b border-theme-primary bg-theme-primary">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-theme-muted" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="w-full pl-8 pr-8 py-1.5 text-sm bg-theme-secondary border border-theme-primary rounded text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-primary"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSearchTerm('')
+                      searchInputRef.current?.focus()
+                    }}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-theme-muted hover:text-theme-primary"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Options List */}
+          <div className="overflow-auto flex-1">
+            {/* Flat Options */}
+            {filteredOptions.length > 0 && (
+              <div className="py-1">
+                {filteredOptions.map((option) => (
                 <button
                   key={option.value}
                   type="button"
@@ -126,35 +195,44 @@ export const CustomSelect = ({
             </div>
           )}
 
-          {/* Option Groups */}
-          {optionGroups.map((group, groupIndex) => (
-            <div key={groupIndex}>
-              <div className="px-3 py-2 text-xs font-semibold text-theme-secondary bg-theme-tertiary">
-                {group.label}
+            {/* Option Groups */}
+            {filteredOptionGroups.map((group, groupIndex) => (
+              <div key={groupIndex}>
+                <div className="px-3 py-2 text-xs font-semibold text-theme-secondary bg-theme-tertiary">
+                  {group.label}
+                </div>
+                <div className="py-1">
+                  {group.options.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleSelect(option.value)}
+                      className={`
+                        w-full px-3 py-2 text-left
+                        flex items-center justify-between gap-2
+                        transition-colors duration-150
+                        ${value === option.value
+                          ? 'bg-secondary/20 text-secondary font-medium'
+                          : 'text-theme-primary hover:bg-secondary hover:text-white'
+                        }
+                      `}
+                    >
+                      <span>{option.label}</span>
+                      {value === option.value && <Check className="w-4 h-4" />}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="py-1">
-                {group.options.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleSelect(option.value)}
-                    className={`
-                      w-full px-3 py-2 text-left
-                      flex items-center justify-between gap-2
-                      transition-colors duration-150
-                      ${value === option.value
-                        ? 'bg-secondary/20 text-secondary font-medium'
-                        : 'text-theme-primary hover:bg-secondary hover:text-white'
-                      }
-                    `}
-                  >
-                    <span>{option.label}</span>
-                    {value === option.value && <Check className="w-4 h-4" />}
-                  </button>
-                ))}
+            ))}
+
+            {/* No Results Message */}
+            {searchTerm && filteredOptions.length === 0 && filteredOptionGroups.length === 0 && (
+              <div className="py-8 text-center text-theme-muted">
+                <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No results found for "{searchTerm}"</p>
               </div>
-            </div>
-          ))}
+            )}
+          </div>
         </div>
       )}
     </div>
