@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
-import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign, Copy, Check, Factory, Cpu, Leaf, AlertCircle, Layers, ShieldCheck, Plus } from 'lucide-react'
+import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign, Copy, Check, Factory, Cpu, Leaf, AlertCircle, Layers, ShieldCheck, Plus, ChevronDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { partsService } from '@/services/parts.service'
 import { categoriesService } from '@/services/categories.service'
 import { Part, Datasheet } from '@/types/parts'
@@ -19,6 +21,14 @@ import { analyticsService } from '@/services/analytics.service'
 import { Line } from 'react-chartjs-2'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
+import { AllocationsSummary } from '@/components/parts/AllocationsSummary'
+import TransferQuantityModal from '@/components/parts/TransferQuantityModal'
+import { PartAllocation, partAllocationService } from '@/services/part-allocation.service'
+import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
+import AddLocationModal from '@/components/locations/AddLocationModal'
+import Modal from '@/components/ui/Modal'
+import { locationsService } from '@/services/locations.service'
+import { Location } from '@/types/locations'
 
 // Icon mapping for property explorer
 const getIconForProperty = (propertyKey: string) => {
@@ -97,6 +107,19 @@ const PartDetailsPage = () => {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
   const [saving, setSaving] = useState(false)
+
+  // Transfer modal state
+  const [transferModalOpen, setTransferModalOpen] = useState(false)
+  const [selectedSourceAllocation, setSelectedSourceAllocation] = useState<PartAllocation | null>(null)
+
+  // Location modals state
+  const [locationManagementModalOpen, setLocationManagementModalOpen] = useState(false)
+  const [locationPickerModalOpen, setLocationPickerModalOpen] = useState(false)
+  const [addLocationModalOpen, setAddLocationModalOpen] = useState(false)
+  const [selectedLocationForPicker, setSelectedLocationForPicker] = useState<string | undefined>(undefined)
+
+  // Debug copy state
+  const [debugCopied, setDebugCopied] = useState(false)
 
   // Permissions
   const { canUpdate } = usePermissions()
@@ -343,6 +366,98 @@ const PartDetailsPage = () => {
     // Opened directly from main buttons
     setOpenedFromManagement(false)
     setAddCategoryModalOpen(true)
+  }
+
+  const handleTransferClick = (allocation: PartAllocation) => {
+    setSelectedSourceAllocation(allocation)
+    setTransferModalOpen(true)
+  }
+
+  const handleTransferSuccess = () => {
+    // Reload part to get updated allocation data
+    if (id) {
+      loadPart(id)
+    }
+  }
+
+  const handleLocationClick = () => {
+    if (part?.location) {
+      // Has a location - show location management options
+      setLocationManagementModalOpen(true)
+    } else {
+      // No location - show location picker
+      setSelectedLocationForPicker(undefined)
+      setLocationPickerModalOpen(true)
+    }
+  }
+
+  const handleChangePrimaryLocation = () => {
+    setLocationManagementModalOpen(false)
+    setSelectedLocationForPicker(part?.location?.id)
+    setLocationPickerModalOpen(true)
+  }
+
+  const handleTransferFromPrimary = async () => {
+    if (!part?.location) return
+
+    try {
+      // Get the part's allocations to find the primary allocation
+      const allocations = await partAllocationService.getPartAllocations(part.id)
+      const primaryAllocation = allocations.allocations.find(a => a.is_primary_storage)
+
+      if (primaryAllocation) {
+        setSelectedSourceAllocation(primaryAllocation)
+        setLocationManagementModalOpen(false)
+        setTransferModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Failed to get allocations:', error)
+      alert('Failed to load allocation data')
+    }
+  }
+
+  const handleViewLocationDetails = () => {
+    // Navigate to locations page and open details
+    navigate('/locations')
+  }
+
+  const handleLocationSelect = async (locationId: string | undefined) => {
+    if (!locationId || !part) return
+
+    try {
+      setSaving(true)
+      await partsService.updatePart({ id: part.id, location_id: locationId })
+      // Reload part to get updated location data
+      if (id) {
+        await loadPart(id)
+      }
+      setLocationPickerModalOpen(false)
+    } catch (error: any) {
+      console.error('Failed to update location:', error)
+      alert('Failed to update location: ' + (error.message || 'Unknown error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddNewLocationFromPicker = () => {
+    setLocationPickerModalOpen(false)
+    setAddLocationModalOpen(true)
+  }
+
+  const handleLocationAdded = () => {
+    setAddLocationModalOpen(false)
+    setLocationPickerModalOpen(true)
+  }
+
+  const handleCopyDebugJSON = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(part, null, 2))
+      setDebugCopied(true)
+      setTimeout(() => setDebugCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy:', error)
+    }
   }
 
   if (loading) {
@@ -683,14 +798,22 @@ const PartDetailsPage = () => {
                     </div>
 
                     {/* Location Field */}
-                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
+                    <div
+                      className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors cursor-pointer"
+                      onClick={handleLocationClick}
+                    >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <MapPin className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">Location</p>
-                          <p className="font-semibold text-theme-primary">
+                          <p className="text-sm font-medium text-theme-secondary mb-1">
+                            Location
+                            {!part.location && (
+                              <span className="text-xs text-theme-muted ml-2">(click to assign)</span>
+                            )}
+                          </p>
+                          <p className="font-semibold text-theme-primary hover:text-secondary transition-colors">
                             {part.location?.name || 'Not assigned'}
                           </p>
                         </div>
@@ -698,60 +821,27 @@ const PartDetailsPage = () => {
                     </div>
 
                     {/* Supplier Field */}
-                    <div
-                      className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
-                      onClick={canUpdate('parts') ? () => startEditing('supplier', part.supplier || '') : undefined}
-                    >
+                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4">
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <Tag className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-theme-secondary mb-1">Supplier</p>
-                          {editingField === 'supplier' ? (
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="text"
-                                value={editingValue}
-                                onChange={(e) => setEditingValue(e.target.value)}
-                                className="flex-1 px-2 py-1 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') saveField('supplier', editingValue)
-                                  if (e.key === 'Escape') cancelEditing()
-                                }}
-                              />
-                              <button
-                                onClick={() => saveField('supplier', editingValue)}
-                                disabled={saving}
-                                className="px-2 py-1 bg-success text-theme-inverse rounded text-xs disabled:opacity-50"
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
+                            {part.supplier_url && (
+                              <a
+                                href={part.supplier_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary-accent hover:text-primary transition-colors"
+                                title="View supplier page"
                               >
-                                {saving ? '⏳' : '✓'}
-                              </button>
-                              <button
-                                onClick={cancelEditing}
-                                className="px-2 py-1 bg-error text-theme-inverse rounded text-xs"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
-                              {part.supplier_url && (
-                                <a
-                                  href={part.supplier_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary-accent hover:text-primary transition-colors"
-                                  title="View supplier page"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </a>
-                              )}
-                            </div>
-                          )}
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -896,6 +986,19 @@ const PartDetailsPage = () => {
                 </div>
               )}
             </div>
+          </motion.div>
+
+          {/* Location Allocations Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22 }}
+          >
+            <AllocationsSummary
+              partId={part.id}
+              onTransferClick={handleTransferClick}
+              onRefresh={handleTransferSuccess}
+            />
           </motion.div>
 
           {/* Enhanced Description Section */}
@@ -1438,6 +1541,148 @@ const PartDetailsPage = () => {
         </div>
       )}
 
+      {/* Transfer Quantity Modal */}
+      {transferModalOpen && selectedSourceAllocation && (
+        <TransferQuantityModal
+          isOpen={transferModalOpen}
+          onClose={() => {
+            setTransferModalOpen(false)
+            setSelectedSourceAllocation(null)
+          }}
+          onSuccess={handleTransferSuccess}
+          partId={part.id}
+          partName={part.name}
+          sourceAllocation={selectedSourceAllocation}
+        />
+      )}
+
+      {/* Location Management Modal */}
+      <Modal
+        isOpen={locationManagementModalOpen}
+        onClose={() => setLocationManagementModalOpen(false)}
+        title="Manage Primary Location"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
+            <div className="flex items-center gap-3 mb-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-sm text-theme-muted">Current Primary Location</p>
+                <p className="font-medium text-theme-primary">{part?.location?.name}</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-theme-secondary">
+            Choose an action to manage this part's primary storage location:
+          </p>
+
+          <div className="space-y-2">
+            <button
+              onClick={handleChangePrimaryLocation}
+              className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
+            >
+              <div className="flex items-center gap-3">
+                <MapPin className="w-5 h-5 text-primary" />
+                <div>
+                  <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
+                    Change Primary Location
+                  </p>
+                  <p className="text-xs text-theme-muted">
+                    Select a different location as the primary storage
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleTransferFromPrimary}
+              className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
+            >
+              <div className="flex items-center gap-3">
+                <ArrowLeft className="w-5 h-5 text-primary rotate-90" />
+                <div>
+                  <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
+                    Transfer Quantity
+                  </p>
+                  <p className="text-xs text-theme-muted">
+                    Move some quantity from this location to another
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleViewLocationDetails}
+              className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
+            >
+              <div className="flex items-center gap-3">
+                <Eye className="w-5 h-5 text-primary" />
+                <div>
+                  <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
+                    View Location Details
+                  </p>
+                  <p className="text-xs text-theme-muted">
+                    See all parts at this location
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
+            <button
+              onClick={() => setLocationManagementModalOpen(false)}
+              className="btn btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Location Picker Modal */}
+      <Modal
+        isOpen={locationPickerModalOpen}
+        onClose={() => setLocationPickerModalOpen(false)}
+        title="Select Location"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-theme-secondary">
+            Choose a location for this part or create a new one
+          </p>
+
+          <LocationTreeSelector
+            selectedLocationId={selectedLocationForPicker}
+            onLocationSelect={handleLocationSelect}
+            onAddNewLocation={handleAddNewLocationFromPicker}
+            showAddButton={true}
+            compact={true}
+          />
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
+            <button
+              onClick={() => setLocationPickerModalOpen(false)}
+              className="btn btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Location Modal */}
+      <AddLocationModal
+        isOpen={addLocationModalOpen}
+        onClose={() => {
+          setAddLocationModalOpen(false)
+          setLocationPickerModalOpen(true)
+        }}
+        onSuccess={handleLocationAdded}
+      />
+
       {/* Debug Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1446,20 +1691,55 @@ const PartDetailsPage = () => {
         className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
       >
         <details className="group">
-          <summary className="cursor-pointer p-4 hover:bg-theme-tertiary transition-colors">
-            <span className="text-sm font-medium text-theme-secondary flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Debug Information
-              <span className="text-xs bg-theme-tertiary px-2 py-1 rounded">
-                Raw Data
-              </span>
-            </span>
+          <summary className="cursor-pointer p-4 hover:bg-theme-tertiary transition-colors list-none [&::-webkit-details-marker]:hidden">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ChevronDown className="w-4 h-4 text-theme-secondary transition-transform group-open:rotate-0 -rotate-90" />
+                <Settings className="w-4 h-4 text-theme-secondary" />
+                <span className="text-sm font-medium text-theme-secondary">Debug Information</span>
+                <span className="text-xs bg-theme-tertiary px-2 py-1 rounded text-theme-secondary">
+                  Raw Data
+                </span>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleCopyDebugJSON()
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 bg-theme-secondary hover:bg-theme-tertiary border border-theme-primary rounded-md transition-colors text-sm"
+                title="Copy JSON to clipboard"
+              >
+                {debugCopied ? (
+                  <>
+                    <Check className="w-4 h-4 text-green-500" />
+                    <span className="text-green-500">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 text-theme-secondary" />
+                    <span className="text-theme-secondary">Copy JSON</span>
+                  </>
+                )}
+              </button>
+            </div>
           </summary>
           <div className="border-t border-theme-primary p-4">
-            <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4">
-              <pre className="text-xs font-mono text-theme-primary overflow-auto max-h-96">
+            <div className="bg-black border border-theme-primary rounded-lg overflow-hidden">
+              <SyntaxHighlighter
+                language="json"
+                style={vscDarkPlus}
+                customStyle={{
+                  margin: 0,
+                  padding: '1rem',
+                  background: '#000000',
+                  fontSize: '0.75rem',
+                  maxHeight: '24rem',
+                }}
+                showLineNumbers={true}
+              >
                 {JSON.stringify(part, null, 2)}
-              </pre>
+              </SyntaxHighlighter>
             </div>
           </div>
         </details>

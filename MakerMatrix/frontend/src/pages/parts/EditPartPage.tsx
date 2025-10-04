@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, Save, Trash2, Package, Plus, X, Info } from 'lucide-react';
-import { partsService } from '../../services/parts.service';
+import { ArrowLeft, Save, Trash2, Package, Plus, X, Info, AlertCircle, CheckCircle, HelpCircle } from 'lucide-react';
+import { partsService, SupplierEnrichmentRequirements } from '../../services/parts.service';
 import { locationsService } from '../../services/locations.service';
 import { categoriesService } from '../../services/categories.service';
 import { Part, CreatePartRequest } from '../../types/parts';
@@ -16,6 +16,7 @@ import AddCategoryModal from '../../components/categories/AddCategoryModal';
 import AddLocationModal from '../../components/locations/AddLocationModal';
 import CategorySelector from '../../components/ui/CategorySelector';
 import LocationTreeSelector from '../../components/ui/LocationTreeSelector';
+import SupplierSelector from '../../components/ui/SupplierSelector';
 import toast from 'react-hot-toast';
 
 const partSchema = z.object({
@@ -48,6 +49,8 @@ const EditPartPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
+  const [enrichmentRequirements, setEnrichmentRequirements] = useState<SupplierEnrichmentRequirements | null>(null);
+  const [loadingRequirements, setLoadingRequirements] = useState(false);
 
   const buildLocationHierarchy = (locations: Location[]): Array<{id: string, name: string, level: number}> => {
     const result: Array<{id: string, name: string, level: number}> = []
@@ -134,6 +137,32 @@ const EditPartPage: React.FC = () => {
 
     loadData();
   }, [id, reset, navigate]);
+
+  // Watch supplier field
+  const supplierValue = watch('supplier');
+
+  // Load enrichment requirements when supplier changes
+  useEffect(() => {
+    if (supplierValue && supplierValue.trim()) {
+      loadEnrichmentRequirements(supplierValue);
+    } else {
+      setEnrichmentRequirements(null);
+    }
+  }, [supplierValue]);
+
+  const loadEnrichmentRequirements = async (supplier: string) => {
+    try {
+      setLoadingRequirements(true);
+      const requirements = await partsService.getSupplierEnrichmentRequirements(supplier);
+      setEnrichmentRequirements(requirements);
+    } catch (error) {
+      console.error('Failed to load enrichment requirements:', error);
+      // Don't show error toast - this is optional information
+      setEnrichmentRequirements(null);
+    } finally {
+      setLoadingRequirements(false);
+    }
+  };
 
   const onSubmit = async (data: PartFormData) => {
     console.log('🚀 onSubmit called!');
@@ -455,11 +484,13 @@ const EditPartPage: React.FC = () => {
             <FormField
               label="Supplier"
               error={errors.supplier?.message}
+              description="Select a configured supplier or enter a custom one"
             >
-              <input
-                {...register('supplier')}
-                className="input w-full"
-                placeholder="Enter supplier name"
+              <SupplierSelector
+                value={watch('supplier') || ''}
+                onChange={(value) => setValue('supplier', value)}
+                error={errors.supplier?.message}
+                placeholder="Select supplier..."
               />
             </FormField>
 
@@ -475,6 +506,93 @@ const EditPartPage: React.FC = () => {
               />
             </FormField>
           </div>
+
+          {/* Enrichment Requirements Display */}
+          {watch('supplier') && (
+            <div className="mt-6 border-t border-border pt-6">
+              {loadingRequirements ? (
+                <div className="flex items-center gap-2 text-secondary">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span className="text-sm">Loading enrichment requirements...</span>
+                </div>
+              ) : enrichmentRequirements ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-5 h-5 text-info mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-primary mb-1">
+                        Enrichment Requirements for {enrichmentRequirements.display_name}
+                      </h3>
+                      <p className="text-xs text-secondary mb-3">{enrichmentRequirements.description}</p>
+                    </div>
+                  </div>
+
+                  {/* Required Fields */}
+                  {enrichmentRequirements.required_fields && enrichmentRequirements.required_fields.length > 0 && (
+                    <div className="bg-error/5 border border-error/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertCircle className="w-4 h-4 text-error" />
+                        <h4 className="text-sm font-semibold text-error">Required Fields</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {enrichmentRequirements.required_fields.map((field) => (
+                          <div key={field.field_name} className="text-sm">
+                            <div className="flex items-start gap-2">
+                              <span className="font-medium text-primary">{field.display_name}:</span>
+                              <span className="text-secondary flex-1">{field.description}</span>
+                            </div>
+                            {field.example && (
+                              <p className="text-xs text-muted mt-1 ml-2">
+                                Example: <code className="bg-background-tertiary px-1 rounded">{field.example}</code>
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommended Fields */}
+                  {enrichmentRequirements.recommended_fields && enrichmentRequirements.recommended_fields.length > 0 && (
+                    <div className="bg-info/5 border border-info/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <HelpCircle className="w-4 h-4 text-info" />
+                        <h4 className="text-sm font-semibold text-info">Recommended Fields</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {enrichmentRequirements.recommended_fields.map((field) => (
+                          <div key={field.field_name} className="text-sm">
+                            <div className="flex items-start gap-2">
+                              <span className="font-medium text-primary">{field.display_name}:</span>
+                              <span className="text-secondary flex-1">{field.description}</span>
+                            </div>
+                            {field.example && (
+                              <p className="text-xs text-muted mt-1 ml-2">
+                                Example: <code className="bg-background-tertiary px-1 rounded">{field.example}</code>
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success message if no requirements */}
+                  {(!enrichmentRequirements.required_fields || enrichmentRequirements.required_fields.length === 0) &&
+                   (!enrichmentRequirements.recommended_fields || enrichmentRequirements.recommended_fields.length === 0) && (
+                    <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-success" />
+                        <p className="text-sm text-success">
+                          No additional fields required for enrichment from this supplier.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
 
         {/* Resources */}
