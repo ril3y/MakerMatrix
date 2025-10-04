@@ -123,6 +123,7 @@ class SupplierDataMapper:
         
         core_data = {
             'part_number': result.supplier_part_number,
+            'supplier_part_number': result.supplier_part_number,  # Store supplier's part number for API calls
             'manufacturer': result.manufacturer,
             'manufacturer_part_number': result.manufacturer_part_number,
             'description': result.description,

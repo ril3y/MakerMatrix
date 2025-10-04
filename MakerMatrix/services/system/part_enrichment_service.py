@@ -84,7 +84,7 @@ class PartEnrichmentService(BaseService):
             part_supplier = part.supplier
             part_vendor = getattr(part, 'part_vendor', None)
             part_number = part.part_number
-            lcsc_part_number = getattr(part, 'lcsc_part_number', None)
+            supplier_part_number_field = getattr(part, 'supplier_part_number', None)
 
             # Determine which supplier to use
             supplier = self._determine_supplier_from_cached_data(part_supplier, part_vendor, preferred_supplier)
@@ -107,7 +107,7 @@ class PartEnrichmentService(BaseService):
             supplier_capabilities = self._convert_capabilities_to_enums(capabilities)
 
             # Get appropriate part number for the supplier using cached data
-            supplier_part_number = self._get_supplier_part_number_from_cached_data(part_number, lcsc_part_number)
+            supplier_part_number = self._get_supplier_part_number_from_cached_data(part_number, supplier_part_number_field)
 
             # Progress callback wrapper
             async def enrichment_progress(message):
@@ -302,15 +302,16 @@ class PartEnrichmentService(BaseService):
 
     def _get_supplier_part_number(self, part: PartModel, supplier: str) -> str:
         """Get the appropriate part number for the supplier."""
-        # Implementation would depend on how part numbers are mapped to suppliers
-        # For now, use the general part number logic
-        return part.part_number or part.lcsc_part_number
+        # Prefer supplier-specific part number over general part number
+        # supplier_part_number is the field specifically for supplier APIs
+        return part.supplier_part_number or part.part_number or ""
         
-    def _get_supplier_part_number_from_cached_data(self, part_number: Optional[str], lcsc_part_number: Optional[str]) -> str:
+    def _get_supplier_part_number_from_cached_data(self, part_number: Optional[str], supplier_part_number: Optional[str]) -> str:
         """Get the appropriate part number for the supplier using cached data."""
-        # Implementation would depend on how part numbers are mapped to suppliers
-        # For now, use the general part number logic
-        return part_number or lcsc_part_number or ""
+        # Prefer supplier-specific part number over general part number
+        # supplier_part_number is the field specifically for supplier APIs (e.g., LCSC: C25804)
+        # part_number is typically the manufacturer part number
+        return supplier_part_number or part_number or ""
 
     def _process_enrichment_result(self, enrichment_result: Any) -> Dict[str, Any]:
         """Process enrichment result into expected format."""
@@ -476,7 +477,7 @@ class PartEnrichmentService(BaseService):
             # Update only fields that exist on PartModel
             model_fields = [
                 'manufacturer', 'manufacturer_part_number', 'component_type',
-                'image_url', 'description'
+                'image_url', 'description', 'supplier_part_number'
             ]
 
             # Fields that should go into additional_properties instead
