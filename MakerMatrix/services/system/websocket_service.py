@@ -126,15 +126,61 @@ class WebSocketManager:
         """Send system notification to specified connection types"""
         if connection_types is None:
             connection_types = ["general", "admin"]
-        
+
         message = {
             "type": "system_notification",
             "data": notification,
             "timestamp": datetime.utcnow().isoformat()
         }
-        
+
         for conn_type in connection_types:
             await self.broadcast_to_type(conn_type, message)
+
+    async def broadcast_crud_event(
+        self,
+        action: str,
+        entity_type: str,
+        entity_id: str,
+        entity_name: str,
+        user_id: str = None,
+        username: str = None,
+        changes: Dict[str, Any] = None,
+        details: Dict[str, Any] = None,
+        entity_data: Dict[str, Any] = None
+    ):
+        """
+        Broadcast CRUD event to general and admin connections
+
+        Args:
+            action: Action performed (created, updated, deleted, etc.)
+            entity_type: Type of entity (part, location, category, etc.)
+            entity_id: Unique identifier of the entity
+            entity_name: Human-readable name of the entity
+            user_id: ID of user who performed the action
+            username: Username of user who performed the action
+            changes: For updates, dict of what changed
+            details: Additional action-specific details
+            entity_data: Complete entity data after the action
+        """
+        message = {
+            "type": f"entity_{action}",
+            "data": {
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "entity_name": entity_name,
+                "action": action,
+                "user_id": user_id,
+                "username": username,
+                "changes": changes,
+                "details": details or {},
+                "entity_data": entity_data
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+        # Broadcast to general and admin connections
+        await self.broadcast_to_type("general", message)
+        await self.broadcast_to_type("admin", message)
     
     async def ping_connections(self):
         """Send ping to all connections to keep them alive"""
