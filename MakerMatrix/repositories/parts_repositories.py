@@ -388,10 +388,50 @@ class PartRepository:
 
         # Apply sorting
         if search_params.sort_by:
-            sort_column = getattr(PartModel, search_params.sort_by)
-            if search_params.sort_order == "desc":
-                sort_column = sort_column.desc()
-            query = query.order_by(sort_column)
+            if search_params.sort_by == "quantity":
+                # Sort by total quantity from allocations using a subquery
+                quantity_subquery = (
+                    select(
+                        PartLocationAllocation.part_id,
+                        func.sum(PartLocationAllocation.quantity_at_location).label('total_qty')
+                    )
+                    .group_by(PartLocationAllocation.part_id)
+                    .subquery()
+                )
+                query = query.outerjoin(
+                    quantity_subquery,
+                    PartModel.id == quantity_subquery.c.part_id
+                )
+                if search_params.sort_order == "desc":
+                    query = query.order_by(quantity_subquery.c.total_qty.desc().nullslast())
+                else:
+                    query = query.order_by(quantity_subquery.c.total_qty.asc().nullslast())
+            elif search_params.sort_by == "location":
+                # Sort by primary location name using a join
+                from models.location_models import LocationModel
+                primary_alloc = (
+                    select(
+                        PartLocationAllocation.part_id,
+                        LocationModel.name.label('location_name')
+                    )
+                    .join(LocationModel, PartLocationAllocation.location_id == LocationModel.id)
+                    .where(PartLocationAllocation.is_primary_storage == True)
+                    .subquery()
+                )
+                query = query.outerjoin(
+                    primary_alloc,
+                    PartModel.id == primary_alloc.c.part_id
+                )
+                if search_params.sort_order == "desc":
+                    query = query.order_by(primary_alloc.c.location_name.desc().nullslast())
+                else:
+                    query = query.order_by(primary_alloc.c.location_name.asc().nullslast())
+            else:
+                # Standard sorting for other fields
+                sort_column = getattr(PartModel, search_params.sort_by)
+                if search_params.sort_order == "desc":
+                    sort_column = sort_column.desc()
+                query = query.order_by(sort_column)
 
         # Apply pagination
         offset = (search_params.page - 1) * search_params.page_size
