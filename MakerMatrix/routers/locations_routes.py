@@ -13,6 +13,9 @@ from MakerMatrix.auth.dependencies import get_current_user, oauth2_scheme
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
 
+# WebSocket for real-time updates
+from MakerMatrix.services.system.websocket_service import websocket_manager
+
 
 class LocationCreateRequest(BaseModel):
     """Request model for creating locations with required name."""
@@ -123,10 +126,10 @@ async def update_location(
     try:
         from MakerMatrix.services.activity_service import get_activity_service
         activity_service = get_activity_service()
-        
+
         # Create changes dict from the update data
         changes = {k: v for k, v in location_data.model_dump().items() if v is not None}
-        
+
         await activity_service.log_location_updated(
             location_id=location_id,
             location_name=updated_location['name'],
@@ -137,7 +140,25 @@ async def update_location(
     except Exception as activity_error:
         print(f"Failed to log location update activity: {activity_error}")
         # Don't fail the main operation if activity logging fails
-    
+
+    # Broadcast location update via websocket
+    try:
+        # Create changes dict from the update data
+        changes_dict = {k: v for k, v in location_data.model_dump().items() if v is not None}
+
+        await websocket_manager.broadcast_crud_event(
+            action="updated",
+            entity_type="location",
+            entity_id=location_id,
+            entity_name=updated_location['name'],
+            user_id=current_user.id,
+            username=current_user.username,
+            changes=changes_dict,
+            entity_data=updated_location
+        )
+    except Exception as e:
+        print(f"Failed to broadcast location update: {e}")
+
     return base_router.build_success_response(
         message="Location updated successfully",
         data=updated_location  # Already a dictionary from service
@@ -172,10 +193,24 @@ async def add_location(
         )
     except Exception as e:
         print(f"Failed to log location creation activity: {e}")
-    
+
+    # Broadcast location creation via websocket
+    try:
+        await websocket_manager.broadcast_crud_event(
+            action="created",
+            entity_type="location",
+            entity_id=location['id'],
+            entity_name=location['name'],
+            user_id=current_user.id,
+            username=current_user.username,
+            entity_data=location
+        )
+    except Exception as e:
+        print(f"Failed to broadcast location creation: {e}")
+
     # Location data is already a dictionary from the service
     response_data = location
-    
+
     return base_router.build_success_response(
         message="Location added successfully",
         data=response_data
@@ -263,7 +298,7 @@ async def delete_location(
     try:
         from MakerMatrix.services.activity_service import get_activity_service
         activity_service = get_activity_service()
-        
+
         await activity_service.log_location_deleted(
             location_id=location_id,
             location_name=response['data']['deleted_location_name'],
@@ -273,7 +308,21 @@ async def delete_location(
     except Exception as activity_error:
         print(f"Failed to log location deletion activity: {activity_error}")
         # Don't fail the main operation if activity logging fails
-    
+
+    # Broadcast location deletion via websocket
+    try:
+        await websocket_manager.broadcast_crud_event(
+            action="deleted",
+            entity_type="location",
+            entity_id=location_id,
+            entity_name=response['data']['deleted_location_name'],
+            user_id=current_user.id,
+            username=current_user.username,
+            details=response['data']  # Include details about what was affected
+        )
+    except Exception as e:
+        print(f"Failed to broadcast location deletion: {e}")
+
     return base_router.build_success_response(
         message=response['message'],
         data=response['data']
