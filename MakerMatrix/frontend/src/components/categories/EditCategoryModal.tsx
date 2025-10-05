@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Tag } from 'lucide-react'
 import CrudModal from '@/components/ui/CrudModal'
 import FormField from '@/components/ui/FormField'
@@ -13,18 +14,18 @@ interface EditCategoryModalProps {
   existingCategories: string[]
 }
 
-const EditCategoryModal: React.FC<EditCategoryModalProps> = ({ 
-  isOpen, 
-  onClose, 
+const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
+  isOpen,
+  onClose,
   onSuccess,
   category,
   existingCategories
 }) => {
-  const initialData: UpdateCategoryRequest = {
+  const initialData: UpdateCategoryRequest = useMemo(() => ({
     id: category.id,
     name: category.name,
     description: category.description || ''
-  }
+  }), [category.id, category.name, category.description])
 
   const validate = (data: UpdateCategoryRequest): Record<string, string> => {
     const errors: Record<string, string> = {}
@@ -74,31 +75,34 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
       mode="edit"
       loadingText="Updating..."
       submitButtonIcon={<Tag className="w-4 h-4" />}
+      className="min-h-[400px]"
     >
-      <FormField
-        label="Category Name"
-        required
-        error={errors.name}
-      >
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => updateField('name', e.target.value)}
-          className="input w-full"
-          placeholder="e.g., Electronics, Resistors"
-          autoFocus
-        />
-      </FormField>
+      <div className="space-y-6 pb-6">
+        <FormField
+          label="Category Name"
+          required
+          error={errors.name}
+        >
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => updateField('name', e.target.value)}
+            className="input w-full"
+            placeholder="e.g., Electronics, Resistors"
+            autoFocus
+          />
+        </FormField>
 
-      <FormField label="Description">
-        <textarea
-          value={formData.description}
-          onChange={(e) => updateField('description', e.target.value)}
-          className="input w-full min-h-[80px]"
-          placeholder="Optional description of this category"
-          rows={3}
-        />
-      </FormField>
+        <FormField label="Description">
+          <textarea
+            value={formData.description}
+            onChange={(e) => updateField('description', e.target.value)}
+            className="input w-full min-h-[120px]"
+            placeholder="Optional description of this category"
+            rows={4}
+          />
+        </FormField>
+      </div>
     </CrudModal>
   )
 }
