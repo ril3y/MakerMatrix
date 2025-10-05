@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 
 interface ModalProps {
   isOpen: boolean
@@ -15,11 +15,11 @@ interface ModalProps {
   className?: string
 }
 
-const Modal = ({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
+const Modal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
   size = 'md',
   showHeader = true,
   showFooter = false,
@@ -33,6 +33,18 @@ const Modal = ({
     lg: 'max-w-2xl',
     xl: 'max-w-4xl'
   }
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen && !loading) {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isOpen, loading, onClose])
 
   return (
     <AnimatePresence>
