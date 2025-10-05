@@ -23,6 +23,9 @@ from MakerMatrix.models.enrichment_requirement_models import EnrichmentRequireme
 # BaseRouter infrastructure
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
 
+# WebSocket for real-time updates
+from MakerMatrix.services.system.websocket_service import websocket_manager
+
 router = APIRouter()
 
 import logging
@@ -63,6 +66,20 @@ async def add_part(
         )
     except Exception as e:
         logger.warning(f"Failed to log part creation activity: {e}")
+
+    # Broadcast part creation via websocket
+    try:
+        await websocket_manager.broadcast_crud_event(
+            action="created",
+            entity_type="part",
+            entity_id=created_part["id"],
+            entity_name=created_part["part_name"],
+            user_id=current_user.id,
+            username=current_user.username,
+            entity_data=created_part
+        )
+    except Exception as e:
+        logger.warning(f"Failed to broadcast part creation: {e}")
 
     # Handle automatic enrichment if requested
     enrichment_message = ""
@@ -131,6 +148,19 @@ async def delete_part(
         )
     except Exception as e:
         logger.warning(f"Failed to log part deletion activity: {e}")
+
+    # Broadcast part deletion via websocket
+    try:
+        await websocket_manager.broadcast_crud_event(
+            action="deleted",
+            entity_type="part",
+            entity_id=deleted_part["id"],
+            entity_name=deleted_part["part_name"],
+            user_id=current_user.id,
+            username=current_user.username
+        )
+    except Exception as e:
+        logger.warning(f"Failed to broadcast part deletion: {e}")
 
     # Convert PartResponse to dict for the response
     part_response_obj = PartResponse.model_validate(deleted_part)
@@ -238,6 +268,31 @@ async def update_part(
         )
     except Exception as e:
         logger.warning(f"Failed to log part update activity: {e}")
+
+    # Broadcast part update via websocket
+    try:
+        # Use the tracked changes from activity logging
+        changes_dict = {}
+        update_dict = part_data.model_dump(exclude_unset=True)
+        for key, new_value in update_dict.items():
+            if key in original_part and original_part[key] != new_value:
+                changes_dict[key] = {
+                    "from": original_part[key],
+                    "to": new_value
+                }
+
+        await websocket_manager.broadcast_crud_event(
+            action="updated",
+            entity_type="part",
+            entity_id=updated_part["id"],
+            entity_name=updated_part["part_name"],
+            user_id=current_user.id,
+            username=current_user.username,
+            changes=changes_dict,
+            entity_data=updated_part
+        )
+    except Exception as e:
+        logger.warning(f"Failed to broadcast part update: {e}")
 
     return BaseRouter.build_success_response(
         data=PartResponse.model_validate(updated_part),
@@ -726,6 +781,38 @@ async def bulk_update_parts(
         # Call service layer for bulk update
         service_response = part_service.bulk_update_parts(request.model_dump())
         result = validate_service_response(service_response)
+
+        # Broadcast bulk update via websocket for successfully updated parts
+        try:
+            # Build change details from request
+            changes_info = {}
+            if request.supplier is not None:
+                changes_info["supplier"] = request.supplier
+            if request.location_id is not None:
+                changes_info["location_id"] = request.location_id
+            if request.minimum_quantity is not None:
+                changes_info["minimum_quantity"] = request.minimum_quantity
+            if request.add_categories:
+                changes_info["categories_added"] = request.add_categories
+            if request.remove_categories:
+                changes_info["categories_removed"] = request.remove_categories
+
+            await websocket_manager.broadcast_crud_event(
+                action="bulk_updated",
+                entity_type="part",
+                entity_id="bulk",  # Special ID for bulk operations
+                entity_name=f"{result['updated_count']} parts",
+                user_id=current_user.id,
+                username=current_user.username,
+                details={
+                    "part_ids": request.part_ids,
+                    "updated_count": result['updated_count'],
+                    "failed_count": result['failed_count'],
+                    "changes": changes_info
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to broadcast bulk update: {e}")
 
         return BaseRouter.build_success_response(
             data=result,
