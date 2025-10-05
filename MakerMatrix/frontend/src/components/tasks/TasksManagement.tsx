@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { Task } from '@/services/tasks.service'
 import { useTasksDashboard } from '@/hooks/useTasksDashboard'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -294,46 +295,49 @@ const TasksManagement: React.FC = () => {
             <span className="text-sm text-primary font-medium">Filters:</span>
           </div>
 
-          <select
-            className="input input-sm"
+          <CustomSelect
             value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="running">Running</option>
-            <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All Status' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'running', label: 'Running' },
+              { value: 'completed', label: 'Completed' },
+              { value: 'failed', label: 'Failed' },
+              { value: 'cancelled', label: 'Cancelled' }
+            ]}
+            className="w-48"
+          />
 
-          <select
-            className="input input-sm"
+          <CustomSelect
             value={typeFilter}
-            onChange={e => setTypeFilter(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            <option value="file_import_enrichment">File Import Enrichment</option>
-            <option value="csv_enrichment">CSV Enrichment (Deprecated)</option>
-            <option value="bulk_enrichment">Bulk Enrichment</option>
-            <option value="part_enrichment">Part Enrichment</option>
-            <option value="price_update">Price Update</option>
-            <option value="database_cleanup">Database Cleanup</option>
-            <option value="file_download">File Download</option>
-            <option value="data_sync">Data Sync</option>
-          </select>
+            onChange={setTypeFilter}
+            options={[
+              { value: 'all', label: 'All Types' },
+              { value: 'file_import_enrichment', label: 'File Import Enrichment' },
+              { value: 'csv_enrichment', label: 'CSV Enrichment (Deprecated)' },
+              { value: 'bulk_enrichment', label: 'Bulk Enrichment' },
+              { value: 'part_enrichment', label: 'Part Enrichment' },
+              { value: 'price_update', label: 'Price Update' },
+              { value: 'database_cleanup', label: 'Database Cleanup' },
+              { value: 'file_download', label: 'File Download' },
+              { value: 'data_sync', label: 'Data Sync' }
+            ]}
+            className="w-56"
+          />
 
-          <select
-            className="input input-sm"
+          <CustomSelect
             value={priorityFilter}
-            onChange={e => setPriorityFilter(e.target.value)}
-          >
-            <option value="all">All Priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="normal">Normal</option>
-            <option value="low">Low</option>
-          </select>
+            onChange={setPriorityFilter}
+            options={[
+              { value: 'all', label: 'All Priorities' },
+              { value: 'urgent', label: 'Urgent' },
+              { value: 'high', label: 'High' },
+              { value: 'normal', label: 'Normal' },
+              { value: 'low', label: 'Low' }
+            ]}
+            className="w-44"
+          />
 
           <button onClick={resetFilters} className="btn btn-secondary btn-sm">
             Clear Filters

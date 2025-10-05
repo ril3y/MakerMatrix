@@ -117,8 +117,11 @@ class SupplierConfigService(BaseService):
                 supplier_name=supplier_name,
                 display_name=config_data.get('display_name', config_data['supplier_name']),
                 description=config_data.get('description'),
+                website_url=config_data.get('website_url'),
+                image_url=config_data.get('image_url'),
+                supplier_type=config_data.get('supplier_type', 'advanced'),
                 api_type=config_data.get('api_type', 'rest'),
-                base_url=config_data['base_url'],
+                base_url=config_data.get('base_url', ''),
                 api_version=config_data.get('api_version'),
                 rate_limit_per_minute=config_data.get('rate_limit_per_minute'),
                 timeout_seconds=config_data.get('timeout_seconds', 30),
@@ -203,7 +206,8 @@ class SupplierConfigService(BaseService):
             
             # Update fields
             updatable_fields = [
-                'display_name', 'description', 'api_type', 'base_url', 'api_version',
+                'display_name', 'description', 'website_url', 'image_url', 'supplier_type',
+                'api_type', 'base_url', 'api_version',
                 'rate_limit_per_minute', 'timeout_seconds', 'max_retries', 'retry_backoff',
                 'enabled', 'supports_datasheet', 'supports_image', 'supports_pricing',
                 'supports_stock', 'supports_specifications'

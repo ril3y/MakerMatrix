@@ -12,7 +12,9 @@ import { dynamicSupplierService } from '../../services/dynamic-supplier.service'
 import { rateLimitService, SupplierRateLimitData } from '../../services/rate-limit.service';
 import { DynamicAddSupplierModal } from './DynamicAddSupplierModal';
 import { EditSupplierModal } from './EditSupplierModal';
+import { EditSimpleSupplierModal } from './EditSimpleSupplierModal';
 import { ImportExportModal } from './ImportExportModal';
+import { AddSimpleSupplierModal } from './AddSimpleSupplierModal';
 
 export const SupplierConfigPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<SupplierConfig[]>([]);
@@ -21,6 +23,7 @@ export const SupplierConfigPage: React.FC = () => {
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddSimpleModal, setShowAddSimpleModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<SupplierConfig | null>(null);
   const [showImportExport, setShowImportExport] = useState(false);
   
@@ -62,6 +65,23 @@ export const SupplierConfigPage: React.FC = () => {
       // Load credential status for each supplier (async operations)
       // Update state immediately after each check to avoid flashing "Not Configured"
       for (const supplier of data || []) {
+        // Skip credential checks for simple suppliers (they don't have APIs)
+        if (supplier.supplier_type === 'simple') {
+          setCredentialRequirements(prev => ({
+            ...prev,
+            [supplier.supplier_name]: false
+          }));
+          setCredentialStatuses(prev => ({
+            ...prev,
+            [supplier.supplier_name]: { is_configured: true, configured_fields: [], supplier_type: 'simple' }
+          }));
+          setLoadingCredentialStatus(prev => ({
+            ...prev,
+            [supplier.supplier_name]: false
+          }));
+          continue;
+        }
+
         try {
           // Get credential schema to check if credentials are required
           const credentialSchema = await dynamicSupplierService.getCredentialSchema(supplier.supplier_name.toLowerCase());
@@ -258,11 +278,20 @@ export const SupplierConfigPage: React.FC = () => {
                 Import/Export
               </button>
               <button
-                onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowAddSimpleModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                title="Add a simple supplier without API integration (e.g., NewEgg, Amazon)"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Supplier
+                Add Simple Supplier
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                title="Add a supplier with API integration (e.g., DigiKey, Mouser)"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add API Supplier
               </button>
             </div>
           </div>
@@ -330,7 +359,19 @@ export const SupplierConfigPage: React.FC = () => {
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      {getStatusIcon(supplier)}
+                      {supplier.image_url ? (
+                        <img
+                          src={supplier.image_url}
+                          alt={supplier.display_name}
+                          className="w-10 h-10 rounded object-contain flex-shrink-0"
+                          onError={(e) => {
+                            // Fallback to status icon if image fails to load
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      ) : (
+                        getStatusIcon(supplier)
+                      )}
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {supplier.display_name}
@@ -377,21 +418,29 @@ export const SupplierConfigPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">API Type:</span>
-                      <span className="text-sm text-gray-900 dark:text-white uppercase">
-                        {supplier.api_type}
-                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Type:</span>
+                      {supplier.supplier_type === 'simple' ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                          Simple Supplier
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white uppercase">
+                          {supplier.api_type}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Capabilities:</span>
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {supplier.capabilities.length}
-                      </span>
-                    </div>
+                    {supplier.supplier_type !== 'simple' && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Capabilities:</span>
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {supplier.capabilities.length}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Rate Limit Information */}
-                    {rateLimitData[supplier.supplier_name.toLowerCase()] && (
+                    {supplier.supplier_type !== 'simple' && rateLimitData[supplier.supplier_name.toLowerCase()] && (
                       <>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -434,44 +483,49 @@ export const SupplierConfigPage: React.FC = () => {
                   </div>
 
                   {/* Capabilities */}
-                  <div className="mt-4">
-                    <div className="flex flex-wrap gap-1">
-                      {supplier.capabilities.map((capability) => (
-                        <span
-                          key={capability}
-                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
-                        >
-                          {(() => {
-                            const nameMap: Record<string, string> = {
-                              'get_part_details': 'Part Enrichment',
-                              'fetch_datasheet': 'Datasheet Retrieval', 
-                              'fetch_image': 'Image Fetching',
-                              'fetch_pricing': 'Pricing Data',
-                              'fetch_stock': 'Stock Levels',
-                              'import_orders': 'Order Import',
-                              'parametric_search': 'Advanced Search'
-                            };
-                            return nameMap[capability] || capability.replace('fetch_', '').replace('_', ' ');
-                          })()}
-                        </span>
-                      ))}
+                  {supplier.supplier_type !== 'simple' && (
+                    <div className="mt-4">
+                      <div className="flex flex-wrap gap-1">
+                        {supplier.capabilities.map((capability) => (
+                          <span
+                            key={capability}
+                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
+                          >
+                            {(() => {
+                              const nameMap: Record<string, string> = {
+                                'get_part_details': 'Part Enrichment',
+                                'fetch_datasheet': 'Datasheet Retrieval',
+                                'fetch_image': 'Image Fetching',
+                                'fetch_pricing': 'Pricing Data',
+                                'fetch_stock': 'Stock Levels',
+                                'import_orders': 'Order Import',
+                                'parametric_search': 'Advanced Search'
+                              };
+                              return nameMap[capability] || capability.replace('fetch_', '').replace('_', ' ');
+                            })()}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
 
                   {/* Actions */}
                   <div className="mt-6 flex items-center justify-end">
                     <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => handleToggleEnabled(supplier)}
-                        className={`text-sm font-medium ${
-                          supplier.enabled 
-                            ? 'text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300' 
-                            : 'text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300'
-                        }`}
-                      >
-                        {supplier.enabled ? 'Disable' : 'Enable'}
-                      </button>
+                      {/* Only show Enable/Disable for API suppliers, not simple suppliers */}
+                      {supplier.supplier_type !== 'simple' && (
+                        <button
+                          onClick={() => handleToggleEnabled(supplier)}
+                          className={`text-sm font-medium ${
+                            supplier.enabled
+                              ? 'text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300'
+                              : 'text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300'
+                          }`}
+                        >
+                          {supplier.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDeleteSupplier(supplier.supplier_name)}
                         className="text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300"
@@ -497,15 +551,36 @@ export const SupplierConfigPage: React.FC = () => {
           />
         )}
 
-        {editingSupplier && (
-          <EditSupplierModal
-            supplier={editingSupplier}
-            onClose={() => setEditingSupplier(null)}
+        {showAddSimpleModal && (
+          <AddSimpleSupplierModal
+            onClose={() => setShowAddSimpleModal(false)}
             onSuccess={() => {
-              setEditingSupplier(null);
+              setShowAddSimpleModal(false);
               loadSuppliers();
             }}
           />
+        )}
+
+        {editingSupplier && (
+          editingSupplier.supplier_type === 'simple' ? (
+            <EditSimpleSupplierModal
+              supplier={editingSupplier}
+              onClose={() => setEditingSupplier(null)}
+              onSuccess={() => {
+                setEditingSupplier(null);
+                loadSuppliers();
+              }}
+            />
+          ) : (
+            <EditSupplierModal
+              supplier={editingSupplier}
+              onClose={() => setEditingSupplier(null)}
+              onSuccess={() => {
+                setEditingSupplier(null);
+                loadSuppliers();
+              }}
+            />
+          )
         )}
 
 

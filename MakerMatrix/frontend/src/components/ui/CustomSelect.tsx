@@ -11,6 +11,7 @@ import { ChevronDown, Check, Search, X } from 'lucide-react'
 interface Option {
   value: string
   label: string
+  image_url?: string
 }
 
 interface OptionGroup {
@@ -70,22 +71,24 @@ export const CustomSelect = ({
     }
   }, [isOpen, searchable])
 
-  // Get display label for current value
-  const getDisplayLabel = () => {
-    if (!value) return placeholder
+  // Get selected option for current value
+  const getSelectedOption = (): Option | null => {
+    if (!value) return null
 
     // Check in flat options
     const flatOption = options.find(opt => opt.value === value)
-    if (flatOption) return flatOption.label
+    if (flatOption) return flatOption
 
     // Check in option groups
     for (const group of optionGroups) {
       const groupOption = group.options.find(opt => opt.value === value)
-      if (groupOption) return groupOption.label
+      if (groupOption) return groupOption
     }
 
-    return value
+    return { value, label: value }
   }
+
+  const selectedOption = getSelectedOption()
 
   const handleSelect = (optionValue: string) => {
     onChange(optionValue)
@@ -130,8 +133,23 @@ export const CustomSelect = ({
           ${error ? 'border-red-500' : 'border-theme-primary'}
         `}
       >
-        <span className={!value ? 'text-theme-muted' : ''}>{getDisplayLabel()}</span>
-        <ChevronDown className={`w-4 h-4 text-theme-secondary transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {selectedOption?.image_url && (
+            <img
+              src={selectedOption.image_url}
+              alt={selectedOption.label}
+              className="w-5 h-5 rounded object-contain flex-shrink-0"
+              onError={(e) => {
+                // Hide image if it fails to load
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          )}
+          <span className={`truncate ${!value ? 'text-theme-muted' : ''}`}>
+            {selectedOption?.label || placeholder}
+          </span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-theme-secondary transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown Menu */}
@@ -188,8 +206,20 @@ export const CustomSelect = ({
                     }
                   `}
                 >
-                  <span>{option.label}</span>
-                  {value === option.value && <Check className="w-4 h-4" />}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {option.image_url && (
+                      <img
+                        src={option.image_url}
+                        alt={option.label}
+                        className="w-5 h-5 rounded object-contain flex-shrink-0"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    )}
+                    <span className="truncate">{option.label}</span>
+                  </div>
+                  {value === option.value && <Check className="w-4 h-4 flex-shrink-0" />}
                 </button>
               ))}
             </div>
@@ -217,8 +247,20 @@ export const CustomSelect = ({
                         }
                       `}
                     >
-                      <span>{option.label}</span>
-                      {value === option.value && <Check className="w-4 h-4" />}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {option.image_url && (
+                          <img
+                            src={option.image_url}
+                            alt={option.label}
+                            className="w-5 h-5 rounded object-contain flex-shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        )}
+                        <span className="truncate">{option.label}</span>
+                      </div>
+                      {value === option.value && <Check className="w-4 h-4 flex-shrink-0" />}
                     </button>
                   ))}
                 </div>

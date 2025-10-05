@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, HelpCircle, ExternalLink, Info } from 'lucide-react';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { FieldDefinition, SupplierInfo } from '../../services/dynamic-supplier.service';
 import { SupplierTestResult } from '../../components/suppliers/SupplierTestResult';
 
@@ -240,20 +241,18 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
 
       case 'select':
         return (
-          <select
-            id={fieldId}
+          <CustomSelect
             value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            required={field.required}
-          >
-            <option value="">Select...</option>
-            {field.options?.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={onChange}
+            options={[
+              { value: '', label: 'Select...' },
+              ...(field.options?.map((option) => ({
+                value: option.value,
+                label: option.label
+              })) || [])
+            ]}
+            placeholder="Select..."
+          />
         );
 
       case 'textarea':

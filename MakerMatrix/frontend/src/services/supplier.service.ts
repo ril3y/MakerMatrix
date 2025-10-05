@@ -13,6 +13,9 @@ export interface SupplierConfig {
   supplier_name: string;
   display_name: string;
   description?: string;
+  website_url?: string;
+  image_url?: string;
+  supplier_type?: 'advanced' | 'basic' | 'simple'; // Supplier type: advanced (API), basic (limited), simple (URL-only)
   api_type: 'rest' | 'graphql' | 'scraping';
   base_url: string;
   api_version?: string;
@@ -34,6 +37,8 @@ export interface SupplierConfigCreate {
   supplier_name: string;
   display_name: string;
   description?: string;
+  website_url?: string;
+  image_url?: string;
   api_type?: 'rest' | 'graphql' | 'scraping';
   base_url: string;
   api_version?: string;
@@ -54,6 +59,9 @@ export interface SupplierConfigCreate {
 export interface SupplierConfigUpdate {
   display_name?: string;
   description?: string;
+  website_url?: string;
+  image_url?: string;
+  supplier_type?: 'advanced' | 'basic' | 'simple';
   enabled?: boolean;
   // Modern capabilities array - backend driven
   capabilities?: string[];

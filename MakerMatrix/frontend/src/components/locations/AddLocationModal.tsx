@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import CrudModal from '@/components/ui/CrudModal'
-import { FormInput, FormSelect, FormField, LocationTreeSelector } from '@/components/forms'
+import { FormInput, FormField, LocationTreeSelector } from '@/components/forms'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import EmojiPicker from '@/components/ui/EmojiPicker'
 import ImageUpload from '@/components/ui/ImageUpload'
 import { useModalFormWithValidation } from '@/hooks/useFormWithValidation'
@@ -172,19 +173,19 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
             error={form.getFieldError('name')}
           />
 
-          <FormSelect
+          <FormField
             label="Location Type"
             description="What type of storage location is this?"
-            registration={form.register('location_type')}
             error={form.getFieldError('location_type')}
-            placeholder="Select a type"
           >
-            {locationTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </FormSelect>
+            <CustomSelect
+              value={form.watch('location_type') || 'standard'}
+              onChange={(value) => form.setValue('location_type', value)}
+              options={locationTypes}
+              placeholder="Select a type"
+              error={form.getFieldError('location_type')}
+            />
+          </FormField>
 
           <FormField label="Parent Location" description="Select a parent location to create a hierarchy (optional)">
             <LocationTreeSelector

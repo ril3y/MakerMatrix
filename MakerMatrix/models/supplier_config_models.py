@@ -30,7 +30,10 @@ class SupplierConfigModel(SQLModel, table=True):
     supplier_name: str = Field(unique=True, index=True, max_length=100)
     display_name: str = Field(max_length=200)
     description: Optional[str] = Field(default=None, max_length=1000)
-    
+    website_url: Optional[str] = Field(default=None, max_length=500, description="Supplier website URL")
+    image_url: Optional[str] = Field(default=None, max_length=500, description="URL or path to supplier logo/icon (favicon)")
+    supplier_type: str = Field(default="advanced", max_length=50, description="Supplier type: advanced (API enrichment), basic (limited features), simple (URL-only)")
+
     # API configuration
     api_type: str = Field(max_length=50, default="rest")  # "rest", "graphql", "scraping"
     base_url: str = Field(max_length=500)
@@ -166,6 +169,9 @@ class SupplierConfigModel(SQLModel, table=True):
             "supplier_name": self.supplier_name,
             "display_name": self.display_name,
             "description": self.description,
+            "website_url": self.website_url,
+            "image_url": self.image_url,
+            "supplier_type": self.supplier_type,
             "api_type": self.api_type,
             "base_url": self.base_url,
             "api_version": self.api_version,

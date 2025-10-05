@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect, useRef } from 'react'
 import { X, Printer, TestTube, FileText, HelpCircle } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
 import { templateService, LabelTemplate } from '@/services/template.service'
 import TemplateSelector from './TemplateSelector'
@@ -514,20 +515,18 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                 <label className="block text-sm font-medium text-primary mb-2">
                   Select Printer
                 </label>
-                <select
-                  className="input w-full"
+                <CustomSelect
                   value={selectedPrinter}
-                  onChange={(e) => handlePrinterChange(e.target.value)}
-                >
-                  {availablePrinters.length === 0 && (
-                    <option value="">No printers available</option>
-                  )}
-                  {availablePrinters.map((printer) => (
-                    <option key={printer.printer_id} value={printer.printer_id}>
-                      {printer.name} ({printer.model})
-                    </option>
-                  ))}
-                </select>
+                  onChange={handlePrinterChange}
+                  options={availablePrinters.length === 0
+                    ? [{ value: '', label: 'No printers available' }]
+                    : availablePrinters.map((printer) => ({
+                        value: printer.printer_id,
+                        label: `${printer.name} (${printer.model})`
+                      }))
+                  }
+                  placeholder="Select a printer"
+                />
               </div>
 
               {/* Template Selection */}
@@ -622,31 +621,27 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                   <label className="block text-sm font-medium text-primary mb-2">
                     Label Size
                   </label>
-                  <select
-                    className="input w-full"
+                  <CustomSelect
                     value={selectedLabelSize}
-                    onChange={(e) => setSelectedLabelSize(e.target.value)}
-                  >
-                    {printerInfo?.supported_sizes?.length > 0 ? (
-                      printerInfo.supported_sizes.map((size: any) => (
-                        <option key={size.name} value={size.name}>
-                          {size.name} - {size.width_mm}mm {size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}
-                        </option>
-                      ))
-                    ) : (
-                      // Fallback options when printer info is not available
-                      <>
-                        <option value="12mm">12mm - 12mm (continuous)</option>
-                        <option value="17mm">17mm - 17mm (continuous)</option>
-                        <option value="23mm">23mm - 23mm (continuous)</option>
-                        <option value="29mm">29mm - 29mm (continuous)</option>
-                        <option value="38mm">38mm - 38mm (continuous)</option>
-                        <option value="50mm">50mm - 50mm (continuous)</option>
-                        <option value="54mm">54mm - 54mm (continuous)</option>
-                        <option value="62mm">62mm - 62mm (continuous)</option>
-                      </>
-                    )}
-                  </select>
+                    onChange={setSelectedLabelSize}
+                    options={printerInfo?.supported_sizes?.length > 0
+                      ? printerInfo.supported_sizes.map((size: any) => ({
+                          value: size.name,
+                          label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`
+                        }))
+                      : [
+                          { value: '12mm', label: '12mm - 12mm (continuous)' },
+                          { value: '17mm', label: '17mm - 17mm (continuous)' },
+                          { value: '23mm', label: '23mm - 23mm (continuous)' },
+                          { value: '29mm', label: '29mm - 29mm (continuous)' },
+                          { value: '38mm', label: '38mm - 38mm (continuous)' },
+                          { value: '50mm', label: '50mm - 50mm (continuous)' },
+                          { value: '54mm', label: '54mm - 54mm (continuous)' },
+                          { value: '62mm', label: '62mm - 62mm (continuous)' }
+                        ]
+                    }
+                    placeholder="Select label size"
+                  />
                 </div>
 
                 <div>

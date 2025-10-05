@@ -209,6 +209,19 @@ export class PartsService {
     }
     throw new Error(response.message || 'Failed to check enrichment requirements')
   }
+
+  /**
+   * Get enrichment requirements for a specific supplier (without needing a part_id)
+   */
+  async getSupplierEnrichmentRequirements(supplier: string): Promise<SupplierEnrichmentRequirements> {
+    const response = await apiClient.get<ApiResponse<SupplierEnrichmentRequirements>>(`/api/parts/enrichment-requirements/${supplier}`)
+    // apiClient.get already returns response.data, so response is the API response object
+    // We need to extract the data field from the API response
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to get enrichment requirements')
+  }
 }
 
 // Enrichment requirement types
@@ -231,6 +244,25 @@ export interface EnrichmentRequirementCheckResponse {
   missing_recommended: string[]
   warnings: string[]
   suggestions: string[]
+}
+
+export interface SupplierEnrichmentRequirements {
+  supplier_name: string
+  display_name: string
+  description: string
+  required_fields: Array<{
+    field_name: string
+    display_name: string
+    description: string
+    example?: string
+    validation_pattern?: string
+  }>
+  recommended_fields: Array<{
+    field_name: string
+    display_name: string
+    description: string
+    example?: string
+  }>
 }
 
 export const partsService = new PartsService()

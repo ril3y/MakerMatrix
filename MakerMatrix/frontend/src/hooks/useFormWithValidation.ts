@@ -184,7 +184,7 @@ export const useModalFormWithValidation = <T extends FieldValues>(
     if (!isOpen && resetOnClose) {
       form.reset()
     }
-  }, [isOpen, resetOnClose, form.reset])
+  }, [isOpen, resetOnClose]) // Don't include form.reset - it's stable from the hook
 
   return {
     ...form,
