@@ -444,28 +444,33 @@ class LCSCSupplier(BaseSupplier):
             try:
                 # Clean part number
                 lcsc_id = supplier_part_number.strip().upper()
-                
-                # Get HTTP client and make request
+
+                # Try EasyEDA API first
                 http_client = self._get_http_client()
                 url = self._get_easyeda_api_url(lcsc_id)
-                
+
                 response = await http_client.get(url, endpoint_type="get_part_details")
-                
-                if not response.success:
-                    return None
-                
+
                 # Check if result exists and has data
-                result_data = response.data.get("result")
-                if result_data is None:
+                if response.success and response.data.get("result") is not None:
+                    # Parse EasyEDA response (includes product page enrichment)
+                    return await self._parse_easyeda_response(response.data, lcsc_id)
+
+                # EasyEDA API failed or returned no data - try product page fallback
+                logger.info(f"EasyEDA API returned no data for {lcsc_id}, attempting product page fallback")
+                page_details = await self._fetch_product_page_details(lcsc_id)
+
+                if not page_details:
+                    logger.warning(f"Both EasyEDA API and product page failed for {lcsc_id}")
                     return None
-                
-                # Parse response using unified data extractor
-                return await self._parse_easyeda_response(response.data, lcsc_id)
-                
+
+                # Build PartSearchResult from product page data only
+                return await self._parse_product_page_only(page_details, lcsc_id)
+
             except Exception as e:
                 logger.error(f"Failed to get LCSC part details for {supplier_part_number}: {e}")
                 return None
-        
+
         return await self._tracked_api_call("get_part_details", _impl)
     
     def _preprocess_lcsc_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -726,6 +731,74 @@ class LCSCSupplier(BaseSupplier):
             return str(value) if value is not None else None
 
         return None
+
+    async def _parse_product_page_only(self, page_details: Dict[str, Any], lcsc_id: str) -> PartSearchResult:
+        """
+        Build PartSearchResult from product page data only (fallback when EasyEDA API fails).
+        Used for parts that exist on LCSC.com but not in EasyEDA database.
+        """
+        attributes = page_details.get("attributes", {})
+
+        # Extract core fields
+        manufacturer = page_details.get("brand") or attributes.get("Manufacturer", "")
+        manufacturer_part_number = page_details.get("mpn") or attributes.get("Mfr. Part #", "")
+        description = attributes.get("Description") or page_details.get("description") or page_details.get("name", "")
+        category = page_details.get("category") or attributes.get("Category", "")
+
+        # Get datasheet URL
+        datasheet_url = page_details.get("datasheet_url") or page_details.get("attribute_links", {}).get("Datasheet")
+
+        # Get image URL
+        image_url = page_details.get("image_url")
+
+        # Build flat additional_data from all attributes
+        additional_data = {
+            "lcsc_part_number": lcsc_id,
+            "product_url": f"https://www.lcsc.com/product-detail/{lcsc_id}.html",
+            "data_source": "lcsc_product_page_only"  # Indicate this came from page scraping
+        }
+
+        # Add package info
+        package = attributes.get("Package")
+        if package:
+            additional_data["package"] = package
+
+        # Add key attributes
+        key_attributes = attributes.get("Key Attributes")
+        if key_attributes:
+            additional_data["key_attributes"] = key_attributes
+
+        # Add pricing/stock if available
+        if page_details.get("price") is not None:
+            additional_data["lcsc_price"] = page_details["price"]
+        if page_details.get("price_currency"):
+            additional_data["lcsc_price_currency"] = page_details["price_currency"]
+        if page_details.get("inventory_level") is not None:
+            additional_data["lcsc_inventory_level"] = page_details["inventory_level"]
+
+        # Add remaining attributes as flat data
+        for attr_name, attr_value in attributes.items():
+            if not attr_value:
+                continue
+            if attr_name in {"Manufacturer", "Mfr. Part #", "LCSC Part #", "Package", "Key Attributes", "Description", "Category"}:
+                continue
+            # Convert to clean key format
+            clean_key = attr_name.lower().replace(' ', '_').replace('-', '_')
+            additional_data[clean_key] = attr_value
+
+        return PartSearchResult(
+            supplier_part_number=lcsc_id,
+            manufacturer=manufacturer,
+            manufacturer_part_number=manufacturer_part_number,
+            description=description,
+            category=category,
+            datasheet_url=datasheet_url,
+            image_url=image_url,
+            stock_quantity=page_details.get("inventory_level"),
+            pricing=None,  # Could be extracted from page but format varies
+            specifications=None,
+            additional_data=additional_data
+        )
 
     def _merge_json_ld_item(self, item: Dict[str, Any], page_details: Dict[str, Any]) -> None:
         """Merge a parsed JSON-LD item into the page details structure."""
