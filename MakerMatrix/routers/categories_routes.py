@@ -15,6 +15,9 @@ from MakerMatrix.auth.guards import require_permission
 # BaseRouter infrastructure
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
 
+# WebSocket for real-time updates
+from MakerMatrix.services.system.websocket_service import websocket_manager
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -74,6 +77,20 @@ async def add_category(
     except Exception as e:
         logger.warning(f"Failed to log category creation activity: {e}")
 
+    # Broadcast category creation via websocket
+    try:
+        await websocket_manager.broadcast_crud_event(
+            action="created",
+            entity_type="category",
+            entity_id=data["id"],
+            entity_name=data["name"],
+            user_id=current_user.id,
+            username=current_user.username,
+            entity_data=data
+        )
+    except Exception as e:
+        logger.warning(f"Failed to broadcast category creation: {e}")
+
     return BaseRouter.build_success_response(
         data=CategoryResponse.model_validate(data),
         message=service_response.message
@@ -109,10 +126,10 @@ async def update_category(
     try:
         from MakerMatrix.services.activity_service import get_activity_service
         activity_service = get_activity_service()
-        
+
         # Create changes dict from the update data
         changes = {k: v for k, v in category_data.model_dump().items() if v is not None}
-        
+
         await activity_service.log_category_updated(
             category_id=category_id,
             category_name=data["name"],
@@ -122,7 +139,25 @@ async def update_category(
         )
     except Exception as activity_error:
         logger.warning(f"Failed to log category update activity: {activity_error}")
-    
+
+    # Broadcast category update via websocket
+    try:
+        # Create changes dict from the update data
+        changes_dict = {k: v for k, v in category_data.model_dump().items() if v is not None}
+
+        await websocket_manager.broadcast_crud_event(
+            action="updated",
+            entity_type="category",
+            entity_id=category_id,
+            entity_name=data["name"],
+            user_id=current_user.id,
+            username=current_user.username,
+            changes=changes_dict,
+            entity_data=data
+        )
+    except Exception as e:
+        logger.warning(f"Failed to broadcast category update: {e}")
+
     return BaseRouter.build_success_response(
         data=CategoryResponse.model_validate(data),
         message=service_response.message
@@ -192,6 +227,19 @@ async def remove_category(
         )
     except Exception as e:
         logger.warning(f"Failed to log category deletion activity: {e}")
+
+    # Broadcast category deletion via websocket
+    try:
+        await websocket_manager.broadcast_crud_event(
+            action="deleted",
+            entity_type="category",
+            entity_id=data["id"],
+            entity_name=data["name"],
+            user_id=current_user.id,
+            username=current_user.username
+        )
+    except Exception as e:
+        logger.warning(f"Failed to broadcast category deletion: {e}")
 
     return BaseRouter.build_success_response(
         data=CategoryResponse.model_validate(data),
