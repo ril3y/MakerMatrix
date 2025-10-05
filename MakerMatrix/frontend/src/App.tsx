@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 import { useEffect } from 'react'
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext'
+import { WebSocketProvider } from '@/contexts/WebSocketContext'
 
 // Layouts
 import MainLayout from '@/components/layouts/MainLayout'
@@ -125,7 +126,9 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <WebSocketProvider enableToastsByDefault={true} showConnectionStatus={true}>
+        <AppContent />
+      </WebSocketProvider>
     </ThemeProvider>
   )
 }
