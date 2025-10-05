@@ -429,9 +429,39 @@ const PartsPage = () => {
   }
 
   const selectAllInSearch = async () => {
-    // TODO: Fetch all part IDs matching current search
-    // For now, just select all on current page
-    setSelectedPartIds(new Set(parts.map(p => p.id)))
+    try {
+      // If already all selected, deselect all
+      if (selectedPartIds.size === totalParts) {
+        setSelectedPartIds(new Set())
+        return
+      }
+
+      // Build search params matching current filters
+      const searchParams = {
+        search_term: searchTerm,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        page: 1,
+        page_size: totalParts || 10000 // Request all results
+      }
+
+      console.log('Fetching all part IDs with params:', searchParams)
+      const response = await partsService.searchParts(searchParams)
+
+      // Extract all part IDs from response
+      let allPartIds: string[] = []
+      if (response.items && Array.isArray(response.items)) {
+        allPartIds = response.items.map((p: Part) => p.id)
+      } else if (response.data && response.data.items && Array.isArray(response.data.items)) {
+        allPartIds = response.data.items.map((p: Part) => p.id)
+      }
+
+      console.log(`Selected all ${allPartIds.length} matching parts`)
+      setSelectedPartIds(new Set(allPartIds))
+    } catch (error) {
+      console.error('Failed to select all parts:', error)
+      toast.error('Failed to select all parts')
+    }
   }
 
   const exitBulkEditMode = () => {
@@ -441,6 +471,7 @@ const PartsPage = () => {
   }
 
   const isAllOnPageSelected = parts.length > 0 && parts.every(p => selectedPartIds.has(p.id))
+  const isAllMatchingSelected = selectedPartIds.size === totalParts && totalParts > 0
 
   if (loading && parts.length === 0) {
     return <LoadingScreen />
@@ -644,12 +675,12 @@ const PartsPage = () => {
                     {bulkEditMode && (
                       <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider w-12">
                         <button
-                          onClick={toggleAllOnPage}
+                          onClick={selectAllInSearch}
                           className="flex items-center justify-center w-5 h-5 text-primary hover:text-primary-dark transition-colors"
-                          title={isAllOnPageSelected ? "Deselect all on page" : "Select all on page"}
+                          title={isAllMatchingSelected ? `Deselect all ${totalParts} parts` : `Select all ${totalParts} matching parts`}
                         >
-                          {isAllOnPageSelected ? (
-                            <CheckSquare className="w-5 h-5" />
+                          {isAllMatchingSelected ? (
+                            <CheckSquare className="w-5 h-5 text-blue-600" />
                           ) : (
                             <Square className="w-5 h-5" />
                           )}
