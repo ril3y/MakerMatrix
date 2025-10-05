@@ -358,6 +358,11 @@ const PartsPage = () => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Don't handle escape if modal is open - let the modal handle it
+        if (showBulkEditModal) {
+          return
+        }
+
         if (bulkEditMode) {
           if (selectedPartIds.size > 0) {
             // If items are selected, clear selection
@@ -372,7 +377,7 @@ const PartsPage = () => {
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [bulkEditMode, selectedPartIds.size])
+  }, [bulkEditMode, selectedPartIds.size, showBulkEditModal])
 
   const totalPages = Math.ceil(totalParts / pageSize)
 
