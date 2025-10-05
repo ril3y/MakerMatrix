@@ -26,6 +26,9 @@ const PartsPage = () => {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
   const [suggestionTimeout, setSuggestionTimeout] = useState<NodeJS.Timeout | null>(null)
 
+  // Auto-search debounce timeout
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+
   // Sorting state
   const [sortBy, setSortBy] = useState<string>('created_at')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -229,26 +232,38 @@ const PartsPage = () => {
     }
   }
 
-  // Handle search input change with debounced suggestions
+  // Handle search input change with debounced suggestions and auto-search
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setSearchTerm(value)
 
-    // Clear existing timeout
+    // Clear existing suggestion timeout
     if (suggestionTimeout) {
       clearTimeout(suggestionTimeout)
     }
 
-    // Set new timeout for suggestions
+    // Clear existing search timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+
+    // Set new timeout for suggestions (only if 3+ chars)
     if (value.length >= 3) {
-      const timeout = setTimeout(() => {
+      const suggestionTimer = setTimeout(() => {
         fetchSuggestions(value)
       }, 300) // 300ms debounce
-      setSuggestionTimeout(timeout)
+      setSuggestionTimeout(suggestionTimer)
     } else {
       setSuggestions([])
       setShowSuggestions(false)
     }
+
+    // Set new timeout for auto-search (any length, including empty to show all)
+    const searchTimer = setTimeout(() => {
+      setShowSuggestions(false) // Hide suggestions when auto-searching
+      loadParts(1, value)
+    }, 500) // 500ms debounce for search
+    setSearchTimeout(searchTimer)
   }
 
   // Handle search form submission
@@ -320,14 +335,17 @@ const PartsPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (suggestionTimeout) {
         clearTimeout(suggestionTimeout)
       }
+      if (searchTimeout) {
+        clearTimeout(searchTimeout)
+      }
     }
-  }, [suggestionTimeout])
+  }, [suggestionTimeout, searchTimeout])
 
   const totalPages = Math.ceil(totalParts / pageSize)
 
