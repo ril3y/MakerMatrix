@@ -7,6 +7,7 @@ from MakerMatrix.repositories.custom_exceptions import PartAlreadyExistsError, R
 from MakerMatrix.schemas.part_create import PartCreate, PartUpdate
 from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
+from MakerMatrix.schemas.bulk_update import BulkUpdateRequest, BulkUpdateResponse
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.auth.dependencies import get_current_user
@@ -680,4 +681,62 @@ async def get_supplier_enrichment_requirements(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get enrichment requirements: {str(e)}"
+        )
+
+
+@router.post("/bulk_update", response_model=ResponseSchema[BulkUpdateResponse])
+@standard_error_handling
+async def bulk_update_parts(
+    request: BulkUpdateRequest,
+    current_user: UserModel = Depends(get_current_user),
+    part_service: PartService = Depends(get_part_service)
+) -> ResponseSchema[BulkUpdateResponse]:
+    """
+    Bulk update multiple parts with shared field values.
+
+    Only enabled fields will be updated. Supports:
+    - Updating supplier
+    - Updating primary location
+    - Setting minimum quantity
+    - Adding categories to parts
+    - Removing categories from parts
+    """
+    try:
+        # Validate that at least one update field is provided
+        has_updates = (
+            request.supplier is not None or
+            request.location_id is not None or
+            request.minimum_quantity is not None or
+            (request.add_categories and len(request.add_categories) > 0) or
+            (request.remove_categories and len(request.remove_categories) > 0)
+        )
+
+        if not has_updates:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one field must be provided for update"
+            )
+
+        if not request.part_ids or len(request.part_ids) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Part IDs list cannot be empty"
+            )
+
+        # Call service layer for bulk update
+        service_response = part_service.bulk_update_parts(request.model_dump())
+        result = validate_service_response(service_response)
+
+        return BaseRouter.build_success_response(
+            data=result,
+            message=f"Successfully updated {result['updated_count']} part(s)"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk update: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Bulk update failed: {str(e)}"
         )

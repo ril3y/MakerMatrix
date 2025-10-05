@@ -1079,4 +1079,111 @@ class PartService(BaseService):
                 data=None
             )
 
+    def bulk_update_parts(self, update_request: dict) -> ServiceResponse[Dict[str, Any]]:
+        """
+        Bulk update multiple parts with shared field values.
+
+        Args:
+            update_request: Dictionary containing:
+                - part_ids: List of part IDs to update
+                - supplier: Optional supplier name
+                - location_id: Optional location ID
+                - minimum_quantity: Optional minimum quantity
+                - add_categories: Optional list of category names to add
+                - remove_categories: Optional list of category names to remove
+
+        Returns:
+            ServiceResponse with update summary
+        """
+        try:
+            part_ids = update_request.get('part_ids', [])
+            supplier = update_request.get('supplier')
+            location_id = update_request.get('location_id')
+            minimum_quantity = update_request.get('minimum_quantity')
+            add_categories = update_request.get('add_categories', [])
+            remove_categories = update_request.get('remove_categories', [])
+
+            updated_count = 0
+            failed_count = 0
+            errors = []
+
+            with self.get_session() as session:
+                for part_id in part_ids:
+                    try:
+                        # Get the part
+                        part = self.part_repo.get_part_by_id(session, part_id)
+                        if not part:
+                            failed_count += 1
+                            errors.append({
+                                'part_id': part_id,
+                                'error': 'Part not found'
+                            })
+                            continue
+
+                        # Update simple fields
+                        if supplier is not None:
+                            part.supplier = supplier
+
+                        if minimum_quantity is not None:
+                            part.minimum_quantity = minimum_quantity
+
+                        # Update location (primary allocation)
+                        if location_id is not None:
+                            from MakerMatrix.models.part_allocation_models import PartLocationAllocation
+                            from datetime import datetime
+
+                            # Find or create primary allocation
+                            primary_alloc = next(
+                                (alloc for alloc in part.allocations if alloc.is_primary_storage),
+                                part.allocations[0] if part.allocations else None
+                            )
+
+                            if primary_alloc:
+                                primary_alloc.location_id = location_id
+                                primary_alloc.last_updated = datetime.utcnow()
+                                session.add(primary_alloc)
+
+                        # Handle categories
+                        if add_categories:
+                            from MakerMatrix.repositories.parts_repositories import handle_categories
+                            categories_to_add = handle_categories(session, add_categories)
+                            for category in categories_to_add:
+                                if category not in part.categories:
+                                    part.categories.append(category)
+
+                        if remove_categories:
+                            part.categories = [
+                                cat for cat in part.categories
+                                if cat.name not in remove_categories
+                            ]
+
+                        # Save the part
+                        session.add(part)
+                        updated_count += 1
+
+                    except Exception as e:
+                        failed_count += 1
+                        errors.append({
+                            'part_id': part_id,
+                            'error': str(e)
+                        })
+                        logger.error(f"Failed to update part {part_id}: {e}")
+
+                # Commit all updates
+                session.commit()
+
+            result = {
+                'updated_count': updated_count,
+                'failed_count': failed_count,
+                'errors': errors
+            }
+
+            return self.success_response(
+                f"Bulk update completed: {updated_count} succeeded, {failed_count} failed",
+                result
+            )
+
+        except Exception as e:
+            return self.handle_exception(e, "bulk update parts")
+
     #

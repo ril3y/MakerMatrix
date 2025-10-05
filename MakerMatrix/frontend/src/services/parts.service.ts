@@ -222,6 +222,36 @@ export class PartsService {
     }
     throw new Error(response.message || 'Failed to get enrichment requirements')
   }
+
+  /**
+   * Bulk update multiple parts with shared field values
+   */
+  async bulkUpdateParts(request: BulkUpdateRequest): Promise<BulkUpdateResponse> {
+    const response = await apiClient.post<ApiResponse<BulkUpdateResponse>>('/api/parts/bulk_update', request)
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to bulk update parts')
+  }
+}
+
+// Bulk update types
+export interface BulkUpdateRequest {
+  part_ids: string[]
+  supplier?: string
+  location_id?: string
+  minimum_quantity?: number
+  add_categories?: string[]
+  remove_categories?: string[]
+}
+
+export interface BulkUpdateResponse {
+  updated_count: number
+  failed_count: number
+  errors: Array<{
+    part_id: string
+    error: string
+  }>
 }
 
 // Enrichment requirement types
