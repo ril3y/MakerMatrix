@@ -1,17 +1,19 @@
 import { motion } from 'framer-motion'
-import { Package, Plus, Search, Filter, ChevronLeft, ChevronRight, X, Copy, Check, ArrowUpDown, ArrowUp, ArrowDown, MapPin } from 'lucide-react'
+import { Package, Plus, Search, Filter, ChevronLeft, ChevronRight, X, Copy, Check, ArrowUpDown, ArrowUp, ArrowDown, MapPin, Edit3, CheckSquare, Square } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
 import { supplierService, SupplierConfig } from '@/services/supplier.service'
 import { Part } from '@/types/parts'
 import AddPartModal from '@/components/parts/AddPartModal'
+import BulkEditModal from '@/components/parts/BulkEditModal'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartImage from '@/components/parts/PartImage'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 const PartsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showBulkEditModal, setShowBulkEditModal] = useState(false)
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +40,11 @@ const PartsPage = () => {
 
   // Supplier state for logo display
   const [supplierImageMap, setSupplierImageMap] = useState<Record<string, string>>({})
+
+  // Bulk edit mode state
+  const [bulkEditMode, setBulkEditMode] = useState(false)
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set())
+  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -347,6 +354,26 @@ const PartsPage = () => {
     }
   }, [suggestionTimeout, searchTimeout])
 
+  // Handle Escape key to deselect or exit bulk edit mode
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (bulkEditMode) {
+          if (selectedPartIds.size > 0) {
+            // If items are selected, clear selection
+            setSelectedPartIds(new Set())
+          } else {
+            // If no items selected, exit bulk edit mode
+            exitBulkEditMode()
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [bulkEditMode, selectedPartIds.size])
+
   const totalPages = Math.ceil(totalParts / pageSize)
 
   const handlePageChange = (page: number) => {
@@ -355,9 +382,65 @@ const PartsPage = () => {
     }
   }
 
-  const handlePartClick = (partId: string) => {
+  const handlePartClick = (partId: string, event?: React.MouseEvent) => {
+    // In bulk edit mode, regular click toggles selection
+    if (bulkEditMode) {
+      togglePartSelection(partId)
+      if (event) event.preventDefault()
+      return
+    }
+
+    // Check if Ctrl/Cmd key is pressed (when NOT in bulk edit mode)
+    if (event && (event.ctrlKey || event.metaKey)) {
+      console.log('Ctrl+click detected, entering bulk edit mode')
+      // Enter bulk edit mode and toggle selection
+      setBulkEditMode(true)
+      togglePartSelection(partId)
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    // Normal click - navigate to part details
     navigate(`/parts/${partId}`)
   }
+
+  // Bulk edit functions
+  const togglePartSelection = (partId: string) => {
+    setSelectedPartIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(partId)) {
+        newSet.delete(partId)
+      } else {
+        newSet.add(partId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleAllOnPage = () => {
+    if (selectedPartIds.size === parts.length && parts.every(p => selectedPartIds.has(p.id))) {
+      // All on page are selected, deselect all
+      setSelectedPartIds(new Set())
+    } else {
+      // Select all on page
+      setSelectedPartIds(new Set(parts.map(p => p.id)))
+    }
+  }
+
+  const selectAllInSearch = async () => {
+    // TODO: Fetch all part IDs matching current search
+    // For now, just select all on current page
+    setSelectedPartIds(new Set(parts.map(p => p.id)))
+  }
+
+  const exitBulkEditMode = () => {
+    setBulkEditMode(false)
+    setSelectedPartIds(new Set())
+    setLastClickedIndex(null)
+  }
+
+  const isAllOnPageSelected = parts.length > 0 && parts.every(p => selectedPartIds.has(p.id))
 
   if (loading && parts.length === 0) {
     return <LoadingScreen />
@@ -380,15 +463,37 @@ const PartsPage = () => {
             Manage your parts inventory
           </p>
         </div>
-        <PermissionGuard permission="parts:create">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Part
-          </button>
-        </PermissionGuard>
+        <div className="flex items-center gap-3">
+          {!bulkEditMode ? (
+            <>
+              <button
+                onClick={() => setBulkEditMode(true)}
+                className="btn btn-secondary flex items-center gap-2"
+                title="Enter bulk edit mode (or Ctrl+click rows)"
+              >
+                <Edit3 className="w-4 h-4" />
+                Bulk Edit
+              </button>
+              <PermissionGuard permission="parts:create">
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="btn btn-primary flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Part
+                </button>
+              </PermissionGuard>
+            </>
+          ) : (
+            <button
+              onClick={exitBulkEditMode}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <X className="w-4 h-4" />
+              Exit Bulk Edit
+            </button>
+          )}
+        </div>
       </motion.div>
 
       {/* Search and Filters */}
@@ -536,6 +641,21 @@ const PartsPage = () => {
               <table className="w-full">
                 <thead className="bg-background-secondary border-b border-border">
                   <tr>
+                    {bulkEditMode && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider w-12">
+                        <button
+                          onClick={toggleAllOnPage}
+                          className="flex items-center justify-center w-5 h-5 text-primary hover:text-primary-dark transition-colors"
+                          title={isAllOnPageSelected ? "Deselect all on page" : "Select all on page"}
+                        >
+                          {isAllOnPageSelected ? (
+                            <CheckSquare className="w-5 h-5" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                       Image
                     </th>
@@ -553,8 +673,42 @@ const PartsPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(parts || []).map((part) => (
-                    <tr key={part.id} className="hover:bg-background-secondary/50 transition-colors">
+                  {(parts || []).map((part) => {
+                    const isSelected = selectedPartIds.has(part.id)
+                    return (
+                    <tr
+                      key={part.id}
+                      className={`transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                          : 'hover:bg-background-secondary/50'
+                      }`}
+                      onMouseDown={(e) => {
+                        // Only handle Ctrl+click on the row itself, not on interactive elements
+                        if ((e.ctrlKey || e.metaKey) && (e.target as HTMLElement).tagName === 'TD') {
+                          e.preventDefault()
+                          console.log('Ctrl+mousedown detected on row')
+                          if (!bulkEditMode) {
+                            setBulkEditMode(true)
+                          }
+                          togglePartSelection(part.id)
+                        }
+                      }}
+                    >
+                      {bulkEditMode && (
+                        <td className="px-6 py-4 whitespace-nowrap w-12">
+                          <button
+                            onClick={() => togglePartSelection(part.id)}
+                            className="flex items-center justify-center w-5 h-5 text-primary hover:text-primary-dark transition-colors"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-5 h-5 text-blue-600" />
+                            ) : (
+                              <Square className="w-5 h-5" />
+                            )}
+                          </button>
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <PartImage 
                           imageUrl={part.image_url}
@@ -566,9 +720,27 @@ const PartsPage = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handlePartClick(part.id)}
+                            onMouseDown={(e) => {
+                              // Check for Ctrl+click
+                              if (e.ctrlKey || e.metaKey) {
+                                e.preventDefault()
+                                console.log('Ctrl+mousedown detected on part name')
+                                if (!bulkEditMode) {
+                                  setBulkEditMode(true)
+                                }
+                                togglePartSelection(part.id)
+                              }
+                            }}
+                            onClick={(e) => {
+                              // Don't handle click if Ctrl was pressed (handled in mousedown)
+                              if (e.ctrlKey || e.metaKey) {
+                                e.preventDefault()
+                                return
+                              }
+                              handlePartClick(part.id, e)
+                            }}
                             className="text-sm font-medium text-primary hover:text-primary-dark hover:underline transition-colors cursor-pointer"
-                            title="Click to view part details"
+                            title={bulkEditMode ? "Click to select, Ctrl+click to toggle" : "Click to view part details, Ctrl+click to enter bulk edit"}
                           >
                             {part.name}
                           </button>
@@ -597,9 +769,27 @@ const PartsPage = () => {
                         {part.part_number ? (
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handlePartClick(part.id)}
+                              onMouseDown={(e) => {
+                                // Check for Ctrl+click
+                                if (e.ctrlKey || e.metaKey) {
+                                  e.preventDefault()
+                                  console.log('Ctrl+mousedown detected on part number')
+                                  if (!bulkEditMode) {
+                                    setBulkEditMode(true)
+                                  }
+                                  togglePartSelection(part.id)
+                                }
+                              }}
+                              onClick={(e) => {
+                                // Don't handle click if Ctrl was pressed (handled in mousedown)
+                                if (e.ctrlKey || e.metaKey) {
+                                  e.preventDefault()
+                                  return
+                                }
+                                handlePartClick(part.id, e)
+                              }}
                               className="text-sm text-secondary hover:text-primary hover:underline transition-colors cursor-pointer"
-                              title="Click to view part details"
+                              title={bulkEditMode ? "Click to select, Ctrl+click to toggle" : "Click to view part details, Ctrl+click to enter bulk edit"}
                             >
                               {part.part_number}
                             </button>
@@ -699,12 +889,58 @@ const PartsPage = () => {
                         {formatDate(part.created_at)}
                       </td>
                     </tr>
-                  ))}
+                  )
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
+
+        {/* Floating Action Bar for Bulk Edit */}
+        {bulkEditMode && selectedPartIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40"
+          >
+            <div className="bg-blue-600 text-white rounded-lg shadow-2xl px-6 py-4 flex items-center gap-6 border border-blue-500">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-5 h-5" />
+                <span className="font-semibold">
+                  {selectedPartIds.size} {selectedPartIds.size === 1 ? 'part' : 'parts'} selected
+                </span>
+              </div>
+
+              <div className="h-6 w-px bg-blue-400" />
+
+              {selectedPartIds.size < totalParts && (
+                <button
+                  onClick={selectAllInSearch}
+                  className="text-sm hover:text-blue-100 transition-colors flex items-center gap-1"
+                >
+                  Select all {totalParts} {isSearching ? 'in search' : 'parts'}
+                </button>
+              )}
+
+              <button
+                onClick={() => setShowBulkEditModal(true)}
+                className="btn bg-white text-blue-600 hover:bg-blue-50 flex items-center gap-2 font-semibold"
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit Selected
+              </button>
+
+              <button
+                onClick={() => setSelectedPartIds(new Set())}
+                className="text-sm hover:text-blue-100 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </motion.div>
+        )}
         
         {/* Pagination */}
         {totalPages > 1 && (
@@ -763,6 +999,19 @@ const PartsPage = () => {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSuccess={handlePartAdded}
+      />
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        isOpen={showBulkEditModal}
+        onClose={() => setShowBulkEditModal(false)}
+        onSuccess={() => {
+          loadParts(currentPage, searchTerm)
+          setSelectedPartIds(new Set())
+          setBulkEditMode(false)
+        }}
+        selectedPartIds={Array.from(selectedPartIds)}
+        selectedCount={selectedPartIds.size}
       />
     </div>
   )
