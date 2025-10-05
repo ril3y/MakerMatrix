@@ -8,6 +8,7 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { generalWebSocket, EntityEventData, WebSocketMessage } from '@/services/websocket.service'
+import { useAuthStore } from '@/store/authStore'
 
 export interface WebSocketContextType {
   isConnected: boolean
@@ -37,6 +38,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const [connectionState, setConnectionState] = useState('disconnected')
   const [enableToasts, setEnableToasts] = useState(enableToastsByDefault)
   const [hasShownConnectionToast, setHasShownConnectionToast] = useState(false)
+  const { user } = useAuthStore()
 
   // Update connection state
   const updateConnectionState = useCallback(() => {
@@ -130,6 +132,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const handleCrudEvent = useCallback((data: EntityEventData) => {
     if (!enableToasts) return
 
+    // Don't show toast if the current user performed the action
+    // (the component that made the change already shows a toast)
+    if (data.username && user?.username && data.username === user.username) {
+      console.log('🔕 Skipping toast for own action:', data.action, data.entity_type, data.entity_name)
+      return
+    }
+
     const entityTypeName = getEntityTypeName(data.entity_type)
     const actionVerb = getActionVerb(data.action)
     const icon = getActionIcon(data.action)
@@ -198,7 +207,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
           icon
         })
     }
-  }, [enableToasts])
+  }, [enableToasts, user?.username])
 
   // Set up event listeners on mount
   useEffect(() => {
