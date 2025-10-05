@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ChevronDown, Upload, CheckCircle, AlertCircle, File, X, Settings, Zap, Info, DollarSign, Image, Package, RefreshCw } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import UnifiedFileImporter from './UnifiedFileImporter'
 import { ImportResult } from './hooks/useOrderImport'
 import { apiClient } from '@/services/api'
@@ -528,26 +529,22 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                   <span className="ml-2 text-xs text-success">(Auto-detected)</span>
                 )}
               </label>
-              <div className="relative">
-                <select
-                  value={selectedParser}
-                  onChange={(e) => setSelectedParser(e.target.value)}
-                  className="input w-full appearance-none pr-10"
-                  disabled={isLoadingParsers}
-                >
-                  {/* All options have unique keys */}
-                  <option key="placeholder" value="">
-                    {isLoadingParsers ? 'Loading suppliers...' : 'Select a parser...'}
-                  </option>
-                  {parsers.map((parser, index) => (
-                    <option key={parser.id || `parser-${index}`} value={parser.id} disabled={!parser.import_available}>
-                      {parser.name}
-                      {!parser.import_available ? ' (Configuration required)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-secondary pointer-events-none" />
-              </div>
+              <CustomSelect
+                value={selectedParser}
+                onChange={setSelectedParser}
+                options={[
+                  {
+                    value: '',
+                    label: isLoadingParsers ? 'Loading suppliers...' : 'Select a parser...'
+                  },
+                  ...parsers.map((parser, index) => ({
+                    value: parser.id,
+                    label: `${parser.name}${!parser.import_available ? ' (Configuration required)' : ''}`
+                  }))
+                ]}
+                placeholder={isLoadingParsers ? 'Loading suppliers...' : 'Select a parser...'}
+                disabled={isLoadingParsers}
+              />
             </div>
 
             {/* Configuration Warning */}

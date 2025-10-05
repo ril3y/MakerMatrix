@@ -591,3 +591,93 @@ async def check_enrichment_requirements(
             status_code=500,
             detail=f"Failed to check enrichment requirements: {str(e)}"
         )
+
+
+@router.get("/enrichment-requirements/{supplier}", response_model=ResponseSchema[Dict[str, Any]])
+async def get_supplier_enrichment_requirements(
+    supplier: str,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[Dict[str, Any]]:
+    """
+    Get enrichment requirements for a specific supplier.
+
+    This endpoint returns what part fields are required/recommended for enrichment
+    from a specific supplier. Useful for displaying requirements when creating a new part.
+
+    Args:
+        supplier: Supplier name (e.g., 'lcsc', 'digikey')
+        current_user: Current authenticated user
+
+    Returns:
+        ResponseSchema containing enrichment requirements
+
+    Example:
+        GET /api/parts/enrichment-requirements/lcsc
+
+        Response:
+        {
+            "status": "success",
+            "data": {
+                "supplier_name": "lcsc",
+                "display_name": "LCSC Electronics",
+                "description": "...",
+                "required_fields": [
+                    {
+                        "field_name": "supplier_part_number",
+                        "display_name": "LCSC Part Number",
+                        "description": "...",
+                        "example": "C25804"
+                    }
+                ]
+            }
+        }
+    """
+    try:
+        validator = EnrichmentRequirementValidator()
+        requirements = validator.get_supplier_requirements(supplier)
+
+        if not requirements:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Enrichment requirements not found for supplier '{supplier}'"
+            )
+
+        # Convert to dict for response
+        response_data = {
+            "supplier_name": requirements.supplier_name,
+            "display_name": requirements.display_name,
+            "description": requirements.description,
+            "required_fields": [
+                {
+                    "field_name": field.field_name,
+                    "display_name": field.display_name,
+                    "description": field.description,
+                    "example": field.example,
+                    "validation_pattern": field.validation_pattern
+                }
+                for field in requirements.required_fields
+            ],
+            "recommended_fields": [
+                {
+                    "field_name": field.field_name,
+                    "display_name": field.display_name,
+                    "description": field.description,
+                    "example": field.example
+                }
+                for field in requirements.recommended_fields
+            ]
+        }
+
+        return BaseRouter.build_success_response(
+            data=response_data,
+            message=f"Retrieved enrichment requirements for {supplier}"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting enrichment requirements for {supplier}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get enrichment requirements: {str(e)}"
+        )

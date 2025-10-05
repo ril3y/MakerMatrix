@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { X, TestTube } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
 import toast from 'react-hot-toast'
 
@@ -317,17 +318,15 @@ const DynamicPrinterModal = ({ isOpen, onClose, mode, existingPrinter, onSuccess
     switch (fieldConfig.type) {
       case 'select':
         return (
-          <select
-            className="input w-full"
+          <CustomSelect
             value={value}
-            onChange={(e) => handleCustomFieldChange(fieldName, e.target.value)}
-          >
-            {fieldConfig.options.map((option: any) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => handleCustomFieldChange(fieldName, val)}
+            options={fieldConfig.options.map((option: any) => ({
+              value: option,
+              label: option
+            }))}
+            placeholder="Select an option"
+          />
         )
       
       case 'range':
@@ -441,18 +440,18 @@ const DynamicPrinterModal = ({ isOpen, onClose, mode, existingPrinter, onSuccess
             <label className="block text-sm font-medium text-primary mb-2">
               Driver Type *
             </label>
-            <select
-              className="input w-full"
+            <CustomSelect
               value={printerData.driver_type}
-              onChange={(e) => handleDriverChange(e.target.value)}
-            >
-              <option value="">Select a driver...</option>
-              {supportedDrivers.map((driver) => (
-                <option key={driver.id} value={driver.id}>
-                  {driver.name}
-                </option>
-              ))}
-            </select>
+              onChange={handleDriverChange}
+              options={[
+                { value: '', label: 'Select a driver...' },
+                ...supportedDrivers.map((driver) => ({
+                  value: driver.id,
+                  label: driver.name
+                }))
+              ]}
+              placeholder="Select a driver..."
+            />
             {selectedDriverInfo && (
               <p className="text-xs text-secondary mt-1">
                 {selectedDriverInfo.description}
@@ -468,34 +467,30 @@ const DynamicPrinterModal = ({ isOpen, onClose, mode, existingPrinter, onSuccess
                   <label className="block text-sm font-medium text-primary mb-2">
                     Model
                   </label>
-                  <select
-                    className="input w-full"
+                  <CustomSelect
                     value={printerData.model}
-                    onChange={(e) => setPrinterData(prev => ({ ...prev, model: e.target.value }))}
-                  >
-                    {selectedDriverInfo.supported_models?.map((model: string) => (
-                      <option key={model} value={model}>
-                        {model}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setPrinterData(prev => ({ ...prev, model: val }))}
+                    options={selectedDriverInfo.supported_models?.map((model: string) => ({
+                      value: model,
+                      label: model
+                    })) || []}
+                    placeholder="Select model"
+                  />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-primary mb-2">
                     Backend
                   </label>
-                  <select
-                    className="input w-full"
+                  <CustomSelect
                     value={printerData.backend}
-                    onChange={(e) => handleBackendChange(e.target.value)}
-                  >
-                    {selectedDriverInfo.backends?.map((backend: string) => (
-                      <option key={backend} value={backend}>
-                        {backend.charAt(0).toUpperCase() + backend.slice(1).replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={handleBackendChange}
+                    options={selectedDriverInfo.backends?.map((backend: string) => ({
+                      value: backend,
+                      label: backend.charAt(0).toUpperCase() + backend.slice(1).replace('_', ' ')
+                    })) || []}
+                    placeholder="Select backend"
+                  />
                 </div>
               </div>
               

@@ -13,6 +13,7 @@ import {
   ChevronUp,
   ChevronDown
 } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import { analyticsService } from '@/services/analytics.service'
 import { Line, Bar, Doughnut } from 'react-chartjs-2'
 import {
@@ -232,16 +233,17 @@ const AnalyticsDashboard = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <select
-            className="input"
+          <CustomSelect
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-          >
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="365">Last year</option>
-          </select>
+            onChange={setSelectedPeriod}
+            options={[
+              { value: '7', label: 'Last 7 days' },
+              { value: '30', label: 'Last 30 days' },
+              { value: '90', label: 'Last 90 days' },
+              { value: '365', label: 'Last year' }
+            ]}
+            placeholder="Select period"
+          />
           <button
             onClick={loadDashboardData}
             className="btn btn-secondary flex items-center gap-2"

@@ -5,14 +5,15 @@ import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
 import CategorySelector from '@/components/ui/CategorySelector'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
+import SupplierSelector from '@/components/ui/SupplierSelector'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
 import { utilityService } from '@/services/utility.service'
-import { DynamicSupplierService } from '@/services/dynamic-supplier.service'
 import { tasksService } from '@/services/tasks.service'
+import { supplierService, CredentialFieldDefinition } from '@/services/supplier.service'
 import { CreatePartRequest } from '@/types/parts'
 import { Location, Category } from '@/types/parts'
 import toast from 'react-hot-toast'
@@ -32,6 +33,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     minimum_quantity: 0,
     supplier: '',
     supplier_url: '',
+    supplier_part_number: '',
     location_id: '',
     categories: [],
     additional_properties: {}
@@ -39,14 +41,17 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
   const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [suppliers, setSuppliers] = useState<Array<{id: string; name: string; description: string}>>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [customProperties, setCustomProperties] = useState<Array<{key: string, value: string}>>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>('')
-  
+
+  // Supplier required fields for enrichment
+  const [supplierRequiredFields, setSupplierRequiredFields] = useState<CredentialFieldDefinition[]>([])
+  const [loadingSupplierFields, setLoadingSupplierFields] = useState(false)
+
   // Inline modal states
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
@@ -57,26 +62,70 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     }
   }, [isOpen])
 
+  // Fetch supplier enrichment requirements when supplier changes
+  useEffect(() => {
+    if (formData.supplier && formData.supplier.trim() && formData.supplier !== '__custom__') {
+      loadSupplierRequiredFields(formData.supplier)
+    } else {
+      setSupplierRequiredFields([])
+    }
+  }, [formData.supplier])
+
   const loadData = async () => {
     try {
       setLoadingData(true)
-      const [locationsData, categoriesData, suppliersData] = await Promise.all([
+      const [locationsData, categoriesData] = await Promise.all([
         locationsService.getAllLocations(),
-        categoriesService.getAllCategories(),
-        DynamicSupplierService.getInstance().getConfiguredSuppliers()
+        categoriesService.getAllCategories()
       ])
       setLocations(locationsData || [])
       setCategories(categoriesData || [])
-      setSuppliers(suppliersData || [])
     } catch (error) {
       console.error('Failed to load data:', error)
       toast.error('Failed to load data')
       // Set empty arrays as fallbacks
       setLocations([])
       setCategories([])
-      setSuppliers([])
     } finally {
       setLoadingData(false)
+    }
+  }
+
+  const loadSupplierRequiredFields = async (supplierName: string) => {
+    try {
+      setLoadingSupplierFields(true)
+      // Get enrichment requirements for the supplier
+      const response = await partsService.getSupplierEnrichmentRequirements(supplierName)
+
+      console.log('Enrichment requirements response:', response)
+
+      // Check if response and required_fields exist
+      if (!response || !response.required_fields) {
+        console.warn('No required fields in response:', response)
+        setSupplierRequiredFields([])
+        return
+      }
+
+      // Convert enrichment requirements to field definitions format
+      const requiredFields = response.required_fields.map((field: any) => ({
+        field: field.field_name,
+        label: field.display_name,
+        type: 'text', // Enrichment fields are typically text inputs
+        required: true,
+        description: field.description,
+        placeholder: field.example ? `e.g., ${field.example}` : `Enter ${field.display_name.toLowerCase()}`,
+        help_text: field.description,
+        validation: field.validation_pattern ? { pattern: field.validation_pattern } : undefined
+      }))
+
+      console.log('Converted required fields:', requiredFields)
+      setSupplierRequiredFields(requiredFields)
+    } catch (error) {
+      console.error('Failed to load supplier required fields:', error)
+      // Don't show error toast - supplier might not have enrichment requirements
+      setSupplierRequiredFields([])
+    } finally {
+      setLoadingSupplierFields(false)
     }
   }
 
@@ -98,6 +147,23 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     if (formData.supplier_url && !isValidUrl(formData.supplier_url)) {
       newErrors.supplier_url = 'Please enter a valid URL'
     }
+
+    // Validate supplier-specific required fields (enrichment fields)
+    supplierRequiredFields.forEach(field => {
+      const fieldName = field.field as keyof CreatePartRequest
+      const value = formData[fieldName] as string
+      if (!value || (typeof value === 'string' && !value.trim())) {
+        newErrors[field.field] = `${field.label} is required for enrichment from ${formData.supplier}`
+      }
+
+      // Additional pattern validation if specified
+      if (value && field.validation?.pattern) {
+        const pattern = new RegExp(field.validation.pattern)
+        if (!pattern.test(value)) {
+          newErrors[field.field] = `${field.label} format is invalid (expected format like: ${field.placeholder || field.label})`
+        }
+      }
+    })
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -158,7 +224,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           const enrichmentTask = await tasksService.createPartEnrichmentTask({
             part_id: createdPart.id,
             supplier: formData.supplier.trim(),
-            capabilities: ['fetch_datasheet', 'fetch_image', 'fetch_pricing', 'fetch_specifications'],
+            capabilities: ['get_part_details', 'fetch_datasheet', 'fetch_pricing_stock'],
             force_refresh: false
           })
           toast.success(`Enrichment task created: ${enrichmentTask.data.name}`)
@@ -196,6 +262,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       minimum_quantity: 0,
       supplier: '',
       supplier_url: '',
+      supplier_part_number: '',
       location_id: '',
       categories: [],
       additional_properties: {}
@@ -204,11 +271,12 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setCustomProperties([])
     setErrors({})
     setImageUrl('')
-    
+    setSupplierRequiredFields([])
+
     // Close any open inline modals
     setShowAddCategoryModal(false)
     setShowAddLocationModal(false)
-    
+
     onClose()
   }
 
@@ -326,8 +394,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 type="number"
                 min="0"
                 className="input w-full"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                value={formData.quantity === 0 ? '' : formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                placeholder="0"
               />
             </FormField>
 
@@ -336,8 +405,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 type="number"
                 min="0"
                 className="input w-full"
-                value={formData.minimum_quantity}
-                onChange={(e) => setFormData({ ...formData, minimum_quantity: parseInt(e.target.value) || 0 })}
+                value={formData.minimum_quantity === 0 ? '' : formData.minimum_quantity}
+                onChange={(e) => setFormData({ ...formData, minimum_quantity: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                placeholder="0"
               />
             </FormField>
 
@@ -365,19 +435,17 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               />
             </div>
 
-            <FormField label="Supplier" error={errors.supplier}>
-              <select
-                className="input w-full"
+            <FormField
+              label="Supplier"
+              error={errors.supplier}
+              description="Select a configured supplier or enter a custom one"
+            >
+              <SupplierSelector
                 value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-              >
-                <option value="">Select a supplier</option>
-                {suppliers && suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.name}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setFormData({ ...formData, supplier: value })}
+                error={errors.supplier}
+                placeholder="Select supplier..."
+              />
             </FormField>
           </div>
 
@@ -390,6 +458,53 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               placeholder="https://supplier.com/part-page"
             />
           </FormField>
+
+          {/* Supplier-Specific Required Fields */}
+          {loadingSupplierFields && (
+            <div className="p-4 bg-theme-secondary rounded-md">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                <p className="text-sm text-theme-secondary">Loading supplier requirements...</p>
+              </div>
+            </div>
+          )}
+
+          {!loadingSupplierFields && supplierRequiredFields.length > 0 && (
+            <div className="space-y-4 p-4 bg-theme-secondary rounded-md border border-theme-primary">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-theme-primary">
+                  Required for Enrichment from {formData.supplier}
+                </h3>
+              </div>
+              <p className="text-xs text-theme-muted">
+                These fields are required to enable automatic part data enrichment from {formData.supplier}.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {supplierRequiredFields.map((field) => (
+                  <FormField
+                    key={field.field}
+                    label={field.label}
+                    required
+                    error={errors[field.field]}
+                    description={field.help_text || field.description}
+                  >
+                    <input
+                      type={field.type}
+                      className="input w-full"
+                      value={(formData as any)[field.field] || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        [field.field]: e.target.value
+                      })}
+                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                    />
+                  </FormField>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Image Upload */}
           <FormField label="Part Image" description="Upload, drag & drop, or paste an image of the part (max 5MB)">

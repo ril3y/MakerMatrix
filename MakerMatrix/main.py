@@ -18,7 +18,7 @@ from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
-    rate_limit_routes, label_template_routes, api_key_routes
+    rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes
 )
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
@@ -364,7 +364,7 @@ secure_all_routes(locations_routes.router, permissions=locations_permissions, ex
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
 secure_all_routes(printer_routes.router, exclude_paths=["/preview/template"])
 secure_all_routes(preview_routes.router)
-secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/static/datasheets/{filename}"])
+secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/get_image/{image_id}", "/static/datasheets/{filename}"])
 # Don't secure auth routes - they need to be accessible without authentication
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
 secure_all_routes(user_management_routes.router, permissions=user_permissions)
@@ -387,6 +387,7 @@ public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
 
 # Include routers
 app.include_router(parts_routes.router, prefix="/api/parts", tags=["parts"])
+app.include_router(part_allocation_routes.router, prefix="/api", tags=["Part Allocations"])
 app.include_router(locations_routes.router, prefix="/api/locations", tags=["locations"])
 app.include_router(categories_routes.router, prefix="/api/categories", tags=["categories"])
 app.include_router(printer_routes.router, prefix="/api/printer", tags=["printer"])

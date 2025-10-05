@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion'
-import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign, Copy, Check, Factory, Cpu, Leaf, AlertCircle, Layers, ShieldCheck, Plus, ChevronDown } from 'lucide-react'
+import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign, Copy, Check, Factory, Cpu, Leaf, AlertCircle, Layers, ShieldCheck, Plus, ChevronDown, ArrowRightLeft } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { partsService } from '@/services/parts.service'
 import { categoriesService } from '@/services/categories.service'
+import { supplierService, SupplierConfig } from '@/services/supplier.service'
 import { Part, Datasheet } from '@/types/parts'
 import { Category } from '@/types/categories'
 import { getPDFProxyUrl } from '@/services/api'
@@ -17,11 +18,11 @@ import PrinterModal from '@/components/printer/PrinterModal'
 import PartImage from '@/components/parts/PartImage'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import CategorySelector from '@/components/ui/CategorySelector'
+import SupplierSelector from '@/components/ui/SupplierSelector'
 import { analyticsService } from '@/services/analytics.service'
 import { Line } from 'react-chartjs-2'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
-import { AllocationsSummary } from '@/components/parts/AllocationsSummary'
 import TransferQuantityModal from '@/components/parts/TransferQuantityModal'
 import { PartAllocation, partAllocationService } from '@/services/part-allocation.service'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
@@ -94,6 +95,11 @@ const PartDetailsPage = () => {
   const [loadingPriceHistory, setLoadingPriceHistory] = useState(false)
   const [copiedPartNumber, setCopiedPartNumber] = useState(false)
   const [copiedPartName, setCopiedPartName] = useState(false)
+  const [supplierConfig, setSupplierConfig] = useState<SupplierConfig | null>(null)
+  const [editingSupplier, setEditingSupplier] = useState(false)
+  const [tempSupplier, setTempSupplier] = useState<string>('')
+  const [partAllocations, setPartAllocations] = useState<PartAllocation[]>([])
+  const [loadingAllocations, setLoadingAllocations] = useState(false)
 
   // Category management state
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false)
@@ -142,18 +148,62 @@ const PartDetailsPage = () => {
     }
   }, [part?.categories])
 
+  // Handle Escape key to cancel supplier editing
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editingSupplier) {
+        handleSupplierCancel()
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [editingSupplier])
+
   const loadPart = async (partId: string) => {
     try {
       setLoading(true)
       setError(null)
       const response = await partsService.getPart(partId)
       setPart(response)
-      // Load price history after part is loaded
+
+      // Load supplier config if part has a supplier
+      if (response.supplier) {
+        try {
+          const suppliers = await supplierService.getSuppliers()
+          const config = suppliers.find(
+            s => s.supplier_name.toLowerCase() === response.supplier?.toLowerCase() ||
+                 s.display_name.toLowerCase() === response.supplier?.toLowerCase()
+          )
+          setSupplierConfig(config || null)
+        } catch (err) {
+          console.error('Failed to load supplier config:', err)
+          setSupplierConfig(null)
+        }
+      } else {
+        setSupplierConfig(null)
+      }
+
+      // Load price history and allocations after part is loaded
       loadPriceHistory(partId)
+      loadAllocations(partId)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load part details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadAllocations = async (partId: string) => {
+    try {
+      setLoadingAllocations(true)
+      const data = await partAllocationService.getPartAllocations(partId)
+      setPartAllocations(data.allocations || [])
+    } catch (err) {
+      console.error('Failed to load allocations:', err)
+      setPartAllocations([])
+    } finally {
+      setLoadingAllocations(false)
     }
   }
 
@@ -374,9 +424,10 @@ const PartDetailsPage = () => {
   }
 
   const handleTransferSuccess = () => {
-    // Reload part to get updated allocation data
+    // Reload part and allocations to get updated data
     if (id) {
       loadPart(id)
+      loadAllocations(id)
     }
   }
 
@@ -443,6 +494,43 @@ const PartDetailsPage = () => {
   const handleAddNewLocationFromPicker = () => {
     setLocationPickerModalOpen(false)
     setAddLocationModalOpen(true)
+  }
+
+  const handleSupplierClick = () => {
+    if (!canUpdate) return
+    setTempSupplier(part?.supplier || '')
+    setEditingSupplier(true)
+  }
+
+  const handleSupplierChange = (value: string) => {
+    setTempSupplier(value)
+  }
+
+  const handleSupplierSave = async () => {
+    if (!part) return
+
+    try {
+      setSaving(true)
+      await partsService.updatePart({
+        id: part.id,
+        supplier: tempSupplier || undefined
+      })
+      // Reload part to get updated data
+      if (id) {
+        await loadPart(id)
+      }
+      setEditingSupplier(false)
+    } catch (error: any) {
+      console.error('Failed to update supplier:', error)
+      alert('Failed to update supplier: ' + (error.message || 'Unknown error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSupplierCancel = () => {
+    setEditingSupplier(false)
+    setTempSupplier('')
   }
 
   const handleLocationAdded = () => {
@@ -574,13 +662,16 @@ const PartDetailsPage = () => {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={handleEnrich}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-theme-inverse rounded-lg hover:bg-primary-dark transition-colors font-medium"
-                >
-                  <Zap className="w-4 h-4" />
-                  Enrich Data
-                </button>
+                {/* Only show Enrich button if supplier is set and is not a simple supplier */}
+                {part.supplier && supplierConfig?.supplier_type !== 'simple' && (
+                  <button
+                    onClick={handleEnrich}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-theme-inverse rounded-lg hover:bg-primary-dark transition-colors font-medium"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Enrich Data
+                  </button>
+                )}
                 <button
                   onClick={() => setPrinterModalOpen(true)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-theme-tertiary border border-theme-primary text-theme-primary rounded-lg hover:bg-theme-secondary transition-colors font-medium"
@@ -673,11 +764,26 @@ const PartDetailsPage = () => {
 
                 {/* Location & Inventory Section */}
                 <div className="xl:col-span-3 bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm">
-                  <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+                  <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4 flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-theme-primary flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-primary-accent" />
                       Location & Inventory
                     </h3>
+                    {/* Add allocation button - show only if single/no allocations and has location */}
+                    {partAllocations.length <= 1 && part.location && (
+                      <button
+                        onClick={() => {
+                          const primaryAllocation = partAllocations.find(a => a.is_primary_storage)
+                          if (primaryAllocation) {
+                            handleTransferClick(primaryAllocation)
+                          }
+                        }}
+                        className="p-2 text-primary-accent hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        title="Add location allocation"
+                      >
+                        <ArrowRightLeft className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
                   <div className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -783,6 +889,73 @@ const PartDetailsPage = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Allocations Section - only show if multiple allocations */}
+                    {partAllocations.length > 1 && (
+                      <div className="mt-6 pt-6 border-t border-theme-primary">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-sm font-semibold text-theme-primary flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-primary-accent" />
+                            Location Allocations
+                            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
+                              Split across {partAllocations.length} locations
+                            </span>
+                          </h4>
+                          <button
+                            onClick={() => {
+                              const primaryAllocation = partAllocations.find(a => a.is_primary_storage)
+                              if (primaryAllocation) {
+                                handleTransferClick(primaryAllocation)
+                              }
+                            }}
+                            className="text-xs text-primary-accent hover:text-primary transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Allocation
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {partAllocations.map((allocation) => (
+                            <div
+                              key={allocation.id}
+                              className="flex items-center justify-between p-3 bg-theme-secondary rounded-lg border border-theme-primary hover:bg-theme-tertiary transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <MapPin className={`w-4 h-4 flex-shrink-0 ${allocation.is_primary_storage ? 'text-primary' : 'text-theme-muted'}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-theme-primary truncate">
+                                      {allocation.location.name}
+                                    </p>
+                                    {allocation.is_primary_storage && (
+                                      <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex-shrink-0">
+                                        Primary
+                                      </span>
+                                    )}
+                                  </div>
+                                  {allocation.notes && (
+                                    <p className="text-xs text-theme-muted truncate">{allocation.notes}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="font-semibold text-theme-primary">
+                                  {allocation.quantity}
+                                </span>
+                                <button
+                                  onClick={() => handleTransferClick(allocation)}
+                                  className="text-primary-accent hover:text-primary transition-colors"
+                                  title="Transfer from this location"
+                                >
+                                  <ArrowRightLeft className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -855,27 +1028,67 @@ const PartDetailsPage = () => {
                     </div>
 
                     {/* Supplier Field */}
-                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4">
+                    <div className={`group bg-theme-secondary border border-theme-primary rounded-lg p-4 ${canUpdate && !editingSupplier ? 'hover:bg-theme-tertiary cursor-pointer' : ''} transition-colors`}
+                         onClick={!editingSupplier ? handleSupplierClick : undefined}>
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <Tag className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-theme-secondary mb-1">Supplier</p>
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
-                            {part.supplier_url && (
-                              <a
-                                href={part.supplier_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary-accent hover:text-primary transition-colors"
-                                title="View supplier page"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
-                            )}
-                          </div>
+                          {editingSupplier ? (
+                            <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                              <SupplierSelector
+                                value={tempSupplier}
+                                onChange={handleSupplierChange}
+                                placeholder="Select or enter supplier..."
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleSupplierSave}
+                                  disabled={saving}
+                                  className="px-3 py-1 bg-primary text-theme-inverse rounded text-sm hover:bg-primary-dark transition-colors disabled:opacity-50"
+                                >
+                                  {saving ? '⏳' : '✓'} Save
+                                </button>
+                                <button
+                                  onClick={handleSupplierCancel}
+                                  className="px-3 py-1 bg-theme-tertiary border border-theme-primary text-theme-primary rounded text-sm hover:bg-theme-secondary transition-colors"
+                                >
+                                  ✕ Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {supplierConfig?.image_url && (
+                                <img
+                                  src={supplierConfig.image_url}
+                                  alt={part.supplier || ''}
+                                  className="w-5 h-5 rounded object-contain flex-shrink-0"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                  }}
+                                />
+                              )}
+                              <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
+                              {canUpdate && (
+                                <Edit className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                              )}
+                              {part.supplier_url && (
+                                <a
+                                  href={part.supplier_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary-accent hover:text-primary transition-colors"
+                                  title="View supplier page"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1020,19 +1233,6 @@ const PartDetailsPage = () => {
                 </div>
               )}
             </div>
-          </motion.div>
-
-          {/* Location Allocations Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.22 }}
-          >
-            <AllocationsSummary
-              partId={part.id}
-              onTransferClick={handleTransferClick}
-              onRefresh={handleTransferSuccess}
-            />
           </motion.div>
 
           {/* Enhanced Description Section */}

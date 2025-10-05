@@ -1,6 +1,7 @@
 # Router imports
 from . import (
     parts_routes,
+    part_allocation_routes,
     locations_routes,
     categories_routes,
     printer_routes,
@@ -24,6 +25,7 @@ from . import (
 
 __all__ = [
     "parts_routes",
+    "part_allocation_routes",
     "locations_routes",
     "categories_routes",
     "printer_routes",

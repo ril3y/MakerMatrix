@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Save, FileText, AlertCircle } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import { templateService, LabelTemplate } from '@/services/template.service'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
@@ -203,18 +204,19 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
               <label className="block text-sm font-medium text-primary mb-1">
                 Category
               </label>
-              <select
-                className="input w-full"
+              <CustomSelect
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              >
-                <option value="COMPONENT">Component</option>
-                <option value="LOCATION">Location</option>
-                <option value="STORAGE">Storage</option>
-                <option value="CABLE">Cable</option>
-                <option value="INVENTORY">Inventory</option>
-                <option value="CUSTOM">Custom</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, category: val })}
+                options={[
+                  { value: 'COMPONENT', label: 'Component' },
+                  { value: 'LOCATION', label: 'Location' },
+                  { value: 'STORAGE', label: 'Storage' },
+                  { value: 'CABLE', label: 'Cable' },
+                  { value: 'INVENTORY', label: 'Inventory' },
+                  { value: 'CUSTOM', label: 'Custom' }
+                ]}
+                placeholder="Select category"
+              />
             </div>
           </div>
 
@@ -287,31 +289,33 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                 <label className="block text-sm font-medium text-primary mb-1">
                   Text Rotation
                 </label>
-                <select
-                  className="input w-full"
+                <CustomSelect
                   value={formData.text_rotation}
-                  onChange={(e) => setFormData({ ...formData, text_rotation: e.target.value })}
-                >
-                  <option value="NONE">0° (None)</option>
-                  <option value="90">90° Clockwise</option>
-                  <option value="180">180° Upside Down</option>
-                  <option value="270">270° (90° Counter-Clockwise)</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, text_rotation: val })}
+                  options={[
+                    { value: 'NONE', label: '0° (None)' },
+                    { value: '90', label: '90° Clockwise' },
+                    { value: '180', label: '180° Upside Down' },
+                    { value: '270', label: '270° (90° Counter-Clockwise)' }
+                  ]}
+                  placeholder="Select rotation"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-primary mb-1">
                   Text Alignment
                 </label>
-                <select
-                  className="input w-full"
+                <CustomSelect
                   value={formData.text_alignment}
-                  onChange={(e) => setFormData({ ...formData, text_alignment: e.target.value })}
-                >
-                  <option value="LEFT">Left</option>
-                  <option value="CENTER">Center</option>
-                  <option value="RIGHT">Right</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, text_alignment: val })}
+                  options={[
+                    { value: 'LEFT', label: 'Left' },
+                    { value: 'CENTER', label: 'Center' },
+                    { value: 'RIGHT', label: 'Right' }
+                  ]}
+                  placeholder="Select alignment"
+                />
               </div>
             </div>
 
@@ -358,20 +362,21 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                   <label className="block text-sm font-medium text-primary mb-1">
                     QR Position
                   </label>
-                  <select
-                    className="input w-full"
+                  <CustomSelect
                     value={formData.qr_position}
-                    onChange={(e) => setFormData({ ...formData, qr_position: e.target.value })}
-                  >
-                    <option value="LEFT">Left</option>
-                    <option value="RIGHT">Right</option>
-                    <option value="TOP">Top</option>
-                    <option value="BOTTOM">Bottom</option>
-                    <option value="CENTER">Center</option>
-                    <option value="TOP_LEFT">Top Left Corner</option>
-                    <option value="TOP_RIGHT">Top Right Corner</option>
-                    <option value="BOTTOM_LEFT">Bottom Left Corner</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, qr_position: val })}
+                    options={[
+                      { value: 'LEFT', label: 'Left' },
+                      { value: 'RIGHT', label: 'Right' },
+                      { value: 'TOP', label: 'Top' },
+                      { value: 'BOTTOM', label: 'Bottom' },
+                      { value: 'CENTER', label: 'Center' },
+                      { value: 'TOP_LEFT', label: 'Top Left Corner' },
+                      { value: 'TOP_RIGHT', label: 'Top Right Corner' },
+                      { value: 'BOTTOM_LEFT', label: 'Bottom Left Corner' }
+                    ]}
+                    placeholder="Select QR position"
+                  />
                 </div>
 
                 <div>

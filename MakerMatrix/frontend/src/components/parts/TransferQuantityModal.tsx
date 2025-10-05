@@ -82,14 +82,11 @@ const TransferQuantityModal = ({
     try {
       setLoadingLocations(true);
       const allLocations = await locationsService.getAllLocations();
-      console.log('All locations loaded:', allLocations.length, allLocations);
-      console.log('Source location ID:', sourceAllocation.location_id);
 
       // Filter out the source location from destination options
       const filteredLocations = allLocations.filter(
         (loc) => loc.id !== sourceAllocation.location_id
       );
-      console.log('Filtered locations (after removing source):', filteredLocations.length, filteredLocations);
 
       setLocations(filteredLocations);
     } catch (error) {
@@ -159,7 +156,6 @@ const TransferQuantityModal = ({
   };
 
   const hierarchicalLocations = buildLocationHierarchy(locations);
-  console.log('Hierarchical locations for dropdown:', hierarchicalLocations);
   const maxQuantity = sourceAllocation.quantity_at_location;
 
   return (
@@ -215,13 +211,6 @@ const TransferQuantityModal = ({
                 </p>
               </div>
             </div>
-          </div>
-
-          {/* DEBUG: Show location counts */}
-          <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-500 rounded text-xs">
-            <strong>DEBUG:</strong> Total locations loaded: {locations.length} |
-            Hierarchical locations: {hierarchicalLocations.length} |
-            Source location: {sourceAllocation.location?.name} ({sourceAllocation.location_id})
           </div>
 
           {/* Destination Location Selector */}

@@ -90,8 +90,7 @@ async def serve_index_html():
 @router.get("/get_image/{image_id}")
 @standard_error_handling
 async def get_image(
-    image_id: str,
-    current_user: UserModel = Depends(get_current_user)
+    image_id: str
 ):
     import glob
     

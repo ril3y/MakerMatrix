@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { MapPin, AlertCircle, Save } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import EmojiPicker from '@/components/ui/EmojiPicker'
 import ImageUpload from '@/components/ui/ImageUpload'
 import { locationsService } from '@/services/locations.service'
@@ -15,12 +16,22 @@ interface EditLocationModalProps {
   location: Location
 }
 
-const EditLocationModal: React.FC<EditLocationModalProps> = ({ 
-  isOpen, 
-  onClose, 
+const EditLocationModal: React.FC<EditLocationModalProps> = ({
+  isOpen,
+  onClose,
   onSuccess,
-  location 
+  location
 }) => {
+  const locationTypes = [
+    { value: 'General', label: 'General' },
+    { value: 'Warehouse', label: 'Warehouse' },
+    { value: 'Room', label: 'Room' },
+    { value: 'Shelf', label: 'Shelf' },
+    { value: 'Bin', label: 'Bin' },
+    { value: 'Drawer', label: 'Drawer' },
+    { value: 'Box', label: 'Box' }
+  ]
+
   const [formData, setFormData] = useState<UpdateLocationRequest>({
     id: location.id,
     name: location.name,
@@ -123,9 +134,17 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
 
     try {
       const updateData: UpdateLocationRequest = {
-        ...formData,
-        image_url: imageChanged ? (imageUrl || null) : undefined,
-        emoji: emojiChanged ? (selectedEmoji || null) : undefined
+        ...formData
+      }
+
+      // Only include image_url if it was changed
+      if (imageChanged) {
+        updateData.image_url = imageUrl || null
+      }
+
+      // Only include emoji if it was changed
+      if (emojiChanged) {
+        updateData.emoji = selectedEmoji || null
       }
 
       console.log('[DEBUG] emojiChanged:', emojiChanged)
@@ -200,36 +219,27 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
         </FormField>
 
         <FormField label="Location Type">
-          <select
-            value={formData.location_type}
-            onChange={(e) => setFormData({ ...formData, location_type: e.target.value })}
-            className="input w-full"
-          >
-            <option value="General">General</option>
-            <option value="Warehouse">Warehouse</option>
-            <option value="Room">Room</option>
-            <option value="Shelf">Shelf</option>
-            <option value="Bin">Bin</option>
-            <option value="Drawer">Drawer</option>
-            <option value="Box">Box</option>
-          </select>
+          <CustomSelect
+            value={formData.location_type || 'General'}
+            onChange={(value) => setFormData({ ...formData, location_type: value })}
+            options={locationTypes}
+            placeholder="Select location type"
+          />
         </FormField>
 
         <FormField label="Parent Location">
-          <select
+          <CustomSelect
             value={formData.parent_id || ''}
-            onChange={(e) => setFormData({ ...formData, parent_id: e.target.value || undefined })}
-            className="input w-full"
-          >
-            <option value="">No parent (root location)</option>
-            {hierarchicalLocations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {'  '.repeat(location.level)}
-                {location.level > 0 && '└ '}
-                {location.name}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setFormData({ ...formData, parent_id: value || undefined })}
+            options={[
+              { value: '', label: 'No parent (root location)' },
+              ...hierarchicalLocations.map((loc) => ({
+                value: loc.id,
+                label: `${'  '.repeat(loc.level)}${loc.level > 0 ? '└ ' : ''}${loc.name}`
+              }))
+            ]}
+            placeholder="Select parent location"
+          />
         </FormField>
 
         <FormField label="Description">

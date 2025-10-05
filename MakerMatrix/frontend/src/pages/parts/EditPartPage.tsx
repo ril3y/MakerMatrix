@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 const partSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   part_number: z.string().optional(),
+  supplier_part_number: z.string().optional(),
   description: z.string().optional(),
   quantity: z.number().min(0, 'Quantity must be non-negative'),
   minimum_quantity: z.number().min(0, 'Minimum quantity must be non-negative').optional(),
@@ -116,6 +117,7 @@ const EditPartPage: React.FC = () => {
         reset({
           name: partData.name,
           part_number: partData.part_number || '',
+          supplier_part_number: partData.supplier_part_number || '',
           description: partData.description || '',
           quantity: partData.quantity,
           minimum_quantity: partData.minimum_quantity || 0,
@@ -495,8 +497,22 @@ const EditPartPage: React.FC = () => {
             </FormField>
 
             <FormField
+              label="Supplier Part Number"
+              error={errors.supplier_part_number?.message}
+              description="Supplier's part number for API calls (e.g., LCSC: C25804, DigiKey: 296-1234-ND)"
+            >
+              <input
+                {...register('supplier_part_number')}
+                type="text"
+                className="input w-full"
+                placeholder="C25804, 296-1234-ND, etc."
+              />
+            </FormField>
+
+            <FormField
               label="Supplier URL"
               error={errors.supplier_url?.message}
+              description="Optional product page URL"
             >
               <input
                 {...register('supplier_url')}
@@ -541,6 +557,7 @@ const EditPartPage: React.FC = () => {
                             if (!part) return ''
                             // Check top-level fields first
                             if (field.field_name === 'part_number') return part.part_number || ''
+                            if (field.field_name === 'supplier_part_number') return part.supplier_part_number || ''
                             if (field.field_name === 'manufacturer') return (part.additional_properties?.manufacturer || part.additional_properties?.Manufacturer) || ''
                             if (field.field_name === 'supplier') return part.supplier || ''
                             // Check additional_properties

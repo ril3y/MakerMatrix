@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion'
-import { Package, Plus, Search, Filter, ChevronLeft, ChevronRight, X, Copy, Check, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Package, Plus, Search, Filter, ChevronLeft, ChevronRight, X, Copy, Check, ArrowUpDown, ArrowUp, ArrowDown, MapPin } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
+import { supplierService, SupplierConfig } from '@/services/supplier.service'
 import { Part } from '@/types/parts'
 import AddPartModal from '@/components/parts/AddPartModal'
 import LoadingScreen from '@/components/ui/LoadingScreen'
@@ -18,20 +19,23 @@ const PartsPage = () => {
   const [totalParts, setTotalParts] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [isSearching, setIsSearching] = useState(false)
-  
+
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
   const [suggestionTimeout, setSuggestionTimeout] = useState<NodeJS.Timeout | null>(null)
-  
+
   // Sorting state
   const [sortBy, setSortBy] = useState<string>('created_at')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  
+
   // Clipboard state - track copied items by part ID
   const [copiedItems, setCopiedItems] = useState<Record<string, 'name' | 'part_number'>>({})
-  
+
+  // Supplier state for logo display
+  const [supplierImageMap, setSupplierImageMap] = useState<Record<string, string>>({})
+
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const pageSize = 20
@@ -172,7 +176,27 @@ const PartsPage = () => {
 
   useEffect(() => {
     loadParts()
+    loadSuppliers()
   }, [])
+
+  // Load suppliers for image display
+  const loadSuppliers = async () => {
+    try {
+      const suppliers = await supplierService.getSuppliers()
+      const imageMap: Record<string, string> = {}
+      suppliers.forEach(supplier => {
+        if (supplier.image_url) {
+          // Map both supplier_name and display_name to image_url
+          imageMap[supplier.supplier_name.toLowerCase()] = supplier.image_url
+          imageMap[supplier.display_name.toLowerCase()] = supplier.image_url
+        }
+      })
+      setSupplierImageMap(imageMap)
+    } catch (err) {
+      console.error('Failed to load supplier images:', err)
+      // Don't show error - this is just for visual enhancement
+    }
+  }
 
   // Reload parts when sorting changes
   useEffect(() => {
@@ -581,13 +605,24 @@ const PartsPage = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${
-                          part.minimum_quantity && part.quantity <= part.minimum_quantity
-                            ? 'text-red-400'
-                            : 'text-primary'
-                        }`}>
-                          {part.quantity}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium ${
+                            part.minimum_quantity && part.quantity <= part.minimum_quantity
+                              ? 'text-red-400'
+                              : 'text-primary'
+                          }`}>
+                            {part.total_quantity !== undefined ? part.total_quantity : part.quantity}
+                          </span>
+                          {part.location_count !== undefined && part.location_count > 1 && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
+                              title={`Split across ${part.location_count} locations`}
+                            >
+                              <MapPin className="w-3 h-3" />
+                              {part.location_count}
+                            </span>
+                          )}
+                        </div>
                         {part.minimum_quantity && (
                           <div className="text-xs text-muted">
                             Min: {part.minimum_quantity}
@@ -595,7 +630,14 @@ const PartsPage = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
-                        {part.location?.name || '-'}
+                        <div className="flex items-center gap-1">
+                          {part.primary_location?.name || part.location?.name || '-'}
+                          {part.primary_location && (
+                            <span className="text-xs text-blue-600 dark:text-blue-400" title="Primary storage location">
+                              ★
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
                         {part.categories && part.categories.length > 0 ? (
@@ -612,7 +654,28 @@ const PartsPage = () => {
                         ) : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
-                        {part.supplier || '-'}
+                        {part.supplier ? (
+                          <div className="flex items-center gap-2">
+                            {supplierImageMap[part.supplier.toLowerCase()] ? (
+                              <>
+                                <img
+                                  src={supplierImageMap[part.supplier.toLowerCase()]}
+                                  alt={part.supplier}
+                                  className="w-6 h-6 rounded object-contain"
+                                  title={part.supplier}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                  }}
+                                />
+                                <span className="text-xs text-muted">{part.supplier}</span>
+                              </>
+                            ) : (
+                              <span>{part.supplier}</span>
+                            )}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
                         {formatDate(part.created_at)}

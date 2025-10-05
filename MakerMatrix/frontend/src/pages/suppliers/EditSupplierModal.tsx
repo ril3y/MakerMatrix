@@ -22,19 +22,21 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
   const [errors, setErrors] = useState<string[]>([]);
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
-  
+
   // Backend-driven capabilities and credential schema
   const [availableCapabilities, setAvailableCapabilities] = useState<string[]>([]);
   const [credentialSchema, setCredentialSchema] = useState<any[]>([]);
   const [loadingCapabilities, setLoadingCapabilities] = useState(true);
-  
+
   // Track current credentials for testing and credential status
   const [currentCredentials, setCurrentCredentials] = useState<Record<string, string>>({});
   const [credentialStatus, setCredentialStatus] = useState<any>(null);
-  
+
   const [config, setConfig] = useState<SupplierConfigUpdate>({
     display_name: supplier.display_name,
     description: supplier.description || '',
+    website_url: supplier.website_url,
+    image_url: supplier.image_url,
     enabled: supplier.enabled,
     capabilities: supplier.capabilities || [],
     custom_headers: supplier.custom_headers,
@@ -105,6 +107,18 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
     
     loadSupplierData();
   }, [supplier.supplier_name]);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   const handleConfigChange = (field: keyof SupplierConfigUpdate, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
@@ -253,6 +267,8 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
     const originalConfig = {
       display_name: supplier.display_name,
       description: supplier.description || '',
+      website_url: supplier.website_url,
+      image_url: supplier.image_url,
       enabled: supplier.enabled,
       capabilities: supplier.capabilities || [],
       custom_headers: supplier.custom_headers,
@@ -372,6 +388,34 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, 
                     rows={2}
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Website URL
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="url"
+                      value={config.website_url || ''}
+                      onChange={(e) => handleConfigChange('website_url', e.target.value)}
+                      placeholder="https://www.lcsc.com"
+                      className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    {supplier.image_url && (
+                      <img
+                        src={supplier.image_url}
+                        alt={supplier.display_name}
+                        className="w-10 h-10 rounded object-contain border border-gray-300 dark:border-gray-600 p-1 flex-shrink-0"
+                        title="Current favicon"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Supplier's official website - favicon will be automatically fetched and stored locally when you save
+                  </p>
                 </div>
                 <div className="md:col-span-2">
                   <label className="flex items-center space-x-2">

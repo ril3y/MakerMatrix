@@ -36,8 +36,11 @@ class SupplierConfigCreate(BaseModel):
     supplier_name: str = Field(..., max_length=100)
     display_name: str = Field(..., max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
+    website_url: Optional[str] = Field(None, max_length=500)
+    image_url: Optional[str] = Field(None, max_length=500)
+    supplier_type: str = Field(default="advanced", max_length=50, description="Supplier type: advanced (API enrichment), basic (limited features), simple (URL-only)")
     api_type: str = Field(default="rest", max_length=50)
-    base_url: str = Field(..., max_length=500)
+    base_url: Optional[str] = Field(None, max_length=500, description="Optional for simple suppliers")
     api_version: Optional[str] = Field(None, max_length=50)
     api_documentation_url: Optional[str] = Field(None, max_length=500)
     rate_limit_per_minute: Optional[int] = Field(None, gt=0)
@@ -52,13 +55,28 @@ class SupplierConfigCreate(BaseModel):
     supports_specifications: bool = Field(default=False)
     custom_headers: Optional[Dict[str, str]] = Field(default=None)
     custom_parameters: Optional[Dict[str, Any]] = Field(default=None)
-    
+
     @validator('supplier_name')
     def validate_supplier_name(cls, v):
         if not v or not v.strip():
             raise ValueError('Supplier name cannot be empty')
         return v.strip()
-    
+
+    @validator('supplier_type')
+    def validate_supplier_type(cls, v):
+        allowed_types = ['advanced', 'basic', 'simple']
+        if v not in allowed_types:
+            raise ValueError(f'Supplier type must be one of: {allowed_types}')
+        return v
+
+    @validator('base_url')
+    def validate_base_url(cls, v, values):
+        # base_url is only required for advanced suppliers
+        supplier_type = values.get('supplier_type', 'advanced')
+        if supplier_type in ['advanced', 'basic'] and not v:
+            raise ValueError('base_url is required for advanced and basic suppliers')
+        return v if v else ''  # Set empty string for simple suppliers
+
     @validator('api_type')
     def validate_api_type(cls, v):
         allowed_types = ['rest', 'graphql', 'scraping']
@@ -71,6 +89,9 @@ class SupplierConfigUpdate(BaseModel):
     """Schema for updating supplier configuration"""
     display_name: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
+    website_url: Optional[str] = Field(None, max_length=500)
+    image_url: Optional[str] = Field(None, max_length=500)
+    supplier_type: Optional[str] = Field(None, max_length=50)
     api_type: Optional[str] = Field(None, max_length=50)
     base_url: Optional[str] = Field(None, max_length=500)
     api_version: Optional[str] = Field(None, max_length=50)
@@ -141,7 +162,7 @@ async def create_supplier(
     config_data: SupplierConfigCreate,
     current_user: UserModel = Depends(require_permission("supplier_config:create"))
 ):
-    """Create a new supplier configuration"""
+    """Create a new supplier configuration - automatically fetches favicon if website_url is set"""
     try:
         # Additional validation beyond Pydantic
         if not config_data.supplier_name or not config_data.supplier_name.strip():
@@ -149,13 +170,13 @@ async def create_supplier(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Supplier name cannot be empty or whitespace only"
             )
-        
+
         if not config_data.display_name or not config_data.display_name.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Display name cannot be empty or whitespace only"
             )
-        
+
         # Validate supplier name format
         supplier_name = config_data.supplier_name.strip().lower()
         if not supplier_name.replace('_', '').replace('-', '').isalnum():
@@ -163,19 +184,43 @@ async def create_supplier(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Supplier name must contain only letters, numbers, hyphens, and underscores"
             )
-        
+
+        # Convert config to dict for modification
+        config_dict = config_data.dict(exclude_unset=True)
+
+        # Auto-fetch favicon if website_url is set but no image_url provided
+        if config_dict.get('website_url') and not config_dict.get('image_url'):
+            try:
+                from MakerMatrix.services.utility.favicon_fetcher import FaviconFetcherService
+                favicon_service = FaviconFetcherService()
+                favicon_url = await favicon_service.fetch_and_store_favicon(
+                    config_dict['website_url'],
+                    supplier_name
+                )
+                if favicon_url:
+                    config_dict['image_url'] = favicon_url
+                    logger.info(f"Auto-fetched favicon for {supplier_name}: {favicon_url}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-fetch favicon for {supplier_name}: {e}")
+                # Continue with creation even if favicon fetch fails
+
         service = SupplierConfigService()
         config = service.create_supplier_config(
-            config_data.dict(exclude_unset=True),
+            config_dict,
             user_id=current_user.id
         )
-        
+
+        # Fetch the supplier again to get a fresh instance with all data
+        # This avoids detached instance errors
+        # Use the already-normalized supplier_name variable instead of accessing the detached config object
+        config_data = service.get_supplier_config(supplier_name)
+
         return ResponseSchema(
             status="success",
-            message=f"Created supplier configuration: {config.supplier_name}",
-            data=config.to_dict()
+            message=f"Created supplier configuration: {supplier_name}",
+            data=config_data
         )
-        
+
     except HTTPException:
         raise  # Re-raise HTTP exceptions
     except SupplierConfigAlreadyExistsError as e:
@@ -227,20 +272,48 @@ async def update_supplier(
     update_data: SupplierConfigUpdate,
     current_user: UserModel = Depends(require_permission("supplier_config:update"))
 ):
-    """Update supplier configuration"""
+    """Update supplier configuration - automatically fetches favicon if website_url is set"""
     try:
         service = SupplierConfigService()
+        update_dict = update_data.dict(exclude_unset=True)
+
+        # Get current config to check for existing website_url
+        current_config = service.get_supplier_config(supplier_name)
+
+        # Determine the website_url (new or existing)
+        website_url = update_dict.get('website_url') or current_config.get('website_url')
+
+        # Auto-fetch favicon if:
+        # 1. We have a website_url (new or existing)
+        # 2. AND no image_url is set (neither in update nor in current config)
+        if website_url:
+            has_image = update_dict.get('image_url') or current_config.get('image_url')
+            if not has_image:
+                try:
+                    from MakerMatrix.services.utility.favicon_fetcher import FaviconFetcherService
+                    favicon_service = FaviconFetcherService()
+                    favicon_url = await favicon_service.fetch_and_store_favicon(
+                        website_url,
+                        supplier_name
+                    )
+                    if favicon_url:
+                        update_dict['image_url'] = favicon_url
+                        logger.info(f"Auto-fetched favicon for {supplier_name}: {favicon_url}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-fetch favicon for {supplier_name}: {e}")
+                    # Continue with update even if favicon fetch fails
+
         config = service.update_supplier_config(
             supplier_name,
-            update_data.dict(exclude_unset=True)
+            update_dict
         )
-        
+
         return ResponseSchema(
             status="success",
             message=f"Updated supplier configuration: {supplier_name}",
             data=config
         )
-        
+
     except ResourceNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -325,18 +398,52 @@ async def get_supplier_credential_fields(
         )
 
 
-@router.get("/suppliers/{supplier_name}/config-fields", response_model=ResponseSchema[List[Dict[str, Any]]])
+@router.get("/suppliers/{supplier_name}/config-fields", response_model=ResponseSchema[Dict[str, Any]])
 async def get_supplier_config_fields(
     supplier_name: str,
     current_user: UserModel = Depends(get_current_user)
 ):
     """Get configuration field definitions for a supplier"""
+    from MakerMatrix.suppliers.registry import get_supplier
+    from MakerMatrix.exceptions import SupplierNotFoundError
+
     try:
-        from MakerMatrix.config.suppliers import get_supplier_config_fields, has_custom_config_fields
-        
-        fields = get_supplier_config_fields(supplier_name)
-        has_custom = has_custom_config_fields(supplier_name)
-        
+        # Get the supplier instance
+        supplier = get_supplier(supplier_name)
+
+        # Get configuration schema
+        field_definitions = supplier.get_configuration_schema()
+
+        # Convert FieldDefinition objects to dicts
+        fields = []
+        for field_def in field_definitions:
+            field_dict = {
+                "field": field_def.name,
+                "label": field_def.label,
+                "type": field_def.field_type.value if hasattr(field_def.field_type, 'value') else str(field_def.field_type),
+                "required": field_def.required,
+            }
+
+            # Add optional fields if present
+            if field_def.description:
+                field_dict["description"] = field_def.description
+            if field_def.placeholder:
+                field_dict["placeholder"] = field_def.placeholder
+            if field_def.help_text:
+                field_dict["help_text"] = field_def.help_text
+            if field_def.default_value is not None:
+                field_dict["default_value"] = field_def.default_value
+            if field_def.options:
+                field_dict["options"] = field_def.options
+            if field_def.validation:
+                field_dict["validation"] = field_def.validation
+
+            fields.append(field_dict)
+
+        # Check if supplier has custom configuration fields
+        # (suppliers with get_configuration_options returning more than default)
+        has_custom = len(supplier.get_configuration_options()) > 1
+
         return ResponseSchema(
             status="success",
             message=f"Retrieved configuration fields for {supplier_name}",
@@ -346,8 +453,8 @@ async def get_supplier_config_fields(
                 "supplier_name": supplier_name
             }
         )
-        
-    except KeyError:
+
+    except SupplierNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Supplier '{supplier_name}' not found"
@@ -356,7 +463,7 @@ async def get_supplier_config_fields(
         logger.error(f"Error retrieving config fields {supplier_name}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve configuration fields"
+            detail=f"Failed to retrieve configuration fields: {str(e)}"
         )
 
 

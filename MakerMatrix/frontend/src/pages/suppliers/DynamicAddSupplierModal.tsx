@@ -33,6 +33,18 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
     loadAvailableSuppliers();
   }, []);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
   const loadAvailableSuppliers = async () => {
     try {
       setLoading(true);

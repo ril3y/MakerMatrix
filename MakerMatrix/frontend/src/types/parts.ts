@@ -37,6 +37,11 @@ export interface Part {
   datasheets?: Datasheet[]
   created_at: string
   updated_at: string
+  // Allocation fields (optional, loaded from backend when needed)
+  total_quantity?: number
+  location_count?: number
+  primary_location?: Location
+  lifecycle_status?: string
 }
 
 export interface Location {
@@ -68,6 +73,7 @@ export interface CreatePartRequest {
   minimum_quantity?: number
   supplier?: string
   supplier_url?: string
+  supplier_part_number?: string
   image_url?: string
   manufacturer?: string
   manufacturer_part_number?: string

@@ -40,22 +40,15 @@
     transition: background-color 0.3s ease, color 0.3s ease, font-family 0.3s ease;
   }
   
-  /* Override Tailwind's base styles for select elements */
+  /* Native select elements - keep simple to avoid browser quirks */
   select {
-    display: block !important;
-    position: static !important;
-    appearance: auto !important;
-    -webkit-appearance: menulist !important;
-    -moz-appearance: menulist !important;
-    
-    /* Reset any flex properties that Tailwind might apply */
+    display: block;
+    position: static;
+
+    /* Disable flex (Tailwind sometimes applies this) */
     flex: none !important;
-    flex-direction: row !important;
-    align-items: normal !important;
-    justify-content: normal !important;
-    align-content: normal !important;
-    
-    /* No animations or transitions */
+
+    /* Disable animations to prevent shake/recalculation issues */
     animation: none !important;
     transition: none !important;
     transform: none !important;
@@ -175,29 +168,19 @@
     color: var(--text-primary);
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
   }
-  
-  /* Fix display for select elements - they should NOT be flex */
+
+  /* Native select styling - minimal to avoid browser issues */
+  select {
+    /* Use standard browser select appearance */
+    appearance: auto;
+    -webkit-appearance: menulist;
+    -moz-appearance: menulist;
+  }
+
+  /* For any legacy .input class on selects */
   select.input {
     display: block !important;
-  }
-  
-  /* Remove transitions from select elements specifically */
-  select.input {
-    transition: none !important;
-    animation: none !important;
-    transform: none !important;
-    position: static !important;
-    display: block !important;
-  }
-  
-  /* Force normal select behavior */
-  select.input.w-full {
-    transition: none !important;
-    animation: none !important;
-    transform: none !important;
-    position: static !important;
-    display: block !important;
-    width: 100% !important;
+    /* Let browser handle the rest */
   }
   .input::placeholder {
     color: var(--text-muted);
@@ -364,149 +347,8 @@
     @apply bg-gray-100 text-gray-900;
   }
   
-  /* Dropdown fixes for modal containers */
+  /* Modal containers should allow dropdowns to overflow */
   .modal-container {
     overflow: visible !important;
-  }
-  
-  /* Fix dropdown positioning - make them behave like normal dropdowns */
-  select, 
-  .dropdown,
-  [role="combobox"],
-  [role="listbox"] {
-    position: static !important;
-    transform: none !important;
-    animation: none !important;
-    transition: none !important;
-  }
-  
-  /* Remove ALL animations and transitions from select elements */
-  select {
-    animation: none !important;
-    transition: none !important;
-    transform: none !important;
-    will-change: auto !important;
-  }
-  
-  /* Ensure dropdown menus appear below the trigger */
-  .dropdown-menu,
-  [role="menu"],
-  [data-state="open"] {
-    position: absolute !important;
-    top: 100% !important;
-    left: 0 !important;
-    right: auto !important;
-    bottom: auto !important;
-    transform: none !important;
-    animation: none !important;
-    z-index: 9999 !important;
-  }
-  
-  /* Override any fancy positioning for selects in modals */
-  .modal-container select,
-  .modal-container .dropdown,
-  .modal-container [role="combobox"] {
-    position: relative !important;
-    z-index: 1000 !important;
-    animation: none !important;
-    transition: none !important;
-    transform: none !important;
-  }
-  
-  /* Disable framer-motion animations on select elements */
-  select[data-framer-component],
-  .modal-container select[data-framer-component] {
-    animation: none !important;
-    transition: none !important;
-    transform: none !important;
-  }
-  
-  /* ULTIMATE select element override - force completely normal behavior */
-  select,
-  select.input,
-  select.input.w-full,
-  .modal-container select,
-  .modal-container select.input,
-  .modal-container select.input.w-full {
-    /* Reset all positioning */
-    position: static !important;
-    top: auto !important;
-    left: auto !important;
-    right: auto !important;
-    bottom: auto !important;
-    
-    /* Remove all transforms and animations */
-    transform: none !important;
-    animation: none !important;
-    transition: none !important;
-    will-change: auto !important;
-    
-    /* Force normal display - NOT flex */
-    display: block !important;
-    
-    /* Reset z-index */
-    z-index: auto !important;
-    
-    /* COMPLETELY DISABLE flex properties */
-    flex-direction: row !important;
-    align-items: normal !important;
-    justify-content: normal !important;
-    flex-wrap: nowrap !important;
-    flex-grow: 0 !important;
-    flex-shrink: 0 !important;
-    flex-basis: auto !important;
-    
-    /* Reset all transition properties completely */
-    transition-property: none !important;
-    transition-duration: 0s !important;
-    transition-timing-function: none !important;
-    transition-delay: 0s !important;
-    
-    /* Reset animation properties completely */
-    animation-name: none !important;
-    animation-duration: 0s !important;
-    animation-timing-function: none !important;
-    animation-delay: 0s !important;
-    animation-iteration-count: 1 !important;
-    animation-direction: normal !important;
-    animation-fill-mode: none !important;
-    animation-play-state: running !important;
-  }
-  
-  /* Force select dropdown to appear normally */
-  select option {
-    position: static !important;
-    transform: none !important;
-    animation: none !important;
-    transition: none !important;
-  }
-  
-  /* NUCLEAR OPTION - Maximum specificity override for problematic selects */
-  body .modal-container div label + select.input.w-full,
-  body div .modal-container div select.input.w-full,
-  body select.input.w-full,
-  html body select.input.w-full {
-    display: block !important;
-    position: static !important;
-    
-    /* Completely reset flex */
-    flex: none !important;
-    flex-direction: row !important;
-    align-items: normal !important;
-    justify-content: normal !important;
-    align-content: normal !important;
-    
-    /* Reset box model */
-    box-sizing: border-box !important;
-    
-    /* No transforms or animations whatsoever */
-    transform: none !important;
-    animation: none !important;
-    transition: none !important;
-    
-    /* Standard select appearance */
-    appearance: auto !important;
-    -webkit-appearance: menulist !important;
-    -moz-appearance: menulist !important;
   }
 }
