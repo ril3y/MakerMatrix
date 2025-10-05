@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Trash2, Package, Plus, X, Info, AlertCircle, CheckCirc
 import { partsService, SupplierEnrichmentRequirements } from '../../services/parts.service';
 import { locationsService } from '../../services/locations.service';
 import { categoriesService } from '../../services/categories.service';
+import { supplierService } from '../../services/supplier.service';
 import { Part, CreatePartRequest } from '../../types/parts';
 import { Location } from '../../types/locations';
 import { Category } from '../../types/categories';
@@ -155,8 +156,26 @@ const EditPartPage: React.FC = () => {
   const loadEnrichmentRequirements = async (supplier: string) => {
     try {
       setLoadingRequirements(true);
-      const requirements = await partsService.getSupplierEnrichmentRequirements(supplier);
-      setEnrichmentRequirements(requirements);
+
+      // First check if supplier has enrichment capabilities
+      // This prevents 404 errors for standard suppliers (like Alibaba, etc.)
+      const capabilities = await supplierService.getSupplierCapabilities(supplier);
+
+      // Only load enrichment requirements if supplier has enrichment capabilities
+      const hasEnrichmentCapabilities = capabilities.some(cap =>
+        cap === 'get_part_details' ||
+        cap === 'fetch_datasheet' ||
+        cap === 'fetch_image' ||
+        cap === 'fetch_pricing_stock'
+      );
+
+      if (hasEnrichmentCapabilities) {
+        const requirements = await partsService.getSupplierEnrichmentRequirements(supplier);
+        setEnrichmentRequirements(requirements);
+      } else {
+        // Standard supplier without enrichment capabilities
+        setEnrichmentRequirements(null);
+      }
     } catch (error) {
       console.error('Failed to load enrichment requirements:', error);
       // Don't show error toast - this is optional information
