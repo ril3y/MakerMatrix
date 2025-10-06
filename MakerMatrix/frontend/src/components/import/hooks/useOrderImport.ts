@@ -112,14 +112,23 @@ export const useOrderImport = ({
 
     // Try to extract order info from filename
     if (extractOrderInfoFromFilename) {
+      console.log('[useOrderImport] Extracting order info from filename:', selectedFile.name)
       const extractedInfo = await extractOrderInfoFromFilename(selectedFile.name)
+      console.log('[useOrderImport] Extracted info:', extractedInfo)
       if (extractedInfo) {
-        setOrderInfo(prev => ({
-          ...prev,
-          order_date: extractedInfo.order_date || prev.order_date,
-          order_number: extractedInfo.order_number || prev.order_number
-        }))
+        console.log('[useOrderImport] Updating order info with extracted data')
+        setOrderInfo(prev => {
+          const newOrderInfo = {
+            ...prev,
+            order_date: extractedInfo.order_date || prev.order_date,
+            order_number: extractedInfo.order_number || prev.order_number
+          }
+          console.log('[useOrderImport] New order info:', newOrderInfo)
+          return newOrderInfo
+        })
         toast.success(`Auto-detected ${parserName} order information`)
+      } else {
+        console.log('[useOrderImport] No extracted info returned')
       }
     }
 
