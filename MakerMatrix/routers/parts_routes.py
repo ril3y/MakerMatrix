@@ -739,6 +739,129 @@ async def get_supplier_enrichment_requirements(
         )
 
 
+@router.post("/enrich-from-supplier", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
+async def enrich_part_from_supplier(
+    supplier_name: str,
+    part_identifier: str,
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[Dict[str, Any]]:
+    """
+    Unified endpoint for enriching part data from a supplier.
+
+    This endpoint handles URL-based and part number-based enrichment by:
+    1. Detecting if the identifier is a URL and extracting the part identifier
+    2. Fetching part details from the supplier API
+    3. Using SupplierDataMapper to standardize the data
+    4. Returning enriched data ready for form population
+
+    This ensures all enrichment paths (URL, import, manual) use the same
+    data mapping logic via SupplierDataMapper.
+
+    Args:
+        supplier_name: Supplier name (e.g., 'digikey', 'mouser', 'adafruit')
+        part_identifier: URL or part number/MPN
+        current_user: Current authenticated user
+
+    Returns:
+        ResponseSchema containing standardized part data
+
+    Example:
+        POST /api/parts/enrich-from-supplier?supplier_name=digikey&part_identifier=https://www.digikey.com/...
+
+        Response:
+        {
+            "status": "success",
+            "data": {
+                "part_name": "STM32F103C8T6",
+                "manufacturer": "STMicroelectronics",
+                "manufacturer_part_number": "STM32F103C8T6",
+                "description": "...",
+                "unit_price": 6.08,
+                "currency": "USD",
+                "additional_properties": {
+                    "Core Processor": "ARM® Cortex®-M3",
+                    "Speed": "72MHz",
+                    ...
+                }
+            }
+        }
+    """
+    try:
+        from MakerMatrix.suppliers.registry import get_supplier_instance
+        from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
+        import re
+
+        # Get supplier instance
+        try:
+            supplier = await get_supplier_instance(supplier_name)
+        except Exception as e:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Supplier '{supplier_name}' not configured or available: {str(e)}"
+            )
+
+        # Check if part_identifier is a URL and extract data if needed
+        extracted_identifier = part_identifier
+        if part_identifier.startswith('http'):
+            # Try to extract part identifier from URL using enrichment field mappings
+            field_mappings = supplier.get_enrichment_field_mappings()
+
+            for mapping in field_mappings:
+                for pattern in mapping.url_patterns:
+                    match = re.search(pattern, part_identifier)
+                    if match:
+                        extracted_identifier = match.group(1)
+                        logger.info(f"Extracted '{extracted_identifier}' from URL using pattern: {pattern}")
+                        break
+                if extracted_identifier != part_identifier:
+                    break
+
+            if extracted_identifier == part_identifier:
+                logger.warning(f"Could not extract part identifier from URL: {part_identifier}")
+                # Continue anyway - supplier might handle URLs directly
+
+        # Fetch part details from supplier
+        try:
+            part_details = await supplier.get_part_details(extracted_identifier)
+        except Exception as e:
+            logger.error(f"Failed to fetch part details from {supplier_name}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to fetch part details: {str(e)}"
+            )
+
+        if not part_details:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Part not found with identifier '{extracted_identifier}'"
+            )
+
+        # Use SupplierDataMapper to standardize the result
+        mapper = SupplierDataMapper()
+        standardized_data = mapper.map_supplier_result_to_part_data(
+            supplier_result=part_details,
+            supplier_name=supplier_name,
+            enrichment_capabilities=['get_part_details']
+        )
+
+        logger.info(f"Successfully enriched part from {supplier_name}: {standardized_data.get('part_name', 'Unknown')}")
+
+        return BaseRouter.build_success_response(
+            data=standardized_data,
+            message=f"Part data enriched from {supplier_name}"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error enriching part from supplier: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to enrich part data: {str(e)}"
+        )
+
+
 @router.post("/bulk_update", response_model=ResponseSchema[BulkUpdateResponse])
 @standard_error_handling
 async def bulk_update_parts(
