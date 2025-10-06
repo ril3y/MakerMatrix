@@ -292,6 +292,18 @@ class AnalyticsService(BaseService):
         with self.get_session() as session:
             return self.analytics_repo.get_least_stocked_parts(session, limit, exclude_zero)
 
+    def get_parts_by_supplier(self) -> List[Dict[str, Any]]:
+        """
+        Get parts distribution by supplier.
+
+        Returns:
+            List of supplier distribution data
+        """
+        logger.info("Getting parts distribution by supplier")
+
+        with self.get_session() as session:
+            return self.analytics_repo.get_parts_by_supplier(session)
+
     def get_inventory_summary(self) -> Dict[str, Any]:
         """
         Get overall inventory summary statistics.

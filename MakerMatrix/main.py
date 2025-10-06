@@ -364,7 +364,7 @@ secure_all_routes(locations_routes.router, permissions=locations_permissions, ex
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
 secure_all_routes(printer_routes.router, exclude_paths=["/preview/template"])
 secure_all_routes(preview_routes.router)
-secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/get_image/{image_id}", "/static/datasheets/{filename}"])
+secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/get_image/{image_id}", "/static/datasheets/{filename}", "/supplier_icon/{supplier_name}"])
 # Don't secure auth routes - they need to be accessible without authentication
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
 secure_all_routes(user_management_routes.router, permissions=user_permissions)

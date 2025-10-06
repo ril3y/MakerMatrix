@@ -15,6 +15,10 @@ BUILTIN_SUPPLIERS = {
     'mouser': 'https://www.mouser.com',
     'mcmaster-carr': 'https://www.mcmaster.com',
     'bolt-depot': 'https://www.boltdepot.com',
+    'adafruit': 'https://www.adafruit.com',
+    'alibaba': 'https://www.alibaba.com',
+    'homedepot': 'https://www.homedepot.com',
+    'temu': 'https://www.temu.com',
 }
 
 

@@ -32,6 +32,7 @@ base_router = BaseRouter()
 
 # Base path for static files
 STATIC_BASE_PATH = Path(__file__).parent.parent / "services" / "static"
+BUILTIN_SUPPLIER_ICONS_PATH = Path(__file__).parent.parent / "static" / "supplier_icons"
 
 @router.post("/upload_image")
 @standard_error_handling
@@ -93,24 +94,68 @@ async def get_image(
     image_id: str
 ):
     import glob
-    
+
     # Use static images directory
     uploaded_images_dir = STATIC_BASE_PATH / "images"
-    
+
     # First try with the image_id as-is (might include extension)
     file_path = uploaded_images_dir / image_id
     if file_path.exists():
         return FileResponse(str(file_path))
-    
+
     # If not found, try to find the file with any extension
     pattern = str(uploaded_images_dir / f"{image_id}.*")
     matching_files = glob.glob(pattern)
-    
+
     if matching_files:
         # Return the first matching file
         return FileResponse(matching_files[0])
-    
+
     raise HTTPException(status_code=404, detail="Image not found")
+
+
+@router.get("/supplier_icon/{supplier_name}")
+@standard_error_handling
+async def get_supplier_icon(
+    supplier_name: str
+):
+    """
+    Get supplier icon/favicon. Checks:
+    1. Built-in supplier icons (committed to repo)
+    2. Auto-downloaded supplier icons (dynamic)
+    3. Falls back to auto-downloading if not found
+    """
+    import glob
+    from MakerMatrix.services.utility.favicon_fetcher import fetch_and_save_favicon
+
+    # Normalize supplier name
+    normalized_name = supplier_name.lower().strip().replace(' ', '-').replace('_', '-')
+
+    # Check built-in icons first
+    builtin_path = BUILTIN_SUPPLIER_ICONS_PATH / f"{normalized_name}.*"
+    builtin_matches = glob.glob(str(builtin_path))
+    if builtin_matches:
+        return FileResponse(builtin_matches[0])
+
+    # Check dynamic/downloaded icons
+    dynamic_dir = STATIC_BASE_PATH / "images"
+    dynamic_path = dynamic_dir / f"{normalized_name}.*"
+    dynamic_matches = glob.glob(str(dynamic_path))
+    if dynamic_matches:
+        return FileResponse(dynamic_matches[0])
+
+    # Try to auto-download favicon
+    try:
+        # Attempt to fetch favicon from common URL patterns
+        website_url = f"https://www.{normalized_name}.com"
+        saved_path = await fetch_and_save_favicon(supplier_name, website_url, dynamic_dir)
+        if saved_path and saved_path.exists():
+            return FileResponse(str(saved_path))
+    except Exception as e:
+        logger.warning(f"Failed to auto-download favicon for {supplier_name}: {e}")
+
+    # Return 404 if all attempts failed
+    raise HTTPException(status_code=404, detail=f"Supplier icon not found for {supplier_name}")
 
 
 @router.get("/debug/server-info")

@@ -185,6 +185,7 @@ async def get_dashboard_summary(
     inventory_summary = analytics_service.get_inventory_summary()
     parts_by_category = analytics_service.get_parts_by_category()
     parts_by_location = analytics_service.get_parts_by_location()
+    parts_by_supplier = analytics_service.get_parts_by_supplier()
     most_stocked = analytics_service.get_most_stocked_parts(limit=10)
     least_stocked = analytics_service.get_least_stocked_parts(limit=10, exclude_zero=True)
     low_stock = analytics_service.get_low_stock_parts(threshold=10, include_zero=False)
@@ -193,6 +194,7 @@ async def get_dashboard_summary(
         "summary": inventory_summary,
         "parts_by_category": parts_by_category,
         "parts_by_location": parts_by_location,
+        "parts_by_supplier": parts_by_supplier,
         "most_stocked_parts": most_stocked,
         "least_stocked_parts": least_stocked,
         "low_stock_parts": low_stock[:10]  # Limit to top 10
@@ -232,6 +234,22 @@ async def get_inventory_parts_by_location(
 
     return base_router.build_success_response(
         message=f"Retrieved {len(data)} locations",
+        data=data
+    )
+
+
+@router.get("/inventory/parts-by-supplier", response_model=ResponseSchema)
+@standard_error_handling
+async def get_inventory_parts_by_supplier(
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """Get parts distribution by supplier."""
+    logger.info(f"User {current_user.username} requesting parts by supplier")
+
+    data = analytics_service.get_parts_by_supplier()
+
+    return base_router.build_success_response(
+        message=f"Retrieved {len(data)} suppliers",
         data=data
     )
 

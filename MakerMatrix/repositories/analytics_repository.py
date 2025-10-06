@@ -721,6 +721,53 @@ class AnalyticsRepository:
             for result in results
         ]
 
+    def get_parts_by_supplier(
+        self,
+        session: Session
+    ) -> List[Dict[str, Any]]:
+        """
+        Get parts distribution by supplier.
+
+        Args:
+            session: Database session
+
+        Returns:
+            List of supplier distribution data
+        """
+        # Subquery to get total quantity per part from allocations
+        part_quantities = session.query(
+            PartLocationAllocation.part_id,
+            func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity')
+        ).group_by(
+            PartLocationAllocation.part_id
+        ).subquery()
+
+        # Use UPPER() to normalize supplier names for case-insensitive grouping
+        results = session.query(
+            func.upper(PartModel.supplier).label('supplier'),
+            func.count(PartModel.id).label('part_count'),
+            func.coalesce(func.sum(part_quantities.c.total_quantity), 0).label('total_quantity')
+        ).outerjoin(
+            part_quantities,
+            PartModel.id == part_quantities.c.part_id
+        ).filter(
+            PartModel.supplier.isnot(None),
+            PartModel.supplier != ''
+        ).group_by(
+            func.upper(PartModel.supplier)
+        ).order_by(
+            func.count(PartModel.id).desc()
+        ).all()
+
+        return [
+            {
+                'supplier': result.supplier,
+                'part_count': result.part_count,
+                'total_quantity': int(result.total_quantity or 0)
+            }
+            for result in results
+        ]
+
     def get_inventory_summary(
         self,
         session: Session
