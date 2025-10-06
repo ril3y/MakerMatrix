@@ -788,13 +788,13 @@ async def enrich_part_from_supplier(
         }
     """
     try:
-        from MakerMatrix.suppliers.registry import get_supplier_instance
+        from MakerMatrix.suppliers.registry import get_supplier
         from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
         import re
 
         # Get supplier instance
         try:
-            supplier = await get_supplier_instance(supplier_name)
+            supplier = get_supplier(supplier_name)
         except Exception as e:
             raise HTTPException(
                 status_code=404,
