@@ -333,22 +333,27 @@ class PartService(BaseService):
                 datasheets_data = part_data.pop("datasheets", [])
                 if datasheets_data:
                     self.logger.debug(f"Processing {len(datasheets_data)} datasheets for part '{part_name}'")
+
+                # Extract pricing tiers for history BEFORE filtering
+                pricing_tiers_for_history = part_data.pop("pricing_tiers_for_history", None)
+                if pricing_tiers_for_history:
+                    self.logger.debug(f"Pricing history data found for part '{part_name}': {pricing_tiers_for_history}")
                 
                 # Extract allocation data BEFORE filtering (these are not PartModel fields anymore)
                 allocation_quantity = part_data.pop('quantity', 0)
                 allocation_location_id = part_data.pop('location_id', None)
 
-                # Filter out only valid PartModel fields (removed 'quantity' and 'location_id')
+                # Filter out only valid PartModel fields (removed 'quantity', 'location_id', and 'pricing_data')
                 valid_part_fields = {
                     'part_number', 'part_name', 'description',
                     'supplier', 'supplier_part_number', 'supplier_url', 'image_url', 'additional_properties',
-                    # Pricing fields
-                    'unit_price', 'currency', 'pricing_data',
+                    # Pricing fields (removed pricing_data - goes to PartPricingHistory instead)
+                    'unit_price', 'currency',
                     # Enhanced fields from PartModel
                     'manufacturer', 'manufacturer_part_number', 'component_type',
                     'package', 'mounting_type',
-                    'last_price_update', 'price_source', 'stock_quantity',
-                    'last_stock_update', 'last_enrichment_date', 'enrichment_source',
+                    'stock_quantity',
+                    'last_enrichment_date', 'enrichment_source',
                     'data_quality_score'
                 }
                 
@@ -365,9 +370,6 @@ class PartService(BaseService):
                         # Handle additional_properties - convert None/undefined to empty dict
                         elif key == 'additional_properties' and value is None:
                             filtered_part_data[key] = {}
-                        # Handle pricing_data - convert None/undefined to None (optional dict field)
-                        elif key == 'pricing_data' and value is None:
-                            filtered_part_data[key] = None
                         # Handle currency field - set default to USD if not provided
                         elif key == 'currency' and (value is None or value == ""):
                             filtered_part_data[key] = "USD"
@@ -408,8 +410,27 @@ class PartService(BaseService):
                     for datasheet_data in datasheets_data:
                         datasheet_data['part_id'] = part_obj.id
                         datasheet_repo.create_datasheet(session, datasheet_data)
-                    
+
                     self.logger.info(f"Added {len(datasheets_data)} datasheets to part '{part_name}'")
+
+                # Create PartPricingHistory record if pricing data available
+                if pricing_tiers_for_history:
+                    from MakerMatrix.models.part_metadata_models import PartPricingHistory
+
+                    pricing_history = PartPricingHistory(
+                        part_id=part_obj.id,
+                        supplier=pricing_tiers_for_history.get('supplier', part_obj.supplier or 'Unknown'),
+                        unit_price=part_obj.unit_price,
+                        currency=pricing_tiers_for_history.get('currency', 'USD'),
+                        stock_quantity=part_obj.stock_quantity,
+                        pricing_tiers=pricing_tiers_for_history.get('tiers', []),
+                        source=pricing_tiers_for_history.get('source', 'enrichment'),
+                        is_current=True
+                    )
+                    session.add(pricing_history)
+                    session.commit()
+
+                    self.logger.info(f"Created pricing history for part '{part_name}' with {len(pricing_tiers_for_history.get('tiers', []))} price tiers")
                 
                 self.logger.info(f"Successfully created part: {part_name} (ID: {part_obj.id}) with {len(categories)} categories")
 

@@ -85,10 +85,20 @@ class SupplierDataMapper:
             'last_enrichment_date': datetime.utcnow(),
             'enrichment_source': supplier_name
         }
-        
+
+        # Add pricing tiers for PartPricingHistory creation (if available)
+        if supplier_result.pricing:
+            pricing_data = self._normalize_pricing_data(supplier_result.pricing)
+            result['pricing_tiers_for_history'] = {
+                'supplier': supplier_name,
+                'tiers': pricing_data.get('price_tiers', []),
+                'currency': pricing_data.get('currency', 'USD'),
+                'source': 'enrichment'
+            }
+
         # Calculate data quality score
         result['data_quality_score'] = self._calculate_quality_score(result)
-        
+
         logger.info(f"Mapped {supplier_name} data for part {supplier_result.supplier_part_number}")
         return result
     
@@ -133,15 +143,13 @@ class SupplierDataMapper:
             'supplier': supplier_name.upper(),
         }
         
-        # Add pricing data if available
+        # Add pricing data if available - only unit_price and currency for PartModel
+        # The full pricing tiers will be returned separately for PartPricingHistory creation
         if result.pricing:
             pricing_data = self._normalize_pricing_data(result.pricing)
             core_data.update({
                 'unit_price': pricing_data.get('unit_price'),
                 'currency': pricing_data.get('currency', 'USD'),
-                'pricing_data': pricing_data,
-                'last_price_update': datetime.utcnow(),
-                'price_source': supplier_name
             })
         
         # Add stock data if available
@@ -543,10 +551,14 @@ def map_enrichment_result_to_part_updates(
             updates.update({
                 'unit_price': pricing_data.get('unit_price'),
                 'currency': pricing_data.get('currency', 'USD'),
-                'pricing_data': pricing_data,
-                'last_price_update': datetime.utcnow(),
-                'price_source': supplier_name
             })
+            # Return pricing tiers for PartPricingHistory creation
+            updates['pricing_tiers_for_history'] = {
+                'supplier': supplier_name,
+                'tiers': pricing_data.get('price_tiers', []),
+                'currency': pricing_data.get('currency', 'USD'),
+                'source': 'enrichment'
+            }
             
         elif capability == 'fetch_stock' and result is not None:
             updates.update({
