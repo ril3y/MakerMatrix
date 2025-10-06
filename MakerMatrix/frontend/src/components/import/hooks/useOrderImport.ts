@@ -323,7 +323,7 @@ export const useOrderImport = ({
       }
       
       if (result.skipped_count > 0) {
-        toast.info(`${result.skipped_count} parts were skipped (already exist)`)
+        toast(`${result.skipped_count} parts were skipped (already exist)`)
       }
       
       // Extract task ID from warnings if available
@@ -338,7 +338,7 @@ export const useOrderImport = ({
       }
       
       if (taskId) {
-        toast.info('Starting enrichment process...')
+        toast('Starting enrichment process...')
         setTimeout(() => {
           startProgressPolling(taskId)
         }, 1000)
@@ -357,7 +357,16 @@ export const useOrderImport = ({
         }, 2000) // Show completion for 2 seconds
       }
 
-      onImportComplete?.(result)
+      // Transform API response to match ImportResult interface
+      // The new /api/import/file endpoint returns counts, not arrays
+      // So we create placeholder arrays for backward compatibility
+      const transformedResult: ImportResult = {
+        success_parts: result.imported_parts || (result.imported_count ? Array(result.imported_count).fill('imported') : []),
+        failed_parts: result.failed_parts || (result.failed_count ? Array(result.failed_count).fill('failed') : []),
+        order_id: result.order_id
+      }
+
+      onImportComplete?.(transformedResult)
       clearFile()
 
     } catch (error: any) {
