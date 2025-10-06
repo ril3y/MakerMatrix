@@ -16,7 +16,8 @@ import logging
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo, CapabilityRequirement, ImportResult
+    PartSearchResult, SupplierInfo, CapabilityRequirement, ImportResult,
+    EnrichmentFieldMapping
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -63,6 +64,22 @@ class AdafruitSupplier(BaseSupplier):
             )
             for capability in self.get_capabilities()
         }
+
+    def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
+        """Define how to extract part fields from Adafruit product URLs"""
+        return [
+            EnrichmentFieldMapping(
+                field_name="supplier_part_number",
+                display_name="Adafruit Product ID",
+                url_patterns=[
+                    r'/product/(\d+)',      # Primary: https://www.adafruit.com/product/4759
+                    r'/products/(\d+)'      # Alternative: https://www.adafruit.com/products/4759
+                ],
+                example="4759",
+                description="The numeric product ID from the Adafruit product page URL",
+                required_for_enrichment=True
+            )
+        ]
 
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for public web scraping
@@ -261,17 +278,49 @@ class AdafruitSupplier(BaseSupplier):
         Uses JSON-LD structured data when available, falls back to HTML parsing.
         """
         try:
+            # Extract product dimensions from HTML (applies to both JSON-LD and HTML parsing)
+            dimensions = self._extract_dimensions(soup)
+
             # Try to extract JSON-LD structured data first
             json_ld_data = self._extract_json_ld(soup)
 
             if json_ld_data:
-                return self._parse_from_json_ld(json_ld_data, product_id, url)
+                result = self._parse_from_json_ld(json_ld_data, product_id, url)
             else:
                 # Fallback to HTML parsing
-                return self._parse_from_html(soup, product_id, url)
+                result = self._parse_from_html(soup, product_id, url)
+
+            # Add dimensions to additional_data if found
+            if result and dimensions:
+                if not result.additional_data:
+                    result.additional_data = {}
+                result.additional_data['dimensions'] = dimensions
+
+            return result
 
         except Exception as e:
             logger.error(f"Error parsing product page for {product_id}: {e}")
+            return None
+
+    def _extract_dimensions(self, soup: BeautifulSoup) -> Optional[str]:
+        """Extract product dimensions from HTML
+
+        Looks for patterns like:
+        <p>Product Dimensions: 52.2mm x 22.8mm x 7.2mm / 2.1" x 0.9" x 0.3"</p>
+        """
+        try:
+            # Look for paragraphs containing "dimensions" (case insensitive)
+            for p_tag in soup.find_all('p'):
+                text = p_tag.get_text(strip=True)
+                if 'dimensions' in text.lower() and ':' in text:
+                    # Extract everything after "Product Dimensions:" or similar
+                    parts = text.split(':', 1)
+                    if len(parts) == 2:
+                        return parts[1].strip()
+
+            return None
+        except Exception as e:
+            logger.warning(f"Error extracting dimensions: {e}")
             return None
 
     def _extract_json_ld(self, soup: BeautifulSoup) -> Optional[Dict[str, Any]]:
@@ -303,9 +352,9 @@ class AdafruitSupplier(BaseSupplier):
             # Extract basic product info
             name = json_ld.get('name', '')
             description = json_ld.get('description', '')
-            sku = json_ld.get('sku', product_id)
+            sku = str(json_ld.get('sku', product_id))
 
-            # Extract image
+            # Extract image - fix double slashes
             image_url = None
             if 'image' in json_ld:
                 image_data = json_ld['image']
@@ -315,6 +364,20 @@ class AdafruitSupplier(BaseSupplier):
                     image_url = image_data[0] if isinstance(image_data[0], str) else image_data[0].get('url')
                 elif isinstance(image_data, dict):
                     image_url = image_data.get('url')
+
+            # Fix double slashes in image URL (e.g., cdn-shop.adafruit.com//970x728/)
+            if image_url:
+                # Handle URLs with or without protocol
+                if '://' in image_url:
+                    # Split protocol from rest, fix double slashes only in path
+                    protocol, rest = image_url.split('://', 1)
+                    rest = rest.replace('//', '/')  # Fix all double slashes in path
+                    image_url = f"{protocol}://{rest}"
+                else:
+                    # No protocol - fix slashes and add https://
+                    image_url = image_url.replace('//', '/')
+                    if not image_url.startswith('http'):
+                        image_url = f"https://{image_url}"
 
             # Extract price and stock
             pricing = []
@@ -349,6 +412,11 @@ class AdafruitSupplier(BaseSupplier):
             # Extract additional properties
             additional_data = {}
 
+            # Add price to additional_data
+            if pricing:
+                additional_data['price'] = f"${pricing[0]['price']:.2f}"
+                additional_data['currency'] = pricing[0]['currency']
+
             # Brand
             if 'brand' in json_ld:
                 brand = json_ld['brand']
@@ -380,10 +448,11 @@ class AdafruitSupplier(BaseSupplier):
                             additional_data[prop_name] = prop_value
 
             return PartSearchResult(
-                supplier_part_number=product_id,
+                supplier_part_number=str(product_id),
+                part_name=name,  # Use JSON-LD name for part_name
                 manufacturer="Adafruit Industries",
                 manufacturer_part_number=sku,
-                description=description or name,
+                description=description,  # Use JSON-LD description
                 category=category,
                 datasheet_url=None,  # Will be extracted from HTML if available
                 image_url=image_url,

@@ -161,8 +161,13 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
       console.log('Converted required fields:', requiredFields)
       setSupplierRequiredFields(requiredFields)
-    } catch (error) {
-      console.error('Failed to load supplier required fields:', error)
+    } catch (error: any) {
+      // 404 errors are expected for new-style suppliers using dynamic patterns
+      if (error.response?.status === 404) {
+        console.log('No legacy enrichment requirements for this supplier (uses dynamic patterns)')
+      } else {
+        console.error('Failed to load supplier required fields:', error)
+      }
       // Don't show error toast - supplier might not have enrichment requirements
       setSupplierRequiredFields([])
     } finally {
@@ -324,6 +329,8 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     // Close any open inline modals
     setShowAddCategoryModal(false)
     setShowAddLocationModal(false)
+    setShowConfigureSupplierPrompt(false)
+    setDetectedSupplierInfo(null)
 
     onClose()
   }
@@ -377,75 +384,142 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       if (supplierName) {
         // Capitalize first letter
         const formattedName = supplierName.charAt(0).toUpperCase() + supplierName.slice(1);
+        const supplierLower = supplierName.toLowerCase();
+
+        // Set supplier field first
         setFormData({ ...formData, supplier_url: url, supplier: formattedName });
         toast.success(`Auto-detected supplier: ${formattedName}`);
 
-        // Check if supplier is available in registry but not configured
-        const isAvailable = availableSuppliers.includes(supplierName.toLowerCase());
-        const isConfigured = configuredSuppliers.includes(supplierName.toLowerCase());
+        // Check supplier type
+        const isInRegistry = availableSuppliers.includes(supplierLower);
+        const isConfigured = configuredSuppliers.includes(supplierLower);
 
         console.log('🔍 Smart Supplier Detection Check:')
-        console.log('  Detected supplier:', supplierName.toLowerCase())
-        console.log('  Is available in registry?', isAvailable)
+        console.log('  Detected supplier:', supplierLower)
+        console.log('  Is in registry (REST supplier)?', isInRegistry)
         console.log('  Is configured?', isConfigured)
         console.log('  Available suppliers:', availableSuppliers)
         console.log('  Configured suppliers:', configuredSuppliers)
 
-        if (isAvailable && !isConfigured) {
-          // Supplier supports enrichment but needs configuration
-          console.log('✨ Showing configuration prompt for', formattedName)
-          setDetectedSupplierInfo({ name: formattedName, url });
-          setShowConfigureSupplierPrompt(true);
-          return; // Don't create simple supplier yet - wait for user choice
-        }
+        // Path 1: REST supplier in registry
+        if (isInRegistry) {
+          // Path 1a: REST supplier but NOT configured
+          if (!isConfigured) {
+            console.log('✨ REST supplier not configured - showing configuration prompt')
+            setDetectedSupplierInfo({ name: formattedName, url });
+            setShowConfigureSupplierPrompt(true);
+            return; // Wait for user to choose configuration or simple supplier
+          }
 
-        // If supplier is not available in registry, create as simple supplier
-        if (!isAvailable) {
-          console.log('📎 Creating simple supplier for', formattedName)
+          // Path 1b: REST supplier AND configured - auto-enrich with dynamic patterns
+          console.log('✅ REST supplier is configured - attempting dynamic auto-enrichment')
+          await attemptDynamicEnrichment(url, supplierLower, formattedName);
+
+        } else {
+          // Path 2: NOT a REST supplier - create as simple supplier
+          console.log('📎 Not a REST supplier - creating simple supplier')
           await createSimpleSupplier(supplierName, formattedName, url);
-        } else if (isConfigured) {
-          console.log('✅ Supplier is already configured - attempting auto-enrichment')
-          // Supplier is configured - try to auto-enrich from URL
-          await attemptAutoEnrichment(url, supplierName, formattedName);
         }
       }
     }
   };
 
-  const attemptAutoEnrichment = async (url: string, supplierName: string, formattedName: string) => {
+  /**
+   * Extract field value from URL using dynamic patterns from supplier
+   */
+  const extractFieldFromUrl = (url: string, patterns: string[]): string | null => {
     try {
-      // Extract product/part number from URL
-      const productId = extractProductIdFromUrl(url);
-      if (!productId) {
-        console.log('Could not extract product ID from URL');
+      for (const pattern of patterns) {
+        const regex = new RegExp(pattern, 'i');
+        const match = url.match(regex);
+        if (match && match[1]) {
+          return match[1];
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error extracting field from URL:', error);
+      return null;
+    }
+  };
+
+  /**
+   * Attempt auto-enrichment using dynamic URL pattern extraction
+   */
+  const attemptDynamicEnrichment = async (url: string, supplierName: string, formattedName: string) => {
+    try {
+      console.log(`🔄 Loading enrichment field mappings for ${formattedName}...`);
+
+      // Step 1: Get enrichment field mappings (URL patterns) from supplier
+      const mappings = await dynamicSupplierService.getEnrichmentFieldMappings(supplierName);
+
+      if (!mappings || mappings.length === 0) {
+        console.warn(`No enrichment field mappings available for ${formattedName}`);
         return;
       }
 
-      console.log(`🔄 Auto-enriching from ${formattedName} product ID: ${productId}`);
+      console.log(`✅ Loaded ${mappings.length} field mapping(s):`, mappings);
+
+      // Step 2: Extract field values from URL using patterns
+      const extractedFields: Record<string, string> = {};
+      let primaryFieldValue: string | null = null;
+      let primaryFieldName: string | null = null;
+
+      for (const mapping of mappings) {
+        const value = extractFieldFromUrl(url, mapping.url_patterns);
+        if (value) {
+          extractedFields[mapping.field_name] = value;
+          console.log(`  ✓ Extracted ${mapping.display_name}: ${value}`);
+
+          // Track the primary field (usually supplier_part_number)
+          if (mapping.required_for_enrichment && !primaryFieldValue) {
+            primaryFieldValue = value;
+            primaryFieldName = mapping.field_name;
+          }
+        } else {
+          console.log(`  ✗ Could not extract ${mapping.display_name} from URL`);
+        }
+      }
+
+      if (!primaryFieldValue) {
+        console.warn('Could not extract required field from URL');
+        toast.error(`Could not extract part number from ${formattedName} URL`);
+        return;
+      }
+
+      console.log(`🔄 Auto-enriching ${formattedName} part: ${primaryFieldValue}`);
       toast.loading(`Fetching part details from ${formattedName}...`, { duration: 2000 });
 
-      // Call the supplier API using the service method with empty credentials
-      // The backend should use stored credentials for configured suppliers
+      // Step 3: Auto-populate extracted fields
+      setFormData(prev => ({
+        ...prev,
+        ...extractedFields
+      }));
+
+      // Step 4: Call enrichment API with primary field value
       const partDetails = await dynamicSupplierService.getPartDetails(
-        supplierName.toLowerCase(),
-        productId,
+        supplierName,
+        primaryFieldValue,
         {}, // Empty credentials - backend will use stored credentials
         {}  // Empty config - backend will use stored config
       );
 
       if (!partDetails) {
-        console.warn('No part details returned');
+        console.warn('No part details returned from enrichment');
+        toast.error(`Could not fetch details for ${primaryFieldValue} from ${formattedName}`);
         return;
       }
 
       console.log('✅ Auto-enriched part details:', partDetails);
 
-      // Auto-populate form fields
+      // Step 5: Auto-populate enriched fields
       setFormData(prev => ({
         ...prev,
-        name: partDetails.description || partDetails.part_name || prev.name,
-        part_number: partDetails.supplier_part_number || productId || prev.part_number,
-        supplier_part_number: partDetails.supplier_part_number || productId || prev.supplier_part_number,
+        name: partDetails.part_name || prev.name,  // Use part_name for the part name
+        part_number: partDetails.supplier_part_number || primaryFieldValue || prev.part_number,
+        supplier_part_number: partDetails.supplier_part_number || primaryFieldValue || prev.supplier_part_number,
+        manufacturer: partDetails.manufacturer || prev.manufacturer,
+        manufacturer_part_number: partDetails.manufacturer_part_number || prev.manufacturer_part_number,
         description: partDetails.description || prev.description,
       }));
 
@@ -454,38 +528,27 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         setImageUrl(partDetails.image_url);
       }
 
+      // Populate custom properties from specifications
+      if (partDetails.specifications && Object.keys(partDetails.specifications).length > 0) {
+        const specs = Object.entries(partDetails.specifications).map(([key, value]) => ({
+          key,
+          value: String(value)
+        }));
+        setCustomProperties(specs);
+        console.log('✅ Populated custom properties:', specs);
+      }
+
       toast.success(`Auto-populated from ${formattedName}!`);
     } catch (error: any) {
-      console.error('Error during auto-enrichment:', error);
+      console.error('Error during dynamic auto-enrichment:', error);
       // Check if this is a credentials error
       if (error.response?.status === 401 || error.response?.status === 403) {
         console.warn('Supplier credentials not configured or invalid');
         toast.error(`${formattedName} needs to be configured with valid credentials`);
+      } else {
+        console.warn('Failed to auto-enrich:', error.message || error);
+        // Silent failure for other errors - user can manually enter details
       }
-      // Silent failure for other errors - user can manually enter details
-    }
-  };
-
-  const extractProductIdFromUrl = (url: string): string | null => {
-    try {
-      // Common patterns for different suppliers
-      const patterns = [
-        /\/product\/(\d+)/i,           // Adafruit: /product/4759
-        /\/products\/(.+?)(?:\/|$)/i,  // Generic: /products/ABC123
-        /\/item\/(.+?)(?:\/|$)/i,      // Generic: /item/ABC123
-        /\/p\/(.+?)(?:\/|$)/i,         // Short: /p/ABC123
-      ];
-
-      for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) {
-          return match[1];
-        }
-      }
-
-      return null;
-    } catch {
-      return null;
     }
   };
 
@@ -583,7 +646,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add New Part" size="xl">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Add New Part" size="xl">
       {loadingData ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>

@@ -25,7 +25,7 @@ except ImportError:
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
     PartSearchResult, SupplierInfo, ConfigurationOption,
-    CapabilityRequirement, ImportResult
+    CapabilityRequirement, ImportResult, EnrichmentFieldMapping
 )
 from MakerMatrix.models.enrichment_requirement_models import (
     EnrichmentRequirements, FieldRequirement, RequirementSeverity
@@ -193,6 +193,22 @@ class DigiKeySupplier(BaseSupplier):
                 )
             ]
         )
+
+    def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
+        """Define how to extract part fields from DigiKey product URLs"""
+        return [
+            EnrichmentFieldMapping(
+                field_name="manufacturer_part_number",
+                display_name="Manufacturer Part Number",
+                url_patterns=[
+                    r'/products/detail/[^/]+/([^/]+)/\d+',  # Extract MPN from /detail/{mfr}/{MPN}/{id}
+                    r'/product-detail/en/[^/]+/([^/]+)/\d+'  # Alternative URL format
+                ],
+                example="STM32F103C8T6",
+                description="The manufacturer's part number extracted from the DigiKey product page URL",
+                required_for_enrichment=True
+            )
+        ]
 
     def get_credential_schema(self) -> List[FieldDefinition]:
         return [
@@ -847,72 +863,136 @@ class DigiKeySupplier(BaseSupplier):
             }
     
     async def search_parts(self, query: str, limit: int = 50) -> List[PartSearchResult]:
-        """Search for parts using DigiKey API"""
+        """Search for parts using DigiKey API with unified HTTP client"""
         if not await self.authenticate():
             raise SupplierAuthenticationError("Authentication required", supplier_name="digikey")
-        
+
         if not DIGIKEY_API_AVAILABLE:
             raise SupplierConfigurationError("DigiKey API library not available", supplier_name="digikey")
-        
+
         try:
-            from digikey.v3.productinformation import KeywordSearchRequest
-            
-            # Use the official DigiKey API library
-            search_request = KeywordSearchRequest(
-                keywords=query,
-                record_count=min(limit, 50),  # DigiKey max is 50
-                record_start_position=0,
-                sort={
+            # Use unified HTTP client instead of digikey library
+            headers = {
+                'Authorization': f'Bearer {self._access_token}',
+                'X-DIGIKEY-Client-Id': self._credentials.get('client_id'),
+                'Content-Type': 'application/json',
+                'User-Agent': 'MakerMatrix/1.0'
+            }
+
+            # DigiKey keyword search API v4
+            search_url = f"{self._get_base_url()}/products/v4/search/keyword"
+
+            # Build search request body
+            search_body = {
+                "Keywords": query,
+                "RecordCount": min(limit, 50),
+                "RecordStartPosition": 0,
+                "Sort": {
                     "SortOption": "SortByQuantityAvailable",
                     "Direction": "Descending"
                 }
-            )
-            
-            result = digikey.keyword_search(body=search_request)
-            
+            }
+
+            http_client = self._get_http_client()
+            response = await http_client.post(search_url, endpoint_type="search_parts", headers=headers, json_data=search_body)
+
             # Convert DigiKey results to our standard format
             parts = []
-            if result and result.products:
-                for product in result.products:
+            if response.success and response.data:
+                products = response.data.get('Products', [])
+                logger.info(f"✅ DigiKey search found {len(products)} results for '{query}'")
+
+                # DEBUG: Log first product structure
+                if products:
+                    logger.info(f"🔍 First product keys: {list(products[0].keys())}")
+                    logger.info(f"🔍 First product sample: {json.dumps(products[0], indent=2, default=str)[:1000]}")
+
+                for product in products[:limit]:  # Limit results
+                    description_data = product.get("Description", {}) or {}
+                    manufacturer_data = product.get("Manufacturer", {}) or {}
+                    category_data = product.get("Category", {}) or {}
+
+                    # Extract DigiKey part number from ProductVariations
+                    variations = product.get("ProductVariations", [])
+                    digikey_part_number = variations[0].get("DigiKeyProductNumber", "") if variations else ""
+
+                    # Use MPN as part name
+                    manufacturer_name = manufacturer_data.get("Name", "")
+                    mpn = product.get("ManufacturerProductNumber", "")
+
                     part = PartSearchResult(
-                        supplier_part_number=product.digi_key_part_number or "",
-                        manufacturer=product.manufacturer.value if product.manufacturer else "",
-                        manufacturer_part_number=product.manufacturer_part_number or "",
-                        description=product.product_description or "",
-                        category=product.category.value if product.category else "",
-                        datasheet_url=self._normalize_url(product.primary_datasheet or ""),
-                        image_url=self._normalize_url(product.primary_photo or ""),
-                        stock_quantity=product.quantity_available or 0,
+                        supplier_part_number=digikey_part_number,
+                        part_name=mpn,
+                        manufacturer=manufacturer_name,
+                        manufacturer_part_number=mpn,
+                        description=description_data.get("ProductDescription", ""),
+                        category=category_data.get("Name", ""),
+                        datasheet_url=self._normalize_url(product.get("DatasheetUrl", "")),
+                        image_url=self._normalize_url(product.get("PhotoUrl", "")),
+                        stock_quantity=product.get("QuantityAvailable", 0),
                         pricing=[],  # We'll fetch pricing separately if needed
                         specifications={},  # We'll fetch specs separately if needed
                         additional_data={
-                            "detailed_description": product.detailed_description,
-                            "series": product.series.value if product.series else "",
-                            "packaging": product.packaging.value if product.packaging else ""
+                            "detailed_description": description_data.get("DetailedDescription", ""),
                         }
                     )
                     parts.append(part)
-            
+            else:
+                logger.warning(f"⚠️ DigiKey search returned no results for '{query}'")
+
             return parts
-            
+
         except Exception as e:
+            logger.error(f"❌ DigiKey search failed for '{query}': {e}")
             raise SupplierConnectionError(f"DigiKey search failed: {str(e)}", supplier_name="digikey")
     
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
-        """Get detailed information about a specific part using DigiKey API"""
+        """Get detailed information about a specific part using DigiKey API
+
+        Args:
+            supplier_part_number: Can be either:
+                - DigiKey part number (e.g., "497-6063-ND")
+                - Manufacturer part number (e.g., "STM32F103C8T6")
+
+        If a manufacturer part number is detected (no -ND, -1-ND suffix),
+        it will search for the part first to get the DigiKey part number.
+        """
         async def _impl():
-            logger.info(f"🔍 DigiKey get_part_details called with: {supplier_part_number}")
-            
+            # Use a local variable to avoid UnboundLocalError
+            input_part_number = supplier_part_number
+            part_number_to_query = input_part_number
+
+            logger.info(f"🔍 DigiKey get_part_details called with: {input_part_number}")
+
             auth_result = await self.authenticate()
             logger.info(f"🔍 DigiKey authentication result: {auth_result}")
             if not auth_result:
-                logger.error(f"❌ DigiKey authentication failed for part: {supplier_part_number}")
+                logger.error(f"❌ DigiKey authentication failed for part: {input_part_number}")
                 raise SupplierAuthenticationError("Authentication required", supplier_name="digikey")
-            
+
             logger.info(f"🔍 DigiKey API available: {DIGIKEY_API_AVAILABLE}")
             if not DIGIKEY_API_AVAILABLE:
                 logger.error(f"❌ DigiKey API library not available")
                 raise SupplierConfigurationError("DigiKey API library not available", supplier_name="digikey")
+
+            # Check if this looks like a manufacturer part number instead of DigiKey part number
+            # DigiKey part numbers typically end with -ND, -1-ND, -2-ND, etc.
+            is_likely_mpn = not any(suffix in input_part_number.upper() for suffix in ['-ND', '-CT', '-TR'])
+
+            if is_likely_mpn:
+                logger.info(f"🔍 Input '{input_part_number}' appears to be a manufacturer part number. Searching first...")
+                try:
+                    search_results = await self.search_parts(input_part_number, limit=5)
+                    if search_results:
+                        # Use the first result's DigiKey part number
+                        part_number_to_query = search_results[0].supplier_part_number
+                        logger.info(f"✅ Found DigiKey part number via search: {part_number_to_query}")
+                    else:
+                        logger.warning(f"⚠️ No results found when searching for MPN: {input_part_number}")
+                        return None
+                except Exception as e:
+                    logger.error(f"❌ Error searching for MPN '{input_part_number}': {e}")
+                    return None
             
             try:
                 # Make direct API call using our authentication with unified HTTP client
@@ -924,7 +1004,7 @@ class DigiKeySupplier(BaseSupplier):
                 }
                 
                 # Try the product details endpoint (might be included in Product Information V4)
-                search_url = f"{self._get_base_url()}/products/v4/search/{supplier_part_number}/productdetails"
+                search_url = f"{self._get_base_url()}/products/v4/search/{part_number_to_query}/productdetails"
                 
                 http_client = self._get_http_client()
                 response = await http_client.get(search_url, endpoint_type="get_part_details", headers=headers)
@@ -937,13 +1017,32 @@ class DigiKeySupplier(BaseSupplier):
                     # Log successful API response retrieval
                     logger.debug(f"🔍 DigiKey API Response keys: {list(result_data.keys()) if result_data else 'None'}")
                     
-                    # Log successful data retrieval  
+                    # Log successful data retrieval
                     if product:
-                        logger.info(f"✅ DigiKey retrieved part data for {supplier_part_number}: {product.get('ManufacturerProductNumber', 'Unknown MPN')}")
+                        logger.info(f"✅ DigiKey retrieved part data for {part_number_to_query}: {product.get('ManufacturerProductNumber', 'Unknown MPN')}")
                     else:
-                        logger.warning(f"⚠️ DigiKey: No product found in response for {supplier_part_number}")
+                        logger.warning(f"⚠️ DigiKey: No product found in response for {part_number_to_query}")
                     
                     if product:
+                        # ========== COMPREHENSIVE LOGGING FOR DEBUG ==========
+                        logger.info("=" * 80)
+                        logger.info(f"🔍 DIGIKEY API RESPONSE - Full Product Data for {part_number_to_query}")
+                        logger.info("=" * 80)
+                        logger.info(f"📦 Raw Product Keys: {list(product.keys())}")
+                        logger.info(f"")
+
+                        # Log all product fields for user to review
+                        for key, value in product.items():
+                            if isinstance(value, dict):
+                                logger.info(f"  {key} (dict): {json.dumps(value, indent=4, default=str)}")
+                            elif isinstance(value, list):
+                                logger.info(f"  {key} (list): {len(value)} items")
+                                if value and len(value) > 0:
+                                    logger.info(f"    First item: {json.dumps(value[0], indent=6, default=str)[:500]}")
+                            else:
+                                logger.info(f"  {key}: {value}")
+                        logger.info("=" * 80)
+
                         # Extract nested data properly with null safety
                         description_data = product.get("Description", {}) or {}
                         manufacturer_data = product.get("Manufacturer", {}) or {}
@@ -967,33 +1066,33 @@ class DigiKeySupplier(BaseSupplier):
                             "component_type": component_type,
                             "rohs_status": rohs_status,
                             "lifecycle_status": lifecycle_status,
-                            
+
                             # DigiKey-specific identifiers
-                            "digikey_part_number": supplier_part_number,
+                            "digikey_part_number": part_number_to_query,
                             "product_url": product.get("ProductUrl", ""),
                             "base_product_number": product.get("BaseProductNumber", {}).get("Name", "") if product.get("BaseProductNumber") else "",
-                            
+
                             # Detailed descriptions
                             "detailed_description": description_data.get("DetailedDescription", ""),
-                            
+
                             # Technical specifications from Parameters
                             "series": series_data.get("Name", "") if series_data else "",
                             "package_case": self._extract_package_from_parameters(product),
                             "mounting_type": self._extract_mounting_type_from_parameters(product),
                             "supplier_device_package": self._extract_supplier_device_package(product),
-                            
+
                             # Manufacturing and lead times (no pricing here)
                             "manufacturer_lead_weeks": int(product.get("ManufacturerLeadWeeks", 0)) if product.get("ManufacturerLeadWeeks") else 0,
                             "factory_stock_availability": product.get("ManufacturerPublicQuantity", 0),
                             "normally_stocking": product.get("NormallyStocking", False),
                             "back_order_not_allowed": product.get("BackOrderNotAllowed", False),
-                            
+
                             # DigiKey category hierarchy (helpful for part organization)
                             "digikey_category_id": category_data.get("CategoryId") if category_data else None,
                             "digikey_category_name": category_name,
                             "digikey_parent_category": self._extract_parent_category_name(category_data),
                             "digikey_subcategory": self._extract_subcategory_name(category_data),
-                            
+
                             # Product status and lifecycle
                             "product_status_id": product_status.get("Id") if product_status else None,
                             "product_status_name": product_status.get("Status") if product_status else "",
@@ -1001,32 +1100,37 @@ class DigiKeySupplier(BaseSupplier):
                             "end_of_life": product.get("EndOfLife", False),
                             "date_last_buy_chance": product.get("DateLastBuyChance"),
                             "ncnr": product.get("Ncnr", False),  # Non-Cancelable Non-Returnable
-                            
+
                             # Compliance and certifications
                             "reach_status": classifications.get("ReachStatus", ""),
                             "moisture_sensitivity_level": classifications.get("MoistureSensitivityLevel", ""),
                             "export_control_class_number": classifications.get("ExportControlClassNumber", ""),
                             "htsus_code": classifications.get("HtsusCode", ""),
-                            
+
                             # Media
                             "primary_video_url": product.get("PrimaryVideoUrl"),
-                            
+
                             # Alternative names and identifiers
                             "other_names": product.get("OtherNames", []),
-                            
+
                             # Data enrichment metadata
                             "enrichment_source": "digikey_api_v4",
                             "enrichment_timestamp": datetime.utcnow().isoformat(),
                             "api_response_version": "v4"
                         }
-                        
+
                         # Remove None values and empty strings to keep additional_data clean
                         additional_data = {k: v for k, v in additional_data.items() if v is not None and v != ""}
                         
+                        # Use MPN as part name
+                        manufacturer_name = manufacturer_data.get("Name", "")
+                        mpn = product.get("ManufacturerProductNumber", "")
+
                         return PartSearchResult(
-                            supplier_part_number=supplier_part_number,  # Use the requested part number
-                            manufacturer=manufacturer_data.get("Name", ""),
-                            manufacturer_part_number=product.get("ManufacturerProductNumber", ""),
+                            supplier_part_number=part_number_to_query,  # Use the DigiKey part number
+                            part_name=mpn,  # Use MPN as part name
+                            manufacturer=manufacturer_name,
+                            manufacturer_part_number=mpn,
                             description=description_data.get("ProductDescription", ""),
                             category=category_name,
                             datasheet_url=self._normalize_url(product.get("DatasheetUrl", "")),
@@ -1037,7 +1141,7 @@ class DigiKeySupplier(BaseSupplier):
                             additional_data=additional_data
                         )
                     else:
-                        logger.warning(f"🔍 DigiKey: No product found in response for {supplier_part_number}")
+                        logger.warning(f"🔍 DigiKey: No product found in response for {part_number_to_query}")
                         return None
                 else:
                     error_text = response.error_message or f"HTTP {response.status}"
@@ -1074,28 +1178,33 @@ class DigiKeySupplier(BaseSupplier):
     def _extract_pricing_from_dict(self, product: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract pricing information from product dictionary"""
         pricing = []
-        standard_pricing = product.get("StandardPricing", [])
-        
-        for price_break in standard_pricing:
-            pricing.append({
-                "quantity": price_break.get("BreakQuantity", 1),
-                "price": price_break.get("UnitPrice", 0.0),
-                "currency": "USD"
-            })
-        
+
+        # Pricing is in ProductVariations[0].StandardPricing, not at top level
+        variations = product.get("ProductVariations", [])
+        if variations:
+            standard_pricing = variations[0].get("StandardPricing", [])
+
+            for price_break in standard_pricing:
+                pricing.append({
+                    "quantity": price_break.get("BreakQuantity", 1),
+                    "price": price_break.get("UnitPrice", 0.0),
+                    "currency": "USD"
+                })
+
         return pricing
     
     def _extract_specifications_from_dict(self, product: Dict[str, Any]) -> Dict[str, Any]:
         """Extract specifications from product dictionary"""
         specs = {}
         parameters = product.get("Parameters", [])
-        
+
         for param in parameters:
-            param_name = param.get("Parameter", "")
-            param_value = param.get("Value", "")
+            # DigiKey API v4 uses ParameterText and ValueText (not Parameter and Value)
+            param_name = param.get("ParameterText", "")
+            param_value = param.get("ValueText", "")
             if param_name and param_value:
                 specs[param_name] = param_value
-        
+
         return specs
     
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:

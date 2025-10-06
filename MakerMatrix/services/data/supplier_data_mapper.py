@@ -453,18 +453,18 @@ class SupplierDataMapper:
         }
     
     def _map_digikey_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """DigiKey-specific data mapping"""
-        
+        """DigiKey-specific data mapping - maps specifications to additional_properties"""
+
         custom_fields = {}
-        
-        if result.additional_data:
-            custom_fields.update({
-                'digikey_url': result.additional_data.get('product_detail_url'),
-                'digikey_category': result.category,
-                'series': result.additional_data.get('series'),
-                'standard_packaging': result.additional_data.get('standard_packaging')
-            })
-        
+
+        # Map all specifications as flat key-value pairs to additional_properties
+        # This includes all DigiKey Parameters (Core Processor, Speed, Package, etc.)
+        if result.specifications:
+            for key, value in result.specifications.items():
+                # Exclude "DigiKey Programmable" parameter
+                if key != "DigiKey Programmable" and value is not None and value != "":
+                    custom_fields[key] = value
+
         return {
             'core_fields': {},
             'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
