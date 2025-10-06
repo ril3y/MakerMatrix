@@ -6,6 +6,7 @@ import UnifiedFileImporter from './UnifiedFileImporter'
 import { ImportResult } from './hooks/useOrderImport'
 import { apiClient } from '@/services/api'
 import { previewFile } from '@/utils/filePreview'
+import { extractFilenameInfo } from '@/utils/filenameExtractor'
 import toast from 'react-hot-toast'
 import { DynamicAddSupplierModal } from '../../pages/suppliers/DynamicAddSupplierModal'
 
