@@ -132,6 +132,7 @@ class SupplierDataMapper:
             lifecycle_status = self._map_lifecycle_status(result.additional_data or {})
         
         core_data = {
+            'part_name': result.manufacturer_part_number or result.supplier_part_number or f"{supplier_name}_part",
             'part_number': result.supplier_part_number,
             'supplier_part_number': result.supplier_part_number,  # Store supplier's part number for API calls
             'manufacturer': result.manufacturer,

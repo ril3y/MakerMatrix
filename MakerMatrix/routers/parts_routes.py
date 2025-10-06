@@ -801,6 +801,35 @@ async def enrich_part_from_supplier(
                 detail=f"Supplier '{supplier_name}' not configured or available: {str(e)}"
             )
 
+        # Configure supplier with credentials from database/env
+        try:
+            config_service = SupplierConfigService()
+
+            # Get supplier config and credentials
+            supplier_config = config_service.get_supplier_config(supplier_name)
+            credentials = config_service.get_supplier_credentials(supplier_name)
+
+            # Build config dict
+            config_dict = {
+                'base_url': supplier_config.get('base_url', ''),
+                'request_timeout': supplier_config.get('timeout_seconds', 30),
+                'max_retries': supplier_config.get('max_retries', 3),
+                'rate_limit_per_minute': supplier_config.get('rate_limit_per_minute', 60),
+            }
+
+            # Add custom parameters if available
+            custom_params = supplier_config.get('custom_parameters', {})
+            if custom_params:
+                config_dict.update(custom_params)
+
+            # Configure the supplier
+            supplier.configure(credentials or {}, config_dict)
+            logger.info(f"Configured {supplier_name} supplier with credentials")
+
+        except Exception as e:
+            logger.warning(f"Could not load credentials for {supplier_name}: {e}")
+            # Continue anyway - some suppliers may work without credentials or have fallback auth
+
         # Check if part_identifier is a URL and extract data if needed
         extracted_identifier = part_identifier
         if part_identifier.startswith('http'):
@@ -836,6 +865,19 @@ async def enrich_part_from_supplier(
                 status_code=404,
                 detail=f"Part not found with identifier '{extracted_identifier}'"
             )
+
+        # Log raw supplier response for debugging
+        import json
+        logger.info(f"🔍 Raw {supplier_name} response for {extracted_identifier}:")
+        logger.info(f"  supplier_part_number: {part_details.supplier_part_number}")
+        logger.info(f"  manufacturer: {part_details.manufacturer}")
+        logger.info(f"  manufacturer_part_number: {part_details.manufacturer_part_number}")
+        logger.info(f"  description: {part_details.description}")
+        logger.info(f"  image_url: {part_details.image_url}")
+        logger.info(f"  datasheet_url: {part_details.datasheet_url}")
+        logger.info(f"  pricing: {part_details.pricing}")
+        logger.info(f"  specifications: {json.dumps(part_details.specifications, indent=2) if part_details.specifications else 'None'}")
+        logger.info(f"  additional_data: {json.dumps(part_details.additional_data, indent=2) if part_details.additional_data else 'None'}")
 
         # Use SupplierDataMapper to standardize the result
         mapper = SupplierDataMapper()
