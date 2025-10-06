@@ -55,6 +55,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [loadingSupplierFields, setLoadingSupplierFields] = useState(false)
   const [configuredSuppliers, setConfiguredSuppliers] = useState<string[]>([])
   const [availableSuppliers, setAvailableSuppliers] = useState<string[]>([]) // Suppliers in registry
+  const [suppliersWithEnrichment, setSuppliersWithEnrichment] = useState<string[]>([]) // Suppliers with enrichment capabilities
 
   // Smart supplier detection state
   const [showConfigureSupplierPrompt, setShowConfigureSupplierPrompt] = useState(false)
@@ -97,11 +98,12 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const loadData = async () => {
     try {
       setLoadingData(true)
-      const [locationsData, categoriesData, suppliersData, availableSuppliersData] = await Promise.all([
+      const [locationsData, categoriesData, suppliersData, availableSuppliersData, importSuppliersData] = await Promise.all([
         locationsService.getAllLocations(),
         categoriesService.getAllCategories(),
         supplierService.getSuppliers(true), // Get only enabled/configured suppliers
-        dynamicSupplierService.getAvailableSuppliers() // Get all available suppliers from registry
+        dynamicSupplierService.getAvailableSuppliers(), // Get all available suppliers from registry
+        fetch('/api/import/suppliers').then(res => res.json()).catch(() => ({ data: [] })) // Get enrichment capabilities
       ])
       setLocations(locationsData || [])
       setCategories(categoriesData || [])
@@ -116,9 +118,16 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         : []
       setAvailableSuppliers(availableNames)
 
+      // Store suppliers with enrichment capabilities
+      const enrichmentNames = (importSuppliersData.data || [])
+        .filter((s: any) => s.enrichment_available === true)
+        .map((s: any) => s.name.toLowerCase())
+      setSuppliersWithEnrichment(enrichmentNames)
+
       console.log('🔍 Smart Supplier Detection Setup:')
       console.log('  Configured suppliers:', configuredNames)
       console.log('  Available suppliers from registry:', availableNames)
+      console.log('  Suppliers with enrichment:', enrichmentNames)
     } catch (error) {
       console.error('Failed to load data:', error)
       toast.error('Failed to load data')
@@ -127,6 +136,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       setCategories([])
       setConfiguredSuppliers([])
       setAvailableSuppliers([])
+      setSuppliersWithEnrichment([])
     } finally {
       setLoadingData(false)
     }
@@ -263,12 +273,12 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       const createdPart = await partsService.createPart(submitData)
       toast.success('Part created successfully')
 
-      // Auto-enrich only if supplier is configured and supports enrichment
+      // Auto-enrich only if supplier supports enrichment
       if (formData.supplier && formData.supplier.trim()) {
-        // Check if supplier is in the configured suppliers list (has API capabilities)
-        const isConfiguredSupplier = configuredSuppliers.includes(formData.supplier.toLowerCase())
+        // Check if supplier has enrichment capabilities
+        const hasEnrichment = suppliersWithEnrichment.includes(formData.supplier.toLowerCase())
 
-        if (isConfiguredSupplier) {
+        if (hasEnrichment) {
           try {
             console.log(`Auto-enriching part ${createdPart.id} with supplier ${formData.supplier}`)
             const enrichmentTask = await tasksService.createPartEnrichmentTask({
@@ -284,7 +294,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             toast.error('Part created but enrichment failed to start')
           }
         } else {
-          console.log(`Supplier "${formData.supplier}" is not configured for enrichment - skipping auto-enrich`)
+          console.log(`Supplier "${formData.supplier}" does not support enrichment - skipping auto-enrich`)
         }
       }
       
