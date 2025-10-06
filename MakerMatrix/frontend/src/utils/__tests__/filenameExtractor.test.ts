@@ -79,7 +79,7 @@ describe('filenameExtractor', () => {
 
       testCases.forEach(({ filename, expected }) => {
         const result = extractFilenameInfo(filename)
-        
+
         expect(result.detected_supplier).toBe(expected.detected_supplier)
         expect(result.file_type).toBe(expected.file_type)
         if (expected.order_info.order_number) {
@@ -88,6 +88,69 @@ describe('filenameExtractor', () => {
         if (expected.order_info.order_date) {
           expect(result.order_info.order_date).toBe(expected.order_info.order_date)
         }
+        expect(result.order_info.notes).toBe(expected.order_info.notes)
+      })
+    })
+
+    it('should extract LCSC datetime format (YYYYMMDD_HHMMSS.csv)', () => {
+      const testCases = [
+        {
+          filename: 'LCSC_Exported__20241222_232703.csv',
+          expected: {
+            detected_supplier: 'lcsc',
+            file_type: 'CSV',
+            order_info: {
+              order_date: '2024-12-22',
+              order_number: '232703',
+              notes: 'Auto-extracted from LCSC filename: LCSC_Exported__20241222_232703.csv'
+            }
+          }
+        },
+        {
+          filename: '20241222_232709.csv',
+          expected: {
+            detected_supplier: 'lcsc',
+            file_type: 'CSV',
+            order_info: {
+              order_date: '2024-12-22',
+              order_number: '232709',
+              notes: 'Auto-extracted from LCSC filename: 20241222_232709.csv'
+            }
+          }
+        },
+        {
+          filename: 'LCSC_Exported__20240315_123456.csv',
+          expected: {
+            detected_supplier: 'lcsc',
+            file_type: 'CSV',
+            order_info: {
+              order_date: '2024-03-15',
+              order_number: '123456',
+              notes: 'Auto-extracted from LCSC filename: LCSC_Exported__20240315_123456.csv'
+            }
+          }
+        },
+        {
+          filename: 'lcsc_exported__20240101_000000.csv',
+          expected: {
+            detected_supplier: 'lcsc',
+            file_type: 'CSV',
+            order_info: {
+              order_date: '2024-01-01',
+              order_number: '000000',
+              notes: 'Auto-extracted from LCSC filename: lcsc_exported__20240101_000000.csv'
+            }
+          }
+        }
+      ]
+
+      testCases.forEach(({ filename, expected }) => {
+        const result = extractFilenameInfo(filename)
+
+        expect(result.detected_supplier).toBe(expected.detected_supplier)
+        expect(result.file_type).toBe(expected.file_type)
+        expect(result.order_info.order_date).toBe(expected.order_info.order_date)
+        expect(result.order_info.order_number).toBe(expected.order_info.order_number)
         expect(result.order_info.notes).toBe(expected.order_info.notes)
       })
     })
