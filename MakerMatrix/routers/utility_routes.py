@@ -117,13 +117,16 @@ async def get_image(
 @router.get("/supplier_icon/{supplier_name}")
 @standard_error_handling
 async def get_supplier_icon(
-    supplier_name: str
+    supplier_name: str,
+    supplier_url: str = Query(None, description="Optional supplier URL to extract domain from")
 ):
     """
     Get supplier icon/favicon. Checks:
     1. Built-in supplier icons (committed to repo)
     2. Auto-downloaded supplier icons (dynamic)
     3. Falls back to auto-downloading if not found
+
+    If supplier_url is provided, uses that domain for favicon fetching.
     """
     import glob
     from MakerMatrix.services.utility.favicon_fetcher import fetch_and_save_favicon
@@ -146,8 +149,12 @@ async def get_supplier_icon(
 
     # Try to auto-download favicon
     try:
-        # Attempt to fetch favicon from common URL patterns
-        website_url = f"https://www.{normalized_name}.com"
+        # Use provided supplier_url if available, otherwise construct from supplier name
+        if supplier_url:
+            website_url = supplier_url if supplier_url.startswith('http') else f"https://{supplier_url}"
+        else:
+            website_url = f"https://www.{normalized_name}.com"
+
         saved_path = await fetch_and_save_favicon(supplier_name, website_url, dynamic_dir)
         if saved_path and saved_path.exists():
             return FileResponse(str(saved_path))

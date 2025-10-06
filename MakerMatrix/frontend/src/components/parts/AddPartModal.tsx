@@ -361,32 +361,50 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
   const extractDomainFromUrl = (url: string): string | null => {
     try {
-      // Check if input looks like a URL
-      const urlPattern = /^https?:\/\//i;
-      if (!urlPattern.test(url)) {
-        return null;
+      // Normalize input - add https:// if missing protocol
+      let urlString = url.trim();
+      if (!/^https?:\/\//i.test(urlString)) {
+        if (urlString.includes('.')) {
+          urlString = `https://${urlString}`;
+        } else {
+          return null;
+        }
       }
 
-      const urlObj = new URL(url);
+      const urlObj = new URL(urlString);
       const hostname = urlObj.hostname;
 
-      // Remove www. prefix if present
-      const domain = hostname.replace(/^www\./, '');
+      // Remove common subdomains (www, shop, store, buy, order, checkout)
+      let domain = hostname.replace(/^(www|shop|store|buy|order|checkout)\./i, '');
 
-      // Extract base domain name (e.g., "ebay" from "ebay.com")
+      // Extract base domain (e.g., "snapon.com" from "snapon.com" or remaining subdomains)
       const parts = domain.split('.');
       if (parts.length >= 2) {
-        return parts[0]; // Return first part (e.g., "ebay")
+        // Get the second-to-last part (e.g., "snapon" from "snapon.com")
+        return parts[parts.length - 2];
       }
 
-      return domain;
+      // Fallback: just use the first part if no dots
+      return parts[0];
     } catch (err) {
       return null;
     }
   };
 
   const handleSupplierUrlChange = async (url: string) => {
-    setFormData({ ...formData, supplier_url: url });
+    // Extract base domain URL (not the full product URL)
+    let baseUrl = url;
+    try {
+      if (url.trim()) {
+        const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+        baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+      }
+    } catch (err) {
+      // If URL parsing fails, use the original URL
+      baseUrl = url;
+    }
+
+    setFormData({ ...formData, supplier_url: baseUrl });
 
     // If supplier field is empty and URL contains a domain, auto-populate supplier
     if (!formData.supplier && url.trim()) {
@@ -396,9 +414,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         const formattedName = supplierName.charAt(0).toUpperCase() + supplierName.slice(1);
         const supplierLower = supplierName.toLowerCase();
 
-        // Set supplier field first
-        setFormData({ ...formData, supplier_url: url, supplier: formattedName });
-        toast.success(`Auto-detected supplier: ${formattedName}`);
+        // Set supplier field first with base URL, not full product URL
+        setFormData({ ...formData, supplier_url: baseUrl, supplier: formattedName });
+        toast.success(`Auto-detected supplier: ${formattedName} from ${baseUrl}`);
 
         // Check supplier type
         const isInRegistry = availableSuppliers.includes(supplierLower);
