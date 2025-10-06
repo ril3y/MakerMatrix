@@ -1,0 +1,21 @@
+# Dependencies
+node_modules
+dist
+build
+coverage
+
+# Generated files
+*.min.js
+*.min.css
+vite.config.ts.timestamp*
+
+# Logs
+*.log
+
+# Test snapshots
+**/__snapshots__
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
