@@ -14,6 +14,84 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+async def fetch_and_save_favicon(supplier_name: str, website_url: str, save_dir: Path) -> Optional[Path]:
+    """
+    Fetch favicon from website and save with supplier name.
+
+    Args:
+        supplier_name: Name of the supplier (used for filename)
+        website_url: The supplier's website URL
+        save_dir: Directory to save the favicon
+
+    Returns:
+        Path to saved file or None if failed
+    """
+    if not website_url:
+        return None
+
+    try:
+        # Normalize supplier name for filename
+        normalized_name = supplier_name.lower().strip().replace(' ', '-').replace('_', '-')
+
+        # Parse URL to get domain
+        parsed = urlparse(website_url if website_url.startswith('http') else f'https://{website_url}')
+        domain = parsed.netloc or parsed.path
+
+        logger.info(f"Fetching favicon for {supplier_name} from {domain}")
+
+        # Try multiple favicon locations
+        favicon_urls = [
+            f"https://www.google.com/s2/favicons?domain={domain}&sz=64",
+            f"https://{domain}/favicon.ico",
+            f"https://{domain}/favicon.png",
+            f"https://favicon.im/{domain}?larger=true",
+        ]
+
+        async with aiohttp.ClientSession() as session:
+            for favicon_url in favicon_urls:
+                try:
+                    logger.debug(f"Trying favicon URL: {favicon_url}")
+                    async with session.get(favicon_url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                        if response.status == 200:
+                            content = await response.read()
+
+                            # Validate content
+                            if len(content) < 100:
+                                continue
+
+                            # Determine file extension
+                            content_type = response.headers.get('content-type', '')
+                            if 'png' in content_type or favicon_url.endswith('.png'):
+                                ext = 'png'
+                            elif 'svg' in content_type or favicon_url.endswith('.svg'):
+                                ext = 'svg'
+                            elif 'jpeg' in content_type or 'jpg' in content_type:
+                                ext = 'jpg'
+                            else:
+                                ext = 'ico'
+
+                            # Save with supplier name
+                            save_dir.mkdir(parents=True, exist_ok=True)
+                            filepath = save_dir / f"{normalized_name}.{ext}"
+
+                            with open(filepath, 'wb') as f:
+                                f.write(content)
+
+                            logger.info(f"Successfully saved favicon for {supplier_name} to {filepath}")
+                            return filepath
+
+                except Exception as e:
+                    logger.debug(f"Failed to fetch from {favicon_url}: {e}")
+                    continue
+
+        logger.warning(f"Could not fetch favicon for {supplier_name} from any source")
+        return None
+
+    except Exception as e:
+        logger.error(f"Error fetching favicon for {supplier_name}: {e}")
+        return None
+
+
 class FaviconFetcherService:
     """Service for fetching and storing supplier favicons"""
 

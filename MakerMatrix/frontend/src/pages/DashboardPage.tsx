@@ -60,6 +60,12 @@ interface LocationDistribution {
   total_quantity: number
 }
 
+interface SupplierDistribution {
+  supplier: string
+  part_count: number
+  total_quantity: number
+}
+
 interface StockedPart {
   id: string
   part_name: string
@@ -82,6 +88,7 @@ interface DashboardData {
   summary: InventorySummary
   parts_by_category: CategoryDistribution[]
   parts_by_location: LocationDistribution[]
+  parts_by_supplier: SupplierDistribution[]
   most_stocked_parts: StockedPart[]
   least_stocked_parts: StockedPart[]
   low_stock_parts: LowStockPart[]
@@ -176,6 +183,52 @@ const DashboardPage = () => {
         borderWidth: 0
       }
     ]
+  }
+
+  const supplierChartData = {
+    labels: data.parts_by_supplier.length > 0
+      ? data.parts_by_supplier.map(item => item.supplier)
+      : ['No Data'],
+    datasets: [
+      {
+        data: data.parts_by_supplier.length > 0
+          ? data.parts_by_supplier.map(item => item.part_count)
+          : [0],
+        backgroundColor: [
+          'rgba(99, 102, 241, 0.8)',
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(34, 197, 94, 0.8)',
+          'rgba(251, 191, 36, 0.8)',
+          'rgba(168, 85, 247, 0.8)',
+          'rgba(236, 72, 153, 0.8)',
+          'rgba(14, 165, 233, 0.8)',
+          'rgba(132, 204, 22, 0.8)',
+          'rgba(245, 158, 11, 0.8)',
+          'rgba(16, 185, 129, 0.8)'
+        ],
+        borderWidth: 0
+      }
+    ]
+  }
+
+  // Helper function to get supplier icon URL
+  const getSupplierIcon = (supplierName: string) => {
+    const normalizedName = supplierName.toLowerCase().trim()
+      .replace(/\s+/g, '-')  // Replace spaces with hyphens
+      .replace(/_/g, '-')     // Replace underscores with hyphens
+
+    // Map supplier names to their icon filenames (handles variations)
+    const iconMap: Record<string, string> = {
+      'lcsc': 'lcsc.ico',
+      'digikey': 'digikey.png',
+      'digi-key': 'digikey.png',
+      'mouser': 'mouser.png',
+      'mcmaster-carr': 'mcmaster-carr.ico',
+      'mcmaster': 'mcmaster-carr.ico',
+      'bolt-depot': 'bolt-depot.png'
+    }
+
+    return iconMap[normalizedName] || null
   }
 
   return (
@@ -308,68 +361,144 @@ const DashboardPage = () => {
         </div>
 
         {expandedSections.distribution && (
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Categories Chart */}
-            <div>
-              <h3 className="text-md font-medium text-primary mb-4">By Category</h3>
-              <div className="h-64">
-                {data.parts_by_category.length > 0 ? (
-                  <Bar
-                    data={categoryChartData}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false
-                        }
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          ticks: {
-                            precision: 0
+          <div className="p-6 space-y-6">
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Categories Chart */}
+              <div>
+                <h3 className="text-md font-medium text-primary mb-4">By Category</h3>
+                <div className="h-64">
+                  {data.parts_by_category.length > 0 ? (
+                    <Bar
+                      data={categoryChartData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: false
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              precision: 0
+                            }
                           }
                         }
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted">
-                    No category data available
-                  </div>
-                )}
+                      }}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted">
+                      No category data available
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Locations Chart */}
+              <div>
+                <h3 className="text-md font-medium text-primary mb-4">By Location</h3>
+                <div className="h-64">
+                  {data.parts_by_location.length > 0 ? (
+                    <Doughnut
+                      data={locationChartData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                            labels: {
+                              padding: 10,
+                              usePointStyle: true,
+                              font: {
+                                size: 10
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted">
+                      No location data available
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Suppliers Chart */}
+              <div>
+                <h3 className="text-md font-medium text-primary mb-4">By Supplier</h3>
+                <div className="h-64">
+                  {data.parts_by_supplier.length > 0 ? (
+                    <Doughnut
+                      data={supplierChartData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                            labels: {
+                              padding: 10,
+                              usePointStyle: true,
+                              font: {
+                                size: 10
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted">
+                      No supplier data available
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Locations Chart */}
-            <div>
-              <h3 className="text-md font-medium text-primary mb-4">By Location</h3>
-              <div className="h-64">
-                {data.parts_by_location.length > 0 ? (
-                  <Doughnut
-                    data={locationChartData}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          position: 'right',
-                          labels: {
-                            padding: 10,
-                            usePointStyle: true
-                          }
-                        }
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted">
-                    No location data available
-                  </div>
-                )}
+            {/* Supplier Icons Legend */}
+            {data.parts_by_supplier.length > 0 && (
+              <div className="border-t border-border pt-4">
+                <h3 className="text-sm font-medium text-primary mb-3">Suppliers</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {data.parts_by_supplier.map((supplier) => {
+                    return (
+                      <div key={supplier.supplier} className="flex items-center gap-3 p-3 bg-card-light dark:bg-card-dark rounded-lg border border-border hover:border-primary transition-colors">
+                        <div className="w-8 h-8 flex items-center justify-center">
+                          <img
+                            src={`/api/utility/supplier_icon/${supplier.supplier}`}
+                            alt={supplier.supplier}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              // Fallback to initial letter if image fails to load
+                              const target = e.currentTarget
+                              const parent = target.parentElement
+                              if (parent) {
+                                target.style.display = 'none'
+                                const fallback = document.createElement('div')
+                                fallback.className = 'w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-xs font-bold text-primary'
+                                fallback.textContent = supplier.supplier.charAt(0).toUpperCase()
+                                parent.appendChild(fallback)
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-primary truncate">{supplier.supplier}</p>
+                          <p className="text-xs text-muted">{supplier.part_count} parts</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </motion.div>
