@@ -38,6 +38,7 @@ export interface SupplierInfo {
 
 export interface PartSearchResult {
   supplier_part_number: string;
+  part_name?: string;  // Product name (e.g., "Adafruit Feather M4 CAN Express")
   manufacturer?: string;
   manufacturer_part_number?: string;
   description?: string;
@@ -59,6 +60,15 @@ export interface TestConnectionResult {
   success: boolean;
   message: string;
   details?: Record<string, any>;
+}
+
+export interface EnrichmentFieldMapping {
+  field_name: string;
+  display_name: string;
+  url_patterns: string[];
+  example: string;
+  description?: string;
+  required_for_enrichment: boolean;
 }
 
 /**
@@ -257,6 +267,24 @@ export class DynamicSupplierService {
   }
 
   /**
+   * Get enrichment field mappings (URL patterns) for a supplier
+   */
+  async getEnrichmentFieldMappings(supplierName: string): Promise<EnrichmentFieldMapping[]> {
+    try {
+      const response = await apiClient.get(`/api/suppliers/${supplierName}/enrichment-field-mappings`);
+
+      if (response && response.data) {
+        return Array.isArray(response.data) ? response.data : [];
+      }
+
+      return [];
+    } catch (error) {
+      console.error(`Failed to get enrichment field mappings for ${supplierName}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get environment variable defaults for supplier credentials
    */
   async getSupplierEnvDefaults(supplierName: string): Promise<Record<string, any>> {
@@ -337,7 +365,18 @@ export class DynamicSupplierService {
       credentials,
       config: config || {}
     });
-    return response.data.data;
+
+    // Handle different response formats (apiClient.post may return different structures)
+    if (response && response.data && response.data.data) {
+      return response.data.data;
+    } else if (response && response.data) {
+      return response.data;
+    } else if (response) {
+      return response;
+    }
+
+    console.error('Unexpected response format from getPartDetails:', response);
+    return null as any;
   }
 
   /**

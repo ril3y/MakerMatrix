@@ -6,6 +6,7 @@ Works with any supplier that implements the BaseSupplier interface.
 """
 
 from typing import List, Dict, Any, Optional
+import logging
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse
@@ -22,6 +23,7 @@ from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ========== Request/Response Models ==========
@@ -55,6 +57,7 @@ class SupplierConfigurationRequest(BaseModel):
 
 class PartSearchResultResponse(BaseModel):
     supplier_part_number: str
+    part_name: Optional[str] = None  # Product name (e.g., "Adafruit Feather M4 CAN Express")
     manufacturer: Optional[str] = None
     manufacturer_part_number: Optional[str] = None
     description: Optional[str] = None
@@ -480,7 +483,7 @@ async def get_supplier_capabilities(
     try:
         supplier = SupplierRegistry.get_supplier(supplier_name)
         capabilities = [cap.value for cap in supplier.get_capabilities()]
-        
+
         return ResponseSchema(
             status="success",
             message=f"Retrieved capabilities for {supplier_name}",
@@ -490,6 +493,66 @@ async def get_supplier_capabilities(
         raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get capabilities: {str(e)}")
+
+@router.get("/{supplier_name}/enrichment-field-mappings", response_model=ResponseSchema[List[Dict[str, Any]]])
+@standard_error_handling
+async def get_enrichment_field_mappings(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """
+    Get URL patterns and field mappings for auto-enrichment from product URLs.
+
+    This endpoint returns information about how to extract part field values
+    (like supplier_part_number) from product URLs for a specific supplier.
+
+    Args:
+        supplier_name: Name of the supplier (e.g., 'adafruit', 'digikey')
+
+    Returns:
+        List of enrichment field mappings with URL patterns and examples
+
+    Example Response:
+        {
+            "status": "success",
+            "data": [
+                {
+                    "field_name": "supplier_part_number",
+                    "display_name": "Adafruit Product ID",
+                    "url_patterns": ["/product/(\\d+)", "/products/(\\d+)"],
+                    "example": "4759",
+                    "description": "The numeric product ID from the Adafruit product page URL",
+                    "required_for_enrichment": true
+                }
+            ]
+        }
+    """
+    try:
+        supplier = SupplierRegistry.get_supplier(supplier_name)
+        mappings = supplier.get_enrichment_field_mappings()
+
+        # Convert dataclasses to dicts for JSON response
+        data = [
+            {
+                "field_name": m.field_name,
+                "display_name": m.display_name,
+                "url_patterns": m.url_patterns,
+                "example": m.example,
+                "description": m.description,
+                "required_for_enrichment": m.required_for_enrichment
+            }
+            for m in mappings
+        ]
+
+        return ResponseSchema(
+            status="success",
+            message=f"Retrieved {len(data)} enrichment field mapping(s) for {supplier_name}",
+            data=data
+        )
+    except SupplierNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get enrichment field mappings: {str(e)}")
 
 @router.post("/{supplier_name}/credentials-schema-with-config", response_model=ResponseSchema[List[FieldDefinitionResponse]])
 @standard_error_handling
@@ -793,6 +856,7 @@ async def get_part_details(
     current_user: UserModel = Depends(get_current_user)
 ):
     """Get detailed information about a specific part"""
+    supplier = None
     try:
         # If credentials are empty, try to use stored credentials
         credentials = config_request.credentials
@@ -812,21 +876,22 @@ async def get_part_details(
             except Exception as e:
                 # If we can't get stored credentials, continue with empty credentials
                 # and let the supplier.configure fail with a proper error message
-                pass
+                logger.warning(f"Could not load stored credentials for {supplier_name}: {e}")
 
         supplier = SupplierRegistry.get_supplier(supplier_name)
         supplier.configure(credentials, config)
 
+        logger.info(f"Fetching part details for {part_number} from {supplier_name}")
         result = await supplier.get_part_details(part_number)
-        await supplier.close()
-        
+
         if not result:
             raise HTTPException(status_code=404, detail=f"Part '{part_number}' not found")
-        
+
         response_data = PartSearchResultResponse(
-            supplier_part_number=result.supplier_part_number,
+            supplier_part_number=str(result.supplier_part_number) if result.supplier_part_number else None,
+            part_name=result.part_name,
             manufacturer=result.manufacturer,
-            manufacturer_part_number=result.manufacturer_part_number,
+            manufacturer_part_number=str(result.manufacturer_part_number) if result.manufacturer_part_number else None,
             description=result.description,
             category=result.category,
             datasheet_url=result.datasheet_url,
@@ -836,12 +901,15 @@ async def get_part_details(
             specifications=result.specifications,
             additional_data=result.additional_data
         )
-        
+
         return ResponseSchema(
             status="success",
             message=f"Retrieved details for {part_number} from {supplier_name}",
             data=response_data
         )
+    except HTTPException:
+        # Re-raise HTTPException without modification (includes 404s)
+        raise
     except SupplierNotFoundError:
         raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
     except SupplierAuthenticationError as e:
@@ -849,7 +917,15 @@ async def get_part_details(
     except SupplierConnectionError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
+        logger.error(f"Error getting part details for {part_number} from {supplier_name}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get part details: {str(e)}")
+    finally:
+        # Always close the supplier to prevent resource leaks
+        if supplier:
+            try:
+                await supplier.close()
+            except Exception as e:
+                logger.error(f"Error closing supplier {supplier_name}: {e}")
 
 # ========== Specific Data Fetching ==========
 

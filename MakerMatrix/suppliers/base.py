@@ -54,6 +54,7 @@ class FieldDefinition:
 class PartSearchResult:
     """Result from part search"""
     supplier_part_number: str
+    part_name: Optional[str] = None  # Product name (e.g., "Adafruit Feather M4 CAN Express")
     manufacturer: Optional[str] = None
     manufacturer_part_number: Optional[str] = None
     description: Optional[str] = None
@@ -132,7 +133,7 @@ class ImportResult:
         if self.warnings is None:
             self.warnings = []
 
-@dataclass 
+@dataclass
 class SupplierInfo:
     """Information about a supplier"""
     name: str
@@ -144,10 +145,34 @@ class SupplierInfo:
     rate_limit_info: Optional[str] = None
     supports_multiple_environments: bool = False
     supported_file_types: List[str] = None  # e.g., ["csv", "xls", "xlsx"]
-    
+
     def __post_init__(self):
         if self.supported_file_types is None:
             self.supported_file_types = []
+
+@dataclass
+class EnrichmentFieldMapping:
+    """
+    Defines how to extract enrichment fields from supplier product URLs.
+
+    This allows suppliers to specify what part fields can be extracted from their
+    product URLs and what regex patterns to use for extraction.
+
+    Example for Adafruit:
+        EnrichmentFieldMapping(
+            field_name="supplier_part_number",
+            display_name="Adafruit Product ID",
+            url_patterns=[r'/product/(\d+)', r'/products/(\d+)'],
+            example="4759",
+            description="The product ID from the Adafruit product page URL"
+        )
+    """
+    field_name: str  # Part field to populate (e.g., "supplier_part_number")
+    display_name: str  # Human-readable name (e.g., "Product ID")
+    url_patterns: List[str]  # Regex patterns for extraction (e.g., [r'/product/(\d+)'])
+    example: str  # Example value (e.g., "4759")
+    description: Optional[str] = None  # Description of what this field represents
+    required_for_enrichment: bool = True  # Whether this field is required for enrichment to work
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +283,32 @@ class BaseSupplier(ABC):
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """Get requirements for each capability"""
         pass
-    
+
+    def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
+        """
+        Get URL patterns and field mappings for auto-enrichment from product URLs.
+
+        This method defines how to extract part field values (like supplier_part_number)
+        from product URLs. Suppliers should override this to specify their URL patterns.
+
+        Returns:
+            List of EnrichmentFieldMapping objects defining extraction patterns
+
+        Example implementation for a supplier:
+            return [
+                EnrichmentFieldMapping(
+                    field_name="supplier_part_number",
+                    display_name="Product ID",
+                    url_patterns=[r'/product/(\d+)', r'/item/(\d+)'],
+                    example="12345",
+                    description="Product ID from URL path",
+                    required_for_enrichment=True
+                )
+            ]
+        """
+        # Default: no URL pattern extraction supported
+        return []
+
     # ========== Schema Definitions ==========
     
     @abstractmethod
