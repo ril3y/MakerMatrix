@@ -75,17 +75,22 @@ export const SupplierSelector = ({
 
   const extractDomainFromUrl = (input: string): string | null => {
     try {
-      // Check if input looks like a URL
-      const urlPattern = /^https?:\/\//i;
-      if (!urlPattern.test(input)) {
-        return null;
+      // Normalize input - add https:// if missing protocol
+      let urlString = input.trim();
+      if (!/^https?:\/\//i.test(urlString)) {
+        // Check if it looks like a domain (contains dots)
+        if (urlString.includes('.')) {
+          urlString = `https://${urlString}`;
+        } else {
+          return null;
+        }
       }
 
-      const url = new URL(input);
+      const url = new URL(urlString);
       const hostname = url.hostname;
 
-      // Remove www. prefix if present
-      const domain = hostname.replace(/^www\./, '');
+      // Remove common subdomains (www, shop, store, etc.)
+      let domain = hostname.replace(/^(www|shop|store|buy|order|checkout)\./i, '');
 
       // Extract base domain (e.g., ebay.com from subdomain.ebay.com)
       const parts = domain.split('.');
@@ -107,9 +112,21 @@ export const SupplierSelector = ({
     if (domain) {
       // Extract supplier name from domain (e.g., "ebay" from "ebay.com")
       const supplierName = domain.split('.')[0];
+
+      // Call onChange with an object containing both name and URL domain
+      // This allows parent components to access the original domain
       setCustomSupplier(supplierName);
+
+      // Store the cleaned domain URL in a data attribute for later use
+      const baseUrl = `https://${domain}`;
       onChange(supplierName);
-      toast.success(`Detected supplier: ${supplierName} from URL`);
+
+      // Dispatch custom event with full domain info for parent components
+      window.dispatchEvent(new CustomEvent('supplier-url-detected', {
+        detail: { name: supplierName, url: baseUrl, originalInput: newValue }
+      }));
+
+      toast.success(`Detected supplier: ${supplierName} from ${domain}`);
     } else {
       setCustomSupplier(newValue);
       onChange(newValue);
