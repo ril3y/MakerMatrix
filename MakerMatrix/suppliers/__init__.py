@@ -30,10 +30,11 @@ from .exceptions import SupplierError, SupplierConfigurationError, SupplierAuthe
 
 # Import supplier implementations to register them
 from . import digikey
-from . import lcsc  
+from . import lcsc
 from . import mouser
 from . import mcmaster_carr
 from . import bolt_depot
+from . import adafruit
 
 __all__ = [
     'BaseSupplier',

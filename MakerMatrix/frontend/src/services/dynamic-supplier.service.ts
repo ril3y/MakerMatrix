@@ -78,8 +78,26 @@ export class DynamicSupplierService {
    * Get all available suppliers
    */
   async getAvailableSuppliers(): Promise<string[]> {
-    const response = await apiClient.get('/api/suppliers/');
-    return response.data.data;
+    try {
+      const response = await apiClient.get('/api/suppliers/');
+      console.log('getAvailableSuppliers raw response:', response);
+      console.log('getAvailableSuppliers response.data:', response.data);
+
+      // Handle different response formats
+      if (response.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      } else if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      } else if (response && Array.isArray(response)) {
+        return response;
+      }
+
+      console.warn('Unexpected response format for available suppliers:', response);
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch available suppliers:', error);
+      return [];
+    }
   }
 
   /**

@@ -23,20 +23,22 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
   location
 }) => {
   const locationTypes = [
-    { value: 'General', label: 'General' },
-    { value: 'Warehouse', label: 'Warehouse' },
-    { value: 'Room', label: 'Room' },
-    { value: 'Shelf', label: 'Shelf' },
-    { value: 'Bin', label: 'Bin' },
-    { value: 'Drawer', label: 'Drawer' },
-    { value: 'Box', label: 'Box' }
+    { value: 'standard', label: 'Standard' },
+    { value: 'warehouse', label: 'Warehouse' },
+    { value: 'toolbox', label: 'Toolbox' },
+    { value: 'room', label: 'Room' },
+    { value: 'shelf', label: 'Shelf' },
+    { value: 'drawer', label: 'Drawer' },
+    { value: 'bin', label: 'Bin' },
+    { value: 'cabinet', label: 'Cabinet' },
+    { value: 'building', label: 'Building' }
   ]
 
   const [formData, setFormData] = useState<UpdateLocationRequest>({
     id: location.id,
     name: location.name,
     description: location.description || '',
-    location_type: location.location_type || 'General',
+    location_type: location.location_type || 'standard',
     parent_id: location.parent_id || undefined
   })
   const [loading, setLoading] = useState(false)
@@ -56,7 +58,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
         id: location.id,
         name: location.name,
         description: location.description || '',
-        location_type: location.location_type || 'General',
+        location_type: location.location_type || 'standard',
         parent_id: location.parent_id || undefined
       })
       setError(null)
@@ -218,12 +220,15 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
           />
         </FormField>
 
-        <FormField label="Location Type">
+        <FormField label="Location Type" description="Select from common types or create a custom type">
           <CustomSelect
-            value={formData.location_type || 'General'}
+            value={formData.location_type || 'standard'}
             onChange={(value) => setFormData({ ...formData, location_type: value })}
             options={locationTypes}
-            placeholder="Select location type"
+            placeholder="Select or type a custom type"
+            searchPlaceholder="Type to search or create custom type..."
+            allowCustom={true}
+            customLabel="Create custom type"
           />
         </FormField>
 

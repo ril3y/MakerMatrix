@@ -3,9 +3,10 @@ import { Save, Package, Plus, X, Upload, Image, Tag, MapPin } from 'lucide-react
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
-import CategorySelector from '@/components/ui/CategorySelector'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import SupplierSelector from '@/components/ui/SupplierSelector'
+import { TooltipIcon } from '@/components/ui/Tooltip'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import { partsService } from '@/services/parts.service'
@@ -13,7 +14,8 @@ import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
 import { utilityService } from '@/services/utility.service'
 import { tasksService } from '@/services/tasks.service'
-import { supplierService, CredentialFieldDefinition } from '@/services/supplier.service'
+import supplierService from '@/services/supplier.service'
+import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 import { CreatePartRequest } from '@/types/parts'
 import { Location, Category } from '@/types/parts'
 import toast from 'react-hot-toast'
@@ -51,6 +53,12 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   // Supplier required fields for enrichment
   const [supplierRequiredFields, setSupplierRequiredFields] = useState<CredentialFieldDefinition[]>([])
   const [loadingSupplierFields, setLoadingSupplierFields] = useState(false)
+  const [configuredSuppliers, setConfiguredSuppliers] = useState<string[]>([])
+  const [availableSuppliers, setAvailableSuppliers] = useState<string[]>([]) // Suppliers in registry
+
+  // Smart supplier detection state
+  const [showConfigureSupplierPrompt, setShowConfigureSupplierPrompt] = useState(false)
+  const [detectedSupplierInfo, setDetectedSupplierInfo] = useState<{name: string, url: string} | null>(null)
 
   // Inline modal states
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
@@ -63,29 +71,62 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   }, [isOpen])
 
   // Fetch supplier enrichment requirements when supplier changes
+  // Note: This is only for old-style suppliers with hardcoded requirements
+  // New-style API suppliers use auto-enrichment from URL instead
   useEffect(() => {
     if (formData.supplier && formData.supplier.trim() && formData.supplier !== '__custom__') {
-      loadSupplierRequiredFields(formData.supplier)
+      const supplierLower = formData.supplier.toLowerCase()
+
+      // Check if this is an API supplier (in registry) AND configured
+      const isInRegistry = availableSuppliers.includes(supplierLower)
+      const isConfigured = configuredSuppliers.includes(supplierLower)
+
+      // Only try to load enrichment requirements for configured suppliers
+      // The endpoint will return 404 for new-style suppliers, which is fine
+      if (isInRegistry && isConfigured) {
+        loadSupplierRequiredFields(formData.supplier)
+      } else {
+        // Either not an API supplier, or not configured yet - no enrichment requirements
+        setSupplierRequiredFields([])
+      }
     } else {
       setSupplierRequiredFields([])
     }
-  }, [formData.supplier])
+  }, [formData.supplier, configuredSuppliers, availableSuppliers])
 
   const loadData = async () => {
     try {
       setLoadingData(true)
-      const [locationsData, categoriesData] = await Promise.all([
+      const [locationsData, categoriesData, suppliersData, availableSuppliersData] = await Promise.all([
         locationsService.getAllLocations(),
-        categoriesService.getAllCategories()
+        categoriesService.getAllCategories(),
+        supplierService.getSuppliers(true), // Get only enabled/configured suppliers
+        dynamicSupplierService.getAvailableSuppliers() // Get all available suppliers from registry
       ])
       setLocations(locationsData || [])
       setCategories(categoriesData || [])
+
+      // Store configured supplier names for checking against custom suppliers
+      const configuredNames = suppliersData.map(s => s.supplier_name.toLowerCase())
+      setConfiguredSuppliers(configuredNames)
+
+      // Store available suppliers from registry - these are already lowercase strings
+      const availableNames = Array.isArray(availableSuppliersData)
+        ? availableSuppliersData.map(s => s.toLowerCase())
+        : []
+      setAvailableSuppliers(availableNames)
+
+      console.log('🔍 Smart Supplier Detection Setup:')
+      console.log('  Configured suppliers:', configuredNames)
+      console.log('  Available suppliers from registry:', availableNames)
     } catch (error) {
       console.error('Failed to load data:', error)
       toast.error('Failed to load data')
       // Set empty arrays as fallbacks
       setLocations([])
       setCategories([])
+      setConfiguredSuppliers([])
+      setAvailableSuppliers([])
     } finally {
       setLoadingData(false)
     }
@@ -216,22 +257,29 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       console.log('🚀 Creating part with data:', submitData)
       const createdPart = await partsService.createPart(submitData)
       toast.success('Part created successfully')
-      
-      // Auto-enrich if supplier is specified
+
+      // Auto-enrich only if supplier is configured and supports enrichment
       if (formData.supplier && formData.supplier.trim()) {
-        try {
-          console.log(`Auto-enriching part ${createdPart.id} with supplier ${formData.supplier}`)
-          const enrichmentTask = await tasksService.createPartEnrichmentTask({
-            part_id: createdPart.id,
-            supplier: formData.supplier.trim(),
-            capabilities: ['get_part_details', 'fetch_datasheet', 'fetch_pricing_stock'],
-            force_refresh: false
-          })
-          toast.success(`Enrichment task created: ${enrichmentTask.data.name}`)
-          console.log('Enrichment task created:', enrichmentTask.data)
-        } catch (error) {
-          console.error('Failed to create enrichment task:', error)
-          toast.error('Part created but enrichment failed to start')
+        // Check if supplier is in the configured suppliers list (has API capabilities)
+        const isConfiguredSupplier = configuredSuppliers.includes(formData.supplier.toLowerCase())
+
+        if (isConfiguredSupplier) {
+          try {
+            console.log(`Auto-enriching part ${createdPart.id} with supplier ${formData.supplier}`)
+            const enrichmentTask = await tasksService.createPartEnrichmentTask({
+              part_id: createdPart.id,
+              supplier: formData.supplier.trim(),
+              capabilities: ['get_part_details', 'fetch_datasheet', 'fetch_pricing_stock'],
+              force_refresh: false
+            })
+            toast.success(`Enrichment task created: ${enrichmentTask.data.name}`)
+            console.log('Enrichment task created:', enrichmentTask.data)
+          } catch (error) {
+            console.error('Failed to create enrichment task:', error)
+            toast.error('Part created but enrichment failed to start')
+          }
+        } else {
+          console.log(`Supplier "${formData.supplier}" is not configured for enrichment - skipping auto-enrich`)
         }
       }
       
@@ -294,13 +342,203 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setCustomProperties(customProperties.filter((_, i) => i !== index))
   }
 
-  const toggleCategory = (categoryId: string) => {
-    if (selectedCategories.includes(categoryId)) {
-      setSelectedCategories(selectedCategories.filter(id => id !== categoryId))
-    } else {
-      setSelectedCategories([...selectedCategories, categoryId])
+  const extractDomainFromUrl = (url: string): string | null => {
+    try {
+      // Check if input looks like a URL
+      const urlPattern = /^https?:\/\//i;
+      if (!urlPattern.test(url)) {
+        return null;
+      }
+
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname;
+
+      // Remove www. prefix if present
+      const domain = hostname.replace(/^www\./, '');
+
+      // Extract base domain name (e.g., "ebay" from "ebay.com")
+      const parts = domain.split('.');
+      if (parts.length >= 2) {
+        return parts[0]; // Return first part (e.g., "ebay")
+      }
+
+      return domain;
+    } catch (err) {
+      return null;
     }
-  }
+  };
+
+  const handleSupplierUrlChange = async (url: string) => {
+    setFormData({ ...formData, supplier_url: url });
+
+    // If supplier field is empty and URL contains a domain, auto-populate supplier
+    if (!formData.supplier && url.trim()) {
+      const supplierName = extractDomainFromUrl(url);
+      if (supplierName) {
+        // Capitalize first letter
+        const formattedName = supplierName.charAt(0).toUpperCase() + supplierName.slice(1);
+        setFormData({ ...formData, supplier_url: url, supplier: formattedName });
+        toast.success(`Auto-detected supplier: ${formattedName}`);
+
+        // Check if supplier is available in registry but not configured
+        const isAvailable = availableSuppliers.includes(supplierName.toLowerCase());
+        const isConfigured = configuredSuppliers.includes(supplierName.toLowerCase());
+
+        console.log('🔍 Smart Supplier Detection Check:')
+        console.log('  Detected supplier:', supplierName.toLowerCase())
+        console.log('  Is available in registry?', isAvailable)
+        console.log('  Is configured?', isConfigured)
+        console.log('  Available suppliers:', availableSuppliers)
+        console.log('  Configured suppliers:', configuredSuppliers)
+
+        if (isAvailable && !isConfigured) {
+          // Supplier supports enrichment but needs configuration
+          console.log('✨ Showing configuration prompt for', formattedName)
+          setDetectedSupplierInfo({ name: formattedName, url });
+          setShowConfigureSupplierPrompt(true);
+          return; // Don't create simple supplier yet - wait for user choice
+        }
+
+        // If supplier is not available in registry, create as simple supplier
+        if (!isAvailable) {
+          console.log('📎 Creating simple supplier for', formattedName)
+          await createSimpleSupplier(supplierName, formattedName, url);
+        } else if (isConfigured) {
+          console.log('✅ Supplier is already configured - attempting auto-enrichment')
+          // Supplier is configured - try to auto-enrich from URL
+          await attemptAutoEnrichment(url, supplierName, formattedName);
+        }
+      }
+    }
+  };
+
+  const attemptAutoEnrichment = async (url: string, supplierName: string, formattedName: string) => {
+    try {
+      // Extract product/part number from URL
+      const productId = extractProductIdFromUrl(url);
+      if (!productId) {
+        console.log('Could not extract product ID from URL');
+        return;
+      }
+
+      console.log(`🔄 Auto-enriching from ${formattedName} product ID: ${productId}`);
+      toast.loading(`Fetching part details from ${formattedName}...`, { duration: 2000 });
+
+      // Call the supplier API using the service method with empty credentials
+      // The backend should use stored credentials for configured suppliers
+      const partDetails = await dynamicSupplierService.getPartDetails(
+        supplierName.toLowerCase(),
+        productId,
+        {}, // Empty credentials - backend will use stored credentials
+        {}  // Empty config - backend will use stored config
+      );
+
+      if (!partDetails) {
+        console.warn('No part details returned');
+        return;
+      }
+
+      console.log('✅ Auto-enriched part details:', partDetails);
+
+      // Auto-populate form fields
+      setFormData(prev => ({
+        ...prev,
+        name: partDetails.description || partDetails.part_name || prev.name,
+        part_number: partDetails.supplier_part_number || productId || prev.part_number,
+        supplier_part_number: partDetails.supplier_part_number || productId || prev.supplier_part_number,
+        description: partDetails.description || prev.description,
+      }));
+
+      // Set image if available
+      if (partDetails.image_url) {
+        setImageUrl(partDetails.image_url);
+      }
+
+      toast.success(`Auto-populated from ${formattedName}!`);
+    } catch (error: any) {
+      console.error('Error during auto-enrichment:', error);
+      // Check if this is a credentials error
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('Supplier credentials not configured or invalid');
+        toast.error(`${formattedName} needs to be configured with valid credentials`);
+      }
+      // Silent failure for other errors - user can manually enter details
+    }
+  };
+
+  const extractProductIdFromUrl = (url: string): string | null => {
+    try {
+      // Common patterns for different suppliers
+      const patterns = [
+        /\/product\/(\d+)/i,           // Adafruit: /product/4759
+        /\/products\/(.+?)(?:\/|$)/i,  // Generic: /products/ABC123
+        /\/item\/(.+?)(?:\/|$)/i,      // Generic: /item/ABC123
+        /\/p\/(.+?)(?:\/|$)/i,         // Short: /p/ABC123
+      ];
+
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) {
+          return match[1];
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const createSimpleSupplier = async (supplierName: string, formattedName: string, url: string) => {
+    try {
+      // Check if supplier already exists
+      const existingSuppliers = await supplierService.getSuppliers();
+      const supplierExists = existingSuppliers.some(
+        s => s.supplier_name.toLowerCase() === supplierName.toLowerCase()
+      );
+
+      if (!supplierExists) {
+        // Create simple supplier config with website URL (triggers favicon fetch on backend)
+        const supplierConfig = {
+          supplier_name: supplierName.toLowerCase(),
+          display_name: formattedName,
+          description: `Auto-detected supplier: ${formattedName}`,
+          website_url: url.startsWith('http') ? url : `https://${url}`,
+          supplier_type: 'simple' as const,
+          api_type: 'rest' as const,
+          base_url: '',
+          enabled: true,
+          supports_datasheet: false,
+          supports_image: false,
+          supports_pricing: false,
+          supports_stock: false,
+          supports_specifications: false
+        };
+
+        await supplierService.createSupplier(supplierConfig);
+        console.log(`Created simple supplier config for ${formattedName} - favicon will be fetched automatically`);
+      }
+    } catch (error) {
+      // Silent failure - supplier config creation is optional, part creation will still work
+      console.warn('Failed to create supplier config for favicon:', error);
+    }
+  };
+
+  const handleConfigureSupplier = () => {
+    // Close current modal and navigate to supplier configuration
+    setShowConfigureSupplierPrompt(false);
+    toast.info(`Please configure ${detectedSupplierInfo?.name} in the Suppliers page to enable enrichment`);
+    // TODO: Could open supplier configuration modal directly here
+  };
+
+  const handleAddAsSimpleSupplier = async () => {
+    if (detectedSupplierInfo) {
+      const supplierName = detectedSupplierInfo.name.toLowerCase();
+      await createSimpleSupplier(supplierName, detectedSupplierInfo.name, detectedSupplierInfo.url);
+      setShowConfigureSupplierPrompt(false);
+      setDetectedSupplierInfo(null);
+    }
+  };
 
   const handleCategoryCreated = async () => {
     // Reload categories and auto-select the new one
@@ -345,7 +583,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add New Part" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="Add New Part" size="xl">
       {loadingData ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -449,13 +687,17 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             </FormField>
           </div>
 
-          <FormField label="Supplier URL" error={errors.supplier_url}>
+          <FormField
+            label="Supplier URL"
+            error={errors.supplier_url}
+            description="Paste product URL - supplier will be auto-detected if not set"
+          >
             <input
               type="url"
               className="input w-full"
               value={formData.supplier_url}
-              onChange={(e) => setFormData({ ...formData, supplier_url: e.target.value })}
-              placeholder="https://supplier.com/part-page"
+              onChange={(e) => handleSupplierUrlChange(e.target.value)}
+              placeholder="https://ebay.com/itm/12345... (auto-detects supplier)"
             />
           </FormField>
 
@@ -530,20 +772,55 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 Add Category
               </button>
             </div>
-            <CategorySelector
-              categories={categories}
-              selectedCategories={selectedCategories}
-              onToggleCategory={toggleCategory}
-              description="Select categories that apply to this part"
-              layout="checkboxes"
-              showLabel={false}
+            <CustomSelect
+              value=""
+              onChange={() => {}} // Not used in multi-select mode
+              multiSelect={true}
+              selectedValues={selectedCategories}
+              onMultiSelectChange={(values) => setSelectedCategories(values)}
+              options={categories.map(cat => ({
+                value: cat.id,
+                label: cat.name
+              }))}
+              placeholder="Select categories..."
+              searchable={true}
+              searchPlaceholder="Search categories..."
+              error={errors.categories}
             />
+            <p className="text-xs text-theme-muted">
+              Select categories that apply to this part
+            </p>
           </div>
 
           {/* Custom Properties */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-primary">Custom Properties</label>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-primary">Custom Properties</label>
+                <TooltipIcon
+                  variant="help"
+                  position="left"
+                  tooltip={
+                    <div className="space-y-2">
+                      <p className="font-semibold">What are Custom Properties?</p>
+                      <p>Add any additional information specific to this part that doesn't fit in the standard fields.</p>
+                      <div className="pt-2 border-t border-white/20">
+                        <p className="font-semibold mb-1">Examples:</p>
+                        <ul className="text-xs space-y-1 ml-4 list-disc">
+                          <li><span className="font-medium">Tolerance:</span> ±5%</li>
+                          <li><span className="font-medium">Operating Temp:</span> -40°C to 85°C</li>
+                          <li><span className="font-medium">Package Type:</span> SMD 0805</li>
+                          <li><span className="font-medium">Color:</span> Blue</li>
+                          <li><span className="font-medium">Material:</span> ABS Plastic</li>
+                        </ul>
+                      </div>
+                      <p className="text-xs pt-2 border-t border-white/20">
+                        💡 Tip: These properties are searchable and can be used to filter parts later.
+                      </p>
+                    </div>
+                  }
+                />
+              </div>
               <button
                 type="button"
                 onClick={addCustomProperty}
@@ -553,19 +830,19 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 Add Property
               </button>
             </div>
-            
+
             {customProperties.map((prop, index) => (
               <div key={index} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Property name"
+                  placeholder="Property name (e.g., Tolerance)"
                   className="input flex-1"
                   value={prop.key}
                   onChange={(e) => updateCustomProperty(index, 'key', e.target.value)}
                 />
                 <input
                   type="text"
-                  placeholder="Property value"
+                  placeholder="Property value (e.g., ±5%)"
                   className="input flex-1"
                   value={prop.value}
                   onChange={(e) => updateCustomProperty(index, 'value', e.target.value)}
@@ -579,9 +856,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 </button>
               </div>
             ))}
-            
+
             {customProperties.length === 0 && (
-              <p className="text-sm text-secondary">No custom properties added</p>
+              <p className="text-sm text-theme-secondary">
+                No custom properties added. Click "Add Property" to include additional part specifications.
+              </p>
             )}
           </div>
 
@@ -618,12 +897,70 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         onSuccess={handleCategoryCreated}
         existingCategories={categories.map(c => c.name)}
       />
-      
+
       <AddLocationModal
         isOpen={showAddLocationModal}
         onClose={() => setShowAddLocationModal(false)}
         onSuccess={handleLocationCreated}
       />
+
+      {/* Supplier Configuration Prompt */}
+      <Modal
+        isOpen={showConfigureSupplierPrompt}
+        onClose={() => {
+          setShowConfigureSupplierPrompt(false)
+          setDetectedSupplierInfo(null)
+        }}
+        title="Supplier Supports Enrichment"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p className="text-sm text-primary">
+              <strong className="font-semibold">{detectedSupplierInfo?.name}</strong> is available in the supplier registry and supports automatic part enrichment!
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm text-primary">
+              You have two options:
+            </p>
+
+            <div className="space-y-2">
+              <div className="border border-theme-primary rounded-lg p-3 bg-theme-secondary">
+                <p className="font-medium text-sm text-primary mb-1">✨ Configure for Enrichment (Recommended)</p>
+                <p className="text-xs text-theme-muted">
+                  Set up API credentials to enable automatic fetching of datasheets, images, specifications, pricing, and stock levels.
+                </p>
+              </div>
+
+              <div className="border border-theme-primary rounded-lg p-3 bg-theme-secondary">
+                <p className="font-medium text-sm text-primary mb-1">📎 Add as Simple Supplier</p>
+                <p className="text-xs text-theme-muted">
+                  Just save the URL and favicon - no automatic enrichment features.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={handleAddAsSimpleSupplier}
+              className="btn btn-secondary"
+            >
+              Add as Simple Supplier
+            </button>
+            <button
+              type="button"
+              onClick={handleConfigureSupplier}
+              className="btn btn-primary"
+            >
+              Configure for Enrichment
+            </button>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   )
 }

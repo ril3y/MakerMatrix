@@ -15,7 +15,8 @@ export const baseLocationSchema = z.object({
   
   parent_id: commonValidation.optionalUuid,
   
-  location_type: z.enum(['standard', 'warehouse', 'shelf', 'bin', 'drawer', 'cabinet', 'room', 'building'])
+  location_type: z.string()
+    .min(1, 'Location type is required')
     .default('standard'),
   
   image_url: commonValidation.optionalUrl,
@@ -86,7 +87,7 @@ export const updateLocationFormSchema = baseUpdateLocationSchema.extend({
 export const locationSearchSchema = z.object({
   search_term: commonValidation.optionalTrimmedString,
   parent_id: commonValidation.optionalUuid,
-  location_type: z.enum(['standard', 'warehouse', 'shelf', 'bin', 'drawer', 'cabinet', 'room', 'building']).optional(),
+  location_type: z.string().optional(),
   has_parts: z.boolean().optional(),
   include_children: z.boolean().default(true),
 })

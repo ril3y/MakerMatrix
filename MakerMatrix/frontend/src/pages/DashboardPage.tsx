@@ -1,204 +1,533 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Package, MapPin, Tags, Users, Activity, RefreshCw } from 'lucide-react'
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useDashboardStore } from '@/store/dashboardStore'
-import LoadingScreen from '@/components/ui/LoadingScreen'
-import RecentActivity from '@/components/dashboard/RecentActivity'
+import {
+  Package,
+  AlertTriangle,
+  MapPin,
+  Tag,
+  TrendingUp,
+  TrendingDown,
+  RefreshCw,
+  ChevronUp,
+  ChevronDown,
+  BarChart3
+} from 'lucide-react'
+import { analyticsService } from '@/services/analytics.service'
+import { Bar, Doughnut } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js'
+import toast from 'react-hot-toast'
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+)
+
+interface InventorySummary {
+  total_parts: number
+  total_units: number
+  total_categories: number
+  total_locations: number
+  parts_with_location: number
+  parts_without_location: number
+  low_stock_count: number
+  zero_stock_count: number
+}
+
+interface CategoryDistribution {
+  category: string
+  part_count: number
+  total_quantity: number
+}
+
+interface LocationDistribution {
+  location: string
+  part_count: number
+  total_quantity: number
+}
+
+interface StockedPart {
+  id: string
+  part_name: string
+  part_number: string
+  quantity: number
+  supplier: string
+  location: string
+}
+
+interface LowStockPart {
+  id: string
+  part_name: string
+  part_number: string
+  quantity: number
+  supplier: string
+  location_name: string
+}
+
+interface DashboardData {
+  summary: InventorySummary
+  parts_by_category: CategoryDistribution[]
+  parts_by_location: LocationDistribution[]
+  most_stocked_parts: StockedPart[]
+  least_stocked_parts: StockedPart[]
+  low_stock_parts: LowStockPart[]
+}
 
 const DashboardPage = () => {
-  const { stats, isLoading, error, loadStats, refreshStats, clearError } = useDashboardStore()
-  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [expandedSections, setExpandedSections] = useState({
+    distribution: true,
+    topParts: true,
+    alerts: true
+  })
 
   useEffect(() => {
-    loadStats()
+    loadDashboardData()
   }, [])
 
-  const handleRefresh = () => {
-    refreshStats()
-  }
-
-  const handleCardClick = (title: string) => {
-    switch (title) {
-      case 'Total Parts':
-        navigate('/parts')
-        break
-      case 'Locations':
-        navigate('/locations')
-        break
-      case 'Categories':
-        navigate('/categories')
-        break
-      case 'Active Users':
-        navigate('/users')
-        break
-      default:
-        break
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      const response = await analyticsService.getDashboardSummary()
+      setData(response)
+    } catch (error) {
+      toast.error('Failed to load dashboard data')
+      console.error('Dashboard error:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  if (isLoading && !stats) {
-    return <LoadingScreen />
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
   }
 
-  const dashboardStats = [
-    {
-      title: 'Total Parts',
-      value: stats?.totalParts?.toString() || '0',
-      icon: Package,
-      change: '',
-      changeType: 'neutral' as const,
-    },
-    {
-      title: 'Locations',
-      value: stats?.totalLocations?.toString() || '0',
-      icon: MapPin,
-      change: '',
-      changeType: 'neutral' as const,
-    },
-    {
-      title: 'Categories',
-      value: stats?.totalCategories?.toString() || '0',
-      icon: Tags,
-      change: '',
-      changeType: 'neutral' as const,
-    },
-    {
-      title: 'Active Users',
-      value: stats?.activeUsers?.toString() || '0',
-      icon: Users,
-      change: '',
-      changeType: 'neutral' as const,
-    },
-  ]
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-secondary">No dashboard data available</p>
+      </div>
+    )
+  }
+
+  // Prepare chart data
+  const categoryChartData = {
+    labels: data.parts_by_category.length > 0
+      ? data.parts_by_category.slice(0, 10).map(item => item.category)
+      : ['No Data'],
+    datasets: [
+      {
+        label: 'Parts Count',
+        data: data.parts_by_category.length > 0
+          ? data.parts_by_category.slice(0, 10).map(item => item.part_count)
+          : [0],
+        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1
+      }
+    ]
+  }
+
+  const locationChartData = {
+    labels: data.parts_by_location.length > 0
+      ? data.parts_by_location.slice(0, 8).map(item => item.location)
+      : ['No Data'],
+    datasets: [
+      {
+        data: data.parts_by_location.length > 0
+          ? data.parts_by_location.slice(0, 8).map(item => item.part_count)
+          : [0],
+        backgroundColor: [
+          'rgba(99, 102, 241, 0.8)',
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(34, 197, 94, 0.8)',
+          'rgba(251, 191, 36, 0.8)',
+          'rgba(168, 85, 247, 0.8)',
+          'rgba(236, 72, 153, 0.8)',
+          'rgba(14, 165, 233, 0.8)',
+          'rgba(132, 204, 22, 0.8)'
+        ],
+        borderWidth: 0
+      }
+    ]
+  }
 
   return (
     <div className="max-w-screen-2xl space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
+      >
         <div>
-          <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
-          <p className="text-secondary mt-2">
-            Welcome to MakerMatrix - Battle With Bytes Inventory System
+          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
+            <BarChart3 className="w-6 h-6" />
+            Dashboard
+          </h1>
+          <p className="text-secondary mt-1">
+            Overview of your inventory
           </p>
         </div>
-        <button 
-          onClick={handleRefresh}
-          disabled={isLoading}
-          className="btn btn-secondary flex items-center gap-2"
+        <div className="flex gap-2">
+          <button
+            onClick={loadDashboardData}
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="card p-6"
         >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-secondary">Total Parts</p>
+              <p className="text-2xl font-bold text-primary">
+                {data.summary.total_parts.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted mt-1">
+                {data.summary.total_units.toLocaleString()} total units
+              </p>
+            </div>
+            <Package className="w-8 h-8 text-primary opacity-20" />
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="card p-6"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-secondary">Low Stock Alerts</p>
+              <p className="text-2xl font-bold text-error">
+                {data.summary.low_stock_count}
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Parts below 10 units
+              </p>
+            </div>
+            <AlertTriangle className="w-8 h-8 text-error opacity-20" />
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="card p-6"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-secondary">Categories</p>
+              <p className="text-2xl font-bold text-primary">
+                {data.summary.total_categories}
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Active categories
+              </p>
+            </div>
+            <Tag className="w-8 h-8 text-primary opacity-20" />
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="card p-6"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-secondary">Locations</p>
+              <p className="text-2xl font-bold text-primary">
+                {data.summary.total_locations}
+              </p>
+              <p className="text-xs text-muted mt-1">
+                {data.summary.parts_with_location} parts located
+              </p>
+            </div>
+            <MapPin className="w-8 h-8 text-primary opacity-20" />
+          </div>
+        </motion.div>
       </div>
 
-      {/* Error Display */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="bg-red-500/10 border border-red-500/20 rounded-lg p-4"
+      {/* Distribution Charts Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="card"
+      >
+        <div
+          className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
+          onClick={() => toggleSection('distribution')}
         >
-          <p className="text-red-400">{error}</p>
-          <button 
-            onClick={clearError}
-            className="text-red-300 hover:text-red-200 text-sm mt-2"
-          >
-            Dismiss
-          </button>
-        </motion.div>
-      )}
+          <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Parts Distribution
+          </h2>
+          {expandedSections.distribution ? <ChevronUp /> : <ChevronDown />}
+        </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {dashboardStats.map((stat, index) => (
-          <motion.div
-            key={stat.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
-            className="card p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 group"
-            onClick={() => handleCardClick(stat.title)}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-secondary group-hover:text-primary transition-colors">
-                  {stat.title}
-                </p>
-                <p className="text-2xl font-bold text-primary group-hover:text-primary transition-colors">
-                  {stat.value}
-                </p>
-                {stat.change && (
-                  <div className="flex items-center mt-2">
-                    <span
-                      className="text-sm font-medium text-muted"
-                    >
-                      {stat.change}
-                    </span>
+        {expandedSections.distribution && (
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Categories Chart */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4">By Category</h3>
+              <div className="h-64">
+                {data.parts_by_category.length > 0 ? (
+                  <Bar
+                    data={categoryChartData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            precision: 0
+                          }
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted">
+                    No category data available
                   </div>
                 )}
               </div>
-              <div className="p-3 bg-background-secondary rounded-lg group-hover:bg-primary-10 transition-colors">
-                <stat.icon className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+            </div>
+
+            {/* Locations Chart */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4">By Location</h3>
+              <div className="h-64">
+                {data.parts_by_location.length > 0 ? (
+                  <Doughnut
+                    data={locationChartData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'right',
+                          labels: {
+                            padding: 10,
+                            usePointStyle: true
+                          }
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted">
+                    No location data available
+                  </div>
+                )}
               </div>
             </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Recent Activity */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4 }}
-      >
-        <RecentActivity limit={10} refreshInterval={30000} />
+          </div>
+        )}
       </motion.div>
 
-      {/* Quick Actions */}
+      {/* Top Parts Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.5 }}
+        transition={{ delay: 0.35 }}
         className="card"
       >
-        <div className="card-header">
-          <h2 className="text-xl font-semibold text-primary">
-            Quick Actions
+        <div
+          className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
+          onClick={() => toggleSection('topParts')}
+        >
+          <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+            <Package className="w-5 h-5" />
+            Stock Levels
           </h2>
+          {expandedSections.topParts ? <ChevronUp /> : <ChevronDown />}
         </div>
-        <div className="card-content">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button 
-              onClick={() => navigate('/parts')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
-            >
-              <Package className="w-5 h-5" />
-              <span>Parts</span>
-            </button>
-            <button 
-              onClick={() => navigate('/locations')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
-            >
-              <MapPin className="w-5 h-5" />
-              <span>Add Location</span>
-            </button>
-            <button 
-              onClick={() => navigate('/categories')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
-            >
-              <Tags className="w-5 h-5" />
-              <span>Manage Categories</span>
-            </button>
-            <button 
-              onClick={() => navigate('/users')}
-              className="btn btn-secondary flex flex-col items-center gap-2 py-4 hover:bg-primary-10 transition-colors"
-            >
-              <Users className="w-5 h-5" />
-              <span>Manage Users</span>
-            </button>
+
+        {expandedSections.topParts && (
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Most Stocked */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-success" />
+                Most Stocked Parts
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="table w-full">
+                  <thead>
+                    <tr>
+                      <th>Part Name</th>
+                      <th>Quantity</th>
+                      <th>Location</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.most_stocked_parts.length > 0 ? (
+                      data.most_stocked_parts.map((part) => (
+                        <tr key={part.id}>
+                          <td>
+                            <div>
+                              <div className="font-medium text-primary">{part.part_name}</div>
+                              <div className="text-xs text-muted">{part.part_number}</div>
+                            </div>
+                          </td>
+                          <td className="font-semibold text-success">{part.quantity.toLocaleString()}</td>
+                          <td className="text-secondary text-sm">{part.location}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="text-center text-muted py-4">
+                          No parts available
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Least Stocked */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-warning" />
+                Least Stocked Parts
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="table w-full">
+                  <thead>
+                    <tr>
+                      <th>Part Name</th>
+                      <th>Quantity</th>
+                      <th>Location</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.least_stocked_parts.length > 0 ? (
+                      data.least_stocked_parts.map((part) => (
+                        <tr key={part.id}>
+                          <td>
+                            <div>
+                              <div className="font-medium text-primary">{part.part_name}</div>
+                              <div className="text-xs text-muted">{part.part_number}</div>
+                            </div>
+                          </td>
+                          <td className="font-semibold text-warning">{part.quantity.toLocaleString()}</td>
+                          <td className="text-secondary text-sm">{part.location}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="text-center text-muted py-4">
+                          No parts available
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </motion.div>
+
+      {/* Low Stock Alerts Section */}
+      {data.low_stock_parts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="card"
+        >
+          <div
+            className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
+            onClick={() => toggleSection('alerts')}
+          >
+            <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-error" />
+              Low Stock Alerts
+            </h2>
+            {expandedSections.alerts ? <ChevronUp /> : <ChevronDown />}
+          </div>
+
+          {expandedSections.alerts && (
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.low_stock_parts.map((part) => (
+                  <div key={part.id} className="bg-error/5 border border-error/20 rounded-lg p-4">
+                    <h4 className="font-medium text-primary">{part.part_name}</h4>
+                    <p className="text-sm text-secondary mb-2">{part.part_number}</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted">Current Stock:</span>
+                        <span className="text-error font-medium">{part.quantity}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted">Location:</span>
+                        <span className="text-secondary">{part.location_name || 'No Location'}</span>
+                      </div>
+                      {part.supplier && (
+                        <div className="flex justify-between">
+                          <span className="text-muted">Supplier:</span>
+                          <span className="text-secondary text-xs">{part.supplier}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
     </div>
   )
 }

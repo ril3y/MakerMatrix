@@ -5,7 +5,7 @@
  * credentials, and enrichment capabilities with security features.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Settings, Upload, AlertTriangle, CheckCircle, XCircle, Activity, Clock } from 'lucide-react';
 import { supplierService, SupplierConfig } from '../../services/supplier.service';
 import { dynamicSupplierService } from '../../services/dynamic-supplier.service';
@@ -20,13 +20,13 @@ export const SupplierConfigPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<SupplierConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddSimpleModal, setShowAddSimpleModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<SupplierConfig | null>(null);
   const [showImportExport, setShowImportExport] = useState(false);
-  
+
   // Cache for credential requirements to avoid repeated API calls
   const [credentialRequirements, setCredentialRequirements] = useState<Record<string, boolean>>({});
 
@@ -39,11 +39,16 @@ export const SupplierConfigPage: React.FC = () => {
   // Rate limit data
   const [rateLimitData, setRateLimitData] = useState<Record<string, SupplierRateLimitData>>({});
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
-  
+
+  // Ref to prevent duplicate initial loads (React StrictMode in dev runs effects twice)
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
-    loadSuppliers();
-    loadRateLimitData();
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      loadSuppliers();
+      loadRateLimitData();
+    }
   }, []);
 
   const loadSuppliers = async () => {
@@ -52,85 +57,84 @@ export const SupplierConfigPage: React.FC = () => {
       setError(null);
       const data = await supplierService.getSuppliers();
       setSuppliers(data || []);
-      
-      // Load credential requirements and status for each supplier
-      const loadingStates: Record<string, boolean> = {};
 
-      // Set all suppliers to loading initially
-      for (const supplier of data || []) {
+      // Separate simple and API suppliers
+      const apiSuppliers = (data || []).filter(s => s.supplier_type !== 'simple');
+      const simpleSuppliers = (data || []).filter(s => s.supplier_type === 'simple');
+
+      // Set initial loading states
+      const loadingStates: Record<string, boolean> = {};
+      const requirements: Record<string, boolean> = {};
+      const statuses: Record<string, any> = {};
+
+      // Handle simple suppliers (no API calls needed)
+      for (const supplier of simpleSuppliers) {
+        loadingStates[supplier.supplier_name] = false;
+        requirements[supplier.supplier_name] = false;
+        statuses[supplier.supplier_name] = {
+          is_configured: true,
+          configured_fields: [],
+          supplier_type: 'simple'
+        };
+      }
+
+      // Set API suppliers to loading
+      for (const supplier of apiSuppliers) {
         loadingStates[supplier.supplier_name] = true;
       }
+
+      // Update states once for simple suppliers
       setLoadingCredentialStatus(loadingStates);
+      setCredentialRequirements(requirements);
+      setCredentialStatuses(statuses);
 
-      // Load credential status for each supplier (async operations)
-      // Update state immediately after each check to avoid flashing "Not Configured"
-      for (const supplier of data || []) {
-        // Skip credential checks for simple suppliers (they don't have APIs)
-        if (supplier.supplier_type === 'simple') {
-          setCredentialRequirements(prev => ({
-            ...prev,
-            [supplier.supplier_name]: false
-          }));
-          setCredentialStatuses(prev => ({
-            ...prev,
-            [supplier.supplier_name]: { is_configured: true, configured_fields: [], supplier_type: 'simple' }
-          }));
-          setLoadingCredentialStatus(prev => ({
-            ...prev,
-            [supplier.supplier_name]: false
-          }));
-          continue;
-        }
-
+      // Batch load credential info for all API suppliers in parallel
+      const credentialPromises = apiSuppliers.map(async (supplier) => {
         try {
-          // Get credential schema to check if credentials are required
-          const credentialSchema = await dynamicSupplierService.getCredentialSchema(supplier.supplier_name.toLowerCase());
+          // Get credential schema and status in parallel for each supplier
+          const [credentialSchema, credentialStatus] = await Promise.all([
+            dynamicSupplierService.getCredentialSchema(supplier.supplier_name.toLowerCase()),
+            supplierService.getCredentialStatus(supplier.supplier_name).catch(() => ({
+              is_configured: false,
+              configured_fields: []
+            }))
+          ]);
+
           const requiresCredentials = Array.isArray(credentialSchema) && credentialSchema.length > 0;
 
-          // Update requirements state immediately
-          setCredentialRequirements(prev => ({
-            ...prev,
-            [supplier.supplier_name]: requiresCredentials
-          }));
-
-          // Get actual credential status to check if they're configured
-          try {
-            const credentialStatus = await supplierService.getCredentialStatus(supplier.supplier_name);
-
-            // Update status state immediately BEFORE clearing loading
-            setCredentialStatuses(prev => ({
-              ...prev,
-              [supplier.supplier_name]: credentialStatus
-            }));
-          } catch (statusErr) {
-            console.warn(`Failed to get credential status for ${supplier.supplier_name}:`, statusErr);
-
-            // Update status state immediately BEFORE clearing loading
-            setCredentialStatuses(prev => ({
-              ...prev,
-              [supplier.supplier_name]: { is_configured: false, configured_fields: [] }
-            }));
-          }
+          return {
+            supplierName: supplier.supplier_name,
+            requiresCredentials,
+            credentialStatus
+          };
         } catch (err) {
-          // If we can't get the schema, assume credentials are required
-          setCredentialRequirements(prev => ({
-            ...prev,
-            [supplier.supplier_name]: true
-          }));
-
-          setCredentialStatuses(prev => ({
-            ...prev,
-            [supplier.supplier_name]: { is_configured: false, configured_fields: [] }
-          }));
-        } finally {
-          // Mark this supplier as done loading AFTER status is set
-          setLoadingCredentialStatus(prev => ({
-            ...prev,
-            [supplier.supplier_name]: false
-          }));
+          console.warn(`Failed to load credentials for ${supplier.supplier_name}:`, err);
+          return {
+            supplierName: supplier.supplier_name,
+            requiresCredentials: true,
+            credentialStatus: { is_configured: false, configured_fields: [] }
+          };
         }
-      }
-      
+      });
+
+      // Wait for all credential checks to complete
+      const results = await Promise.all(credentialPromises);
+
+      // Batch update all states at once
+      const newRequirements: Record<string, boolean> = { ...requirements };
+      const newStatuses: Record<string, any> = { ...statuses };
+      const newLoadingStates: Record<string, boolean> = { ...loadingStates };
+
+      results.forEach(({ supplierName, requiresCredentials, credentialStatus }) => {
+        newRequirements[supplierName] = requiresCredentials;
+        newStatuses[supplierName] = credentialStatus;
+        newLoadingStates[supplierName] = false;
+      });
+
+      setCredentialRequirements(newRequirements);
+      setCredentialStatuses(newStatuses);
+      setLoadingCredentialStatus(newLoadingStates);
+
     } catch (err: any) {
       console.error('Error loading suppliers:', err);
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to load supplier configurations';
@@ -186,7 +190,9 @@ export const SupplierConfigPage: React.FC = () => {
   };
 
 
-  // Use all suppliers without filtering
+  // Separate suppliers into API and simple types
+  const apiSuppliers = (suppliers || []).filter(s => s.supplier_type !== 'simple');
+  const simpleSuppliers = (suppliers || []).filter(s => s.supplier_type === 'simple');
   const filteredSuppliers = suppliers || [];
 
   const getStatusIcon = (supplier: SupplierConfig) => {
@@ -241,6 +247,196 @@ export const SupplierConfigPage: React.FC = () => {
     } else {
       return 'Not Configured'; // Credentials missing or not working
     }
+  };
+
+  // Helper component to render supplier card
+  const SupplierCard = ({ supplier }: { supplier: SupplierConfig }) => {
+    return (
+      <div
+        className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
+      >
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              {supplier.image_url ? (
+                <img
+                  src={supplier.image_url}
+                  alt={supplier.display_name}
+                  className="w-10 h-10 rounded object-contain flex-shrink-0"
+                  onError={(e) => {
+                    // Fallback to status icon if image fails to load
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              ) : (
+                getStatusIcon(supplier)
+              )}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {supplier.display_name}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {supplier.supplier_name}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setEditingSupplier(supplier)}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                title="Edit Configuration"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          {supplier.description && (
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              {supplier.description}
+            </p>
+          )}
+
+          {/* Status and Info */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Status:</span>
+              {loadingCredentialStatus[supplier.supplier_name] ? (
+                <span className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-gray-300 border-t-blue-600 mr-2"></div>
+                  {getStatusText(supplier)}
+                </span>
+              ) : (
+                <span className={`text-sm font-medium ${
+                  supplier.enabled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {getStatusText(supplier)}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Type:</span>
+              {supplier.supplier_type === 'simple' ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                  Simple Supplier
+                </span>
+              ) : (
+                <span className="text-sm text-gray-900 dark:text-white uppercase">
+                  {supplier.api_type}
+                </span>
+              )}
+            </div>
+
+            {supplier.supplier_type !== 'simple' && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Capabilities:</span>
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {supplier.capabilities.length}
+                </span>
+              </div>
+            )}
+
+            {/* Rate Limit Information */}
+            {supplier.supplier_type !== 'simple' && rateLimitData[supplier.supplier_name.toLowerCase()] && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    <Activity className="w-3 h-3 inline mr-1" />
+                    API Usage:
+                  </span>
+                  <span className="text-sm">
+                    {rateLimitData[supplier.supplier_name.toLowerCase()].stats_24h.total_requests} calls (24h)
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    <Clock className="w-3 h-3 inline mr-1" />
+                    Rate Limit:
+                  </span>
+                  <div className="text-right">
+                    {Object.entries(rateLimitData[supplier.supplier_name.toLowerCase()].usage_percentage).map(([period, percentage]) => (
+                      <div key={period} className="text-xs">
+                        <span className={rateLimitService.getUsageColor(percentage)}>
+                          {rateLimitService.formatUsagePercentage(percentage)}
+                        </span>
+                        <span className="text-gray-400 ml-1">
+                          {period.replace('per_', '')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {loadingRateLimits && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Rate Limits:</span>
+                <span className="text-xs text-gray-400">Loading...</span>
+              </div>
+            )}
+
+          </div>
+
+          {/* Capabilities */}
+          {supplier.supplier_type !== 'simple' && (
+            <div className="mt-4">
+              <div className="flex flex-wrap gap-1">
+                {supplier.capabilities.map((capability) => (
+                  <span
+                    key={capability}
+                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
+                  >
+                    {(() => {
+                      const nameMap: Record<string, string> = {
+                        'get_part_details': 'Part Enrichment',
+                        'fetch_datasheet': 'Datasheet Retrieval',
+                        'fetch_image': 'Image Fetching',
+                        'fetch_pricing': 'Pricing Data',
+                        'fetch_stock': 'Stock Levels',
+                        'import_orders': 'Order Import',
+                        'parametric_search': 'Advanced Search'
+                      };
+                      return nameMap[capability] || capability.replace('fetch_', '').replace('_', ' ');
+                    })()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+
+          {/* Actions */}
+          <div className="mt-6 flex items-center justify-end">
+            <div className="flex items-center space-x-3">
+              {/* Only show Enable/Disable for API suppliers, not simple suppliers */}
+              {supplier.supplier_type !== 'simple' && (
+                <button
+                  onClick={() => handleToggleEnabled(supplier)}
+                  className={`text-sm font-medium ${
+                    supplier.enabled
+                      ? 'text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300'
+                      : 'text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300'
+                  }`}
+                >
+                  {supplier.enabled ? 'Disable' : 'Enable'}
+                </button>
+              )}
+              <button
+                onClick={() => handleDeleteSupplier(supplier.supplier_name)}
+                className="text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading && suppliers.length === 0) {
@@ -318,15 +514,23 @@ export const SupplierConfigPage: React.FC = () => {
 
         {/* Header Info */}
         <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-semibold text-gray-900 dark:text-white">{apiSuppliers.length}</span> API Supplier{apiSuppliers.length !== 1 ? 's' : ''}
+              </span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-semibold text-gray-900 dark:text-white">{simpleSuppliers.length}</span> Simple Supplier{simpleSuppliers.length !== 1 ? 's' : ''}
+              </span>
+            </div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {filteredSuppliers.length} supplier{filteredSuppliers.length !== 1 ? 's' : ''}
+              Total: {filteredSuppliers.length}
             </span>
           </div>
         </div>
 
 
-        {/* Suppliers Grid */}
+        {/* Suppliers Display */}
         {filteredSuppliers.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
             <Settings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -349,251 +553,103 @@ export const SupplierConfigPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredSuppliers.map((supplier) => (
-              <div
-                key={supplier.id}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
-              >
-                <div className="p-6">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      {supplier.image_url ? (
-                        <img
-                          src={supplier.image_url}
-                          alt={supplier.display_name}
-                          className="w-10 h-10 rounded object-contain flex-shrink-0"
-                          onError={(e) => {
-                            // Fallback to status icon if image fails to load
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-                      ) : (
-                        getStatusIcon(supplier)
-                      )}
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {supplier.display_name}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {supplier.supplier_name}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => setEditingSupplier(supplier)}
-                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        title="Edit Configuration"
-                      >
-                        <Settings className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  {supplier.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                      {supplier.description}
-                    </p>
-                  )}
-
-                  {/* Status and Info */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Status:</span>
-                      {loadingCredentialStatus[supplier.supplier_name] ? (
-                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center">
-                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-gray-300 border-t-blue-600 mr-2"></div>
-                          {getStatusText(supplier)}
-                        </span>
-                      ) : (
-                        <span className={`text-sm font-medium ${
-                          supplier.enabled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          {getStatusText(supplier)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Type:</span>
-                      {supplier.supplier_type === 'simple' ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                          Simple Supplier
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white uppercase">
-                          {supplier.api_type}
-                        </span>
-                      )}
-                    </div>
-
-                    {supplier.supplier_type !== 'simple' && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Capabilities:</span>
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {supplier.capabilities.length}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Rate Limit Information */}
-                    {supplier.supplier_type !== 'simple' && rateLimitData[supplier.supplier_name.toLowerCase()] && (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            <Activity className="w-3 h-3 inline mr-1" />
-                            API Usage:
-                          </span>
-                          <span className="text-sm">
-                            {rateLimitData[supplier.supplier_name.toLowerCase()].stats_24h.total_requests} calls (24h)
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            <Clock className="w-3 h-3 inline mr-1" />
-                            Rate Limit:
-                          </span>
-                          <div className="text-right">
-                            {Object.entries(rateLimitData[supplier.supplier_name.toLowerCase()].usage_percentage).map(([period, percentage]) => (
-                              <div key={period} className="text-xs">
-                                <span className={rateLimitService.getUsageColor(percentage)}>
-                                  {rateLimitService.formatUsagePercentage(percentage)}
-                                </span>
-                                <span className="text-gray-400 ml-1">
-                                  {period.replace('per_', '')}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {loadingRateLimits && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Rate Limits:</span>
-                        <span className="text-xs text-gray-400">Loading...</span>
-                      </div>
-                    )}
-
-                  </div>
-
-                  {/* Capabilities */}
-                  {supplier.supplier_type !== 'simple' && (
-                    <div className="mt-4">
-                      <div className="flex flex-wrap gap-1">
-                        {supplier.capabilities.map((capability) => (
-                          <span
-                            key={capability}
-                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
-                          >
-                            {(() => {
-                              const nameMap: Record<string, string> = {
-                                'get_part_details': 'Part Enrichment',
-                                'fetch_datasheet': 'Datasheet Retrieval',
-                                'fetch_image': 'Image Fetching',
-                                'fetch_pricing': 'Pricing Data',
-                                'fetch_stock': 'Stock Levels',
-                                'import_orders': 'Order Import',
-                                'parametric_search': 'Advanced Search'
-                              };
-                              return nameMap[capability] || capability.replace('fetch_', '').replace('_', ' ');
-                            })()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-
-                  {/* Actions */}
-                  <div className="mt-6 flex items-center justify-end">
-                    <div className="flex items-center space-x-3">
-                      {/* Only show Enable/Disable for API suppliers, not simple suppliers */}
-                      {supplier.supplier_type !== 'simple' && (
-                        <button
-                          onClick={() => handleToggleEnabled(supplier)}
-                          className={`text-sm font-medium ${
-                            supplier.enabled
-                              ? 'text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300'
-                              : 'text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300'
-                          }`}
-                        >
-                          {supplier.enabled ? 'Disable' : 'Enable'}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteSupplier(supplier.supplier_name)}
-                        className="text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+          <div className="space-y-8">
+            {/* API Suppliers Section */}
+            {apiSuppliers.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <Settings className="w-5 h-5 mr-2" />
+                  API Suppliers
+                  <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                    ({apiSuppliers.length})
+                  </span>
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {apiSuppliers.map((supplier) => (
+                    <SupplierCard key={supplier.id} supplier={supplier} />
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Simple Suppliers Section */}
+            {simpleSuppliers.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <Plus className="w-5 h-5 mr-2" />
+                  Simple Suppliers
+                  <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                    ({simpleSuppliers.length})
+                  </span>
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {simpleSuppliers.map((supplier) => (
+                    <SupplierCard key={supplier.id} supplier={supplier} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
-
-        {/* Modals */}
-        {showAddModal && (
-          <DynamicAddSupplierModal
-            onClose={() => setShowAddModal(false)}
-            onSuccess={() => {
-              setShowAddModal(false);
-              loadSuppliers();
-            }}
-          />
-        )}
-
-        {showAddSimpleModal && (
-          <AddSimpleSupplierModal
-            onClose={() => setShowAddSimpleModal(false)}
-            onSuccess={() => {
-              setShowAddSimpleModal(false);
-              loadSuppliers();
-            }}
-          />
-        )}
-
-        {editingSupplier && (
-          editingSupplier.supplier_type === 'simple' ? (
-            <EditSimpleSupplierModal
-              supplier={editingSupplier}
-              onClose={() => setEditingSupplier(null)}
-              onSuccess={() => {
-                setEditingSupplier(null);
-                loadSuppliers();
-              }}
-            />
-          ) : (
-            <EditSupplierModal
-              supplier={editingSupplier}
-              onClose={() => setEditingSupplier(null)}
-              onSuccess={() => {
-                setEditingSupplier(null);
-                loadSuppliers();
-              }}
-            />
-          )
-        )}
-
-
-        {showImportExport && (
-          <ImportExportModal
-            onClose={() => setShowImportExport(false)}
-            onSuccess={() => {
-              setShowImportExport(false);
-              loadSuppliers();
-            }}
-          />
-        )}
       </div>
+
+      {/* Modals */}
+      {showAddModal && (
+        <DynamicAddSupplierModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            setShowAddModal(false);
+            loadSuppliers();
+          }}
+          existingSuppliers={suppliers.map(s => s.supplier_name)}
+        />
+      )}
+
+      {showAddSimpleModal && (
+        <AddSimpleSupplierModal
+          onClose={() => setShowAddSimpleModal(false)}
+          onSuccess={() => {
+            setShowAddSimpleModal(false);
+            loadSuppliers();
+          }}
+        />
+      )}
+
+      {editingSupplier && editingSupplier.supplier_type === 'simple' && (
+        <EditSimpleSupplierModal
+          supplier={editingSupplier}
+          onClose={() => setEditingSupplier(null)}
+          onSuccess={() => {
+            setEditingSupplier(null);
+            loadSuppliers();
+          }}
+          onDelete={handleDeleteSupplier}
+        />
+      )}
+
+      {editingSupplier && editingSupplier.supplier_type !== 'simple' && (
+        <EditSupplierModal
+          supplier={editingSupplier}
+          onClose={() => setEditingSupplier(null)}
+          onSuccess={() => {
+            setEditingSupplier(null);
+            loadSuppliers();
+          }}
+          onDelete={handleDeleteSupplier}
+        />
+      )}
+
+      {showImportExport && (
+        <ImportExportModal
+          onClose={() => setShowImportExport(false)}
+          onSuccess={() => {
+            setShowImportExport(false);
+            loadSuppliers();
+          }}
+        />
+      )}
     </div>
   );
 };
+
+export default SupplierConfigPage;

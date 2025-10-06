@@ -277,8 +277,17 @@ export class SupplierService {
    * Get supplier capabilities
    */
   async getSupplierCapabilities(supplierName: string): Promise<string[]> {
-    const response = await apiClient.get(`/api/suppliers/config/suppliers/${supplierName}/capabilities`);
-    return response.data.data;
+    try {
+      const response = await apiClient.get(`/api/suppliers/${supplierName}/capabilities`);
+      return response.data.data;
+    } catch (error: any) {
+      // 404 is expected for simple suppliers without API capabilities
+      if (error.response?.status === 404) {
+        console.log(`Supplier "${supplierName}" has no enrichment capabilities (simple supplier)`);
+        return [];
+      }
+      throw error;
+    }
   }
 
   /**

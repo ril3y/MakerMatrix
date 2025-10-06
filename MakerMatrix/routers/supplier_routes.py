@@ -794,9 +794,29 @@ async def get_part_details(
 ):
     """Get detailed information about a specific part"""
     try:
+        # If credentials are empty, try to use stored credentials
+        credentials = config_request.credentials
+        config = config_request.config or {}
+
+        if not credentials or not any(credentials.values()):
+            # No credentials provided - try to use stored credentials
+            supplier_config_service = SupplierConfigService()
+            try:
+                stored_config = supplier_config_service.get_supplier_config(supplier_name)
+                stored_credentials = supplier_config_service.get_supplier_credentials(supplier_name)
+
+                # Use stored credentials if available
+                if stored_credentials and any(stored_credentials.values()):
+                    credentials = stored_credentials
+                    config = stored_config.get('config', {}) if stored_config else {}
+            except Exception as e:
+                # If we can't get stored credentials, continue with empty credentials
+                # and let the supplier.configure fail with a proper error message
+                pass
+
         supplier = SupplierRegistry.get_supplier(supplier_name)
-        supplier.configure(config_request.credentials, config_request.config)
-        
+        supplier.configure(credentials, config)
+
         result = await supplier.get_part_details(part_number)
         await supplier.close()
         

@@ -228,14 +228,81 @@ class AnalyticsService(BaseService):
     def get_inventory_value(self) -> Dict[str, Any]:
         """
         Calculate total inventory value based on average prices.
-        
+
         Returns:
             Dictionary with inventory value statistics
         """
         logger.info("Calculating inventory value")
-        
+
         with self.get_session() as session:
             return self.analytics_repo.get_inventory_value(session)
+
+    def get_parts_by_category(self) -> List[Dict[str, Any]]:
+        """
+        Get parts distribution by category.
+
+        Returns:
+            List of category distribution data
+        """
+        logger.info("Getting parts distribution by category")
+
+        with self.get_session() as session:
+            return self.analytics_repo.get_parts_by_category(session)
+
+    def get_parts_by_location(self) -> List[Dict[str, Any]]:
+        """
+        Get parts distribution by location.
+
+        Returns:
+            List of location distribution data
+        """
+        logger.info("Getting parts distribution by location")
+
+        with self.get_session() as session:
+            return self.analytics_repo.get_parts_by_location(session)
+
+    def get_most_stocked_parts(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get parts with highest stock quantities.
+
+        Args:
+            limit: Maximum number of parts to return
+
+        Returns:
+            List of most stocked parts
+        """
+        logger.info(f"Getting top {limit} most stocked parts")
+
+        with self.get_session() as session:
+            return self.analytics_repo.get_most_stocked_parts(session, limit)
+
+    def get_least_stocked_parts(self, limit: int = 10, exclude_zero: bool = True) -> List[Dict[str, Any]]:
+        """
+        Get parts with lowest stock quantities.
+
+        Args:
+            limit: Maximum number of parts to return
+            exclude_zero: Whether to exclude parts with zero stock
+
+        Returns:
+            List of least stocked parts
+        """
+        logger.info(f"Getting top {limit} least stocked parts (exclude_zero={exclude_zero})")
+
+        with self.get_session() as session:
+            return self.analytics_repo.get_least_stocked_parts(session, limit, exclude_zero)
+
+    def get_inventory_summary(self) -> Dict[str, Any]:
+        """
+        Get overall inventory summary statistics.
+
+        Returns:
+            Dictionary with summary statistics
+        """
+        logger.info("Getting inventory summary")
+
+        with self.get_session() as session:
+            return self.analytics_repo.get_inventory_summary(session)
 
 
 # Global service instance

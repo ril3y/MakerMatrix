@@ -16,7 +16,6 @@ import {
   Terminal,
   CircuitBoard,
   Settings,
-  TrendingUp,
   Activity,
   FileText
 } from 'lucide-react';
@@ -59,11 +58,6 @@ const MainLayout: React.FC = () => {
       label: 'Categories',
       path: '/categories',
       icon: <Tags className="w-5 h-5" />
-    },
-    {
-      label: 'Analytics',
-      path: '/analytics',
-      icon: <TrendingUp className="w-5 h-5" />
     },
     {
       label: 'Tasks',

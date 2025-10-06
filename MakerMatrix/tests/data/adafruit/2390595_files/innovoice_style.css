@@ -1,0 +1,297 @@
+:root{-webkit-print-color-adjust:exact}
+body{
+    margin: 0;
+    padding: 0;
+    font-family: Lucida Sans Unicode, Lucida Grande, Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+}
+div {
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+thead{
+  display:table-header-group;
+}
+
+.solid{
+    border: 0;
+    background: #231f20;
+    height: 0.1px;
+
+}
+.line_13{
+    line-height: 13px;
+}
+
+.nopagebreak {
+    break-inside: avoid;
+}
+
+/* header */
+.innovoice_header{
+    background-color: #231f20;
+    position: relative;
+    height: 105px;
+    width: 780px;
+}
+
+.innovoice_header_logo{
+    position: absolute;
+    top: 22px;
+    left: 27px;
+}
+.innovoice_header_address{
+    position: absolute; 
+    background-color: #FFF;
+    top: 49px;
+    left: 210px;
+    height: 20px;
+    width: 575px;
+    overflow: hidden;
+    display:flex;
+}
+.innovoice_address_text_container {
+    padding-left:5px;
+    align-content: center;
+    font-weight: bold;
+    font-size: 9pt;
+}
+.innovoice_header_support{
+    position: absolute;
+    color: #FFF;
+    top: 82px;
+    left: 210px;
+    font-weight: bold;
+    font-size: 7pt;
+}
+.innovoice_header_barcode{
+    float: right; 
+}
+.innovoice_header_oid{
+    position: absolute;
+    color: #FFF;
+    font-weight: bold;
+    font-size: 7pt;
+    top : 82px;
+    right:5px;
+}
+.innovoice_partial_header_oid{
+    position: absolute;
+    color: #FFF;
+    font-weight: bold;
+    font-size: 7pt;
+    left:   680px;
+    top : 82px;
+}
+
+
+/* info */
+.innovoice_info{
+    margin-top: 30px;
+    margin-left: 25px;
+}
+.innovoice_info table tr td{
+    vertical-align: top;
+}
+.width1{
+    width: 375px;
+}
+.width2{
+    width: 200px;
+}
+.tall{
+    line-height: 20px;
+}
+.innovoice_8{
+    font-size: 8pt;
+    line-height: 8pt;
+}
+.innovoice_9{
+    font-size: 9pt;
+}
+.bold{
+    font-weight: bold;
+}
+
+/*  products */
+.innovoice_products_table {
+    margin-top:25px;
+    margin-left : 25px;
+    text-align: left;
+}
+.table_width{
+    width: 733px
+}
+.innovoice_products_table tr{
+    page-break-inside: avoid;
+}
+.hrtr{
+    page-break-before: avoid;
+}
+.innovoice_products_table tr td, .innovoice_products_table tr th{
+    vertical-align: top;
+}
+.right{
+    text-align: right;
+}
+.width3{
+    width: 70px
+}
+.main_image_holder{
+    float: left;
+    width: 100px;
+    height: 75px;
+}
+.main_image{
+    max-width: 100px;
+    max-height:75px;
+}
+.main_text_holder{
+    float: left;
+    margin-left:8px;
+    width: 260px;
+}
+.innovoice_24{
+    font-size: 24pt;
+}
+.innovoice_18{
+    font-size: 18pt;
+}
+.blue , a{
+    color: #3B8DCB;
+    text-decoration: none;
+}
+
+.warning{
+    color:#E90000;
+}
+
+.sub_image_holder{
+    float: left;
+    height: 38px;
+    width: 50px;
+}
+.sub_image{
+    max-height: 38px;
+    max-width: 50px;
+}
+.sub_text_holder{
+    float: left;
+    margin-left: 8px;
+    width: 310px;
+}
+/*totals*/
+.totals_table{
+    margin-top:15px;
+    margin-left: 25px;
+}
+.ship1{
+    text-align: right;
+    width: 550px;
+}
+.ship2{
+    text-align: right;
+    width: 60px;
+}
+.ship3{
+    text-align: right;
+    width: 110px;
+}
+
+.innovoice_comments_box {
+    width: 500px;
+    margin-left: 25px;
+}
+
+
+.quote_wide{
+    text-align: center;
+    display: table-cell;
+    vertical-align: middle;
+}
+.quote_block{
+    float: left;
+    text-align: center;
+}
+.quote_block span{
+    display: table-cell;
+    height: 260px;
+    width: 379px;
+    vertical-align: middle;
+    text-align: center;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+.sudoku, .jigsaw{
+    float: left;
+    font-weight: bold;
+}
+.puzzle{
+    text-align: center;
+    font-size: 9pt;
+    font-weight: bold;
+    float: left;
+    margin-top: 10px;
+}
+.dotted_bottom{
+    border-bottom: 0.25px dashed #AAA;
+}
+.dotted_right{
+    border-right: 0.25px dashed #AAA;
+}
+
+.innovoice_footer{
+    width: 760px;
+    text-align: right;
+    float: left;
+}
+.page_after{
+    display: table;
+    page-break-after: always;
+    width: 100%;
+}
+.quote_block span..nobreak{
+    white-space:nowrap; 
+    display: inline;
+}
+.tfooter{
+    display: table-footer-group;
+}
+
+
+/* customs forms */
+.customs{
+    border: 1px solid #CCC;
+    width: 780px;
+    float: left;
+}
+.customs_address, .customs_oid, .customs_title, .customs_info, .customs_products, .customs_totals{
+    margin-left: 25px;
+}
+.customs_title{
+    margin-top: 20px;
+    font-size: 12pt;
+    font-weight: bold;
+}
+.customs_oid{
+    margin-top: 10px;
+    font-size: 10pt;
+    font-weight: bold;
+}
+.customs_info{
+    margin-top: 15px;
+}
+.customs_products{
+    margin-top: 10px;
+    width: 740px;
+}
+.customs_products thead tr th{
+    background-color: #CCC;
+}
+.customs_products tr td{
+    vertical-align: top;
+}
+.customs_width{
+    width: 740px;
+}
