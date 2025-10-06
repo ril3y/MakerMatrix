@@ -8,7 +8,7 @@ Handles complex SQL queries for analytics and insights.
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from sqlalchemy import func, and_, or_, select
+from sqlalchemy import func, and_, or_, select, case
 from sqlalchemy.orm import Session
 
 from MakerMatrix.models.models import (
@@ -17,6 +17,7 @@ from MakerMatrix.models.models import (
 from MakerMatrix.models.order_models import (
     OrderModel, OrderItemModel, OrderSummary
 )
+from MakerMatrix.models.part_allocation_models import PartLocationAllocation
 from MakerMatrix.repositories.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -246,46 +247,68 @@ class AnalyticsRepository:
     ) -> List[Dict[str, Any]]:
         """
         Get parts with low stock levels.
-        
+
         Args:
             session: Database session
             threshold: Stock threshold below which parts are considered low
             include_zero: Whether to include parts with zero stock
-            
+
         Returns:
             List of low stock parts
         """
-        # Build query conditions
-        conditions = []
-        if include_zero:
-            conditions.append(PartModel.quantity <= threshold)
-        else:
-            conditions.append(and_(PartModel.quantity <= threshold, PartModel.quantity > 0))
-        
-        # Query low stock parts
-        results = session.query(
+        # Subquery to get total quantity and primary location per part
+        part_totals = session.query(
+            PartLocationAllocation.part_id,
+            func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity'),
+            func.max(
+                case(
+                    (PartLocationAllocation.is_primary_storage == True, LocationModel.name),
+                    else_=None
+                )
+            ).label('primary_location')
+        ).outerjoin(
+            LocationModel,
+            PartLocationAllocation.location_id == LocationModel.id
+        ).group_by(
+            PartLocationAllocation.part_id
+        ).subquery()
+
+        # Build query
+        query = session.query(
             PartModel.id,
             PartModel.part_name,
             PartModel.part_number,
-            PartModel.quantity,
+            part_totals.c.total_quantity.label('quantity'),
             PartModel.supplier,
-            LocationModel.name.label('location_name')
-        ).outerjoin(
-            LocationModel, PartModel.location_id == LocationModel.id
-        ).filter(
-            or_(*conditions)
-        ).order_by(
-            PartModel.quantity.asc()
+            part_totals.c.primary_location.label('location_name')
+        ).join(
+            part_totals,
+            PartModel.id == part_totals.c.part_id
+        )
+
+        # Apply threshold filter
+        if include_zero:
+            query = query.filter(part_totals.c.total_quantity <= threshold)
+        else:
+            query = query.filter(
+                and_(
+                    part_totals.c.total_quantity <= threshold,
+                    part_totals.c.total_quantity > 0
+                )
+            )
+
+        results = query.order_by(
+            part_totals.c.total_quantity.asc()
         ).all()
-        
+
         return [
             {
                 'id': result.id,
                 'part_name': result.part_name,
-                'part_number': result.part_number,
-                'quantity': result.quantity,
-                'supplier': result.supplier,
-                'location_name': result.location_name
+                'part_number': result.part_number or '',
+                'quantity': int(result.quantity or 0),
+                'supplier': result.supplier or '',
+                'location_name': result.location_name or 'Multiple Locations'
             }
             for result in results
         ]
@@ -441,10 +464,10 @@ class AnalyticsRepository:
     ) -> Dict[str, Any]:
         """
         Calculate total inventory value based on average prices.
-        
+
         Args:
             session: Database session
-            
+
         Returns:
             Dictionary with inventory value statistics
         """
@@ -457,7 +480,7 @@ class AnalyticsRepository:
         ).group_by(
             OrderItemModel.part_id
         ).subquery()
-        
+
         # Get parts with pricing information
         results = session.query(
             func.sum(PartModel.quantity * avg_prices.c.average_price).label('total_value'),
@@ -468,7 +491,7 @@ class AnalyticsRepository:
         ).filter(
             avg_prices.c.average_price.isnot(None)
         ).first()
-        
+
         # Get parts without pricing
         unpriced_count = session.query(
             func.count(PartModel.id)
@@ -480,10 +503,283 @@ class AnalyticsRepository:
                 avg_prices.c.part_id.is_(None)
             )
         ).scalar()
-        
+
         return {
             'total_value': float(results.total_value or 0) if results else 0,
             'priced_parts': results.total_parts if results else 0,
             'unpriced_parts': unpriced_count or 0,
             'total_units': results.total_units if (results and results.total_units is not None) else 0
+        }
+
+    def get_parts_by_category(
+        self,
+        session: Session
+    ) -> List[Dict[str, Any]]:
+        """
+        Get parts distribution by category.
+
+        Args:
+            session: Database session
+
+        Returns:
+            List of category distribution data
+        """
+        # Subquery to get total quantity per part from allocations
+        part_quantities = session.query(
+            PartLocationAllocation.part_id,
+            func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity')
+        ).group_by(
+            PartLocationAllocation.part_id
+        ).subquery()
+
+        results = session.query(
+            CategoryModel.name,
+            func.count(PartModel.id).label('part_count'),
+            func.coalesce(func.sum(part_quantities.c.total_quantity), 0).label('total_quantity')
+        ).join(
+            PartCategoryLink,
+            CategoryModel.id == PartCategoryLink.category_id
+        ).join(
+            PartModel,
+            PartCategoryLink.part_id == PartModel.id
+        ).outerjoin(
+            part_quantities,
+            PartModel.id == part_quantities.c.part_id
+        ).group_by(
+            CategoryModel.name
+        ).order_by(
+            func.count(PartModel.id).desc()
+        ).all()
+
+        return [
+            {
+                'category': result.name,
+                'part_count': result.part_count,
+                'total_quantity': int(result.total_quantity or 0)
+            }
+            for result in results
+        ]
+
+    def get_parts_by_location(
+        self,
+        session: Session
+    ) -> List[Dict[str, Any]]:
+        """
+        Get parts distribution by location.
+
+        Args:
+            session: Database session
+
+        Returns:
+            List of location distribution data
+        """
+        # Get allocations grouped by location
+        results = session.query(
+            LocationModel.name,
+            func.count(func.distinct(PartLocationAllocation.part_id)).label('part_count'),
+            func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity')
+        ).join(
+            PartLocationAllocation,
+            LocationModel.id == PartLocationAllocation.location_id
+        ).group_by(
+            LocationModel.name
+        ).order_by(
+            func.count(func.distinct(PartLocationAllocation.part_id)).desc()
+        ).all()
+
+        result_list = [
+            {
+                'location': result.name,
+                'part_count': result.part_count,
+                'total_quantity': int(result.total_quantity or 0)
+            }
+            for result in results
+        ]
+
+        return result_list
+
+    def get_most_stocked_parts(
+        self,
+        session: Session,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get parts with highest stock quantities.
+
+        Args:
+            session: Database session
+            limit: Maximum number of parts to return
+
+        Returns:
+            List of most stocked parts
+        """
+        # Subquery to get total quantity and primary location per part
+        part_totals = session.query(
+            PartLocationAllocation.part_id,
+            func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity'),
+            func.max(
+                case(
+                    (PartLocationAllocation.is_primary_storage == True, LocationModel.name),
+                    else_=None
+                )
+            ).label('primary_location')
+        ).outerjoin(
+            LocationModel,
+            PartLocationAllocation.location_id == LocationModel.id
+        ).group_by(
+            PartLocationAllocation.part_id
+        ).subquery()
+
+        results = session.query(
+            PartModel.id,
+            PartModel.part_name,
+            PartModel.part_number,
+            part_totals.c.total_quantity.label('quantity'),
+            PartModel.supplier,
+            part_totals.c.primary_location.label('location_name')
+        ).join(
+            part_totals,
+            PartModel.id == part_totals.c.part_id
+        ).order_by(
+            part_totals.c.total_quantity.desc()
+        ).limit(limit).all()
+
+        return [
+            {
+                'id': result.id,
+                'part_name': result.part_name,
+                'part_number': result.part_number or '',
+                'quantity': int(result.quantity or 0),
+                'supplier': result.supplier or '',
+                'location': result.location_name or 'Multiple Locations'
+            }
+            for result in results
+        ]
+
+    def get_least_stocked_parts(
+        self,
+        session: Session,
+        limit: int = 10,
+        exclude_zero: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Get parts with lowest stock quantities.
+
+        Args:
+            session: Database session
+            limit: Maximum number of parts to return
+            exclude_zero: Whether to exclude parts with zero stock
+
+        Returns:
+            List of least stocked parts
+        """
+        # Subquery to get total quantity and primary location per part
+        part_totals = session.query(
+            PartLocationAllocation.part_id,
+            func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity'),
+            func.max(
+                case(
+                    (PartLocationAllocation.is_primary_storage == True, LocationModel.name),
+                    else_=None
+                )
+            ).label('primary_location')
+        ).outerjoin(
+            LocationModel,
+            PartLocationAllocation.location_id == LocationModel.id
+        ).group_by(
+            PartLocationAllocation.part_id
+        ).subquery()
+
+        query = session.query(
+            PartModel.id,
+            PartModel.part_name,
+            PartModel.part_number,
+            part_totals.c.total_quantity.label('quantity'),
+            PartModel.supplier,
+            part_totals.c.primary_location.label('location_name')
+        ).join(
+            part_totals,
+            PartModel.id == part_totals.c.part_id
+        )
+
+        if exclude_zero:
+            query = query.filter(part_totals.c.total_quantity > 0)
+
+        results = query.order_by(
+            part_totals.c.total_quantity.asc()
+        ).limit(limit).all()
+
+        return [
+            {
+                'id': result.id,
+                'part_name': result.part_name,
+                'part_number': result.part_number or '',
+                'quantity': int(result.quantity or 0),
+                'supplier': result.supplier or '',
+                'location': result.location_name or 'Multiple Locations'
+            }
+            for result in results
+        ]
+
+    def get_inventory_summary(
+        self,
+        session: Session
+    ) -> Dict[str, Any]:
+        """
+        Get overall inventory summary statistics.
+
+        Args:
+            session: Database session
+
+        Returns:
+            Dictionary with summary statistics
+        """
+        total_parts = session.query(func.count(PartModel.id)).scalar() or 0
+
+        # Get total units from allocations
+        total_units = session.query(
+            func.sum(PartLocationAllocation.quantity_at_location)
+        ).scalar() or 0
+
+        total_categories = session.query(func.count(CategoryModel.id)).scalar() or 0
+        total_locations = session.query(func.count(LocationModel.id)).scalar() or 0
+
+        # Count parts with allocations (have locations)
+        parts_with_location = session.query(
+            func.count(func.distinct(PartLocationAllocation.part_id))
+        ).scalar() or 0
+
+        parts_without_location = total_parts - parts_with_location
+
+        # Subquery for part totals
+        part_totals = session.query(
+            PartLocationAllocation.part_id,
+            func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity')
+        ).group_by(
+            PartLocationAllocation.part_id
+        ).subquery()
+
+        # Count low stock parts (< 10 units total)
+        low_stock_count = session.query(
+            func.count(part_totals.c.part_id)
+        ).filter(
+            part_totals.c.total_quantity < 10
+        ).scalar() or 0
+
+        # Count zero stock parts
+        zero_stock_count = session.query(
+            func.count(part_totals.c.part_id)
+        ).filter(
+            part_totals.c.total_quantity == 0
+        ).scalar() or 0
+
+        return {
+            'total_parts': total_parts,
+            'total_units': int(total_units),
+            'total_categories': total_categories,
+            'total_locations': total_locations,
+            'parts_with_location': parts_with_location,
+            'parts_without_location': parts_without_location,
+            'low_stock_count': low_stock_count,
+            'zero_stock_count': zero_stock_count
         }

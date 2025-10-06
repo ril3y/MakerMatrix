@@ -1060,31 +1060,35 @@ const PartDetailsPage = () => {
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              {supplierConfig?.image_url && (
-                                <img
-                                  src={supplierConfig.image_url}
-                                  alt={part.supplier || ''}
-                                  className="w-5 h-5 rounded object-contain flex-shrink-0"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none'
-                                  }}
-                                />
-                              )}
-                              <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
-                              {canUpdate && (
-                                <Edit className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                              )}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                {supplierConfig?.image_url && (
+                                  <img
+                                    src={supplierConfig.image_url}
+                                    alt={part.supplier || ''}
+                                    className="w-5 h-5 rounded object-contain flex-shrink-0"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none'
+                                    }}
+                                  />
+                                )}
+                                <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
+                                {canUpdate && (
+                                  <Edit className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                                )}
+                              </div>
                               {part.supplier_url && (
                                 <a
                                   href={part.supplier_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-primary-accent hover:text-primary transition-colors"
-                                  title="View supplier page"
+                                  className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 transition-colors group/link"
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  <ExternalLink className="w-4 h-4" />
+                                  <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                                  <span className="truncate max-w-md underline decoration-dotted">
+                                    {part.supplier_url}
+                                  </span>
                                 </a>
                               )}
                             </div>

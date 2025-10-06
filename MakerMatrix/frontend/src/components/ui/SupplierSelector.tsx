@@ -73,10 +73,47 @@ export const SupplierSelector = ({
     }
   };
 
+  const extractDomainFromUrl = (input: string): string | null => {
+    try {
+      // Check if input looks like a URL
+      const urlPattern = /^https?:\/\//i;
+      if (!urlPattern.test(input)) {
+        return null;
+      }
+
+      const url = new URL(input);
+      const hostname = url.hostname;
+
+      // Remove www. prefix if present
+      const domain = hostname.replace(/^www\./, '');
+
+      // Extract base domain (e.g., ebay.com from subdomain.ebay.com)
+      const parts = domain.split('.');
+      if (parts.length >= 2) {
+        return parts.slice(-2).join('.');
+      }
+
+      return domain;
+    } catch (err) {
+      return null;
+    }
+  };
+
   const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    setCustomSupplier(newValue);
-    onChange(newValue);
+
+    // Check if user pasted a URL
+    const domain = extractDomainFromUrl(newValue);
+    if (domain) {
+      // Extract supplier name from domain (e.g., "ebay" from "ebay.com")
+      const supplierName = domain.split('.')[0];
+      setCustomSupplier(supplierName);
+      onChange(supplierName);
+      toast.success(`Detected supplier: ${supplierName} from URL`);
+    } else {
+      setCustomSupplier(newValue);
+      onChange(newValue);
+    }
   };
 
   const handleCancelCustom = () => {
@@ -103,7 +140,7 @@ export const SupplierSelector = ({
             type="text"
             value={customSupplier}
             onChange={handleCustomInputChange}
-            placeholder="Enter custom supplier name..."
+            placeholder="Enter supplier name or paste product URL..."
             disabled={disabled}
             className={`
               flex-1 px-3 py-2 border rounded-md
@@ -124,7 +161,7 @@ export const SupplierSelector = ({
           </button>
         </div>
         <p className="text-xs text-theme-muted">
-          Entering a custom supplier not in the configured list
+          Paste a product URL to auto-detect supplier, or enter a custom supplier name
         </p>
       </div>
     );
@@ -133,6 +170,13 @@ export const SupplierSelector = ({
   // Build option groups for CustomSelect
   const optionGroups = [];
 
+  // Add custom supplier option FIRST
+  optionGroups.push({
+    label: 'Add Supplier',
+    options: [{ value: '__custom__', label: '+ Add Custom Supplier...' }]
+  });
+
+  // Then add configured suppliers
   if (suppliers.length > 0) {
     optionGroups.push({
       label: 'Configured Suppliers',
@@ -143,11 +187,6 @@ export const SupplierSelector = ({
       }))
     });
   }
-
-  optionGroups.push({
-    label: 'Other',
-    options: [{ value: '__custom__', label: '+ Add Custom Supplier...' }]
-  });
 
   return (
     <CustomSelect

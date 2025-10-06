@@ -30,6 +30,12 @@ interface CustomSelectProps {
   className?: string
   searchable?: boolean
   searchPlaceholder?: string
+  allowCustom?: boolean
+  customLabel?: string
+  // Multi-select mode
+  multiSelect?: boolean
+  selectedValues?: string[]
+  onMultiSelectChange?: (values: string[]) => void
 }
 
 export const CustomSelect = ({
@@ -42,7 +48,12 @@ export const CustomSelect = ({
   error,
   className = '',
   searchable = false,
-  searchPlaceholder = 'Search...'
+  searchPlaceholder = 'Search...',
+  allowCustom = false,
+  customLabel = 'Create custom',
+  multiSelect = false,
+  selectedValues = [],
+  onMultiSelectChange
 }: CustomSelectProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -66,10 +77,10 @@ export const CustomSelect = ({
 
   // Focus search input when dropdown opens
   useEffect(() => {
-    if (isOpen && searchable && searchInputRef.current) {
+    if (isOpen && (searchable || allowCustom) && searchInputRef.current) {
       setTimeout(() => searchInputRef.current?.focus(), 50)
     }
-  }, [isOpen, searchable])
+  }, [isOpen, searchable, allowCustom])
 
   // Get selected option for current value
   const getSelectedOption = (): Option | null => {
@@ -91,9 +102,20 @@ export const CustomSelect = ({
   const selectedOption = getSelectedOption()
 
   const handleSelect = (optionValue: string) => {
-    onChange(optionValue)
-    setIsOpen(false)
-    setSearchTerm('')
+    if (multiSelect && onMultiSelectChange) {
+      // Multi-select mode: toggle selection
+      const isSelected = selectedValues.includes(optionValue)
+      const newValues = isSelected
+        ? selectedValues.filter(v => v !== optionValue)
+        : [...selectedValues, optionValue]
+      onMultiSelectChange(newValues)
+      // Don't close dropdown in multi-select mode
+    } else {
+      // Single select mode: set value and close
+      onChange(optionValue)
+      setIsOpen(false)
+      setSearchTerm('')
+    }
   }
 
   // Filter options based on search term
@@ -117,6 +139,42 @@ export const CustomSelect = ({
   const filteredOptions = filterOptions(options)
   const filteredOptionGroups = filterOptionGroups(optionGroups)
 
+  // Check if search term is a custom value (not in options)
+  // Check both value and label to see if it's an exact match
+  const isCustomValue = allowCustom && searchTerm && searchTerm.trim().length > 0 &&
+    !options.some(opt =>
+      opt.value.toLowerCase() === searchTerm.toLowerCase() ||
+      opt.label.toLowerCase() === searchTerm.toLowerCase()
+    ) &&
+    !optionGroups.some(group =>
+      group.options.some(opt =>
+        opt.value.toLowerCase() === searchTerm.toLowerCase() ||
+        opt.label.toLowerCase() === searchTerm.toLowerCase()
+      )
+    )
+
+  const handleCreateCustom = () => {
+    if (searchTerm.trim()) {
+      onChange(searchTerm.trim())
+      setIsOpen(false)
+      setSearchTerm('')
+    }
+  }
+
+  // Debug logging
+  if (allowCustom && searchTerm) {
+    console.log('CustomSelect Debug:', {
+      allowCustom,
+      searchTerm,
+      isCustomValue,
+      optionsCount: options.length,
+      optionValues: options.map(o => o.value),
+      optionLabels: options.map(o => o.label),
+      trimmedSearchTerm: searchTerm.trim(),
+      searchTermLower: searchTerm.toLowerCase()
+    })
+  }
+
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Trigger Button */}
@@ -134,7 +192,7 @@ export const CustomSelect = ({
         `}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {selectedOption?.image_url && (
+          {!multiSelect && selectedOption?.image_url && (
             <img
               src={selectedOption.image_url}
               alt={selectedOption.label}
@@ -145,8 +203,13 @@ export const CustomSelect = ({
               }}
             />
           )}
-          <span className={`truncate ${!value ? 'text-theme-muted' : ''}`}>
-            {selectedOption?.label || placeholder}
+          <span className={`truncate ${(!value && !multiSelect) || (multiSelect && selectedValues.length === 0) ? 'text-theme-muted' : ''}`}>
+            {multiSelect
+              ? (selectedValues.length > 0
+                  ? `${selectedValues.length} selected`
+                  : placeholder)
+              : (selectedOption?.label || placeholder)
+            }
           </span>
         </div>
         <ChevronDown className={`w-4 h-4 text-theme-secondary transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
@@ -156,7 +219,7 @@ export const CustomSelect = ({
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-theme-primary border border-theme-primary rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
           {/* Search Input */}
-          {searchable && (
+          {(searchable || allowCustom) && (
             <div className="sticky top-0 p-2 border-b border-theme-primary bg-theme-primary">
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-theme-muted" />
@@ -188,51 +251,29 @@ export const CustomSelect = ({
 
           {/* Options List */}
           <div className="overflow-auto flex-1">
+            {/* Create Custom Option */}
+            {isCustomValue && (
+              <div className="py-1 border-b border-theme-primary">
+                <button
+                  type="button"
+                  onClick={handleCreateCustom}
+                  className="w-full px-3 py-2 text-left flex items-center gap-2 text-primary hover:bg-primary/10 transition-colors duration-150 font-medium"
+                >
+                  <span className="text-primary">+</span>
+                  <span>{customLabel}: "{searchTerm}"</span>
+                </button>
+              </div>
+            )}
+
             {/* Flat Options */}
             {filteredOptions.length > 0 && (
               <div className="py-1">
-                {filteredOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleSelect(option.value)}
-                  className={`
-                    w-full px-3 py-2 text-left
-                    flex items-center justify-between gap-2
-                    transition-colors duration-150
-                    ${value === option.value
-                      ? 'bg-secondary/20 text-secondary font-medium'
-                      : 'text-theme-primary hover:bg-secondary hover:text-white'
-                    }
-                  `}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {option.image_url && (
-                      <img
-                        src={option.image_url}
-                        alt={option.label}
-                        className="w-5 h-5 rounded object-contain flex-shrink-0"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
-                      />
-                    )}
-                    <span className="truncate">{option.label}</span>
-                  </div>
-                  {value === option.value && <Check className="w-4 h-4 flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-          )}
+                {filteredOptions.map((option) => {
+                  const isSelected = multiSelect
+                    ? selectedValues.includes(option.value)
+                    : value === option.value
 
-            {/* Option Groups */}
-            {filteredOptionGroups.map((group, groupIndex) => (
-              <div key={groupIndex}>
-                <div className="px-3 py-2 text-xs font-semibold text-theme-secondary bg-theme-tertiary">
-                  {group.label}
-                </div>
-                <div className="py-1">
-                  {group.options.map((option) => (
+                  return (
                     <button
                       key={option.value}
                       type="button"
@@ -241,14 +282,23 @@ export const CustomSelect = ({
                         w-full px-3 py-2 text-left
                         flex items-center justify-between gap-2
                         transition-colors duration-150
-                        ${value === option.value
+                        ${isSelected
                           ? 'bg-secondary/20 text-secondary font-medium'
                           : 'text-theme-primary hover:bg-secondary hover:text-white'
                         }
                       `}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {option.image_url && (
+                        {multiSelect && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}} // Handled by button onClick
+                            className="rounded border-theme-primary"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        {!multiSelect && option.image_url && (
                           <img
                             src={option.image_url}
                             alt={option.label}
@@ -260,9 +310,66 @@ export const CustomSelect = ({
                         )}
                         <span className="truncate">{option.label}</span>
                       </div>
-                      {value === option.value && <Check className="w-4 h-4 flex-shrink-0" />}
+                      {!multiSelect && isSelected && <Check className="w-4 h-4 flex-shrink-0" />}
                     </button>
-                  ))}
+                  )
+                })}
+            </div>
+          )}
+
+            {/* Option Groups */}
+            {filteredOptionGroups.map((group, groupIndex) => (
+              <div key={groupIndex}>
+                <div className="px-3 py-2 text-xs font-semibold text-theme-secondary bg-theme-tertiary">
+                  {group.label}
+                </div>
+                <div className="py-1">
+                  {group.options.map((option) => {
+                    const isSelected = multiSelect
+                      ? selectedValues.includes(option.value)
+                      : value === option.value
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleSelect(option.value)}
+                        className={`
+                          w-full px-3 py-2 text-left
+                          flex items-center justify-between gap-2
+                          transition-colors duration-150
+                          ${isSelected
+                            ? 'bg-secondary/20 text-secondary font-medium'
+                            : 'text-theme-primary hover:bg-secondary hover:text-white'
+                          }
+                        `}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {multiSelect && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}} // Handled by button onClick
+                              className="rounded border-theme-primary"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
+                          {!multiSelect && option.image_url && (
+                            <img
+                              src={option.image_url}
+                              alt={option.label}
+                              className="w-5 h-5 rounded object-contain flex-shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          )}
+                          <span className="truncate">{option.label}</span>
+                        </div>
+                        {!multiSelect && isSelected && <Check className="w-4 h-4 flex-shrink-0" />}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             ))}

@@ -22,7 +22,8 @@ import {
   AlertCircle,
   ChevronRight,
   Undo2,
-  FolderTree
+  FolderTree,
+  Plus
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { Location, LocationDetails } from '@/types/locations';
@@ -30,6 +31,8 @@ import { locationsService } from '@/services/locations.service';
 import { partsService } from '@/services/parts.service';
 import { partAllocationService } from '@/services/part-allocation.service';
 import PrinterModal from '@/components/printer/PrinterModal';
+import AddLocationModal from '@/components/locations/AddLocationModal';
+import EditLocationModal from '@/components/locations/EditLocationModal';
 import toast from 'react-hot-toast';
 
 interface LocationDetailsModalProps {
@@ -73,6 +76,12 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [partToReturn, setPartToReturn] = useState<PartAtLocation | null>(null);
+
+  // Add child location modal state
+  const [showAddChildModal, setShowAddChildModal] = useState(false);
+
+  // Edit location modal state
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -245,7 +254,16 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
               {/* Location Info */}
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-theme-primary">{location.name}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold text-theme-primary">{location.name}</h2>
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="p-2 hover:bg-theme-secondary rounded-lg transition-colors"
+                    title="Edit location"
+                  >
+                    <Edit className="w-5 h-5 text-theme-secondary hover:text-primary" />
+                  </button>
+                </div>
                 <div className="flex items-center gap-2 mt-1 text-sm text-theme-secondary">
                   <span className="px-2 py-1 bg-theme-secondary rounded text-xs font-medium">
                     {location.location_type}
@@ -300,10 +318,19 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
             {locationDetails && locationDetails.children.length > 0 ? (
               // Show child locations if this is a parent location
               <>
-                <h3 className="text-lg font-semibold text-theme-primary mb-3 flex items-center gap-2">
-                  <FolderTree className="w-5 h-5" />
-                  Child Locations
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-theme-primary flex items-center gap-2">
+                    <FolderTree className="w-5 h-5" />
+                    Child Locations
+                  </h3>
+                  <button
+                    onClick={() => setShowAddChildModal(true)}
+                    className="btn btn-sm btn-secondary flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Child Location
+                  </button>
+                </div>
                 {loading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -354,12 +381,21 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                 )}
               </>
             ) : (
-              // Show parts if this is a leaf location
+              // Show parts if this is a leaf location (no children yet)
               <>
-                <h3 className="text-lg font-semibold text-theme-primary mb-3 flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  Parts at this Location
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-theme-primary flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Parts at this Location
+                  </h3>
+                  <button
+                    onClick={() => setShowAddChildModal(true)}
+                    className="btn btn-sm btn-secondary flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Child Location
+                  </button>
+                </div>
 
                 {loading ? (
                   <div className="text-center py-8">
@@ -553,6 +589,30 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
           </div>
         </Modal>
       )}
+
+      {/* Add Child Location Modal */}
+      <AddLocationModal
+        isOpen={showAddChildModal}
+        onClose={() => setShowAddChildModal(false)}
+        onSuccess={() => {
+          setShowAddChildModal(false);
+          loadLocationData(); // Reload to show new child
+          if (onRefresh) onRefresh(); // Refresh parent list too
+        }}
+        defaultParentId={location.id}
+      />
+
+      {/* Edit Location Modal */}
+      <EditLocationModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSuccess={() => {
+          setShowEditModal(false);
+          loadLocationData(); // Reload to show updated info
+          if (onRefresh) onRefresh(); // Refresh parent list too
+        }}
+        location={location}
+      />
     </>
   );
 };

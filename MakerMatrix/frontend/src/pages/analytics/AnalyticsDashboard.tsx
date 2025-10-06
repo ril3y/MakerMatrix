@@ -1,33 +1,28 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Package, 
+import {
+  Package,
   AlertTriangle,
-  Calendar,
-  Filter,
-  Download,
+  MapPin,
+  Tag,
+  TrendingUp,
+  TrendingDown,
   RefreshCw,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  BarChart3
 } from 'lucide-react'
-import { CustomSelect } from '@/components/ui/CustomSelect'
 import { analyticsService } from '@/services/analytics.service'
-import { Line, Bar, Doughnut } from 'react-chartjs-2'
+import { Bar, Doughnut } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
   BarElement,
   ArcElement,
   Title,
   Tooltip,
-  Legend,
-  Filler
+  Legend
 } from 'chart.js'
 import toast from 'react-hot-toast'
 
@@ -35,87 +30,84 @@ import toast from 'react-hot-toast'
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
   BarElement,
   ArcElement,
   Title,
   Tooltip,
-  Legend,
-  Filler
+  Legend
 )
 
-interface DashboardSummary {
-  period: {
-    start_date: string
-    end_date: string
-  }
-  spending_by_supplier: Array<{
-    supplier: string
-    total_spent: number
-    order_count: number
-  }>
-  spending_trend: Array<{
-    period: string
-    total_spent: number
-    order_count: number
-  }>
-  frequent_parts: Array<{
-    part_id: number
-    name: string
-    part_number: string
-    current_quantity: number
-    total_orders: number
-    average_price: number
-    last_order_date: string | null
-  }>
+interface InventorySummary {
+  total_parts: number
+  total_units: number
+  total_categories: number
+  total_locations: number
+  parts_with_location: number
+  parts_without_location: number
   low_stock_count: number
-  low_stock_parts: Array<{
-    part_id: number
-    name: string
-    part_number: string
-    current_quantity: number
-    minimum_quantity: number | null
-    average_order_quantity: number
-    suggested_reorder_quantity: number
-    last_order_date: string | null
-    total_orders: number
-  }>
-  inventory_value: {
-    total_value: number
-    priced_parts: number
-    unpriced_parts: number
-    total_units: number
-  }
-  category_spending: Array<{
-    category: string
-    total_spent: number
-    unique_parts: number
-  }>
+  zero_stock_count: number
+}
+
+interface CategoryDistribution {
+  category: string
+  part_count: number
+  total_quantity: number
+}
+
+interface LocationDistribution {
+  location: string
+  part_count: number
+  total_quantity: number
+}
+
+interface StockedPart {
+  id: string
+  part_name: string
+  part_number: string
+  quantity: number
+  supplier: string
+  location: string
+}
+
+interface LowStockPart {
+  id: string
+  part_name: string
+  part_number: string
+  quantity: number
+  supplier: string
+  location_name: string
+}
+
+interface DashboardData {
+  summary: InventorySummary
+  parts_by_category: CategoryDistribution[]
+  parts_by_location: LocationDistribution[]
+  most_stocked_parts: StockedPart[]
+  least_stocked_parts: StockedPart[]
+  low_stock_parts: LowStockPart[]
 }
 
 const AnalyticsDashboard = () => {
   const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState<DashboardSummary | null>(null)
-  const [selectedPeriod, setSelectedPeriod] = useState('30')
+  const [data, setData] = useState<DashboardData | null>(null)
   const [expandedSections, setExpandedSections] = useState({
-    spending: true,
-    inventory: true,
-    trends: true,
+    distribution: true,
+    topParts: true,
     alerts: true
   })
 
   useEffect(() => {
     loadDashboardData()
-  }, [selectedPeriod])
+  }, [])
 
   const loadDashboardData = async () => {
     try {
       setLoading(true)
-      const data = await analyticsService.getDashboardSummary()
-      setSummary(data)
+      const response = await analyticsService.getDashboardSummary()
+      setData(response)
     } catch (error) {
       toast.error('Failed to load analytics data')
+      console.error('Analytics error:', error)
     } finally {
       setLoading(false)
     }
@@ -128,20 +120,6 @@ const AnalyticsDashboard = () => {
     }))
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(value)
-  }
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString()
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -150,7 +128,7 @@ const AnalyticsDashboard = () => {
     )
   }
 
-  if (!summary) {
+  if (!data) {
     return (
       <div className="text-center py-8">
         <p className="text-secondary">No analytics data available</p>
@@ -158,59 +136,44 @@ const AnalyticsDashboard = () => {
     )
   }
 
-  // Prepare chart data with safety checks for empty data
-  const spendingTrendData = {
-    labels: summary.spending_trend?.length > 0 
-      ? summary.spending_trend.map(item => new Date(item.period).toLocaleDateString())
+  // Prepare chart data
+  const categoryChartData = {
+    labels: data.parts_by_category.length > 0
+      ? data.parts_by_category.slice(0, 10).map(item => item.category)
       : ['No Data'],
     datasets: [
       {
-        label: 'Total Spent',
-        data: summary.spending_trend?.length > 0 
-          ? summary.spending_trend.map(item => item.total_spent)
+        label: 'Parts Count',
+        data: data.parts_by_category.length > 0
+          ? data.parts_by_category.slice(0, 10).map(item => item.part_count)
           : [0],
-        borderColor: 'rgb(99, 102, 241)',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        fill: true,
-        tension: 0.4
+        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1
       }
     ]
   }
 
-  const supplierSpendingData = {
-    labels: summary.spending_by_supplier?.length > 0 
-      ? summary.spending_by_supplier.map(item => item.supplier)
+  const locationChartData = {
+    labels: data.parts_by_location.length > 0
+      ? data.parts_by_location.slice(0, 8).map(item => item.location)
       : ['No Data'],
     datasets: [
       {
-        data: summary.spending_by_supplier?.length > 0 
-          ? summary.spending_by_supplier.map(item => item.total_spent)
+        data: data.parts_by_location.length > 0
+          ? data.parts_by_location.slice(0, 8).map(item => item.part_count)
           : [0],
         backgroundColor: [
           'rgba(99, 102, 241, 0.8)',
           'rgba(239, 68, 68, 0.8)',
           'rgba(34, 197, 94, 0.8)',
           'rgba(251, 191, 36, 0.8)',
-          'rgba(168, 85, 247, 0.8)'
+          'rgba(168, 85, 247, 0.8)',
+          'rgba(236, 72, 153, 0.8)',
+          'rgba(14, 165, 233, 0.8)',
+          'rgba(132, 204, 22, 0.8)'
         ],
         borderWidth: 0
-      }
-    ]
-  }
-
-  const categorySpendingData = {
-    labels: summary.category_spending?.length > 0 
-      ? summary.category_spending.slice(0, 5).map(item => item.category)
-      : ['No Data'],
-    datasets: [
-      {
-        label: 'Spending by Category',
-        data: summary.category_spending?.length > 0 
-          ? summary.category_spending.slice(0, 5).map(item => item.total_spent)
-          : [0],
-        backgroundColor: 'rgba(99, 102, 241, 0.8)',
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 1
       }
     ]
   }
@@ -225,35 +188,20 @@ const AnalyticsDashboard = () => {
       >
         <div>
           <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-            <TrendingUp className="w-6 h-6" />
-            Analytics Dashboard
+            <BarChart3 className="w-6 h-6" />
+            Inventory Analytics
           </h1>
           <p className="text-secondary mt-1">
-            Period: {formatDate(summary.period.start_date)} - {formatDate(summary.period.end_date)}
+            Overview of your current inventory
           </p>
         </div>
         <div className="flex gap-2">
-          <CustomSelect
-            value={selectedPeriod}
-            onChange={setSelectedPeriod}
-            options={[
-              { value: '7', label: 'Last 7 days' },
-              { value: '30', label: 'Last 30 days' },
-              { value: '90', label: 'Last 90 days' },
-              { value: '365', label: 'Last year' }
-            ]}
-            placeholder="Select period"
-          />
           <button
             onClick={loadDashboardData}
             className="btn btn-secondary flex items-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
-          </button>
-          <button className="btn btn-primary flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Export
           </button>
         </div>
       </motion.div>
@@ -268,15 +216,15 @@ const AnalyticsDashboard = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-secondary">Total Inventory Value</p>
+              <p className="text-sm text-secondary">Total Parts</p>
               <p className="text-2xl font-bold text-primary">
-                {formatCurrency(summary.inventory_value.total_value)}
+                {data.summary.total_parts.toLocaleString()}
               </p>
               <p className="text-xs text-muted mt-1">
-                {summary.inventory_value.priced_parts} priced parts
+                {data.summary.total_units.toLocaleString()} total units
               </p>
             </div>
-            <DollarSign className="w-8 h-8 text-primary opacity-20" />
+            <Package className="w-8 h-8 text-primary opacity-20" />
           </div>
         </motion.div>
 
@@ -290,10 +238,10 @@ const AnalyticsDashboard = () => {
             <div>
               <p className="text-sm text-secondary">Low Stock Alerts</p>
               <p className="text-2xl font-bold text-error">
-                {summary.low_stock_count}
+                {data.summary.low_stock_count}
               </p>
               <p className="text-xs text-muted mt-1">
-                Parts below threshold
+                Parts below 10 units
               </p>
             </div>
             <AlertTriangle className="w-8 h-8 text-error opacity-20" />
@@ -308,15 +256,15 @@ const AnalyticsDashboard = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-secondary">Total Units</p>
+              <p className="text-sm text-secondary">Categories</p>
               <p className="text-2xl font-bold text-primary">
-                {(summary.inventory_value.total_units ?? 0).toLocaleString()}
+                {data.summary.total_categories}
               </p>
               <p className="text-xs text-muted mt-1">
-                Across all parts
+                Active categories
               </p>
             </div>
-            <Package className="w-8 h-8 text-primary opacity-20" />
+            <Tag className="w-8 h-8 text-primary opacity-20" />
           </div>
         </motion.div>
 
@@ -328,174 +276,157 @@ const AnalyticsDashboard = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-secondary">Suppliers</p>
+              <p className="text-sm text-secondary">Locations</p>
               <p className="text-2xl font-bold text-primary">
-                {summary.spending_by_supplier?.length || 0}
+                {data.summary.total_locations}
               </p>
               <p className="text-xs text-muted mt-1">
-                Active suppliers
+                {data.summary.parts_with_location} parts located
               </p>
             </div>
-            <TrendingUp className="w-8 h-8 text-primary opacity-20" />
+            <MapPin className="w-8 h-8 text-primary opacity-20" />
           </div>
         </motion.div>
       </div>
 
-      {/* Spending Analysis Section */}
+      {/* Distribution Charts Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="card"
       >
-        <div 
+        <div
           className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
-          onClick={() => toggleSection('spending')}
+          onClick={() => toggleSection('distribution')}
         >
           <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
-            Spending Analysis
+            <BarChart3 className="w-5 h-5" />
+            Parts Distribution
           </h2>
-          {expandedSections.spending ? <ChevronUp /> : <ChevronDown />}
+          {expandedSections.distribution ? <ChevronUp /> : <ChevronDown />}
         </div>
-        
-        {expandedSections.spending && (
+
+        {expandedSections.distribution && (
           <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Spending Trend Chart */}
+            {/* Categories Chart */}
             <div>
-              <h3 className="text-md font-medium text-primary mb-4">Spending Trend</h3>
+              <h3 className="text-md font-medium text-primary mb-4">By Category</h3>
               <div className="h-64">
-                <Line 
-                  data={spendingTrendData} 
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        ticks: {
-                          callback: function(value) {
-                            return '$' + (value ?? 0).toLocaleString()
+                {data.parts_by_category.length > 0 ? (
+                  <Bar
+                    data={categoryChartData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            precision: 0
                           }
                         }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted">
+                    No category data available
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Supplier Spending Chart */}
+            {/* Locations Chart */}
             <div>
-              <h3 className="text-md font-medium text-primary mb-4">Spending by Supplier</h3>
+              <h3 className="text-md font-medium text-primary mb-4">By Location</h3>
               <div className="h-64">
-                <Doughnut 
-                  data={supplierSpendingData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        position: 'right',
-                        labels: {
-                          padding: 10,
-                          usePointStyle: true
-                        }
-                      }
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Category Spending */}
-            <div className="lg:col-span-2">
-              <h3 className="text-md font-medium text-primary mb-4">Top Categories by Spending</h3>
-              <div className="h-64">
-                <Bar
-                  data={categorySpendingData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        ticks: {
-                          callback: function(value) {
-                            return '$' + (value ?? 0).toLocaleString()
+                {data.parts_by_location.length > 0 ? (
+                  <Doughnut
+                    data={locationChartData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'right',
+                          labels: {
+                            padding: 10,
+                            usePointStyle: true
                           }
                         }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted">
+                    No location data available
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </motion.div>
 
-      {/* Inventory Insights Section */}
+      {/* Top Parts Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
         className="card"
       >
-        <div 
+        <div
           className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
-          onClick={() => toggleSection('inventory')}
+          onClick={() => toggleSection('topParts')}
         >
           <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
             <Package className="w-5 h-5" />
-            Inventory Insights
+            Stock Levels
           </h2>
-          {expandedSections.inventory ? <ChevronUp /> : <ChevronDown />}
+          {expandedSections.topParts ? <ChevronUp /> : <ChevronDown />}
         </div>
-        
-        {expandedSections.inventory && (
-          <div className="p-6">
-            {/* Most Frequently Ordered Parts */}
-            <div className="mb-6">
-              <h3 className="text-md font-medium text-primary mb-4">Most Frequently Ordered Parts</h3>
+
+        {expandedSections.topParts && (
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Most Stocked */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-success" />
+                Most Stocked Parts
+              </h3>
               <div className="overflow-x-auto">
                 <table className="table w-full">
                   <thead>
                     <tr>
                       <th>Part Name</th>
-                      <th>Part Number</th>
-                      <th>Current Stock</th>
-                      <th>Total Orders</th>
-                      <th>Avg Price</th>
-                      <th>Last Order</th>
+                      <th>Quantity</th>
+                      <th>Location</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {summary.frequent_parts?.length > 0 ? (
-                      summary.frequent_parts.map((part) => (
-                        <tr key={part.part_id}>
-                          <td className="font-medium text-primary">{part.name}</td>
-                          <td className="text-secondary">{part.part_number}</td>
-                          <td className="text-secondary">{part.current_quantity}</td>
-                          <td className="text-secondary">{part.total_orders}</td>
-                          <td className="text-secondary">{formatCurrency(part.average_price)}</td>
-                          <td className="text-secondary">{formatDate(part.last_order_date)}</td>
+                    {data.most_stocked_parts.length > 0 ? (
+                      data.most_stocked_parts.map((part) => (
+                        <tr key={part.id}>
+                          <td>
+                            <div>
+                              <div className="font-medium text-primary">{part.part_name}</div>
+                              <div className="text-xs text-muted">{part.part_number}</div>
+                            </div>
+                          </td>
+                          <td className="font-semibold text-success">{part.quantity.toLocaleString()}</td>
+                          <td className="text-secondary text-sm">{part.location}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="text-center text-muted py-4">
-                          No order history available
+                        <td colSpan={3} className="text-center text-muted py-4">
+                          No parts available
                         </td>
                       </tr>
                     )}
@@ -504,46 +435,99 @@ const AnalyticsDashboard = () => {
               </div>
             </div>
 
-            {/* Low Stock Alerts */}
-            {summary.low_stock_count > 0 && (
-              <div>
-                <h3 className="text-md font-medium text-primary mb-4 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-error" />
-                  Low Stock Alerts
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {summary.low_stock_parts?.length > 0 ? (
-                    summary.low_stock_parts.map((part) => (
-                      <div key={part.part_id} className="bg-error/5 border border-error/20 rounded-lg p-4">
-                        <h4 className="font-medium text-primary">{part.name}</h4>
-                        <p className="text-sm text-secondary mb-2">{part.part_number}</p>
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted">Current:</span>
-                            <span className="text-error font-medium">{part.current_quantity}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted">Avg Order:</span>
-                            <span className="text-secondary">{Math.round(part.average_order_quantity)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted">Suggested:</span>
-                            <span className="text-success font-medium">{part.suggested_reorder_quantity}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full text-center text-muted py-4">
-                      No low stock alerts
-                    </div>
-                  )}
-                </div>
+            {/* Least Stocked */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-warning" />
+                Least Stocked Parts
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="table w-full">
+                  <thead>
+                    <tr>
+                      <th>Part Name</th>
+                      <th>Quantity</th>
+                      <th>Location</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.least_stocked_parts.length > 0 ? (
+                      data.least_stocked_parts.map((part) => (
+                        <tr key={part.id}>
+                          <td>
+                            <div>
+                              <div className="font-medium text-primary">{part.part_name}</div>
+                              <div className="text-xs text-muted">{part.part_number}</div>
+                            </div>
+                          </td>
+                          <td className="font-semibold text-warning">{part.quantity.toLocaleString()}</td>
+                          <td className="text-secondary text-sm">{part.location}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="text-center text-muted py-4">
+                          No parts available
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
           </div>
         )}
       </motion.div>
+
+      {/* Low Stock Alerts Section */}
+      {data.low_stock_parts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="card"
+        >
+          <div
+            className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
+            onClick={() => toggleSection('alerts')}
+          >
+            <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-error" />
+              Low Stock Alerts
+            </h2>
+            {expandedSections.alerts ? <ChevronUp /> : <ChevronDown />}
+          </div>
+
+          {expandedSections.alerts && (
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.low_stock_parts.map((part) => (
+                  <div key={part.id} className="bg-error/5 border border-error/20 rounded-lg p-4">
+                    <h4 className="font-medium text-primary">{part.part_name}</h4>
+                    <p className="text-sm text-secondary mb-2">{part.part_number}</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted">Current Stock:</span>
+                        <span className="text-error font-medium">{part.quantity}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted">Location:</span>
+                        <span className="text-secondary">{part.location_name || 'No Location'}</span>
+                      </div>
+                      {part.supplier && (
+                        <div className="flex justify-between">
+                          <span className="text-muted">Supplier:</span>
+                          <span className="text-secondary text-xs">{part.supplier}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowLeft, Save, Trash2, Package, Plus, X, Info, AlertCircle, CheckCircle, HelpCircle } from 'lucide-react';
+import { TooltipIcon } from '../../components/ui/Tooltip';
 import { partsService, SupplierEnrichmentRequirements } from '../../services/parts.service';
 import { locationsService } from '../../services/locations.service';
 import { categoriesService } from '../../services/categories.service';
@@ -53,6 +54,9 @@ const EditPartPage: React.FC = () => {
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
   const [enrichmentRequirements, setEnrichmentRequirements] = useState<SupplierEnrichmentRequirements | null>(null);
   const [loadingRequirements, setLoadingRequirements] = useState(false);
+
+  // Known API suppliers with enrichment capabilities
+  const knownApiSuppliers = ['lcsc', 'digikey', 'mouser', 'octopart', 'arrow', 'newark'];
 
   const buildLocationHierarchy = (locations: Location[]): Array<{id: string, name: string, level: number}> => {
     const result: Array<{id: string, name: string, level: number}> = []
@@ -157,8 +161,17 @@ const EditPartPage: React.FC = () => {
     try {
       setLoadingRequirements(true);
 
-      // First check if supplier has enrichment capabilities
-      // This prevents 404 errors for standard suppliers (like Alibaba, etc.)
+      // Check if this is a known API supplier before making the request
+      const isKnownApiSupplier = knownApiSuppliers.includes(supplier.toLowerCase());
+
+      if (!isKnownApiSupplier) {
+        // Simple supplier without API capabilities - skip the API call
+        console.log(`Supplier "${supplier}" is not a known API supplier - skipping enrichment check`);
+        setEnrichmentRequirements(null);
+        return;
+      }
+
+      // Get supplier capabilities (only for known API suppliers)
       const capabilities = await supplierService.getSupplierCapabilities(supplier);
 
       // Only load enrichment requirements if supplier has enrichment capabilities
@@ -173,7 +186,7 @@ const EditPartPage: React.FC = () => {
         const requirements = await partsService.getSupplierEnrichmentRequirements(supplier);
         setEnrichmentRequirements(requirements);
       } else {
-        // Standard supplier without enrichment capabilities
+        // API supplier without enrichment capabilities
         setEnrichmentRequirements(null);
       }
     } catch (error) {
@@ -763,7 +776,35 @@ const EditPartPage: React.FC = () => {
         {/* Additional Properties */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-primary">Additional Properties</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-primary">Additional Properties</h2>
+              <TooltipIcon
+                tooltip={
+                  <div className="space-y-2">
+                    <p className="font-medium">Custom Part Metadata</p>
+                    <p>
+                      Store technical specifications, part ratings, or any other relevant information
+                      specific to this component.
+                    </p>
+                    <p className="text-sm opacity-90">
+                      <strong>Examples:</strong>
+                    </p>
+                    <ul className="text-sm opacity-90 list-disc list-inside space-y-1">
+                      <li>Resistance: 10kΩ ±5%</li>
+                      <li>Voltage Rating: 25V</li>
+                      <li>Package: SMD 0805</li>
+                      <li>Temperature Range: -40°C to 125°C</li>
+                    </ul>
+                    <p className="text-sm opacity-90 mt-2">
+                      These properties are automatically populated during CSV imports with enrichment data
+                      from your suppliers.
+                    </p>
+                  </div>
+                }
+                variant="help"
+                position="right"
+              />
+            </div>
             <span className="text-sm text-secondary bg-background-secondary px-2 py-1 rounded">
               {Object.keys(additionalProperties).length} properties
             </span>
@@ -791,6 +832,7 @@ const EditPartPage: React.FC = () => {
                         value={typeof value === 'object' ? JSON.stringify(value) : String(value)}
                         onChange={(e) => updateProperty(key, e.target.value)}
                         className="input-sm w-full"
+                        style={{color: 'black', backgroundColor: 'white'}}
                       />
                     </div>
                   </div>
@@ -841,20 +883,6 @@ const EditPartPage: React.FC = () => {
                 <Plus className="w-4 h-4" />
                 Add
               </button>
-            </div>
-          </div>
-
-          {/* Info */}
-          <div className="mt-4 p-3 bg-info/10 border border-info/20 rounded-lg">
-            <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 text-info mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-primary">
-                <p className="font-medium mb-1">Additional Properties</p>
-                <p className="text-secondary">
-                  Store custom metadata like technical specifications, part ratings, or any other relevant information. 
-                  These properties are automatically populated during CSV imports with enrichment data.
-                </p>
-              </div>
             </div>
           </div>
         </div>

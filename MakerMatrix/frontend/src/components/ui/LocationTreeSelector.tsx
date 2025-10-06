@@ -12,6 +12,7 @@ interface LocationTreeSelectorProps {
   description?: string;
   error?: string;
   showAddButton?: boolean;
+  showLabel?: boolean; // Whether to show the FormField wrapper with label
   className?: string;
   compact?: boolean; // For modal use
 }
@@ -137,6 +138,7 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
   description,
   error,
   showAddButton = false,
+  showLabel = true,
   className = '',
   compact = false
 }) => {
@@ -200,94 +202,97 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
   };
 
   if (loading) {
-    return (
-      <FormField label={label} description={description} error={error} className={className}>
-        <div className="p-4 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-          <p className="text-theme-secondary text-sm mt-2">Loading locations...</p>
-        </div>
-      </FormField>
+    const loadingContent = (
+      <div className="p-4 text-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+        <p className="text-theme-secondary text-sm mt-2">Loading locations...</p>
+      </div>
     );
+
+    return showLabel ? (
+      <FormField label={label} description={description} error={error} className={className}>
+        {loadingContent}
+      </FormField>
+    ) : loadingContent;
   }
 
-  return (
-    <FormField label={label} description={description} error={error} className={className}>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {selectedLocationId && (
+  // Helper function to build full location path
+  const getLocationPath = (locationId: string): string => {
+    const findLocationWithPath = (locs: Location[], path: string[] = []): string[] | null => {
+      for (const loc of locs) {
+        const currentPath = [...path, loc.name];
+        if (loc.id === locationId) {
+          return currentPath;
+        }
+        if (loc.children && loc.children.length > 0) {
+          const found = findLocationWithPath(loc.children, currentPath);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const path = findLocationWithPath(locationTree || []);
+    return path ? path.join(' → ') : 'Unknown location';
+  };
+
+  const selectorContent = (
+    <div className="space-y-3">
+      {showAddButton && onAddNewLocation && (
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={onAddNewLocation}
+            className="btn btn-secondary btn-sm flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add New
+          </button>
+        </div>
+      )}
+
+      <div className={`border border-theme-primary rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto`}>
+        {locationTree && locationTree.length > 0 ? (
+          <div className="p-2">
+            <LocationTreeNode
+              locations={locationTree}
+              selectedLocationId={selectedLocationId}
+              expandedNodes={expandedNodes}
+              toggleExpanded={toggleExpanded}
+              onLocationSelect={onLocationSelect}
+              compact={compact}
+            />
+          </div>
+        ) : (
+          <div className="p-4 text-center">
+            <MapPin className="w-8 h-8 text-theme-muted mx-auto mb-2" />
+            <p className="text-theme-secondary text-sm">No locations available</p>
+            {showAddButton && onAddNewLocation && (
               <button
                 type="button"
-                onClick={handleClearSelection}
-                className="btn btn-secondary btn-sm"
+                onClick={onAddNewLocation}
+                className="btn btn-primary btn-sm mt-2"
               >
-                Clear Selection
+                Create your first location
               </button>
             )}
           </div>
-          {showAddButton && onAddNewLocation && (
-            <button
-              type="button"
-              onClick={onAddNewLocation}
-              className="btn btn-secondary btn-sm flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add New
-            </button>
-          )}
-        </div>
-
-        <div className={`border border-theme-primary rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto`}>
-          {locationTree && locationTree.length > 0 ? (
-            <div className="p-2">
-              <LocationTreeNode
-                locations={locationTree}
-                selectedLocationId={selectedLocationId}
-                expandedNodes={expandedNodes}
-                toggleExpanded={toggleExpanded}
-                onLocationSelect={onLocationSelect}
-                compact={compact}
-              />
-            </div>
-          ) : (
-            <div className="p-4 text-center">
-              <MapPin className="w-8 h-8 text-theme-muted mx-auto mb-2" />
-              <p className="text-theme-secondary text-sm">No locations available</p>
-              {showAddButton && onAddNewLocation && (
-                <button
-                  type="button"
-                  onClick={onAddNewLocation}
-                  className="btn btn-primary btn-sm mt-2"
-                >
-                  Create your first location
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {selectedLocationId && (
-          <div className="text-sm text-theme-secondary">
-            Selected: {(() => {
-              const findLocation = (locs: Location[]): string | null => {
-                for (const loc of locs) {
-                  if (loc.id === selectedLocationId) {
-                    return loc.name;
-                  }
-                  if (loc.children && loc.children.length > 0) {
-                    const found = findLocation(loc.children);
-                    if (found) return found;
-                  }
-                }
-                return null;
-              };
-              return findLocation(locationTree || []) || 'Unknown location';
-            })()}
-          </div>
         )}
       </div>
-    </FormField>
+
+      {selectedLocationId && (
+        <div className="text-sm text-theme-secondary">
+          Selected: {getLocationPath(selectedLocationId)}
+        </div>
+      )}
+    </div>
   );
+
+  return showLabel ? (
+    <FormField label={label} description={description} error={error} className={className}>
+      {selectorContent}
+    </FormField>
+  ) : selectorContent;
 };
 
 export default LocationTreeSelector;

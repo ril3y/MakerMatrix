@@ -14,9 +14,10 @@ interface AddLocationModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  defaultParentId?: string
 }
 
-const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps) => {
+const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLocationModalProps) => {
   const [parentLocations, setParentLocations] = useState<Location[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>('')
@@ -24,6 +25,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
   const locationTypes = [
     { value: 'standard', label: 'Standard' },
     { value: 'warehouse', label: 'Warehouse' },
+    { value: 'toolbox', label: 'Toolbox' },
     { value: 'room', label: 'Room' },
     { value: 'shelf', label: 'Shelf' },
     { value: 'drawer', label: 'Drawer' },
@@ -41,7 +43,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
       name: '',
       description: '',
       location_type: 'standard',
-      parent_id: undefined,
+      parent_id: defaultParentId || undefined,
       image_url: undefined,
       emoji: undefined,
       image_file: undefined,
@@ -67,8 +69,12 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
   useEffect(() => {
     if (isOpen) {
       loadParentLocations()
+      // Set the default parent if provided
+      if (defaultParentId) {
+        form.setValue('parent_id', defaultParentId)
+      }
     }
-  }, [isOpen])
+  }, [isOpen, defaultParentId])
 
   const loadParentLocations = async () => {
     try {
@@ -151,7 +157,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
       isOpen={isOpen}
       onClose={handleClose}
       title="Add New Location"
-      size="md"
+      size="xl"
       mode="create"
       onSubmit={form.onSubmit}
       loading={form.loading}
@@ -164,83 +170,104 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess }: AddLocationModalProps)
           <p className="text-theme-secondary mt-2">Loading...</p>
         </div>
       ) : (
-        <>
-          <FormInput
-            label="Location Name"
-            placeholder="Enter location name"
-            required
-            registration={form.register('name')}
-            error={form.getFieldError('name')}
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-4">
+          {/* Left Column - Main Fields (2/3 width) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Name and Type */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput
+                label="Location Name"
+                placeholder="Enter location name"
+                required
+                registration={form.register('name')}
+                error={form.getFieldError('name')}
+              />
 
-          <FormField
-            label="Location Type"
-            description="What type of storage location is this?"
-            error={form.getFieldError('location_type')}
-          >
-            <CustomSelect
-              value={form.watch('location_type') || 'standard'}
-              onChange={(value) => form.setValue('location_type', value)}
-              options={locationTypes}
-              placeholder="Select a type"
-              error={form.getFieldError('location_type')}
-            />
-          </FormField>
-
-          <FormField label="Parent Location" description="Select a parent location to create a hierarchy (optional)">
-            <LocationTreeSelector
-              selectedLocationId={form.watch('parent_id')}
-              onLocationSelect={(locationId) => form.setValue('parent_id', locationId || undefined)}
-              showAddButton={false}
-              compact={true}
-            />
-          </FormField>
-
-          {/* Preview of full path */}
-          {form.watch('parent_id') && (
-            <div className="p-3 bg-theme-secondary rounded-md border border-theme-primary">
-              <p className="text-sm text-theme-muted mb-1">Full path will be:</p>
-              <p className="text-sm font-medium text-theme-primary">
-                {(() => {
-                  const parent = parentLocations.find(loc => loc.id === form.watch('parent_id'))
-                  if (parent) {
-                    // Build full path from flat list
-                    const buildPath = (loc: Location): string => {
-                      if (loc.parent_id) {
-                        const parentLoc = parentLocations.find(p => p.id === loc.parent_id)
-                        if (parentLoc) {
-                          return buildPath(parentLoc) + ' → ' + loc.name
-                        }
-                      }
-                      return loc.name
-                    }
-                    return buildPath(parent) + ' → ' + (form.watch('name') || '[New Location]')
-                  }
-                  return form.watch('name') || '[New Location]'
-                })()}
-              </p>
+              <FormField
+                label="Location Type"
+                description="Select from common types or create a custom type"
+                error={form.getFieldError('location_type')}
+              >
+                <CustomSelect
+                  value={form.watch('location_type') || 'standard'}
+                  onChange={(value) => form.setValue('location_type', value)}
+                  options={locationTypes}
+                  placeholder="Select or type a custom type"
+                  searchPlaceholder="Type to search or create custom type..."
+                  error={form.getFieldError('location_type')}
+                  allowCustom={true}
+                  customLabel="Create custom type"
+                />
+              </FormField>
             </div>
-          )}
 
-          {/* Image Upload */}
-          <FormField label="Location Image" description="Upload, drag & drop, or paste an image to help identify this location (max 5MB)">
-            <ImageUpload
-              onImageUploaded={setImageUrl}
-              currentImageUrl={imageUrl}
-              placeholder="Upload location image"
-              className="w-full"
+            {/* Description */}
+            <FormInput
+              label="Description"
+              placeholder="Enter a description (optional)"
+              registration={form.register('description')}
+              error={form.getFieldError('description')}
             />
-          </FormField>
 
-          {/* Emoji Picker */}
-          <FormField label="Location Emoji" description="Choose an emoji to help identify this location (optional)">
-            <EmojiPicker
-              value={form.watch('emoji') || undefined}
-              onChange={(emoji) => form.setValue('emoji', emoji)}
-              placeholder="Click to select an emoji..."
-            />
-          </FormField>
-        </>
+            {/* Parent Location */}
+            <FormField label="Parent Location" description="Select a parent location to create a hierarchy (optional)">
+              <LocationTreeSelector
+                selectedLocationId={form.watch('parent_id')}
+                onLocationSelect={(locationId) => form.setValue('parent_id', locationId || undefined)}
+                showAddButton={false}
+                compact={true}
+              />
+            </FormField>
+
+            {/* Preview of full path */}
+            {form.watch('parent_id') && (
+              <div className="p-3 bg-theme-secondary rounded-md border border-theme-primary">
+                <p className="text-sm text-theme-muted mb-1">Full path will be:</p>
+                <p className="text-sm font-medium text-theme-primary">
+                  {(() => {
+                    const parent = parentLocations.find(loc => loc.id === form.watch('parent_id'))
+                    if (parent) {
+                      // Build full path from flat list
+                      const buildPath = (loc: Location): string => {
+                        if (loc.parent_id) {
+                          const parentLoc = parentLocations.find(p => p.id === loc.parent_id)
+                          if (parentLoc) {
+                            return buildPath(parentLoc) + ' → ' + loc.name
+                          }
+                        }
+                        return loc.name
+                      }
+                      return buildPath(parent) + ' → ' + (form.watch('name') || '[New Location]')
+                    }
+                    return form.watch('name') || '[New Location]'
+                  })()}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Visual Identifiers (1/3 width) */}
+          <div className="space-y-6">
+            {/* Image Upload */}
+            <FormField label="Location Image">
+              <ImageUpload
+                onImageUploaded={setImageUrl}
+                currentImageUrl={imageUrl}
+                placeholder="Upload location image"
+                className="w-full"
+              />
+            </FormField>
+
+            {/* Emoji Picker */}
+            <FormField label="Location Emoji" description="Choose an emoji to identify this location">
+              <EmojiPicker
+                value={form.watch('emoji') || undefined}
+                onChange={(emoji) => form.setValue('emoji', emoji)}
+                placeholder="Click to select an emoji..."
+              />
+            </FormField>
+          </div>
+        </div>
       )}
     </CrudModal>
   )

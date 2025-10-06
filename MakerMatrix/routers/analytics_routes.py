@@ -178,42 +178,112 @@ async def get_inventory_value(
 async def get_dashboard_summary(
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[Dict[str, Any]]:
-    """Get summary analytics for dashboard."""
-    logger.info(f"User {current_user.username} requesting dashboard summary")
-    
-    # Get data for last 30 days
-    end_date = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
-    start_date = end_date - timedelta(days=30)
-    
-    # Collect all analytics
-    spending_by_supplier = analytics_service.get_spending_by_supplier(
-        start_date=start_date, end_date=end_date, limit=5
-    )
-    spending_trend = analytics_service.get_spending_trend(period="week", lookback_periods=4)
-    frequent_parts = analytics_service.get_part_order_frequency(limit=10)
-    low_stock = analytics_service.get_low_stock_parts(threshold=5, include_zero=True)
-    inventory_value = analytics_service.get_inventory_value()
-    category_spending = analytics_service.get_category_spending(
-        start_date=start_date, end_date=end_date
-    )
-    
+    """Get inventory-focused analytics dashboard summary."""
+    logger.info(f"User {current_user.username} requesting inventory dashboard summary")
+
+    # Get inventory-focused analytics (no order dependency)
+    inventory_summary = analytics_service.get_inventory_summary()
+    parts_by_category = analytics_service.get_parts_by_category()
+    parts_by_location = analytics_service.get_parts_by_location()
+    most_stocked = analytics_service.get_most_stocked_parts(limit=10)
+    least_stocked = analytics_service.get_least_stocked_parts(limit=10, exclude_zero=True)
+    low_stock = analytics_service.get_low_stock_parts(threshold=10, include_zero=False)
+
     summary = {
-        "period": {
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat()
-        },
-        "spending_by_supplier": spending_by_supplier,
-        "spending_trend": spending_trend,
-        "frequent_parts": frequent_parts,
-        "low_stock_count": len(low_stock),
-        "low_stock_parts": low_stock[:10],  # Limit to top 10
-        "inventory_value": inventory_value,
-        "category_spending": category_spending
+        "summary": inventory_summary,
+        "parts_by_category": parts_by_category,
+        "parts_by_location": parts_by_location,
+        "most_stocked_parts": most_stocked,
+        "least_stocked_parts": least_stocked,
+        "low_stock_parts": low_stock[:10]  # Limit to top 10
     }
-    
+
     return base_router.build_success_response(
-        message="Retrieved dashboard summary",
+        message="Retrieved inventory dashboard summary",
         data=summary
+    )
+
+
+@router.get("/inventory/parts-by-category", response_model=ResponseSchema)
+@standard_error_handling
+async def get_inventory_parts_by_category(
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """Get parts distribution by category."""
+    logger.info(f"User {current_user.username} requesting parts by category")
+
+    data = analytics_service.get_parts_by_category()
+
+    return base_router.build_success_response(
+        message=f"Retrieved {len(data)} categories",
+        data=data
+    )
+
+
+@router.get("/inventory/parts-by-location", response_model=ResponseSchema)
+@standard_error_handling
+async def get_inventory_parts_by_location(
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """Get parts distribution by location."""
+    logger.info(f"User {current_user.username} requesting parts by location")
+
+    data = analytics_service.get_parts_by_location()
+
+    return base_router.build_success_response(
+        message=f"Retrieved {len(data)} locations",
+        data=data
+    )
+
+
+@router.get("/inventory/most-stocked", response_model=ResponseSchema)
+@standard_error_handling
+async def get_inventory_most_stocked(
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of parts"),
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """Get parts with highest stock quantities."""
+    logger.info(f"User {current_user.username} requesting most stocked parts")
+
+    data = analytics_service.get_most_stocked_parts(limit=limit)
+
+    return base_router.build_success_response(
+        message=f"Retrieved {len(data)} most stocked parts",
+        data=data
+    )
+
+
+@router.get("/inventory/least-stocked", response_model=ResponseSchema)
+@standard_error_handling
+async def get_inventory_least_stocked(
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of parts"),
+    exclude_zero: bool = Query(True, description="Exclude parts with zero stock"),
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """Get parts with lowest stock quantities."""
+    logger.info(f"User {current_user.username} requesting least stocked parts")
+
+    data = analytics_service.get_least_stocked_parts(limit=limit, exclude_zero=exclude_zero)
+
+    return base_router.build_success_response(
+        message=f"Retrieved {len(data)} least stocked parts",
+        data=data
+    )
+
+
+@router.get("/inventory/summary-stats", response_model=ResponseSchema)
+@standard_error_handling
+async def get_inventory_summary_stats(
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[Dict[str, Any]]:
+    """Get overall inventory summary statistics."""
+    logger.info(f"User {current_user.username} requesting inventory summary stats")
+
+    data = analytics_service.get_inventory_summary()
+
+    return base_router.build_success_response(
+        message="Retrieved inventory summary statistics",
+        data=data
     )
 
 
