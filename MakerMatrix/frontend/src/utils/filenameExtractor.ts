@@ -76,18 +76,22 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
 
   // LCSC-specific extraction: YYYYMMDD_HHMMSS format
   if (lcscDateTimeMatch) {
+    console.log('[filenameExtractor] LCSC pattern matched!', lcscDateTimeMatch)
     const dateStr = lcscDateTimeMatch[1]  // YYYYMMDD
     const timeStr = lcscDateTimeMatch[2]  // HHMMSS
+    console.log('[filenameExtractor] Date string:', dateStr, 'Time string:', timeStr)
 
     // Validate and format the date
     const year = parseInt(dateStr.substring(0, 4))
     const month = parseInt(dateStr.substring(4, 6))
     const day = parseInt(dateStr.substring(6, 8))
+    console.log('[filenameExtractor] Parsed date:', { year, month, day })
 
     if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       orderInfo.order_date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
       orderInfo.order_number = timeStr  // Use time as order number
       orderInfo.notes = `Auto-extracted from LCSC filename: ${filename}`
+      console.log('[filenameExtractor] LCSC extraction successful:', orderInfo)
 
       // Return early since we found LCSC-specific pattern
       return {
@@ -96,7 +100,11 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
         order_info: orderInfo,
         filename: filename
       }
+    } else {
+      console.log('[filenameExtractor] Date validation failed')
     }
+  } else {
+    console.log('[filenameExtractor] LCSC pattern did not match for:', filename)
   }
 
   // Common order number patterns - order matters (most specific first)
