@@ -25,8 +25,13 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
   
   // Detect supplier from filename patterns
   let detectedSupplier: string | undefined
-  
-  if (filenameLower.includes('lcsc')) {
+  let lcscDateTimeMatch: RegExpMatchArray | null = null
+
+  // LCSC-specific pattern: LCSC_Exported__YYYYMMDD_HHMMSS.csv or just YYYYMMDD_HHMMSS.csv
+  const lcscPattern = /(?:LCSC_Exported__)?(\d{8})_(\d{6})\.csv$/i
+  lcscDateTimeMatch = filename.match(lcscPattern)
+
+  if (filenameLower.includes('lcsc') || lcscDateTimeMatch) {
     detectedSupplier = 'lcsc'
   } else if (
     filenameLower.includes('digikey') || 
@@ -68,7 +73,32 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
   
   // Extract order number patterns
   const orderInfo: { order_number?: string; order_date?: string; notes?: string } = {}
-  
+
+  // LCSC-specific extraction: YYYYMMDD_HHMMSS format
+  if (lcscDateTimeMatch) {
+    const dateStr = lcscDateTimeMatch[1]  // YYYYMMDD
+    const timeStr = lcscDateTimeMatch[2]  // HHMMSS
+
+    // Validate and format the date
+    const year = parseInt(dateStr.substring(0, 4))
+    const month = parseInt(dateStr.substring(4, 6))
+    const day = parseInt(dateStr.substring(6, 8))
+
+    if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      orderInfo.order_date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+      orderInfo.order_number = timeStr  // Use time as order number
+      orderInfo.notes = `Auto-extracted from LCSC filename: ${filename}`
+
+      // Return early since we found LCSC-specific pattern
+      return {
+        detected_supplier: detectedSupplier,
+        file_type: fileExt.toUpperCase(),
+        order_info: orderInfo,
+        filename: filename
+      }
+    }
+  }
+
   // Common order number patterns - order matters (most specific first)
   const orderPatterns = [
     /order[_-]([A-Za-z0-9]+)/i,    // order_123, order-ABC123 (with separator)
@@ -149,5 +179,19 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
     order_info: orderInfo,
     filename: filename
   }
+}
+
+/**
+ * Legacy compatibility function for extracting order info
+ * @param filename The name of the uploaded file
+ * @param parserType The supplier/parser type (unused, detection is automatic)
+ * @returns Order information object
+ */
+export async function extractOrderInfoFromFilename(
+  filename: string,
+  parserType?: string
+): Promise<{ order_number?: string; order_date?: string; notes?: string }> {
+  const result = extractFilenameInfo(filename)
+  return result.order_info
 }
 

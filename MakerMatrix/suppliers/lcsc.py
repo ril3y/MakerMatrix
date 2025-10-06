@@ -375,14 +375,12 @@ class LCSCSupplier(BaseSupplier):
         return True
     
     async def test_connection(self) -> Dict[str, Any]:
-        """Test connection to EasyEDA API using unified HTTP client"""
-        if not self._configured:
-            return {
-                "success": False,
-                "message": "Supplier not configured",
-                "details": {"error": "Unconfigured supplier"}
-            }
-        
+        """
+        Test connection to EasyEDA API using unified HTTP client.
+
+        LCSC uses public API and requires no configuration, so we skip
+        the configuration check and test the API directly.
+        """
         try:
             http_client = self._get_http_client()
             
