@@ -13,7 +13,7 @@ import pandas as pd
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
     PartSearchResult, SupplierInfo, ConfigurationOption,
-    CapabilityRequirement, ImportResult
+    CapabilityRequirement, ImportResult, EnrichmentFieldMapping
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -82,7 +82,23 @@ class MouserSupplier(BaseSupplier):
                 help_text="Apply for API access through Mouser support. Free for registered users."
             )
         ]
-    
+
+    def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
+        """Define how to extract part fields from Mouser product URLs"""
+        return [
+            EnrichmentFieldMapping(
+                field_name="supplier_part_number",
+                display_name="Mouser Part Number",
+                url_patterns=[
+                    r'/ProductDetail/([^/?]+)',  # Extract Mouser part number from /ProductDetail/{part}
+                    r'/ProductDetail/\?qs=([^&]+)'  # Alternative format with query string
+                ],
+                example="538-10-01-1054",
+                description="The Mouser part number extracted from the product page URL",
+                required_for_enrichment=True
+            )
+        ]
+
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """
         Get configuration schema for Mouser supplier.
@@ -564,6 +580,7 @@ class MouserSupplier(BaseSupplier):
                 # Mouser-specific identifiers
                 "mouser_part_number": part.get("MouserPartNumber", ""),
                 "product_detail_url": part.get("ProductDetailUrl", ""),
+                "mouser_category": part.get("Category", ""),  # For auto-category assignment
 
                 # Lifecycle and compliance
                 "lifecycle_status": part.get("LifecycleStatus", ""),

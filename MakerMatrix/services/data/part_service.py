@@ -310,16 +310,19 @@ class PartService(BaseService):
                 category_names = part_data.pop("category_names", [])
                 categories = []
 
-                # Check for digikey_category in additional_properties and auto-assign
+                # Check for supplier categories in additional_properties and auto-assign
                 additional_props = part_data.get("additional_properties", {})
-                if isinstance(additional_props, dict) and "digikey_category" in additional_props:
-                    digikey_category = additional_props["digikey_category"]
-                    if digikey_category and isinstance(digikey_category, str):
-                        # Convert to lowercase as requested by user
-                        auto_category_name = digikey_category.lower()
-                        if auto_category_name not in category_names:
-                            category_names.append(auto_category_name)
-                            self.logger.info(f"Auto-assigned category '{auto_category_name}' from digikey_category '{digikey_category}' for part '{part_name}'")
+                if isinstance(additional_props, dict):
+                    # Check for any {supplier}_category fields (e.g., digikey_category, mouser_category)
+                    for key in additional_props:
+                        if key.endswith("_category"):
+                            supplier_category = additional_props[key]
+                            if supplier_category and isinstance(supplier_category, str):
+                                # Convert to lowercase as requested by user
+                                auto_category_name = supplier_category.lower()
+                                if auto_category_name not in category_names:
+                                    category_names.append(auto_category_name)
+                                    self.logger.info(f"Auto-assigned category '{auto_category_name}' from {key} '{supplier_category}' for part '{part_name}'")
 
                 if category_names:
                     self.logger.debug(f"Processing {len(category_names)} categories for part '{part_name}': {category_names}")
@@ -388,8 +391,8 @@ class PartService(BaseService):
                 # Use repository to create the part
                 part_obj = self.part_repo.add_part(session, new_part)
 
-                # Create allocation if location_id and quantity provided
-                if allocation_location_id and allocation_quantity is not None and allocation_quantity > 0:
+                # Create allocation if location_id provided (quantity can be 0)
+                if allocation_location_id and allocation_quantity is not None:
                     allocation = PartLocationAllocation(
                         part_id=part_obj.id,
                         location_id=allocation_location_id,
@@ -645,7 +648,11 @@ class PartService(BaseService):
                 updated_fields = []
                 
                 for key, value in update_data.items():
-                    if key == "category_names" and value is not None:
+                    if key == "category_names":
+                        # Skip if None or if empty list (preserve existing categories)
+                        if value is None:
+                            continue
+
                         # Special handling for categories
                         old_categories = []
                         if part.categories:
@@ -659,37 +666,73 @@ class PartService(BaseService):
                                 except Exception as e:
                                     self.logger.error(f"Error accessing category data: {e}")
 
-                        categories = handle_categories(session, value)
-                        part.categories.clear()  # Clear existing categories
-                        part.categories.extend(categories)  # Add new categories
+                        # Only update categories if a non-empty list was provided
+                        if value:  # Non-empty list
+                            categories = handle_categories(session, value)
+                            part.categories.clear()  # Clear existing categories
+                            part.categories.extend(categories)  # Add new categories
 
-                        # Use repository to update the part
-                        part = self.part_repo.update_part(session, part)
+                            # Use repository to update the part
+                            part = self.part_repo.update_part(session, part)
 
-                        new_categories = [cat.name for cat in categories if hasattr(cat, 'name')]
-                        self.logger.info(f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}")
-                        updated_fields.append(f"categories: {old_categories} → {new_categories}")
+                            new_categories = [cat.name for cat in categories if hasattr(cat, 'name')]
+                            self.logger.info(f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}")
+                            updated_fields.append(f"categories: {old_categories} → {new_categories}")
+                        else:
+                            # Empty list provided - preserve existing categories
+                            self.logger.debug(f"Empty category_names provided for part '{part.part_name}' (ID: {part_id}) - preserving existing categories")
                     elif key == "quantity":
                         # Special handling for quantity - update primary allocation
                         old_quantity = part.total_quantity
 
                         if not part.allocations:
-                            self.logger.warning(f"Part '{part.part_name}' has no allocations. Skipping quantity update.")
-                            continue
+                            # No allocations exist - need location_id to create allocation
+                            location_id_for_allocation = update_data.get('location_id')
 
-                        # Find primary allocation or use first
-                        primary_alloc = next(
-                            (alloc for alloc in part.allocations if alloc.is_primary_storage),
-                            part.allocations[0] if part.allocations else None
-                        )
+                            if not location_id_for_allocation:
+                                # Get or create "Unsorted" location as default
+                                from MakerMatrix.models.location_models import LocationModel
+                                unsorted_location = session.query(LocationModel).filter_by(name="Unsorted").first()
+                                if not unsorted_location:
+                                    unsorted_location = LocationModel(
+                                        name="Unsorted",
+                                        description="Default location for parts without a specified location",
+                                        location_type="standard"
+                                    )
+                                    session.add(unsorted_location)
+                                    session.flush()
+                                    self.logger.info(f"Created 'Unsorted' location (ID: {unsorted_location.id})")
 
-                        if primary_alloc:
-                            primary_alloc.quantity_at_location = value
-                            from datetime import datetime
-                            primary_alloc.last_updated = datetime.utcnow()
-                            session.add(primary_alloc)
-                            self.logger.info(f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_quantity} → {value}")
+                                location_id_for_allocation = unsorted_location.id
+                                self.logger.info(
+                                    f"Using 'Unsorted' location for part '{part.part_name}' (ID: {part_id}) allocation"
+                                )
+
+                            # Create new allocation with this quantity at specified location
+                            allocation = PartLocationAllocation(
+                                part_id=part.id,
+                                location_id=location_id_for_allocation,
+                                quantity_at_location=value,
+                                is_primary_storage=True,
+                                notes="Allocation created during quantity update"
+                            )
+                            session.add(allocation)
+                            self.logger.info(f"Created new allocation with quantity {value} at location {location_id_for_allocation} for part '{part.part_name}' (ID: {part_id})")
                             updated_fields.append(f"quantity: {old_quantity} → {value}")
+                        else:
+                            # Find primary allocation or use first
+                            primary_alloc = next(
+                                (alloc for alloc in part.allocations if alloc.is_primary_storage),
+                                part.allocations[0] if part.allocations else None
+                            )
+
+                            if primary_alloc:
+                                primary_alloc.quantity_at_location = value
+                                from datetime import datetime
+                                primary_alloc.last_updated = datetime.utcnow()
+                                session.add(primary_alloc)
+                                self.logger.info(f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_quantity} → {value}")
+                                updated_fields.append(f"quantity: {old_quantity} → {value}")
                     elif key == "location_id":
                         # Special handling for location_id - move primary allocation to new location
                         old_location = part.primary_location

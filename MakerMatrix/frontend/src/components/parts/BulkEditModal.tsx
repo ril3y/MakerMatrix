@@ -147,7 +147,8 @@ const BulkEditModal = ({
         console.error('Bulk update errors:', result.errors)
       }
 
-      onSuccess()
+      // Wait for onSuccess to complete before closing (handles async callbacks)
+      await Promise.resolve(onSuccess())
       onClose()
     } catch (error: any) {
       console.error('Bulk update failed:', error)

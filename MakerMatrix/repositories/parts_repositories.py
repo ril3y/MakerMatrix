@@ -408,7 +408,7 @@ class PartRepository:
                     query = query.order_by(quantity_subquery.c.total_qty.asc().nullslast())
             elif search_params.sort_by == "location":
                 # Sort by primary location name using a join
-                from models.location_models import LocationModel
+                from MakerMatrix.models.location_models import LocationModel
                 primary_alloc = (
                     select(
                         PartLocationAllocation.part_id,

@@ -369,9 +369,8 @@ class DigiKeySupplier(BaseSupplier):
         
         if not self.is_configured():
             raise SupplierConfigurationError(
-                "DigiKey supplier not configured. Please provide client_id and client_secret.", 
-                supplier_name="digikey",
-                details={'missing_config': ['client_id', 'client_secret']}
+                "DigiKey supplier not configured. Please provide client_id and client_secret.",
+                supplier_name="digikey"
             )
         
         # Validate required credentials
@@ -382,13 +381,7 @@ class DigiKeySupplier(BaseSupplier):
         if not client_id or not client_secret:
             raise SupplierConfigurationError(
                 "DigiKey requires both client_id and client_secret",
-                supplier_name="digikey",
-                details={
-                    'missing_credentials': [
-                        field for field in ['client_id', 'client_secret'] 
-                        if not (self._credentials or {}).get(field, '').strip()
-                    ]
-                }
+                supplier_name="digikey"
             )
         
         try:
@@ -414,12 +407,7 @@ class DigiKeySupplier(BaseSupplier):
             # Wrap unexpected errors
             raise SupplierAuthenticationError(
                 f"DigiKey authentication failed: {str(e)}",
-                supplier_name="digikey",
-                details={
-                    'api_environment': 'production',
-                    'error_type': type(e).__name__,
-                    'original_error': str(e)
-                }
+                supplier_name="digikey"
             )
     
     
@@ -429,12 +417,7 @@ class DigiKeySupplier(BaseSupplier):
             if not DIGIKEY_API_AVAILABLE:
                 raise SupplierConfigurationError(
                     "DigiKey API library not available. Install with: pip install digikey-api",
-                    supplier_name="digikey",
-                    details={
-                        'missing_dependency': 'digikey-api',
-                        'install_command': 'pip install digikey-api',
-                        'help_url': 'https://github.com/peeter123/digikey-api'
-                    }
+                    supplier_name="digikey"
                 )
             
             # Set up OAuth2 callback URL (with auto-detection fallback)
@@ -445,11 +428,7 @@ class DigiKeySupplier(BaseSupplier):
             if oauth_callback_url and not oauth_callback_url.startswith(('http://', 'https://')):
                 raise SupplierConfigurationError(
                     "oauth_callback_url must be a valid URL starting with http:// or https://",
-                    supplier_name="digikey",
-                    details={
-                        'invalid_url': oauth_callback_url,
-                        'required_format': 'https://your-domain.com/callback'
-                    }
+                    supplier_name="digikey"
                 )
             
             # Set up storage path for OAuth2 tokens
@@ -467,12 +446,7 @@ class DigiKeySupplier(BaseSupplier):
             except OSError as e:
                 raise SupplierConfigurationError(
                     f"Cannot create token storage directory: {storage_dir}",
-                    supplier_name="digikey",
-                    details={
-                        'storage_path': storage_dir,
-                        'os_error': str(e),
-                        'suggested_path': './digikey_tokens'
-                    }
+                    supplier_name="digikey"
                 )
             
             # Set the storage path environment variable to the directory
@@ -489,12 +463,7 @@ class DigiKeySupplier(BaseSupplier):
         except Exception as e:
             raise SupplierAuthenticationError(
                 f"DigiKey authentication setup failed: {str(e)}",
-                supplier_name="digikey",
-                details={
-                    'error_type': type(e).__name__,
-                    'original_error': str(e),
-                    'help_url': 'https://developer.digikey.com'
-                }
+                supplier_name="digikey"
             )
     
     async def _authenticate_client_credentials(self) -> bool:
@@ -1152,12 +1121,7 @@ class DigiKeySupplier(BaseSupplier):
                         raise SupplierConfigurationError(
                             "DigiKey API subscription required: Your DigiKey developer account is not subscribed to the Product Information V4 API. "
                             "Please visit the DigiKey Developer Portal and subscribe to the Product Information V4 API to enable part enrichment.",
-                            supplier_name="digikey",
-                            details={
-                                'error_type': 'api_subscription_required',
-                                'api_name': 'Product Information V4',
-                                'action_required': 'Subscribe to API in DigiKey Developer Portal'
-                            }
+                            supplier_name="digikey"
                         )
                     elif response.status == 401:
                         raise SupplierAuthenticationError(
