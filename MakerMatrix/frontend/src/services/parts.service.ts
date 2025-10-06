@@ -233,6 +233,27 @@ export class PartsService {
     }
     throw new Error(response.message || 'Failed to bulk update parts')
   }
+
+  /**
+   * Enrich part data from supplier using unified backend endpoint
+   * This uses SupplierDataMapper on the backend to ensure consistent data mapping
+   */
+  async enrichFromSupplier(supplierName: string, partIdentifier: string): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>(
+      '/api/parts/enrich-from-supplier',
+      null,
+      {
+        params: {
+          supplier_name: supplierName,
+          part_identifier: partIdentifier
+        }
+      }
+    )
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to enrich part from supplier')
+  }
 }
 
 // Bulk update types

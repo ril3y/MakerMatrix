@@ -496,46 +496,50 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         ...extractedFields
       }));
 
-      // Step 4: Call enrichment API with primary field value
-      const partDetails = await dynamicSupplierService.getPartDetails(
+      // Step 4: Call unified backend enrichment endpoint
+      // This uses SupplierDataMapper on backend for consistent data mapping
+      const enrichedData = await partsService.enrichFromSupplier(
         supplierName,
-        primaryFieldValue,
-        {}, // Empty credentials - backend will use stored credentials
-        {}  // Empty config - backend will use stored config
+        primaryFieldValue  // Can be URL, part number, or MPN - backend will handle extraction
       );
 
-      if (!partDetails) {
-        console.warn('No part details returned from enrichment');
+      if (!enrichedData) {
+        console.warn('No enriched data returned from backend');
         toast.error(`Could not fetch details for ${primaryFieldValue} from ${formattedName}`);
         return;
       }
 
-      console.log('✅ Auto-enriched part details:', partDetails);
+      console.log('✅ Enriched data from backend (via SupplierDataMapper):', enrichedData);
 
       // Step 5: Auto-populate enriched fields
+      // The backend already mapped everything via SupplierDataMapper, so just use it directly
       setFormData(prev => ({
         ...prev,
-        name: partDetails.part_name || prev.name,  // Use part_name for the part name
-        part_number: partDetails.supplier_part_number || primaryFieldValue || prev.part_number,
-        supplier_part_number: partDetails.supplier_part_number || primaryFieldValue || prev.supplier_part_number,
-        manufacturer: partDetails.manufacturer || prev.manufacturer,
-        manufacturer_part_number: partDetails.manufacturer_part_number || prev.manufacturer_part_number,
-        description: partDetails.description || prev.description,
+        name: enrichedData.part_name || prev.name,
+        part_number: enrichedData.supplier_part_number || enrichedData.part_number || prev.part_number,
+        supplier_part_number: enrichedData.supplier_part_number || prev.supplier_part_number,
+        manufacturer: enrichedData.manufacturer || prev.manufacturer,
+        manufacturer_part_number: enrichedData.manufacturer_part_number || prev.manufacturer_part_number,
+        description: enrichedData.description || prev.description,
+        unit_price: enrichedData.unit_price || prev.unit_price,
+        currency: enrichedData.currency || prev.currency,
       }));
 
       // Set image if available
-      if (partDetails.image_url) {
-        setImageUrl(partDetails.image_url);
+      if (enrichedData.image_url) {
+        setImageUrl(enrichedData.image_url);
       }
 
-      // Populate custom properties from specifications
-      if (partDetails.specifications && Object.keys(partDetails.specifications).length > 0) {
-        const specs = Object.entries(partDetails.specifications).map(([key, value]) => ({
-          key,
-          value: String(value)
-        }));
-        setCustomProperties(specs);
-        console.log('✅ Populated custom properties:', specs);
+      // Populate custom properties from additional_properties (already mapped by backend)
+      if (enrichedData.additional_properties && Object.keys(enrichedData.additional_properties).length > 0) {
+        const customProps = Object.entries(enrichedData.additional_properties)
+          .filter(([key]) => !['last_enrichment_date', 'enrichment_source'].includes(key))  // Filter out metadata
+          .map(([key, value]) => ({
+            key,
+            value: String(value)
+          }));
+        setCustomProperties(customProps);
+        console.log('✅ Populated custom properties from backend:', customProps);
       }
 
       toast.success(`Auto-populated from ${formattedName}!`);
