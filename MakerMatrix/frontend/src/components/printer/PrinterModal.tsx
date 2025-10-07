@@ -108,7 +108,7 @@ const PrinterModal = ({
         setSelectedPrinter(printers[0].printer_id)
         await loadPrinterInfo(printers[0].printer_id)
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to load printers')
     } finally {
       setLoading(false)
@@ -127,7 +127,7 @@ const PrinterModal = ({
           info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to load printer information')
     }
   }
@@ -484,7 +484,7 @@ const PrinterModal = ({
       } else {
         toast.error('❌ Connection test failed')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to test printer connection')
     }
   }

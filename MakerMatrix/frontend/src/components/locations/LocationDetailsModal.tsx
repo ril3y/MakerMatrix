@@ -167,7 +167,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       }
 
       return pathParts.join(' > ')
-    } catch (error) {
+    } catch {
       return location.name
     }
   }
