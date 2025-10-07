@@ -60,8 +60,9 @@ const EditUserModal = ({
       }
 
       onClose()
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to update user roles')
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } }
+      toast.error(err?.response?.data?.message || 'Failed to update user roles')
     } finally {
       setLoading(false)
     }
