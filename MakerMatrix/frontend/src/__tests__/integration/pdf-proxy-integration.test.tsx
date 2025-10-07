@@ -138,7 +138,9 @@ vi.mock('lucide-react', () => ({
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => (
+      <div {...props}>{children}</div>
+    ),
   },
 }))
 
@@ -157,7 +159,7 @@ vi.mock('../../components/printer/PrinterModal', () => ({
 }))
 
 vi.mock('../../components/parts/PartPDFViewer', () => ({
-  default: ({ isOpen, onClose }: any) =>
+  default: ({ isOpen }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? <div data-testid="part-pdf-viewer">Part PDF Viewer</div> : null,
 }))
 
