@@ -23,6 +23,14 @@ MakerMatrix is a Python-based API designed to help makers, hobbyists, and small 
 - Category hierarchy
 - (Planned) Category statistics and reporting
 
+### Project Management
+- Organize parts by project with hashtag-style tags
+- Project status tracking (Planning, Active, Completed, Archived)
+- Many-to-many part-project relationships
+- Project details view with associated parts
+- Inline project assignment in part details and edit pages
+- Project images and custom links
+
 ### Printer & Label Management
 - Basic printer configuration and management
 - Label generation for parts and locations
