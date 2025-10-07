@@ -71,12 +71,16 @@ const AddProjectModal = ({
       toast.success('Project created successfully')
       handleClose()
       onSuccess()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to create project:', error)
+      const err = error as {
+        response?: { data?: { detail?: string; message?: string } }
+        message?: string
+      }
       const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        error.message ||
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        err.message ||
         'Failed to create project'
       toast.error(errorMessage)
     } finally {
@@ -145,7 +149,12 @@ const AddProjectModal = ({
             <select
               className="input w-full"
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  status: e.target.value as 'planning' | 'active' | 'completed' | 'archived',
+                })
+              }
             >
               <option value="planning">Planning</option>
               <option value="active">Active</option>
