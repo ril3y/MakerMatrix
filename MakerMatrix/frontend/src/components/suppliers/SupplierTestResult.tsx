@@ -25,7 +25,7 @@ export interface SupplierTestResultData {
     install_command?: string
     api_reachable?: boolean
     credentials_valid?: boolean
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
