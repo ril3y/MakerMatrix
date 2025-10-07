@@ -138,7 +138,7 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     return () => window.removeEventListener('keydown', handleEscape)
   }, [onClose])
 
-  const handleConfigChange = (field: keyof SupplierConfigUpdate, value: any) => {
+  const handleConfigChange = (field: keyof SupplierConfigUpdate, value: unknown) => {
     setConfig((prev) => ({ ...prev, [field]: value }))
     setErrors([]) // Clear errors when user makes changes
   }
@@ -233,13 +233,14 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
         currentCredentials
       )
       setTestResult(result)
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
       setTestResult({
         supplier_name: supplier.supplier_name,
         success: false,
         test_duration_seconds: 0,
         tested_at: new Date().toISOString(),
-        error_message: err.response?.data?.detail || 'Connection test failed',
+        error_message: error.response?.data?.detail || 'Connection test failed',
       })
     } finally {
       setTesting(false)
@@ -287,8 +288,9 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
       setTimeout(() => {
         onSuccess()
       }, 1000)
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to update supplier configuration'
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
+      const errorMessage = error.response?.data?.detail || 'Failed to update supplier configuration'
       setErrors([errorMessage])
     } finally {
       setLoading(false)
