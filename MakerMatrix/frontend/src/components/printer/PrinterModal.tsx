@@ -21,7 +21,7 @@ interface PrinterModalProps {
     category?: string
     quantity?: string
     description?: string
-    additional_properties?: Record<string, any>
+    additional_properties?: Record<string, unknown>
   }
 }
 

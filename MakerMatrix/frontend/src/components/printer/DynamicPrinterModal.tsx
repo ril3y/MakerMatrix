@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react'
 import { X, TestTube } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
+import type { PrinterConfig } from '@/types/settings'
 import toast from 'react-hot-toast'
 
 interface DynamicPrinterModalProps {
   isOpen: boolean
   onClose: () => void
   mode: 'add' | 'edit'
-  existingPrinter?: any
+  existingPrinter?: PrinterConfig
   onSuccess: () => void
 }
 

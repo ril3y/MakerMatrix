@@ -125,9 +125,10 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
         onSave()
       }
       onClose()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save template:', error)
-      toast.error(error.message || 'Failed to save template')
+      const err = error as { message?: string }
+      toast.error(err.message || 'Failed to save template')
     } finally {
       setSaving(false)
     }
