@@ -34,8 +34,10 @@ test.describe('Locations Management', () => {
     await page.waitForLoadState('networkidle')
 
     // Click Add Location button
-    const addButton = page.locator('button:has-text("Add Location"), button:has-text("New Location")')
-    if (await addButton.count() > 0) {
+    const addButton = page.locator(
+      'button:has-text("Add Location"), button:has-text("New Location")'
+    )
+    if ((await addButton.count()) > 0) {
       await addButton.first().click()
       await page.waitForTimeout(500)
 
@@ -67,11 +69,13 @@ test.describe('Locations Management', () => {
     await page.waitForLoadState('networkidle')
 
     // Find expandable nodes
-    const expandButton = page.locator(
-      'button[aria-label*="expand"]:visible, button:has-text("▶"):visible, button:has-text("►"):visible'
-    ).first()
+    const expandButton = page
+      .locator(
+        'button[aria-label*="expand"]:visible, button:has-text("▶"):visible, button:has-text("►"):visible'
+      )
+      .first()
 
-    if (await expandButton.count() > 0 && await expandButton.isVisible()) {
+    if ((await expandButton.count()) > 0 && (await expandButton.isVisible())) {
       // Click to expand
       await expandButton.click()
       await page.waitForTimeout(300)
@@ -80,7 +84,7 @@ test.describe('Locations Management', () => {
       const collapseButton = page.locator(
         'button[aria-label*="collapse"], button:has-text("▼"), button:has-text("▲")'
       )
-      if (await collapseButton.count() > 0) {
+      if ((await collapseButton.count()) > 0) {
         await expect(collapseButton.first()).toBeVisible()
       }
     }
@@ -91,7 +95,7 @@ test.describe('Locations Management', () => {
     await page.waitForLoadState('networkidle')
 
     const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]')
-    if (await searchInput.count() > 0) {
+    if ((await searchInput.count()) > 0) {
       await searchInput.first().fill('office')
       await page.waitForTimeout(500)
 
@@ -106,7 +110,7 @@ test.describe('Locations Management', () => {
 
     // Click on a location to view details
     const viewButton = page.locator('button:has-text("View"), button:has-text("Details")')
-    if (await viewButton.count() > 0) {
+    if ((await viewButton.count()) > 0) {
       await viewButton.first().click()
 
       // Should show location details (modal or page)
@@ -126,7 +130,7 @@ test.describe('Locations Management', () => {
 
     // Look for type filter
     const typeFilter = page.locator('select:has-text("Type"), button:has-text("Type")')
-    if (await typeFilter.count() > 0) {
+    if ((await typeFilter.count()) > 0) {
       await typeFilter.first().click()
       await expect(page.locator('body')).toBeVisible()
     }

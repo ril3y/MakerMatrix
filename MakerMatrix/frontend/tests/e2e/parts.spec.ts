@@ -34,7 +34,7 @@ test.describe('Parts Management', () => {
 
     // Click Add Part button
     const addButton = page.locator('button:has-text("Add Part"), button:has-text("New Part")')
-    if (await addButton.count() > 0) {
+    if ((await addButton.count()) > 0) {
       await addButton.first().click()
       await page.waitForTimeout(500)
 
@@ -54,7 +54,7 @@ test.describe('Parts Management', () => {
 
     // Find search input
     const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]')
-    if (await searchInput.count() > 0) {
+    if ((await searchInput.count()) > 0) {
       await searchInput.first().fill('resistor')
       await page.waitForTimeout(500) // Wait for search debounce
 
@@ -69,7 +69,7 @@ test.describe('Parts Management', () => {
 
     // Look for category filter
     const categoryFilter = page.locator('select:has-text("Category"), button:has-text("Category")')
-    if (await categoryFilter.count() > 0) {
+    if ((await categoryFilter.count()) > 0) {
       await categoryFilter.first().click()
       // Filter options should be visible
       await expect(page.locator('body')).toBeVisible()
@@ -82,7 +82,7 @@ test.describe('Parts Management', () => {
 
     // Look for sortable column headers
     const sortableHeader = page.locator('th[role="columnheader"], th button, .sortable')
-    if (await sortableHeader.count() > 0) {
+    if ((await sortableHeader.count()) > 0) {
       await sortableHeader.first().click()
       await page.waitForTimeout(300)
       // Content should reload
@@ -96,7 +96,7 @@ test.describe('Parts Management', () => {
 
     // Look for pagination controls
     const nextButton = page.locator('button:has-text("Next"), button[aria-label*="next"]')
-    if (await nextButton.count() > 0 && await nextButton.first().isEnabled()) {
+    if ((await nextButton.count()) > 0 && (await nextButton.first().isEnabled())) {
       await nextButton.first().click()
       await page.waitForTimeout(500)
       await expect(page).toHaveURL(/.*\/parts/)
@@ -109,12 +109,13 @@ test.describe('Parts Management', () => {
 
     // Click on first part (view details button or row)
     const viewButton = page.locator('button:has-text("View"), a[href*="/parts/"]')
-    if (await viewButton.count() > 0) {
+    if ((await viewButton.count()) > 0) {
       await viewButton.first().click()
 
       // Should navigate to part details page or show modal
       await page.waitForTimeout(500)
-      const detailsVisible = await page.locator('[role="dialog"], [data-testid="part-details"]').count() > 0
+      const detailsVisible =
+        (await page.locator('[role="dialog"], [data-testid="part-details"]').count()) > 0
       const urlChanged = page.url().includes('/parts/')
 
       expect(detailsVisible || urlChanged).toBeTruthy()
@@ -126,14 +127,14 @@ test.describe('Parts Management', () => {
     await page.waitForLoadState('networkidle')
 
     const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]')
-    if (await searchInput.count() > 0) {
+    if ((await searchInput.count()) > 0) {
       // Search for something unlikely to exist
       await searchInput.first().fill('xyzabc123nonexistent999')
       await page.waitForTimeout(1000)
 
       // Should show no results message or empty state
       const noResults = page.locator('text=/No (parts|results) found/i, text=/Empty/i')
-      if (await noResults.count() > 0) {
+      if ((await noResults.count()) > 0) {
         await expect(noResults.first()).toBeVisible()
       }
     }
@@ -145,7 +146,7 @@ test.describe('Parts Management', () => {
 
     // Should show pagination info like "Showing 1-10 of 74"
     const paginationInfo = page.locator('text=/Showing|of|total/i')
-    if (await paginationInfo.count() > 0) {
+    if ((await paginationInfo.count()) > 0) {
       await expect(paginationInfo.first()).toBeVisible()
     }
   })

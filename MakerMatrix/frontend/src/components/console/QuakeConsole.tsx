@@ -27,6 +27,7 @@ const QuakeConsole: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [commandHistory, setCommandHistory] = useState<string[]>([])
   const navigate = useNavigate()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { setSearchQuery, setFilters } = usePartsStore()
 
   useEffect(() => {
@@ -146,7 +147,7 @@ Inventory Statistics:
 - Total Categories: ${categories.length}
 - Low Stock Items: ${parts.filter((p) => p.quantity < (p.minimum_quantity || 0)).length}
           `
-        } catch (error) {
+        } catch (_error) {
           return 'Error fetching statistics'
         }
       },
