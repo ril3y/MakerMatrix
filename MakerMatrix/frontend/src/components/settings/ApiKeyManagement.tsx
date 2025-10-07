@@ -79,9 +79,10 @@ const ApiKeyManagement = () => {
           ? await apiKeyService.getAllApiKeys()
           : await apiKeyService.getUserApiKeys()
       setApiKeys(keys || [])
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { status?: number } }
       // Check if it's an authentication error
-      if (error?.response?.status === 401) {
+      if (err?.response?.status === 401) {
         toast.error('Session expired. Please log in again.')
       } else {
         toast.error('Failed to load API keys')
@@ -121,9 +122,10 @@ const ApiKeyManagement = () => {
       })
       await loadApiKeys()
       toast.success('API key created successfully')
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } }
       console.error('Failed to create API key:', error)
-      toast.error(error?.response?.data?.message || 'Failed to create API key')
+      toast.error(err?.response?.data?.message || 'Failed to create API key')
     }
   }
 
