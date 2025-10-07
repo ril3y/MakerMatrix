@@ -22,8 +22,9 @@ const ProjectsPage = () => {
       setError(null)
       const data = await projectsService.getAllProjects()
       setProjects(data)
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load projects')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string } } }
+      setError(error.response?.data?.error || 'Failed to load projects')
     } finally {
       setLoading(false)
     }
