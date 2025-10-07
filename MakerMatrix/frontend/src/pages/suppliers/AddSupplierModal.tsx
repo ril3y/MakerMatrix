@@ -105,7 +105,7 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
     }
   }
 
-  const handleConfigChange = (field: string, value: any) => {
+  const handleConfigChange = (field: string, value: unknown) => {
     // Check if this is a base config field or supplier-specific
     if (field in config) {
       setConfig((prev) => ({ ...prev, [field]: value }))
@@ -165,8 +165,9 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
       // Create supplier
       await supplierService.createSupplier(configForAPI)
       onSuccess()
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to create supplier configuration'
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } }
+      const errorMessage = error.response?.data?.detail || 'Failed to create supplier configuration'
       setErrors([errorMessage])
     } finally {
       setLoading(false)
