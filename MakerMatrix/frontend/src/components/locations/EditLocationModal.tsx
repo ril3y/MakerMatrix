@@ -161,8 +161,9 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
       toast.success('Location updated successfully')
       onSuccess()
       onClose()
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update location')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string } } }
+      setError(error.response?.data?.error || 'Failed to update location')
     } finally {
       setLoading(false)
     }

@@ -36,9 +36,10 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
       const data = await partAllocationService.getPartAllocations(partId)
       setAllocations(data)
       // Don't call onRefresh here - only call it when user explicitly clicks refresh
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading allocations:', err)
-      setError(err.response?.data?.detail || err.message || 'Failed to load allocations')
+      const error = err as { response?: { data?: { detail?: string } }; message?: string }
+      setError(error.response?.data?.detail || error.message || 'Failed to load allocations')
     } finally {
       setLoading(false)
     }
