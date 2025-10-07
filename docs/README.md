@@ -13,11 +13,8 @@ Welcome to the MakerMatrix documentation! This directory contains all project do
 ### 🎨 Features
 User-facing feature documentation and guides.
 
-- **[📄 Label Template System](features/template-system.md)** - ⭐ **Complete template system documentation**
+- **[📄 Label Template System](features/template-system.md)** - Complete template system documentation
   - [User Guide](features/TEMPLATE_USER_GUIDE.md) - How to use templates
-  - [Production Ready](features/TEMPLATE_SYSTEM_PRODUCTION_READY.md) - Technical implementation
-  - [Implementation Status](features/TEMPLATE_SYSTEM_STATUS.md) - Development progress
-  - [Final Status](features/TEMPLATE_SYSTEM_FINAL_STATUS.md) - Completion report
 
 ### 🏗️ Architecture
 Technical architecture and design documentation.
@@ -33,15 +30,6 @@ Developer and user guides.
 - **[HTTPS Setup Guide](guides/HTTPS_SETUP.md)** - Configure HTTPS for local development
 - **[Suppliers Guide](guides/suppliers.md)** - Supplier integration documentation
 - **[AI Agents Guide](guides/AGENTS.md)** - AI agent configuration
-
-### 📊 Status Reports
-Project status, migrations, and progress tracking.
-
-- **[Project Status](status/project_status.md)** - Overall project progress
-- **[User Management Status](status/USER_MANAGEMENT_STATUS.md)** - User system implementation
-- **[Allocation Migration Strategy](status/ALLOCATION_MIGRATION_STRATEGY.md)** - Part allocation system migration
-- **[Frontend Template Checklist](status/FRONTEND_TEMPLATE_CHECKLIST.md)** - Frontend template completion status
-- **[Cleanup Report](status/CLEANUP_REPORT.md)** - Code cleanup initiative
 
 ## 🔧 Development Setup
 
@@ -74,7 +62,6 @@ make vulture
 
 ### For Contributors
 - [Developer Guide](guides/Developer.md) - Contributing guidelines
-- [Status Reports](status/) - Current project status
 - [API Documentation](../api.md) - API endpoints
 
 ## 📝 Documentation Standards
@@ -85,7 +72,6 @@ When adding new documentation:
    - `features/` - User-facing features and how-to guides
    - `architecture/` - Technical design and architecture
    - `guides/` - Developer and user guides
-   - `status/` - Progress reports and status updates
 
 2. **Format**: Use markdown with clear headings and structure
 
