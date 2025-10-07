@@ -142,9 +142,13 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       setAvailableSuppliers(availableNames)
 
       // Store suppliers with enrichment capabilities
+      interface ImportSupplierData {
+        name: string
+        enrichment_available: boolean
+      }
       const enrichmentNames = (importSuppliersData.data || [])
-        .filter((s: any) => s.enrichment_available === true)
-        .map((s: any) => s.name.toLowerCase())
+        .filter((s: ImportSupplierData) => s.enrichment_available === true)
+        .map((s: ImportSupplierData) => s.name.toLowerCase())
       setSuppliersWithEnrichment(enrichmentNames)
 
       console.log('🔍 Smart Supplier Detection Setup:')
@@ -182,7 +186,14 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       }
 
       // Convert enrichment requirements to field definitions format
-      const requiredFields = response.required_fields.map((field: any) => ({
+      interface EnrichmentFieldResponse {
+        field_name: string
+        display_name: string
+        description?: string
+        example?: string
+        validation_pattern?: string
+      }
+      const requiredFields = response.required_fields.map((field: EnrichmentFieldResponse) => ({
         field: field.field_name,
         label: field.display_name,
         type: 'text', // Enrichment fields are typically text inputs
@@ -197,9 +208,10 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
       console.log('Converted required fields:', requiredFields)
       setSupplierRequiredFields(requiredFields)
-    } catch (error: any) {
+    } catch (error) {
       // 404 errors are expected for new-style suppliers using dynamic patterns
-      if (error.response?.status === 404) {
+      const err = error as { response?: { status?: number } }
+      if (err.response?.status === 404) {
         console.log('No legacy enrichment requirements for this supplier (uses dynamic patterns)')
       } else {
         console.error('Failed to load supplier required fields:', error)
@@ -276,7 +288,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       setLoading(true)
 
       // Prepare properties object
-      const properties: Record<string, any> = {}
+      const properties: Record<string, unknown> = {}
       customProperties.forEach(({ key, value }) => {
         if (key.trim() && value.trim()) {
           properties[key.trim()] = value.trim()
@@ -347,15 +359,19 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       console.log('Part created successfully, calling onSuccess and handleClose')
       onSuccess()
       handleClose()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to create part:', error)
-      console.error('Error response:', error.response?.data)
-      console.error('Error status:', error.response?.status)
+      const err = error as {
+        response?: { data?: { detail?: string; message?: string }; status?: number }
+        message?: string
+      }
+      console.error('Error response:', err.response?.data)
+      console.error('Error status:', err.response?.status)
 
       const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        error.message ||
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        err.message ||
         'Failed to create part'
       toast.error(errorMessage)
     } finally {
@@ -628,14 +644,15 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       }
 
       toast.success(`Auto-populated from ${formattedName}!`)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error during dynamic auto-enrichment:', error)
       // Check if this is a credentials error
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      const err = error as { response?: { status?: number }; message?: string }
+      if (err.response?.status === 401 || err.response?.status === 403) {
         console.warn('Supplier credentials not configured or invalid')
         toast.error(`${formattedName} needs to be configured with valid credentials`)
       } else {
-        console.warn('Failed to auto-enrich:', error.message || error)
+        console.warn('Failed to auto-enrich:', err.message || error)
         // Silent failure for other errors - user can manually enter details
       }
     }
@@ -929,7 +946,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                     <input
                       type={field.type}
                       className="input w-full"
-                      value={(formData as any)[field.field] || ''}
+                      value={
+                        (formData as Record<string, unknown>)[field.field]?.toString() || ''
+                      }
                       onChange={(e) =>
                         setFormData({
                           ...formData,
