@@ -98,7 +98,7 @@ export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = (
       }, 1500)
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } }; message?: string }
-      console.error('Failed to update simple supplier:' error)
+      console.error('Failed to update simple supplier:', error)
       const errorMessage = error.response?.data?.detail || error.message || 'Failed to update supplier'
       setError(errorMessage)
     } finally {
