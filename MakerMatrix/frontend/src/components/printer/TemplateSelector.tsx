@@ -9,7 +9,7 @@ interface TemplateSelectorProps {
   onTemplateSelect: (template: LabelTemplate | null) => void
   onEditTemplate?: (templateText: string, templateName: string, templateId: string) => void
   onTemplatesLoaded?: (loadFunction: () => Promise<void>) => void
-  partData?: Record<string, any>
+  partData?: Record<string, unknown>
   labelSize?: string
   showCustomOption?: boolean
 }
@@ -120,9 +120,9 @@ const TemplateSelector = ({
       if (selectedTemplateId === template.id) {
         onTemplateSelect(null)
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to delete template:', error)
-      toast.error(error.message || 'Failed to delete template')
+      toast.error(error instanceof Error ? error.message : 'Failed to delete template')
     }
   }
 
