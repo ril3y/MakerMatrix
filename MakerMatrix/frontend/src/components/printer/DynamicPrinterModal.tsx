@@ -6,6 +6,46 @@ import { settingsService } from '@/services/settings.service'
 import type { PrinterConfig } from '@/types/settings'
 import toast from 'react-hot-toast'
 
+interface CustomFieldConfig {
+  type: 'text' | 'number' | 'select' | 'range' | 'boolean'
+  label: string
+  default: unknown
+  options?: string[]
+  min?: number
+  max?: number
+  description?: string
+}
+
+interface DriverInfo {
+  name: string
+  driver_type: string
+  custom_fields: Record<string, CustomFieldConfig>
+  backend_options?: Record<string, {
+    additional_fields?: string[]
+    [key: string]: unknown
+  }>
+}
+
+interface DiscoveredPrinter {
+  identifier: string
+  name?: string
+  model?: string
+  [key: string]: unknown
+}
+
+interface TestResult {
+  success: boolean
+  message?: string
+  [key: string]: unknown
+}
+
+interface DiscoveryTask {
+  task_id: string
+  status: string
+  progress_percentage?: number
+  [key: string]: unknown
+}
+
 interface DynamicPrinterModalProps {
   isOpen: boolean
   onClose: () => void
@@ -21,13 +61,13 @@ const DynamicPrinterModal = ({
   existingPrinter,
   onSuccess,
 }: DynamicPrinterModalProps) => {
-  const [supportedDrivers, setSupportedDrivers] = useState<any[]>([])
-  const [selectedDriverInfo, setSelectedDriverInfo] = useState<any>(null)
-  const [discoveredPrinters, setDiscoveredPrinters] = useState<any[]>([])
-  const [testResult, setTestResult] = useState<any>(null)
+  const [supportedDrivers, setSupportedDrivers] = useState<string[]>([])
+  const [selectedDriverInfo, setSelectedDriverInfo] = useState<DriverInfo | null>(null)
+  const [discoveredPrinters, setDiscoveredPrinters] = useState<DiscoveredPrinter[]>([])
+  const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [testingSetup, setTestingSetup] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [discoveryTask, setDiscoveryTask] = useState<any>(null)
+  const [discoveryTask, setDiscoveryTask] = useState<DiscoveryTask | null>(null)
   const [discoveryProgress, setDiscoveryProgress] = useState(0)
 
   const [printerData, setPrinterData] = useState({
@@ -40,7 +80,7 @@ const DynamicPrinterModal = ({
     dpi: 300,
     scaling_factor: 1.1,
     // Dynamic fields will be added here
-    custom_fields: {} as Record<string, any>,
+    custom_fields: {} as Record<string, unknown>,
   })
 
   useEffect(() => {
@@ -121,14 +161,14 @@ const DynamicPrinterModal = ({
         custom_fields: {
           ...prev.custom_fields,
           ...Object.entries(driverInfo.custom_fields || {}).reduce(
-            (acc, [key, field]: [string, any]) => {
+            (acc, [key, field]: [string, CustomFieldConfig]) => {
               // Only set default if we're in add mode or the field doesn't exist
               if (mode === 'add' || prev.custom_fields[key] === undefined) {
                 acc[key] = field.default
               }
               return acc
             },
-            {} as Record<string, any>
+            {} as Record<string, unknown>
           ),
         },
       }))
@@ -157,7 +197,7 @@ const DynamicPrinterModal = ({
     }
   }
 
-  const handleCustomFieldChange = (fieldName: string, value: any) => {
+  const handleCustomFieldChange = (fieldName: string, value: unknown) => {
     setPrinterData((prev) => ({
       ...prev,
       custom_fields: {
@@ -313,21 +353,23 @@ const DynamicPrinterModal = ({
 
       onSuccess()
       onClose()
-    } catch (error: any) {
+    } catch (error) {
       console.error(`${mode} printer error:`, error)
 
+      const err = error as { response?: { status?: number; data?: { detail?: string } } }
+
       // Handle specific error cases
-      if (error?.response?.status === 409) {
+      if (err?.response?.status === 409) {
         toast.error('❌ A printer with this ID already exists')
-      } else if (error?.response?.data?.detail) {
-        toast.error(`❌ ${error.response.data.detail}`)
+      } else if (err?.response?.data?.detail) {
+        toast.error(`❌ ${err.response.data.detail}`)
       } else {
         toast.error(`❌ Failed to ${mode} printer`)
       }
     }
   }
 
-  const renderCustomField = (fieldName: string, fieldConfig: any) => {
+  const renderCustomField = (fieldName: string, fieldConfig: CustomFieldConfig) => {
     const value = printerData.custom_fields[fieldName] || fieldConfig.default
 
     switch (fieldConfig.type) {
@@ -336,7 +378,7 @@ const DynamicPrinterModal = ({
           <CustomSelect
             value={value}
             onChange={(val) => handleCustomFieldChange(fieldName, val)}
-            options={fieldConfig.options.map((option: any) => ({
+            options={(fieldConfig.options || []).map((option: string) => ({
               value: option,
               label: option,
             }))}
@@ -564,7 +606,7 @@ const DynamicPrinterModal = ({
                     </h5>
                     <div className="grid grid-cols-2 gap-4">
                       {Object.entries(selectedDriverInfo.custom_fields).map(
-                        ([fieldName, fieldConfig]: [string, any]) => {
+                        ([fieldName, fieldConfig]: [string, CustomFieldConfig]) => {
                           // Skip fields that are backend-specific if not the current backend
                           const backendOptions =
                             selectedDriverInfo.backend_options?.[printerData.backend]
