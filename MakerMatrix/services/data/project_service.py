@@ -350,14 +350,24 @@ class ProjectService(BaseService):
 
                 parts = ProjectRepository.get_parts_for_project(session, project_id)
 
-                # Convert parts to dict (basic serialization)
+                # Convert parts to dict with complete information
                 parts_list = [
                     {
                         "id": part.id,
-                        "part_name": part.part_name,
+                        "name": part.part_name,  # Frontend expects "name"
                         "part_number": part.part_number,
-                        "quantity": part.quantity,
-                        "supplier": part.supplier
+                        "description": part.description,
+                        "quantity": part.total_quantity,  # Use computed property
+                        "supplier": part.supplier,
+                        "supplier_url": part.supplier_url,
+                        "image_url": part.image_url,
+                        "manufacturer": part.manufacturer,
+                        "manufacturer_part_number": part.manufacturer_part_number,
+                        "location": {
+                            "id": part.primary_location.id,
+                            "name": part.primary_location.name,
+                            "description": part.primary_location.description
+                        } if part.primary_location else None
                     }
                     for part in parts
                 ]

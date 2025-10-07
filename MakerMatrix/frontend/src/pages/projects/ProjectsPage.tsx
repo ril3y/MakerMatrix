@@ -3,6 +3,7 @@ import { Hash, Plus, Search, Edit2, Trash2, Package, ExternalLink } from 'lucide
 import { useState, useEffect, useMemo } from 'react'
 import AddProjectModal from '@/components/projects/AddProjectModal'
 import EditProjectModal from '@/components/projects/EditProjectModal'
+import ProjectDetailsModal from '@/components/projects/ProjectDetailsModal'
 import { projectsService } from '@/services/projects.service'
 import type { Project } from '@/types/projects'
 import LoadingScreen from '@/components/ui/LoadingScreen'
@@ -10,7 +11,9 @@ import LoadingScreen from '@/components/ui/LoadingScreen'
 const ProjectsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [viewingProject, setViewingProject] = useState<Project | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +51,11 @@ const ProjectsPage = () => {
   const handleEdit = (project: Project) => {
     setEditingProject(project)
     setShowEditModal(true)
+  }
+
+  const handleViewDetails = (project: Project) => {
+    setViewingProject(project)
+    setShowDetailsModal(true)
   }
 
   const handleDelete = async (project: Project) => {
@@ -130,7 +138,7 @@ const ProjectsPage = () => {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-1 md:grid-cols-4 gap-4"
       >
-        <div className="card">
+        <div className="card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Total Projects</p>
@@ -140,7 +148,7 @@ const ProjectsPage = () => {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Planning</p>
@@ -152,7 +160,7 @@ const ProjectsPage = () => {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Active</p>
@@ -164,7 +172,7 @@ const ProjectsPage = () => {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Completed</p>
@@ -182,7 +190,7 @@ const ProjectsPage = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="card"
+        className="card p-4"
       >
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
@@ -225,71 +233,74 @@ const ProjectsPage = () => {
                 key={project.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="card hover:shadow-lg transition-shadow"
+                className="card p-4 hover:shadow-lg transition-shadow"
               >
-                {/* Project Image */}
-                {project.image_url && (
-                  <div className="mb-3 rounded-lg overflow-hidden bg-theme-secondary">
-                    <img
-                      src={project.image_url}
-                      alt={project.name}
-                      className="w-full h-32 object-cover"
-                    />
-                  </div>
-                )}
-
-                {/* Project Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Hash className="w-4 h-4 text-muted" />
-                      <h3 className="text-lg font-semibold text-primary truncate">
-                        {project.name}
-                      </h3>
+                <div onClick={() => handleViewDetails(project)} className="cursor-pointer">
+                  {/* Project Image */}
+                  {project.image_url && (
+                    <div className="mb-3 rounded-lg overflow-hidden bg-theme-secondary">
+                      <img
+                        src={project.image_url}
+                        alt={project.name}
+                        className="w-full h-32 object-cover"
+                      />
                     </div>
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(project.status)}`}
-                    >
-                      {project.status}
-                    </span>
-                  </div>
-                </div>
+                  )}
 
-                {/* Description */}
-                {project.description && (
-                  <p className="text-sm text-secondary mb-3 line-clamp-2">{project.description}</p>
-                )}
-
-                {/* Stats */}
-                <div className="flex items-center gap-4 mb-3 text-sm text-secondary">
-                  <div className="flex items-center gap-1">
-                    <Package className="w-4 h-4" />
-                    <span>{project.parts_count} parts</span>
+                  {/* Project Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Hash className="w-4 h-4 text-muted" />
+                        <h3 className="text-lg font-semibold text-primary truncate">
+                          {project.name}
+                        </h3>
+                      </div>
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(project.status)}`}
+                      >
+                        {project.status}
+                      </span>
+                    </div>
                   </div>
-                  {project.estimated_cost && (
+
+                  {/* Description */}
+                  {project.description && (
+                    <p className="text-sm text-secondary mb-3 line-clamp-2">{project.description}</p>
+                  )}
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-4 mb-3 text-sm text-secondary">
                     <div className="flex items-center gap-1">
-                      <span>${project.estimated_cost.toFixed(2)}</span>
+                      <Package className="w-4 h-4" />
+                      <span>{project.parts_count} parts</span>
+                    </div>
+                    {project.estimated_cost && (
+                      <div className="flex items-center gap-1">
+                        <span>${project.estimated_cost.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Links */}
+                  {project.links && Object.keys(project.links).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {Object.entries(project.links).map(([key, value]) => (
+                        <a
+                          key={key}
+                          href={value as string}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {key}
+                        </a>
+                      ))}
                     </div>
                   )}
                 </div>
-
-                {/* Links */}
-                {project.links && Object.keys(project.links).length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {Object.entries(project.links).map(([key, value]) => (
-                      <a
-                        key={key}
-                        href={value as string}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        {key}
-                      </a>
-                    ))}
-                  </div>
-                )}
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-3 border-t border-border">
@@ -328,6 +339,15 @@ const ProjectsPage = () => {
         onSuccess={handleProjectUpdated}
         project={editingProject}
         existingProjects={existingProjects}
+      />
+
+      <ProjectDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false)
+          setViewingProject(null)
+        }}
+        project={viewingProject}
       />
     </div>
   )

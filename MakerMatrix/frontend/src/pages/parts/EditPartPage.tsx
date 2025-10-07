@@ -20,15 +20,19 @@ import type { SupplierEnrichmentRequirements } from '../../services/parts.servic
 import { partsService } from '../../services/parts.service'
 import { locationsService } from '../../services/locations.service'
 import { categoriesService } from '../../services/categories.service'
+import { projectsService } from '../../services/projects.service'
 import { supplierService } from '../../services/supplier.service'
 import type { Part, CreatePartRequest } from '../../types/parts'
 import type { Location } from '../../types/locations'
 import type { Category } from '../../types/categories'
+import type { Project } from '../../types/projects'
 import FormField from '../../components/ui/FormField'
 import ImageUpload from '../../components/ui/ImageUpload'
 import AddCategoryModal from '../../components/categories/AddCategoryModal'
 import AddLocationModal from '../../components/locations/AddLocationModal'
 import CategorySelector from '../../components/ui/CategorySelector'
+import ProjectSelector from '../../components/ui/ProjectSelector'
+import AddProjectModal from '../../components/projects/AddProjectModal'
 import LocationTreeSelector from '../../components/ui/LocationTreeSelector'
 import SupplierSelector from '../../components/ui/SupplierSelector'
 import toast from 'react-hot-toast'
@@ -56,6 +60,8 @@ const EditPartPage: React.FC = () => {
   const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([])
   const [additionalProperties, setAdditionalProperties] = useState<Record<string, any>>({})
   const [newPropertyKey, setNewPropertyKey] = useState('')
   const [newPropertyValue, setNewPropertyValue] = useState('')
@@ -63,6 +69,7 @@ const EditPartPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false)
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
   const [enrichmentRequirements, setEnrichmentRequirements] =
     useState<SupplierEnrichmentRequirements | null>(null)
@@ -116,15 +123,17 @@ const EditPartPage: React.FC = () => {
       try {
         if (!id) return
 
-        const [partData, locationsData, categoriesData] = await Promise.all([
+        const [partData, locationsData, categoriesData, projectsData] = await Promise.all([
           partsService.getPart(id),
           locationsService.getAll(),
           categoriesService.getAll(),
+          projectsService.getAllProjects(),
         ])
 
         setPart(partData)
         setLocations(locationsData)
         setCategories(categoriesData)
+        setProjects(projectsData)
 
         // Set additional properties
         setAdditionalProperties(partData.additional_properties || {})
@@ -132,6 +141,10 @@ const EditPartPage: React.FC = () => {
         // Set selected categories
         const categoryIds = partData.categories?.map((cat) => cat.id) || []
         setSelectedCategories(categoryIds)
+
+        // Set selected projects
+        const projectIds = partData.projects?.map((proj) => proj.id) || []
+        setSelectedProjects(projectIds)
 
         // Populate form with existing data using reset() for proper form population
         reset({
@@ -259,6 +272,22 @@ const EditPartPage: React.FC = () => {
       console.log('Sending update data:', updateData)
 
       await partsService.updatePart({ id, ...updateData })
+
+      // Handle project assignments
+      const currentProjectIds = part.projects?.map((p) => p.id) || []
+      const projectsToAdd = selectedProjects.filter((pid) => !currentProjectIds.includes(pid))
+      const projectsToRemove = currentProjectIds.filter((pid) => !selectedProjects.includes(pid))
+
+      // Add new project assignments
+      for (const projectId of projectsToAdd) {
+        await projectsService.addPartToProject(projectId, id)
+      }
+
+      // Remove deselected project assignments
+      for (const projectId of projectsToRemove) {
+        await projectsService.removePartFromProject(projectId, id)
+      }
+
       toast.success('Part updated successfully')
       navigate(`/parts/${id}`)
     } catch (error) {
@@ -299,6 +328,15 @@ const EditPartPage: React.FC = () => {
     setValue('category_ids', newSelected)
   }
 
+  const toggleProject = (projectId: string) => {
+    const newSelected = selectedProjects.includes(projectId)
+      ? selectedProjects.filter((id) => id !== projectId)
+      : [...selectedProjects, projectId]
+
+    console.log('Project toggled:', { projectId, newSelected })
+    setSelectedProjects(newSelected)
+  }
+
   const addProperty = () => {
     if (newPropertyKey.trim() && newPropertyValue.trim()) {
       setAdditionalProperties((prev) => ({
@@ -337,6 +375,17 @@ const EditPartPage: React.FC = () => {
     } catch (error) {
       console.error('Error reloading locations:', error)
       toast.error('Failed to reload locations')
+    }
+  }
+
+  const handleProjectAdded = async () => {
+    try {
+      const projectsData = await projectsService.getAllProjects()
+      setProjects(projectsData)
+      setShowAddProjectModal(false)
+    } catch (error) {
+      console.error('Error reloading projects:', error)
+      toast.error('Failed to reload projects')
     }
   }
 
@@ -510,6 +559,20 @@ const EditPartPage: React.FC = () => {
             description="Select categories that apply to this part"
             showAddButton={true}
             layout="checkboxes"
+          />
+        </div>
+
+        {/* Projects */}
+        <div className="card p-6">
+          <ProjectSelector
+            projects={projects}
+            selectedProjects={selectedProjects}
+            onToggleProject={toggleProject}
+            onAddNewProject={() => setShowAddProjectModal(true)}
+            label="Projects"
+            description="Assign this part to one or more projects"
+            showAddButton={true}
+            layout="pills"
           />
         </div>
 
@@ -979,6 +1042,13 @@ const EditPartPage: React.FC = () => {
         isOpen={showAddLocationModal}
         onClose={() => setShowAddLocationModal(false)}
         onSuccess={handleLocationAdded}
+      />
+
+      <AddProjectModal
+        isOpen={showAddProjectModal}
+        onClose={() => setShowAddProjectModal(false)}
+        onSuccess={handleProjectAdded}
+        existingProjects={projects.map((proj) => proj.name)}
       />
     </div>
   )
