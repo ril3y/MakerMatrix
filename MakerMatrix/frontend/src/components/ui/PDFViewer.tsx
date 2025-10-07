@@ -57,9 +57,10 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
           setPdfData(arrayBuffer)
           setLoading(false) // Important: Set loading to false after data is received
           console.log('PDFViewer: Loading set to false, pdfData set')
-        } catch (err: any) {
+        } catch (err) {
+          const error = err as { message?: string }
           console.error('Failed to fetch PDF:', err)
-          setError(`Failed to load PDF: ${err.message}`)
+          setError(`Failed to load PDF: ${error.message || 'Unknown error'}`)
           setLoading(false)
         }
       } else {
