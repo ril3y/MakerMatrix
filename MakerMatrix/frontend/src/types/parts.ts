@@ -30,7 +30,7 @@ export interface Part {
   manufacturer?: string
   manufacturer_part_number?: string
   component_type?: string
-  additional_properties?: Record<string, any>
+  additional_properties?: Record<string, unknown>
   location_id?: string
   location?: Location
   categories?: Category[]
@@ -90,7 +90,7 @@ export interface CreatePartRequest {
   manufacturer?: string
   manufacturer_part_number?: string
   component_type?: string
-  additional_properties?: Record<string, any>
+  additional_properties?: Record<string, unknown>
   location_id?: string
   categories?: string[]
 }
