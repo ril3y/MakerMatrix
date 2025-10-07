@@ -9,7 +9,13 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   route?: string
 }
 
-const AllTheProviders = ({ children, route = '/' }: { children: React.ReactNode; route?: string }) => {
+const AllTheProviders = ({
+  children,
+  route = '/',
+}: {
+  children: React.ReactNode
+  route?: string
+}) => {
   // Create a new QueryClient for each test to avoid state pollution
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -26,18 +32,13 @@ const AllTheProviders = ({ children, route = '/' }: { children: React.ReactNode;
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </BrowserRouter>
     </QueryClientProvider>
   )
 }
 
-const customRender = (
-  ui: ReactElement,
-  { route = '/', ...options }: CustomRenderOptions = {}
-) => {
+const customRender = (ui: ReactElement, { route = '/', ...options }: CustomRenderOptions = {}) => {
   if (route !== '/') {
     window.history.pushState({}, 'Test page', route)
   }

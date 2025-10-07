@@ -16,9 +16,7 @@ const TasksPage = () => {
             <Activity className="w-6 h-6" />
             Background Tasks
           </h1>
-          <p className="text-secondary mt-1">
-            Monitor and manage background tasks and processes
-          </p>
+          <p className="text-secondary mt-1">Monitor and manage background tasks and processes</p>
         </div>
       </motion.div>
 

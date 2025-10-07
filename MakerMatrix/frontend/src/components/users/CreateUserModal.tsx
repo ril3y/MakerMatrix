@@ -15,7 +15,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
     username: '',
     email: '',
     password: '',
-    role_ids: []
+    role_ids: [],
   })
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -54,7 +54,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
         username: '',
         email: '',
         password: '',
-        role_ids: []
+        role_ids: [],
       })
       setConfirmPassword('')
     } catch (error: any) {
@@ -65,11 +65,11 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
   }
 
   const toggleRole = (roleId: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       role_ids: prev.role_ids.includes(roleId)
-        ? prev.role_ids.filter(id => id !== roleId)
-        : [...prev.role_ids, roleId]
+        ? prev.role_ids.filter((id) => id !== roleId)
+        : [...prev.role_ids, roleId],
     }))
   }
 
@@ -84,10 +84,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
             <User className="w-5 h-5" />
             Create New User
           </h2>
-          <button
-            onClick={onClose}
-            className="text-secondary hover:text-primary transition-colors"
-          >
+          <button onClick={onClose} className="text-secondary hover:text-primary transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -96,9 +93,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Username */}
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Username *
-            </label>
+            <label className="block text-sm font-medium text-primary mb-2">Username *</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
               <input
@@ -114,9 +109,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Email *
-            </label>
+            <label className="block text-sm font-medium text-primary mb-2">Email *</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
               <input
@@ -132,9 +125,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Password *
-            </label>
+            <label className="block text-sm font-medium text-primary mb-2">Password *</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
               <input
@@ -147,9 +138,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
                 minLength={8}
               />
             </div>
-            <p className="text-xs text-secondary mt-1">
-              Must be at least 8 characters long
-            </p>
+            <p className="text-xs text-secondary mt-1">Must be at least 8 characters long</p>
           </div>
 
           {/* Confirm Password */}
@@ -170,9 +159,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
               />
             </div>
             {formData.password && confirmPassword && formData.password !== confirmPassword && (
-              <p className="text-xs text-red-600 mt-1">
-                Passwords do not match
-              </p>
+              <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
             )}
           </div>
 
@@ -214,11 +201,7 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary flex-1"
-              disabled={loading}
-            >
+            <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
               {loading ? 'Creating...' : 'Create User'}
             </button>
           </div>

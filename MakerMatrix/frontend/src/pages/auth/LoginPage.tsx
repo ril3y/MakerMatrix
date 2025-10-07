@@ -30,7 +30,7 @@ const LoginPage = () => {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     clearError()
-    
+
     try {
       await login(data as LoginRequest)
       // Force a page reload to ensure proper state initialization
@@ -49,12 +49,8 @@ const LoginPage = () => {
       transition={{ duration: 0.5 }}
     >
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-primary mb-2">
-          Welcome Back
-        </h1>
-        <p className="text-secondary">
-          Sign in to access your MakerMatrix inventory
-        </p>
+        <h1 className="text-3xl font-bold text-primary mb-2">Welcome Back</h1>
+        <p className="text-secondary">Sign in to access your MakerMatrix inventory</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -104,11 +100,7 @@ const LoginPage = () => {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted hover:text-secondary transition-colors"
             >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
           {errors.password && (
@@ -126,7 +118,7 @@ const LoginPage = () => {
               <motion.div
                 className="w-5 h-5 border-2 border-bg-primary/30 border-t-bg-primary rounded-full"
                 animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
               />
               Signing in...
             </>

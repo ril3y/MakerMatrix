@@ -10,13 +10,6 @@ import type { Project } from '@/types/projects'
 // Mock dependencies
 vi.mock('react-hot-toast')
 vi.mock('@/services/projects.service')
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  },
-  AnimatePresence: ({ children }: any) => children,
-}))
-
 const mockProjectsService = vi.mocked(projectsService)
 const mockToast = vi.mocked(toast)
 
@@ -52,7 +45,9 @@ describe('AddProjectModal - Core Functionality', () => {
 
       expect(screen.getByText('Add New Project')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('e.g., golfcart-harness')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('Brief description of the project (optional)')).toBeInTheDocument()
+      expect(
+        screen.getByPlaceholderText('Brief description of the project (optional)')
+      ).toBeInTheDocument()
       expect(screen.getByText('Create Project')).toBeInTheDocument()
     })
 
@@ -165,9 +160,9 @@ describe('AddProjectModal - Core Functionality', () => {
       expect(linkNameInputs).toHaveLength(2)
 
       // Click the first X button
-      const removeButtons = screen.getAllByRole('button').filter((btn) =>
-        btn.querySelector('svg')?.classList.contains('lucide-x')
-      )
+      const removeButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => btn.querySelector('svg')?.classList.contains('lucide-x'))
       await user.click(removeButtons[0])
 
       linkNameInputs = screen.queryAllByPlaceholderText('Link name (e.g., GitHub)')
@@ -177,7 +172,11 @@ describe('AddProjectModal - Core Functionality', () => {
     it('should show empty state when no links added', () => {
       render(<AddProjectModal {...mockProps} />)
 
-      expect(screen.getByText('No links added. Click "Add Link" to include project-related URLs (GitHub, documentation, etc.)')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'No links added. Click "Add Link" to include project-related URLs (GitHub, documentation, etc.)'
+        )
+      ).toBeInTheDocument()
     })
 
     it('should allow entering link data', async () => {
@@ -254,7 +253,9 @@ describe('AddProjectModal - Core Functionality', () => {
       render(<AddProjectModal {...mockProps} />)
 
       const nameInput = screen.getByPlaceholderText('e.g., golfcart-harness')
-      const descriptionInput = screen.getByPlaceholderText('Brief description of the project (optional)')
+      const descriptionInput = screen.getByPlaceholderText(
+        'Brief description of the project (optional)'
+      )
 
       await user.type(nameInput, 'new-project')
       await user.type(descriptionInput, 'This is a test project')

@@ -11,12 +11,6 @@ import { Location } from '@/types/locations'
 vi.mock('react-hot-toast')
 vi.mock('@/services/locations.service')
 vi.mock('@/services/utility.service')
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  },
-  AnimatePresence: ({ children }: any) => children,
-}))
 vi.mock('@/components/ui/EmojiPicker', () => ({
   default: ({ value, onChange, placeholder }: any) => (
     <input
@@ -25,7 +19,7 @@ vi.mock('@/components/ui/EmojiPicker', () => ({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
     />
-  )
+  ),
 }))
 vi.mock('@/components/ui/LocationTreeSelector', () => ({
   default: ({ selectedLocationId, onLocationSelect, label }: any) => (
@@ -41,7 +35,7 @@ vi.mock('@/components/ui/LocationTreeSelector', () => ({
         <option value="loc-2">└ Electronics Room</option>
       </select>
     </div>
-  )
+  ),
 }))
 
 const mockLocationsService = vi.mocked(locationsService)
@@ -57,7 +51,7 @@ describe('AddLocationModal - Core Functionality', () => {
       location_type: 'warehouse',
       parent_id: undefined,
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
+      updated_at: '2024-01-01T00:00:00Z',
     },
     {
       id: 'loc-2',
@@ -66,22 +60,22 @@ describe('AddLocationModal - Core Functionality', () => {
       location_type: 'room',
       parent_id: 'loc-1',
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
-    }
+      updated_at: '2024-01-01T00:00:00Z',
+    },
   ]
 
   const mockProps = {
     isOpen: true,
     onClose: vi.fn(),
-    onSuccess: vi.fn()
+    onSuccess: vi.fn(),
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Mock successful location loading by default
     mockLocationsService.getAllLocations.mockResolvedValue(mockLocations)
-    
+
     // Mock successful location creation by default
     mockLocationsService.createLocation.mockResolvedValue({
       id: 'new-loc-123',
@@ -90,9 +84,9 @@ describe('AddLocationModal - Core Functionality', () => {
       location_type: 'standard',
       parent_id: undefined,
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
+      updated_at: '2024-01-01T00:00:00Z',
     })
-    
+
     // Mock utility service for image upload
     mockUtilityService.uploadImage.mockResolvedValue('/utility/get_image/test-id.png')
   })
@@ -100,9 +94,9 @@ describe('AddLocationModal - Core Functionality', () => {
   describe('Basic Rendering', () => {
     it('should render modal with title and form fields', async () => {
       render(<AddLocationModal {...mockProps} />)
-      
+
       expect(screen.getByText('Add New Location')).toBeInTheDocument()
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
         expect(screen.getByText('Select a type')).toBeInTheDocument() // Placeholder text
@@ -112,21 +106,21 @@ describe('AddLocationModal - Core Functionality', () => {
 
     it('should load parent locations on mount when modal is open', async () => {
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(mockLocationsService.getAllLocations).toHaveBeenCalled()
       })
     })
 
     it('should show loading state while fetching data', async () => {
-      mockLocationsService.getAllLocations.mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => resolve(mockLocations), 100))
+      mockLocationsService.getAllLocations.mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve(mockLocations), 100))
       )
-      
+
       render(<AddLocationModal {...mockProps} />)
-      
+
       expect(screen.getByText('Loading...')).toBeInTheDocument()
-      
+
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
       })
@@ -134,7 +128,7 @@ describe('AddLocationModal - Core Functionality', () => {
 
     it('should not load data when modal is closed', () => {
       render(<AddLocationModal {...mockProps} isOpen={false} />)
-      
+
       expect(mockLocationsService.getAllLocations).not.toHaveBeenCalled()
     })
   })
@@ -143,7 +137,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should show error when submitting without location name', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByText('Create Location')).toBeInTheDocument()
       })
@@ -160,7 +154,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should show error for duplicate location name at same level', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -172,7 +166,9 @@ describe('AddLocationModal - Core Functionality', () => {
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith('A location with this name already exists at this level')
+        expect(mockToast.error).toHaveBeenCalledWith(
+          'A location with this name already exists at this level'
+        )
       })
       expect(mockLocationsService.createLocation).not.toHaveBeenCalled()
     })
@@ -180,14 +176,14 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should allow duplicate names at different levels', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
 
       const nameInput = screen.getByPlaceholderText('Enter location name')
       await user.type(nameInput, 'Electronics Room') // Exists under Warehouse A
-      
+
       // Parent should be root level by default
       const submitButton = screen.getByText('Create Location')
       await user.click(submitButton)
@@ -206,7 +202,7 @@ describe('AddLocationModal - Core Functionality', () => {
   describe('Location Types', () => {
     it('should display all location type options', async () => {
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByText('Select a type')).toBeInTheDocument()
       })
@@ -215,8 +211,17 @@ describe('AddLocationModal - Core Functionality', () => {
       const typeSelect = screen.getByRole('combobox', { name: /location type/i })
       await userEvent.click(typeSelect)
 
-      const expectedTypes = ['Standard', 'Warehouse', 'Room', 'Shelf', 'Drawer', 'Bin', 'Cabinet', 'Building']
-      expectedTypes.forEach(type => {
+      const expectedTypes = [
+        'Standard',
+        'Warehouse',
+        'Room',
+        'Shelf',
+        'Drawer',
+        'Bin',
+        'Cabinet',
+        'Building',
+      ]
+      expectedTypes.forEach((type) => {
         expect(screen.getByText(type)).toBeInTheDocument()
       })
     })
@@ -224,7 +229,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should allow selection of location type', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByText('Select a type')).toBeInTheDocument()
       })
@@ -239,7 +244,7 @@ describe('AddLocationModal - Core Functionality', () => {
   describe('Parent Location Selection', () => {
     it('should display parent locations in hierarchical format', async () => {
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByText('No parent (root level)')).toBeInTheDocument()
         expect(screen.getByText('Warehouse A')).toBeInTheDocument()
@@ -250,7 +255,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should show full path preview when parent is selected', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByText('No parent (root level)')).toBeInTheDocument()
       })
@@ -274,7 +279,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should create location successfully with minimal data', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -302,7 +307,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should create location with all fields filled', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -339,11 +344,11 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should handle creation API error', async () => {
       const user = userEvent.setup()
       mockLocationsService.createLocation.mockRejectedValueOnce({
-        response: { data: { message: 'Location already exists' } }
+        response: { data: { message: 'Location already exists' } },
       })
-      
+
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -364,9 +369,9 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should handle generic API error', async () => {
       const user = userEvent.setup()
       mockLocationsService.createLocation.mockRejectedValueOnce(new Error('Network error'))
-      
+
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -387,7 +392,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should reset form when modal is closed', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -407,11 +412,11 @@ describe('AddLocationModal - Core Functionality', () => {
 
       // Reopen modal and check form is reset
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         const resetNameInput = screen.getByPlaceholderText('Enter location name')
         expect(resetNameInput).toHaveValue('')
-        
+
         const resetTypeSelect = screen.getByRole('combobox', { name: /location type/i })
         expect(resetTypeSelect).toHaveValue('') // Empty value after reset
       })
@@ -420,7 +425,7 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should reset form after successful creation', async () => {
       const user = userEvent.setup()
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -443,14 +448,14 @@ describe('AddLocationModal - Core Functionality', () => {
   describe('Loading States', () => {
     it('should disable buttons during creation', async () => {
       const user = userEvent.setup()
-      
+
       // Make createLocation hang to test loading state
       mockLocationsService.createLocation.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 1000))
+        () => new Promise((resolve) => setTimeout(resolve, 1000))
       )
-      
+
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -471,9 +476,9 @@ describe('AddLocationModal - Core Functionality', () => {
 
     it('should handle data loading error gracefully', async () => {
       mockLocationsService.getAllLocations.mockRejectedValueOnce(new Error('Failed to load'))
-      
+
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(mockToast.error).toHaveBeenCalledWith('Failed to load parent locations')
       })
@@ -484,9 +489,9 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should upload image when provided', async () => {
       const user = userEvent.setup()
       const file = new File(['test'], 'test.png', { type: 'image/png' })
-      
+
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -516,11 +521,11 @@ describe('AddLocationModal - Core Functionality', () => {
     it('should handle image upload failure', async () => {
       const user = userEvent.setup()
       const file = new File(['test'], 'test.png', { type: 'image/png' })
-      
+
       mockUtilityService.uploadImage.mockRejectedValueOnce(new Error('Upload failed'))
-      
+
       render(<AddLocationModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })

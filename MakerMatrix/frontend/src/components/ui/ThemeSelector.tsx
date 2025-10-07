@@ -31,8 +31,8 @@ const themes: Theme[] = [
       bg: 'bg-white',
       card: 'bg-gray-50',
       text: 'text-gray-900',
-      accent: 'bg-primary'
-    }
+      accent: 'bg-primary',
+    },
   },
   {
     id: 'blue',
@@ -46,8 +46,8 @@ const themes: Theme[] = [
       bg: 'bg-white',
       card: 'bg-gray-50',
       text: 'text-gray-900',
-      accent: 'bg-primary'
-    }
+      accent: 'bg-primary',
+    },
   },
   {
     id: 'purple',
@@ -61,8 +61,8 @@ const themes: Theme[] = [
       bg: 'bg-white',
       card: 'bg-gray-50',
       text: 'text-gray-900',
-      accent: 'bg-primary'
-    }
+      accent: 'bg-primary',
+    },
   },
   {
     id: 'orange',
@@ -76,8 +76,8 @@ const themes: Theme[] = [
       bg: 'bg-white',
       card: 'bg-gray-50',
       text: 'text-gray-900',
-      accent: 'bg-primary'
-    }
+      accent: 'bg-primary',
+    },
   },
   {
     id: 'gray',
@@ -91,9 +91,9 @@ const themes: Theme[] = [
       bg: 'bg-white',
       card: 'bg-gray-50',
       text: 'text-gray-900',
-      accent: 'bg-primary'
-    }
-  }
+      accent: 'bg-primary',
+    },
+  },
 ]
 
 interface ThemeSelectorProps {
@@ -101,14 +101,20 @@ interface ThemeSelectorProps {
   onThemeChange?: (themeId: string) => void
 }
 
-const ThemeSelector = ({ currentTheme: propCurrentTheme, onThemeChange: propOnThemeChange }: ThemeSelectorProps = {}) => {
+const ThemeSelector = ({
+  currentTheme: propCurrentTheme,
+  onThemeChange: propOnThemeChange,
+}: ThemeSelectorProps = {}) => {
   const themeContext = useTheme()
-  const { currentTheme: contextTheme, setTheme } = themeContext || { currentTheme: 'default', setTheme: () => {} }
-  
+  const { currentTheme: contextTheme, setTheme } = themeContext || {
+    currentTheme: 'default',
+    setTheme: () => {},
+  }
+
   // Use props if provided, otherwise use context
   const currentTheme = propCurrentTheme ?? contextTheme
   const onThemeChange = propOnThemeChange ?? setTheme
-  
+
   const [selectedTheme, setSelectedTheme] = useState(currentTheme)
 
   // Update local state when currentTheme changes
@@ -143,11 +149,13 @@ const ThemeSelector = ({ currentTheme: propCurrentTheme, onThemeChange: propOnTh
 
             {/* Theme preview */}
             <div className="mb-3">
-              <div className={`w-full h-20 rounded-lg bg-theme-primary border border-theme-primary overflow-hidden`}>
+              <div
+                className={`w-full h-20 rounded-lg bg-theme-primary border border-theme-primary overflow-hidden`}
+              >
                 <div className="flex h-full">
                   {/* Sidebar preview */}
                   <div className={`w-1/3 bg-theme-secondary border-r border-theme-primary p-2`}>
-                    <div 
+                    <div
                       className="h-2 rounded mb-1"
                       style={{ backgroundColor: theme.primary }}
                     ></div>
@@ -159,7 +167,7 @@ const ThemeSelector = ({ currentTheme: propCurrentTheme, onThemeChange: propOnTh
                     <div className="h-1 bg-theme-tertiary rounded mb-2"></div>
                     <div className="h-1 bg-theme-tertiary rounded mb-1 w-4/5"></div>
                     <div className="h-1 bg-theme-tertiary rounded w-2/3"></div>
-                    <div 
+                    <div
                       className="h-4 rounded mt-2 w-1/2"
                       style={{ backgroundColor: theme.primary }}
                     ></div>
@@ -182,23 +190,23 @@ const ThemeSelector = ({ currentTheme: propCurrentTheme, onThemeChange: propOnTh
         <h4 className="font-medium text-theme-primary mb-3">Theme Colors</h4>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div 
+            <div
               className="w-8 h-8 rounded-full border border-theme-primary"
-              style={{ backgroundColor: themes.find(t => t.id === selectedTheme)?.primary }}
+              style={{ backgroundColor: themes.find((t) => t.id === selectedTheme)?.primary }}
             ></div>
             <span className="text-sm text-theme-secondary">Primary</span>
           </div>
           <div className="flex items-center gap-2">
-            <div 
+            <div
               className="w-8 h-8 rounded-full border border-theme-primary"
-              style={{ backgroundColor: themes.find(t => t.id === selectedTheme)?.background }}
+              style={{ backgroundColor: themes.find((t) => t.id === selectedTheme)?.background }}
             ></div>
             <span className="text-sm text-theme-secondary">Background</span>
           </div>
           <div className="flex items-center gap-2">
-            <div 
+            <div
               className="w-8 h-8 rounded-full border border-theme-primary"
-              style={{ backgroundColor: themes.find(t => t.id === selectedTheme)?.text }}
+              style={{ backgroundColor: themes.find((t) => t.id === selectedTheme)?.text }}
             ></div>
             <span className="text-sm text-theme-secondary">Text</span>
           </div>

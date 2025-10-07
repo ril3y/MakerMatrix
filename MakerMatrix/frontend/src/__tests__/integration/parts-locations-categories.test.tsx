@@ -48,7 +48,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       location_type: 'warehouse',
       parent_id: undefined,
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
+      updated_at: '2024-01-01T00:00:00Z',
     },
     {
       id: 'loc-electronics',
@@ -57,7 +57,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       location_type: 'room',
       parent_id: 'loc-warehouse',
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
+      updated_at: '2024-01-01T00:00:00Z',
     },
     {
       id: 'loc-resistors',
@@ -66,19 +66,19 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       location_type: 'shelf',
       parent_id: 'loc-electronics',
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
-    }
+      updated_at: '2024-01-01T00:00:00Z',
+    },
   ]
 
   const mockCategories: Category[] = [
     { id: 'cat-electronics', name: 'Electronics', description: 'Electronic components' },
     { id: 'cat-resistors', name: 'Resistors', description: 'Various resistor types' },
-    { id: 'cat-passive', name: 'Passive Components', description: 'Passive electronic components' }
+    { id: 'cat-passive', name: 'Passive Components', description: 'Passive electronic components' },
   ]
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Default successful responses
     mockLocationsService.getAllLocations.mockResolvedValue(mockLocations)
     mockCategoriesService.getAllCategories.mockResolvedValue(mockCategories)
@@ -89,7 +89,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       name: 'Test Part',
       quantity: 10,
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
+      updated_at: '2024-01-01T00:00:00Z',
     } as Part)
   })
 
@@ -98,11 +98,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(mockLocationsService.getAllLocations).toHaveBeenCalled()
       })
@@ -120,11 +120,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
       })
@@ -149,7 +149,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
           expect.objectContaining({
             name: '1K Resistor',
             quantity: 100,
-            location_id: 'loc-resistors'
+            location_id: 'loc-resistors',
           })
         )
       })
@@ -161,11 +161,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(mockCategoriesService.getAllCategories).toHaveBeenCalled()
       })
@@ -183,11 +183,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
       })
@@ -217,7 +217,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
           expect.objectContaining({
             name: '1K Resistor',
             quantity: 100,
-            categories: ['cat-electronics', 'cat-resistors', 'cat-passive']
+            categories: ['cat-electronics', 'cat-resistors', 'cat-passive'],
           })
         )
       })
@@ -232,11 +232,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       const locationProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       const { unmount: unmountLocation } = render(<AddLocationModal {...locationProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter location name')).toBeInTheDocument()
       })
@@ -257,7 +257,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
         expect(mockLocationsService.createLocation).toHaveBeenCalledWith({
           name: 'Capacitor Drawer',
           type: 'drawer',
-          parent_id: 'loc-electronics'
+          parent_id: 'loc-electronics',
         })
       })
 
@@ -268,11 +268,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
         isOpen: true,
         onClose: vi.fn(),
         onSuccess: vi.fn(),
-        existingCategories: ['Electronics', 'Resistors', 'Passive Components']
+        existingCategories: ['Electronics', 'Resistors', 'Passive Components'],
       }
 
       const { unmount: unmountCategory } = render(<AddCategoryModal {...categoryProps} />)
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter category name')).toBeInTheDocument()
       })
@@ -285,7 +285,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
 
       await waitFor(() => {
         expect(mockCategoriesService.createCategory).toHaveBeenCalledWith({
-          name: 'Capacitors'
+          name: 'Capacitors',
         })
       })
 
@@ -302,13 +302,13 @@ describe('Parts-Locations-Categories Integration Tests', () => {
           location_type: 'drawer',
           parent_id: 'loc-electronics',
           created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        }
+          updated_at: '2024-01-01T00:00:00Z',
+        },
       ]
 
       const updatedCategories = [
         ...mockCategories,
-        { id: 'cat-capacitors', name: 'Capacitors', description: 'Various capacitor types' }
+        { id: 'cat-capacitors', name: 'Capacitors', description: 'Various capacitor types' },
       ]
 
       mockLocationsService.getAllLocations.mockResolvedValue(updatedLocations)
@@ -317,11 +317,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       const partProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...partProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
       })
@@ -364,7 +364,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
             name: '100nF Ceramic Capacitor',
             quantity: 50,
             location_id: 'loc-capacitors',
-            categories: ['cat-capacitors', 'cat-electronics', 'cat-passive']
+            categories: ['cat-capacitors', 'cat-electronics', 'cat-passive'],
           })
         )
       })
@@ -373,32 +373,36 @@ describe('Parts-Locations-Categories Integration Tests', () => {
 
   describe('Error Handling in Integrated Workflows', () => {
     it('should handle location loading failure in part creation', async () => {
-      mockLocationsService.getAllLocations.mockRejectedValueOnce(new Error('Failed to load locations'))
-      
+      mockLocationsService.getAllLocations.mockRejectedValueOnce(
+        new Error('Failed to load locations')
+      )
+
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(mockToast.error).toHaveBeenCalledWith('Failed to load data')
       })
     })
 
     it('should handle category loading failure in part creation', async () => {
-      mockCategoriesService.getAllCategories.mockRejectedValueOnce(new Error('Failed to load categories'))
-      
+      mockCategoriesService.getAllCategories.mockRejectedValueOnce(
+        new Error('Failed to load categories')
+      )
+
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(mockToast.error).toHaveBeenCalledWith('Failed to load data')
       })
@@ -407,15 +411,15 @@ describe('Parts-Locations-Categories Integration Tests', () => {
     it('should gracefully handle missing location reference', async () => {
       // Remove location from the list but part still references it
       mockLocationsService.getAllLocations.mockResolvedValue([mockLocations[0]]) // Only warehouse
-      
+
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         // Should still render without crashing
         expect(screen.getByText('Add New Part')).toBeInTheDocument()
@@ -431,11 +435,11 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
       })
@@ -451,7 +455,7 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       // The location dropdown should only show valid locations
       const locationSelect = screen.getByDisplayValue('Select a location')
       const options = locationSelect.querySelectorAll('option')
-      
+
       // Should have default option plus valid locations
       expect(options).toHaveLength(mockLocations.length + 1) // +1 for "Select a location" option
     })
@@ -465,21 +469,21 @@ describe('Parts-Locations-Categories Integration Tests', () => {
           location_type: 'room',
           parent_id: 'non-existent-parent', // Parent doesn't exist
           created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
+          updated_at: '2024-01-01T00:00:00Z',
         },
-        ...mockLocations
+        ...mockLocations,
       ]
 
       mockLocationsService.getAllLocations.mockResolvedValue(orphanedLocations)
-      
+
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         // Should render without crashing and show orphaned location at root level
         expect(screen.getByText('Orphaned Room')).toBeInTheDocument()
@@ -499,27 +503,27 @@ describe('Parts-Locations-Categories Integration Tests', () => {
           location_type: 'bin',
           parent_id: i % 10 === 0 ? undefined : `loc-${Math.floor(i / 10) * 10}`,
           created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
+          updated_at: '2024-01-01T00:00:00Z',
         })
       }
 
       mockLocationsService.getAllLocations.mockResolvedValue(manyLocations)
-      
+
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       const startTime = performance.now()
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Location 0')).toBeInTheDocument()
       })
-      
+
       const endTime = performance.now()
-      
+
       // Should render within reasonable time (less than 1 second)
       expect(endTime - startTime).toBeLessThan(1000)
     })
@@ -531,20 +535,20 @@ describe('Parts-Locations-Categories Integration Tests', () => {
         manyCategories.push({
           id: `cat-${i}`,
           name: `Category ${i}`,
-          description: `Description for category ${i}`
+          description: `Description for category ${i}`,
         })
       }
 
       mockCategoriesService.getAllCategories.mockResolvedValue(manyCategories)
-      
+
       const mockProps = {
         isOpen: true,
         onClose: vi.fn(),
-        onSuccess: vi.fn()
+        onSuccess: vi.fn(),
       }
 
       render(<AddPartModal {...mockProps} />, { wrapper: RouterWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Category 0')).toBeInTheDocument()
       })
@@ -553,13 +557,13 @@ describe('Parts-Locations-Categories Integration Tests', () => {
       // Check that the first few categories are present
       expect(screen.getByText('Category 0')).toBeInTheDocument()
       expect(screen.getByText('Category 1')).toBeInTheDocument()
-      
+
       // Count actual category checkboxes in the DOM - should have at least some categories
-      const categoryCheckboxes = screen.getAllByRole('checkbox').filter(checkbox => {
+      const categoryCheckboxes = screen.getAllByRole('checkbox').filter((checkbox) => {
         const label = checkbox.parentElement?.textContent || ''
         return label.startsWith('Category ')
       })
-      
+
       // Should have rendered many categories (at least 10)
       expect(categoryCheckboxes.length).toBeGreaterThanOrEqual(10)
     })

@@ -17,7 +17,12 @@ interface AddLocationModalProps {
   defaultParentId?: string
 }
 
-const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLocationModalProps) => {
+const AddLocationModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  defaultParentId,
+}: AddLocationModalProps) => {
   const [parentLocations, setParentLocations] = useState<Location[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>('')
@@ -31,7 +36,7 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLo
     { value: 'drawer', label: 'Drawer' },
     { value: 'bin', label: 'Bin' },
     { value: 'cabinet', label: 'Cabinet' },
-    { value: 'building', label: 'Building' }
+    { value: 'building', label: 'Building' },
   ]
 
   // Form with validation
@@ -92,10 +97,10 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLo
   async function handleFormSubmit(data: LocationFormData) {
     // Check for duplicate names at the same level
     const siblingLocations = data.parent_id
-      ? parentLocations.filter(loc => loc.parent_id === data.parent_id)
-      : parentLocations.filter(loc => !loc.parent_id)
+      ? parentLocations.filter((loc) => loc.parent_id === data.parent_id)
+      : parentLocations.filter((loc) => !loc.parent_id)
 
-    if (siblingLocations.some(loc => loc.name.toLowerCase() === data.name.toLowerCase().trim())) {
+    if (siblingLocations.some((loc) => loc.name.toLowerCase() === data.name.toLowerCase().trim())) {
       throw new Error('A location with this name already exists at this level')
     }
 
@@ -111,7 +116,6 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLo
     return await locationsService.createLocation(locationData)
   }
 
-
   const handleClose = () => {
     setImageUrl('')
     form.reset()
@@ -119,33 +123,35 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLo
   }
 
   // Build hierarchical display for parent locations
-  const buildLocationHierarchy = (locations: Location[]): Array<{id: string, name: string, level: number}> => {
-    const result: Array<{id: string, name: string, level: number}> = []
-    
+  const buildLocationHierarchy = (
+    locations: Location[]
+  ): Array<{ id: string; name: string; level: number }> => {
+    const result: Array<{ id: string; name: string; level: number }> = []
+
     // Create a map for quick lookup
     const locationMap = new Map<string, Location>()
-    locations.forEach(loc => locationMap.set(loc.id, loc))
-    
+    locations.forEach((loc) => locationMap.set(loc.id, loc))
+
     const addLocation = (location: Location, level: number = 0) => {
       result.push({
         id: location.id,
         name: location.name,
-        level
+        level,
       })
-      
+
       // Find children in the flat list
-      const children = locations.filter(loc => loc.parent_id === location.id)
+      const children = locations.filter((loc) => loc.parent_id === location.id)
       children
         .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
-        .forEach(child => addLocation(child, level + 1))
+        .forEach((child) => addLocation(child, level + 1))
     }
 
     // Start with root locations (no parent) and sort them
     const rootLocations = locations
-      .filter(loc => !loc.parent_id)
+      .filter((loc) => !loc.parent_id)
       .sort((a, b) => a.name.localeCompare(b.name))
-    
-    rootLocations.forEach(loc => addLocation(loc))
+
+    rootLocations.forEach((loc) => addLocation(loc))
 
     return result
   }
@@ -210,10 +216,15 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLo
             />
 
             {/* Parent Location */}
-            <FormField label="Parent Location" description="Select a parent location to create a hierarchy (optional)">
+            <FormField
+              label="Parent Location"
+              description="Select a parent location to create a hierarchy (optional)"
+            >
               <LocationTreeSelector
                 selectedLocationId={form.watch('parent_id')}
-                onLocationSelect={(locationId) => form.setValue('parent_id', locationId || undefined)}
+                onLocationSelect={(locationId) =>
+                  form.setValue('parent_id', locationId || undefined)
+                }
                 showAddButton={false}
                 compact={true}
               />
@@ -225,12 +236,12 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLo
                 <p className="text-sm text-theme-muted mb-1">Full path will be:</p>
                 <p className="text-sm font-medium text-theme-primary">
                   {(() => {
-                    const parent = parentLocations.find(loc => loc.id === form.watch('parent_id'))
+                    const parent = parentLocations.find((loc) => loc.id === form.watch('parent_id'))
                     if (parent) {
                       // Build full path from flat list
                       const buildPath = (loc: Location): string => {
                         if (loc.parent_id) {
-                          const parentLoc = parentLocations.find(p => p.id === loc.parent_id)
+                          const parentLoc = parentLocations.find((p) => p.id === loc.parent_id)
                           if (parentLoc) {
                             return buildPath(parentLoc) + ' → ' + loc.name
                           }
@@ -259,7 +270,10 @@ const AddLocationModal = ({ isOpen, onClose, onSuccess, defaultParentId }: AddLo
             </FormField>
 
             {/* Emoji Picker */}
-            <FormField label="Location Emoji" description="Choose an emoji to identify this location">
+            <FormField
+              label="Location Emoji"
+              description="Choose an emoji to identify this location"
+            >
               <EmojiPicker
                 value={form.watch('emoji') || undefined}
                 onChange={(emoji) => form.setValue('emoji', emoji)}

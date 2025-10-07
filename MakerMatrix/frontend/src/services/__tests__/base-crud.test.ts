@@ -51,21 +51,25 @@ class TestUpdateRequest {
   }
 }
 
-class TestCrudService extends BaseNamedCrudService<TestEntity, TestCreateRequest, TestUpdateRequest> {
+class TestCrudService extends BaseNamedCrudService<
+  TestEntity,
+  TestCreateRequest,
+  TestUpdateRequest
+> {
   protected baseUrl = '/api/test'
   protected entityName = 'test'
 
   protected mapCreateRequestToBackend(data: TestCreateRequest): any {
     return {
       name: data.name,
-      description: data.description
+      description: data.description,
     }
   }
 
   protected mapUpdateRequestToBackend(data: TestUpdateRequest): any {
     return {
       name: data.name,
-      description: data.description
+      description: data.description,
     }
   }
 
@@ -88,10 +92,10 @@ describe('Base CRUD Service Tests', () => {
         status: 'success',
         data: [
           { id: '1', name: 'Test 1', description: 'Description 1' },
-          { id: '2', name: 'Test 2', description: 'Description 2' }
-        ]
+          { id: '2', name: 'Test 2', description: 'Description 2' },
+        ],
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await testService.getAll()
@@ -105,18 +109,16 @@ describe('Base CRUD Service Tests', () => {
     it('should get entities with pagination', async () => {
       const mockResponse = {
         status: 'success',
-        data: [
-          { id: '1', name: 'Test 1', description: 'Description 1' }
-        ],
-        total_parts: 1
+        data: [{ id: '1', name: 'Test 1', description: 'Description 1' }],
+        total_parts: 1,
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await testService.getAllPaginated({ page: 1, pageSize: 10 })
 
       expect(apiClient.get).toHaveBeenCalledWith('/api/test/get_all_tests', {
-        params: { page: 1, page_size: 10 }
+        params: { page: 1, page_size: 10 },
       })
       expect(result.data).toHaveLength(1)
       expect(result.total).toBe(1)
@@ -127,9 +129,9 @@ describe('Base CRUD Service Tests', () => {
     it('should get entity by ID', async () => {
       const mockResponse = {
         status: 'success',
-        data: { id: '1', name: 'Test 1', description: 'Description 1' }
+        data: { id: '1', name: 'Test 1', description: 'Description 1' },
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await testService.getById('1')
@@ -143,9 +145,9 @@ describe('Base CRUD Service Tests', () => {
     it('should create entity', async () => {
       const mockResponse = {
         status: 'success',
-        data: { id: '1', name: 'New Test', description: 'New Description' }
+        data: { id: '1', name: 'New Test', description: 'New Description' },
       }
-      
+
       vi.mocked(apiClient.post).mockResolvedValueOnce(mockResponse)
 
       const createRequest = new TestCreateRequest('New Test', 'New Description')
@@ -153,7 +155,7 @@ describe('Base CRUD Service Tests', () => {
 
       expect(apiClient.post).toHaveBeenCalledWith('/api/test/add_test', {
         name: 'New Test',
-        description: 'New Description'
+        description: 'New Description',
       })
       expect(result).toBeInstanceOf(TestEntity)
       expect(result.name).toBe('New Test')
@@ -162,9 +164,9 @@ describe('Base CRUD Service Tests', () => {
     it('should update entity', async () => {
       const mockResponse = {
         status: 'success',
-        data: { id: '1', name: 'Updated Test', description: 'Updated Description' }
+        data: { id: '1', name: 'Updated Test', description: 'Updated Description' },
       }
-      
+
       vi.mocked(apiClient.put).mockResolvedValueOnce(mockResponse)
 
       const updateRequest = new TestUpdateRequest('1', 'Updated Test', 'Updated Description')
@@ -172,7 +174,7 @@ describe('Base CRUD Service Tests', () => {
 
       expect(apiClient.put).toHaveBeenCalledWith('/api/test/update_test/1', {
         name: 'Updated Test',
-        description: 'Updated Description'
+        description: 'Updated Description',
       })
       expect(result).toBeInstanceOf(TestEntity)
       expect(result.name).toBe('Updated Test')
@@ -181,9 +183,9 @@ describe('Base CRUD Service Tests', () => {
     it('should delete entity', async () => {
       const mockResponse = {
         status: 'success',
-        message: 'Entity deleted successfully'
+        message: 'Entity deleted successfully',
       }
-      
+
       vi.mocked(apiClient.delete).mockResolvedValueOnce(mockResponse)
 
       await testService.delete('1')
@@ -194,9 +196,9 @@ describe('Base CRUD Service Tests', () => {
     it('should handle error responses', async () => {
       const mockResponse = {
         status: 'error',
-        message: 'Entity not found'
+        message: 'Entity not found',
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       await expect(testService.getById('1')).rejects.toThrow('test not found')
@@ -207,9 +209,9 @@ describe('Base CRUD Service Tests', () => {
     it('should get entity by name', async () => {
       const mockResponse = {
         status: 'success',
-        data: { id: '1', name: 'Test Name', description: 'Description' }
+        data: { id: '1', name: 'Test Name', description: 'Description' },
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await testService.getByName('Test Name')
@@ -222,9 +224,9 @@ describe('Base CRUD Service Tests', () => {
     it('should check if name exists', async () => {
       const mockResponse = {
         status: 'success',
-        data: { id: '1', name: 'Test Name', description: 'Description' }
+        data: { id: '1', name: 'Test Name', description: 'Description' },
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const exists = await testService.checkNameExists('Test Name')
@@ -235,9 +237,9 @@ describe('Base CRUD Service Tests', () => {
     it('should check if name exists excluding specific ID', async () => {
       const mockResponse = {
         status: 'success',
-        data: { id: '1', name: 'Test Name', description: 'Description' }
+        data: { id: '1', name: 'Test Name', description: 'Description' },
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const exists = await testService.checkNameExists('Test Name', '1')
@@ -248,9 +250,9 @@ describe('Base CRUD Service Tests', () => {
     it('should delete entity by name', async () => {
       const mockResponse = {
         status: 'success',
-        message: 'Entity deleted successfully'
+        message: 'Entity deleted successfully',
       }
-      
+
       vi.mocked(apiClient.delete).mockResolvedValueOnce(mockResponse)
 
       await testService.deleteByName('Test Name')
@@ -266,11 +268,11 @@ describe('Base CRUD Service Tests', () => {
         data: {
           categories: [
             { id: '1', name: 'Category 1', description: 'Description 1', part_count: 5 },
-            { id: '2', name: 'Category 2', description: 'Description 2', part_count: 3 }
-          ]
-        }
+            { id: '2', name: 'Category 2', description: 'Description 2', part_count: 3 },
+          ],
+        },
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await enhancedCategoriesService.getAll()
@@ -284,7 +286,7 @@ describe('Base CRUD Service Tests', () => {
     it('should provide category-specific helper methods', () => {
       const categories = [
         { id: '1', name: 'Electronics', description: 'Electronic components', part_count: 10 },
-        { id: '2', name: 'Resistors', description: 'Passive components', part_count: 5 }
+        { id: '2', name: 'Resistors', description: 'Passive components', part_count: 5 },
       ]
 
       const sorted = enhancedCategoriesService.sortCategoriesByName(categories)
@@ -318,10 +320,10 @@ describe('Base CRUD Service Tests', () => {
         status: 'success',
         data: [
           { id: '1', name: 'Location 1', description: 'Description 1', parent_id: null },
-          { id: '2', name: 'Location 2', description: 'Description 2', parent_id: '1' }
-        ]
+          { id: '2', name: 'Location 2', description: 'Description 2', parent_id: '1' },
+        ],
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await enhancedLocationsService.getAll()
@@ -337,7 +339,7 @@ describe('Base CRUD Service Tests', () => {
         { id: '1', name: 'Root', parent_id: null, children: [] },
         { id: '2', name: 'Child 1', parent_id: '1', children: [] },
         { id: '3', name: 'Child 2', parent_id: '1', children: [] },
-        { id: '4', name: 'Grandchild', parent_id: '2', children: [] }
+        { id: '4', name: 'Grandchild', parent_id: '2', children: [] },
       ]
 
       const tree = enhancedLocationsService.buildLocationTree(locations)
@@ -350,12 +352,12 @@ describe('Base CRUD Service Tests', () => {
       const locations = [
         { id: '1', name: 'Root', parent_id: null, children: [] },
         { id: '2', name: 'Child 1', parent_id: '1', children: [] },
-        { id: '3', name: 'Child 2', parent_id: '1', children: [] }
+        { id: '3', name: 'Child 2', parent_id: '1', children: [] },
       ]
 
       const children = enhancedLocationsService.getLocationsByParent(locations, '1')
       expect(children).toHaveLength(2)
-      expect(children.map(l => l.name)).toEqual(['Child 1', 'Child 2'])
+      expect(children.map((l) => l.name)).toEqual(['Child 1', 'Child 2'])
 
       const isDescendant = enhancedLocationsService.isDescendantOf('2', '1', locations)
       expect(isDescendant).toBe(true)
@@ -372,14 +374,14 @@ describe('Base CRUD Service Tests', () => {
           parent_id: null,
           children: [
             { id: '2', name: 'Child 1', parent_id: '1', children: [] },
-            { id: '3', name: 'Child 2', parent_id: '1', children: [] }
-          ]
-        }
+            { id: '3', name: 'Child 2', parent_id: '1', children: [] },
+          ],
+        },
       ]
 
       const flattened = enhancedLocationsService.flattenLocationTree(tree)
       expect(flattened).toHaveLength(3)
-      expect(flattened.map(l => l.name)).toEqual(['Root', 'Child 1', 'Child 2'])
+      expect(flattened.map((l) => l.name)).toEqual(['Root', 'Child 1', 'Child 2'])
     })
   })
 
@@ -390,7 +392,7 @@ describe('Base CRUD Service Tests', () => {
         page: 1,
         active: true,
         empty: null,
-        undefined: undefined
+        undefined: undefined,
       }
 
       const queryString = testService['buildQueryParams'](params)
@@ -410,7 +412,9 @@ describe('Base CRUD Service Tests', () => {
 
     it('should validate update data', () => {
       expect(() => testService['validateUpdateData'](null as any)).toThrow('Invalid test data')
-      expect(() => testService['validateUpdateData']({} as any)).toThrow('test ID is required for updates')
+      expect(() => testService['validateUpdateData']({} as any)).toThrow(
+        'test ID is required for updates'
+      )
       expect(() => testService['validateUpdateData']({ id: '1' } as any)).not.toThrow()
     })
   })

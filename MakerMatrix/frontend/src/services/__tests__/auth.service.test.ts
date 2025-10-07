@@ -29,20 +29,20 @@ describe('AuthService', () => {
       {
         id: 'role1',
         name: 'admin',
-        permissions: ['parts:read', 'parts:write', 'admin:access']
-      }
-    ]
+        permissions: ['parts:read', 'parts:write', 'admin:access'],
+      },
+    ],
   }
 
   const mockCredentials: LoginRequest = {
     username: 'testuser',
-    password: 'password123'
+    password: 'password123',
   }
 
   const mockLoginResponse: LoginResponse = {
     access_token: 'mock-jwt-token',
     token_type: 'bearer',
-    user: mockUser
+    user: mockUser,
   }
 
   beforeEach(() => {
@@ -51,7 +51,7 @@ describe('AuthService', () => {
     localStorageMock.setItem.mockClear()
     localStorageMock.removeItem.mockClear()
     localStorageMock.clear.mockClear()
-    
+
     // Reset all mocks to default behavior
     localStorageMock.getItem.mockReturnValue(null)
     localStorageMock.setItem.mockReturnValue(undefined)
@@ -68,15 +68,11 @@ describe('AuthService', () => {
 
       const result = await authService.login(mockCredentials)
 
-      expect(mockApiClient.post).toHaveBeenCalledWith(
-        '/auth/login',
-        expect.any(URLSearchParams),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      )
+      expect(mockApiClient.post).toHaveBeenCalledWith('/auth/login', expect.any(URLSearchParams), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      })
 
       // Check that form data was properly encoded
       const formDataCall = mockApiClient.post.mock.calls[0][1] as URLSearchParams
@@ -84,10 +80,7 @@ describe('AuthService', () => {
       expect(formDataCall.get('password')).toBe('password123')
 
       expect(mockApiClient.setAuthToken).toHaveBeenCalledWith('mock-jwt-token')
-      expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'user',
-        JSON.stringify(mockUser)
-      )
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('user', JSON.stringify(mockUser))
       expect(result).toEqual(mockLoginResponse)
     })
 
@@ -95,8 +88,8 @@ describe('AuthService', () => {
       const errorResponse = {
         response: {
           status: 401,
-          data: { detail: 'Invalid credentials' }
-        }
+          data: { detail: 'Invalid credentials' },
+        },
       }
       mockApiClient.post.mockRejectedValueOnce(errorResponse)
 
@@ -109,7 +102,7 @@ describe('AuthService', () => {
     it('should not set auth token if none returned', async () => {
       const responseWithoutToken = {
         ...mockLoginResponse,
-        access_token: undefined
+        access_token: undefined,
       }
       mockApiClient.post.mockResolvedValueOnce(responseWithoutToken)
 
@@ -163,8 +156,8 @@ describe('AuthService', () => {
       const errorResponse = {
         response: {
           status: 401,
-          data: { detail: 'Unauthorized' }
-        }
+          data: { detail: 'Unauthorized' },
+        },
       }
       mockApiClient.get.mockRejectedValueOnce(errorResponse)
 
@@ -176,7 +169,7 @@ describe('AuthService', () => {
     it('should update password successfully', async () => {
       const mockResponse = {
         status: 'success',
-        message: 'Password updated successfully'
+        message: 'Password updated successfully',
       }
       mockApiClient.put.mockResolvedValueOnce(mockResponse)
 
@@ -184,7 +177,7 @@ describe('AuthService', () => {
 
       expect(mockApiClient.put).toHaveBeenCalledWith('/api/users/update_password', {
         current_password: 'oldpass',
-        new_password: 'newpass'
+        new_password: 'newpass',
       })
       expect(result).toEqual(mockResponse)
     })
@@ -193,14 +186,14 @@ describe('AuthService', () => {
       const errorResponse = {
         response: {
           status: 400,
-          data: { detail: 'Current password is incorrect' }
-        }
+          data: { detail: 'Current password is incorrect' },
+        },
       }
       mockApiClient.put.mockRejectedValueOnce(errorResponse)
 
-      await expect(
-        authService.updatePassword('wrongpass', 'newpass')
-      ).rejects.toEqual(errorResponse)
+      await expect(authService.updatePassword('wrongpass', 'newpass')).rejects.toEqual(
+        errorResponse
+      )
     })
   })
 
@@ -270,7 +263,7 @@ describe('AuthService', () => {
   describe('hasRole', () => {
     it('should return true for existing role', () => {
       localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(mockUser))
-      
+
       const result = authService.hasRole('admin')
 
       expect(result).toBe(true)
@@ -278,7 +271,7 @@ describe('AuthService', () => {
 
     it('should return false for non-existing role', () => {
       localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(mockUser))
-      
+
       const result = authService.hasRole('moderator')
 
       expect(result).toBe(false)
@@ -305,7 +298,7 @@ describe('AuthService', () => {
   describe('hasPermission', () => {
     it('should return true for existing permission', () => {
       localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(mockUser))
-      
+
       const result = authService.hasPermission('parts:read')
 
       expect(result).toBe(true)
@@ -313,7 +306,7 @@ describe('AuthService', () => {
 
     it('should return false for non-existing permission', () => {
       localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(mockUser))
-      
+
       const result = authService.hasPermission('users:delete')
 
       expect(result).toBe(false)
@@ -331,7 +324,7 @@ describe('AuthService', () => {
     it('should return false when roles have no permissions', () => {
       const userWithRoleWithoutPermissions = {
         ...mockUser,
-        roles: [{ id: 'role1', name: 'basic', permissions: undefined }]
+        roles: [{ id: 'role1', name: 'basic', permissions: undefined }],
       }
       localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(userWithRoleWithoutPermissions))
 
@@ -352,7 +345,7 @@ describe('AuthService', () => {
   describe('AuthService class instantiation', () => {
     it('should create a new AuthService instance', () => {
       const newAuthService = new AuthService()
-      
+
       expect(newAuthService).toBeInstanceOf(AuthService)
       expect(newAuthService.login).toBeDefined()
       expect(newAuthService.logout).toBeDefined()

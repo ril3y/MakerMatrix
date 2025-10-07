@@ -20,7 +20,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  location
+  location,
 }) => {
   const locationTypes = [
     { value: 'standard', label: 'Standard' },
@@ -31,7 +31,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
     { value: 'drawer', label: 'Drawer' },
     { value: 'bin', label: 'Bin' },
     { value: 'cabinet', label: 'Cabinet' },
-    { value: 'building', label: 'Building' }
+    { value: 'building', label: 'Building' },
   ]
 
   const [formData, setFormData] = useState<UpdateLocationRequest>({
@@ -39,7 +39,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
     name: location.name,
     description: location.description || '',
     location_type: location.location_type || 'standard',
-    parent_id: location.parent_id || undefined
+    parent_id: location.parent_id || undefined,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,7 +59,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
         name: location.name,
         description: location.description || '',
         location_type: location.location_type || 'standard',
-        parent_id: location.parent_id || undefined
+        parent_id: location.parent_id || undefined,
       })
       setError(null)
       setNameError(null)
@@ -77,8 +77,8 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
       const data = await locationsService.getAllLocations()
       // Filter out the current location and its descendants
       const descendantIds = locationsService.getDescendantIds(location)
-      const validLocations = data.filter(loc => 
-        loc.id !== location.id && !descendantIds.includes(loc.id)
+      const validLocations = data.filter(
+        (loc) => loc.id !== location.id && !descendantIds.includes(loc.id)
       )
       setLocations(validLocations)
     } catch (err) {
@@ -108,7 +108,11 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
     }
 
     // Check if name already exists (excluding current location)
-    const exists = await locationsService.checkNameExists(name, formData.parent_id || undefined, location.id)
+    const exists = await locationsService.checkNameExists(
+      name,
+      formData.parent_id || undefined,
+      location.id
+    )
     if (exists) {
       setNameError('A location with this name already exists in the same parent location')
       return false
@@ -127,7 +131,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     const isValid = await validateName(formData.name)
     if (!isValid) return
 
@@ -136,7 +140,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
 
     try {
       const updateData: UpdateLocationRequest = {
-        ...formData
+        ...formData,
       }
 
       // Only include image_url if it was changed
@@ -165,29 +169,31 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
   }
 
   // Build hierarchical display for parent locations
-  const buildLocationHierarchy = (locations: Location[]): Array<{id: string, name: string, level: number}> => {
-    const result: Array<{id: string, name: string, level: number}> = []
-    
+  const buildLocationHierarchy = (
+    locations: Location[]
+  ): Array<{ id: string; name: string; level: number }> => {
+    const result: Array<{ id: string; name: string; level: number }> = []
+
     const addLocation = (location: Location, level: number = 0) => {
       result.push({
         id: location.id,
         name: location.name,
-        level
+        level,
       })
-      
+
       // Find children in the flat list
-      const children = locations.filter(loc => loc.parent_id === location.id)
+      const children = locations.filter((loc) => loc.parent_id === location.id)
       children
         .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
-        .forEach(child => addLocation(child, level + 1))
+        .forEach((child) => addLocation(child, level + 1))
     }
 
     // Start with root locations (no parent) and sort them
     const rootLocations = locations
-      .filter(loc => !loc.parent_id)
+      .filter((loc) => !loc.parent_id)
       .sort((a, b) => a.name.localeCompare(b.name))
-    
-    rootLocations.forEach(loc => addLocation(loc))
+
+    rootLocations.forEach((loc) => addLocation(loc))
 
     return result
   }
@@ -204,11 +210,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
           </div>
         )}
 
-        <FormField
-          label="Location Name"
-          required
-          error={nameError}
-        >
+        <FormField label="Location Name" required error={nameError}>
           <input
             type="text"
             value={formData.name}
@@ -220,7 +222,10 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
           />
         </FormField>
 
-        <FormField label="Location Type" description="Select from common types or create a custom type">
+        <FormField
+          label="Location Type"
+          description="Select from common types or create a custom type"
+        >
           <CustomSelect
             value={formData.location_type || 'standard'}
             onChange={(value) => setFormData({ ...formData, location_type: value })}
@@ -240,8 +245,8 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
               { value: '', label: 'No parent (root location)' },
               ...hierarchicalLocations.map((loc) => ({
                 value: loc.id,
-                label: `${'  '.repeat(loc.level)}${loc.level > 0 ? '└ ' : ''}${loc.name}`
-              }))
+                label: `${'  '.repeat(loc.level)}${loc.level > 0 ? '└ ' : ''}${loc.name}`,
+              })),
             ]}
             placeholder="Select parent location"
           />
@@ -258,7 +263,10 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
         </FormField>
 
         {/* Image Upload */}
-        <FormField label="Location Image" description="Upload, drag & drop, or paste an image to help identify this location (max 5MB)">
+        <FormField
+          label="Location Image"
+          description="Upload, drag & drop, or paste an image to help identify this location (max 5MB)"
+        >
           <ImageUpload
             onImageUploaded={handleImageUploaded}
             currentImageUrl={imageUrl}
@@ -267,13 +275,18 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
           />
           {imageChanged && imageUrl && (
             <div className="mt-2">
-              <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded">Modified - will update on save</span>
+              <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                Modified - will update on save
+              </span>
             </div>
           )}
         </FormField>
 
         {/* Emoji Picker */}
-        <FormField label="Location Emoji" description="Choose an emoji to help identify this location (optional)">
+        <FormField
+          label="Location Emoji"
+          description="Choose an emoji to help identify this location (optional)"
+        >
           <EmojiPicker
             value={selectedEmoji || undefined}
             onChange={handleEmojiChange}
@@ -287,12 +300,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
         </FormField>
 
         <div className="flex justify-end gap-3 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-secondary"
-            disabled={loading}
-          >
+          <button type="button" onClick={onClose} className="btn btn-secondary" disabled={loading}>
             Cancel
           </button>
           <button

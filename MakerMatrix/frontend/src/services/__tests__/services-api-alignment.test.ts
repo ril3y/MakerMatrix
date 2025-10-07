@@ -34,16 +34,16 @@ describe('Services API Alignment Tests', () => {
           part_name: 'Test Part',
           description: 'Test description',
           quantity: 10,
-          categories: []
-        }
+          categories: [],
+        },
       }
-      
+
       vi.mocked(apiClient.post).mockResolvedValueOnce(mockResponse)
 
       const result = await partsService.createPart({
         name: 'Test Part',
         description: 'Test description',
-        quantity: 10
+        quantity: 10,
       })
 
       expect(result).toEqual(mockResponse.data)
@@ -51,7 +51,7 @@ describe('Services API Alignment Tests', () => {
         part_name: 'Test Part',
         description: 'Test description',
         quantity: 10,
-        category_names: []
+        category_names: [],
       })
     })
 
@@ -63,10 +63,10 @@ describe('Services API Alignment Tests', () => {
           id: '123',
           part_name: 'Test Part',
           description: 'Test description',
-          quantity: 10
-        }
+          quantity: 10,
+        },
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await partsService.getPart('123')
@@ -81,21 +81,21 @@ describe('Services API Alignment Tests', () => {
         message: 'Parts retrieved successfully',
         data: [
           { id: '1', part_name: 'Part 1' },
-          { id: '2', part_name: 'Part 2' }
+          { id: '2', part_name: 'Part 2' },
         ],
-        total_parts: 2
+        total_parts: 2,
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await partsService.getAllParts(1, 10)
 
       expect(result).toEqual({
         data: mockResponse.data,
-        total_parts: 2
+        total_parts: 2,
       })
       expect(apiClient.get).toHaveBeenCalledWith('/api/parts/get_all_parts', {
-        params: { page: 1, page_size: 10 }
+        params: { page: 1, page_size: 10 },
       })
     })
 
@@ -108,10 +108,10 @@ describe('Services API Alignment Tests', () => {
           part_name: 'Updated Part',
           description: 'Updated description',
           quantity: 20,
-          categories: []
-        }
+          categories: [],
+        },
       }
-      
+
       vi.mocked(apiClient.put).mockResolvedValueOnce(mockResponse)
 
       const result = await partsService.updatePart({
@@ -119,7 +119,7 @@ describe('Services API Alignment Tests', () => {
         name: 'Updated Part',
         description: 'Updated description',
         quantity: 20,
-        categories: []
+        categories: [],
       })
 
       expect(result).toEqual(mockResponse.data)
@@ -127,16 +127,16 @@ describe('Services API Alignment Tests', () => {
         part_name: 'Updated Part',
         description: 'Updated description',
         quantity: 20,
-        category_names: []
+        category_names: [],
       })
     })
 
     it('should handle deletePart with new API response format', async () => {
       const mockResponse = {
         status: 'success',
-        message: 'Part deleted successfully'
+        message: 'Part deleted successfully',
       }
-      
+
       vi.mocked(apiClient.delete).mockResolvedValueOnce(mockResponse)
 
       await partsService.deletePart('123')
@@ -147,9 +147,9 @@ describe('Services API Alignment Tests', () => {
     it('should handle error responses correctly', async () => {
       const mockErrorResponse = {
         status: 'error',
-        message: 'Part not found'
+        message: 'Part not found',
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockErrorResponse)
 
       await expect(partsService.getPart('123')).rejects.toThrow('Part not found')
@@ -165,22 +165,22 @@ describe('Services API Alignment Tests', () => {
           category: {
             id: '123',
             name: 'Test Category',
-            description: 'Test description'
-          }
-        }
+            description: 'Test description',
+          },
+        },
       }
-      
+
       vi.mocked(apiClient.post).mockResolvedValueOnce(mockResponse)
 
       const result = await categoriesService.createCategory({
         name: 'Test Category',
-        description: 'Test description'
+        description: 'Test description',
       })
 
       expect(result).toEqual(mockResponse.data.category)
       expect(apiClient.post).toHaveBeenCalledWith('/api/categories/add_category', {
         name: 'Test Category',
-        description: 'Test description'
+        description: 'Test description',
       })
     })
 
@@ -191,11 +191,11 @@ describe('Services API Alignment Tests', () => {
         data: {
           categories: [
             { id: '1', name: 'Category 1' },
-            { id: '2', name: 'Category 2' }
-          ]
-        }
+            { id: '2', name: 'Category 2' },
+          ],
+        },
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await categoriesService.getAllCategories()
@@ -213,21 +213,21 @@ describe('Services API Alignment Tests', () => {
         data: {
           id: '123',
           name: 'Test Location',
-          description: 'Test description'
-        }
+          description: 'Test description',
+        },
       }
-      
+
       vi.mocked(apiClient.post).mockResolvedValueOnce(mockResponse)
 
       const result = await locationsService.createLocation({
         name: 'Test Location',
-        description: 'Test description'
+        description: 'Test description',
       })
 
       expect(result).toEqual(mockResponse.data)
       expect(apiClient.post).toHaveBeenCalledWith('/api/locations/add_location', {
         name: 'Test Location',
-        description: 'Test description'
+        description: 'Test description',
       })
     })
 
@@ -237,10 +237,10 @@ describe('Services API Alignment Tests', () => {
         message: 'Locations retrieved successfully',
         data: [
           { id: '1', name: 'Location 1' },
-          { id: '2', name: 'Location 2' }
-        ]
+          { id: '2', name: 'Location 2' },
+        ],
       }
-      
+
       vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
 
       const result = await locationsService.getAllLocations()
@@ -255,20 +255,20 @@ describe('Services API Alignment Tests', () => {
       const mockResponse = {
         access_token: 'mock_token',
         token_type: 'bearer',
-        user: { id: '123', username: 'testuser' }
+        user: { id: '123', username: 'testuser' },
       }
-      
+
       vi.mocked(apiClient.post).mockResolvedValueOnce(mockResponse)
 
       const result = await authService.login({
         username: 'testuser',
-        password: 'password'
+        password: 'password',
       })
 
       expect(result).toEqual(mockResponse)
       expect(apiClient.post).toHaveBeenCalledWith('/auth/login', {
         username: 'testuser',
-        password: 'password'
+        password: 'password',
       })
       expect(apiClient.setAuthToken).toHaveBeenCalledWith('mock_token')
     })
@@ -276,16 +276,16 @@ describe('Services API Alignment Tests', () => {
     it('should handle updatePassword with new API response format', async () => {
       const mockResponse = {
         status: 'success',
-        message: 'Password updated successfully'
+        message: 'Password updated successfully',
       }
-      
+
       vi.mocked(apiClient.put).mockResolvedValueOnce(mockResponse)
 
       await authService.updatePassword('oldpass', 'newpass')
 
       expect(apiClient.put).toHaveBeenCalledWith('/api/users/update_password', {
         current_password: 'oldpass',
-        new_password: 'newpass'
+        new_password: 'newpass',
       })
     })
   })
@@ -296,10 +296,10 @@ describe('Services API Alignment Tests', () => {
         status: 'success',
         message: 'Image uploaded successfully',
         data: {
-          image_id: 'test-image-id'
-        }
+          image_id: 'test-image-id',
+        },
       }
-      
+
       vi.mocked(apiClient.post).mockResolvedValueOnce(mockResponse)
 
       const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
@@ -320,13 +320,13 @@ describe('Services API Alignment Tests', () => {
     it('should handle uploadImage error response', async () => {
       const mockErrorResponse = {
         status: 'error',
-        message: 'Upload failed'
+        message: 'Upload failed',
       }
-      
+
       vi.mocked(apiClient.post).mockResolvedValueOnce(mockErrorResponse)
 
       const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
-      
+
       await expect(utilityService.uploadImage(file)).rejects.toThrow('Upload failed')
     })
   })

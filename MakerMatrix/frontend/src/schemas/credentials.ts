@@ -13,20 +13,22 @@ export const credentialFieldSchema = z.object({
 })
 
 // Dynamic credential form schema - will be generated based on credential fields
-export const createCredentialFormSchema = (fields: Array<{
-  name: string
-  label: string
-  field_type: string
-  required: boolean
-  description?: string
-  placeholder?: string
-  help_text?: string
-}>) => {
+export const createCredentialFormSchema = (
+  fields: Array<{
+    name: string
+    label: string
+    field_type: string
+    required: boolean
+    description?: string
+    placeholder?: string
+    help_text?: string
+  }>
+) => {
   const schemaFields: Record<string, z.ZodTypeAny> = {}
-  
-  fields.forEach(field => {
+
+  fields.forEach((field) => {
     let fieldSchema: z.ZodTypeAny
-    
+
     switch (field.field_type) {
       case 'email':
         fieldSchema = z.string().email('Invalid email format')
@@ -40,17 +42,17 @@ export const createCredentialFormSchema = (fields: Array<{
         fieldSchema = z.string()
         break
     }
-    
+
     // Apply required validation
     if (field.required) {
       fieldSchema = fieldSchema.min(1, `${field.label} is required`)
     } else {
       fieldSchema = fieldSchema.optional().or(z.literal(''))
     }
-    
+
     schemaFields[field.name] = fieldSchema
   })
-  
+
   return z.object(schemaFields)
 }
 

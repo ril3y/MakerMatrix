@@ -1,5 +1,5 @@
 import { BaseNamedCrudService } from './baseCrud.service'
-import { 
+import {
   Location,
   CreateLocationRequest,
   UpdateLocationRequest,
@@ -7,7 +7,7 @@ import {
   LocationPath,
   LocationDeletePreview,
   LocationDeleteResponse,
-  LocationCleanupResponse
+  LocationCleanupResponse,
 } from '@/types/locations'
 import { apiClient, ApiResponse } from './api'
 
@@ -26,7 +26,7 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
       description: data.description || '',
       parent_id: data.parent_id || null,
       location_type: data.location_type || 'standard',
-      image_url: data.image_url || null
+      image_url: data.image_url || null,
     }
   }
 
@@ -37,7 +37,7 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
       description: data.description || '',
       parent_id: data.parent_id || null,
       location_type: data.location_type || 'standard',
-      image_url: data.image_url || null
+      image_url: data.image_url || null,
     }
   }
 
@@ -53,16 +53,18 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
       created_at: response.created_at,
       updated_at: response.updated_at,
       children: response.children || [],
-      parts: response.parts || []
+      parts: response.parts || [],
     }
   }
 
   // Override getAll to handle the specific locations response format
   async getAll(): Promise<Location[]> {
     try {
-      const response = await apiClient.get<ApiResponse<Location[]>>('/api/locations/get_all_locations')
+      const response = await apiClient.get<ApiResponse<Location[]>>(
+        '/api/locations/get_all_locations'
+      )
       if (response.status === 'success' && response.data) {
-        return response.data.map(location => this.mapResponseToEntity(location))
+        return response.data.map((location) => this.mapResponseToEntity(location))
       }
       return []
     } catch (error: any) {
@@ -85,7 +87,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   // Location-specific methods
   async getLocationDetails(id: string): Promise<LocationDetails> {
     try {
-      const response = await apiClient.get<ApiResponse<LocationDetails>>(`/api/locations/get_location_details/${id}`)
+      const response = await apiClient.get<ApiResponse<LocationDetails>>(
+        `/api/locations/get_location_details/${id}`
+      )
       if (response.status === 'success' && response.data) {
         return response.data
       }
@@ -97,7 +101,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
 
   async getLocationPath(id: string): Promise<LocationPath> {
     try {
-      const response = await apiClient.get<ApiResponse<LocationPath>>(`/api/locations/get_location_path/${id}`)
+      const response = await apiClient.get<ApiResponse<LocationPath>>(
+        `/api/locations/get_location_path/${id}`
+      )
       if (response.status === 'success' && response.data) {
         return response.data
       }
@@ -109,7 +115,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
 
   async previewLocationDelete(id: string): Promise<LocationDeletePreview> {
     try {
-      const response = await apiClient.get<ApiResponse<LocationDeletePreview>>(`/api/locations/preview-location-delete/${id}`)
+      const response = await apiClient.get<ApiResponse<LocationDeletePreview>>(
+        `/api/locations/preview-location-delete/${id}`
+      )
       if (response.status === 'success' && response.data) {
         return response.data
       }
@@ -121,7 +129,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
 
   async cleanupLocations(): Promise<LocationCleanupResponse> {
     try {
-      const response = await apiClient.delete<ApiResponse<LocationCleanupResponse>>('/api/locations/cleanup-locations')
+      const response = await apiClient.delete<ApiResponse<LocationCleanupResponse>>(
+        '/api/locations/cleanup-locations'
+      )
       if (response.status === 'success' && response.data) {
         return response.data
       }
@@ -137,14 +147,14 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
     const rootLocations: Location[] = []
 
     // First pass: create map of all locations
-    locations.forEach(location => {
+    locations.forEach((location) => {
       locationMap.set(location.id, { ...location, children: [] })
     })
 
     // Second pass: build tree structure
-    locations.forEach(location => {
+    locations.forEach((location) => {
       const locationNode = locationMap.get(location.id)!
-      
+
       if (location.parent_id) {
         const parent = locationMap.get(location.parent_id)
         if (parent) {
@@ -169,11 +179,11 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
     const traverse = (location: Location) => {
       flattened.push(location)
       if (location.children) {
-        location.children.forEach(child => traverse(child))
+        location.children.forEach((child) => traverse(child))
       }
     }
 
-    locations.forEach(location => traverse(location))
+    locations.forEach((location) => traverse(location))
     return flattened
   }
 
@@ -183,7 +193,7 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
 
     const traverse = (loc: Location) => {
       if (loc.children) {
-        loc.children.forEach(child => {
+        loc.children.forEach((child) => {
           ids.push(child.id)
           traverse(child)
         })
@@ -197,7 +207,7 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   // Helper method to check if a location is a descendant of another
   isDescendantOf(childId: string, parentId: string, locations: Location[]): boolean {
     const locationMap = new Map<string, Location>()
-    locations.forEach(location => locationMap.set(location.id, location))
+    locations.forEach((location) => locationMap.set(location.id, location))
 
     let current = locationMap.get(childId)
     while (current && current.parent_id) {
@@ -211,19 +221,19 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
 
   // Helper method to get locations by parent ID
   getLocationsByParent(locations: Location[], parentId: string | null): Location[] {
-    return locations.filter(location => location.parent_id === parentId)
+    return locations.filter((location) => location.parent_id === parentId)
   }
 
   // Override checkNameExists to consider parent context
   async checkNameExists(name: string, parentId?: string, excludeId?: string): Promise<boolean> {
     try {
       const location = await this.getByName(name)
-      
+
       if (location && location.id !== excludeId) {
         // Check if it has the same parent
         return location.parent_id === parentId
       }
-      
+
       return false
     } catch {
       return false

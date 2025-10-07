@@ -18,7 +18,7 @@ describe('useModalForm', () => {
 
   const initialData = {
     name: '',
-    description: ''
+    description: '',
   }
 
   beforeEach(() => {
@@ -79,7 +79,7 @@ describe('useModalForm', () => {
 
   it('runs validation on submit', async () => {
     const validate = vi.fn().mockReturnValue({ name: 'Name is required' })
-    
+
     const { result } = renderHook(() =>
       useModalForm({
         initialData,
@@ -101,7 +101,7 @@ describe('useModalForm', () => {
 
   it('calls onSubmit when validation passes', async () => {
     const validate = vi.fn().mockReturnValue({})
-    
+
     const { result } = renderHook(() =>
       useModalForm({
         initialData,
@@ -144,7 +144,7 @@ describe('useModalForm', () => {
   it('handles submit errors correctly', async () => {
     const errorMessage = 'Submit failed'
     const mockFailingSubmit = vi.fn().mockRejectedValue(new Error(errorMessage))
-    
+
     const { result } = renderHook(() =>
       useModalForm({
         initialData,
@@ -163,7 +163,7 @@ describe('useModalForm', () => {
 
   it('handles close correctly', () => {
     const mockOnClose = vi.fn()
-    
+
     const { result } = renderHook(() =>
       useModalForm({
         initialData,
@@ -188,7 +188,7 @@ describe('useModalForm', () => {
 
   it('prevents close when loading', () => {
     const mockOnClose = vi.fn()
-    
+
     const { result } = renderHook(() =>
       useModalForm({
         initialData,
@@ -274,7 +274,7 @@ describe('useModalForm', () => {
 
   it('skips reset on close when resetOnClose is false', () => {
     const mockOnClose = vi.fn()
-    
+
     const { result } = renderHook(() =>
       useModalForm({
         initialData,

@@ -6,7 +6,7 @@ import { tasksService } from '@/services/tasks.service'
 
 export interface FilePreviewData {
   detected_parser: string | null
-  detected_type?: string | null  // Backward compatibility
+  detected_type?: string | null // Backward compatibility
   type_info?: string
   headers: string[]
   preview_rows: any[]
@@ -59,7 +59,7 @@ export const useOrderImport = ({
   extractOrderInfoFromFilename,
   initialFile,
   initialPreviewData,
-  selectedEnrichmentCapabilities
+  selectedEnrichmentCapabilities,
 }: UseOrderImportProps) => {
   const [file, setFile] = useState<File | null>(initialFile || null)
   const [previewData, setPreviewData] = useState<FilePreviewData | null>(initialPreviewData || null)
@@ -71,7 +71,7 @@ export const useOrderImport = ({
   const [orderInfo, setOrderInfo] = useState<OrderInfo>({
     order_number: '',
     order_date: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: '',
   })
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -102,10 +102,10 @@ export const useOrderImport = ({
         console.log('[useOrderImport] Extracted info from initialFile:', extractedInfo)
         if (extractedInfo && (extractedInfo.order_date || extractedInfo.order_number)) {
           console.log('[useOrderImport] Updating order info from initialFile')
-          setOrderInfo(prev => ({
+          setOrderInfo((prev) => ({
             ...prev,
             order_date: extractedInfo.order_date || prev.order_date,
-            order_number: extractedInfo.order_number || prev.order_number
+            order_number: extractedInfo.order_number || prev.order_number,
           }))
           toast.success(`Auto-detected ${parserName} order information`)
         }
@@ -114,86 +114,97 @@ export const useOrderImport = ({
     extractInitialFileInfo()
   }, [initialFile, extractOrderInfoFromFilename, parserName])
 
-  const handleFileSelect = useCallback(async (selectedFile: File) => {
-    if (!selectedFile) return
+  const handleFileSelect = useCallback(
+    async (selectedFile: File) => {
+      if (!selectedFile) return
 
-    const fileName = selectedFile.name.toLowerCase()
-    const supportedExtensions = ['.csv', '.xls', '.xlsx']
-    if (!supportedExtensions.some(ext => fileName.endsWith(ext))) {
-      toast.error('Please select a supported file (CSV, XLS, or XLSX)')
-      return
-    }
-
-    if (validateFile && !validateFile(selectedFile)) {
-      return
-    }
-
-    setFile(selectedFile)
-    setLoading(true)
-
-    // Try to extract order info from filename
-    if (extractOrderInfoFromFilename) {
-      console.log('[useOrderImport] Extracting order info from filename:', selectedFile.name)
-      const extractedInfo = await extractOrderInfoFromFilename(selectedFile.name)
-      console.log('[useOrderImport] Extracted info:', extractedInfo)
-      if (extractedInfo) {
-        console.log('[useOrderImport] Updating order info with extracted data')
-        setOrderInfo(prev => {
-          const newOrderInfo = {
-            ...prev,
-            order_date: extractedInfo.order_date || prev.order_date,
-            order_number: extractedInfo.order_number || prev.order_number
-          }
-          console.log('[useOrderImport] New order info:', newOrderInfo)
-          return newOrderInfo
-        })
-        toast.success(`Auto-detected ${parserName} order information`)
-      } else {
-        console.log('[useOrderImport] No extracted info returned')
+      const fileName = selectedFile.name.toLowerCase()
+      const supportedExtensions = ['.csv', '.xls', '.xlsx']
+      if (!supportedExtensions.some((ext) => fileName.endsWith(ext))) {
+        toast.error('Please select a supported file (CSV, XLS, or XLSX)')
+        return
       }
-    }
 
-    try {
-      // Use frontend-only file preview
-      const previewData = await previewFile(selectedFile)
-      setPreviewData(previewData)
-      
-      if (previewData.validation_errors && previewData.validation_errors.length > 0) {
-        // Only show error for critical issues, not warnings
-        const criticalErrors = previewData.validation_errors.filter(error => 
-          error.includes('Could not detect') || error.includes('empty') || error.includes('Failed to')
-        )
-        if (criticalErrors.length > 0) {
-          toast.error(`File issue: ${criticalErrors[0]}`)
+      if (validateFile && !validateFile(selectedFile)) {
+        return
+      }
+
+      setFile(selectedFile)
+      setLoading(true)
+
+      // Try to extract order info from filename
+      if (extractOrderInfoFromFilename) {
+        console.log('[useOrderImport] Extracting order info from filename:', selectedFile.name)
+        const extractedInfo = await extractOrderInfoFromFilename(selectedFile.name)
+        console.log('[useOrderImport] Extracted info:', extractedInfo)
+        if (extractedInfo) {
+          console.log('[useOrderImport] Updating order info with extracted data')
+          setOrderInfo((prev) => {
+            const newOrderInfo = {
+              ...prev,
+              order_date: extractedInfo.order_date || prev.order_date,
+              order_number: extractedInfo.order_number || prev.order_number,
+            }
+            console.log('[useOrderImport] New order info:', newOrderInfo)
+            return newOrderInfo
+          })
+          toast.success(`Auto-detected ${parserName} order information`)
         } else {
-          toast.success(`File processed - ${previewData.validation_errors.length} warning(s)`)
+          console.log('[useOrderImport] No extracted info returned')
         }
-      } else {
-        toast.success(`File preview ready - ${previewData.total_rows} rows detected`)
       }
-      
-    } catch (error) {
-      toast.error('Failed to parse file')
-      console.error('File preview error:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [parserName, validateFile, extractOrderInfoFromFilename])
 
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0]
-    if (selectedFile) {
-      handleFileSelect(selectedFile)
-    }
-  }, [handleFileSelect])
+      try {
+        // Use frontend-only file preview
+        const previewData = await previewFile(selectedFile)
+        setPreviewData(previewData)
 
-  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const droppedFile = event.dataTransfer.files[0]
-    if (droppedFile) {
-      handleFileSelect(droppedFile)
-    }
-  }, [handleFileSelect])
+        if (previewData.validation_errors && previewData.validation_errors.length > 0) {
+          // Only show error for critical issues, not warnings
+          const criticalErrors = previewData.validation_errors.filter(
+            (error) =>
+              error.includes('Could not detect') ||
+              error.includes('empty') ||
+              error.includes('Failed to')
+          )
+          if (criticalErrors.length > 0) {
+            toast.error(`File issue: ${criticalErrors[0]}`)
+          } else {
+            toast.success(`File processed - ${previewData.validation_errors.length} warning(s)`)
+          }
+        } else {
+          toast.success(`File preview ready - ${previewData.total_rows} rows detected`)
+        }
+      } catch (error) {
+        toast.error('Failed to parse file')
+        console.error('File preview error:', error)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [parserName, validateFile, extractOrderInfoFromFilename]
+  )
+
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFile = event.target.files?.[0]
+      if (selectedFile) {
+        handleFileSelect(selectedFile)
+      }
+    },
+    [handleFileSelect]
+  )
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const droppedFile = event.dataTransfer.files[0]
+      if (droppedFile) {
+        handleFileSelect(droppedFile)
+      }
+    },
+    [handleFileSelect]
+  )
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -204,30 +215,33 @@ export const useOrderImport = ({
       console.log('No task ID available for progress tracking')
       return
     }
-    
+
     try {
       const response = await tasksService.getTask(taskId)
       const task = response.data
-      
+
       if (task) {
         const progress: ImportProgress = {
           processed_parts: 0,
           total_parts: 0,
           current_operation: task.current_step || 'Processing...',
-          is_complete: task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled',
+          is_complete:
+            task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled',
           task_id: taskId,
           task_status: task.status,
-          progress_percentage: task.progress_percentage || 0
+          progress_percentage: task.progress_percentage || 0,
         }
-        
+
         // Try to extract part counts from task data if available
         if (task.input_data && task.input_data.part_ids) {
           progress.total_parts = task.input_data.part_ids.length
-          progress.processed_parts = Math.round((task.progress_percentage || 0) * progress.total_parts / 100)
+          progress.processed_parts = Math.round(
+            ((task.progress_percentage || 0) * progress.total_parts) / 100
+          )
         }
-        
+
         setImportProgress(progress)
-        
+
         if (progress.is_complete) {
           if (progressPollInterval.current) {
             clearInterval(progressPollInterval.current)
@@ -235,7 +249,7 @@ export const useOrderImport = ({
           }
           setShowProgress(false)
           setImporting(false)
-          
+
           if (task.status === 'completed') {
             toast.success('Import and enrichment completed successfully!')
           } else if (task.status === 'failed') {
@@ -253,13 +267,16 @@ export const useOrderImport = ({
     }
   }, [])
 
-  const startProgressPolling = useCallback((taskId?: string) => {
-    if (!taskId) {
-      console.log('No task ID provided for progress polling')
-      return
-    }
-    progressPollInterval.current = setInterval(() => pollProgress(taskId), 2000)
-  }, [pollProgress])
+  const startProgressPolling = useCallback(
+    (taskId?: string) => {
+      if (!taskId) {
+        console.log('No task ID provided for progress polling')
+        return
+      }
+      progressPollInterval.current = setInterval(() => pollProgress(taskId), 2000)
+    },
+    [pollProgress]
+  )
 
   const stopProgressPolling = useCallback(() => {
     if (progressPollInterval.current) {
@@ -284,14 +301,14 @@ export const useOrderImport = ({
         processed_parts: 0,
         total_parts: 0,
         current_operation: 'Starting import...',
-        is_complete: false
+        is_complete: false,
       })
-      
+
       // Progress polling will be started after response if task ID is available
-      
+
       let response
       const fileName = file.name.toLowerCase()
-      
+
       // Use unified import endpoint for all file types (CSV, XLS, XLSX)
       const formData = new FormData()
       formData.append('file', file)
@@ -299,33 +316,34 @@ export const useOrderImport = ({
       formData.append('order_number', orderInfo.order_number)
       formData.append('order_date', orderInfo.order_date || new Date().toISOString())
       formData.append('notes', orderInfo.notes)
-      
+
       // Enable enrichment based on user selection
-      const hasSelectedCapabilities = selectedEnrichmentCapabilities && selectedEnrichmentCapabilities.length > 0
+      const hasSelectedCapabilities =
+        selectedEnrichmentCapabilities && selectedEnrichmentCapabilities.length > 0
       formData.append('enable_enrichment', hasSelectedCapabilities ? 'true' : 'false')
 
       if (hasSelectedCapabilities) {
         formData.append('enrichment_capabilities', selectedEnrichmentCapabilities.join(','))
       }
-      
+
       response = await apiClient.post('/api/import/file', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       })
 
       const result = response.data || response
-      
+
       toast.success(`Imported ${result.imported_count || 0} parts successfully`)
-      
+
       if (result.failed_count > 0) {
         toast.error(`${result.failed_count} parts failed to import`)
       }
-      
+
       if (result.skipped_count > 0) {
         toast(`${result.skipped_count} parts were skipped (already exist)`)
       }
-      
+
       // Extract task ID from warnings if available
       let taskId: string | undefined
       if (result.warnings && Array.isArray(result.warnings)) {
@@ -336,7 +354,7 @@ export const useOrderImport = ({
           }
         }
       }
-      
+
       if (taskId) {
         toast('Starting enrichment process...')
         setTimeout(() => {
@@ -348,7 +366,7 @@ export const useOrderImport = ({
           processed_parts: result.imported_count || 0,
           total_parts: result.imported_count || 0,
           current_operation: 'Import completed',
-          is_complete: true
+          is_complete: true,
         })
         setTimeout(() => {
           setImporting(false)
@@ -361,17 +379,20 @@ export const useOrderImport = ({
       // The new /api/import/file endpoint returns counts, not arrays
       // So we create placeholder arrays for backward compatibility
       const transformedResult: ImportResult = {
-        success_parts: result.imported_parts || (result.imported_count ? Array(result.imported_count).fill('imported') : []),
-        failed_parts: result.failed_parts || (result.failed_count ? Array(result.failed_count).fill('failed') : []),
-        order_id: result.order_id
+        success_parts:
+          result.imported_parts ||
+          (result.imported_count ? Array(result.imported_count).fill('imported') : []),
+        failed_parts:
+          result.failed_parts ||
+          (result.failed_count ? Array(result.failed_count).fill('failed') : []),
+        order_id: result.order_id,
       }
 
       onImportComplete?.(transformedResult)
       clearFile()
-
     } catch (error: any) {
       let errorMessage = 'Failed to import parts from file'
-      
+
       // Provide more specific error messages
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message
@@ -384,18 +405,18 @@ export const useOrderImport = ({
       } else if (error.message?.includes('Network Error')) {
         errorMessage = 'Network error. Please check your connection.'
       }
-      
+
       toast.error(errorMessage)
       console.error('File import error:', error)
-      
+
       // Show error in progress
       setImportProgress({
         processed_parts: 0,
         total_parts: 0,
         current_operation: 'Import failed',
-        is_complete: true
+        is_complete: true,
       })
-      
+
       setTimeout(() => {
         setImportProgress(null)
         setShowProgress(false)
@@ -404,7 +425,15 @@ export const useOrderImport = ({
       stopProgressPolling()
       setImporting(false)
     }
-  }, [file, previewData, parserType, orderInfo, onImportComplete, startProgressPolling, stopProgressPolling])
+  }, [
+    file,
+    previewData,
+    parserType,
+    orderInfo,
+    onImportComplete,
+    startProgressPolling,
+    stopProgressPolling,
+  ])
 
   const clearFile = useCallback(() => {
     setFile(null)
@@ -414,7 +443,7 @@ export const useOrderImport = ({
     setOrderInfo({
       order_number: '',
       order_date: new Date().toISOString().split('T')[0],
-      notes: ''
+      notes: '',
     })
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -422,7 +451,7 @@ export const useOrderImport = ({
   }, [])
 
   const updateOrderInfo = useCallback((updates: Partial<OrderInfo>) => {
-    setOrderInfo(prev => ({ ...prev, ...updates }))
+    setOrderInfo((prev) => ({ ...prev, ...updates }))
   }, [])
 
   return {
@@ -435,10 +464,10 @@ export const useOrderImport = ({
     importProgress,
     showProgress,
     orderInfo,
-    
+
     // Refs
     fileInputRef,
-    
+
     // Actions
     handleFileSelect,
     handleFileChange,
@@ -447,6 +476,6 @@ export const useOrderImport = ({
     handleImport,
     clearFile,
     updateOrderInfo,
-    setShowPreview
+    setShowPreview,
   }
 }

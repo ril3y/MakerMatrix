@@ -14,22 +14,25 @@ interface FormTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElem
 }
 
 const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
-  ({ 
-    label, 
-    registration, 
-    error, 
-    description, 
-    required, 
-    className, 
-    fieldClassName,
-    rows = 3,
-    ...textareaProps 
-  }, ref) => {
+  (
+    {
+      label,
+      registration,
+      error,
+      description,
+      required,
+      className,
+      fieldClassName,
+      rows = 3,
+      ...textareaProps
+    },
+    ref
+  ) => {
     return (
-      <FormField 
-        label={label} 
-        required={required} 
-        error={error} 
+      <FormField
+        label={label}
+        required={required}
+        error={error}
         description={description}
         className={className}
       >

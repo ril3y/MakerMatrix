@@ -1,7 +1,7 @@
-import React from 'react';
-import { Outlet } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Cpu, Binary, Code2, Terminal, CircuitBoard, Zap } from 'lucide-react';
+import React from 'react'
+import { Outlet } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { Cpu, Binary, Code2, Terminal, CircuitBoard, Zap } from 'lucide-react'
 
 const AuthLayout: React.FC = () => {
   return (
@@ -17,7 +17,7 @@ const AuthLayout: React.FC = () => {
           transition={{
             duration: 20,
             repeat: Infinity,
-            ease: "linear"
+            ease: 'linear',
           }}
           className="absolute top-0 left-0 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"
         />
@@ -29,16 +29,19 @@ const AuthLayout: React.FC = () => {
           transition={{
             duration: 15,
             repeat: Infinity,
-            ease: "linear"
+            ease: 'linear',
           }}
           className="absolute bottom-0 right-0 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl"
         />
-        
+
         {/* Circuit Pattern Background */}
         <div className="absolute inset-0 opacity-5">
-          <div className="h-full w-full" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
+          <div
+            className="h-full w-full"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }}
+          />
         </div>
 
         {/* Floating Tech Icons */}
@@ -50,13 +53,13 @@ const AuthLayout: React.FC = () => {
           transition={{
             duration: 10,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: 'easeInOut',
           }}
           className="absolute top-20 left-20 text-purple-500/20"
         >
           <CircuitBoard size={48} />
         </motion.div>
-        
+
         <motion.div
           animate={{
             y: [20, -20, 20],
@@ -65,13 +68,13 @@ const AuthLayout: React.FC = () => {
           transition={{
             duration: 8,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: 'easeInOut',
           }}
           className="absolute top-40 right-32 text-blue-500/20"
         >
           <Binary size={40} />
         </motion.div>
-        
+
         <motion.div
           animate={{
             x: [-20, 20, -20],
@@ -79,13 +82,13 @@ const AuthLayout: React.FC = () => {
           transition={{
             duration: 6,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: 'easeInOut',
           }}
           className="absolute bottom-32 left-32 text-purple-500/20"
         >
           <Terminal size={36} />
         </motion.div>
-        
+
         <motion.div
           animate={{
             scale: [1, 1.2, 1],
@@ -94,7 +97,7 @@ const AuthLayout: React.FC = () => {
           transition={{
             duration: 4,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: 'easeInOut',
           }}
           className="absolute bottom-40 right-20 text-blue-500/20"
         >
@@ -108,14 +111,14 @@ const AuthLayout: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
           className="mb-8 text-center"
         >
           <div className="flex items-center justify-center mb-4">
             <div className="relative">
               <motion.div
                 animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
               >
                 <Cpu className="w-16 h-16 text-purple-500" />
               </motion.div>
@@ -156,7 +159,7 @@ const AuthLayout: React.FC = () => {
         </motion.div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default AuthLayout;
+export default AuthLayout

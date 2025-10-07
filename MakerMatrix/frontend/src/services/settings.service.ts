@@ -7,7 +7,7 @@ export type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 export class SettingsService {
   // Modern Printer Configuration
   async getAvailablePrinters(): Promise<any[]> {
-    const response = await apiClient.get<{data: any[]}>('/api/printer/printers')
+    const response = await apiClient.get<{ data: any[] }>('/api/printer/printers')
     return response.data || []
   }
 
@@ -16,8 +16,10 @@ export class SettingsService {
     return response
   }
 
-  async getPrinterStatus(printerId: string): Promise<{printer_id: string, status: string}> {
-    const response = await apiClient.get<{printer_id: string, status: string}>(`/api/printer/printers/${printerId}/status`)
+  async getPrinterStatus(printerId: string): Promise<{ printer_id: string; status: string }> {
+    const response = await apiClient.get<{ printer_id: string; status: string }>(
+      `/api/printer/printers/${printerId}/status`
+    )
     return response
   }
 
@@ -26,33 +28,40 @@ export class SettingsService {
     return response
   }
 
-  async printTestLabel(printerId: string, text: string = "Test Label", labelSize: string = "12"): Promise<any> {
+  async printTestLabel(
+    printerId: string,
+    text: string = 'Test Label',
+    labelSize: string = '12'
+  ): Promise<any> {
     const response = await apiClient.post<any>('/api/printer/print/text', {
       printer_id: printerId,
       text,
       label_size: labelSize,
-      copies: 1
+      copies: 1,
     })
     return response
   }
 
-  async previewLabel(text: string, labelSize: string = "12"): Promise<Blob> {
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/text`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-      },
-      body: JSON.stringify({
-        text,
-        label_size: labelSize
-      })
-    })
-    
+  async previewLabel(text: string, labelSize: string = '12'): Promise<Blob> {
+    const response = await fetch(
+      `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/text`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify({
+          text,
+          label_size: labelSize,
+        }),
+      }
+    )
+
     if (!response.ok) {
       throw new Error('Failed to generate preview')
     }
-    
+
     return await response.blob()
   }
 
@@ -87,14 +96,17 @@ export class SettingsService {
   }): Promise<Blob> {
     console.log('[DEBUG] previewAdvancedLabel called with:', requestData)
 
-    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/advanced`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-      },
-      body: JSON.stringify(requestData)
-    })
+    const response = await fetch(
+      `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/advanced`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify(requestData),
+      }
+    )
 
     console.log('[DEBUG] Preview response status:', response.status, response.statusText)
 
@@ -109,7 +121,9 @@ export class SettingsService {
         throw new Error(errorMessage)
       } catch (parseError) {
         console.error('[ERROR] Failed to parse error response:', parseError)
-        throw new Error(`Preview request failed with status ${response.status}: ${response.statusText}`)
+        throw new Error(
+          `Preview request failed with status ${response.status}: ${response.statusText}`
+        )
       }
     }
 
@@ -125,7 +139,8 @@ export class SettingsService {
 
         // Check if this is an error response
         if (!responseData.success) {
-          const errorMessage = responseData.error || responseData.message || 'Preview generation failed'
+          const errorMessage =
+            responseData.error || responseData.message || 'Preview generation failed'
           throw new Error(errorMessage)
         }
 
@@ -173,15 +188,18 @@ export class SettingsService {
     return response
   }
 
-  async updatePrinter(printerId: string, printerData: {
-    name: string
-    driver_type: string
-    model: string
-    backend: string
-    identifier: string
-    dpi: number
-    scaling_factor: number
-  }): Promise<any> {
+  async updatePrinter(
+    printerId: string,
+    printerData: {
+      name: string
+      driver_type: string
+      model: string
+      backend: string
+      identifier: string
+      dpi: number
+      scaling_factor: number
+    }
+  ): Promise<any> {
     const response = await apiClient.put<any>(`/api/printer/printers/${printerId}`, printerData)
     return response
   }
@@ -192,7 +210,7 @@ export class SettingsService {
   }
 
   async getSupportedDrivers(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<{drivers: any[]}>>('/api/printer/drivers')
+    const response = await apiClient.get<ApiResponse<{ drivers: any[] }>>('/api/printer/drivers')
     return response.data?.drivers || []
   }
 
@@ -202,7 +220,9 @@ export class SettingsService {
   }
 
   async testPrinterSetup(printerData: any): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/api/printer/test-setup', { printer: printerData })
+    const response = await apiClient.post<ApiResponse<any>>('/api/printer/test-setup', {
+      printer: printerData,
+    })
     return response.data!
   }
 
@@ -239,8 +259,12 @@ export class SettingsService {
     return await apiClient.post<ApiResponse>('/api/ai/reset')
   }
 
-  async getAvailableModels(): Promise<ApiResponse<{models: any[], provider: string, current_model?: string}>> {
-    return await apiClient.get<ApiResponse<{models: any[], provider: string, current_model?: string}>>('/api/ai/models')
+  async getAvailableModels(): Promise<
+    ApiResponse<{ models: any[]; provider: string; current_model?: string }>
+  > {
+    return await apiClient.get<
+      ApiResponse<{ models: any[]; provider: string; current_model?: string }>
+    >('/api/ai/models')
   }
 
   // Backup & Export
@@ -254,10 +278,10 @@ export class SettingsService {
     const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
     const response = await fetch(`${baseURL}/api/utility/backup/download`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-      }
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+      },
     })
-    
+
     if (!response.ok) {
       throw new Error('Failed to download backup')
     }
@@ -278,10 +302,10 @@ export class SettingsService {
     const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
     const response = await fetch(`${baseURL}/api/utility/backup/export`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-      }
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+      },
     })
-    
+
     if (!response.ok) {
       throw new Error('Failed to export data')
     }
@@ -349,10 +373,13 @@ export class SettingsService {
     return await apiClient.post<ApiResponse>('/api/users/roles/create', roleData)
   }
 
-  async updateRole(roleId: string, roleData: {
-    name?: string
-    permissions?: Record<string, boolean>
-  }): Promise<ApiResponse> {
+  async updateRole(
+    roleId: string,
+    roleData: {
+      name?: string
+      permissions?: Record<string, boolean>
+    }
+  ): Promise<ApiResponse> {
     return await apiClient.put<ApiResponse>(`/api/users/roles/${roleId}`, roleData)
   }
 

@@ -1,11 +1,11 @@
 /* Sunset Orange Theme */
-:root[data-theme="orange"],
+:root[data-theme='orange'],
 .theme-orange {
   --primary: #f59e0b;
   --primary-dark: #d97706;
   --primary-light: #fbbf24;
   --primary-rgb: 245, 158, 11;
-  
+
   /* Background colors */
   --bg-primary: #fffbf5;
   --bg-secondary: #fef3e7;
@@ -15,105 +15,105 @@
 
 /* Override Tailwind classes for theme colors */
 .theme-orange .bg-primary,
-:root[data-theme="orange"] .bg-primary { 
-  background-color: #f59e0b !important; 
+:root[data-theme='orange'] .bg-primary {
+  background-color: #f59e0b !important;
 }
 
 .theme-orange .bg-primary-dark,
-:root[data-theme="orange"] .bg-primary-dark { 
-  background-color: #d97706 !important; 
+:root[data-theme='orange'] .bg-primary-dark {
+  background-color: #d97706 !important;
 }
 
 .theme-orange .bg-primary-10,
-:root[data-theme="orange"] .bg-primary-10 { 
-  background-color: rgba(245, 158, 11, 0.1) !important; 
+:root[data-theme='orange'] .bg-primary-10 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
 }
 
 .theme-orange .bg-primary-20,
-:root[data-theme="orange"] .bg-primary-20 { 
-  background-color: rgba(245, 158, 11, 0.2) !important; 
+:root[data-theme='orange'] .bg-primary-20 {
+  background-color: rgba(245, 158, 11, 0.2) !important;
 }
 
 .theme-orange .text-primary-accent,
-:root[data-theme="orange"] .text-primary-accent { 
-  color: #f59e0b !important; 
+:root[data-theme='orange'] .text-primary-accent {
+  color: #f59e0b !important;
 }
 
 .theme-orange .border-primary,
-:root[data-theme="orange"] .border-primary { 
-  border-color: #f59e0b !important; 
+:root[data-theme='orange'] .border-primary {
+  border-color: #f59e0b !important;
 }
 
 .theme-orange .border-primary-20,
-:root[data-theme="orange"] .border-primary-20 { 
-  border-color: rgba(245, 158, 11, 0.2) !important; 
+:root[data-theme='orange'] .border-primary-20 {
+  border-color: rgba(245, 158, 11, 0.2) !important;
 }
 
 .theme-orange .ring-primary-20,
-:root[data-theme="orange"] .ring-primary-20 { 
-  --tw-ring-color: rgba(245, 158, 11, 0.2) !important; 
+:root[data-theme='orange'] .ring-primary-20 {
+  --tw-ring-color: rgba(245, 158, 11, 0.2) !important;
 }
 
 /* Background color overrides */
 .theme-orange .bg-background-primary,
-:root[data-theme="orange"] .bg-background-primary { 
-  background-color: #fffbf5 !important; 
+:root[data-theme='orange'] .bg-background-primary {
+  background-color: #fffbf5 !important;
 }
 
 .theme-orange .bg-background-secondary,
-:root[data-theme="orange"] .bg-background-secondary { 
-  background-color: #fef3e7 !important; 
+:root[data-theme='orange'] .bg-background-secondary {
+  background-color: #fef3e7 !important;
 }
 
 .theme-orange .bg-background-tertiary,
-:root[data-theme="orange"] .bg-background-tertiary { 
-  background-color: #fde8d1 !important; 
+:root[data-theme='orange'] .bg-background-tertiary {
+  background-color: #fde8d1 !important;
 }
 
 /* Override common Tailwind background classes */
 .theme-orange .bg-white,
-:root[data-theme="orange"] .bg-white { 
-  background-color: #fffbf5 !important; 
+:root[data-theme='orange'] .bg-white {
+  background-color: #fffbf5 !important;
 }
 
 .theme-orange .bg-gray-50,
-:root[data-theme="orange"] .bg-gray-50 { 
-  background-color: #fef3e7 !important; 
+:root[data-theme='orange'] .bg-gray-50 {
+  background-color: #fef3e7 !important;
 }
 
 .theme-orange .bg-gray-100,
-:root[data-theme="orange"] .bg-gray-100 { 
-  background-color: #fde8d1 !important; 
+:root[data-theme='orange'] .bg-gray-100 {
+  background-color: #fde8d1 !important;
 }
 
 .theme-orange .bg-gray-200,
-:root[data-theme="orange"] .bg-gray-200 { 
-  background-color: #fed7aa !important; 
+:root[data-theme='orange'] .bg-gray-200 {
+  background-color: #fed7aa !important;
 }
 
 /* Override text colors */
 .theme-orange .text-gray-900,
-:root[data-theme="orange"] .text-gray-900 { 
-  color: #9a3412 !important; 
+:root[data-theme='orange'] .text-gray-900 {
+  color: #9a3412 !important;
 }
 
 .theme-orange .text-gray-700,
-:root[data-theme="orange"] .text-gray-700 { 
-  color: #c2410c !important; 
+:root[data-theme='orange'] .text-gray-700 {
+  color: #c2410c !important;
 }
 
 .theme-orange .text-gray-600,
-:root[data-theme="orange"] .text-gray-600 { 
-  color: #dc2626 !important; 
+:root[data-theme='orange'] .text-gray-600 {
+  color: #dc2626 !important;
 }
 
 /* Override border colors */
 .theme-orange .border-gray-200,
-:root[data-theme="orange"] .border-gray-200 { 
-  border-color: #fed7aa !important; 
+:root[data-theme='orange'] .border-gray-200 {
+  border-color: #fed7aa !important;
 }
 
 .theme-orange .border-gray-300,
-:root[data-theme="orange"] .border-gray-300 { 
-  border-color: #fdba74 !important; 
+:root[data-theme='orange'] .border-gray-300 {
+  border-color: #fdba74 !important;
 }

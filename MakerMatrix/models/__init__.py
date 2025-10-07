@@ -9,6 +9,7 @@ from .category_models import *
 from .system_models import *
 from .part_metadata_models import *
 from .part_allocation_models import *
+from .project_models import *
 
 # User and authentication models
 from .user_models import *

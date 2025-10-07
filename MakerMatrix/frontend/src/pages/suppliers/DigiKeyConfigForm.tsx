@@ -1,23 +1,23 @@
 /**
  * DigiKey-Specific Configuration Form
- * 
+ *
  * Custom configuration form for DigiKey API setup with their specific requirements.
  */
 
-import React from 'react';
-import { HelpCircle, AlertTriangle } from 'lucide-react';
-import { CustomSelect } from '@/components/ui/CustomSelect';
+import React from 'react'
+import { HelpCircle, AlertTriangle } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 
 interface DigiKeyConfigFormProps {
-  config: any;
-  onConfigChange: (field: string, value: any) => void;
-  errors: string[];
+  config: any
+  onConfigChange: (field: string, value: any) => void
+  errors: string[]
 }
 
 export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
   config,
   onConfigChange,
-  errors
+  errors,
 }) => {
   return (
     <div className="space-y-6">
@@ -31,8 +31,23 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             </h3>
             <div className="mt-1 text-sm text-blue-700 dark:text-blue-300">
               <ol className="list-decimal list-inside space-y-1">
-                <li>Register an app at <a href="https://developer.digikey.com" target="_blank" rel="noopener noreferrer" className="underline">developer.digikey.com</a></li>
-                <li>Set OAuth callback URL to: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">https://localhost:8443/api/suppliers/digikey/oauth/callback</code></li>
+                <li>
+                  Register an app at{' '}
+                  <a
+                    href="https://developer.digikey.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    developer.digikey.com
+                  </a>
+                </li>
+                <li>
+                  Set OAuth callback URL to:{' '}
+                  <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">
+                    https://localhost:8443/api/suppliers/digikey/oauth/callback
+                  </code>
+                </li>
                 <li>Get your Client ID and Client Secret from the app settings</li>
                 <li>Configure the settings below</li>
               </ol>
@@ -103,12 +118,13 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
               onChange={(val) => onConfigChange('sandbox_mode', val === 'sandbox')}
               options={[
                 { value: 'sandbox', label: 'Sandbox (Testing) - api-sandbox.digikey.com' },
-                { value: 'production', label: 'Production - api.digikey.com' }
+                { value: 'production', label: 'Production - api.digikey.com' },
               ]}
               placeholder="Select environment mode"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Sandbox mode is safe for testing. Use production only with valid production credentials.
+              Sandbox mode is safe for testing. Use production only with valid production
+              credentials.
             </p>
             {config.sandbox_mode === false && (
               <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
@@ -116,7 +132,8 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
                   <AlertTriangle className="w-5 h-5 text-yellow-400" />
                   <div className="ml-3">
                     <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                      <strong>Production Mode:</strong> You are using the live DigiKey API. Make sure you have valid production credentials.
+                      <strong>Production Mode:</strong> You are using the live DigiKey API. Make
+                      sure you have valid production credentials.
                     </p>
                   </div>
                 </div>
@@ -133,14 +150,18 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
               <div className="group relative">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help" />
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                  This must exactly match the callback URL registered in your DigiKey app settings at developer.digikey.com
+                  This must exactly match the callback URL registered in your DigiKey app settings
+                  at developer.digikey.com
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>
             </div>
             <input
               type="url"
-              value={config.oauth_callback_url || 'https://localhost:8443/api/suppliers/digikey/oauth/callback'}
+              value={
+                config.oauth_callback_url ||
+                'https://localhost:8443/api/suppliers/digikey/oauth/callback'
+              }
               onChange={(e) => onConfigChange('oauth_callback_url', e.target.value)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               required
@@ -159,7 +180,8 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
               <div className="group relative">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help" />
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                  Directory path where OAuth tokens will be cached. Use absolute path. Tokens are stored here to avoid re-authentication.
+                  Directory path where OAuth tokens will be cached. Use absolute path. Tokens are
+                  stored here to avoid re-authentication.
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>
@@ -186,11 +208,27 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {[
-            { key: 'datasheet', label: 'Datasheet Download', description: 'Download component datasheets' },
+            {
+              key: 'datasheet',
+              label: 'Datasheet Download',
+              description: 'Download component datasheets',
+            },
             { key: 'image', label: 'Image Download', description: 'Download component images' },
-            { key: 'pricing', label: 'Pricing Information', description: 'Retrieve current pricing data' },
-            { key: 'stock', label: 'Stock Information', description: 'Check availability and stock levels' },
-            { key: 'specifications', label: 'Technical Specifications', description: 'Retrieve detailed component specifications' }
+            {
+              key: 'pricing',
+              label: 'Pricing Information',
+              description: 'Retrieve current pricing data',
+            },
+            {
+              key: 'stock',
+              label: 'Stock Information',
+              description: 'Check availability and stock levels',
+            },
+            {
+              key: 'specifications',
+              label: 'Technical Specifications',
+              description: 'Retrieve detailed component specifications',
+            },
           ].map((capability) => (
             <div key={capability.key} className="flex items-center space-x-2">
               <input
@@ -224,12 +262,12 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
               Next Step: Add Credentials
             </h3>
             <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-              After creating this configuration, you'll need to add your DigiKey Client ID and Client Secret 
-              using the "Manage Credentials" button.
+              After creating this configuration, you'll need to add your DigiKey Client ID and
+              Client Secret using the "Manage Credentials" button.
             </p>
           </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

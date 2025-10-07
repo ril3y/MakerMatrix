@@ -5,18 +5,18 @@
  * Supports hover and click triggers with flexible positioning.
  */
 
-import { useState, useRef, useEffect, ReactNode } from 'react';
-import { HelpCircle, Info, AlertCircle } from 'lucide-react';
+import { useState, useRef, useEffect, ReactNode } from 'react'
+import { HelpCircle, Info, AlertCircle } from 'lucide-react'
 
 interface TooltipProps {
-  content: ReactNode;
-  children?: ReactNode;
-  position?: 'top' | 'bottom' | 'left' | 'right';
-  variant?: 'info' | 'help' | 'warning';
-  trigger?: 'hover' | 'click';
-  maxWidth?: string;
-  minWidth?: string;
-  className?: string;
+  content: ReactNode
+  children?: ReactNode
+  position?: 'top' | 'bottom' | 'left' | 'right'
+  variant?: 'info' | 'help' | 'warning'
+  trigger?: 'hover' | 'click'
+  maxWidth?: string
+  minWidth?: string
+  className?: string
 }
 
 export const Tooltip = ({
@@ -27,12 +27,12 @@ export const Tooltip = ({
   trigger = 'hover',
   maxWidth = '500px',
   minWidth = '300px',
-  className = ''
+  className = '',
 }: TooltipProps) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [adjustedPosition, setAdjustedPosition] = useState(position);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false)
+  const [adjustedPosition, setAdjustedPosition] = useState(position)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -44,157 +44,165 @@ export const Tooltip = ({
           !tooltipRef.current.contains(event.target as Node) &&
           !triggerRef.current.contains(event.target as Node)
         ) {
-          setIsVisible(false);
+          setIsVisible(false)
         }
-      };
+      }
 
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isVisible, trigger]);
+  }, [isVisible, trigger])
 
   // Adjust position if tooltip goes off-screen
   useEffect(() => {
     if (isVisible && tooltipRef.current && triggerRef.current) {
-      const tooltipRect = tooltipRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
+      const tooltipRect = tooltipRef.current.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
 
-      let newPosition = position;
+      let newPosition = position
 
       // Check if tooltip goes off right edge
       if (tooltipRect.right > viewportWidth) {
-        if (position === 'right') newPosition = 'left';
+        if (position === 'right') newPosition = 'left'
       }
 
       // Check if tooltip goes off left edge
       if (tooltipRect.left < 0) {
-        if (position === 'left') newPosition = 'right';
+        if (position === 'left') newPosition = 'right'
       }
 
       // Check if tooltip goes off top
       if (tooltipRect.top < 0) {
-        if (position === 'top') newPosition = 'bottom';
+        if (position === 'top') newPosition = 'bottom'
       }
 
       // Check if tooltip goes off bottom
       if (tooltipRect.bottom > viewportHeight) {
-        if (position === 'bottom') newPosition = 'top';
+        if (position === 'bottom') newPosition = 'top'
       }
 
-      setAdjustedPosition(newPosition);
+      setAdjustedPosition(newPosition)
     }
-  }, [isVisible, position]);
+  }, [isVisible, position])
 
   const handleMouseEnter = () => {
     if (trigger === 'hover') {
-      setIsVisible(true);
+      setIsVisible(true)
     }
-  };
+  }
 
   const handleMouseLeave = () => {
     if (trigger === 'hover') {
-      setIsVisible(false);
+      setIsVisible(false)
     }
-  };
+  }
 
   const handleClick = () => {
     if (trigger === 'click') {
-      setIsVisible(!isVisible);
+      setIsVisible(!isVisible)
     }
-  };
+  }
 
   // Icon based on variant
   const getIcon = () => {
     switch (variant) {
       case 'help':
-        return <HelpCircle className="w-4 h-4" />;
+        return <HelpCircle className="w-4 h-4" />
       case 'warning':
-        return <AlertCircle className="w-4 h-4" />;
+        return <AlertCircle className="w-4 h-4" />
       case 'info':
       default:
-        return <Info className="w-4 h-4" />;
+        return <Info className="w-4 h-4" />
     }
-  };
+  }
 
   // Colors based on variant
   const getVariantClasses = () => {
     switch (variant) {
       case 'help':
-        return 'text-primary hover:text-primary-dark';
+        return 'text-primary hover:text-primary-dark'
       case 'warning':
-        return 'text-orange-500 hover:text-orange-600';
+        return 'text-orange-500 hover:text-orange-600'
       case 'info':
       default:
-        return 'text-blue-500 hover:text-blue-600';
+        return 'text-blue-500 hover:text-blue-600'
     }
-  };
+  }
 
   const getTooltipBgClass = () => {
     switch (variant) {
       case 'help':
-        return 'bg-gray-800 border-gray-700';
+        return 'bg-gray-800 border-gray-700'
       case 'warning':
-        return 'bg-orange-600 border-orange-700';
+        return 'bg-orange-600 border-orange-700'
       case 'info':
       default:
-        return 'bg-gray-800 border-gray-700';
+        return 'bg-gray-800 border-gray-700'
     }
-  };
+  }
 
   // Position classes
   const getPositionClasses = () => {
     switch (adjustedPosition) {
       case 'bottom':
-        return 'top-full left-1/2 -translate-x-1/2 mt-2';
+        return 'top-full left-1/2 -translate-x-1/2 mt-2'
       case 'left':
-        return 'right-full top-1/2 -translate-y-1/2 mr-2';
+        return 'right-full top-1/2 -translate-y-1/2 mr-2'
       case 'right':
-        return 'left-full top-1/2 -translate-y-1/2 ml-2';
+        return 'left-full top-1/2 -translate-y-1/2 ml-2'
       case 'top':
       default:
-        return 'bottom-full left-1/2 -translate-x-1/2 mb-2';
+        return 'bottom-full left-1/2 -translate-x-1/2 mb-2'
     }
-  };
+  }
 
   // Arrow position
   const getArrowPositionClasses = () => {
     switch (adjustedPosition) {
       case 'bottom':
-        return '-top-4 left-1/2 -translate-x-1/2';
+        return '-top-4 left-1/2 -translate-x-1/2'
       case 'left':
-        return '-right-4 top-1/2 -translate-y-1/2';
+        return '-right-4 top-1/2 -translate-y-1/2'
       case 'right':
-        return '-left-4 top-1/2 -translate-y-1/2';
+        return '-left-4 top-1/2 -translate-y-1/2'
       case 'top':
       default:
-        return '-bottom-4 left-1/2 -translate-x-1/2';
+        return '-bottom-4 left-1/2 -translate-x-1/2'
     }
-  };
+  }
 
   // Arrow color classes
   const getArrowColorClasses = () => {
-    const base = 'absolute w-0 h-0 border-8 border-transparent';
+    const base = 'absolute w-0 h-0 border-8 border-transparent'
 
     if (variant === 'warning') {
       switch (adjustedPosition) {
-        case 'bottom': return `${base} border-b-orange-600`;
-        case 'left': return `${base} border-l-orange-600`;
-        case 'right': return `${base} border-r-orange-600`;
+        case 'bottom':
+          return `${base} border-b-orange-600`
+        case 'left':
+          return `${base} border-l-orange-600`
+        case 'right':
+          return `${base} border-r-orange-600`
         case 'top':
-        default: return `${base} border-t-orange-600`;
+        default:
+          return `${base} border-t-orange-600`
       }
     }
 
     // Default (help/info) - gray-800
     switch (adjustedPosition) {
-      case 'bottom': return `${base} border-b-gray-800`;
-      case 'left': return `${base} border-l-gray-800`;
-      case 'right': return `${base} border-r-gray-800`;
+      case 'bottom':
+        return `${base} border-b-gray-800`
+      case 'left':
+        return `${base} border-l-gray-800`
+      case 'right':
+        return `${base} border-r-gray-800`
       case 'top':
-      default: return `${base} border-t-gray-800`;
+      default:
+        return `${base} border-t-gray-800`
     }
-  };
+  }
 
   return (
     <div className={`relative inline-flex items-center ${className}`}>
@@ -218,9 +226,7 @@ export const Tooltip = ({
           <div
             className={`${getTooltipBgClass()} text-white px-4 py-3 rounded-lg shadow-xl border w-full`}
           >
-            <div className="text-sm leading-relaxed">
-              {content}
-            </div>
+            <div className="text-sm leading-relaxed">{content}</div>
           </div>
 
           {/* Arrow */}
@@ -228,49 +234,47 @@ export const Tooltip = ({
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
 /**
  * Tooltip with underlined text trigger
  */
 interface TooltipTextProps {
-  text: string;
-  tooltip: ReactNode;
-  position?: 'top' | 'bottom' | 'left' | 'right';
-  variant?: 'info' | 'help' | 'warning';
+  text: string
+  tooltip: ReactNode
+  position?: 'top' | 'bottom' | 'left' | 'right'
+  variant?: 'info' | 'help' | 'warning'
 }
 
 export const TooltipText = ({
   text,
   tooltip,
   position = 'top',
-  variant = 'help'
+  variant = 'help',
 }: TooltipTextProps) => {
   return (
     <Tooltip content={tooltip} position={position} variant={variant} trigger="hover">
-      <span className="border-b border-dotted border-current cursor-help">
-        {text}
-      </span>
+      <span className="border-b border-dotted border-current cursor-help">{text}</span>
     </Tooltip>
-  );
-};
+  )
+}
 
 /**
  * Tooltip with icon only (no children)
  */
 interface TooltipIconProps {
-  tooltip: ReactNode;
-  position?: 'top' | 'bottom' | 'left' | 'right';
-  variant?: 'info' | 'help' | 'warning';
-  className?: string;
+  tooltip: ReactNode
+  position?: 'top' | 'bottom' | 'left' | 'right'
+  variant?: 'info' | 'help' | 'warning'
+  className?: string
 }
 
 export const TooltipIcon = ({
   tooltip,
   position = 'top',
   variant = 'help',
-  className = ''
+  className = '',
 }: TooltipIconProps) => {
   return (
     <Tooltip
@@ -280,7 +284,7 @@ export const TooltipIcon = ({
       trigger="hover"
       className={className}
     />
-  );
-};
+  )
+}
 
-export default Tooltip;
+export default Tooltip

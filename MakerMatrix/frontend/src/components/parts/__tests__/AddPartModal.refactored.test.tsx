@@ -21,21 +21,33 @@ vi.mock('@/components/forms', () => ({
   FormInput: ({ label, registration, error, ...props }: any) => (
     <div>
       <label>{label}</label>
-      <input {...registration} {...props} data-testid={`input-${label.toLowerCase().replace(/\s+/g, '-')}`} />
+      <input
+        {...registration}
+        {...props}
+        data-testid={`input-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      />
       {error && <span role="alert">{error}</span>}
     </div>
   ),
   FormTextarea: ({ label, registration, error, ...props }: any) => (
     <div>
       <label>{label}</label>
-      <textarea {...registration} {...props} data-testid={`textarea-${label.toLowerCase().replace(/\s+/g, '-')}`} />
+      <textarea
+        {...registration}
+        {...props}
+        data-testid={`textarea-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      />
       {error && <span role="alert">{error}</span>}
     </div>
   ),
   FormSelect: ({ label, registration, error, children, ...props }: any) => (
     <div>
       <label>{label}</label>
-      <select {...registration} {...props} data-testid={`select-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+      <select
+        {...registration}
+        {...props}
+        data-testid={`select-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      >
         {children}
       </select>
       {error && <span role="alert">{error}</span>}
@@ -44,7 +56,12 @@ vi.mock('@/components/forms', () => ({
   FormNumberInput: ({ label, registration, error, ...props }: any) => (
     <div>
       <label>{label}</label>
-      <input type="number" {...registration} {...props} data-testid={`number-${label.toLowerCase().replace(/\s+/g, '-')}`} />
+      <input
+        type="number"
+        {...registration}
+        {...props}
+        data-testid={`number-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      />
       {error && <span role="alert">{error}</span>}
     </div>
   ),
@@ -57,8 +74,8 @@ vi.mock('@/components/forms', () => ({
   FormGrid: ({ children }: any) => <div>{children}</div>,
   FormActions: ({ onSubmit, onCancel, submitText, loading, disabled }: any) => (
     <div>
-      <button 
-        type="submit" 
+      <button
+        type="submit"
         onClick={onSubmit}
         disabled={disabled || loading}
         data-testid="submit-button"
@@ -89,36 +106,50 @@ vi.mock('@/components/forms', () => ({
 
 // Mock UI components
 vi.mock('@/components/ui/Modal', () => ({
-  default: ({ isOpen, children, title, onClose }: any) => 
+  default: ({ isOpen, children, title, onClose }: any) =>
     isOpen ? (
       <div data-testid="modal">
         <h2>{title}</h2>
-        <button onClick={onClose} data-testid="modal-close">Close</button>
+        <button onClick={onClose} data-testid="modal-close">
+          Close
+        </button>
         {children}
       </div>
-    ) : null
+    ) : null,
 }))
 
 vi.mock('@/components/categories/AddCategoryModal', () => ({
-  default: ({ isOpen, onClose, onSuccess }: any) => 
+  default: ({ isOpen, onClose, onSuccess }: any) =>
     isOpen ? (
       <div data-testid="add-category-modal">
-        <button onClick={() => { onSuccess(); onClose(); }} data-testid="save-category">
+        <button
+          onClick={() => {
+            onSuccess()
+            onClose()
+          }}
+          data-testid="save-category"
+        >
           Save Category
         </button>
       </div>
-    ) : null
+    ) : null,
 }))
 
 vi.mock('@/components/locations/AddLocationModal', () => ({
-  default: ({ isOpen, onClose, onSuccess }: any) => 
+  default: ({ isOpen, onClose, onSuccess }: any) =>
     isOpen ? (
       <div data-testid="add-location-modal">
-        <button onClick={() => { onSuccess(); onClose(); }} data-testid="save-location">
+        <button
+          onClick={() => {
+            onSuccess()
+            onClose()
+          }}
+          data-testid="save-location"
+        >
           Save Location
         </button>
       </div>
-    ) : null
+    ) : null,
 }))
 
 // Mock the hook
@@ -145,11 +176,12 @@ vi.mock('@/hooks/useFormWithValidation', () => ({
       setValue: (name: string, value: any) => {
         setFormData((prev: any) => ({ ...prev, [name]: value }))
       },
-      watch: (name?: string) => name ? formData[name] : formData,
+      watch: (name?: string) => (name ? formData[name] : formData),
       onSubmit: (e: Event) => {
         e.preventDefault()
         setLoading(true)
-        options.onSubmit(formData)
+        options
+          .onSubmit(formData)
           .then(options.onSuccess)
           .finally(() => setLoading(false))
       },
@@ -157,7 +189,7 @@ vi.mock('@/hooks/useFormWithValidation', () => ({
       loading,
       isValid: true,
     }
-  }
+  },
 }))
 
 const mockLocations = [
@@ -184,24 +216,24 @@ describe('AddPartModal (Refactored)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Setup service mocks with proper method names
     Object.assign(locationsService, {
-      getAllLocations: vi.fn().mockResolvedValue(mockLocations)
+      getAllLocations: vi.fn().mockResolvedValue(mockLocations),
     })
-    
+
     Object.assign(categoriesService, {
-      getAllCategories: vi.fn().mockResolvedValue(mockCategories)
+      getAllCategories: vi.fn().mockResolvedValue(mockCategories),
     })
-    
+
     vi.mocked(DynamicSupplierService.getInstance).mockReturnValue({
       getConfiguredSuppliers: vi.fn().mockResolvedValue(mockSuppliers),
     } as any)
-    
+
     Object.assign(partsService, {
-      createPart: vi.fn().mockResolvedValue({ id: 'new-part-id' })
+      createPart: vi.fn().mockResolvedValue({ id: 'new-part-id' }),
     })
-    
+
     vi.mocked(toast.success).mockImplementation(() => '' as any)
   })
 
@@ -211,20 +243,20 @@ describe('AddPartModal (Refactored)', () => {
 
   it('renders modal when open', () => {
     render(<AddPartModal {...mockProps} />)
-    
+
     expect(screen.getByTestId('modal')).toBeInTheDocument()
     expect(screen.getByText('Add New Part')).toBeInTheDocument()
   })
 
   it('does not render modal when closed', () => {
     render(<AddPartModal {...mockProps} isOpen={false} />)
-    
+
     expect(screen.queryByTestId('modal')).not.toBeInTheDocument()
   })
 
   it('displays all form sections', async () => {
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('section-basic-information')).toBeInTheDocument()
       expect(screen.getByTestId('section-supplier-information')).toBeInTheDocument()
@@ -234,7 +266,7 @@ describe('AddPartModal (Refactored)', () => {
 
   it('displays all required form fields', async () => {
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('input-part-name')).toBeInTheDocument()
       expect(screen.getByTestId('input-part-number')).toBeInTheDocument()
@@ -246,7 +278,7 @@ describe('AddPartModal (Refactored)', () => {
 
   it('loads data when modal opens', async () => {
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(locationsService.getAllLocations).toHaveBeenCalled()
       expect(categoriesService.getAllCategories).toHaveBeenCalled()
@@ -257,7 +289,7 @@ describe('AddPartModal (Refactored)', () => {
   it('allows form submission with valid data', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('input-part-name')).toBeInTheDocument()
     })
@@ -282,13 +314,13 @@ describe('AddPartModal (Refactored)', () => {
   it('handles image upload', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('image-upload')).toBeInTheDocument()
     })
 
     await user.click(screen.getByTestId('image-upload'))
-    
+
     // The component should handle the image URL
     // This is just testing the interaction, actual image handling would be more complex
   })
@@ -296,37 +328,37 @@ describe('AddPartModal (Refactored)', () => {
   it('handles category selection', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('category-selector')).toBeInTheDocument()
     })
 
     await user.click(screen.getByTestId('category-selector'))
-    
+
     // The component should update the form with selected categories
   })
 
   it('handles location selection', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('location-selector')).toBeInTheDocument()
     })
 
     await user.click(screen.getByTestId('location-selector'))
-    
+
     // The component should update the form with selected location
   })
 
   it('allows adding custom properties', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     // Look for the add custom property button
     const addPropertyButton = screen.getByText('Add Custom Property')
     await user.click(addPropertyButton)
-    
+
     // After clicking, there should be input fields for the custom property
     // This is testing the interaction pattern
   })
@@ -334,38 +366,38 @@ describe('AddPartModal (Refactored)', () => {
   it('can open add category modal', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     // Find and click the plus button next to categories
     const addCategoryButton = screen.getAllByTitle('Add new category')[0]
     await user.click(addCategoryButton)
-    
+
     expect(screen.getByTestId('add-category-modal')).toBeInTheDocument()
   })
 
   it('can open add location modal', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     // Find and click the plus button next to locations
     const addLocationButton = screen.getAllByTitle('Add new location')[0]
     await user.click(addLocationButton)
-    
+
     expect(screen.getByTestId('add-location-modal')).toBeInTheDocument()
   })
 
   it('calls onClose when cancel button is clicked', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     await user.click(screen.getByTestId('cancel-button'))
-    
+
     expect(mockProps.onClose).toHaveBeenCalled()
   })
 
   it('calls onSuccess after successful submission', async () => {
     const user = userEvent.setup()
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('input-part-name')).toBeInTheDocument()
     })
@@ -381,9 +413,9 @@ describe('AddPartModal (Refactored)', () => {
 
   it('handles service errors gracefully', async () => {
     vi.mocked(locationsService.getAllLocations).mockRejectedValue(new Error('Service error'))
-    
+
     render(<AddPartModal {...mockProps} />)
-    
+
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Failed to load data')
     })

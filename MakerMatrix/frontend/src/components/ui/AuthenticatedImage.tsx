@@ -7,11 +7,11 @@ interface AuthenticatedImageProps {
   onError?: () => void
 }
 
-const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({ 
-  src, 
-  alt = "", 
-  className = "",
-  onError 
+const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
+  src,
+  alt = '',
+  className = '',
+  onError,
 }) => {
   const [imageSrc, setImageSrc] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -22,13 +22,13 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
       try {
         setLoading(true)
         setError(false)
-        
+
         // Import apiClient dynamically to avoid circular dependencies
         const { apiClient } = await import('@/services/api')
-        
+
         // Use apiClient.get with blob response type
         const blob = await apiClient.get(src, {
-          responseType: 'blob'
+          responseType: 'blob',
         })
         const objectUrl = URL.createObjectURL(blob)
         setImageSrc(objectUrl)
@@ -70,9 +70,9 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   }
 
   return (
-    <img 
-      src={imageSrc} 
-      alt={alt} 
+    <img
+      src={imageSrc}
+      alt={alt}
       className={className}
       onError={() => {
         setError(true)

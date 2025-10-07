@@ -5,95 +5,104 @@
  * Only allows editing display name, website URL, and description.
  */
 
-import React, { useState, useEffect } from 'react';
-import { X, Save, CheckCircle, AlertTriangle, Link as LinkIcon } from 'lucide-react';
-import { supplierService, SupplierConfig } from '../../services/supplier.service';
+import React, { useState, useEffect } from 'react'
+import { X, Save, CheckCircle, AlertTriangle, Link as LinkIcon } from 'lucide-react'
+import { supplierService, SupplierConfig } from '../../services/supplier.service'
 
 interface EditSimpleSupplierModalProps {
-  supplier: SupplierConfig;
-  onClose: () => void;
-  onSuccess: () => void;
+  supplier: SupplierConfig
+  onClose: () => void
+  onSuccess: () => void
 }
 
-export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = ({ supplier, onClose, onSuccess }) => {
+export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = ({
+  supplier,
+  onClose,
+  onSuccess,
+}) => {
   const [formData, setFormData] = useState({
     display_name: supplier.display_name || '',
     website_url: supplier.website_url || '',
-    description: supplier.description || ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+    description: supplier.description || '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   // Handle Escape key to close modal
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onClose()
       }
-    };
+    }
 
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [onClose])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(false);
+    e.preventDefault()
+    setError(null)
+    setSuccess(false)
 
     // Validation
     if (!formData.display_name.trim()) {
-      setError('Display name is required');
-      return;
+      setError('Display name is required')
+      return
     }
 
     if (!formData.website_url.trim()) {
-      setError('Website URL is required');
-      return;
+      setError('Website URL is required')
+      return
     }
 
     // Validate URL format
     try {
-      new URL(formData.website_url.startsWith('http') ? formData.website_url : `https://${formData.website_url}`);
+      new URL(
+        formData.website_url.startsWith('http')
+          ? formData.website_url
+          : `https://${formData.website_url}`
+      )
     } catch {
-      setError('Invalid website URL format');
-      return;
+      setError('Invalid website URL format')
+      return
     }
 
     try {
-      setLoading(true);
+      setLoading(true)
 
       // Update supplier config
       const updateData = {
         display_name: formData.display_name,
         description: formData.description || `Simple supplier: ${formData.display_name}`,
-        website_url: formData.website_url.startsWith('http') ? formData.website_url : `https://${formData.website_url}`,
-      };
+        website_url: formData.website_url.startsWith('http')
+          ? formData.website_url
+          : `https://${formData.website_url}`,
+      }
 
-      console.log('Updating simple supplier:', supplier.supplier_name, updateData);
-      await supplierService.updateSupplier(supplier.supplier_name, updateData);
+      console.log('Updating simple supplier:', supplier.supplier_name, updateData)
+      await supplierService.updateSupplier(supplier.supplier_name, updateData)
 
-      setSuccess(true);
+      setSuccess(true)
 
       // Wait a moment to show success message, then close
       setTimeout(() => {
-        onSuccess();
-      }, 1500);
-
+        onSuccess()
+      }, 1500)
     } catch (err: any) {
-      console.error('Failed to update simple supplier:', err);
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to update supplier';
-      setError(errorMessage);
+      console.error('Failed to update simple supplier:', err)
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to update supplier'
+      setError(errorMessage)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   if (success) {
     return (
@@ -106,13 +115,11 @@ export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = (
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               Supplier Updated Successfully!
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Changes have been saved.
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Changes have been saved.</p>
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -125,9 +132,7 @@ export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = (
               <Save className="w-5 h-5" />
               Edit Simple Supplier
             </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Update supplier details
-            </p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Update supplier details</p>
           </div>
           <button
             onClick={onClose}
@@ -243,5 +248,5 @@ export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = (
         </form>
       </div>
     </div>
-  );
-};
+  )
+}

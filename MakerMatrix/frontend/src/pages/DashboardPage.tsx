@@ -10,7 +10,7 @@ import {
   RefreshCw,
   ChevronUp,
   ChevronDown,
-  BarChart3
+  BarChart3,
 } from 'lucide-react'
 import { analyticsService } from '@/services/analytics.service'
 import { Bar, Doughnut } from 'react-chartjs-2'
@@ -22,20 +22,12 @@ import {
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 } from 'chart.js'
 import toast from 'react-hot-toast'
 
 // Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-)
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
 
 interface InventorySummary {
   total_parts: number
@@ -100,7 +92,7 @@ const DashboardPage = () => {
   const [expandedSections, setExpandedSections] = useState({
     distribution: true,
     topParts: true,
-    alerts: true
+    alerts: true,
   })
 
   useEffect(() => {
@@ -121,9 +113,9 @@ const DashboardPage = () => {
   }
 
   const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }))
   }
 
@@ -145,31 +137,35 @@ const DashboardPage = () => {
 
   // Prepare chart data
   const categoryChartData = {
-    labels: data.parts_by_category.length > 0
-      ? data.parts_by_category.slice(0, 10).map(item => item.category)
-      : ['No Data'],
+    labels:
+      data.parts_by_category.length > 0
+        ? data.parts_by_category.slice(0, 10).map((item) => item.category)
+        : ['No Data'],
     datasets: [
       {
         label: 'Parts Count',
-        data: data.parts_by_category.length > 0
-          ? data.parts_by_category.slice(0, 10).map(item => item.part_count)
-          : [0],
+        data:
+          data.parts_by_category.length > 0
+            ? data.parts_by_category.slice(0, 10).map((item) => item.part_count)
+            : [0],
         backgroundColor: 'rgba(99, 102, 241, 0.8)',
         borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 1
-      }
-    ]
+        borderWidth: 1,
+      },
+    ],
   }
 
   const locationChartData = {
-    labels: data.parts_by_location.length > 0
-      ? data.parts_by_location.slice(0, 8).map(item => item.location)
-      : ['No Data'],
+    labels:
+      data.parts_by_location.length > 0
+        ? data.parts_by_location.slice(0, 8).map((item) => item.location)
+        : ['No Data'],
     datasets: [
       {
-        data: data.parts_by_location.length > 0
-          ? data.parts_by_location.slice(0, 8).map(item => item.part_count)
-          : [0],
+        data:
+          data.parts_by_location.length > 0
+            ? data.parts_by_location.slice(0, 8).map((item) => item.part_count)
+            : [0],
         backgroundColor: [
           'rgba(99, 102, 241, 0.8)',
           'rgba(239, 68, 68, 0.8)',
@@ -178,22 +174,24 @@ const DashboardPage = () => {
           'rgba(168, 85, 247, 0.8)',
           'rgba(236, 72, 153, 0.8)',
           'rgba(14, 165, 233, 0.8)',
-          'rgba(132, 204, 22, 0.8)'
+          'rgba(132, 204, 22, 0.8)',
         ],
-        borderWidth: 0
-      }
-    ]
+        borderWidth: 0,
+      },
+    ],
   }
 
   const supplierChartData = {
-    labels: data.parts_by_supplier.length > 0
-      ? data.parts_by_supplier.map(item => item.supplier)
-      : ['No Data'],
+    labels:
+      data.parts_by_supplier.length > 0
+        ? data.parts_by_supplier.map((item) => item.supplier)
+        : ['No Data'],
     datasets: [
       {
-        data: data.parts_by_supplier.length > 0
-          ? data.parts_by_supplier.map(item => item.part_count)
-          : [0],
+        data:
+          data.parts_by_supplier.length > 0
+            ? data.parts_by_supplier.map((item) => item.part_count)
+            : [0],
         backgroundColor: [
           'rgba(99, 102, 241, 0.8)',
           'rgba(239, 68, 68, 0.8)',
@@ -204,28 +202,30 @@ const DashboardPage = () => {
           'rgba(14, 165, 233, 0.8)',
           'rgba(132, 204, 22, 0.8)',
           'rgba(245, 158, 11, 0.8)',
-          'rgba(16, 185, 129, 0.8)'
+          'rgba(16, 185, 129, 0.8)',
         ],
-        borderWidth: 0
-      }
-    ]
+        borderWidth: 0,
+      },
+    ],
   }
 
   // Helper function to get supplier icon URL
   const getSupplierIcon = (supplierName: string) => {
-    const normalizedName = supplierName.toLowerCase().trim()
-      .replace(/\s+/g, '-')  // Replace spaces with hyphens
-      .replace(/_/g, '-')     // Replace underscores with hyphens
+    const normalizedName = supplierName
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/_/g, '-') // Replace underscores with hyphens
 
     // Map supplier names to their icon filenames (handles variations)
     const iconMap: Record<string, string> = {
-      'lcsc': 'lcsc.ico',
-      'digikey': 'digikey.png',
+      lcsc: 'lcsc.ico',
+      digikey: 'digikey.png',
       'digi-key': 'digikey.png',
-      'mouser': 'mouser.png',
+      mouser: 'mouser.png',
       'mcmaster-carr': 'mcmaster-carr.ico',
-      'mcmaster': 'mcmaster-carr.ico',
-      'bolt-depot': 'bolt-depot.png'
+      mcmaster: 'mcmaster-carr.ico',
+      'bolt-depot': 'bolt-depot.png',
     }
 
     return iconMap[normalizedName] || null
@@ -244,15 +244,10 @@ const DashboardPage = () => {
             <BarChart3 className="w-6 h-6" />
             Dashboard
           </h1>
-          <p className="text-secondary mt-1">
-            Overview of your inventory
-          </p>
+          <p className="text-secondary mt-1">Overview of your inventory</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={loadDashboardData}
-            className="btn btn-secondary flex items-center gap-2"
-          >
+          <button onClick={loadDashboardData} className="btn btn-secondary flex items-center gap-2">
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
@@ -290,12 +285,8 @@ const DashboardPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Low Stock Alerts</p>
-              <p className="text-2xl font-bold text-error">
-                {data.summary.low_stock_count}
-              </p>
-              <p className="text-xs text-muted mt-1">
-                Parts below 10 units
-              </p>
+              <p className="text-2xl font-bold text-error">{data.summary.low_stock_count}</p>
+              <p className="text-xs text-muted mt-1">Parts below 10 units</p>
             </div>
             <AlertTriangle className="w-8 h-8 text-error opacity-20" />
           </div>
@@ -310,12 +301,8 @@ const DashboardPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Categories</p>
-              <p className="text-2xl font-bold text-primary">
-                {data.summary.total_categories}
-              </p>
-              <p className="text-xs text-muted mt-1">
-                Active categories
-              </p>
+              <p className="text-2xl font-bold text-primary">{data.summary.total_categories}</p>
+              <p className="text-xs text-muted mt-1">Active categories</p>
             </div>
             <Tag className="w-8 h-8 text-primary opacity-20" />
           </div>
@@ -330,9 +317,7 @@ const DashboardPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Locations</p>
-              <p className="text-2xl font-bold text-primary">
-                {data.summary.total_locations}
-              </p>
+              <p className="text-2xl font-bold text-primary">{data.summary.total_locations}</p>
               <p className="text-xs text-muted mt-1">
                 {data.summary.parts_with_location} parts located
               </p>
@@ -376,17 +361,17 @@ const DashboardPage = () => {
                         maintainAspectRatio: false,
                         plugins: {
                           legend: {
-                            display: false
-                          }
+                            display: false,
+                          },
                         },
                         scales: {
                           y: {
                             beginAtZero: true,
                             ticks: {
-                              precision: 0
-                            }
-                          }
-                        }
+                              precision: 0,
+                            },
+                          },
+                        },
                       }}
                     />
                   ) : (
@@ -414,11 +399,11 @@ const DashboardPage = () => {
                               padding: 10,
                               usePointStyle: true,
                               font: {
-                                size: 10
-                              }
-                            }
-                          }
-                        }
+                                size: 10,
+                              },
+                            },
+                          },
+                        },
                       }}
                     />
                   ) : (
@@ -446,11 +431,11 @@ const DashboardPage = () => {
                               padding: 10,
                               usePointStyle: true,
                               font: {
-                                size: 10
-                              }
-                            }
-                          }
-                        }
+                                size: 10,
+                              },
+                            },
+                          },
+                        },
                       }}
                     />
                   ) : (
@@ -469,7 +454,10 @@ const DashboardPage = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {data.parts_by_supplier.map((supplier) => {
                     return (
-                      <div key={supplier.supplier} className="flex items-center gap-3 p-3 bg-card-light dark:bg-card-dark rounded-lg border border-border hover:border-primary transition-colors">
+                      <div
+                        key={supplier.supplier}
+                        className="flex items-center gap-3 p-3 bg-card-light dark:bg-card-dark rounded-lg border border-border hover:border-primary transition-colors"
+                      >
                         <div className="w-8 h-8 flex items-center justify-center">
                           <img
                             src={`/api/utility/supplier_icon/${supplier.supplier}`}
@@ -482,7 +470,8 @@ const DashboardPage = () => {
                               if (parent) {
                                 target.style.display = 'none'
                                 const fallback = document.createElement('div')
-                                fallback.className = 'w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-xs font-bold text-primary'
+                                fallback.className =
+                                  'w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-xs font-bold text-primary'
                                 fallback.textContent = supplier.supplier.charAt(0).toUpperCase()
                                 parent.appendChild(fallback)
                               }
@@ -490,7 +479,9 @@ const DashboardPage = () => {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-primary truncate">{supplier.supplier}</p>
+                          <p className="text-sm font-medium text-primary truncate">
+                            {supplier.supplier}
+                          </p>
                           <p className="text-xs text-muted">{supplier.part_count} parts</p>
                         </div>
                       </div>
@@ -548,7 +539,9 @@ const DashboardPage = () => {
                               <div className="text-xs text-muted">{part.part_number}</div>
                             </div>
                           </td>
-                          <td className="font-semibold text-success">{part.quantity.toLocaleString()}</td>
+                          <td className="font-semibold text-success">
+                            {part.quantity.toLocaleString()}
+                          </td>
                           <td className="text-secondary text-sm">{part.location}</td>
                         </tr>
                       ))
@@ -589,7 +582,9 @@ const DashboardPage = () => {
                               <div className="text-xs text-muted">{part.part_number}</div>
                             </div>
                           </td>
-                          <td className="font-semibold text-warning">{part.quantity.toLocaleString()}</td>
+                          <td className="font-semibold text-warning">
+                            {part.quantity.toLocaleString()}
+                          </td>
                           <td className="text-secondary text-sm">{part.location}</td>
                         </tr>
                       ))
@@ -641,7 +636,9 @@ const DashboardPage = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted">Location:</span>
-                        <span className="text-secondary">{part.location_name || 'No Location'}</span>
+                        <span className="text-secondary">
+                          {part.location_name || 'No Location'}
+                        </span>
                       </div>
                       {part.supplier && (
                         <div className="flex justify-between">

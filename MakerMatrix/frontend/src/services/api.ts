@@ -4,10 +4,12 @@ import { toast } from 'react-hot-toast'
 // In development, use relative URLs to benefit from Vite proxy
 // In production, use the full API URL
 const isDevelopment = (import.meta as any).env?.DEV
-const API_BASE_URL = isDevelopment ? '' : ((import.meta as any).env?.VITE_API_URL || 'https://localhost:8443')
+const API_BASE_URL = isDevelopment
+  ? ''
+  : (import.meta as any).env?.VITE_API_URL || 'https://localhost:8443'
 
 export interface ApiResponse<T = any> {
-  status: "success" | "error" | "warning"
+  status: 'success' | 'error' | 'warning'
   message: string
   data?: T
   page?: number
@@ -60,7 +62,7 @@ class ApiClient {
       async (error: AxiosError<ApiResponse>) => {
         if (error.response) {
           const { status, data } = error.response
-          
+
           if (status === 401) {
             // Unauthorized - clear token and redirect to login
             this.clearAuth()
@@ -80,7 +82,7 @@ class ApiClient {
         } else if (error.request) {
           toast.error('Network error. Please check your connection.')
         }
-        
+
         return Promise.reject(error)
       }
     )
@@ -137,7 +139,7 @@ export const handleApiError = (error: any): string => {
 // Helper function to get PDF proxy URL
 export const getPDFProxyUrl = (externalUrl: string): string => {
   const isDevelopment = (import.meta as any).env?.DEV
-  
+
   if (isDevelopment) {
     // Use relative URL so it goes through Vite proxy
     return `/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`

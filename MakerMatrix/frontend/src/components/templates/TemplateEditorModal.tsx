@@ -184,14 +184,14 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                   onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                   placeholder="My Custom Template"
                 />
-                {errors.display_name && <p className="text-xs text-red-500 mt-1">{errors.display_name}</p>}
+                {errors.display_name && (
+                  <p className="text-xs text-red-500 mt-1">{errors.display_name}</p>
+                )}
               </div>
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-medium text-primary mb-1">
-                Description
-              </label>
+              <label className="block text-sm font-medium text-primary mb-1">Description</label>
               <textarea
                 className="input w-full h-20 resize-none"
                 value={formData.description}
@@ -201,9 +201,7 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-medium text-primary mb-1">
-                Category
-              </label>
+              <label className="block text-sm font-medium text-primary mb-1">Category</label>
               <CustomSelect
                 value={formData.category}
                 onChange={(val) => setFormData({ ...formData, category: val })}
@@ -213,7 +211,7 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                   { value: 'STORAGE', label: 'Storage' },
                   { value: 'CABLE', label: 'Cable' },
                   { value: 'INVENTORY', label: 'Inventory' },
-                  { value: 'CUSTOM', label: 'Custom' }
+                  { value: 'CUSTOM', label: 'Custom' },
                 ]}
                 placeholder="Select category"
               />
@@ -226,33 +224,37 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-primary mb-1">
-                  Width (mm) *
-                </label>
+                <label className="block text-sm font-medium text-primary mb-1">Width (mm) *</label>
                 <input
                   type="number"
                   step="0.1"
                   min="1"
                   className={`input w-full ${errors.label_width_mm ? 'border-red-500' : ''}`}
                   value={formData.label_width_mm}
-                  onChange={(e) => setFormData({ ...formData, label_width_mm: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, label_width_mm: parseFloat(e.target.value) })
+                  }
                 />
-                {errors.label_width_mm && <p className="text-xs text-red-500 mt-1">{errors.label_width_mm}</p>}
+                {errors.label_width_mm && (
+                  <p className="text-xs text-red-500 mt-1">{errors.label_width_mm}</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-primary mb-1">
-                  Height (mm) *
-                </label>
+                <label className="block text-sm font-medium text-primary mb-1">Height (mm) *</label>
                 <input
                   type="number"
                   step="0.1"
                   min="1"
                   className={`input w-full ${errors.label_height_mm ? 'border-red-500' : ''}`}
                   value={formData.label_height_mm}
-                  onChange={(e) => setFormData({ ...formData, label_height_mm: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, label_height_mm: parseFloat(e.target.value) })
+                  }
                 />
-                {errors.label_height_mm && <p className="text-xs text-red-500 mt-1">{errors.label_height_mm}</p>}
+                {errors.label_height_mm && (
+                  <p className="text-xs text-red-500 mt-1">{errors.label_height_mm}</p>
+                )}
               </div>
             </div>
 
@@ -268,27 +270,27 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
             <h5 className="font-medium text-primary mb-3">Text Configuration</h5>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-1">
-                Text Template
-              </label>
+              <label className="block text-sm font-medium text-primary mb-1">Text Template</label>
               <textarea
                 className={`input w-full h-24 resize-none font-mono text-sm ${errors.text_template ? 'border-red-500' : ''}`}
                 value={formData.text_template}
                 onChange={(e) => setFormData({ ...formData, text_template: e.target.value })}
                 placeholder="{part_name}\n{part_number}\n{location}"
               />
-              {errors.text_template && <p className="text-xs text-red-500 mt-1">{errors.text_template}</p>}
+              {errors.text_template && (
+                <p className="text-xs text-red-500 mt-1">{errors.text_template}</p>
+              )}
               <p className="text-xs text-secondary mt-1">
-                Use variables: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, etc.
-                <br />Use \n for line breaks
+                Use variables: {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'},
+                etc.
+                <br />
+                Use \n for line breaks
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-4">
               <div>
-                <label className="block text-sm font-medium text-primary mb-1">
-                  Text Rotation
-                </label>
+                <label className="block text-sm font-medium text-primary mb-1">Text Rotation</label>
                 <CustomSelect
                   value={formData.text_rotation}
                   onChange={(val) => setFormData({ ...formData, text_rotation: val })}
@@ -296,7 +298,7 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                     { value: 'NONE', label: '0° (None)' },
                     { value: '90', label: '90° Clockwise' },
                     { value: '180', label: '180° Upside Down' },
-                    { value: '270', label: '270° (90° Counter-Clockwise)' }
+                    { value: '270', label: '270° (90° Counter-Clockwise)' },
                   ]}
                   placeholder="Select rotation"
                 />
@@ -312,7 +314,7 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                   options={[
                     { value: 'LEFT', label: 'Left' },
                     { value: 'CENTER', label: 'Center' },
-                    { value: 'RIGHT', label: 'Right' }
+                    { value: 'RIGHT', label: 'Right' },
                   ]}
                   placeholder="Select alignment"
                 />
@@ -334,7 +336,9 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                 <input
                   type="checkbox"
                   checked={formData.enable_auto_sizing}
-                  onChange={(e) => setFormData({ ...formData, enable_auto_sizing: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, enable_auto_sizing: e.target.checked })
+                  }
                   className="w-4 h-4"
                 />
                 <span className="text-sm text-primary">Auto-size text</span>
@@ -359,9 +363,7 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
             {formData.qr_enabled && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-1">
-                    QR Position
-                  </label>
+                  <label className="block text-sm font-medium text-primary mb-1">QR Position</label>
                   <CustomSelect
                     value={formData.qr_position}
                     onChange={(val) => setFormData({ ...formData, qr_position: val })}
@@ -373,16 +375,14 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                       { value: 'CENTER', label: 'Center' },
                       { value: 'TOP_LEFT', label: 'Top Left Corner' },
                       { value: 'TOP_RIGHT', label: 'Top Right Corner' },
-                      { value: 'BOTTOM_LEFT', label: 'Bottom Left Corner' }
+                      { value: 'BOTTOM_LEFT', label: 'Bottom Left Corner' },
                     ]}
                     placeholder="Select QR position"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-1">
-                    QR Scale
-                  </label>
+                  <label className="block text-sm font-medium text-primary mb-1">QR Scale</label>
                   <input
                     type="number"
                     step="0.05"
@@ -390,7 +390,9 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                     max="1.0"
                     className="input w-full"
                     value={formData.qr_scale}
-                    onChange={(e) => setFormData({ ...formData, qr_scale: parseFloat(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, qr_scale: parseFloat(e.target.value) })
+                    }
                   />
                   <p className="text-xs text-secondary mt-1">0.5 = 50%, 1.0 = 100%</p>
                 </div>
@@ -403,8 +405,8 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-yellow-800">
-                <strong>Note:</strong> This is a system template. Your changes will create a new user template.
-                System templates cannot be directly modified.
+                <strong>Note:</strong> This is a system template. Your changes will create a new
+                user template. System templates cannot be directly modified.
               </div>
             </div>
           )}
@@ -412,11 +414,7 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
 
         {/* Action Buttons */}
         <div className="flex gap-3 mt-6 pt-4 border-t border-border">
-          <button
-            onClick={onClose}
-            className="flex-1 btn btn-secondary"
-            disabled={saving}
-          >
+          <button onClick={onClose} className="flex-1 btn btn-secondary" disabled={saving}>
             Cancel
           </button>
           <button

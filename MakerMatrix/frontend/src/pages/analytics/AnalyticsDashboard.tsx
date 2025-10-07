@@ -10,7 +10,7 @@ import {
   RefreshCw,
   ChevronUp,
   ChevronDown,
-  BarChart3
+  BarChart3,
 } from 'lucide-react'
 import { analyticsService } from '@/services/analytics.service'
 import { Bar, Doughnut } from 'react-chartjs-2'
@@ -22,20 +22,12 @@ import {
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 } from 'chart.js'
 import toast from 'react-hot-toast'
 
 // Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-)
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
 
 interface InventorySummary {
   total_parts: number
@@ -93,7 +85,7 @@ const AnalyticsDashboard = () => {
   const [expandedSections, setExpandedSections] = useState({
     distribution: true,
     topParts: true,
-    alerts: true
+    alerts: true,
   })
 
   useEffect(() => {
@@ -114,9 +106,9 @@ const AnalyticsDashboard = () => {
   }
 
   const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }))
   }
 
@@ -138,31 +130,35 @@ const AnalyticsDashboard = () => {
 
   // Prepare chart data
   const categoryChartData = {
-    labels: data.parts_by_category.length > 0
-      ? data.parts_by_category.slice(0, 10).map(item => item.category)
-      : ['No Data'],
+    labels:
+      data.parts_by_category.length > 0
+        ? data.parts_by_category.slice(0, 10).map((item) => item.category)
+        : ['No Data'],
     datasets: [
       {
         label: 'Parts Count',
-        data: data.parts_by_category.length > 0
-          ? data.parts_by_category.slice(0, 10).map(item => item.part_count)
-          : [0],
+        data:
+          data.parts_by_category.length > 0
+            ? data.parts_by_category.slice(0, 10).map((item) => item.part_count)
+            : [0],
         backgroundColor: 'rgba(99, 102, 241, 0.8)',
         borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 1
-      }
-    ]
+        borderWidth: 1,
+      },
+    ],
   }
 
   const locationChartData = {
-    labels: data.parts_by_location.length > 0
-      ? data.parts_by_location.slice(0, 8).map(item => item.location)
-      : ['No Data'],
+    labels:
+      data.parts_by_location.length > 0
+        ? data.parts_by_location.slice(0, 8).map((item) => item.location)
+        : ['No Data'],
     datasets: [
       {
-        data: data.parts_by_location.length > 0
-          ? data.parts_by_location.slice(0, 8).map(item => item.part_count)
-          : [0],
+        data:
+          data.parts_by_location.length > 0
+            ? data.parts_by_location.slice(0, 8).map((item) => item.part_count)
+            : [0],
         backgroundColor: [
           'rgba(99, 102, 241, 0.8)',
           'rgba(239, 68, 68, 0.8)',
@@ -171,11 +167,11 @@ const AnalyticsDashboard = () => {
           'rgba(168, 85, 247, 0.8)',
           'rgba(236, 72, 153, 0.8)',
           'rgba(14, 165, 233, 0.8)',
-          'rgba(132, 204, 22, 0.8)'
+          'rgba(132, 204, 22, 0.8)',
         ],
-        borderWidth: 0
-      }
-    ]
+        borderWidth: 0,
+      },
+    ],
   }
 
   return (
@@ -191,15 +187,10 @@ const AnalyticsDashboard = () => {
             <BarChart3 className="w-6 h-6" />
             Inventory Analytics
           </h1>
-          <p className="text-secondary mt-1">
-            Overview of your current inventory
-          </p>
+          <p className="text-secondary mt-1">Overview of your current inventory</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={loadDashboardData}
-            className="btn btn-secondary flex items-center gap-2"
-          >
+          <button onClick={loadDashboardData} className="btn btn-secondary flex items-center gap-2">
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
@@ -237,12 +228,8 @@ const AnalyticsDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Low Stock Alerts</p>
-              <p className="text-2xl font-bold text-error">
-                {data.summary.low_stock_count}
-              </p>
-              <p className="text-xs text-muted mt-1">
-                Parts below 10 units
-              </p>
+              <p className="text-2xl font-bold text-error">{data.summary.low_stock_count}</p>
+              <p className="text-xs text-muted mt-1">Parts below 10 units</p>
             </div>
             <AlertTriangle className="w-8 h-8 text-error opacity-20" />
           </div>
@@ -257,12 +244,8 @@ const AnalyticsDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Categories</p>
-              <p className="text-2xl font-bold text-primary">
-                {data.summary.total_categories}
-              </p>
-              <p className="text-xs text-muted mt-1">
-                Active categories
-              </p>
+              <p className="text-2xl font-bold text-primary">{data.summary.total_categories}</p>
+              <p className="text-xs text-muted mt-1">Active categories</p>
             </div>
             <Tag className="w-8 h-8 text-primary opacity-20" />
           </div>
@@ -277,9 +260,7 @@ const AnalyticsDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Locations</p>
-              <p className="text-2xl font-bold text-primary">
-                {data.summary.total_locations}
-              </p>
+              <p className="text-2xl font-bold text-primary">{data.summary.total_locations}</p>
               <p className="text-xs text-muted mt-1">
                 {data.summary.parts_with_location} parts located
               </p>
@@ -321,17 +302,17 @@ const AnalyticsDashboard = () => {
                       maintainAspectRatio: false,
                       plugins: {
                         legend: {
-                          display: false
-                        }
+                          display: false,
+                        },
                       },
                       scales: {
                         y: {
                           beginAtZero: true,
                           ticks: {
-                            precision: 0
-                          }
-                        }
-                      }
+                            precision: 0,
+                          },
+                        },
+                      },
                     }}
                   />
                 ) : (
@@ -357,10 +338,10 @@ const AnalyticsDashboard = () => {
                           position: 'right',
                           labels: {
                             padding: 10,
-                            usePointStyle: true
-                          }
-                        }
-                      }
+                            usePointStyle: true,
+                          },
+                        },
+                      },
                     }}
                   />
                 ) : (
@@ -419,7 +400,9 @@ const AnalyticsDashboard = () => {
                               <div className="text-xs text-muted">{part.part_number}</div>
                             </div>
                           </td>
-                          <td className="font-semibold text-success">{part.quantity.toLocaleString()}</td>
+                          <td className="font-semibold text-success">
+                            {part.quantity.toLocaleString()}
+                          </td>
                           <td className="text-secondary text-sm">{part.location}</td>
                         </tr>
                       ))
@@ -460,7 +443,9 @@ const AnalyticsDashboard = () => {
                               <div className="text-xs text-muted">{part.part_number}</div>
                             </div>
                           </td>
-                          <td className="font-semibold text-warning">{part.quantity.toLocaleString()}</td>
+                          <td className="font-semibold text-warning">
+                            {part.quantity.toLocaleString()}
+                          </td>
                           <td className="text-secondary text-sm">{part.location}</td>
                         </tr>
                       ))
@@ -512,7 +497,9 @@ const AnalyticsDashboard = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted">Location:</span>
-                        <span className="text-secondary">{part.location_name || 'No Location'}</span>
+                        <span className="text-secondary">
+                          {part.location_name || 'No Location'}
+                        </span>
                       </div>
                       {part.supplier && (
                         <div className="flex justify-between">

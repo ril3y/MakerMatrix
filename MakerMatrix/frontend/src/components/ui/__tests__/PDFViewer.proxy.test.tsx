@@ -1,6 +1,6 @@
 /**
  * Tests for PDFViewer component with PDF proxy functionality.
- * 
+ *
  * Tests the integration between PDFViewer and the PDF proxy system.
  */
 
@@ -31,7 +31,7 @@ vi.mock('react-pdf', () => ({
         onLoadSuccess?.({ numPages: 2 })
       }
     }, 100)
-    
+
     return children
   }),
   Page: vi.fn(({ pageNumber }) => (
@@ -40,9 +40,9 @@ vi.mock('react-pdf', () => ({
   pdfjs: {
     version: '3.4.120',
     GlobalWorkerOptions: {
-      workerSrc: ''
-    }
-  }
+      workerSrc: '',
+    },
+  },
 }))
 
 // Mock Lucide icons
@@ -54,7 +54,7 @@ vi.mock('lucide-react', () => ({
   Download: () => <div data-testid="download">↓</div>,
   X: () => <div data-testid="close">×</div>,
   FileText: () => <div data-testid="file-text">📄</div>,
-  AlertCircle: () => <div data-testid="alert-circle">⚠</div>
+  AlertCircle: () => <div data-testid="alert-circle">⚠</div>,
 }))
 
 describe('PDFViewer with Proxy Integration', () => {
@@ -107,7 +107,9 @@ describe('PDFViewer with Proxy Integration', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByText('Timeout while fetching PDF from external source')).toBeInTheDocument()
+        expect(
+          screen.getByText('Timeout while fetching PDF from external source')
+        ).toBeInTheDocument()
       })
 
       expect(screen.getByText('Try Download Instead')).toBeInTheDocument()
@@ -123,7 +125,9 @@ describe('PDFViewer with Proxy Integration', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByText('Access denied: Domain not allowed for PDF viewing')).toBeInTheDocument()
+        expect(
+          screen.getByText('Access denied: Domain not allowed for PDF viewing')
+        ).toBeInTheDocument()
       })
     })
 
@@ -151,22 +155,20 @@ describe('PDFViewer with Proxy Integration', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByText('Failed to load PDF through proxy - the source may not be a valid PDF file')).toBeInTheDocument()
+        expect(
+          screen.getByText(
+            'Failed to load PDF through proxy - the source may not be a valid PDF file'
+          )
+        ).toBeInTheDocument()
       })
     })
   })
 
   describe('Error message specificity', () => {
     it('should detect proxy URLs and provide specific error messages', async () => {
-      const proxyUrl = "/static/proxy-pdf?url=https%3A//invalid-source.com/test.pdf"
-      
-      render(
-        <PDFViewer
-          fileUrl={proxyUrl}
-          fileName="Test Datasheet.pdf"
-          onClose={mockOnClose}
-        />
-      )
+      const proxyUrl = '/static/proxy-pdf?url=https%3A//invalid-source.com/test.pdf'
+
+      render(<PDFViewer fileUrl={proxyUrl} fileName="Test Datasheet.pdf" onClose={mockOnClose} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load PDF through proxy/)).toBeInTheDocument()
@@ -199,7 +201,7 @@ describe('PDFViewer with Proxy Integration', () => {
         href: '',
         download: '',
         click: vi.fn(),
-        remove: vi.fn()
+        remove: vi.fn(),
       }
       const mockCreateElement = vi.fn(() => mockLink)
       const mockAppendChild = vi.fn()
@@ -207,15 +209,15 @@ describe('PDFViewer with Proxy Integration', () => {
 
       Object.defineProperty(document, 'createElement', {
         value: mockCreateElement,
-        writable: true
+        writable: true,
       })
       Object.defineProperty(document.body, 'appendChild', {
         value: mockAppendChild,
-        writable: true
+        writable: true,
       })
       Object.defineProperty(document.body, 'removeChild', {
         value: mockRemoveChild,
-        writable: true
+        writable: true,
       })
 
       render(
@@ -262,7 +264,7 @@ describe('PDFViewer with Proxy Integration', () => {
         href: '',
         download: '',
         click: vi.fn(),
-        remove: vi.fn()
+        remove: vi.fn(),
       }
       const mockCreateElement = vi.fn(() => mockLink)
       const mockAppendChild = vi.fn()
@@ -270,26 +272,20 @@ describe('PDFViewer with Proxy Integration', () => {
 
       Object.defineProperty(document, 'createElement', {
         value: mockCreateElement,
-        writable: true
+        writable: true,
       })
       Object.defineProperty(document.body, 'appendChild', {
         value: mockAppendChild,
-        writable: true
+        writable: true,
       })
       Object.defineProperty(document.body, 'removeChild', {
         value: mockRemoveChild,
-        writable: true
+        writable: true,
       })
 
-      const proxyUrl = "/static/proxy-pdf?url=https%3A//datasheet.lcsc.com/test.pdf"
-      
-      render(
-        <PDFViewer
-          fileUrl={proxyUrl}
-          fileName="Test Datasheet.pdf"
-          onClose={mockOnClose}
-        />
-      )
+      const proxyUrl = '/static/proxy-pdf?url=https%3A//datasheet.lcsc.com/test.pdf'
+
+      render(<PDFViewer fileUrl={proxyUrl} fileName="Test Datasheet.pdf" onClose={mockOnClose} />)
 
       const downloadButton = screen.getByTestId('download').parentElement
       fireEvent.click(downloadButton!)
@@ -304,23 +300,17 @@ describe('PDFViewer with Proxy Integration', () => {
   describe('Console logging for debugging', () => {
     it('should log proxy URL on error for debugging', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      
-      const proxyUrl = "/static/proxy-pdf?url=https%3A//datasheet.lcsc.com/error.pdf"
-      
-      render(
-        <PDFViewer
-          fileUrl={proxyUrl}
-          fileName="Test Datasheet.pdf"
-          onClose={mockOnClose}
-        />
-      )
+
+      const proxyUrl = '/static/proxy-pdf?url=https%3A//datasheet.lcsc.com/error.pdf'
+
+      render(<PDFViewer fileUrl={proxyUrl} fileName="Test Datasheet.pdf" onClose={mockOnClose} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load PDF through proxy/)).toBeInTheDocument()
       })
 
       expect(consoleSpy).toHaveBeenCalledWith('Failed URL:', proxyUrl)
-      
+
       consoleSpy.mockRestore()
     })
   })

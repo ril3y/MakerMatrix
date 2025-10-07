@@ -8,8 +8,8 @@
  * - Label printing for parts at this location
  */
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import {
   X,
   MapPin,
@@ -23,38 +23,38 @@ import {
   ChevronRight,
   Undo2,
   FolderTree,
-  Plus
-} from 'lucide-react';
-import Modal from '@/components/ui/Modal';
-import { Location, LocationDetails } from '@/types/locations';
-import { locationsService } from '@/services/locations.service';
-import { partsService } from '@/services/parts.service';
-import { partAllocationService } from '@/services/part-allocation.service';
-import PrinterModal from '@/components/printer/PrinterModal';
-import AddLocationModal from '@/components/locations/AddLocationModal';
-import EditLocationModal from '@/components/locations/EditLocationModal';
-import toast from 'react-hot-toast';
+  Plus,
+} from 'lucide-react'
+import Modal from '@/components/ui/Modal'
+import { Location, LocationDetails } from '@/types/locations'
+import { locationsService } from '@/services/locations.service'
+import { partsService } from '@/services/parts.service'
+import { partAllocationService } from '@/services/part-allocation.service'
+import PrinterModal from '@/components/printer/PrinterModal'
+import AddLocationModal from '@/components/locations/AddLocationModal'
+import EditLocationModal from '@/components/locations/EditLocationModal'
+import toast from 'react-hot-toast'
 
 interface LocationDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  location: Location;
-  onRefresh?: () => void;
-  onOpenLocation?: (location: Location) => void;
+  isOpen: boolean
+  onClose: () => void
+  location: Location
+  onRefresh?: () => void
+  onOpenLocation?: (location: Location) => void
 }
 
 interface PartAtLocation {
-  id: string;
-  part_name: string;
-  part_number?: string;
-  description?: string;
-  quantity_at_location: number;
-  total_quantity?: number;
-  allocation_id?: string;
-  is_primary_storage?: boolean;
-  category?: string;
-  manufacturer?: string;
-  image_url?: string;
+  id: string
+  part_name: string
+  part_number?: string
+  description?: string
+  quantity_at_location: number
+  total_quantity?: number
+  allocation_id?: string
+  is_primary_storage?: boolean
+  category?: string
+  manufacturer?: string
+  image_url?: string
 }
 
 const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
@@ -62,63 +62,63 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
   onClose,
   location,
   onRefresh,
-  onOpenLocation
+  onOpenLocation,
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [locationDetails, setLocationDetails] = useState<LocationDetails | null>(null);
-  const [partsAtLocation, setPartsAtLocation] = useState<PartAtLocation[]>([]);
-  const [locationPath, setLocationPath] = useState<string>('');
+  const [loading, setLoading] = useState(true)
+  const [locationDetails, setLocationDetails] = useState<LocationDetails | null>(null)
+  const [partsAtLocation, setPartsAtLocation] = useState<PartAtLocation[]>([])
+  const [locationPath, setLocationPath] = useState<string>('')
 
   // Print modal state
-  const [showPrintModal, setShowPrintModal] = useState(false);
-  const [selectedPartForPrint, setSelectedPartForPrint] = useState<PartAtLocation | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false)
+  const [selectedPartForPrint, setSelectedPartForPrint] = useState<PartAtLocation | null>(null)
 
   // Confirmation modal state
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [partToReturn, setPartToReturn] = useState<PartAtLocation | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [partToReturn, setPartToReturn] = useState<PartAtLocation | null>(null)
 
   // Add child location modal state
-  const [showAddChildModal, setShowAddChildModal] = useState(false);
+  const [showAddChildModal, setShowAddChildModal] = useState(false)
 
   // Edit location modal state
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
-      loadLocationData();
+      loadLocationData()
     }
-  }, [isOpen, location.id]);
+  }, [isOpen, location.id])
 
   const loadLocationData = async () => {
     try {
-      setLoading(true);
+      setLoading(true)
 
       // Load location details
-      const details = await locationsService.getLocationDetails(location.id);
-      setLocationDetails(details);
+      const details = await locationsService.getLocationDetails(location.id)
+      setLocationDetails(details)
 
       // Build location path
-      const path = await buildLocationPath(location.id);
-      setLocationPath(path);
+      const path = await buildLocationPath(location.id)
+      setLocationPath(path)
 
       // Search for parts at this location
       const searchResponse = await partsService.searchParts({
         location_id: location.id,
         page: 1,
-        page_size: 1000 // Get all parts at this location
-      });
+        page_size: 1000, // Get all parts at this location
+      })
 
       // The response structure is { data: { items: [...], total, page, page_size } }
-      const partsData = searchResponse?.data?.items || searchResponse?.items || [];
+      const partsData = searchResponse?.data?.items || searchResponse?.items || []
 
       // Fetch allocation data for each part to get accurate quantity at this location
       const partsWithAllocations = await Promise.all(
         partsData.map(async (part: any) => {
           try {
-            const allocations = await partAllocationService.getPartAllocations(part.id);
+            const allocations = await partAllocationService.getPartAllocations(part.id)
             const locationAllocation = allocations.allocations.find(
-              a => a.location_id === location.id
-            );
+              (a) => a.location_id === location.id
+            )
 
             return {
               id: part.id,
@@ -131,10 +131,10 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               is_primary_storage: locationAllocation?.is_primary_storage,
               category: part.categories?.[0]?.name,
               manufacturer: part.manufacturer,
-              image_url: part.image_url
-            };
+              image_url: part.image_url,
+            }
           } catch (error) {
-            console.error(`Failed to get allocations for part ${part.id}:`, error);
+            console.error(`Failed to get allocations for part ${part.id}:`, error)
             // Fallback to part.quantity if allocation fetch fails
             return {
               id: part.id,
@@ -145,64 +145,64 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               total_quantity: part.total_quantity,
               category: part.categories?.[0]?.name,
               manufacturer: part.manufacturer,
-              image_url: part.image_url
-            };
+              image_url: part.image_url,
+            }
           }
         })
-      );
+      )
 
-      setPartsAtLocation(partsWithAllocations);
+      setPartsAtLocation(partsWithAllocations)
     } catch (error: any) {
-      console.error('Failed to load location data:', error);
-      toast.error('Failed to load location details');
+      console.error('Failed to load location data:', error)
+      toast.error('Failed to load location details')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const buildLocationPath = async (locationId: string): Promise<string> => {
     try {
-      const pathData = await locationsService.getLocationPath(locationId);
-      const pathParts: string[] = [];
+      const pathData = await locationsService.getLocationPath(locationId)
+      const pathParts: string[] = []
 
-      let current = pathData;
+      let current = pathData
       while (current) {
-        pathParts.unshift(current.name);
-        current = current.parent as any;
+        pathParts.unshift(current.name)
+        current = current.parent as any
       }
 
-      return pathParts.join(' > ');
+      return pathParts.join(' > ')
     } catch (error) {
-      return location.name;
+      return location.name
     }
-  };
+  }
 
   const handleReturnToOriginal = (part: PartAtLocation) => {
-    setPartToReturn(part);
-    setShowConfirmModal(true);
-  };
+    setPartToReturn(part)
+    setShowConfirmModal(true)
+  }
 
   const confirmReturnToOriginal = async () => {
-    if (!partToReturn) return;
+    if (!partToReturn) return
 
     try {
       // Get the part's allocations to find the primary storage location
-      const allocations = await partAllocationService.getPartAllocations(partToReturn.id);
+      const allocations = await partAllocationService.getPartAllocations(partToReturn.id)
 
       // Find the primary storage location
-      const primaryAllocation = allocations.allocations.find(a => a.is_primary_storage);
+      const primaryAllocation = allocations.allocations.find((a) => a.is_primary_storage)
 
       if (!primaryAllocation) {
-        toast.error('No primary storage location found for this part');
-        return;
+        toast.error('No primary storage location found for this part')
+        return
       }
 
       // If the current location is already the primary location, no need to transfer
       if (primaryAllocation.location_id === location.id) {
-        toast.error('This part is already at its primary storage location');
-        setShowConfirmModal(false);
-        setPartToReturn(null);
-        return;
+        toast.error('This part is already at its primary storage location')
+        setShowConfirmModal(false)
+        setPartToReturn(null)
+        return
       }
 
       // Transfer all quantity from current location back to primary location
@@ -210,29 +210,31 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         from_location_id: location.id,
         to_location_id: primaryAllocation.location_id,
         quantity: partToReturn.quantity_at_location,
-        notes: 'Returned to primary storage location'
-      });
+        notes: 'Returned to primary storage location',
+      })
 
-      toast.success(`${partToReturn.part_name} returned to ${primaryAllocation.location?.name || 'primary storage'}`);
-      setShowConfirmModal(false);
-      setPartToReturn(null);
-      loadLocationData();
-      if (onRefresh) onRefresh();
+      toast.success(
+        `${partToReturn.part_name} returned to ${primaryAllocation.location?.name || 'primary storage'}`
+      )
+      setShowConfirmModal(false)
+      setPartToReturn(null)
+      loadLocationData()
+      if (onRefresh) onRefresh()
     } catch (error: any) {
-      console.error('Failed to return part:', error);
-      toast.error(error.message || 'Failed to return part to original location');
+      console.error('Failed to return part:', error)
+      toast.error(error.message || 'Failed to return part to original location')
     }
-  };
+  }
 
   const handlePrintLabel = (part: PartAtLocation) => {
-    setSelectedPartForPrint(part);
-    setShowPrintModal(true);
-  };
+    setSelectedPartForPrint(part)
+    setShowPrintModal(true)
+  }
 
   const handleClosePrintModal = () => {
-    setShowPrintModal(false);
-    setSelectedPartForPrint(null);
-  };
+    setShowPrintModal(false)
+    setSelectedPartForPrint(null)
+  }
 
   return (
     <>
@@ -302,7 +304,9 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
             <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
               <div className="text-sm text-theme-muted">Total Quantity</div>
               <div className="text-2xl font-bold text-theme-primary">
-                {partsAtLocation.reduce((sum, p) => sum + p.quantity_at_location, 0).toLocaleString()}
+                {partsAtLocation
+                  .reduce((sum, p) => sum + p.quantity_at_location, 0)
+                  .toLocaleString()}
               </div>
             </div>
             <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
@@ -345,7 +349,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                         onClick={() => {
                           // Open this child location's details
                           if (onOpenLocation) {
-                            onOpenLocation(childLocation);
+                            onOpenLocation(childLocation)
                           }
                         }}
                       >
@@ -368,7 +372,9 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                               Type: {childLocation.location_type || 'General'}
                             </p>
                             {childLocation.description && (
-                              <p className="text-xs text-theme-muted mt-1">{childLocation.description}</p>
+                              <p className="text-xs text-theme-muted mt-1">
+                                {childLocation.description}
+                              </p>
                             )}
                           </div>
 
@@ -427,10 +433,14 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                             <div className="flex-1">
                               <h4 className="font-medium text-theme-primary">{part.part_name}</h4>
                               {part.part_number && (
-                                <p className="text-sm text-theme-secondary">PN: {part.part_number}</p>
+                                <p className="text-sm text-theme-secondary">
+                                  PN: {part.part_number}
+                                </p>
                               )}
                               {part.description && (
-                                <p className="text-xs text-theme-muted mt-1 line-clamp-1">{part.description}</p>
+                                <p className="text-xs text-theme-muted mt-1 line-clamp-1">
+                                  {part.description}
+                                </p>
                               )}
                               <div className="flex items-center gap-4 mt-2">
                                 <span className="text-sm font-medium text-primary">
@@ -473,10 +483,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
-            <button
-              onClick={onClose}
-              className="btn btn-secondary"
-            >
+            <button onClick={onClose} className="btn btn-secondary">
               Close
             </button>
           </div>
@@ -495,7 +502,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
             location: location.name,
             category: selectedPartForPrint.category || '',
             quantity: selectedPartForPrint.quantity_at_location.toString(),
-            description: selectedPartForPrint.description || ''
+            description: selectedPartForPrint.description || '',
           }}
         />
       )}
@@ -505,8 +512,8 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         <Modal
           isOpen={showConfirmModal}
           onClose={() => {
-            setShowConfirmModal(false);
-            setPartToReturn(null);
+            setShowConfirmModal(false)
+            setPartToReturn(null)
           }}
           title="Return to Original Location"
           size="md"
@@ -520,8 +527,8 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                   About Returning Parts
                 </h3>
                 <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                  This will return the part to its original primary storage location.
-                  The allocation to this location will be removed.
+                  This will return the part to its original primary storage location. The allocation
+                  to this location will be removed.
                 </p>
               </div>
             </div>
@@ -562,8 +569,8 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               <Undo2 className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm text-orange-700 dark:text-orange-300">
-                  This action will move all <strong>{partToReturn.quantity_at_location}</strong> units
-                  back to the part's primary storage location.
+                  This action will move all <strong>{partToReturn.quantity_at_location}</strong>{' '}
+                  units back to the part's primary storage location.
                 </p>
               </div>
             </div>
@@ -572,8 +579,8 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
             <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
               <button
                 onClick={() => {
-                  setShowConfirmModal(false);
-                  setPartToReturn(null);
+                  setShowConfirmModal(false)
+                  setPartToReturn(null)
                 }}
                 className="btn btn-secondary"
               >
@@ -595,9 +602,9 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         isOpen={showAddChildModal}
         onClose={() => setShowAddChildModal(false)}
         onSuccess={() => {
-          setShowAddChildModal(false);
-          loadLocationData(); // Reload to show new child
-          if (onRefresh) onRefresh(); // Refresh parent list too
+          setShowAddChildModal(false)
+          loadLocationData() // Reload to show new child
+          if (onRefresh) onRefresh() // Refresh parent list too
         }}
         defaultParentId={location.id}
       />
@@ -607,14 +614,14 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         onSuccess={() => {
-          setShowEditModal(false);
-          loadLocationData(); // Reload to show updated info
-          if (onRefresh) onRefresh(); // Refresh parent list too
+          setShowEditModal(false)
+          loadLocationData() // Reload to show updated info
+          if (onRefresh) onRefresh() // Refresh parent list too
         }}
         location={location}
       />
     </>
-  );
-};
+  )
+}
 
-export default LocationDetailsModal;
+export default LocationDetailsModal

@@ -22,7 +22,8 @@ const FilePreview: React.FC<FilePreviewProps> = ({ showPreview, previewData }) =
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-medium text-primary">Data Preview</h4>
             <span className="text-sm text-secondary">
-              Showing {Math.min(previewData.preview_rows?.length || 0, 5)} of {previewData.total_rows || 0} rows
+              Showing {Math.min(previewData.preview_rows?.length || 0, 5)} of{' '}
+              {previewData.total_rows || 0} rows
             </span>
           </div>
 

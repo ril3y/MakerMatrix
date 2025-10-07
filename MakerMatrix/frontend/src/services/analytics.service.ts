@@ -88,17 +88,22 @@ class AnalyticsService {
     if (params?.start_date) queryParams.append('start_date', params.start_date)
     if (params?.end_date) queryParams.append('end_date', params.end_date)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
-    
-    const response = await apiClient.get<ApiResponse<SpendingBySupplier[]>>(`/api/analytics/spending/by-supplier?${queryParams}`)
+
+    const response = await apiClient.get<ApiResponse<SpendingBySupplier[]>>(
+      `/api/analytics/spending/by-supplier?${queryParams}`
+    )
     return response.data || []
   }
 
   async getSpendingTrend(params?: AnalyticsParams): Promise<SpendingTrend[]> {
     const queryParams = new URLSearchParams()
     if (params?.period) queryParams.append('period', params.period)
-    if (params?.lookback_periods) queryParams.append('lookback_periods', params.lookback_periods.toString())
-    
-    const response = await apiClient.get<ApiResponse<SpendingTrend[]>>(`/api/analytics/spending/trend?${queryParams}`)
+    if (params?.lookback_periods)
+      queryParams.append('lookback_periods', params.lookback_periods.toString())
+
+    const response = await apiClient.get<ApiResponse<SpendingTrend[]>>(
+      `/api/analytics/spending/trend?${queryParams}`
+    )
     return response.data || []
   }
 
@@ -106,8 +111,10 @@ class AnalyticsService {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.min_orders) queryParams.append('min_orders', params.min_orders.toString())
-    
-    const response = await apiClient.get<ApiResponse<PartOrderFrequency[]>>(`/api/analytics/parts/order-frequency?${queryParams}`)
+
+    const response = await apiClient.get<ApiResponse<PartOrderFrequency[]>>(
+      `/api/analytics/parts/order-frequency?${queryParams}`
+    )
     return response.data || []
   }
 
@@ -116,16 +123,21 @@ class AnalyticsService {
     if (params?.part_id) queryParams.append('part_id', params.part_id.toString())
     if (params?.supplier) queryParams.append('supplier', params.supplier)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
-    
-    const response = await apiClient.get<ApiResponse<PriceTrend[]>>(`/api/analytics/prices/trends?${queryParams}`)
+
+    const response = await apiClient.get<ApiResponse<PriceTrend[]>>(
+      `/api/analytics/prices/trends?${queryParams}`
+    )
     return response.data || []
   }
 
   async getLowStockParts(params?: AnalyticsParams): Promise<LowStockPart[]> {
     const queryParams = new URLSearchParams()
-    if (params?.threshold_multiplier) queryParams.append('threshold_multiplier', params.threshold_multiplier.toString())
-    
-    const response = await apiClient.get<ApiResponse<LowStockPart[]>>(`/api/analytics/inventory/low-stock?${queryParams}`)
+    if (params?.threshold_multiplier)
+      queryParams.append('threshold_multiplier', params.threshold_multiplier.toString())
+
+    const response = await apiClient.get<ApiResponse<LowStockPart[]>>(
+      `/api/analytics/inventory/low-stock?${queryParams}`
+    )
     return response.data || []
   }
 
@@ -133,18 +145,24 @@ class AnalyticsService {
     const queryParams = new URLSearchParams()
     if (params?.start_date) queryParams.append('start_date', params.start_date)
     if (params?.end_date) queryParams.append('end_date', params.end_date)
-    
-    const response = await apiClient.get<ApiResponse<CategorySpending[]>>(`/api/analytics/spending/by-category?${queryParams}`)
+
+    const response = await apiClient.get<ApiResponse<CategorySpending[]>>(
+      `/api/analytics/spending/by-category?${queryParams}`
+    )
     return response.data || []
   }
 
   async getInventoryValue(): Promise<InventoryValue> {
-    const response = await apiClient.get<ApiResponse<InventoryValue>>(`/api/analytics/inventory/value`)
+    const response = await apiClient.get<ApiResponse<InventoryValue>>(
+      `/api/analytics/inventory/value`
+    )
     return response.data || { total_value: 0, priced_parts: 0, unpriced_parts: 0, total_units: 0 }
   }
 
   async getDashboardSummary(): Promise<DashboardSummary> {
-    const response = await apiClient.get<ApiResponse<DashboardSummary>>(`/api/analytics/dashboard/summary`)
+    const response = await apiClient.get<ApiResponse<DashboardSummary>>(
+      `/api/analytics/dashboard/summary`
+    )
     return response.data as DashboardSummary
   }
 }

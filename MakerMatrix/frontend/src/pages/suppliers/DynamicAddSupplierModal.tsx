@@ -1,134 +1,146 @@
 /**
  * Dynamic Add Supplier Modal
- * 
+ *
  * Modal that dynamically discovers available suppliers and builds configuration forms
  * based on their schemas. Works with the new modular supplier system.
  */
 
-import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
-import { dynamicSupplierService, SupplierInfo } from '../../services/dynamic-supplier.service';
-import { DynamicSupplierConfigForm } from './DynamicSupplierConfigForm';
+import React, { useState, useEffect } from 'react'
+import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
+import { dynamicSupplierService, SupplierInfo } from '../../services/dynamic-supplier.service'
+import { DynamicSupplierConfigForm } from './DynamicSupplierConfigForm'
 
 interface DynamicAddSupplierModalProps {
-  onClose: () => void;
-  onSuccess: () => void;
-  existingSuppliers?: string[]; // List of already configured supplier names
+  onClose: () => void
+  onSuccess: () => void
+  existingSuppliers?: string[] // List of already configured supplier names
 }
 
-export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = ({ onClose, onSuccess, existingSuppliers = [] }) => {
-  const [step, setStep] = useState(1); // 1: Select Supplier, 2: Configure
-  const [selectedSupplier, setSelectedSupplier] = useState<string>('');
-  const [availableSuppliers, setAvailableSuppliers] = useState<Record<string, SupplierInfo>>({});
-  const [loading, setLoading] = useState(true);
-  const [configuring, setConfiguring] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
-  
-  const [credentials, setCredentials] = useState<Record<string, any>>({});
-  const [config, setConfig] = useState<Record<string, any>>({});
-  const [testLoading, setTestLoading] = useState(false);
-  const [testResult, setTestResult] = useState<{success: boolean; message: string; details?: any} | null>(null);
+export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = ({
+  onClose,
+  onSuccess,
+  existingSuppliers = [],
+}) => {
+  const [step, setStep] = useState(1) // 1: Select Supplier, 2: Configure
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('')
+  const [availableSuppliers, setAvailableSuppliers] = useState<Record<string, SupplierInfo>>({})
+  const [loading, setLoading] = useState(true)
+  const [configuring, setConfiguring] = useState(false)
+  const [errors, setErrors] = useState<string[]>([])
+
+  const [credentials, setCredentials] = useState<Record<string, any>>({})
+  const [config, setConfig] = useState<Record<string, any>>({})
+  const [testLoading, setTestLoading] = useState(false)
+  const [testResult, setTestResult] = useState<{
+    success: boolean
+    message: string
+    details?: any
+  } | null>(null)
 
   useEffect(() => {
-    loadAvailableSuppliers();
-  }, []);
+    loadAvailableSuppliers()
+  }, [])
 
   // Handle Escape key to close modal
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onClose()
       }
-    };
+    }
 
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [onClose])
 
   const loadAvailableSuppliers = async () => {
     try {
-      setLoading(true);
-      setErrors([]);
-      const suppliersInfo = await dynamicSupplierService.getAllSuppliersInfo();
-      console.log('API call successful - suppliersInfo:', suppliersInfo);
-      console.log('Type of suppliersInfo:', typeof suppliersInfo);
-      console.log('Object.keys length:', Object.keys(suppliersInfo || {}).length);
-      
-      setAvailableSuppliers(suppliersInfo || {});
-      
+      setLoading(true)
+      setErrors([])
+      const suppliersInfo = await dynamicSupplierService.getAllSuppliersInfo()
+      console.log('API call successful - suppliersInfo:', suppliersInfo)
+      console.log('Type of suppliersInfo:', typeof suppliersInfo)
+      console.log('Object.keys length:', Object.keys(suppliersInfo || {}).length)
+
+      setAvailableSuppliers(suppliersInfo || {})
+
       // Verify state was set correctly
-      console.log('State should be set now. Checking in next tick...');
+      console.log('State should be set now. Checking in next tick...')
       setTimeout(() => {
-        console.log('Current availableSuppliers state:', availableSuppliers);
-      }, 100);
-      
+        console.log('Current availableSuppliers state:', availableSuppliers)
+      }, 100)
     } catch (error) {
-      console.error('Failed to load suppliers:', error);
-      setAvailableSuppliers({});
-      setErrors([`Failed to load available suppliers: ${error instanceof Error ? error.message : 'Unknown error'}`]);
+      console.error('Failed to load suppliers:', error)
+      setAvailableSuppliers({})
+      setErrors([
+        `Failed to load available suppliers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleSupplierSelection = (supplierName: string) => {
-    setSelectedSupplier(supplierName);
-    setStep(2);
-    setErrors([]);
-    setTestResult(null);
-  };
+    setSelectedSupplier(supplierName)
+    setStep(2)
+    setErrors([])
+    setTestResult(null)
+  }
 
   const handleTestConnection = async () => {
     try {
-      setTestLoading(true);
-      setTestResult(null);
-      
-      const result = await dynamicSupplierService.testConnection(selectedSupplier, credentials, config);
-      setTestResult(result);
-      
+      setTestLoading(true)
+      setTestResult(null)
+
+      const result = await dynamicSupplierService.testConnection(
+        selectedSupplier,
+        credentials,
+        config
+      )
+      setTestResult(result)
     } catch (error) {
-      console.error('Test connection failed:', error);
+      console.error('Test connection failed:', error)
       setTestResult({
         success: false,
-        message: `Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      });
+        message: `Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      })
     } finally {
-      setTestLoading(false);
+      setTestLoading(false)
     }
-  };
+  }
 
   const handleSave = async () => {
     try {
-      setConfiguring(true);
-      setErrors([]);
+      setConfiguring(true)
+      setErrors([])
 
       // Get supplier info to construct the configuration
-      const supplierInfo = availableSuppliers[selectedSupplier];
+      const supplierInfo = availableSuppliers[selectedSupplier]
       if (!supplierInfo) {
-        throw new Error('Supplier information not found');
+        throw new Error('Supplier information not found')
       }
 
       // Check if this supplier actually needs to be saved
       // Some suppliers like LCSC are just public APIs that don't need persistent config
-      const needsCredentials = Object.keys(credentials).length > 0;
-      const needsConfiguration = Object.keys(config).length > 0;
-      
+      const needsCredentials = Object.keys(credentials).length > 0
+      const needsConfiguration = Object.keys(config).length > 0
+
       if (!needsCredentials && !needsConfiguration) {
         // For suppliers like LCSC that don't need saved config, just mark as successful
-        console.log(`${selectedSupplier} is a public API - no configuration needed to save`);
+        console.log(`${selectedSupplier} is a public API - no configuration needed to save`)
       } else {
         // Use the existing supplier service to save the configuration
-        const { supplierService } = await import('../../services/supplier.service');
-        
+        const { supplierService } = await import('../../services/supplier.service')
+
         // Convert capabilities array to individual boolean fields that backend expects
-        const capabilities = supplierInfo.capabilities || [];
+        const capabilities = supplierInfo.capabilities || []
         const capabilityFields = {
           supports_datasheet: capabilities.includes('fetch_datasheet'),
           supports_image: capabilities.includes('fetch_image'),
           supports_pricing: capabilities.includes('fetch_pricing'),
           supports_stock: capabilities.includes('fetch_stock'),
-          supports_specifications: capabilities.includes('fetch_specifications')
-        };
+          supports_specifications: capabilities.includes('fetch_specifications'),
+        }
 
         // Create supplier configuration with consistent naming
         const supplierConfig = {
@@ -139,46 +151,48 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
           base_url: supplierInfo.website_url || '',
           enabled: true,
           ...capabilityFields, // Spread the individual capability fields
-          configuration: config
-        };
+          configuration: config,
+        }
 
-        console.log('Creating supplier configuration:', supplierConfig);
-        
+        console.log('Creating supplier configuration:', supplierConfig)
+
         try {
           // Try to create new supplier
-          await supplierService.createSupplier(supplierConfig);
+          await supplierService.createSupplier(supplierConfig)
         } catch (error: any) {
           if (error.response?.status === 409) {
             // Supplier already exists, try to update instead
-            console.log(`Supplier ${selectedSupplier} already exists, updating configuration...`);
+            console.log(`Supplier ${selectedSupplier} already exists, updating configuration...`)
             await supplierService.updateSupplier(supplierConfig.supplier_name, {
               display_name: supplierConfig.display_name,
               description: supplierConfig.description,
               enabled: supplierConfig.enabled,
               ...capabilityFields, // Use the converted capability fields
-              configuration: config
-            });
+              configuration: config,
+            })
           } else {
-            throw error; // Re-throw if it's not a conflict error
+            throw error // Re-throw if it's not a conflict error
           }
         }
-        
+
         // Save credentials if any
         if (needsCredentials) {
-          console.log('Saving supplier credentials:', credentials);
-          await supplierService.updateCredentials(supplierConfig.supplier_name, credentials);
+          console.log('Saving supplier credentials:', credentials)
+          await supplierService.updateCredentials(supplierConfig.supplier_name, credentials)
         }
       }
 
-      console.log('Supplier configuration saved successfully');
-      onSuccess();
+      console.log('Supplier configuration saved successfully')
+      onSuccess()
     } catch (error) {
-      console.error('Failed to save supplier configuration:', error);
-      setErrors([`Failed to save configuration: ${error instanceof Error ? error.message : 'Unknown error'}`]);
+      console.error('Failed to save supplier configuration:', error)
+      setErrors([
+        `Failed to save configuration: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ])
     } finally {
-      setConfiguring(false);
+      setConfiguring(false)
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -190,7 +204,7 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -203,7 +217,9 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
               Add Supplier Configuration
             </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {step === 1 ? 'Choose a supplier to configure' : `Configure ${availableSuppliers[selectedSupplier]?.display_name || selectedSupplier}`}
+              {step === 1
+                ? 'Choose a supplier to configure'
+                : `Configure ${availableSuppliers[selectedSupplier]?.display_name || selectedSupplier}`}
             </p>
           </div>
           <button
@@ -241,56 +257,60 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
                 {Object.entries(availableSuppliers || {})
                   .filter(([name]) => !existingSuppliers.includes(name.toUpperCase()))
                   .map(([name, info]) => {
-                    const isAlreadyConfigured = existingSuppliers.includes(name.toUpperCase());
+                    const isAlreadyConfigured = existingSuppliers.includes(name.toUpperCase())
                     return (
                       <button
                         key={name}
                         onClick={() => !isAlreadyConfigured && handleSupplierSelection(name)}
                         disabled={isAlreadyConfigured}
                         className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                          isAlreadyConfigured 
+                          isAlreadyConfigured
                             ? 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 opacity-50 cursor-not-allowed'
                             : 'border-gray-200 dark:border-gray-600 hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700'
                         }`}
                       >
-                    <div className="flex items-center space-x-3">
-                      <Settings className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                      <div>
-                        <h3 className="font-medium text-gray-900 dark:text-white">
-                          {info.display_name}
-                          {isAlreadyConfigured && <span className="ml-2 text-xs text-yellow-600 dark:text-yellow-400">(Already Configured)</span>}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {info.description}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {info.capabilities.slice(0, 3).map((capability) => (
-                            <span 
-                              key={capability}
-                              className="inline-block px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded"
-                            >
-                              {capability.replace('_', ' ')}
-                            </span>
-                          ))}
-                          {info.capabilities.length > 3 && (
-                            <span className="inline-block px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
-                              +{info.capabilities.length - 3} more
-                            </span>
-                          )}
+                        <div className="flex items-center space-x-3">
+                          <Settings className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white">
+                              {info.display_name}
+                              {isAlreadyConfigured && (
+                                <span className="ml-2 text-xs text-yellow-600 dark:text-yellow-400">
+                                  (Already Configured)
+                                </span>
+                              )}
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                              {info.description}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {info.capabilities.slice(0, 3).map((capability) => (
+                                <span
+                                  key={capability}
+                                  className="inline-block px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded"
+                                >
+                                  {capability.replace('_', ' ')}
+                                </span>
+                              ))}
+                              {info.capabilities.length > 3 && (
+                                <span className="inline-block px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+                                  +{info.capabilities.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </button>
+                      </button>
                     )
                   })}
               </div>
 
               {(() => {
-                const suppliersCount = Object.keys(availableSuppliers || {}).length;
-                console.log('Render check - suppliers count:', suppliersCount);
-                console.log('Render check - availableSuppliers:', availableSuppliers);
-                console.log('Render check - loading:', loading);
-                
+                const suppliersCount = Object.keys(availableSuppliers || {}).length
+                console.log('Render check - suppliers count:', suppliersCount)
+                console.log('Render check - availableSuppliers:', availableSuppliers)
+                console.log('Render check - loading:', loading)
+
                 if (suppliersCount === 0 && !loading) {
                   return (
                     <div className="text-center py-8">
@@ -302,9 +322,9 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
                         No supplier implementations were found. Check your backend configuration.
                       </p>
                     </div>
-                  );
+                  )
                 }
-                return null;
+                return null
               })()}
             </div>
           ) : (
@@ -365,5 +385,5 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

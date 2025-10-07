@@ -1,59 +1,60 @@
-import React, { useCallback } from 'react';
-import { Upload, Eye, RefreshCw, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
-import { useOrderImport } from './hooks/useOrderImport';
-import { extractFilenameInfo } from '@/utils/filenameExtractor';
-import FileUpload from './FileUpload';
-import ImportProgress from './ImportProgress';
-import FilePreview from './FilePreview';
+import React, { useCallback } from 'react'
+import { Upload, Eye, RefreshCw, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import toast from 'react-hot-toast'
+import { useOrderImport } from './hooks/useOrderImport'
+import { extractFilenameInfo } from '@/utils/filenameExtractor'
+import FileUpload from './FileUpload'
+import ImportProgress from './ImportProgress'
+import FilePreview from './FilePreview'
 
 interface UnifiedFileImporterProps {
-  onImportComplete?: (result: any) => void;
-  parserType: string;
-  parserName: string;
-  description: string;
-  uploadedFile?: File | null;
-  filePreview?: any;
-  selectedEnrichmentCapabilities?: string[];
-  supplierCapabilities?: any;
+  onImportComplete?: (result: any) => void
+  parserType: string
+  parserName: string
+  description: string
+  uploadedFile?: File | null
+  filePreview?: any
+  selectedEnrichmentCapabilities?: string[]
+  supplierCapabilities?: any
 }
 
-const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({ 
-  onImportComplete, 
-  parserType, 
-  parserName, 
+const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
+  onImportComplete,
+  parserType,
+  parserName,
   description,
   uploadedFile,
   filePreview,
   selectedEnrichmentCapabilities,
-  supplierCapabilities 
+  supplierCapabilities,
 }) => {
   const validateFile = (file: File): boolean => {
-    const fileName = file.name.toLowerCase();
-    const isCsv = fileName.endsWith('.csv');
-    const isXls = fileName.endsWith('.xls') || fileName.endsWith('.xlsx');
+    const fileName = file.name.toLowerCase()
+    const isCsv = fileName.endsWith('.csv')
+    const isXls = fileName.endsWith('.xls') || fileName.endsWith('.xlsx')
 
     if (!isCsv && !isXls) {
-      toast.error('Please select a CSV or XLS file.');
-      return false;
+      toast.error('Please select a CSV or XLS file.')
+      return false
     }
 
-    if (file.size > 15 * 1024 * 1024) { // 15MB limit for all files
-      toast.error('File too large. Files should be smaller than 15MB.');
-      return false;
+    if (file.size > 15 * 1024 * 1024) {
+      // 15MB limit for all files
+      toast.error('File too large. Files should be smaller than 15MB.')
+      return false
     }
 
-    return true;
-  };
+    return true
+  }
 
   const extractOrderInfoFromFilename = useCallback(async (filename: string) => {
     console.log('[UnifiedFileImporter] extractOrderInfoFromFilename called with:', filename)
-    const fileInfo = extractFilenameInfo(filename);
+    const fileInfo = extractFilenameInfo(filename)
     console.log('[UnifiedFileImporter] fileInfo returned:', fileInfo)
     console.log('[UnifiedFileImporter] order_info to return:', fileInfo.order_info)
-    return fileInfo.order_info;
-  }, []);
+    return fileInfo.order_info
+  }, [])
 
   const orderImport = useOrderImport({
     parserType,
@@ -64,7 +65,7 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
     initialFile: uploadedFile,
     initialPreviewData: filePreview,
     selectedEnrichmentCapabilities,
-  });
+  })
 
   return (
     <div className="space-y-6">
@@ -78,7 +79,10 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
         </div>
       </div>
 
-      <ImportProgress showProgress={orderImport.showProgress} importProgress={orderImport.importProgress} />
+      <ImportProgress
+        showProgress={orderImport.showProgress}
+        importProgress={orderImport.importProgress}
+      />
 
       <FileUpload
         file={orderImport.file}
@@ -128,30 +132,39 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-2">Detected Parser</label>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    Detected Parser
+                  </label>
                   <div className="text-sm text-secondary">
-                    <p><strong>Type:</strong> {orderImport.previewData.detected_parser || 'Unknown'}</p>
-                    <p><strong>Rows:</strong> {orderImport.previewData.total_rows || 0}</p>
-                    <p><strong>Columns:</strong> {orderImport.previewData.headers?.length || 0}</p>
+                    <p>
+                      <strong>Type:</strong> {orderImport.previewData.detected_parser || 'Unknown'}
+                    </p>
+                    <p>
+                      <strong>Rows:</strong> {orderImport.previewData.total_rows || 0}
+                    </p>
+                    <p>
+                      <strong>Columns:</strong> {orderImport.previewData.headers?.length || 0}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {orderImport.previewData.validation_errors && orderImport.previewData.validation_errors.length > 0 && (
-                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-destructive">Validation Issues:</p>
-                      <ul className="text-sm text-destructive/80 mt-1">
-                        {orderImport.previewData.validation_errors.map((error, index) => (
-                          <li key={index}>• {error}</li>
-                        ))}
-                      </ul>
+              {orderImport.previewData.validation_errors &&
+                orderImport.previewData.validation_errors.length > 0 && (
+                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-destructive">Validation Issues:</p>
+                        <ul className="text-sm text-destructive/80 mt-1">
+                          {orderImport.previewData.validation_errors.map((error, index) => (
+                            <li key={index}>• {error}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
             <div className="card p-4">
@@ -175,9 +188,11 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-primary mb-2">
                     Order Date
-                    {orderImport.orderInfo.order_date && orderImport.orderInfo.order_date !== new Date().toISOString().split('T')[0] && (
-                      <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
-                    )}
+                    {orderImport.orderInfo.order_date &&
+                      orderImport.orderInfo.order_date !==
+                        new Date().toISOString().split('T')[0] && (
+                        <span className="ml-2 text-xs text-accent">✓ Auto-detected</span>
+                      )}
                   </label>
                   <input
                     type="date"
@@ -210,7 +225,10 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
               </button>
 
               <div className="flex gap-2">
-                <button onClick={orderImport.clearFile} className="btn btn-secondary flex items-center gap-2">
+                <button
+                  onClick={orderImport.clearFile}
+                  className="btn btn-secondary flex items-center gap-2"
+                >
                   <Trash2 className="w-4 h-4" />
                   Clear
                 </button>
@@ -229,12 +247,15 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
               </div>
             </div>
 
-            <FilePreview showPreview={orderImport.showPreview} previewData={orderImport.previewData} />
+            <FilePreview
+              showPreview={orderImport.showPreview}
+              previewData={orderImport.previewData}
+            />
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  );
-};
+  )
+}
 
-export default UnifiedFileImporter;
+export default UnifiedFileImporter

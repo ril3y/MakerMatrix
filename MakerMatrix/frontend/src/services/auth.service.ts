@@ -61,16 +61,14 @@ export class AuthService {
 
   hasRole(role: string): boolean {
     const user = this.getStoredUser()
-    return user?.roles?.some(r => r.name === role) || false
+    return user?.roles?.some((r) => r.name === role) || false
   }
 
   hasPermission(permission: string): boolean {
     const user = this.getStoredUser()
     if (!user?.roles) return false
-    
-    return user.roles.some(role => 
-      role.permissions?.includes(permission)
-    )
+
+    return user.roles.some((role) => role.permissions?.includes(permission))
   }
 }
 

@@ -1,7 +1,34 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeAll, afterAll } from 'vitest'
+import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { server } from './mocks/server'
+import { createElement } from 'react'
+
+// Global framer-motion mock
+vi.mock('framer-motion', () => {
+  const createMotionComponent = (tag: string) => {
+    return ({ children, ...props }: any) => createElement(tag, props, children)
+  }
+
+  return {
+    motion: {
+      div: createMotionComponent('div'),
+      button: createMotionComponent('button'),
+      span: createMotionComponent('span'),
+      p: createMotionComponent('p'),
+      a: createMotionComponent('a'),
+      form: createMotionComponent('form'),
+      li: createMotionComponent('li'),
+      ul: createMotionComponent('ul'),
+    },
+    AnimatePresence: ({ children }: any) => children,
+    useAnimation: () => ({
+      start: vi.fn(),
+      set: vi.fn(),
+    }),
+    useInView: () => true,
+  }
+})
 
 // Setup MSW
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
@@ -45,22 +72,30 @@ Object.defineProperty(window, 'matchMedia', {
 // Mock localStorage
 const localStorageMock = {
   getItem: (key: string) => localStorage[key] || null,
-  setItem: (key: string, value: string) => { localStorage[key] = value },
-  removeItem: (key: string) => { delete localStorage[key] },
+  setItem: (key: string, value: string) => {
+    localStorage[key] = value
+  },
+  removeItem: (key: string) => {
+    delete localStorage[key]
+  },
   clear: () => {
-    Object.keys(localStorage).forEach(key => delete localStorage[key])
-  }
+    Object.keys(localStorage).forEach((key) => delete localStorage[key])
+  },
 }
 Object.defineProperty(window, 'localStorage', { value: localStorageMock })
 
 // Mock sessionStorage
 const sessionStorageMock = {
   getItem: (key: string) => sessionStorage[key] || null,
-  setItem: (key: string, value: string) => { sessionStorage[key] = value },
-  removeItem: (key: string) => { delete sessionStorage[key] },
+  setItem: (key: string, value: string) => {
+    sessionStorage[key] = value
+  },
+  removeItem: (key: string) => {
+    delete sessionStorage[key]
+  },
   clear: () => {
-    Object.keys(sessionStorage).forEach(key => delete sessionStorage[key])
-  }
+    Object.keys(sessionStorage).forEach((key) => delete sessionStorage[key])
+  },
 }
 Object.defineProperty(window, 'sessionStorage', { value: sessionStorageMock })
 

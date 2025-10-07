@@ -5,7 +5,14 @@
  * with toast notifications for all entity changes.
  */
 
-import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react'
+import React, {
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useEffect,
+  useCallback,
+} from 'react'
 import toast from 'react-hot-toast'
 import { generalWebSocket, EntityEventData, WebSocketMessage } from '@/services/websocket.service'
 import { useAuthStore } from '@/store/authStore'
@@ -32,7 +39,7 @@ interface WebSocketProviderProps {
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
   enableToastsByDefault = true,
-  showConnectionStatus = true
+  showConnectionStatus = true,
 }) => {
   const [isConnected, setIsConnected] = useState(false)
   const [connectionState, setConnectionState] = useState('disconnected')
@@ -53,14 +60,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       toast.success('Connected to real-time updates', {
         duration: 2000,
         position: 'bottom-right',
-        icon: '🔗'
+        icon: '🔗',
       })
       setHasShownConnectionToast(true)
     } else if (showConnectionStatus && !connected && hasShownConnectionToast) {
       toast.error('Disconnected from real-time updates', {
         duration: 3000,
         position: 'bottom-right',
-        icon: '⚠️'
+        icon: '⚠️',
       })
       setHasShownConnectionToast(false)
     }
@@ -84,24 +91,30 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   }, [updateConnectionState])
 
   // Subscribe to events
-  const subscribe = useCallback((eventType: string, handler: (message: WebSocketMessage) => void) => {
-    generalWebSocket.on(eventType, handler)
-  }, [])
+  const subscribe = useCallback(
+    (eventType: string, handler: (message: WebSocketMessage) => void) => {
+      generalWebSocket.on(eventType, handler)
+    },
+    []
+  )
 
   // Unsubscribe from events
-  const unsubscribe = useCallback((eventType: string, handler: (message: WebSocketMessage) => void) => {
-    generalWebSocket.off(eventType, handler)
-  }, [])
+  const unsubscribe = useCallback(
+    (eventType: string, handler: (message: WebSocketMessage) => void) => {
+      generalWebSocket.off(eventType, handler)
+    },
+    []
+  )
 
   // Get friendly entity type name
   const getEntityTypeName = (entityType: string): string => {
     const names: Record<string, string> = {
-      'part': 'Part',
-      'location': 'Location',
-      'category': 'Category',
-      'order': 'Order',
-      'task': 'Task',
-      'user': 'User'
+      part: 'Part',
+      location: 'Location',
+      category: 'Category',
+      order: 'Order',
+      task: 'Task',
+      user: 'User',
     }
     return names[entityType] || entityType
   }
@@ -109,10 +122,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   // Get action verb
   const getActionVerb = (action: string): string => {
     const verbs: Record<string, string> = {
-      'created': 'created',
-      'updated': 'updated',
-      'deleted': 'deleted',
-      'bulk_updated': 'bulk updated'
+      created: 'created',
+      updated: 'updated',
+      deleted: 'deleted',
+      bulk_updated: 'bulk updated',
     }
     return verbs[action] || action
   }
@@ -120,94 +133,102 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   // Get toast icon for action
   const getActionIcon = (action: string): string => {
     const icons: Record<string, string> = {
-      'created': '✨',
-      'updated': '🔄',
-      'deleted': '🗑️',
-      'bulk_updated': '📦'
+      created: '✨',
+      updated: '🔄',
+      deleted: '🗑️',
+      bulk_updated: '📦',
     }
     return icons[action] || '📢'
   }
 
   // Handle CRUD events with toast notifications
-  const handleCrudEvent = useCallback((data: EntityEventData) => {
-    if (!enableToasts) return
+  const handleCrudEvent = useCallback(
+    (data: EntityEventData) => {
+      if (!enableToasts) return
 
-    // Don't show toast if the current user performed the action
-    // (the component that made the change already shows a toast)
-    if (data.username && user?.username && data.username === user.username) {
-      console.log('🔕 Skipping toast for own action:', data.action, data.entity_type, data.entity_name)
-      return
-    }
+      // Don't show toast if the current user performed the action
+      // (the component that made the change already shows a toast)
+      if (data.username && user?.username && data.username === user.username) {
+        console.log(
+          '🔕 Skipping toast for own action:',
+          data.action,
+          data.entity_type,
+          data.entity_name
+        )
+        return
+      }
 
-    const entityTypeName = getEntityTypeName(data.entity_type)
-    const actionVerb = getActionVerb(data.action)
-    const icon = getActionIcon(data.action)
+      const entityTypeName = getEntityTypeName(data.entity_type)
+      const actionVerb = getActionVerb(data.action)
+      const icon = getActionIcon(data.action)
 
-    // Build toast message
-    let message = `${entityTypeName} "${data.entity_name}" ${actionVerb}`
+      // Build toast message
+      let message = `${entityTypeName} "${data.entity_name}" ${actionVerb}`
 
-    // Add user context if available
-    if (data.username) {
-      message += ` by ${data.username}`
-    }
+      // Add user context if available
+      if (data.username) {
+        message += ` by ${data.username}`
+      }
 
-    // Show toast based on action type
-    switch (data.action) {
-      case 'created':
-        toast.success(message, {
-          duration: 3000,
-          position: 'bottom-right',
-          icon
-        })
-        break
+      // Show toast based on action type
+      switch (data.action) {
+        case 'created':
+          toast.success(message, {
+            duration: 3000,
+            position: 'bottom-right',
+            icon,
+          })
+          break
 
-      case 'updated':
-        // Show change details if available
-        let changeDetails = ''
-        if (data.changes && Object.keys(data.changes).length > 0) {
-          const changeCount = Object.keys(data.changes).length
-          changeDetails = ` (${changeCount} field${changeCount > 1 ? 's' : ''} changed)`
-        }
-
-        toast(message + changeDetails, {
-          duration: 3000,
-          position: 'bottom-right',
-          icon,
-          style: {
-            background: '#3b82f6',
-            color: '#fff'
+        case 'updated':
+          // Show change details if available
+          let changeDetails = ''
+          if (data.changes && Object.keys(data.changes).length > 0) {
+            const changeCount = Object.keys(data.changes).length
+            changeDetails = ` (${changeCount} field${changeCount > 1 ? 's' : ''} changed)`
           }
-        })
-        break
 
-      case 'deleted':
-        toast.error(message, {
-          duration: 3000,
-          position: 'bottom-right',
-          icon
-        })
-        break
+          toast(message + changeDetails, {
+            duration: 3000,
+            position: 'bottom-right',
+            icon,
+            style: {
+              background: '#3b82f6',
+              color: '#fff',
+            },
+          })
+          break
 
-      case 'bulk_updated':
-        // Special handling for bulk operations
-        const count = data.details?.updated_count || 0
-        const bulkMessage = `${count} ${entityTypeName.toLowerCase()}${count !== 1 ? 's' : ''} ${actionVerb}`
+        case 'deleted':
+          toast.error(message, {
+            duration: 3000,
+            position: 'bottom-right',
+            icon,
+          })
+          break
 
-        toast.success(bulkMessage, {
-          duration: 4000,
-          position: 'bottom-right',
-          icon
-        })
-        break
+        case 'bulk_updated':
+          // Special handling for bulk operations
+          const count = data.details?.updated_count || 0
+          const bulkMessage = `${count} ${entityTypeName.toLowerCase()}${count !== 1 ? 's' : ''} ${actionVerb}`
 
-      default:
-        toast(message, {
-          duration: 3000,
-          position: 'bottom-right',
-          icon
-        })
-    }
-  }, [enableToasts, user?.username])
+          toast.success(bulkMessage, {
+            duration: 4000,
+            position: 'bottom-right',
+            icon,
+          })
+          break
+
+        default:
+          toast(message, {
+            duration: 3000,
+            position: 'bottom-right',
+            icon,
+          })
+      }
+    },
+    [enableToasts, user?.username]
+  )
 
   // Set up event listeners on mount
   useEffect(() => {
@@ -257,14 +278,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     subscribe,
     unsubscribe,
     enableToasts,
-    setEnableToasts
+    setEnableToasts,
   }
 
-  return (
-    <WebSocketContext.Provider value={value}>
-      {children}
-    </WebSocketContext.Provider>
-  )
+  return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>
 }
 
 /**

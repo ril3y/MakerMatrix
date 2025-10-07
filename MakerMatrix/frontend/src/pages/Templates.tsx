@@ -24,7 +24,7 @@ const Templates = () => {
       console.log('Loading templates...')
       const [system, user] = await Promise.all([
         templateService.getSystemTemplates(),
-        templateService.getUserTemplates()
+        templateService.getUserTemplates(),
       ])
 
       console.log('Raw API responses:', { system, user })
@@ -33,12 +33,14 @@ const Templates = () => {
       const systemArray = Array.isArray(system) ? system : []
       const userArray = Array.isArray(user) ? user : []
 
-      console.log(`Loaded ${systemArray.length} system templates, ${userArray.length} user templates`)
+      console.log(
+        `Loaded ${systemArray.length} system templates, ${userArray.length} user templates`
+      )
 
       // Deduplicate templates by ID
       const deduplicateById = (templates: LabelTemplate[]) => {
         const seen = new Set<string>()
-        return templates.filter(template => {
+        return templates.filter((template) => {
           if (seen.has(template.id)) {
             console.warn(`Duplicate template found: ${template.display_name} (${template.id})`)
             return false
@@ -124,11 +126,12 @@ const Templates = () => {
     return parts.join(' + ')
   }
 
-  const filteredTemplates = selectedCategory === 'all'
-    ? templates
-    : selectedCategory === 'system'
-    ? systemTemplates
-    : userTemplates
+  const filteredTemplates =
+    selectedCategory === 'all'
+      ? templates
+      : selectedCategory === 'system'
+        ? systemTemplates
+        : userTemplates
 
   return (
     <div className="max-w-screen-2xl space-y-6">
@@ -216,8 +219,7 @@ const Templates = () => {
                 • Logging out and back in
                 <br />
                 • Checking browser console (F12) for errors
-                <br />
-                • Or use "Create Template" to make your own
+                <br />• Or use "Create Template" to make your own
               </p>
             </div>
           )}
@@ -246,9 +248,7 @@ const Templates = () => {
               </div>
 
               {/* Description */}
-              <p className="text-sm text-secondary mb-3 line-clamp-2">
-                {template.description}
-              </p>
+              <p className="text-sm text-secondary mb-3 line-clamp-2">{template.description}</p>
 
               {/* Template Details */}
               <div className="space-y-2 mb-4">
@@ -317,9 +317,15 @@ const Templates = () => {
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h4 className="font-semibold text-blue-900 mb-2">💡 Quick Tips</h4>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• <strong>System Templates</strong> are pre-designed and ready to use</li>
-          <li>• <strong>Duplicate</strong> a system template to customize it for your needs</li>
-          <li>• <strong>12mm × 39mm</strong> template with QR code is the "MakerMatrix 12mm Box Label"</li>
+          <li>
+            • <strong>System Templates</strong> are pre-designed and ready to use
+          </li>
+          <li>
+            • <strong>Duplicate</strong> a system template to customize it for your needs
+          </li>
+          <li>
+            • <strong>12mm × 39mm</strong> template with QR code is the "MakerMatrix 12mm Box Label"
+          </li>
           <li>• Templates are automatically suggested based on your part data when printing</li>
         </ul>
       </div>

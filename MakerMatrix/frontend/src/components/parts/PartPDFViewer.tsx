@@ -111,12 +111,8 @@ const PartPDFViewer = ({ isOpen, onClose, datasheet }: PartPDFViewerProps) => {
               <div className="absolute inset-0 flex items-center justify-center bg-bg-primary">
                 <div className="text-center">
                   <FileText className="w-12 h-12 text-red-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-primary mb-2">
-                    Failed to Load PDF
-                  </h3>
-                  <p className="text-secondary mb-4">
-                    The PDF document could not be displayed.
-                  </p>
+                  <h3 className="text-lg font-semibold text-primary mb-2">Failed to Load PDF</h3>
+                  <p className="text-secondary mb-4">The PDF document could not be displayed.</p>
                   <div className="flex gap-2 justify-center">
                     <button
                       onClick={downloadDatasheet}

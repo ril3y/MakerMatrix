@@ -1,5 +1,40 @@
 import { motion } from 'framer-motion'
-import { Package, Edit, Trash2, Tag, MapPin, Calendar, ArrowLeft, ExternalLink, Hash, Box, Image, Info, Zap, Settings, Globe, BookOpen, Clock, FileText, Download, Eye, Printer, TrendingUp, DollarSign, Copy, Check, Factory, Cpu, Leaf, AlertCircle, Layers, ShieldCheck, Plus, ChevronDown, ArrowRightLeft } from 'lucide-react'
+import {
+  Package,
+  Edit,
+  Trash2,
+  Tag,
+  MapPin,
+  Calendar,
+  ArrowLeft,
+  ExternalLink,
+  Hash,
+  Box,
+  Image,
+  Info,
+  Zap,
+  Settings,
+  Globe,
+  BookOpen,
+  Clock,
+  FileText,
+  Download,
+  Eye,
+  Printer,
+  TrendingUp,
+  DollarSign,
+  Copy,
+  Check,
+  Factory,
+  Cpu,
+  Leaf,
+  AlertCircle,
+  Layers,
+  ShieldCheck,
+  Plus,
+  ChevronDown,
+  ArrowRightLeft,
+} from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -34,15 +69,15 @@ import { Location } from '@/types/locations'
 // Icon mapping for property explorer
 const getIconForProperty = (propertyKey: string) => {
   const iconMapping = {
-    'specifications': Zap,
-    'supplier_data': Globe,
-    'metadata': Clock,
-    'order_data': DollarSign,
-    'pricing_data': DollarSign,
-    'compliance': ShieldCheck,
-    'custom_fields': Settings,
-    'enrichment': BookOpen,
-    'order_history': TrendingUp,
+    specifications: Zap,
+    supplier_data: Globe,
+    metadata: Clock,
+    order_data: DollarSign,
+    pricing_data: DollarSign,
+    compliance: ShieldCheck,
+    custom_fields: Settings,
+    enrichment: BookOpen,
+    order_history: TrendingUp,
   }
   return iconMapping[propertyKey.toLowerCase()] || Info
 }
@@ -62,9 +97,7 @@ const countPropertyLeaves = (value: any): number => {
 
 const formatEnumValue = (value?: string | null) => {
   if (!value) return 'Not set'
-  return value
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase())
+  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 const isIsoDateString = (value: string) => /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)
@@ -116,13 +149,17 @@ const PartDetailsPage = () => {
 
   // Transfer modal state
   const [transferModalOpen, setTransferModalOpen] = useState(false)
-  const [selectedSourceAllocation, setSelectedSourceAllocation] = useState<PartAllocation | null>(null)
+  const [selectedSourceAllocation, setSelectedSourceAllocation] = useState<PartAllocation | null>(
+    null
+  )
 
   // Location modals state
   const [locationManagementModalOpen, setLocationManagementModalOpen] = useState(false)
   const [locationPickerModalOpen, setLocationPickerModalOpen] = useState(false)
   const [addLocationModalOpen, setAddLocationModalOpen] = useState(false)
-  const [selectedLocationForPicker, setSelectedLocationForPicker] = useState<string | undefined>(undefined)
+  const [selectedLocationForPicker, setSelectedLocationForPicker] = useState<string | undefined>(
+    undefined
+  )
 
   // Debug copy state
   const [debugCopied, setDebugCopied] = useState(false)
@@ -144,7 +181,7 @@ const PartDetailsPage = () => {
   // Update selected categories when part changes
   useEffect(() => {
     if (part?.categories) {
-      setSelectedCategoryIds(part.categories.map(cat => cat.id))
+      setSelectedCategoryIds(part.categories.map((cat) => cat.id))
     }
   }, [part?.categories])
 
@@ -172,8 +209,9 @@ const PartDetailsPage = () => {
         try {
           const suppliers = await supplierService.getSuppliers()
           const config = suppliers.find(
-            s => s.supplier_name.toLowerCase() === response.supplier?.toLowerCase() ||
-                 s.display_name.toLowerCase() === response.supplier?.toLowerCase()
+            (s) =>
+              s.supplier_name.toLowerCase() === response.supplier?.toLowerCase() ||
+              s.display_name.toLowerCase() === response.supplier?.toLowerCase()
           )
           setSupplierConfig(config || null)
         } catch (err) {
@@ -254,7 +292,7 @@ const PartDetailsPage = () => {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -290,7 +328,7 @@ const PartDetailsPage = () => {
     try {
       const updateData = {
         id: part.id,
-        [field]: value
+        [field]: value,
       }
       const updatedPart = await partsService.updatePart(updateData)
 
@@ -363,10 +401,8 @@ const PartDetailsPage = () => {
   }
 
   const handleToggleCategory = (categoryId: string) => {
-    setSelectedCategoryIds(prev =>
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
     )
   }
 
@@ -375,12 +411,12 @@ const PartDetailsPage = () => {
 
     try {
       setSaving(true)
-      const selectedCategories = allCategories.filter(cat => selectedCategoryIds.includes(cat.id))
+      const selectedCategories = allCategories.filter((cat) => selectedCategoryIds.includes(cat.id))
 
       // Update part with new categories
       await partsService.updatePart({
         id: id,
-        categories: selectedCategories.map(cat => cat.name)
+        categories: selectedCategories.map((cat) => cat.name),
       })
 
       // Refresh the part to get updated data
@@ -454,7 +490,7 @@ const PartDetailsPage = () => {
     try {
       // Get the part's allocations to find the primary allocation
       const allocations = await partAllocationService.getPartAllocations(part.id)
-      const primaryAllocation = allocations.allocations.find(a => a.is_primary_storage)
+      const primaryAllocation = allocations.allocations.find((a) => a.is_primary_storage)
 
       if (primaryAllocation) {
         setSelectedSourceAllocation(primaryAllocation)
@@ -513,7 +549,7 @@ const PartDetailsPage = () => {
       setSaving(true)
       await partsService.updatePart({
         id: part.id,
-        supplier: tempSupplier || undefined
+        supplier: tempSupplier || undefined,
       })
       // Reload part to get updated data
       if (id) {
@@ -592,7 +628,8 @@ const PartDetailsPage = () => {
                 Part Not Found
               </h3>
               <p className="text-theme-secondary mb-8 font-theme-primary max-w-md mx-auto">
-                The requested part could not be found. It may have been deleted or the link may be incorrect.
+                The requested part could not be found. It may have been deleted or the link may be
+                incorrect.
               </p>
               <button
                 onClick={() => navigate('/parts')}
@@ -610,7 +647,10 @@ const PartDetailsPage = () => {
 
   const additionalProps = part.additional_properties || {}
   const propertyLeafCount = countPropertyLeaves(additionalProps)
-  const lastEnrichmentIso = additionalProps?.metadata?.last_enrichment || additionalProps?.last_enrichment || additionalProps?.last_enrichment_date
+  const lastEnrichmentIso =
+    additionalProps?.metadata?.last_enrichment ||
+    additionalProps?.last_enrichment ||
+    additionalProps?.last_enrichment_date
   const lastEnrichmentDisplay = formatDateTime(lastEnrichmentIso)
 
   // Simple check if we have additional properties to display
@@ -736,20 +776,21 @@ const PartDetailsPage = () => {
 
                     {/* Part Status Indicators */}
                     <div className="space-y-2">
-                      <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                        part.minimum_quantity && part.quantity <= part.minimum_quantity
-                          ? 'bg-error text-theme-inverse'
-                          : part.quantity > 0
-                          ? 'bg-success text-theme-inverse'
-                          : 'bg-warning text-theme-inverse'
-                      }`}>
+                      <div
+                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                          part.minimum_quantity && part.quantity <= part.minimum_quantity
+                            ? 'bg-error text-theme-inverse'
+                            : part.quantity > 0
+                              ? 'bg-success text-theme-inverse'
+                              : 'bg-warning text-theme-inverse'
+                        }`}
+                      >
                         <Box className="w-4 h-4" />
                         {part.minimum_quantity && part.quantity <= part.minimum_quantity
                           ? `Low Stock (${part.quantity} remaining)`
                           : part.quantity > 0
-                          ? `In Stock (${part.quantity} available)`
-                          : 'Out of Stock (0 available)'
-                        }
+                            ? `In Stock (${part.quantity} available)`
+                            : 'Out of Stock (0 available)'}
                       </div>
 
                       {part.lifecycle_status && (
@@ -773,7 +814,9 @@ const PartDetailsPage = () => {
                     {partAllocations.length <= 1 && part.location && (
                       <button
                         onClick={() => {
-                          const primaryAllocation = partAllocations.find(a => a.is_primary_storage)
+                          const primaryAllocation = partAllocations.find(
+                            (a) => a.is_primary_storage
+                          )
                           if (primaryAllocation) {
                             handleTransferClick(primaryAllocation)
                           }
@@ -790,16 +833,25 @@ const PartDetailsPage = () => {
                       {/* Quantity */}
                       <div
                         className={`bg-theme-secondary border border-theme-primary rounded-lg p-5 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
-                        onClick={canUpdate('parts') ? () => startEditing('quantity', part.quantity.toString()) : undefined}
+                        onClick={
+                          canUpdate('parts')
+                            ? () => startEditing('quantity', part.quantity.toString())
+                            : undefined
+                        }
                       >
                         <div className="flex items-start gap-4">
                           <div className="p-3 bg-primary-10 rounded-lg shrink-0">
                             <Box className="w-6 h-6 text-primary-accent" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-theme-secondary mb-2">Quantity in Stock</p>
+                            <p className="text-sm font-medium text-theme-secondary mb-2">
+                              Quantity in Stock
+                            </p>
                             {editingField === 'quantity' ? (
-                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <div
+                                className="flex items-center gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <input
                                   type="number"
                                   value={editingValue}
@@ -827,19 +879,23 @@ const PartDetailsPage = () => {
                               </div>
                             ) : (
                               <div className="space-y-1">
-                                <p className={`font-bold text-2xl ${
-                                  part.minimum_quantity && part.quantity <= part.minimum_quantity
-                                    ? 'text-error'
-                                    : 'text-theme-primary'
-                                }`}>
+                                <p
+                                  className={`font-bold text-2xl ${
+                                    part.minimum_quantity && part.quantity <= part.minimum_quantity
+                                      ? 'text-error'
+                                      : 'text-theme-primary'
+                                  }`}
+                                >
                                   {part.quantity.toLocaleString()}
                                 </p>
                                 {part.minimum_quantity && (
-                                  <span className={`text-sm px-2 py-1 rounded inline-block ${
-                                    part.quantity <= part.minimum_quantity
-                                      ? 'bg-error/20 text-error'
-                                      : 'bg-theme-tertiary text-theme-muted'
-                                  }`}>
+                                  <span
+                                    className={`text-sm px-2 py-1 rounded inline-block ${
+                                      part.quantity <= part.minimum_quantity
+                                        ? 'bg-error/20 text-error'
+                                        : 'bg-theme-tertiary text-theme-muted'
+                                    }`}
+                                  >
                                     Min: {part.minimum_quantity}
                                     {part.quantity <= part.minimum_quantity && ' ⚠️'}
                                   </span>
@@ -861,7 +917,9 @@ const PartDetailsPage = () => {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <p className="text-sm font-medium text-theme-secondary">Primary Location</p>
+                              <p className="text-sm font-medium text-theme-secondary">
+                                Primary Location
+                              </p>
                               {!part.location && (
                                 <span className="text-xs bg-warning/20 text-warning px-2 py-1 rounded">
                                   Not set
@@ -879,7 +937,9 @@ const PartDetailsPage = () => {
                                   </p>
                                 </div>
                                 {part.location.description && (
-                                  <p className="text-xs text-theme-muted">{part.location.description}</p>
+                                  <p className="text-xs text-theme-muted">
+                                    {part.location.description}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -903,7 +963,9 @@ const PartDetailsPage = () => {
                           </h4>
                           <button
                             onClick={() => {
-                              const primaryAllocation = partAllocations.find(a => a.is_primary_storage)
+                              const primaryAllocation = partAllocations.find(
+                                (a) => a.is_primary_storage
+                              )
                               if (primaryAllocation) {
                                 handleTransferClick(primaryAllocation)
                               }
@@ -922,7 +984,9 @@ const PartDetailsPage = () => {
                               className="flex items-center justify-between p-3 bg-theme-secondary rounded-lg border border-theme-primary hover:bg-theme-tertiary transition-colors"
                             >
                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <MapPin className={`w-4 h-4 flex-shrink-0 ${allocation.is_primary_storage ? 'text-primary' : 'text-theme-muted'}`} />
+                                <MapPin
+                                  className={`w-4 h-4 flex-shrink-0 ${allocation.is_primary_storage ? 'text-primary' : 'text-theme-muted'}`}
+                                />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium text-theme-primary truncate">
@@ -935,7 +999,9 @@ const PartDetailsPage = () => {
                                     )}
                                   </div>
                                   {allocation.notes && (
-                                    <p className="text-xs text-theme-muted truncate">{allocation.notes}</p>
+                                    <p className="text-xs text-theme-muted truncate">
+                                      {allocation.notes}
+                                    </p>
                                   )}
                                 </div>
                               </div>
@@ -965,16 +1031,25 @@ const PartDetailsPage = () => {
                     {/* Part Number Field */}
                     <div
                       className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
-                      onClick={canUpdate('parts') ? () => startEditing('part_number', part.part_number || '') : undefined}
+                      onClick={
+                        canUpdate('parts')
+                          ? () => startEditing('part_number', part.part_number || '')
+                          : undefined
+                      }
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <Hash className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">Part Number</p>
+                          <p className="text-sm font-medium text-theme-secondary mb-1">
+                            Part Number
+                          </p>
                           {editingField === 'part_number' ? (
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <div
+                              className="flex items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <input
                                 type="text"
                                 value={editingValue}
@@ -1000,36 +1075,36 @@ const PartDetailsPage = () => {
                                 ✕
                               </button>
                             </div>
+                          ) : part.part_number ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                copyToClipboard(part.part_number!, 'part_number')
+                              }}
+                              className="group hover:bg-primary-10 rounded-lg px-2 py-1 transition-all flex items-center gap-2 min-w-0"
+                              title="Click to copy part number"
+                            >
+                              <p className="font-theme-mono font-semibold text-theme-primary truncate">
+                                {part.part_number}
+                              </p>
+                              {copiedPartNumber ? (
+                                <Check className="w-4 h-4 text-success shrink-0" />
+                              ) : (
+                                <Copy className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                              )}
+                            </button>
                           ) : (
-                            part.part_number ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  copyToClipboard(part.part_number!, 'part_number')
-                                }}
-                                className="group hover:bg-primary-10 rounded-lg px-2 py-1 transition-all flex items-center gap-2 min-w-0"
-                                title="Click to copy part number"
-                              >
-                                <p className="font-theme-mono font-semibold text-theme-primary truncate">
-                                  {part.part_number}
-                                </p>
-                                {copiedPartNumber ? (
-                                  <Check className="w-4 h-4 text-success shrink-0" />
-                                ) : (
-                                  <Copy className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                )}
-                              </button>
-                            ) : (
-                              <p className="font-semibold text-theme-muted">Not set</p>
-                            )
+                            <p className="font-semibold text-theme-muted">Not set</p>
                           )}
                         </div>
                       </div>
                     </div>
 
                     {/* Supplier Field */}
-                    <div className={`group bg-theme-secondary border border-theme-primary rounded-lg p-4 ${canUpdate && !editingSupplier ? 'hover:bg-theme-tertiary cursor-pointer' : ''} transition-colors`}
-                         onClick={!editingSupplier ? handleSupplierClick : undefined}>
+                    <div
+                      className={`group bg-theme-secondary border border-theme-primary rounded-lg p-4 ${canUpdate && !editingSupplier ? 'hover:bg-theme-tertiary cursor-pointer' : ''} transition-colors`}
+                      onClick={!editingSupplier ? handleSupplierClick : undefined}
+                    >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-primary-10 rounded-lg shrink-0">
                           <Tag className="w-4 h-4 text-primary-accent" />
@@ -1072,7 +1147,9 @@ const PartDetailsPage = () => {
                                     }}
                                   />
                                 )}
-                                <p className="font-semibold text-theme-primary">{part.supplier || 'Not set'}</p>
+                                <p className="font-semibold text-theme-primary">
+                                  {part.supplier || 'Not set'}
+                                </p>
                                 {canUpdate && (
                                   <Edit className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                                 )}
@@ -1104,7 +1181,9 @@ const PartDetailsPage = () => {
                           <Factory className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">Manufacturer</p>
+                          <p className="text-sm font-medium text-theme-secondary mb-1">
+                            Manufacturer
+                          </p>
                           <p className="font-semibold text-theme-primary">
                             {part.manufacturer || 'Not set'}
                           </p>
@@ -1119,14 +1198,15 @@ const PartDetailsPage = () => {
                           <Cpu className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">Manufacturer Part Number</p>
+                          <p className="text-sm font-medium text-theme-secondary mb-1">
+                            Manufacturer Part Number
+                          </p>
                           <p className="font-theme-mono font-semibold text-theme-primary">
                             {part.manufacturer_part_number || 'Not set'}
                           </p>
                         </div>
                       </div>
                     </div>
-
 
                     {/* Created Date Field */}
                     <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
@@ -1136,7 +1216,9 @@ const PartDetailsPage = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-theme-secondary mb-1">Created</p>
-                          <p className="font-medium text-theme-primary">{formatDate(part.created_at)}</p>
+                          <p className="font-medium text-theme-primary">
+                            {formatDate(part.created_at)}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1148,8 +1230,12 @@ const PartDetailsPage = () => {
                           <Calendar className="w-4 h-4 text-primary-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-theme-secondary mb-1">Last Updated</p>
-                          <p className="font-medium text-theme-primary">{formatDate(part.updated_at)}</p>
+                          <p className="text-sm font-medium text-theme-secondary mb-1">
+                            Last Updated
+                          </p>
+                          <p className="font-medium text-theme-primary">
+                            {formatDate(part.updated_at)}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1239,6 +1325,69 @@ const PartDetailsPage = () => {
             </div>
           </motion.div>
 
+          {/* Enhanced Projects Section - Always Visible */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
+          >
+            <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
+                  <div className="p-2 bg-purple-600/10 rounded-lg">
+                    <Hash className="w-5 h-5 text-purple-400" />
+                  </div>
+                  Projects
+                  <span className="text-sm bg-purple-600/10 text-purple-400 px-3 py-1 rounded-full font-medium">
+                    {part.projects?.length || 0}
+                  </span>
+                </h2>
+
+                <button
+                  onClick={() => navigate(`/parts/${part.id}/edit`)}
+                  className="btn btn-primary btn-sm flex items-center gap-2"
+                  title="Edit part to manage projects"
+                >
+                  <Edit className="w-4 h-4" />
+                  Manage Projects
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {part.projects && part.projects.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {part.projects.map((project) => (
+                    <span
+                      key={project.id}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600/10 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-600/20 transition-colors border border-purple-600/30 cursor-pointer"
+                      onClick={() => navigate(`/projects`)}
+                      title="Click to view all projects"
+                    >
+                      <Hash className="w-4 h-4" />
+                      {project.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Hash className="w-12 h-12 text-theme-muted mx-auto mb-3" />
+                  <p className="text-theme-muted text-sm mb-4">
+                    No projects assigned to this part yet.
+                  </p>
+                  <button
+                    onClick={() => navigate(`/parts/${part.id}/edit`)}
+                    className="btn btn-primary btn-sm flex items-center gap-2 mx-auto"
+                  >
+                    <Hash className="w-4 h-4" />
+                    Assign to Project
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
           {/* Enhanced Description Section */}
           {part.description && (
             <motion.div
@@ -1258,7 +1407,11 @@ const PartDetailsPage = () => {
               <div className="p-6">
                 <div
                   className={`bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors ${canUpdate('parts') ? 'cursor-pointer' : ''}`}
-                  onClick={canUpdate('parts') ? () => startEditing('description', part.description || '') : undefined}
+                  onClick={
+                    canUpdate('parts')
+                      ? () => startEditing('description', part.description || '')
+                      : undefined
+                  }
                 >
                   {editingField === 'description' ? (
                     <div onClick={(e) => e.stopPropagation()}>
@@ -1299,703 +1452,738 @@ const PartDetailsPage = () => {
             </motion.div>
           )}
 
-      {/* Datasheets Section */}
-      {((part.datasheets && part.datasheets.length > 0) || part.additional_properties?.datasheet_url || (part.additional_properties?.datasheet_downloaded && part.additional_properties?.datasheet_filename)) && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="card"
-        >
-          <div className="card-header">
-            <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Datasheets
-              <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
-                {(part.datasheets?.length || 0) + (part.additional_properties?.datasheet_url ? 1 : 0) + (part.additional_properties?.datasheet_downloaded && part.additional_properties?.datasheet_filename ? 1 : 0)} file{((part.datasheets?.length || 0) + (part.additional_properties?.datasheet_url ? 1 : 0) + (part.additional_properties?.datasheet_downloaded && part.additional_properties?.datasheet_filename ? 1 : 0)) !== 1 ? 's' : ''}
-              </span>
-            </h2>
-          </div>
-          <div className="card-content">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Existing downloaded datasheets */}
-              {part.datasheets?.map((datasheet) => (
-                <div
-                  key={datasheet.id}
-                  className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-primary truncate">
-                          {datasheet.title || datasheet.original_filename || datasheet.filename}
-                        </h3>
-                        {datasheet.supplier && (
-                          <p className="text-xs text-secondary">{datasheet.supplier}</p>
+          {/* Datasheets Section */}
+          {((part.datasheets && part.datasheets.length > 0) ||
+            part.additional_properties?.datasheet_url ||
+            (part.additional_properties?.datasheet_downloaded &&
+              part.additional_properties?.datasheet_filename)) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="card"
+            >
+              <div className="card-header">
+                <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Datasheets
+                  <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
+                    {(part.datasheets?.length || 0) +
+                      (part.additional_properties?.datasheet_url ? 1 : 0) +
+                      (part.additional_properties?.datasheet_downloaded &&
+                      part.additional_properties?.datasheet_filename
+                        ? 1
+                        : 0)}{' '}
+                    file
+                    {(part.datasheets?.length || 0) +
+                      (part.additional_properties?.datasheet_url ? 1 : 0) +
+                      (part.additional_properties?.datasheet_downloaded &&
+                      part.additional_properties?.datasheet_filename
+                        ? 1
+                        : 0) !==
+                    1
+                      ? 's'
+                      : ''}
+                  </span>
+                </h2>
+              </div>
+              <div className="card-content">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Existing downloaded datasheets */}
+                  {part.datasheets?.map((datasheet) => (
+                    <div
+                      key={datasheet.id}
+                      className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <h3 className="font-medium text-primary truncate">
+                              {datasheet.title || datasheet.original_filename || datasheet.filename}
+                            </h3>
+                            {datasheet.supplier && (
+                              <p className="text-xs text-secondary">{datasheet.supplier}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className={`px-2 py-1 rounded text-xs ${
+                            datasheet.is_downloaded
+                              ? 'bg-green-500/10 text-green-400'
+                              : 'bg-yellow-500/10 text-yellow-400'
+                          }`}
+                        >
+                          {datasheet.is_downloaded ? 'Downloaded' : 'Pending'}
+                        </div>
+                      </div>
+
+                      {datasheet.description && (
+                        <p className="text-sm text-secondary mb-3 line-clamp-2">
+                          {datasheet.description}
+                        </p>
+                      )}
+
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between text-xs text-muted">
+                          <span>Size:</span>
+                          <span>{formatFileSize(datasheet.file_size)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted">
+                          <span>Added:</span>
+                          <span>{formatDate(datasheet.created_at)}</span>
+                        </div>
+                        {datasheet.source_url && (
+                          <div className="flex justify-between text-xs text-muted">
+                            <span>Source:</span>
+                            <a
+                              href={datasheet.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:text-primary-dark flex items-center gap-1"
+                            >
+                              <span className="truncate max-w-20">Original</span>
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            </a>
+                          </div>
                         )}
                       </div>
-                    </div>
-                    <div className={`px-2 py-1 rounded text-xs ${
-                      datasheet.is_downloaded 
-                        ? 'bg-green-500/10 text-green-400' 
-                        : 'bg-yellow-500/10 text-yellow-400'
-                    }`}>
-                      {datasheet.is_downloaded ? 'Downloaded' : 'Pending'}
-                    </div>
-                  </div>
 
-                  {datasheet.description && (
-                    <p className="text-sm text-secondary mb-3 line-clamp-2">
-                      {datasheet.description}
-                    </p>
-                  )}
+                      {datasheet.is_downloaded ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => viewDatasheet(datasheet)}
+                            className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </button>
+                          <button
+                            onClick={() => downloadDatasheet(datasheet)}
+                            className="btn btn-secondary text-sm flex items-center justify-center"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center py-2">
+                          <p className="text-sm text-muted">
+                            {datasheet.download_error
+                              ? `Download failed: ${datasheet.download_error}`
+                              : 'Download pending...'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
 
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-xs text-muted">
-                      <span>Size:</span>
-                      <span>{formatFileSize(datasheet.file_size)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted">
-                      <span>Added:</span>
-                      <span>{formatDate(datasheet.created_at)}</span>
-                    </div>
-                    {datasheet.source_url && (
-                      <div className="flex justify-between text-xs text-muted">
-                        <span>Source:</span>
-                        <a
-                          href={datasheet.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:text-primary-dark flex items-center gap-1"
-                        >
-                          <span className="truncate max-w-20">Original</span>
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                        </a>
+                  {/* Downloaded datasheet from additional_properties */}
+                  {part.additional_properties?.datasheet_downloaded &&
+                    part.additional_properties?.datasheet_filename && (
+                      <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <h3 className="font-medium text-primary truncate">
+                                Downloaded Datasheet
+                              </h3>
+                              <p className="text-xs text-secondary">
+                                {part.supplier || 'Unknown Supplier'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-400">
+                            Local
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-secondary mb-3 line-clamp-2">
+                          Datasheet downloaded during enrichment
+                        </p>
+
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between text-xs text-muted">
+                            <span>Size:</span>
+                            <span>
+                              {((part.additional_properties.datasheet_size || 0) / 1024).toFixed(1)}{' '}
+                              KB
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted">
+                            <span>Status:</span>
+                            <span>Downloaded</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              const url = `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
+                              setPdfPreviewUrl(url)
+                              setPdfPreviewOpen(true)
+                            }}
+                            className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View PDF
+                          </button>
+                          <button
+                            onClick={() => {
+                              const url = `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
+                              const link = document.createElement('a')
+                              link.href = url
+                              link.download =
+                                part.additional_properties.datasheet_filename || 'datasheet.pdf'
+                              document.body.appendChild(link)
+                              link.click()
+                              document.body.removeChild(link)
+                            }}
+                            className="btn btn-secondary text-sm flex items-center justify-center"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     )}
-                  </div>
 
-                  {datasheet.is_downloaded ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => viewDatasheet(datasheet)}
-                        className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
-                      <button
-                        onClick={() => downloadDatasheet(datasheet)}
-                        className="btn btn-secondary text-sm flex items-center justify-center"
-                        title="Download"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-2">
-                      <p className="text-sm text-muted">
-                        {datasheet.download_error 
-                          ? `Download failed: ${datasheet.download_error}`
-                          : 'Download pending...'
-                        }
+                  {/* Enriched datasheet URL from additional_properties */}
+                  {part.additional_properties?.datasheet_url && (
+                    <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <h3 className="font-medium text-primary truncate">
+                              Supplier Datasheet
+                            </h3>
+                            <p className="text-xs text-secondary">
+                              {part.supplier || 'Unknown Supplier'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="px-2 py-1 rounded text-xs bg-blue-500/10 text-blue-400">
+                          Online
+                        </div>
+                      </div>
+
+                      <p className="text-sm text-secondary mb-3 line-clamp-2">
+                        Official datasheet from supplier website
                       </p>
+
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between text-xs text-muted">
+                          <span>Source:</span>
+                          <span>Supplier API</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted">
+                          <span>Type:</span>
+                          <span>External Link</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openPDFPreview(part.additional_properties.datasheet_url)}
+                          className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Preview PDF
+                        </button>
+                        <a
+                          href={part.additional_properties.datasheet_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-secondary text-sm flex items-center justify-center"
+                          title="Open in new tab"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>
-              ))}
-              
-              {/* Downloaded datasheet from additional_properties */}
-              {part.additional_properties?.datasheet_downloaded && part.additional_properties?.datasheet_filename && (
-                <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-primary truncate">
-                          Downloaded Datasheet
-                        </h3>
-                        <p className="text-xs text-secondary">
-                          {part.supplier || 'Unknown Supplier'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-400">
-                      Local
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-secondary mb-3 line-clamp-2">
-                    Datasheet downloaded during enrichment
-                  </p>
-                  
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-xs text-muted">
-                      <span>Size:</span>
-                      <span>{((part.additional_properties.datasheet_size || 0) / 1024).toFixed(1)} KB</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted">
-                      <span>Status:</span>
-                      <span>Downloaded</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        const url = `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
-                        setPdfPreviewUrl(url)
-                        setPdfPreviewOpen(true)
-                      }}
-                      className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View PDF
-                    </button>
-                    <button
-                      onClick={() => {
-                        const url = `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
-                        const link = document.createElement('a')
-                        link.href = url
-                        link.download = part.additional_properties.datasheet_filename || 'datasheet.pdf'
-                        document.body.appendChild(link)
-                        link.click()
-                        document.body.removeChild(link)
-                      }}
-                      className="btn btn-secondary text-sm flex items-center justify-center"
-                      title="Download"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-              
-              {/* Enriched datasheet URL from additional_properties */}
-              {part.additional_properties?.datasheet_url && (
-                <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-primary truncate">
-                          Supplier Datasheet
-                        </h3>
-                        <p className="text-xs text-secondary">
-                          {part.supplier || 'Unknown Supplier'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="px-2 py-1 rounded text-xs bg-blue-500/10 text-blue-400">
-                      Online
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-secondary mb-3 line-clamp-2">
-                    Official datasheet from supplier website
-                  </p>
-                  
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-xs text-muted">
-                      <span>Source:</span>
-                      <span>Supplier API</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted">
-                      <span>Type:</span>
-                      <span>External Link</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openPDFPreview(part.additional_properties.datasheet_url)}
-                      className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Preview PDF
-                    </button>
-                    <a
-                      href={part.additional_properties.datasheet_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary text-sm flex items-center justify-center"
-                      title="Open in new tab"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
-      )}
+              </div>
+            </motion.div>
+          )}
 
-      {/* Additional Properties */}
-      {hasAdditionalProperties && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
-        >
-          <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
-                  <div className="p-2 bg-primary-10 rounded-lg">
-                    <Cpu className="w-5 h-5 text-primary-accent" />
+          {/* Additional Properties */}
+          {hasAdditionalProperties && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
+            >
+              <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
+                      <div className="p-2 bg-primary-10 rounded-lg">
+                        <Cpu className="w-5 h-5 text-primary-accent" />
+                      </div>
+                      Additional Properties
+                    </h2>
+                    {lastEnrichmentDisplay && (
+                      <p className="text-sm text-theme-secondary mt-1 flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        Data enriched {lastEnrichmentDisplay}
+                      </p>
+                    )}
                   </div>
-                  Additional Properties
+                </div>
+              </div>
+
+              <div className="p-6">
+                <CleanPropertiesDisplay properties={additionalProps} />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Order History Section */}
+          {priceTrends.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="card"
+            >
+              <div className="card-header">
+                <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Order History & Price Trends
+                  <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
+                    {priceTrends.length} orders
+                  </span>
                 </h2>
-                {lastEnrichmentDisplay && (
-                  <p className="text-sm text-theme-secondary mt-1 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Data enriched {lastEnrichmentDisplay}
-                  </p>
-                )}
               </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <CleanPropertiesDisplay properties={additionalProps} />
-          </div>
-        </motion.div>
-      )}
-
-      {/* Order History Section */}
-      {priceTrends.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="card"
-        >
-          <div className="card-header">
-            <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Order History & Price Trends
-              <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
-                {priceTrends.length} orders
-              </span>
-            </h2>
-          </div>
-          <div className="card-content">
-            {loadingPriceHistory ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Price Trend Chart */}
-                <div>
-                  <h3 className="text-md font-medium text-primary mb-4">Price Trend</h3>
-                  <div className="h-64">
-                    <Line
-                      data={{
-                        labels: priceTrends.map(item => new Date(item.order_date).toLocaleDateString()),
-                        datasets: [
-                          {
-                            label: 'Unit Price',
-                            data: priceTrends.map(item => item.unit_price),
-                            borderColor: 'rgb(99, 102, 241)',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                          }
-                        ]
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            display: false
-                          }
-                        },
-                        scales: {
-                          y: {
-                            beginAtZero: false,
-                            ticks: {
-                              callback: function(value: any) {
-                                return '$' + Number(value).toFixed(2)
-                              }
-                            }
-                          }
-                        }
-                      }}
-                    />
+              <div className="card-content">
+                {loadingPriceHistory ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
-                </div>
-
-                {/* Order Details Table */}
-                <div>
-                  <h3 className="text-md font-medium text-primary mb-4">Order Details</h3>
-                  <div className="overflow-x-auto">
-                    <table className="table w-full">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Supplier</th>
-                          <th>Unit Price</th>
-                          <th>Change</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {priceTrends.map((trend, index) => {
-                          const prevPrice = index < priceTrends.length - 1 ? priceTrends[index + 1].unit_price : null
-                          const priceChange = prevPrice ? ((trend.unit_price - prevPrice) / prevPrice) * 100 : 0
-                          
-                          return (
-                            <tr key={index}>
-                              <td className="text-primary">{new Date(trend.order_date).toLocaleDateString()}</td>
-                              <td className="text-secondary">{trend.supplier}</td>
-                              <td className="text-secondary">${trend.unit_price.toFixed(2)}</td>
-                              <td>
-                                {prevPrice && (
-                                  <span className={`flex items-center gap-1 ${priceChange > 0 ? 'text-error' : priceChange < 0 ? 'text-success' : 'text-secondary'}`}>
-                                    {priceChange > 0 ? '↑' : priceChange < 0 ? '↓' : '→'}
-                                    {Math.abs(priceChange).toFixed(1)}%
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      {/* PDF Viewer Modal */}
-      {selectedDatasheet && (
-        <PartPDFViewer
-          isOpen={pdfViewerOpen}
-          onClose={() => {
-            setPdfViewerOpen(false)
-            setSelectedDatasheet(null)
-          }}
-          datasheet={selectedDatasheet}
-        />
-      )}
-
-      {/* Enrichment Modal */}
-      <PartEnrichmentModal
-        isOpen={enrichmentModalOpen}
-        onClose={() => setEnrichmentModalOpen(false)}
-        part={part}
-        onPartUpdated={handlePartUpdated}
-      />
-
-      {/* Printer Modal */}
-      <PrinterModal
-        isOpen={printerModalOpen}
-        onClose={() => setPrinterModalOpen(false)}
-        partData={{
-          id: part.id,
-          part_name: part.name,
-          part_number: part.part_number || '',
-          location: part.location?.name || '',
-          category: part.categories?.[0]?.name || '',
-          quantity: part.quantity?.toString() || '0',
-          description: part.description || '',
-          additional_properties: part.additional_properties || {}
-        }}
-      />
-
-      {/* Add Category Modal */}
-      <AddCategoryModal
-        isOpen={addCategoryModalOpen}
-        onClose={() => setAddCategoryModalOpen(false)}
-        onSuccess={handleAddCategorySuccess}
-        existingCategories={allCategories.map(cat => cat.name)}
-      />
-
-      {/* Category Management Modal */}
-      {categoryManagementOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-theme-elevated border border-theme-primary rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-            <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
-              <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
-                <Tag className="w-5 h-5 text-primary-accent" />
-                Manage Categories for {part?.name}
-              </h2>
-            </div>
-
-            <div className="p-6">
-              {loadingCategories ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-accent mx-auto"></div>
-                  <p className="text-theme-muted mt-3">Loading categories...</p>
-                </div>
-              ) : (
-                <CategorySelector
-                  categories={allCategories}
-                  selectedCategories={selectedCategoryIds}
-                  onToggleCategory={handleToggleCategory}
-                  onAddNewCategory={handleAddCategoryFromManagement}
-                  label="Select Categories"
-                  description="Choose which categories to assign to this part"
-                  showAddButton={true}
-                  layout="checkboxes"
-                />
-              )}
-            </div>
-
-            <div className="bg-theme-tertiary border-t border-theme-primary px-6 py-4 flex items-center justify-between">
-              <button
-                onClick={() => setCategoryManagementOpen(false)}
-                className="btn btn-secondary"
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveCategoryChanges}
-                className="btn btn-primary flex items-center gap-2"
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Saving...
-                  </>
                 ) : (
-                  <>
-                    <Tag className="w-4 h-4" />
-                    Save Categories
-                  </>
+                  <div className="space-y-6">
+                    {/* Price Trend Chart */}
+                    <div>
+                      <h3 className="text-md font-medium text-primary mb-4">Price Trend</h3>
+                      <div className="h-64">
+                        <Line
+                          data={{
+                            labels: priceTrends.map((item) =>
+                              new Date(item.order_date).toLocaleDateString()
+                            ),
+                            datasets: [
+                              {
+                                label: 'Unit Price',
+                                data: priceTrends.map((item) => item.unit_price),
+                                borderColor: 'rgb(99, 102, 241)',
+                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                              },
+                            ],
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                              legend: {
+                                display: false,
+                              },
+                            },
+                            scales: {
+                              y: {
+                                beginAtZero: false,
+                                ticks: {
+                                  callback: function (value: any) {
+                                    return '$' + Number(value).toFixed(2)
+                                  },
+                                },
+                              },
+                            },
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Order Details Table */}
+                    <div>
+                      <h3 className="text-md font-medium text-primary mb-4">Order Details</h3>
+                      <div className="overflow-x-auto">
+                        <table className="table w-full">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Supplier</th>
+                              <th>Unit Price</th>
+                              <th>Change</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {priceTrends.map((trend, index) => {
+                              const prevPrice =
+                                index < priceTrends.length - 1
+                                  ? priceTrends[index + 1].unit_price
+                                  : null
+                              const priceChange = prevPrice
+                                ? ((trend.unit_price - prevPrice) / prevPrice) * 100
+                                : 0
+
+                              return (
+                                <tr key={index}>
+                                  <td className="text-primary">
+                                    {new Date(trend.order_date).toLocaleDateString()}
+                                  </td>
+                                  <td className="text-secondary">{trend.supplier}</td>
+                                  <td className="text-secondary">${trend.unit_price.toFixed(2)}</td>
+                                  <td>
+                                    {prevPrice && (
+                                      <span
+                                        className={`flex items-center gap-1 ${priceChange > 0 ? 'text-error' : priceChange < 0 ? 'text-success' : 'text-secondary'}`}
+                                      >
+                                        {priceChange > 0 ? '↑' : priceChange < 0 ? '↓' : '→'}
+                                        {Math.abs(priceChange).toFixed(1)}%
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Transfer Quantity Modal */}
-      {transferModalOpen && selectedSourceAllocation && (
-        <TransferQuantityModal
-          isOpen={transferModalOpen}
-          onClose={() => {
-            setTransferModalOpen(false)
-            setSelectedSourceAllocation(null)
-          }}
-          onSuccess={handleTransferSuccess}
-          partId={part.id}
-          partName={part.name}
-          sourceAllocation={selectedSourceAllocation}
-        />
-      )}
-
-      {/* Location Management Modal */}
-      <Modal
-        isOpen={locationManagementModalOpen}
-        onClose={() => setLocationManagementModalOpen(false)}
-        title="Manage Primary Location"
-        size="md"
-      >
-        <div className="space-y-4">
-          <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
-            <div className="flex items-center gap-3 mb-2">
-              <MapPin className="w-5 h-5 text-primary" />
-              <div>
-                <p className="text-sm text-theme-muted">Current Primary Location</p>
-                <p className="font-medium text-theme-primary">{part?.location?.name}</p>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          )}
 
-          <p className="text-sm text-theme-secondary">
-            Choose an action to manage this part's primary storage location:
-          </p>
+          {/* PDF Viewer Modal */}
+          {selectedDatasheet && (
+            <PartPDFViewer
+              isOpen={pdfViewerOpen}
+              onClose={() => {
+                setPdfViewerOpen(false)
+                setSelectedDatasheet(null)
+              }}
+              datasheet={selectedDatasheet}
+            />
+          )}
 
-          <div className="space-y-2">
-            <button
-              onClick={handleChangePrimaryLocation}
-              className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
-            >
-              <div className="flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
-                    Change Primary Location
-                  </p>
-                  <p className="text-xs text-theme-muted">
-                    Select a different location as the primary storage
-                  </p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={handleTransferFromPrimary}
-              className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
-            >
-              <div className="flex items-center gap-3">
-                <ArrowLeft className="w-5 h-5 text-primary rotate-90" />
-                <div>
-                  <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
-                    Transfer Quantity
-                  </p>
-                  <p className="text-xs text-theme-muted">
-                    Move some quantity from this location to another
-                  </p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={handleViewLocationDetails}
-              className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
-            >
-              <div className="flex items-center gap-3">
-                <Eye className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
-                    View Location Details
-                  </p>
-                  <p className="text-xs text-theme-muted">
-                    See all parts at this location
-                  </p>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
-            <button
-              onClick={() => setLocationManagementModalOpen(false)}
-              className="btn btn-secondary"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Location Picker Modal */}
-      <Modal
-        isOpen={locationPickerModalOpen}
-        onClose={() => setLocationPickerModalOpen(false)}
-        title="Select Location"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-theme-secondary">
-            Choose a location for this part or create a new one
-          </p>
-
-          <LocationTreeSelector
-            selectedLocationId={selectedLocationForPicker}
-            onLocationSelect={handleLocationSelect}
-            onAddNewLocation={handleAddNewLocationFromPicker}
-            showAddButton={true}
-            compact={true}
+          {/* Enrichment Modal */}
+          <PartEnrichmentModal
+            isOpen={enrichmentModalOpen}
+            onClose={() => setEnrichmentModalOpen(false)}
+            part={part}
+            onPartUpdated={handlePartUpdated}
           />
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
-            <button
-              onClick={() => setLocationPickerModalOpen(false)}
-              className="btn btn-secondary"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </Modal>
+          {/* Printer Modal */}
+          <PrinterModal
+            isOpen={printerModalOpen}
+            onClose={() => setPrinterModalOpen(false)}
+            partData={{
+              id: part.id,
+              part_name: part.name,
+              part_number: part.part_number || '',
+              location: part.location?.name || '',
+              category: part.categories?.[0]?.name || '',
+              quantity: part.quantity?.toString() || '0',
+              description: part.description || '',
+              additional_properties: part.additional_properties || {},
+            }}
+          />
 
-      {/* Add Location Modal */}
-      <AddLocationModal
-        isOpen={addLocationModalOpen}
-        onClose={() => {
-          setAddLocationModalOpen(false)
-          setLocationPickerModalOpen(true)
-        }}
-        onSuccess={handleLocationAdded}
-      />
+          {/* Add Category Modal */}
+          <AddCategoryModal
+            isOpen={addCategoryModalOpen}
+            onClose={() => setAddCategoryModalOpen(false)}
+            onSuccess={handleAddCategorySuccess}
+            existingCategories={allCategories.map((cat) => cat.name)}
+          />
 
-      {/* Debug Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
-      >
-        <details className="group">
-          <summary className="cursor-pointer p-4 hover:bg-theme-tertiary transition-colors list-none [&::-webkit-details-marker]:hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ChevronDown className="w-4 h-4 text-theme-secondary transition-transform group-open:rotate-0 -rotate-90" />
-                <Settings className="w-4 h-4 text-theme-secondary" />
-                <span className="text-sm font-medium text-theme-secondary">Debug Information</span>
-                <span className="text-xs bg-theme-tertiary px-2 py-1 rounded text-theme-secondary">
-                  Raw Data
-                </span>
+          {/* Category Management Modal */}
+          {categoryManagementOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-theme-elevated border border-theme-primary rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+                <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+                  <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
+                    <Tag className="w-5 h-5 text-primary-accent" />
+                    Manage Categories for {part?.name}
+                  </h2>
+                </div>
+
+                <div className="p-6">
+                  {loadingCategories ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-accent mx-auto"></div>
+                      <p className="text-theme-muted mt-3">Loading categories...</p>
+                    </div>
+                  ) : (
+                    <CategorySelector
+                      categories={allCategories}
+                      selectedCategories={selectedCategoryIds}
+                      onToggleCategory={handleToggleCategory}
+                      onAddNewCategory={handleAddCategoryFromManagement}
+                      label="Select Categories"
+                      description="Choose which categories to assign to this part"
+                      showAddButton={true}
+                      layout="checkboxes"
+                    />
+                  )}
+                </div>
+
+                <div className="bg-theme-tertiary border-t border-theme-primary px-6 py-4 flex items-center justify-between">
+                  <button
+                    onClick={() => setCategoryManagementOpen(false)}
+                    className="btn btn-secondary"
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveCategoryChanges}
+                    className="btn btn-primary flex items-center gap-2"
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Tag className="w-4 h-4" />
+                        Save Categories
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  handleCopyDebugJSON()
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-theme-secondary hover:bg-theme-tertiary border border-theme-primary rounded-md transition-colors text-sm"
-                title="Copy JSON to clipboard"
-              >
-                {debugCopied ? (
-                  <>
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span className="text-green-500">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 text-theme-secondary" />
-                    <span className="text-theme-secondary">Copy JSON</span>
-                  </>
-                )}
-              </button>
             </div>
-          </summary>
-          <div className="border-t border-theme-primary p-4">
-            <div className="bg-black border border-theme-primary rounded-lg overflow-hidden">
-              <SyntaxHighlighter
-                language="json"
-                style={vscDarkPlus}
-                customStyle={{
-                  margin: 0,
-                  padding: '1rem',
-                  background: '#000000',
-                  fontSize: '0.75rem',
-                  maxHeight: '24rem',
-                }}
-                showLineNumbers={true}
-              >
-                {JSON.stringify(part, null, 2)}
-              </SyntaxHighlighter>
-            </div>
-          </div>
-        </details>
-      </motion.div>
+          )}
 
-      {/* PDF Preview Modal for Supplier Datasheets */}
-      {pdfPreviewOpen && pdfPreviewUrl && (
-        <PDFViewer
-          fileUrl={pdfPreviewUrl}
-          fileName={`${part?.name || 'Part'} - Datasheet.pdf`}
-          onClose={() => setPdfPreviewOpen(false)}
-        />
-      )}
+          {/* Transfer Quantity Modal */}
+          {transferModalOpen && selectedSourceAllocation && (
+            <TransferQuantityModal
+              isOpen={transferModalOpen}
+              onClose={() => {
+                setTransferModalOpen(false)
+                setSelectedSourceAllocation(null)
+              }}
+              onSuccess={handleTransferSuccess}
+              partId={part.id}
+              partName={part.name}
+              sourceAllocation={selectedSourceAllocation}
+            />
+          )}
+
+          {/* Location Management Modal */}
+          <Modal
+            isOpen={locationManagementModalOpen}
+            onClose={() => setLocationManagementModalOpen(false)}
+            title="Manage Primary Location"
+            size="md"
+          >
+            <div className="space-y-4">
+              <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
+                <div className="flex items-center gap-3 mb-2">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  <div>
+                    <p className="text-sm text-theme-muted">Current Primary Location</p>
+                    <p className="font-medium text-theme-primary">{part?.location?.name}</p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-theme-secondary">
+                Choose an action to manage this part's primary storage location:
+              </p>
+
+              <div className="space-y-2">
+                <button
+                  onClick={handleChangePrimaryLocation}
+                  className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
+                        Change Primary Location
+                      </p>
+                      <p className="text-xs text-theme-muted">
+                        Select a different location as the primary storage
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleTransferFromPrimary}
+                  className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <ArrowLeft className="w-5 h-5 text-primary rotate-90" />
+                    <div>
+                      <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
+                        Transfer Quantity
+                      </p>
+                      <p className="text-xs text-theme-muted">
+                        Move some quantity from this location to another
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleViewLocationDetails}
+                  className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Eye className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
+                        View Location Details
+                      </p>
+                      <p className="text-xs text-theme-muted">See all parts at this location</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
+                <button
+                  onClick={() => setLocationManagementModalOpen(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </Modal>
+
+          {/* Location Picker Modal */}
+          <Modal
+            isOpen={locationPickerModalOpen}
+            onClose={() => setLocationPickerModalOpen(false)}
+            title="Select Location"
+            size="lg"
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-theme-secondary">
+                Choose a location for this part or create a new one
+              </p>
+
+              <LocationTreeSelector
+                selectedLocationId={selectedLocationForPicker}
+                onLocationSelect={handleLocationSelect}
+                onAddNewLocation={handleAddNewLocationFromPicker}
+                showAddButton={true}
+                compact={true}
+              />
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
+                <button
+                  onClick={() => setLocationPickerModalOpen(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </Modal>
+
+          {/* Add Location Modal */}
+          <AddLocationModal
+            isOpen={addLocationModalOpen}
+            onClose={() => {
+              setAddLocationModalOpen(false)
+              setLocationPickerModalOpen(true)
+            }}
+            onSuccess={handleLocationAdded}
+          />
+
+          {/* Debug Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
+          >
+            <details className="group">
+              <summary className="cursor-pointer p-4 hover:bg-theme-tertiary transition-colors list-none [&::-webkit-details-marker]:hidden">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ChevronDown className="w-4 h-4 text-theme-secondary transition-transform group-open:rotate-0 -rotate-90" />
+                    <Settings className="w-4 h-4 text-theme-secondary" />
+                    <span className="text-sm font-medium text-theme-secondary">
+                      Debug Information
+                    </span>
+                    <span className="text-xs bg-theme-tertiary px-2 py-1 rounded text-theme-secondary">
+                      Raw Data
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleCopyDebugJSON()
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-theme-secondary hover:bg-theme-tertiary border border-theme-primary rounded-md transition-colors text-sm"
+                    title="Copy JSON to clipboard"
+                  >
+                    {debugCopied ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span className="text-green-500">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-theme-secondary" />
+                        <span className="text-theme-secondary">Copy JSON</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </summary>
+              <div className="border-t border-theme-primary p-4">
+                <div className="bg-black border border-theme-primary rounded-lg overflow-hidden">
+                  <SyntaxHighlighter
+                    language="json"
+                    style={vscDarkPlus}
+                    customStyle={{
+                      margin: 0,
+                      padding: '1rem',
+                      background: '#000000',
+                      fontSize: '0.75rem',
+                      maxHeight: '24rem',
+                    }}
+                    showLineNumbers={true}
+                  >
+                    {JSON.stringify(part, null, 2)}
+                  </SyntaxHighlighter>
+                </div>
+              </div>
+            </details>
+          </motion.div>
+
+          {/* PDF Preview Modal for Supplier Datasheets */}
+          {pdfPreviewOpen && pdfPreviewUrl && (
+            <PDFViewer
+              fileUrl={pdfPreviewUrl}
+              fileName={`${part?.name || 'Part'} - Datasheet.pdf`}
+              onClose={() => setPdfPreviewOpen(false)}
+            />
+          )}
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
 // Additional properties explorer functions
 
@@ -2017,7 +2205,6 @@ const PartDetailsPage = () => {
 //   value: any
 // }
 
-
 function CleanPropertiesDisplay({ properties }: { properties: Record<string, any> }) {
   const entries = Object.entries(properties)
   if (!entries.length) return null
@@ -2031,22 +2218,38 @@ function CleanPropertiesDisplay({ properties }: { properties: Record<string, any
   )
 }
 
-function SpecificationCard({ label, value, small = false }: { label: string; value: any; small?: boolean }) {
+function SpecificationCard({
+  label,
+  value,
+  small = false,
+}: {
+  label: string
+  value: any
+  small?: boolean
+}) {
   const isImportant = ['Package', 'Unit Price', 'Minimum Order Quantity'].includes(label)
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Check if this is a complex object that could be expanded
-  const isComplexObject = typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 1
+  const isComplexObject =
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length > 1
   const formattedValue = formatSpecValue(value)
 
   return (
-    <div className={`
+    <div
+      className={`
       bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors
       ${isImportant ? 'ring-2 ring-primary-accent ring-opacity-20' : ''}
       ${small ? 'p-3' : ''}
-    `}>
+    `}
+    >
       <div className="space-y-2">
-        <dt className={`text-xs font-medium text-theme-secondary uppercase tracking-wide ${small ? 'text-[10px]' : ''} flex items-center justify-between`}>
+        <dt
+          className={`text-xs font-medium text-theme-secondary uppercase tracking-wide ${small ? 'text-[10px]' : ''} flex items-center justify-between`}
+        >
           <span>{formatEnumValue(label)}</span>
           {isComplexObject && (
             <button
@@ -2092,7 +2295,7 @@ function formatSpecValue(value: any): string | JSX.Element {
   if (Array.isArray(value)) {
     if (value.length === 0) return '—'
     if (value.length === 1) return formatSpecValue(value[0]) as string
-    return value.map(item => formatSpecValue(item)).join(', ')
+    return value.map((item) => formatSpecValue(item)).join(', ')
   }
 
   // Handle objects - show actual key-value pairs as separate lines
@@ -2117,9 +2320,9 @@ function formatSpecValue(value: any): string | JSX.Element {
 
     // For objects with multiple keys, return JSX with clean line breaks
     const pairs = keys
-      .filter(key => value[key] !== null && value[key] !== undefined)
+      .filter((key) => value[key] !== null && value[key] !== undefined)
       .slice(0, 5) // Show more items since we're not cramming them together
-      .map(key => {
+      .map((key) => {
         const val = formatSpecValue(value[key])
         return { key, val }
       })
@@ -2162,7 +2365,12 @@ function formatSpecValue(value: any): string | JSX.Element {
       >
         {stringValue}
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+          />
         </svg>
       </a>
     )
@@ -2171,5 +2379,4 @@ function formatSpecValue(value: any): string | JSX.Element {
   return stringValue || '—'
 }
 
-
-export default PartDetailsPage;
+export default PartDetailsPage

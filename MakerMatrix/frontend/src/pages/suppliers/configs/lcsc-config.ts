@@ -3,7 +3,7 @@
  * Handles conversion of LCSC form fields to standard SupplierConfigCreate format
  */
 
-import { SupplierConfigCreate } from '../../../services/supplier.service';
+import { SupplierConfigCreate } from '../../../services/supplier.service'
 
 export interface LCSCFormData {
   // LCSC doesn't have any supplier-specific fields beyond the base config
@@ -18,14 +18,14 @@ export function prepareLCSCConfig(
   baseConfig: SupplierConfigCreate,
   lcscData: LCSCFormData
 ): SupplierConfigCreate {
-  const config = { ...baseConfig };
+  const config = { ...baseConfig }
 
   // Set LCSC-specific defaults
   config.custom_headers = {
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-    ...config.custom_headers
-  };
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...config.custom_headers,
+  }
 
-  return config;
+  return config
 }

@@ -5,37 +5,39 @@
  * Supports both existing location transfers and creating new cassettes
  */
 
-import { useState, useEffect } from 'react';
-import { ArrowRightLeft, Package, MapPin } from 'lucide-react';
-import CrudModal from '@/components/ui/CrudModal';
-import { FormInput, FormField } from '@/components/forms';
-import { CustomSelect } from '@/components/ui/CustomSelect';
-import { useModalFormWithValidation } from '@/hooks/useFormWithValidation';
-import { partAllocationService, PartAllocation, TransferRequest } from '@/services/part-allocation.service';
-import { locationsService } from '@/services/locations.service';
-import { Location } from '@/types/locations';
-import toast from 'react-hot-toast';
-import { z } from 'zod';
+import { useState, useEffect } from 'react'
+import { ArrowRightLeft, Package, MapPin } from 'lucide-react'
+import CrudModal from '@/components/ui/CrudModal'
+import { FormInput, FormField } from '@/components/forms'
+import { CustomSelect } from '@/components/ui/CustomSelect'
+import { useModalFormWithValidation } from '@/hooks/useFormWithValidation'
+import {
+  partAllocationService,
+  PartAllocation,
+  TransferRequest,
+} from '@/services/part-allocation.service'
+import { locationsService } from '@/services/locations.service'
+import { Location } from '@/types/locations'
+import toast from 'react-hot-toast'
+import { z } from 'zod'
 
 interface TransferQuantityModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  partId: string;
-  partName: string;
-  sourceAllocation: PartAllocation;
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: () => void
+  partId: string
+  partName: string
+  sourceAllocation: PartAllocation
 }
 
 // Transfer form schema
 const transferFormSchema = z.object({
   to_location_id: z.string().min(1, 'Destination location is required'),
-  quantity: z.number()
-    .min(1, 'Quantity must be at least 1')
-    .int('Quantity must be a whole number'),
+  quantity: z.number().min(1, 'Quantity must be at least 1').int('Quantity must be a whole number'),
   notes: z.string().optional(),
-});
+})
 
-type TransferFormData = z.infer<typeof transferFormSchema>;
+type TransferFormData = z.infer<typeof transferFormSchema>
 
 const TransferQuantityModal = ({
   isOpen,
@@ -45,8 +47,8 @@ const TransferQuantityModal = ({
   partName,
   sourceAllocation,
 }: TransferQuantityModalProps) => {
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locations, setLocations] = useState<Location[]>([])
+  const [loadingLocations, setLoadingLocations] = useState(false)
 
   // Form with validation
   const form = useModalFormWithValidation<TransferFormData>({
@@ -66,36 +68,36 @@ const TransferQuantityModal = ({
     },
     onSubmit: handleFormSubmit,
     onSuccess: () => {
-      onSuccess();
-      handleClose();
+      onSuccess()
+      handleClose()
     },
     successMessage: 'Quantity transferred successfully',
-  });
+  })
 
   useEffect(() => {
     if (isOpen) {
-      loadLocations();
+      loadLocations()
     }
-  }, [isOpen]);
+  }, [isOpen])
 
   const loadLocations = async () => {
     try {
-      setLoadingLocations(true);
-      const allLocations = await locationsService.getAllLocations();
+      setLoadingLocations(true)
+      const allLocations = await locationsService.getAllLocations()
 
       // Filter out the source location from destination options
       const filteredLocations = allLocations.filter(
         (loc) => loc.id !== sourceAllocation.location_id
-      );
+      )
 
-      setLocations(filteredLocations);
+      setLocations(filteredLocations)
     } catch (error) {
-      console.error('Failed to load locations:', error);
-      toast.error('Failed to load locations');
+      console.error('Failed to load locations:', error)
+      toast.error('Failed to load locations')
     } finally {
-      setLoadingLocations(false);
+      setLoadingLocations(false)
     }
-  };
+  }
 
   // Handle form submission
   async function handleFormSubmit(data: TransferFormData) {
@@ -104,31 +106,33 @@ const TransferQuantityModal = ({
       to_location_id: data.to_location_id,
       quantity: data.quantity,
       notes: data.notes,
-    };
+    }
 
-    return await partAllocationService.transferQuantity(partId, request);
+    return await partAllocationService.transferQuantity(partId, request)
   }
 
   const handleClose = () => {
-    form.reset();
-    onClose();
-  };
+    form.reset()
+    onClose()
+  }
 
   // Build hierarchical display for destination locations
-  const buildLocationHierarchy = (locs: Location[]): Array<{id: string, name: string, level: number, path: string}> => {
-    const result: Array<{id: string, name: string, level: number, path: string}> = [];
-    const locationMap = new Map<string, Location>();
-    locs.forEach(loc => locationMap.set(loc.id, loc));
+  const buildLocationHierarchy = (
+    locs: Location[]
+  ): Array<{ id: string; name: string; level: number; path: string }> => {
+    const result: Array<{ id: string; name: string; level: number; path: string }> = []
+    const locationMap = new Map<string, Location>()
+    locs.forEach((loc) => locationMap.set(loc.id, loc))
 
     const buildPath = (loc: Location): string => {
       if (loc.parent_id) {
-        const parent = locationMap.get(loc.parent_id);
+        const parent = locationMap.get(loc.parent_id)
         if (parent) {
-          return buildPath(parent) + ' → ' + loc.name;
+          return buildPath(parent) + ' → ' + loc.name
         }
       }
-      return loc.name;
-    };
+      return loc.name
+    }
 
     const addLocation = (location: Location, level: number = 0) => {
       result.push({
@@ -136,27 +140,27 @@ const TransferQuantityModal = ({
         name: location.name,
         level,
         path: buildPath(location),
-      });
+      })
 
-      const children = locs.filter(loc => loc.parent_id === location.id);
+      const children = locs.filter((loc) => loc.parent_id === location.id)
       children
         .sort((a, b) => a.name.localeCompare(b.name))
-        .forEach(child => addLocation(child, level + 1));
-    };
+        .forEach((child) => addLocation(child, level + 1))
+    }
 
     // Treat locations as roots if they have no parent OR if their parent is not in the filtered list
     // This handles the case where we filtered out the source location and some locations had it as parent
     const rootLocations = locs
-      .filter(loc => !loc.parent_id || !locationMap.has(loc.parent_id))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter((loc) => !loc.parent_id || !locationMap.has(loc.parent_id))
+      .sort((a, b) => a.name.localeCompare(b.name))
 
-    rootLocations.forEach(loc => addLocation(loc));
+    rootLocations.forEach((loc) => addLocation(loc))
 
-    return result;
-  };
+    return result
+  }
 
-  const hierarchicalLocations = buildLocationHierarchy(locations);
-  const maxQuantity = sourceAllocation.quantity_at_location;
+  const hierarchicalLocations = buildLocationHierarchy(locations)
+  const maxQuantity = sourceAllocation.quantity_at_location
 
   return (
     <CrudModal
@@ -225,7 +229,7 @@ const TransferQuantityModal = ({
               onChange={(value) => form.setValue('to_location_id', value)}
               options={hierarchicalLocations.map((loc) => ({
                 value: loc.id,
-                label: `${'  '.repeat(loc.level)}${loc.level > 0 ? '└─ ' : ''}${loc.name}`
+                label: `${'  '.repeat(loc.level)}${loc.level > 0 ? '└─ ' : ''}${loc.name}`,
               }))}
               placeholder="Select destination location..."
               error={form.getFieldError('to_location_id')}
@@ -289,10 +293,7 @@ const TransferQuantityModal = ({
           )}
 
           {/* Notes */}
-          <FormField
-            label="Notes"
-            description="Optional notes about this transfer"
-          >
+          <FormField label="Notes" description="Optional notes about this transfer">
             <textarea
               {...form.register('notes')}
               placeholder="Enter any notes about this transfer..."
@@ -308,7 +309,7 @@ const TransferQuantityModal = ({
         </div>
       )}
     </CrudModal>
-  );
-};
+  )
+}
 
-export default TransferQuantityModal;
+export default TransferQuantityModal

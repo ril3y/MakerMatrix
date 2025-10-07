@@ -1,5 +1,17 @@
 import { motion } from 'framer-motion'
-import { MapPin, Plus, Search, Filter, Building, FolderTree, Edit2, Trash2, ChevronRight, ChevronDown, Eye } from 'lucide-react'
+import {
+  MapPin,
+  Plus,
+  Search,
+  Filter,
+  Building,
+  FolderTree,
+  Edit2,
+  Trash2,
+  ChevronRight,
+  ChevronDown,
+  Eye,
+} from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AddLocationModal from '@/components/locations/AddLocationModal'
@@ -66,7 +78,9 @@ const LocationsPage = () => {
   }
 
   const handleDelete = async (location: Location) => {
-    if (!confirm(`Are you sure you want to delete "${location.name}"? This action cannot be undone.`)) {
+    if (
+      !confirm(`Are you sure you want to delete "${location.name}"? This action cannot be undone.`)
+    ) {
       return
     }
 
@@ -88,15 +102,17 @@ const LocationsPage = () => {
     setExpandedNodes(newExpanded)
   }
 
-  const filteredLocations = locations.filter(location => 
-    location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (location.description && location.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredLocations = locations.filter(
+    (location) =>
+      location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (location.description &&
+        location.description.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const stats = {
     total: locations.length,
     active: locations.length, // All locations are active for now
-    root: locations.filter(loc => !loc.parent_id).length
+    root: locations.filter((loc) => !loc.parent_id).length,
   }
 
   return (
@@ -112,11 +128,9 @@ const LocationsPage = () => {
             <MapPin className="w-6 h-6" />
             Locations
           </h1>
-          <p className="text-secondary mt-1">
-            Manage storage locations and hierarchies
-          </p>
+          <p className="text-secondary mt-1">Manage storage locations and hierarchies</p>
         </div>
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           className="btn btn-primary flex items-center gap-2"
         >
@@ -147,7 +161,7 @@ const LocationsPage = () => {
             <Filter className="w-4 h-4" />
             Filters
           </button>
-          <button 
+          <button
             onClick={() => setViewMode(viewMode === 'list' ? 'tree' : 'list')}
             className="btn btn-secondary flex items-center gap-2"
           >
@@ -217,7 +231,9 @@ const LocationsPage = () => {
             {searchTerm ? 'No locations found' : 'No locations yet'}
           </h3>
           <p className="text-secondary">
-            {searchTerm ? 'Try adjusting your search terms' : 'Click "Add Location" to create your first location'}
+            {searchTerm
+              ? 'Try adjusting your search terms'
+              : 'Click "Add Location" to create your first location'}
           </p>
         </motion.div>
       ) : viewMode === 'list' ? (
@@ -240,7 +256,10 @@ const LocationsPage = () => {
               </thead>
               <tbody>
                 {filteredLocations.map((location) => (
-                  <tr key={location.id} className="border-b border-border hover:bg-background-secondary transition-colors">
+                  <tr
+                    key={location.id}
+                    className="border-b border-border hover:bg-background-secondary transition-colors"
+                  >
                     <td className="p-4">
                       <div
                         className="flex items-center gap-3 cursor-pointer group"
@@ -257,18 +276,14 @@ const LocationsPage = () => {
                         ) : (
                           <MapPin className="w-4 h-4 text-primary" />
                         )}
-                        <span className="font-medium text-primary group-hover:text-secondary transition-colors">{location.name}</span>
+                        <span className="font-medium text-primary group-hover:text-secondary transition-colors">
+                          {location.name}
+                        </span>
                       </div>
                     </td>
-                    <td className="p-4 text-secondary">
-                      {location.location_type || 'General'}
-                    </td>
-                    <td className="p-4 text-secondary">
-                      {location.parent?.name || '-'}
-                    </td>
-                    <td className="p-4 text-secondary">
-                      {location.description || '-'}
-                    </td>
+                    <td className="p-4 text-secondary">{location.location_type || 'General'}</td>
+                    <td className="p-4 text-secondary">{location.parent?.name || '-'}</td>
+                    <td className="p-4 text-secondary">{location.description || '-'}</td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -376,7 +391,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
   onViewDetails,
   onEdit,
   onDelete,
-  level = 0
+  level = 0,
 }) => {
   return (
     <div className="space-y-1">
@@ -386,7 +401,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
 
         return (
           <div key={location.id}>
-            <div 
+            <div
               className="flex items-center justify-between p-2 rounded hover:bg-background-secondary transition-colors group"
               style={{ paddingLeft: `${level * 24 + 8}px` }}
             >
@@ -421,7 +436,9 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                       <MapPin className="w-4 h-4 text-primary" />
                     )}
                   </div>
-                  <span className="font-medium text-primary hover:text-secondary transition-colors">{location.name}</span>
+                  <span className="font-medium text-primary hover:text-secondary transition-colors">
+                    {location.name}
+                  </span>
                   <span className="text-sm text-secondary ml-2">
                     ({location.location_type || 'General'})
                   </span>

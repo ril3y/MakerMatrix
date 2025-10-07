@@ -11,14 +11,14 @@ interface FormSectionProps {
   required?: boolean
 }
 
-const FormSection = ({ 
-  title, 
-  description, 
-  children, 
-  collapsible = false, 
+const FormSection = ({
+  title,
+  description,
+  children,
+  collapsible = false,
   defaultOpen = true,
   className,
-  required = false
+  required = false,
 }: FormSectionProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
@@ -30,7 +30,7 @@ const FormSection = ({
 
   return (
     <div className={`space-y-4 ${className || ''}`}>
-      <div 
+      <div
         className={`flex items-center justify-between ${collapsible ? 'cursor-pointer' : ''}`}
         onClick={handleToggle}
       >
@@ -39,9 +39,7 @@ const FormSection = ({
             {title}
             {required && <span className="text-red-500">*</span>}
           </h3>
-          {description && (
-            <p className="text-sm text-secondary mt-1">{description}</p>
-          )}
+          {description && <p className="text-sm text-secondary mt-1">{description}</p>}
         </div>
         {collapsible && (
           <div className="ml-2">
@@ -53,12 +51,8 @@ const FormSection = ({
           </div>
         )}
       </div>
-      
-      {(!collapsible || isOpen) && (
-        <div className="space-y-4">
-          {children}
-        </div>
-      )}
+
+      {(!collapsible || isOpen) && <div className="space-y-4">{children}</div>}
     </div>
   )
 }

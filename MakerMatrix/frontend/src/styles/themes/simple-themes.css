@@ -7,29 +7,31 @@
   --background-secondary: #f9fafb;
   --background-tertiary: #f3f4f6;
   --background-elevated: #ffffff;
-  
+
   /* Text colors for light mode */
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
   --text-inverse: #ffffff;
   --text-on-primary: #111827;
-  
+
   /* Border colors */
   --border-primary: #e5e7eb;
   --border-secondary: #d1d5db;
   --border-muted: #f3f4f6;
-  
+
   /* Status colors */
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
-  
+
   /* Typography */
-  --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-family-primary:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-family-display:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 /* Dark mode color overrides */
@@ -39,14 +41,14 @@
   --background-secondary: #1e293b;
   --background-tertiary: #334155;
   --background-elevated: #1e293b;
-  
+
   /* Text colors for dark mode - improved contrast */
   --text-primary: #ffffff;
   --text-secondary: #e2e8f0;
   --text-muted: #94a3b8;
   --text-inverse: #0f172a;
   --text-on-primary: #111827;
-  
+
   /* Border colors for dark mode */
   --border-primary: #334155;
   --border-secondary: #475569;
@@ -54,7 +56,7 @@
 }
 
 /* Default Matrix Theme - Cyberpunk/Tech */
-:root[data-theme="default"],
+:root[data-theme='default'],
 .theme-default {
   --primary: #00ff9d;
   --primary-dark: #00cc7d;
@@ -65,7 +67,7 @@
 }
 
 /* Arctic Blue Theme - Clean/Modern */
-:root[data-theme="blue"],
+:root[data-theme='blue'],
 .theme-blue {
   --primary: #3b82f6;
   --primary-dark: #2563eb;
@@ -76,7 +78,7 @@
 }
 
 /* Nebula Purple Theme - Creative/Artistic */
-:root[data-theme="purple"],
+:root[data-theme='purple'],
 .theme-purple {
   --primary: #8b5cf6;
   --primary-dark: #7c3aed;
@@ -87,7 +89,7 @@
 }
 
 /* Sunset Orange Theme - Warm/Friendly */
-:root[data-theme="orange"],
+:root[data-theme='orange'],
 .theme-orange {
   --primary: #f59e0b;
   --primary-dark: #d97706;
@@ -98,7 +100,7 @@
 }
 
 /* Monolith Gray Theme - Minimal/Professional */
-:root[data-theme="gray"],
+:root[data-theme='gray'],
 .theme-gray {
   --primary: #6b7280;
   --primary-dark: #4b5563;
@@ -109,44 +111,110 @@
 }
 
 /* Enhanced theme-aware utility classes */
-.bg-theme-primary { background-color: var(--background-primary) !important; }
-.bg-theme-secondary { background-color: var(--background-secondary) !important; }
-.bg-theme-tertiary { background-color: var(--background-tertiary) !important; }
-.bg-theme-elevated { background-color: var(--background-elevated) !important; }
+.bg-theme-primary {
+  background-color: var(--background-primary) !important;
+}
+.bg-theme-secondary {
+  background-color: var(--background-secondary) !important;
+}
+.bg-theme-tertiary {
+  background-color: var(--background-tertiary) !important;
+}
+.bg-theme-elevated {
+  background-color: var(--background-elevated) !important;
+}
 
-.text-theme-primary { color: var(--text-primary) !important; }
-.text-theme-secondary { color: var(--text-secondary) !important; }
-.text-theme-muted { color: var(--text-muted) !important; }
-.text-theme-inverse { color: var(--text-inverse) !important; }
-.text-on-primary { color: var(--text-on-primary) !important; }
+.text-theme-primary {
+  color: var(--text-primary) !important;
+}
+.text-theme-secondary {
+  color: var(--text-secondary) !important;
+}
+.text-theme-muted {
+  color: var(--text-muted) !important;
+}
+.text-theme-inverse {
+  color: var(--text-inverse) !important;
+}
+.text-on-primary {
+  color: var(--text-on-primary) !important;
+}
 
-.border-theme-primary { border-color: var(--border-primary) !important; }
-.border-theme-secondary { border-color: var(--border-secondary) !important; }
-.border-theme-muted { border-color: var(--border-muted) !important; }
+.border-theme-primary {
+  border-color: var(--border-primary) !important;
+}
+.border-theme-secondary {
+  border-color: var(--border-secondary) !important;
+}
+.border-theme-muted {
+  border-color: var(--border-muted) !important;
+}
 
 /* Primary color utilities */
-.bg-primary { background-color: var(--primary) !important; }
-.bg-primary-dark { background-color: var(--primary-dark) !important; }
-.bg-primary-light { background-color: var(--primary-light) !important; }
-.bg-primary-10 { background-color: rgba(var(--primary-rgb), 0.1) !important; }
-.bg-primary-20 { background-color: rgba(var(--primary-rgb), 0.2) !important; }
-.text-primary-accent { color: var(--primary) !important; }
-.border-primary { border-color: var(--primary) !important; }
-.border-primary-20 { border-color: rgba(var(--primary-rgb), 0.2) !important; }
-.ring-primary { --tw-ring-color: var(--primary) !important; }
-.ring-primary-20 { --tw-ring-color: rgba(var(--primary-rgb), 0.2) !important; }
+.bg-primary {
+  background-color: var(--primary) !important;
+}
+.bg-primary-dark {
+  background-color: var(--primary-dark) !important;
+}
+.bg-primary-light {
+  background-color: var(--primary-light) !important;
+}
+.bg-primary-10 {
+  background-color: rgba(var(--primary-rgb), 0.1) !important;
+}
+.bg-primary-20 {
+  background-color: rgba(var(--primary-rgb), 0.2) !important;
+}
+.text-primary-accent {
+  color: var(--primary) !important;
+}
+.border-primary {
+  border-color: var(--primary) !important;
+}
+.border-primary-20 {
+  border-color: rgba(var(--primary-rgb), 0.2) !important;
+}
+.ring-primary {
+  --tw-ring-color: var(--primary) !important;
+}
+.ring-primary-20 {
+  --tw-ring-color: rgba(var(--primary-rgb), 0.2) !important;
+}
 
 /* Status color utilities */
-.text-success { color: var(--success) !important; }
-.text-warning { color: var(--warning) !important; }
-.text-error { color: var(--error) !important; }
-.text-info { color: var(--info) !important; }
-.bg-success { background-color: var(--success) !important; }
-.bg-warning { background-color: var(--warning) !important; }
-.bg-error { background-color: var(--error) !important; }
-.bg-info { background-color: var(--info) !important; }
+.text-success {
+  color: var(--success) !important;
+}
+.text-warning {
+  color: var(--warning) !important;
+}
+.text-error {
+  color: var(--error) !important;
+}
+.text-info {
+  color: var(--info) !important;
+}
+.bg-success {
+  background-color: var(--success) !important;
+}
+.bg-warning {
+  background-color: var(--warning) !important;
+}
+.bg-error {
+  background-color: var(--error) !important;
+}
+.bg-info {
+  background-color: var(--info) !important;
+}
 
 /* Typography utilities */
-.font-theme-primary { font-family: var(--font-family-primary) !important; }
-.font-theme-mono { font-family: var(--font-family-mono) !important; }
-.font-theme-display { font-family: var(--font-family-display) !important; }
+.font-theme-primary {
+  font-family: var(--font-family-primary) !important;
+}
+.font-theme-mono {
+  font-family: var(--font-family-mono) !important;
+}
+.font-theme-display {
+  font-family: var(--font-family-display) !important;
+}

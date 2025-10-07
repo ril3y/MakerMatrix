@@ -34,12 +34,17 @@
 @layer base {
   body {
     font-family: var(--font-family-primary);
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
     background-color: var(--background-secondary);
     color: var(--text-primary);
-    transition: background-color 0.3s ease, color 0.3s ease, font-family 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease,
+      font-family 0.3s ease;
   }
-  
+
   /* Native select elements - keep simple to avoid browser quirks */
   select {
     display: block;
@@ -53,17 +58,22 @@
     transition: none !important;
     transform: none !important;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-family-display);
     color: var(--text-primary);
     font-weight: 600;
   }
-  
+
   p {
     color: var(--text-secondary);
   }
-  
+
   /* Ensure better text visibility in dark mode */
   .dark {
     text-shadow: 0 0 1px rgba(255, 255, 255, 0.1);
@@ -76,68 +86,68 @@
   .btn {
     @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 px-4 py-2;
   }
-  
+
   .btn-primary {
     @apply btn bg-primary text-on-primary font-semibold hover:bg-primary-dark;
   }
-  
+
   .btn-secondary {
     @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600;
   }
-  
+
   .btn-ghost {
     @apply btn hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-100;
   }
-  
+
   .btn-destructive {
     @apply btn bg-destructive text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700;
   }
-  
+
   .btn-danger {
     @apply btn bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700;
   }
-  
+
   .btn-sm {
     @apply px-3 py-1.5 text-xs;
   }
-  
+
   .btn-xs {
     @apply px-2 py-1 text-xs;
   }
-  
+
   .btn-lg {
     @apply px-6 py-3 text-base;
   }
-  
+
   /* Text classes for better contrast */
   .text-primary {
     color: var(--text-primary);
   }
-  
+
   .text-secondary {
     color: var(--text-secondary);
   }
-  
+
   .text-muted {
     color: var(--text-muted);
   }
-  
+
   /* Enhanced contrast for dark mode */
   .dark .text-primary {
     color: var(--text-primary);
     font-weight: 500;
   }
-  
+
   .dark .text-secondary {
     color: var(--text-secondary);
     font-weight: 400;
   }
-  
+
   .dark .text-muted {
     color: var(--text-muted);
     font-weight: 400;
   }
-  
+
   /* Cards */
   .card {
     background-color: var(--background-elevated);
@@ -145,15 +155,15 @@
     border-radius: 0.5rem;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   }
-  
+
   .card-header {
     @apply p-6 pb-3;
   }
-  
+
   .card-content {
     @apply p-6 pt-3;
   }
-  
+
   /* Forms */
   .input {
     display: flex;
@@ -166,7 +176,9 @@
     font-size: 0.875rem;
     font-family: var(--font-family-primary);
     color: var(--text-primary);
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    transition:
+      border-color 0.15s ease-in-out,
+      box-shadow 0.15s ease-in-out;
   }
 
   /* Native select styling - minimal to avoid browser issues */
@@ -194,7 +206,7 @@
     cursor: not-allowed;
     opacity: 0.5;
   }
-  
+
   /* Enhanced input contrast for dark mode */
   .dark .input {
     border: 1px solid var(--border-secondary);
@@ -206,31 +218,31 @@
     border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.3);
   }
-  
+
   .input-sm {
     @apply h-8 px-2 py-1 text-xs;
   }
-  
+
   .label {
     font-size: 0.875rem;
     font-weight: 500;
     line-height: 1;
     color: var(--text-primary);
   }
-  
+
   /* Tables */
   .table {
     @apply w-full caption-bottom text-sm;
   }
-  
+
   .table-header {
     @apply border-b;
   }
-  
+
   .table-body {
     @apply [&_tr:last-child]:border-0;
   }
-  
+
   .table-row {
     border-bottom: 1px solid var(--border-primary);
     transition: background-color 0.15s ease;
@@ -238,7 +250,7 @@
   .table-row:hover {
     background-color: var(--background-secondary);
   }
-  
+
   .table-head {
     height: 3rem;
     padding: 0 1rem;
@@ -247,12 +259,11 @@
     font-weight: 500;
     color: var(--text-primary);
   }
-  
+
   .table-cell {
     @apply p-4 align-middle [&:has([role=checkbox])]:pr-0;
   }
 }
-
 
 /* Custom utilities */
 @layer utilities {
@@ -267,7 +278,7 @@
       opacity: 1;
     }
   }
-  
+
   @keyframes slide-down {
     from {
       transform: translateY(-10px);
@@ -278,7 +289,7 @@
       opacity: 1;
     }
   }
-  
+
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -287,66 +298,66 @@
       opacity: 1;
     }
   }
-  
+
   .animate-slide-up {
     animation: slide-up 0.3s ease-out;
   }
-  
+
   .animate-slide-down {
     animation: slide-down 0.3s ease-out;
   }
-  
+
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
   }
-  
+
   /* Custom scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-track {
     @apply bg-gray-100 dark:bg-gray-800 rounded-full;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500;
   }
-  
+
   /* Text selection */
   ::selection {
     background-color: rgba(var(--primary-rgb, 0, 255, 157), 0.2);
     color: var(--primary, #00ff9d);
   }
-  
+
   /* Background utilities */
   .bg-background-primary {
     background-color: var(--background-primary);
   }
-  
+
   .bg-background-secondary {
     background-color: var(--background-secondary);
   }
-  
+
   .bg-background-tertiary {
     background-color: var(--background-tertiary);
   }
-  
+
   /* Border utilities */
   .border-border {
     border-color: var(--border-primary);
   }
-  
+
   /* Console styles for dark mode */
   .console-dark {
     @apply bg-gray-900 text-green-400;
   }
-  
+
   .console-light {
     @apply bg-gray-100 text-gray-900;
   }
-  
+
   /* Modal containers should allow dropdowns to overflow */
   .modal-container {
     overflow: visible !important;

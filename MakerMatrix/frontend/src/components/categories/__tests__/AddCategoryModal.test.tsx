@@ -9,13 +9,6 @@ import { Category } from '@/types/parts'
 // Mock dependencies
 vi.mock('react-hot-toast')
 vi.mock('@/services/categories.service')
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  },
-  AnimatePresence: ({ children }: any) => children,
-}))
-
 const mockCategoriesService = vi.mocked(categoriesService)
 const mockToast = vi.mocked(toast)
 
@@ -26,7 +19,7 @@ describe('AddCategoryModal - Core Functionality', () => {
     isOpen: true,
     onClose: vi.fn(),
     onSuccess: vi.fn(),
-    existingCategories
+    existingCategories,
   }
 
   const mockCreatedCategory: Category = {
@@ -34,12 +27,12 @@ describe('AddCategoryModal - Core Functionality', () => {
     name: 'Capacitors',
     description: 'Various capacitor types',
     created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z'
+    updated_at: '2024-01-01T00:00:00Z',
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Mock successful category creation by default
     mockCategoriesService.createCategory.mockResolvedValue(mockCreatedCategory)
   })
@@ -47,7 +40,7 @@ describe('AddCategoryModal - Core Functionality', () => {
   describe('Basic Rendering', () => {
     it('should render modal with title and form fields', () => {
       render(<AddCategoryModal {...mockProps} />)
-      
+
       expect(screen.getByText('Add New Category')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('Enter category name')).toBeInTheDocument()
       expect(screen.getByText('Create Category')).toBeInTheDocument()
@@ -55,13 +48,13 @@ describe('AddCategoryModal - Core Functionality', () => {
 
     it('should show character count', () => {
       render(<AddCategoryModal {...mockProps} />)
-      
+
       expect(screen.getByText('0/50 characters')).toBeInTheDocument()
     })
 
     it('should show Quick Select suggestions', () => {
       render(<AddCategoryModal {...mockProps} />)
-      
+
       expect(screen.getByText('Quick Select')).toBeInTheDocument()
       expect(screen.getByText('Capacitors')).toBeInTheDocument()
       expect(screen.getByText('Connectors')).toBeInTheDocument()
@@ -70,11 +63,11 @@ describe('AddCategoryModal - Core Functionality', () => {
 
     it('should filter out existing categories from suggestions', () => {
       render(<AddCategoryModal {...mockProps} />)
-      
+
       // These should be filtered out since they exist
       expect(screen.queryByText('Electronics')).not.toBeInTheDocument()
       expect(screen.queryByText('Resistors')).not.toBeInTheDocument()
-      
+
       // These should be available
       expect(screen.getByText('Capacitors')).toBeInTheDocument()
       expect(screen.getByText('Tools')).toBeInTheDocument()
@@ -82,13 +75,24 @@ describe('AddCategoryModal - Core Functionality', () => {
 
     it('should not show Quick Select when all suggestions are taken', () => {
       const allSuggestions = [
-        'Electronics', 'Resistors', 'Capacitors', 'Connectors', 'Tools', 
-        'Hardware', 'Sensors', 'Microcontrollers', 'Power Supplies', 'Cables',
-        'Mechanical', 'Fasteners', 'Arduino', 'Raspberry Pi'
+        'Electronics',
+        'Resistors',
+        'Capacitors',
+        'Connectors',
+        'Tools',
+        'Hardware',
+        'Sensors',
+        'Microcontrollers',
+        'Power Supplies',
+        'Cables',
+        'Mechanical',
+        'Fasteners',
+        'Arduino',
+        'Raspberry Pi',
       ]
-      
+
       render(<AddCategoryModal {...mockProps} existingCategories={allSuggestions} />)
-      
+
       expect(screen.queryByText('Quick Select')).not.toBeInTheDocument()
     })
   })
@@ -126,14 +130,14 @@ describe('AddCategoryModal - Core Functionality', () => {
       // Type exactly 50 characters (the maxLength limit)
       const maxLengthName = 'A'.repeat(50)
       await user.type(nameInput, maxLengthName)
-      
+
       const submitButton = screen.getByText('Create Category')
       await user.click(submitButton)
 
       // This should succeed with exactly 50 characters
       await waitFor(() => {
         expect(mockCategoriesService.createCategory).toHaveBeenCalledWith({
-          name: maxLengthName
+          name: maxLengthName,
         })
       })
     })
@@ -189,7 +193,7 @@ describe('AddCategoryModal - Core Functionality', () => {
 
       await waitFor(() => {
         expect(mockCategoriesService.createCategory).toHaveBeenCalledWith({
-          name: 'Power & Control (12V)'
+          name: 'Power & Control (12V)',
         })
       })
     })
@@ -302,7 +306,7 @@ describe('AddCategoryModal - Core Functionality', () => {
 
       await waitFor(() => {
         expect(mockCategoriesService.createCategory).toHaveBeenCalledWith({
-          name: 'New Category'
+          name: 'New Category',
         })
       })
 
@@ -323,7 +327,7 @@ describe('AddCategoryModal - Core Functionality', () => {
 
       await waitFor(() => {
         expect(mockCategoriesService.createCategory).toHaveBeenCalledWith({
-          name: 'Whitespace Category'
+          name: 'Whitespace Category',
         })
       })
     })
@@ -331,9 +335,9 @@ describe('AddCategoryModal - Core Functionality', () => {
     it('should handle creation API error with custom message', async () => {
       const user = userEvent.setup()
       mockCategoriesService.createCategory.mockRejectedValueOnce({
-        response: { data: { message: 'Category already exists' } }
+        response: { data: { message: 'Category already exists' } },
       })
-      
+
       render(<AddCategoryModal {...mockProps} />)
 
       const nameInput = screen.getByPlaceholderText('Enter category name')
@@ -352,7 +356,7 @@ describe('AddCategoryModal - Core Functionality', () => {
     it('should handle generic API error', async () => {
       const user = userEvent.setup()
       mockCategoriesService.createCategory.mockRejectedValueOnce(new Error('Network error'))
-      
+
       render(<AddCategoryModal {...mockProps} />)
 
       const nameInput = screen.getByPlaceholderText('Enter category name')
@@ -387,7 +391,7 @@ describe('AddCategoryModal - Core Functionality', () => {
 
       // Reopen modal and check form is reset
       render(<AddCategoryModal {...mockProps} />)
-      
+
       const resetNameInput = screen.getByPlaceholderText('Enter category name')
       expect(resetNameInput).toHaveValue('')
     })
@@ -433,12 +437,12 @@ describe('AddCategoryModal - Core Functionality', () => {
   describe('Loading States', () => {
     it('should disable buttons during creation', async () => {
       const user = userEvent.setup()
-      
+
       // Make createCategory hang to test loading state
       mockCategoriesService.createCategory.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 1000))
+        () => new Promise((resolve) => setTimeout(resolve, 1000))
       )
-      
+
       render(<AddCategoryModal {...mockProps} />)
 
       const nameInput = screen.getByPlaceholderText('Enter category name')
@@ -457,11 +461,11 @@ describe('AddCategoryModal - Core Functionality', () => {
 
     it('should show loading spinner during creation', async () => {
       const user = userEvent.setup()
-      
+
       mockCategoriesService.createCategory.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 100))
+        () => new Promise((resolve) => setTimeout(resolve, 100))
       )
-      
+
       render(<AddCategoryModal {...mockProps} />)
 
       const nameInput = screen.getByPlaceholderText('Enter category name')
@@ -481,7 +485,7 @@ describe('AddCategoryModal - Core Functionality', () => {
   describe('Edge Cases', () => {
     it('should handle modal with no existing categories', () => {
       render(<AddCategoryModal {...mockProps} existingCategories={[]} />)
-      
+
       // All suggestions should be available
       expect(screen.getByText('Electronics')).toBeInTheDocument()
       expect(screen.getByText('Resistors')).toBeInTheDocument()
@@ -490,21 +494,24 @@ describe('AddCategoryModal - Core Functionality', () => {
 
     it('should handle modal when closed', () => {
       render(<AddCategoryModal {...mockProps} isOpen={false} />)
-      
+
       // Modal content should not be visible
       expect(screen.queryByText('Add New Category')).not.toBeInTheDocument()
     })
 
     it('should limit suggestions to 8 items', () => {
       render(<AddCategoryModal {...mockProps} existingCategories={[]} />)
-      
+
       // Count suggestion buttons (excluding the descriptive text)
-      const suggestionButtons = screen.getAllByRole('button').filter(btn => 
-        btn.textContent && 
-        !['Create Category', 'Cancel'].includes(btn.textContent) &&
-        btn.className.includes('bg-primary-10')
-      )
-      
+      const suggestionButtons = screen
+        .getAllByRole('button')
+        .filter(
+          (btn) =>
+            btn.textContent &&
+            !['Create Category', 'Cancel'].includes(btn.textContent) &&
+            btn.className.includes('bg-primary-10')
+        )
+
       expect(suggestionButtons.length).toBeLessThanOrEqual(8)
     })
   })

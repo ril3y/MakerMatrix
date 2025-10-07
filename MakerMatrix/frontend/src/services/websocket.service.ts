@@ -65,7 +65,10 @@ export class WebSocketService {
         }
       }
 
-      if (!resolvedFromEnv && (currentPort === '5173' || currentPort === '5174' || currentPort === '3000')) {
+      if (
+        !resolvedFromEnv &&
+        (currentPort === '5173' || currentPort === '5174' || currentPort === '3000')
+      ) {
         // Fall back to default backend port in dev if env override is missing
         protocol = 'ws:'
         const backendPort = '8080'
@@ -92,14 +95,14 @@ export class WebSocketService {
 
       this.ws.onclose = (event) => {
         console.log(`❌ WebSocket disconnected from ${this.endpoint}:`, event.code, event.reason)
-        console.log(`🔍 Close event details:`, { 
-          code: event.code, 
-          reason: event.reason, 
-          wasClean: event.wasClean 
+        console.log(`🔍 Close event details:`, {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
         })
         this.isConnecting = false
         this.ws = null
-        
+
         if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
           setTimeout(() => {
             this.reconnectAttempts++
@@ -175,7 +178,7 @@ export class WebSocketService {
     // Emit to specific event handlers
     const handlers = this.eventHandlers.get(message.type)
     if (handlers) {
-      handlers.forEach(handler => {
+      handlers.forEach((handler) => {
         try {
           handler(message)
         } catch (error) {
@@ -187,7 +190,7 @@ export class WebSocketService {
     // Emit to wildcard handlers
     const wildcardHandlers = this.eventHandlers.get('*')
     if (wildcardHandlers) {
-      wildcardHandlers.forEach(handler => {
+      wildcardHandlers.forEach((handler) => {
         try {
           handler(message)
         } catch (error) {
@@ -251,7 +254,7 @@ export class WebSocketService {
     setInterval(() => {
       this.sendMessage({
         type: 'ping',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     }, interval)
   }
@@ -263,13 +266,18 @@ export class WebSocketService {
 
   get connectionState(): string {
     if (!this.ws) return 'disconnected'
-    
+
     switch (this.ws.readyState) {
-      case WebSocket.CONNECTING: return 'connecting'
-      case WebSocket.OPEN: return 'open'
-      case WebSocket.CLOSING: return 'closing'
-      case WebSocket.CLOSED: return 'closed'
-      default: return 'unknown'
+      case WebSocket.CONNECTING:
+        return 'connecting'
+      case WebSocket.OPEN:
+        return 'open'
+      case WebSocket.CLOSING:
+        return 'closing'
+      case WebSocket.CLOSED:
+        return 'closed'
+      default:
+        return 'unknown'
     }
   }
 }

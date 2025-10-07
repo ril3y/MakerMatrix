@@ -1,6 +1,6 @@
 /**
  * DigiKey Integration Tests
- * 
+ *
  * Tests that validate DigiKey frontend integration with the backend API.
  * These tests complement the backend DigiKey tests to ensure full functionality.
  */
@@ -19,7 +19,7 @@ vi.mock('../../../services/supplier.service', () => ({
     getCredentialStatus: vi.fn(),
     saveCredentials: vi.fn(),
     updateSupplier: vi.fn(),
-  }
+  },
 }))
 
 describe('DigiKey Frontend Integration', () => {
@@ -38,7 +38,7 @@ describe('DigiKey Frontend Integration', () => {
     updated_at: '2024-01-01T00:00:00Z',
     timeout_seconds: 30,
     max_retries: 3,
-    retry_backoff: 1
+    retry_backoff: 1,
   }
 
   beforeEach(() => {
@@ -51,26 +51,22 @@ describe('DigiKey Frontend Integration', () => {
         supplier_name: 'digikey',
         display_name: 'DigiKey Electronics',
         oauth_callback_url: 'https://localhost:8443/api/suppliers/digikey/oauth/callback',
-        storage_path: './digikey_tokens'
+        storage_path: './digikey_tokens',
       }
-      
+
       const onConfigChange = vi.fn()
-      
-      render(
-        <DigiKeyConfigForm 
-          config={mockConfig} 
-          onConfigChange={onConfigChange} 
-          errors={[]} 
-        />
-      )
+
+      render(<DigiKeyConfigForm config={mockConfig} onConfigChange={onConfigChange} errors={[]} />)
 
       // Check for DigiKey-specific instructions
       expect(screen.getByText(/DigiKey API Setup Instructions/)).toBeInTheDocument()
       expect(screen.getByRole('link', { name: /developer.digikey.com/ })).toBeInTheDocument()
 
       // Check for OAuth callback URL field
-      expect(screen.getByDisplayValue(/\/api\/suppliers\/digikey\/oauth\/callback/)).toBeInTheDocument()
-      
+      expect(
+        screen.getByDisplayValue(/\/api\/suppliers\/digikey\/oauth\/callback/)
+      ).toBeInTheDocument()
+
       // Check for token storage path field
       expect(screen.getByDisplayValue('./digikey_tokens')).toBeInTheDocument()
 
@@ -83,16 +79,10 @@ describe('DigiKey Frontend Integration', () => {
     it('shows production warning when production mode is selected', () => {
       const mockConfig = {
         supplier_name: 'digikey',
-        sandbox_mode: false // Production mode
+        sandbox_mode: false, // Production mode
       }
-      
-      render(
-        <DigiKeyConfigForm 
-          config={mockConfig} 
-          onConfigChange={vi.fn()} 
-          errors={[]} 
-        />
-      )
+
+      render(<DigiKeyConfigForm config={mockConfig} onConfigChange={vi.fn()} errors={[]} />)
 
       expect(screen.getByText(/Production Mode/)).toBeInTheDocument()
       expect(screen.getByText(/live DigiKey API/)).toBeInTheDocument()
@@ -101,21 +91,18 @@ describe('DigiKey Frontend Integration', () => {
     it('calls onConfigChange when OAuth callback URL is modified', () => {
       const onConfigChange = vi.fn()
       const mockConfig = { supplier_name: 'digikey' }
-      
-      render(
-        <DigiKeyConfigForm 
-          config={mockConfig} 
-          onConfigChange={onConfigChange} 
-          errors={[]} 
-        />
-      )
+
+      render(<DigiKeyConfigForm config={mockConfig} onConfigChange={onConfigChange} errors={[]} />)
 
       const callbackInput = screen.getByDisplayValue(/oauth\/callback/)
-      fireEvent.change(callbackInput, { 
-        target: { value: 'https://example.com/custom/callback' } 
+      fireEvent.change(callbackInput, {
+        target: { value: 'https://example.com/custom/callback' },
       })
 
-      expect(onConfigChange).toHaveBeenCalledWith('oauth_callback_url', 'https://example.com/custom/callback')
+      expect(onConfigChange).toHaveBeenCalledWith(
+        'oauth_callback_url',
+        'https://example.com/custom/callback'
+      )
     })
   })
 
@@ -126,7 +113,7 @@ describe('DigiKey Frontend Integration', () => {
         success: true,
         test_duration_seconds: 1.5,
         tested_at: new Date().toISOString(),
-        message: 'OAuth authentication required for full DigiKey access'
+        message: 'OAuth authentication required for full DigiKey access',
       }
 
       vi.mocked(supplierService.testConnection).mockResolvedValue(mockTestResult)
@@ -134,18 +121,14 @@ describe('DigiKey Frontend Integration', () => {
         has_credentials: true,
         credential_count: 2,
         required_credentials: ['client_id', 'client_secret'],
-        missing_credentials: []
+        missing_credentials: [],
       })
 
       const onClose = vi.fn()
       const onSuccess = vi.fn()
 
       render(
-        <EditSupplierModal 
-          supplier={mockDigiKeySupplier} 
-          onClose={onClose} 
-          onSuccess={onSuccess} 
-        />
+        <EditSupplierModal supplier={mockDigiKeySupplier} onClose={onClose} onSuccess={onSuccess} />
       )
 
       // Wait for component to load capabilities
@@ -173,7 +156,7 @@ describe('DigiKey Frontend Integration', () => {
         success: false,
         test_duration_seconds: 0.5,
         tested_at: new Date().toISOString(),
-        error_message: 'DigiKey not configured - missing client_id and client_secret'
+        error_message: 'DigiKey not configured - missing client_id and client_secret',
       }
 
       vi.mocked(supplierService.testConnection).mockResolvedValue(mockTestResult)
@@ -181,18 +164,14 @@ describe('DigiKey Frontend Integration', () => {
         has_credentials: false,
         credential_count: 0,
         required_credentials: ['client_id', 'client_secret'],
-        missing_credentials: ['client_id', 'client_secret']
+        missing_credentials: ['client_id', 'client_secret'],
       })
 
       const onClose = vi.fn()
       const onSuccess = vi.fn()
 
       render(
-        <EditSupplierModal 
-          supplier={mockDigiKeySupplier} 
-          onClose={onClose} 
-          onSuccess={onSuccess} 
-        />
+        <EditSupplierModal supplier={mockDigiKeySupplier} onClose={onClose} onSuccess={onSuccess} />
       )
 
       await waitFor(() => {
@@ -222,8 +201,8 @@ describe('DigiKey Frontend Integration', () => {
         details: {
           api_reachable: true,
           oauth_setup_required: true,
-          callback_url: 'https://localhost:8443/api/suppliers/digikey/oauth/callback'
-        }
+          callback_url: 'https://localhost:8443/api/suppliers/digikey/oauth/callback',
+        },
       }
 
       vi.mocked(supplierService.testConnection).mockResolvedValue(mockTestResult)
@@ -232,11 +211,7 @@ describe('DigiKey Frontend Integration', () => {
       const onSuccess = vi.fn()
 
       render(
-        <EditSupplierModal 
-          supplier={mockDigiKeySupplier} 
-          onClose={onClose} 
-          onSuccess={onSuccess} 
-        />
+        <EditSupplierModal supplier={mockDigiKeySupplier} onClose={onClose} onSuccess={onSuccess} />
       )
 
       await waitFor(() => {
@@ -256,47 +231,31 @@ describe('DigiKey Frontend Integration', () => {
     it('displays correct OAuth callback URL for DigiKey', () => {
       const mockConfig = {
         supplier_name: 'digikey',
-        oauth_callback_url: 'https://localhost:8443/api/suppliers/digikey/oauth/callback'
+        oauth_callback_url: 'https://localhost:8443/api/suppliers/digikey/oauth/callback',
       }
-      
-      render(
-        <DigiKeyConfigForm 
-          config={mockConfig} 
-          onConfigChange={vi.fn()} 
-          errors={[]} 
-        />
-      )
+
+      render(<DigiKeyConfigForm config={mockConfig} onConfigChange={vi.fn()} errors={[]} />)
 
       // Should show the auto-detected callback URL
-      expect(screen.getByDisplayValue(/localhost:8443.*digikey.*oauth.*callback/)).toBeInTheDocument()
+      expect(
+        screen.getByDisplayValue(/localhost:8443.*digikey.*oauth.*callback/)
+      ).toBeInTheDocument()
     })
 
     it('warns about exact callback URL match requirement', () => {
-      render(
-        <DigiKeyConfigForm 
-          config={{}} 
-          onConfigChange={vi.fn()} 
-          errors={[]} 
-        />
-      )
+      render(<DigiKeyConfigForm config={{}} onConfigChange={vi.fn()} errors={[]} />)
 
       // Should show warning about exact URL match in tooltip
-      const helpIcon = screen.getAllByRole('generic').find(el => 
-        el.className.includes('group-hover:opacity-100')
-      )
+      const helpIcon = screen
+        .getAllByRole('generic')
+        .find((el) => el.className.includes('group-hover:opacity-100'))
       expect(helpIcon).toBeInTheDocument()
     })
   })
 
   describe('DigiKey Capabilities Display', () => {
     it('shows all DigiKey capabilities as enabled', () => {
-      render(
-        <DigiKeyConfigForm 
-          config={{}} 
-          onConfigChange={vi.fn()} 
-          errors={[]} 
-        />
-      )
+      render(<DigiKeyConfigForm config={{}} onConfigChange={vi.fn()} errors={[]} />)
 
       // Check for DigiKey-specific capabilities
       expect(screen.getByText('Datasheet Download')).toBeInTheDocument()
@@ -307,20 +266,14 @@ describe('DigiKey Frontend Integration', () => {
 
       // All capabilities should be checked and disabled (auto-configured)
       const checkboxes = screen.getAllByRole('checkbox')
-      checkboxes.forEach(checkbox => {
+      checkboxes.forEach((checkbox) => {
         expect(checkbox).toBeChecked()
         expect(checkbox).toBeDisabled()
       })
     })
 
     it('explains that capabilities are auto-configured', () => {
-      render(
-        <DigiKeyConfigForm 
-          config={{}} 
-          onConfigChange={vi.fn()} 
-          errors={[]} 
-        />
-      )
+      render(<DigiKeyConfigForm config={{}} onConfigChange={vi.fn()} errors={[]} />)
 
       expect(screen.getByText(/automatically configured.*API features/)).toBeInTheDocument()
     })
@@ -328,13 +281,7 @@ describe('DigiKey Frontend Integration', () => {
 
   describe('DigiKey Credential Management', () => {
     it('shows appropriate credential requirements', () => {
-      render(
-        <DigiKeyConfigForm 
-          config={{}} 
-          onConfigChange={vi.fn()} 
-          errors={[]} 
-        />
-      )
+      render(<DigiKeyConfigForm config={{}} onConfigChange={vi.fn()} errors={[]} />)
 
       // Should show next step instructions
       expect(screen.getByText('Next Step: Add Credentials')).toBeInTheDocument()
@@ -348,9 +295,9 @@ describe('DigiKey Frontend Integration', () => {
       const mockError = {
         response: {
           data: {
-            detail: 'Connection timeout: DigiKey API not reachable'
-          }
-        }
+            detail: 'Connection timeout: DigiKey API not reachable',
+          },
+        },
       }
 
       vi.mocked(supplierService.testConnection).mockRejectedValue(mockError)
@@ -359,11 +306,7 @@ describe('DigiKey Frontend Integration', () => {
       const onSuccess = vi.fn()
 
       render(
-        <EditSupplierModal 
-          supplier={mockDigiKeySupplier} 
-          onClose={onClose} 
-          onSuccess={onSuccess} 
-        />
+        <EditSupplierModal supplier={mockDigiKeySupplier} onClose={onClose} onSuccess={onSuccess} />
       )
 
       await waitFor(() => {
@@ -384,7 +327,7 @@ describe('DigiKey Frontend Integration', () => {
         success: false,
         test_duration_seconds: 0,
         tested_at: new Date().toISOString(),
-        error_message: 'DigiKey API library not available. Install with: pip install digikey-api'
+        error_message: 'DigiKey API library not available. Install with: pip install digikey-api',
       }
 
       vi.mocked(supplierService.testConnection).mockResolvedValue(mockTestResult)
@@ -393,11 +336,7 @@ describe('DigiKey Frontend Integration', () => {
       const onSuccess = vi.fn()
 
       render(
-        <EditSupplierModal 
-          supplier={mockDigiKeySupplier} 
-          onClose={onClose} 
-          onSuccess={onSuccess} 
-        />
+        <EditSupplierModal supplier={mockDigiKeySupplier} onClose={onClose} onSuccess={onSuccess} />
       )
 
       await waitFor(() => {

@@ -43,7 +43,7 @@ export const PermissionGuard = ({
   permissions,
   requireAll = false,
   role,
-  fallback = null
+  fallback = null,
 }: PermissionGuardProps) => {
   const { hasPermission, hasRole, hasAnyPermission, hasAllPermissions } = usePermissions()
 
@@ -54,9 +54,7 @@ export const PermissionGuard = ({
   } else if (permission) {
     hasAccess = hasPermission(permission)
   } else if (permissions) {
-    hasAccess = requireAll
-      ? hasAllPermissions(permissions)
-      : hasAnyPermission(permissions)
+    hasAccess = requireAll ? hasAllPermissions(permissions) : hasAnyPermission(permissions)
   } else {
     // No permission requirements specified, allow access
     hasAccess = true

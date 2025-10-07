@@ -24,7 +24,13 @@ interface PrinterModalProps {
   }
 }
 
-const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = false, partData }: PrinterModalProps) => {
+const PrinterModal = ({
+  isOpen,
+  onClose,
+  title = 'Print Label',
+  showTestMode = false,
+  partData,
+}: PrinterModalProps) => {
   const [availablePrinters, setAvailablePrinters] = useState<any[]>([])
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
   const [printerInfo, setPrinterInfo] = useState<any>(null)
@@ -114,7 +120,8 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       setPrinterInfo(info)
 
       if (info.supported_sizes && info.supported_sizes.length > 0) {
-        const defaultSize = info.supported_sizes.find((s: any) => s.name === '12mm') ||
+        const defaultSize =
+          info.supported_sizes.find((s: any) => s.name === '12mm') ||
           info.supported_sizes.find((s: any) => s.name === '12') ||
           info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
@@ -137,7 +144,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       category: 'Electronics',
       quantity: '10',
       description: 'Test part description',
-      additional_properties: {}
+      additional_properties: {},
     }
 
     let processed = template
@@ -153,7 +160,10 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
     if (data.additional_properties && typeof data.additional_properties === 'object') {
       Object.entries(data.additional_properties).forEach(([key, value]) => {
         // Support both formats: {additional_properties.key} and {key} for direct access
-        processed = processed.replace(new RegExp(`\\{additional_properties\\.${key}\\}`, 'g'), String(value || ''))
+        processed = processed.replace(
+          new RegExp(`\\{additional_properties\\.${key}\\}`, 'g'),
+          String(value || '')
+        )
         // Also support direct access to additional_properties fields
         if (!data.hasOwnProperty(key)) {
           processed = processed.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value || ''))
@@ -198,7 +208,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
         category: 'Electronics',
         quantity: '10',
         description: 'Test part description',
-        additional_properties: {}
+        additional_properties: {},
       }
 
       let blob: Blob
@@ -208,17 +218,17 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
         // Use saved template system
         blob = await templateService.previewTemplate({
           template_id: selectedTemplate.id,
-          data: testData
+          data: testData,
         })
       } else if (labelTemplate.trim()) {
         // Use custom template text
         const requestData = {
           template: labelTemplate,
-          text: "", // Not used anymore
+          text: '', // Not used anymore
           label_size: selectedLabelSize,
           label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
           options: {},
-          data: testData
+          data: testData,
         }
         blob = await settingsService.previewAdvancedLabel(requestData)
       } else {
@@ -289,7 +299,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
         category: 'Electronics',
         quantity: '10',
         description: 'Test part description',
-        additional_properties: {}
+        additional_properties: {},
       }
 
       let result: any
@@ -304,18 +314,18 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
           template_id: selectedTemplate.id,
           data: testData,
           label_size: selectedLabelSize,
-          copies: 1
+          copies: 1,
         })
       } else if (labelTemplate.trim()) {
         // Use custom template text
         const requestData = {
           printer_id: selectedPrinter,
           template: labelTemplate,
-          text: "", // Not used anymore
+          text: '', // Not used anymore
           label_size: selectedLabelSize,
           label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
           options: {},
-          data: testData
+          data: testData,
         }
         result = await settingsService.printAdvancedLabel(requestData)
       } else {
@@ -374,7 +384,11 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
     }
   }
 
-  const handleEditTemplateLoad = (templateText: string, templateName: string, templateId: string) => {
+  const handleEditTemplateLoad = (
+    templateText: string,
+    templateName: string,
+    templateId: string
+  ) => {
     // Load template for editing
     setLabelTemplate(templateText)
     setSelectedTemplate(null) // Clear selected template
@@ -405,7 +419,8 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       label_height_mm: heightMm,
       layout_type: hasQr ? 'qr_text_horizontal' : 'text_only',
       text_template: labelTemplate,
-      text_rotation: rotation === 0 ? '0' : rotation === 90 ? '90' : rotation === 180 ? '180' : '270',
+      text_rotation:
+        rotation === 0 ? '0' : rotation === 90 ? '90' : rotation === 180 ? '180' : '270',
       text_alignment: 'center',
       qr_enabled: hasQr,
       qr_position: hasQr ? 'left' : 'center',
@@ -414,7 +429,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
       enable_auto_sizing: true,
       font_config: {},
       layout_config: {},
-      spacing_config: {}
+      spacing_config: {},
     }
 
     try {
@@ -425,7 +440,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
 
         await templateService.updateTemplate(editingTemplateId, {
           ...templateData,
-          display_name: templateName
+          display_name: templateName,
         })
 
         toast.success(`Template "${templateName}" updated!`)
@@ -442,7 +457,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
         await templateService.createTemplate({
           name: uniqueName,
           display_name: templateName,
-          ...templateData
+          ...templateData,
         })
 
         toast.success(`Template "${templateName}" saved!`)
@@ -487,10 +502,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
             <Printer className="w-5 h-5" />
             {title} {partData && `- ${partData.part_name}`}
           </h4>
-          <button
-            onClick={onClose}
-            className="text-secondary hover:text-primary"
-          >
+          <button onClick={onClose} className="text-secondary hover:text-primary">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -518,12 +530,13 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                 <CustomSelect
                   value={selectedPrinter}
                   onChange={handlePrinterChange}
-                  options={availablePrinters.length === 0
-                    ? [{ value: '', label: 'No printers available' }]
-                    : availablePrinters.map((printer) => ({
-                        value: printer.printer_id,
-                        label: `${printer.name} (${printer.model})`
-                      }))
+                  options={
+                    availablePrinters.length === 0
+                      ? [{ value: '', label: 'No printers available' }]
+                      : availablePrinters.map((printer) => ({
+                          value: printer.printer_id,
+                          label: `${printer.name} (${printer.model})`,
+                        }))
                   }
                   placeholder="Select a printer"
                 />
@@ -536,7 +549,9 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                   selectedTemplateId={selectedTemplate?.id}
                   onTemplateSelect={handleTemplateSelect}
                   onEditTemplate={handleEditTemplateLoad}
-                  onTemplatesLoaded={(fn) => { reloadTemplatesRef.current = fn }}
+                  onTemplatesLoaded={(fn) => {
+                    reloadTemplatesRef.current = fn
+                  }}
                   partData={partData}
                   labelSize={selectedLabelSize}
                   showCustomOption={true}
@@ -582,9 +597,12 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                         <div className="absolute left-0 top-full mt-2 z-50 bg-background-primary border border-border rounded-lg shadow-lg p-4 w-96">
                           <div className="space-y-3">
                             <div>
-                              <h4 className="text-sm font-medium text-primary mb-1">Basic Variables</h4>
+                              <h4 className="text-sm font-medium text-primary mb-1">
+                                Basic Variables
+                              </h4>
                               <p className="text-xs text-secondary">
-                                {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'}, {'{description}'}
+                                {'{part_name}'}, {'{part_number}'}, {'{location}'}, {'{category}'},{' '}
+                                {'{description}'}
                               </p>
                             </div>
                             <div>
@@ -592,7 +610,8 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                               <p className="text-xs text-secondary">
                                 {'{qr}'} - Defaults to MM:id format
                                 <br />
-                                {'{qr=part_number}'}, {'{qr=location}'} - Use specific field for QR data
+                                {'{qr=part_number}'}, {'{qr=location}'} - Use specific field for QR
+                                data
                               </p>
                             </div>
                             <div>
@@ -603,9 +622,7 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
                             </div>
                             <div>
                               <h4 className="text-sm font-medium text-primary mb-1">Formatting</h4>
-                              <p className="text-xs text-secondary">
-                                Use \n for line breaks
-                              </p>
+                              <p className="text-xs text-secondary">Use \n for line breaks</p>
                             </div>
                           </div>
                         </div>
@@ -618,36 +635,33 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
               {/* Label Size and Length */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-2">
-                    Label Size
-                  </label>
+                  <label className="block text-sm font-medium text-primary mb-2">Label Size</label>
                   <CustomSelect
                     value={selectedLabelSize}
                     onChange={setSelectedLabelSize}
-                    options={printerInfo?.supported_sizes?.length > 0
-                      ? printerInfo.supported_sizes.map((size: any) => ({
-                          value: size.name,
-                          label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`
-                        }))
-                      : [
-                          { value: '12mm', label: '12mm - 12mm (continuous)' },
-                          { value: '17mm', label: '17mm - 17mm (continuous)' },
-                          { value: '23mm', label: '23mm - 23mm (continuous)' },
-                          { value: '29mm', label: '29mm - 29mm (continuous)' },
-                          { value: '38mm', label: '38mm - 38mm (continuous)' },
-                          { value: '50mm', label: '50mm - 50mm (continuous)' },
-                          { value: '54mm', label: '54mm - 54mm (continuous)' },
-                          { value: '62mm', label: '62mm - 62mm (continuous)' }
-                        ]
+                    options={
+                      printerInfo?.supported_sizes?.length > 0
+                        ? printerInfo.supported_sizes.map((size: any) => ({
+                            value: size.name,
+                            label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`,
+                          }))
+                        : [
+                            { value: '12mm', label: '12mm - 12mm (continuous)' },
+                            { value: '17mm', label: '17mm - 17mm (continuous)' },
+                            { value: '23mm', label: '23mm - 23mm (continuous)' },
+                            { value: '29mm', label: '29mm - 29mm (continuous)' },
+                            { value: '38mm', label: '38mm - 38mm (continuous)' },
+                            { value: '50mm', label: '50mm - 50mm (continuous)' },
+                            { value: '54mm', label: '54mm - 54mm (continuous)' },
+                            { value: '62mm', label: '62mm - 62mm (continuous)' },
+                          ]
                     }
                     placeholder="Select label size"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-2">
-                    Length (mm)
-                  </label>
+                  <label className="block text-sm font-medium text-primary mb-2">Length (mm)</label>
                   <input
                     type="number"
                     min="20"
@@ -686,7 +700,9 @@ const PrinterModal = ({ isOpen, onClose, title = "Print Label", showTestMode = f
               <button
                 onClick={printLabel}
                 className="btn btn-primary w-full flex items-center gap-2 justify-center"
-                disabled={!selectedPrinter || (!selectedTemplate && !labelTemplate) || !selectedLabelSize}
+                disabled={
+                  !selectedPrinter || (!selectedTemplate && !labelTemplate) || !selectedLabelSize
+                }
               >
                 <Printer className="w-4 h-4" />
                 Print Label

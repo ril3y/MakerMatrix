@@ -1,92 +1,103 @@
 /**
  * Supplier Configuration Management Page
- * 
+ *
  * Provides a comprehensive interface for managing supplier API configurations,
  * credentials, and enrichment capabilities with security features.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Settings, Upload, AlertTriangle, CheckCircle, XCircle, Activity, Clock } from 'lucide-react';
-import { supplierService, SupplierConfig } from '../../services/supplier.service';
-import { dynamicSupplierService } from '../../services/dynamic-supplier.service';
-import { rateLimitService, SupplierRateLimitData } from '../../services/rate-limit.service';
-import { DynamicAddSupplierModal } from './DynamicAddSupplierModal';
-import { EditSupplierModal } from './EditSupplierModal';
-import { EditSimpleSupplierModal } from './EditSimpleSupplierModal';
-import { ImportExportModal } from './ImportExportModal';
-import { AddSimpleSupplierModal } from './AddSimpleSupplierModal';
+import React, { useState, useEffect, useRef } from 'react'
+import {
+  Plus,
+  Settings,
+  Upload,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Activity,
+  Clock,
+} from 'lucide-react'
+import { supplierService, SupplierConfig } from '../../services/supplier.service'
+import { dynamicSupplierService } from '../../services/dynamic-supplier.service'
+import { rateLimitService, SupplierRateLimitData } from '../../services/rate-limit.service'
+import { DynamicAddSupplierModal } from './DynamicAddSupplierModal'
+import { EditSupplierModal } from './EditSupplierModal'
+import { EditSimpleSupplierModal } from './EditSimpleSupplierModal'
+import { ImportExportModal } from './ImportExportModal'
+import { AddSimpleSupplierModal } from './AddSimpleSupplierModal'
 
 export const SupplierConfigPage: React.FC = () => {
-  const [suppliers, setSuppliers] = useState<SupplierConfig[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState<SupplierConfig[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Modal states
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddSimpleModal, setShowAddSimpleModal] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<SupplierConfig | null>(null);
-  const [showImportExport, setShowImportExport] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showAddSimpleModal, setShowAddSimpleModal] = useState(false)
+  const [editingSupplier, setEditingSupplier] = useState<SupplierConfig | null>(null)
+  const [showImportExport, setShowImportExport] = useState(false)
 
   // Cache for credential requirements to avoid repeated API calls
-  const [credentialRequirements, setCredentialRequirements] = useState<Record<string, boolean>>({});
+  const [credentialRequirements, setCredentialRequirements] = useState<Record<string, boolean>>({})
 
   // Cache for actual credential status
-  const [credentialStatuses, setCredentialStatuses] = useState<Record<string, any>>({});
+  const [credentialStatuses, setCredentialStatuses] = useState<Record<string, any>>({})
 
   // Loading state for each supplier's credential status
-  const [loadingCredentialStatus, setLoadingCredentialStatus] = useState<Record<string, boolean>>({});
+  const [loadingCredentialStatus, setLoadingCredentialStatus] = useState<Record<string, boolean>>(
+    {}
+  )
 
   // Rate limit data
-  const [rateLimitData, setRateLimitData] = useState<Record<string, SupplierRateLimitData>>({});
-  const [loadingRateLimits, setLoadingRateLimits] = useState(false);
+  const [rateLimitData, setRateLimitData] = useState<Record<string, SupplierRateLimitData>>({})
+  const [loadingRateLimits, setLoadingRateLimits] = useState(false)
 
   // Ref to prevent duplicate initial loads (React StrictMode in dev runs effects twice)
-  const initialLoadDone = useRef(false);
+  const initialLoadDone = useRef(false)
 
   useEffect(() => {
     if (!initialLoadDone.current) {
-      initialLoadDone.current = true;
-      loadSuppliers();
-      loadRateLimitData();
+      initialLoadDone.current = true
+      loadSuppliers()
+      loadRateLimitData()
     }
-  }, []);
+  }, [])
 
   const loadSuppliers = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const data = await supplierService.getSuppliers();
-      setSuppliers(data || []);
+      setLoading(true)
+      setError(null)
+      const data = await supplierService.getSuppliers()
+      setSuppliers(data || [])
 
       // Separate simple and API suppliers
-      const apiSuppliers = (data || []).filter(s => s.supplier_type !== 'simple');
-      const simpleSuppliers = (data || []).filter(s => s.supplier_type === 'simple');
+      const apiSuppliers = (data || []).filter((s) => s.supplier_type !== 'simple')
+      const simpleSuppliers = (data || []).filter((s) => s.supplier_type === 'simple')
 
       // Set initial loading states
-      const loadingStates: Record<string, boolean> = {};
-      const requirements: Record<string, boolean> = {};
-      const statuses: Record<string, any> = {};
+      const loadingStates: Record<string, boolean> = {}
+      const requirements: Record<string, boolean> = {}
+      const statuses: Record<string, any> = {}
 
       // Handle simple suppliers (no API calls needed)
       for (const supplier of simpleSuppliers) {
-        loadingStates[supplier.supplier_name] = false;
-        requirements[supplier.supplier_name] = false;
+        loadingStates[supplier.supplier_name] = false
+        requirements[supplier.supplier_name] = false
         statuses[supplier.supplier_name] = {
           is_configured: true,
           configured_fields: [],
-          supplier_type: 'simple'
-        };
+          supplier_type: 'simple',
+        }
       }
 
       // Set API suppliers to loading
       for (const supplier of apiSuppliers) {
-        loadingStates[supplier.supplier_name] = true;
+        loadingStates[supplier.supplier_name] = true
       }
 
       // Update states once for simple suppliers
-      setLoadingCredentialStatus(loadingStates);
-      setCredentialRequirements(requirements);
-      setCredentialStatuses(statuses);
+      setLoadingCredentialStatus(loadingStates)
+      setCredentialRequirements(requirements)
+      setCredentialStatuses(statuses)
 
       // Batch load credential info for all API suppliers in parallel
       const credentialPromises = apiSuppliers.map(async (supplier) => {
@@ -96,165 +107,166 @@ export const SupplierConfigPage: React.FC = () => {
             dynamicSupplierService.getCredentialSchema(supplier.supplier_name.toLowerCase()),
             supplierService.getCredentialStatus(supplier.supplier_name).catch(() => ({
               is_configured: false,
-              configured_fields: []
-            }))
-          ]);
+              configured_fields: [],
+            })),
+          ])
 
-          const requiresCredentials = Array.isArray(credentialSchema) && credentialSchema.length > 0;
+          const requiresCredentials = Array.isArray(credentialSchema) && credentialSchema.length > 0
 
           return {
             supplierName: supplier.supplier_name,
             requiresCredentials,
-            credentialStatus
-          };
+            credentialStatus,
+          }
         } catch (err) {
-          console.warn(`Failed to load credentials for ${supplier.supplier_name}:`, err);
+          console.warn(`Failed to load credentials for ${supplier.supplier_name}:`, err)
           return {
             supplierName: supplier.supplier_name,
             requiresCredentials: true,
-            credentialStatus: { is_configured: false, configured_fields: [] }
-          };
+            credentialStatus: { is_configured: false, configured_fields: [] },
+          }
         }
-      });
+      })
 
       // Wait for all credential checks to complete
-      const results = await Promise.all(credentialPromises);
+      const results = await Promise.all(credentialPromises)
 
       // Batch update all states at once
-      const newRequirements: Record<string, boolean> = { ...requirements };
-      const newStatuses: Record<string, any> = { ...statuses };
-      const newLoadingStates: Record<string, boolean> = { ...loadingStates };
+      const newRequirements: Record<string, boolean> = { ...requirements }
+      const newStatuses: Record<string, any> = { ...statuses }
+      const newLoadingStates: Record<string, boolean> = { ...loadingStates }
 
       results.forEach(({ supplierName, requiresCredentials, credentialStatus }) => {
-        newRequirements[supplierName] = requiresCredentials;
-        newStatuses[supplierName] = credentialStatus;
-        newLoadingStates[supplierName] = false;
-      });
+        newRequirements[supplierName] = requiresCredentials
+        newStatuses[supplierName] = credentialStatus
+        newLoadingStates[supplierName] = false
+      })
 
-      setCredentialRequirements(newRequirements);
-      setCredentialStatuses(newStatuses);
-      setLoadingCredentialStatus(newLoadingStates);
-
+      setCredentialRequirements(newRequirements)
+      setCredentialStatuses(newStatuses)
+      setLoadingCredentialStatus(newLoadingStates)
     } catch (err: any) {
-      console.error('Error loading suppliers:', err);
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to load supplier configurations';
-      setError(errorMessage);
-      setSuppliers([]); // Ensure suppliers is always an array
+      console.error('Error loading suppliers:', err)
+      const errorMessage =
+        err.response?.data?.detail || err.message || 'Failed to load supplier configurations'
+      setError(errorMessage)
+      setSuppliers([]) // Ensure suppliers is always an array
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const loadRateLimitData = async () => {
     try {
-      setLoadingRateLimits(true);
-      const rateLimits = await rateLimitService.getAllSupplierUsage();
-      
+      setLoadingRateLimits(true)
+      const rateLimits = await rateLimitService.getAllSupplierUsage()
+
       // Convert array to object for easier lookup
-      const rateLimitMap: Record<string, SupplierRateLimitData> = {};
-      rateLimits.forEach(data => {
-        rateLimitMap[data.supplier_name.toLowerCase()] = data;
-      });
-      
-      setRateLimitData(rateLimitMap);
+      const rateLimitMap: Record<string, SupplierRateLimitData> = {}
+      rateLimits.forEach((data) => {
+        rateLimitMap[data.supplier_name.toLowerCase()] = data
+      })
+
+      setRateLimitData(rateLimitMap)
     } catch (err: any) {
-      console.error('Error loading rate limit data:', err);
+      console.error('Error loading rate limit data:', err)
       // Don't show error for rate limits as it's supplementary data
     } finally {
-      setLoadingRateLimits(false);
+      setLoadingRateLimits(false)
     }
-  };
+  }
 
   const handleToggleEnabled = async (supplier: SupplierConfig) => {
     try {
       await supplierService.updateSupplier(supplier.supplier_name, {
-        enabled: !supplier.enabled
-      });
-      await loadSuppliers();
+        enabled: !supplier.enabled,
+      })
+      await loadSuppliers()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update supplier status');
+      setError(err.response?.data?.detail || 'Failed to update supplier status')
     }
-  };
+  }
 
   const handleDeleteSupplier = async (supplierName: string) => {
-    if (!confirm(`Are you sure you want to delete the supplier configuration for "${supplierName}"? This action cannot be undone.`)) {
-      return;
+    if (
+      !confirm(
+        `Are you sure you want to delete the supplier configuration for "${supplierName}"? This action cannot be undone.`
+      )
+    ) {
+      return
     }
 
     try {
-      await supplierService.deleteSupplier(supplierName);
-      await loadSuppliers();
+      await supplierService.deleteSupplier(supplierName)
+      await loadSuppliers()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete supplier configuration');
+      setError(err.response?.data?.detail || 'Failed to delete supplier configuration')
     }
-  };
-
+  }
 
   // Separate suppliers into API and simple types
-  const apiSuppliers = (suppliers || []).filter(s => s.supplier_type !== 'simple');
-  const simpleSuppliers = (suppliers || []).filter(s => s.supplier_type === 'simple');
-  const filteredSuppliers = suppliers || [];
+  const apiSuppliers = (suppliers || []).filter((s) => s.supplier_type !== 'simple')
+  const simpleSuppliers = (suppliers || []).filter((s) => s.supplier_type === 'simple')
+  const filteredSuppliers = suppliers || []
 
   const getStatusIcon = (supplier: SupplierConfig) => {
     // Check if we're still loading credential status for this supplier
     if (loadingCredentialStatus[supplier.supplier_name]) {
       return (
         <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-blue-600"></div>
-      );
+      )
     }
 
     if (!supplier.enabled) {
-      return <XCircle className="w-5 h-5 text-gray-400" />;
+      return <XCircle className="w-5 h-5 text-gray-400" />
     }
 
     // Check if this supplier requires credentials
-    const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true;
+    const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true
 
     // If no credentials are required (like LCSC), show green
     if (!requiresCredentials) {
-      return <CheckCircle className="w-5 h-5 text-green-500" />; // Public API, no credentials needed
+      return <CheckCircle className="w-5 h-5 text-green-500" /> // Public API, no credentials needed
     }
 
     // Check actual credential status for suppliers that need credentials
-    const credentialStatus = credentialStatuses[supplier.supplier_name];
+    const credentialStatus = credentialStatuses[supplier.supplier_name]
     if (credentialStatus?.is_configured) {
-      return <CheckCircle className="w-5 h-5 text-green-500" />; // Credentials configured and working
+      return <CheckCircle className="w-5 h-5 text-green-500" /> // Credentials configured and working
     } else {
-      return <AlertTriangle className="w-5 h-5 text-yellow-500" />; // Credentials missing or not working
+      return <AlertTriangle className="w-5 h-5 text-yellow-500" /> // Credentials missing or not working
     }
-  };
+  }
 
   const getStatusText = (supplier: SupplierConfig) => {
     // Check if we're still loading credential status for this supplier
     if (loadingCredentialStatus[supplier.supplier_name]) {
-      return 'Checking...';
+      return 'Checking...'
     }
 
-    if (!supplier.enabled) return 'Disabled';
+    if (!supplier.enabled) return 'Disabled'
 
     // Check if this supplier requires credentials
-    const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true;
+    const requiresCredentials = credentialRequirements[supplier.supplier_name] ?? true
 
     // If no credentials are required (like LCSC), show as configured
     if (!requiresCredentials) {
-      return 'Configured'; // Public API, no credentials needed
+      return 'Configured' // Public API, no credentials needed
     }
 
     // Check actual credential status for suppliers that need credentials
-    const credentialStatus = credentialStatuses[supplier.supplier_name];
+    const credentialStatus = credentialStatuses[supplier.supplier_name]
     if (credentialStatus?.is_configured) {
-      return 'Configured'; // Credentials configured and working
+      return 'Configured' // Credentials configured and working
     } else {
-      return 'Not Configured'; // Credentials missing or not working
+      return 'Not Configured' // Credentials missing or not working
     }
-  };
+  }
 
   // Helper component to render supplier card
   const SupplierCard = ({ supplier }: { supplier: SupplierConfig }) => {
     return (
-      <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
-      >
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
@@ -276,9 +288,7 @@ export const SupplierConfigPage: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {supplier.display_name}
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {supplier.supplier_name}
-                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{supplier.supplier_name}</p>
               </div>
             </div>
             <div className="flex items-center space-x-1">
@@ -294,9 +304,7 @@ export const SupplierConfigPage: React.FC = () => {
 
           {/* Description */}
           {supplier.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              {supplier.description}
-            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{supplier.description}</p>
           )}
 
           {/* Status and Info */}
@@ -309,9 +317,13 @@ export const SupplierConfigPage: React.FC = () => {
                   {getStatusText(supplier)}
                 </span>
               ) : (
-                <span className={`text-sm font-medium ${
-                  supplier.enabled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                }`}>
+                <span
+                  className={`text-sm font-medium ${
+                    supplier.enabled
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}
+                >
                   {getStatusText(supplier)}
                 </span>
               )}
@@ -340,38 +352,40 @@ export const SupplierConfigPage: React.FC = () => {
             )}
 
             {/* Rate Limit Information */}
-            {supplier.supplier_type !== 'simple' && rateLimitData[supplier.supplier_name.toLowerCase()] && (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    <Activity className="w-3 h-3 inline mr-1" />
-                    API Usage:
-                  </span>
-                  <span className="text-sm">
-                    {rateLimitData[supplier.supplier_name.toLowerCase()].stats_24h.total_requests} calls (24h)
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    <Clock className="w-3 h-3 inline mr-1" />
-                    Rate Limit:
-                  </span>
-                  <div className="text-right">
-                    {Object.entries(rateLimitData[supplier.supplier_name.toLowerCase()].usage_percentage).map(([period, percentage]) => (
-                      <div key={period} className="text-xs">
-                        <span className={rateLimitService.getUsageColor(percentage)}>
-                          {rateLimitService.formatUsagePercentage(percentage)}
-                        </span>
-                        <span className="text-gray-400 ml-1">
-                          {period.replace('per_', '')}
-                        </span>
-                      </div>
-                    ))}
+            {supplier.supplier_type !== 'simple' &&
+              rateLimitData[supplier.supplier_name.toLowerCase()] && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      <Activity className="w-3 h-3 inline mr-1" />
+                      API Usage:
+                    </span>
+                    <span className="text-sm">
+                      {rateLimitData[supplier.supplier_name.toLowerCase()].stats_24h.total_requests}{' '}
+                      calls (24h)
+                    </span>
                   </div>
-                </div>
-              </>
-            )}
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      Rate Limit:
+                    </span>
+                    <div className="text-right">
+                      {Object.entries(
+                        rateLimitData[supplier.supplier_name.toLowerCase()].usage_percentage
+                      ).map(([period, percentage]) => (
+                        <div key={period} className="text-xs">
+                          <span className={rateLimitService.getUsageColor(percentage)}>
+                            {rateLimitService.formatUsagePercentage(percentage)}
+                          </span>
+                          <span className="text-gray-400 ml-1">{period.replace('per_', '')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
             {loadingRateLimits && (
               <div className="flex items-center justify-between">
@@ -379,7 +393,6 @@ export const SupplierConfigPage: React.FC = () => {
                 <span className="text-xs text-gray-400">Loading...</span>
               </div>
             )}
-
           </div>
 
           {/* Capabilities */}
@@ -393,22 +406,23 @@ export const SupplierConfigPage: React.FC = () => {
                   >
                     {(() => {
                       const nameMap: Record<string, string> = {
-                        'get_part_details': 'Part Enrichment',
-                        'fetch_datasheet': 'Datasheet Retrieval',
-                        'fetch_image': 'Image Fetching',
-                        'fetch_pricing': 'Pricing Data',
-                        'fetch_stock': 'Stock Levels',
-                        'import_orders': 'Order Import',
-                        'parametric_search': 'Advanced Search'
-                      };
-                      return nameMap[capability] || capability.replace('fetch_', '').replace('_', ' ');
+                        get_part_details: 'Part Enrichment',
+                        fetch_datasheet: 'Datasheet Retrieval',
+                        fetch_image: 'Image Fetching',
+                        fetch_pricing: 'Pricing Data',
+                        fetch_stock: 'Stock Levels',
+                        import_orders: 'Order Import',
+                        parametric_search: 'Advanced Search',
+                      }
+                      return (
+                        nameMap[capability] || capability.replace('fetch_', '').replace('_', ' ')
+                      )
                     })()}
                   </span>
                 ))}
               </div>
             </div>
           )}
-
 
           {/* Actions */}
           <div className="mt-6 flex items-center justify-end">
@@ -436,8 +450,8 @@ export const SupplierConfigPage: React.FC = () => {
           </div>
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   if (loading && suppliers.length === 0) {
     return (
@@ -448,7 +462,7 @@ export const SupplierConfigPage: React.FC = () => {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -517,10 +531,16 @@ export const SupplierConfigPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                <span className="font-semibold text-gray-900 dark:text-white">{apiSuppliers.length}</span> API Supplier{apiSuppliers.length !== 1 ? 's' : ''}
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {apiSuppliers.length}
+                </span>{' '}
+                API Supplier{apiSuppliers.length !== 1 ? 's' : ''}
               </span>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                <span className="font-semibold text-gray-900 dark:text-white">{simpleSuppliers.length}</span> Simple Supplier{simpleSuppliers.length !== 1 ? 's' : ''}
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {simpleSuppliers.length}
+                </span>{' '}
+                Simple Supplier{simpleSuppliers.length !== 1 ? 's' : ''}
               </span>
             </div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -528,7 +548,6 @@ export const SupplierConfigPage: React.FC = () => {
             </span>
           </div>
         </div>
-
 
         {/* Suppliers Display */}
         {filteredSuppliers.length === 0 ? (
@@ -598,10 +617,10 @@ export const SupplierConfigPage: React.FC = () => {
         <DynamicAddSupplierModal
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
-            setShowAddModal(false);
-            loadSuppliers();
+            setShowAddModal(false)
+            loadSuppliers()
           }}
-          existingSuppliers={suppliers.map(s => s.supplier_name)}
+          existingSuppliers={suppliers.map((s) => s.supplier_name)}
         />
       )}
 
@@ -609,8 +628,8 @@ export const SupplierConfigPage: React.FC = () => {
         <AddSimpleSupplierModal
           onClose={() => setShowAddSimpleModal(false)}
           onSuccess={() => {
-            setShowAddSimpleModal(false);
-            loadSuppliers();
+            setShowAddSimpleModal(false)
+            loadSuppliers()
           }}
         />
       )}
@@ -620,8 +639,8 @@ export const SupplierConfigPage: React.FC = () => {
           supplier={editingSupplier}
           onClose={() => setEditingSupplier(null)}
           onSuccess={() => {
-            setEditingSupplier(null);
-            loadSuppliers();
+            setEditingSupplier(null)
+            loadSuppliers()
           }}
           onDelete={handleDeleteSupplier}
         />
@@ -632,8 +651,8 @@ export const SupplierConfigPage: React.FC = () => {
           supplier={editingSupplier}
           onClose={() => setEditingSupplier(null)}
           onSuccess={() => {
-            setEditingSupplier(null);
-            loadSuppliers();
+            setEditingSupplier(null)
+            loadSuppliers()
           }}
           onDelete={handleDeleteSupplier}
         />
@@ -643,13 +662,13 @@ export const SupplierConfigPage: React.FC = () => {
         <ImportExportModal
           onClose={() => setShowImportExport(false)}
           onSuccess={() => {
-            setShowImportExport(false);
-            loadSuppliers();
+            setShowImportExport(false)
+            loadSuppliers()
           }}
         />
       )}
     </div>
-  );
-};
+  )
+}
 
-export default SupplierConfigPage;
+export default SupplierConfigPage

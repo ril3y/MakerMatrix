@@ -24,34 +24,40 @@ describe('AddPartModal - Core Functionality', () => {
   const mockProps = {
     isOpen: true,
     onClose: vi.fn(),
-    onSuccess: vi.fn()
+    onSuccess: vi.fn(),
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Mock successful data loading
     mockLocationsService.getAllLocations.mockResolvedValue([
-      { id: 'loc1', name: 'Shelf A', description: 'Top shelf', location_type: 'shelf', parent_id: null }
+      {
+        id: 'loc1',
+        name: 'Shelf A',
+        description: 'Top shelf',
+        location_type: 'shelf',
+        parent_id: null,
+      },
     ])
     mockCategoriesService.getAllCategories.mockResolvedValue([
-      { id: 'cat1', name: 'Resistors', description: 'Electronic resistors' }
+      { id: 'cat1', name: 'Resistors', description: 'Electronic resistors' },
     ])
-    
+
     // Mock successful part creation
     mockPartsService.createPart.mockResolvedValue({
       id: 'new-part-id',
       name: 'Test Part',
-      part_number: 'TEST-001'
+      part_number: 'TEST-001',
     } as any)
   })
 
   describe('Basic Rendering', () => {
     it('should render modal when open', async () => {
       render(<AddPartModal {...mockProps} />)
-      
+
       expect(screen.getByText('Add New Part')).toBeInTheDocument()
-      
+
       // Wait for form to load
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
@@ -60,13 +66,13 @@ describe('AddPartModal - Core Functionality', () => {
 
     it('should not render modal when closed', () => {
       render(<AddPartModal {...mockProps} isOpen={false} />)
-      
+
       expect(screen.queryByText('Add New Part')).not.toBeInTheDocument()
     })
 
     it('should load data on open', async () => {
       render(<AddPartModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(mockLocationsService.getAllLocations).toHaveBeenCalled()
         expect(mockCategoriesService.getAllCategories).toHaveBeenCalled()
@@ -78,7 +84,7 @@ describe('AddPartModal - Core Functionality', () => {
     it('should show error when part name is empty', async () => {
       const user = userEvent.setup()
       render(<AddPartModal {...mockProps} />)
-      
+
       // Wait for form to load
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
@@ -95,7 +101,7 @@ describe('AddPartModal - Core Functionality', () => {
     it('should accept valid form data', async () => {
       const user = userEvent.setup()
       render(<AddPartModal {...mockProps} />)
-      
+
       // Wait for form to load
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
@@ -110,7 +116,7 @@ describe('AddPartModal - Core Functionality', () => {
       await waitFor(() => {
         expect(mockPartsService.createPart).toHaveBeenCalledWith(
           expect.objectContaining({
-            name: 'Test Resistor'
+            name: 'Test Resistor',
           })
         )
       })
@@ -124,11 +130,11 @@ describe('AddPartModal - Core Functionality', () => {
     it('should handle part creation error', async () => {
       const user = userEvent.setup()
       mockPartsService.createPart.mockRejectedValue({
-        response: { data: { message: 'Part already exists' } }
+        response: { data: { message: 'Part already exists' } },
       })
-      
+
       render(<AddPartModal {...mockProps} />)
-      
+
       // Wait for form to load
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()
@@ -147,9 +153,9 @@ describe('AddPartModal - Core Functionality', () => {
 
     it('should handle data loading error', async () => {
       mockLocationsService.getAllLocations.mockRejectedValue(new Error('API Error'))
-      
+
       render(<AddPartModal {...mockProps} />)
-      
+
       await waitFor(() => {
         expect(mockToast.error).toHaveBeenCalledWith('Failed to load data')
       })
@@ -160,7 +166,7 @@ describe('AddPartModal - Core Functionality', () => {
     it('should call onClose when close button is clicked', async () => {
       const user = userEvent.setup()
       render(<AddPartModal {...mockProps} />)
-      
+
       // Wait for form to load first
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Enter part name')).toBeInTheDocument()

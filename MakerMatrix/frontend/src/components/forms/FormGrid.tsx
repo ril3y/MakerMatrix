@@ -7,12 +7,7 @@ interface FormGridProps {
   gap?: 'sm' | 'md' | 'lg'
 }
 
-const FormGrid = ({ 
-  children, 
-  columns = 2, 
-  className,
-  gap = 'md'
-}: FormGridProps) => {
+const FormGrid = ({ children, columns = 2, className, gap = 'md' }: FormGridProps) => {
   const gridColsClass = {
     1: 'grid-cols-1',
     2: 'grid-cols-1 md:grid-cols-2',
@@ -27,10 +22,12 @@ const FormGrid = ({
   }
 
   return (
-    <div className={`
+    <div
+      className={`
       grid ${gridColsClass[columns]} ${gapClass[gap]}
       ${className || ''}
-    `}>
+    `}
+    >
       {children}
     </div>
   )

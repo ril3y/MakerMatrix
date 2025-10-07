@@ -34,6 +34,7 @@ export interface Part {
   location_id?: string
   location?: Location
   categories?: Category[]
+  projects?: Project[]
   datasheets?: Datasheet[]
   created_at: string
   updated_at: string
@@ -49,7 +50,7 @@ export interface Location {
   name: string
   description?: string
   location_type?: string
-  type?: string  // Keep for backward compatibility
+  type?: string // Keep for backward compatibility
   parent_id?: string
   parent?: Location
   children?: Location[]
@@ -61,6 +62,17 @@ export interface Location {
 export interface Category {
   id: string
   name: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  description?: string
+  status?: string
+  image_url?: string
+  links?: Record<string, string>
   created_at?: string
   updated_at?: string
 }
@@ -89,7 +101,7 @@ export interface UpdatePartRequest extends Partial<CreatePartRequest> {
 
 export interface SearchPartsRequest {
   search_term?: string
-  query?: string  // Keep for backward compatibility
+  query?: string // Keep for backward compatibility
   category?: string
   location_id?: string
   min_quantity?: number

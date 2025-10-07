@@ -28,7 +28,7 @@ const NotFoundPage = () => {
         <motion.div
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
-          transition={{ duration: 0.6, type: "spring" }}
+          transition={{ duration: 0.6, type: 'spring' }}
           className="inline-flex items-center justify-center w-32 h-32 bg-primary-10 rounded-full mb-8"
         >
           <FileQuestion className="w-16 h-16 text-primary" />
@@ -104,10 +104,7 @@ const NotFoundPage = () => {
             <ArrowLeft className="w-4 h-4" />
             Go Back
           </button>
-          <button
-            onClick={() => navigate('/')}
-            className="btn btn-primary flex items-center gap-2"
-          >
+          <button onClick={() => navigate('/')} className="btn btn-primary flex items-center gap-2">
             <Home className="w-4 h-4" />
             Return Home
           </button>
@@ -120,21 +117,13 @@ const NotFoundPage = () => {
           transition={{ delay: 0.8 }}
           className="mt-12 bg-bg-secondary rounded-lg p-6"
         >
-          <p className="text-sm font-medium text-primary mb-3">
-            Quick Links
-          </p>
+          <p className="text-sm font-medium text-primary mb-3">Quick Links</p>
           <div className="flex flex-wrap gap-4 justify-center text-sm">
-            <button
-              onClick={() => navigate('/parts')}
-              className="text-primary hover:underline"
-            >
+            <button onClick={() => navigate('/parts')} className="text-primary hover:underline">
               Browse Parts
             </button>
             <span className="text-muted">•</span>
-            <button
-              onClick={() => navigate('/locations')}
-              className="text-primary hover:underline"
-            >
+            <button onClick={() => navigate('/locations')} className="text-primary hover:underline">
               View Locations
             </button>
             <span className="text-muted">•</span>
@@ -145,10 +134,7 @@ const NotFoundPage = () => {
               Browse Categories
             </button>
             <span className="text-muted">•</span>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-primary hover:underline"
-            >
+            <button onClick={() => navigate('/dashboard')} className="text-primary hover:underline">
               Dashboard
             </button>
           </div>

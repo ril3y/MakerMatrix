@@ -3,7 +3,7 @@
  * Handles conversion of Mouser form fields to standard SupplierConfigCreate format
  */
 
-import { SupplierConfigCreate } from '../../../services/supplier.service';
+import { SupplierConfigCreate } from '../../../services/supplier.service'
 
 export interface MouserFormData {
   // Mouser doesn't have any supplier-specific fields beyond the base config
@@ -18,14 +18,14 @@ export function prepareMouserConfig(
   baseConfig: SupplierConfigCreate,
   mouserData: MouserFormData
 ): SupplierConfigCreate {
-  const config = { ...baseConfig };
+  const config = { ...baseConfig }
 
   // Set Mouser-specific defaults
   config.custom_headers = {
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-    ...config.custom_headers
-  };
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...config.custom_headers,
+  }
 
-  return config;
+  return config
 }

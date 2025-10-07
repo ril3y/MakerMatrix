@@ -61,7 +61,7 @@ const ApiKeyManagement = () => {
     expires_in_days: 365,
     role_names: [],
     permissions: [],
-    allowed_ips: []
+    allowed_ips: [],
   })
   const [createdKey, setCreatedKey] = useState<string | null>(null)
   const [showKey, setShowKey] = useState<string | null>(null)
@@ -74,9 +74,10 @@ const ApiKeyManagement = () => {
     try {
       setLoading(true)
       // Admin users can view all API keys in the system
-      const keys = (isAdmin && showAllKeys)
-        ? await apiKeyService.getAllApiKeys()
-        : await apiKeyService.getUserApiKeys()
+      const keys =
+        isAdmin && showAllKeys
+          ? await apiKeyService.getAllApiKeys()
+          : await apiKeyService.getUserApiKeys()
       setApiKeys(keys || [])
     } catch (error: any) {
       // Check if it's an authentication error
@@ -116,7 +117,7 @@ const ApiKeyManagement = () => {
         expires_in_days: 365,
         role_names: [],
         permissions: [],
-        allowed_ips: []
+        allowed_ips: [],
       })
       await loadApiKeys()
       toast.success('API key created successfully')
@@ -139,7 +140,12 @@ const ApiKeyManagement = () => {
   }
 
   const deleteApiKey = async (keyId: string) => {
-    if (!confirm('Are you sure you want to permanently delete this API key? This action cannot be undone!')) return
+    if (
+      !confirm(
+        'Are you sure you want to permanently delete this API key? This action cannot be undone!'
+      )
+    )
+      return
 
     try {
       await apiKeyService.deleteApiKey(keyId)
@@ -156,7 +162,7 @@ const ApiKeyManagement = () => {
   }
 
   const togglePrefixVisibility = (keyId: string) => {
-    setVisiblePrefixes(prev => {
+    setVisiblePrefixes((prev) => {
       const next = new Set(prev)
       if (next.has(keyId)) {
         next.delete(keyId)
@@ -183,8 +189,7 @@ const ApiKeyManagement = () => {
           <p className="text-sm text-secondary mt-1">
             {isAdmin && showAllKeys
               ? 'Viewing all API keys in the system (Admin)'
-              : 'Manage API keys for programmatic access to MakerMatrix'
-            }
+              : 'Manage API keys for programmatic access to MakerMatrix'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -213,7 +218,9 @@ const ApiKeyManagement = () => {
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h4 className="font-medium text-green-800 dark:text-green-200">API Key Created Successfully</h4>
+              <h4 className="font-medium text-green-800 dark:text-green-200">
+                API Key Created Successfully
+              </h4>
               <p className="text-sm text-green-600 dark:text-green-300 mt-1">
                 Make sure to copy your API key now. You won't be able to see it again!
               </p>
@@ -225,7 +232,11 @@ const ApiKeyManagement = () => {
                   onClick={() => setShowKey(showKey === 'created' ? null : 'created')}
                   className="btn btn-secondary btn-sm"
                 >
-                  {showKey === 'created' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showKey === 'created' ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
                 <button
                   onClick={() => copyToClipboard(createdKey)}
@@ -252,9 +263,7 @@ const ApiKeyManagement = () => {
           <h4 className="font-medium text-primary">Create New API Key</h4>
 
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Name *
-            </label>
+            <label className="block text-sm font-medium text-primary mb-2">Name *</label>
             <input
               type="text"
               className="input w-full"
@@ -265,9 +274,7 @@ const ApiKeyManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-primary mb-2">Description</label>
             <textarea
               className="input w-full"
               value={newKeyData.description}
@@ -278,20 +285,23 @@ const ApiKeyManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Permissions *
-            </label>
+            <label className="block text-sm font-medium text-primary mb-2">Permissions *</label>
             <div className="border border-border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto">
-              {['Parts', 'Locations', 'Categories', 'Tasks', 'Admin'].map(category => {
-                const categoryPerms = AVAILABLE_PERMISSIONS.filter(p => p.category === category)
+              {['Parts', 'Locations', 'Categories', 'Tasks', 'Admin'].map((category) => {
+                const categoryPerms = AVAILABLE_PERMISSIONS.filter((p) => p.category === category)
                 if (categoryPerms.length === 0) return null
 
                 return (
                   <div key={category}>
-                    <div className="text-xs font-semibold text-secondary uppercase mb-2">{category}</div>
+                    <div className="text-xs font-semibold text-secondary uppercase mb-2">
+                      {category}
+                    </div>
                     <div className="space-y-1.5">
-                      {categoryPerms.map(perm => (
-                        <label key={perm.value} className="flex items-center gap-2 cursor-pointer hover:bg-background-secondary p-1.5 rounded">
+                      {categoryPerms.map((perm) => (
+                        <label
+                          key={perm.value}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-background-secondary p-1.5 rounded"
+                        >
                           <input
                             type="checkbox"
                             checked={newKeyData.permissions.includes(perm.value)}
@@ -299,12 +309,14 @@ const ApiKeyManagement = () => {
                               if (e.target.checked) {
                                 setNewKeyData({
                                   ...newKeyData,
-                                  permissions: [...newKeyData.permissions, perm.value]
+                                  permissions: [...newKeyData.permissions, perm.value],
                                 })
                               } else {
                                 setNewKeyData({
                                   ...newKeyData,
-                                  permissions: newKeyData.permissions.filter(p => p !== perm.value)
+                                  permissions: newKeyData.permissions.filter(
+                                    (p) => p !== perm.value
+                                  ),
                                 })
                               }
                             }}
@@ -321,20 +333,22 @@ const ApiKeyManagement = () => {
             <p className="text-xs text-secondary mt-1">
               {newKeyData.permissions.length === 0
                 ? 'Select at least one permission'
-                : `${newKeyData.permissions.length} permission${newKeyData.permissions.length !== 1 ? 's' : ''} selected`
-              }
+                : `${newKeyData.permissions.length} permission${newKeyData.permissions.length !== 1 ? 's' : ''} selected`}
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Expires In (Days)
-            </label>
+            <label className="block text-sm font-medium text-primary mb-2">Expires In (Days)</label>
             <input
               type="number"
               className="input w-full"
               value={newKeyData.expires_in_days || ''}
-              onChange={(e) => setNewKeyData({ ...newKeyData, expires_in_days: e.target.value ? parseInt(e.target.value) : null })}
+              onChange={(e) =>
+                setNewKeyData({
+                  ...newKeyData,
+                  expires_in_days: e.target.value ? parseInt(e.target.value) : null,
+                })
+              }
               placeholder="365 (leave empty for no expiration)"
             />
           </div>
@@ -348,7 +362,10 @@ const ApiKeyManagement = () => {
               className="input w-full"
               placeholder="Comma-separated IPs (e.g., 192.168.1.100, 10.0.0.50)"
               onChange={(e) => {
-                const ips = e.target.value.split(',').map(ip => ip.trim()).filter(Boolean)
+                const ips = e.target.value
+                  .split(',')
+                  .map((ip) => ip.trim())
+                  .filter(Boolean)
                 setNewKeyData({ ...newKeyData, allowed_ips: ips })
               }}
             />
@@ -365,10 +382,7 @@ const ApiKeyManagement = () => {
             >
               Create Key
             </button>
-            <button
-              onClick={() => setShowCreateForm(false)}
-              className="btn btn-secondary"
-            >
+            <button onClick={() => setShowCreateForm(false)} className="btn btn-secondary">
               Cancel
             </button>
           </div>
@@ -396,13 +410,15 @@ const ApiKeyManagement = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium text-primary">{key.name}</h4>
-                    <span className={`inline-block px-2 py-1 rounded text-xs ${
-                      key.is_valid
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : key.is_expired
-                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}>
+                    <span
+                      className={`inline-block px-2 py-1 rounded text-xs ${
+                        key.is_valid
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : key.is_expired
+                            ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                      }`}
+                    >
                       {key.is_valid ? 'Active' : key.is_expired ? 'Expired' : 'Revoked'}
                     </span>
                   </div>
@@ -412,15 +428,30 @@ const ApiKeyManagement = () => {
                   <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-secondary">
                     <div className="flex items-center gap-2">
                       <Key className="w-3 h-3" />
-                      <span className="font-mono text-xs" title={visiblePrefixes.has(key.id) ? 'Key prefix (first 8 chars only)' : 'Prefix hidden for security'}>
+                      <span
+                        className="font-mono text-xs"
+                        title={
+                          visiblePrefixes.has(key.id)
+                            ? 'Key prefix (first 8 chars only)'
+                            : 'Prefix hidden for security'
+                        }
+                      >
                         {visiblePrefixes.has(key.id) ? `${key.key_prefix}...` : '••••••••...'}
                       </span>
                       <button
                         onClick={() => togglePrefixVisibility(key.id)}
                         className="p-1 hover:bg-background-tertiary rounded"
-                        title={visiblePrefixes.has(key.id) ? 'Hide prefix (only first 8 chars stored)' : 'Show prefix'}
+                        title={
+                          visiblePrefixes.has(key.id)
+                            ? 'Hide prefix (only first 8 chars stored)'
+                            : 'Show prefix'
+                        }
                       >
-                        {visiblePrefixes.has(key.id) ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        {visiblePrefixes.has(key.id) ? (
+                          <EyeOff className="w-3 h-3" />
+                        ) : (
+                          <Eye className="w-3 h-3" />
+                        )}
                       </button>
                     </div>
                     {isAdmin && showAllKeys && key.user_id !== user?.id && (
@@ -431,9 +462,7 @@ const ApiKeyManagement = () => {
                     <span>Created: {formatDate(key.created_at)}</span>
                     <span>Last used: {formatDate(key.last_used_at)}</span>
                     <span>Uses: {key.usage_count}</span>
-                    {key.expires_at && (
-                      <span>Expires: {formatDate(key.expires_at)}</span>
-                    )}
+                    {key.expires_at && <span>Expires: {formatDate(key.expires_at)}</span>}
                   </div>
                   {key.allowed_ips.length > 0 && (
                     <div className="mt-2 text-sm">
@@ -469,16 +498,11 @@ const ApiKeyManagement = () => {
       ) : (
         <div className="text-center py-8 border border-dashed border-border rounded-lg">
           <Key className="w-12 h-12 text-muted mx-auto mb-2" />
-          <h3 className="text-lg font-semibold text-primary mb-2">
-            No API Keys
-          </h3>
+          <h3 className="text-lg font-semibold text-primary mb-2">No API Keys</h3>
           <p className="text-secondary mb-4">
             Create an API key to access MakerMatrix programmatically
           </p>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="btn btn-primary"
-          >
+          <button onClick={() => setShowCreateForm(true)} className="btn btn-primary">
             Create Your First API Key
           </button>
         </div>
@@ -490,22 +514,27 @@ const ApiKeyManagement = () => {
         <div className="space-y-3 text-sm text-secondary">
           <p>Include your API key in requests using one of these headers:</p>
           <div className="bg-background-tertiary rounded p-3 space-y-2 font-mono text-xs">
-            <div><span className="text-primary">X-API-Key:</span> your_api_key_here</div>
-            <div><span className="text-primary">Authorization:</span> ApiKey your_api_key_here</div>
+            <div>
+              <span className="text-primary">X-API-Key:</span> your_api_key_here
+            </div>
+            <div>
+              <span className="text-primary">Authorization:</span> ApiKey your_api_key_here
+            </div>
           </div>
 
           <div className="pt-2 space-y-2">
             <p>
-              <strong>Security:</strong> API keys inherit permissions from your user roles. The full key is only shown once during creation.
-              Only the prefix is stored for identification. Keep your keys secure and never commit them to version control.
+              <strong>Security:</strong> API keys inherit permissions from your user roles. The full
+              key is only shown once during creation. Only the prefix is stored for identification.
+              Keep your keys secure and never commit them to version control.
             </p>
             <p>
-              <strong>Usage Tracking:</strong> Each API request increments the usage counter and updates the last used timestamp.
-              Keys can be revoked or deleted at any time.
+              <strong>Usage Tracking:</strong> Each API request increments the usage counter and
+              updates the last used timestamp. Keys can be revoked or deleted at any time.
             </p>
             <p>
-              <strong>Expiration:</strong> Keys with expiration dates will automatically become invalid when they expire.
-              Expired keys cannot be used but can be deleted.
+              <strong>Expiration:</strong> Keys with expiration dates will automatically become
+              invalid when they expire. Expired keys cannot be used but can be deleted.
             </p>
           </div>
         </div>

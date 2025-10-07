@@ -53,7 +53,7 @@ export const CustomSelect = ({
   customLabel = 'Create custom',
   multiSelect = false,
   selectedValues = [],
-  onMultiSelectChange
+  onMultiSelectChange,
 }: CustomSelectProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -87,12 +87,12 @@ export const CustomSelect = ({
     if (!value) return null
 
     // Check in flat options
-    const flatOption = options.find(opt => opt.value === value)
+    const flatOption = options.find((opt) => opt.value === value)
     if (flatOption) return flatOption
 
     // Check in option groups
     for (const group of optionGroups) {
-      const groupOption = group.options.find(opt => opt.value === value)
+      const groupOption = group.options.find((opt) => opt.value === value)
       if (groupOption) return groupOption
     }
 
@@ -106,7 +106,7 @@ export const CustomSelect = ({
       // Multi-select mode: toggle selection
       const isSelected = selectedValues.includes(optionValue)
       const newValues = isSelected
-        ? selectedValues.filter(v => v !== optionValue)
+        ? selectedValues.filter((v) => v !== optionValue)
         : [...selectedValues, optionValue]
       onMultiSelectChange(newValues)
       // Don't close dropdown in multi-select mode
@@ -122,18 +122,18 @@ export const CustomSelect = ({
   const filterOptions = (opts: Option[]) => {
     if (!searchTerm) return opts
     const term = searchTerm.toLowerCase()
-    return opts.filter(opt => opt.label.toLowerCase().includes(term))
+    return opts.filter((opt) => opt.label.toLowerCase().includes(term))
   }
 
   // Filter option groups based on search term
   const filterOptionGroups = (groups: OptionGroup[]) => {
     if (!searchTerm) return groups
     return groups
-      .map(group => ({
+      .map((group) => ({
         ...group,
-        options: filterOptions(group.options)
+        options: filterOptions(group.options),
       }))
-      .filter(group => group.options.length > 0)
+      .filter((group) => group.options.length > 0)
   }
 
   const filteredOptions = filterOptions(options)
@@ -141,15 +141,20 @@ export const CustomSelect = ({
 
   // Check if search term is a custom value (not in options)
   // Check both value and label to see if it's an exact match
-  const isCustomValue = allowCustom && searchTerm && searchTerm.trim().length > 0 &&
-    !options.some(opt =>
-      opt.value.toLowerCase() === searchTerm.toLowerCase() ||
-      opt.label.toLowerCase() === searchTerm.toLowerCase()
-    ) &&
-    !optionGroups.some(group =>
-      group.options.some(opt =>
+  const isCustomValue =
+    allowCustom &&
+    searchTerm &&
+    searchTerm.trim().length > 0 &&
+    !options.some(
+      (opt) =>
         opt.value.toLowerCase() === searchTerm.toLowerCase() ||
         opt.label.toLowerCase() === searchTerm.toLowerCase()
+    ) &&
+    !optionGroups.some((group) =>
+      group.options.some(
+        (opt) =>
+          opt.value.toLowerCase() === searchTerm.toLowerCase() ||
+          opt.label.toLowerCase() === searchTerm.toLowerCase()
       )
     )
 
@@ -168,10 +173,10 @@ export const CustomSelect = ({
       searchTerm,
       isCustomValue,
       optionsCount: options.length,
-      optionValues: options.map(o => o.value),
-      optionLabels: options.map(o => o.label),
+      optionValues: options.map((o) => o.value),
+      optionLabels: options.map((o) => o.label),
       trimmedSearchTerm: searchTerm.trim(),
-      searchTermLower: searchTerm.toLowerCase()
+      searchTermLower: searchTerm.toLowerCase(),
     })
   }
 
@@ -203,16 +208,19 @@ export const CustomSelect = ({
               }}
             />
           )}
-          <span className={`truncate ${(!value && !multiSelect) || (multiSelect && selectedValues.length === 0) ? 'text-theme-muted' : ''}`}>
+          <span
+            className={`truncate ${(!value && !multiSelect) || (multiSelect && selectedValues.length === 0) ? 'text-theme-muted' : ''}`}
+          >
             {multiSelect
-              ? (selectedValues.length > 0
-                  ? `${selectedValues.length} selected`
-                  : placeholder)
-              : (selectedOption?.label || placeholder)
-            }
+              ? selectedValues.length > 0
+                ? `${selectedValues.length} selected`
+                : placeholder
+              : selectedOption?.label || placeholder}
           </span>
         </div>
-        <ChevronDown className={`w-4 h-4 text-theme-secondary transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-4 h-4 text-theme-secondary transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {/* Dropdown Menu */}
@@ -260,7 +268,9 @@ export const CustomSelect = ({
                   className="w-full px-3 py-2 text-left flex items-center gap-2 text-primary hover:bg-primary/10 transition-colors duration-150 font-medium"
                 >
                   <span className="text-primary">+</span>
-                  <span>{customLabel}: "{searchTerm}"</span>
+                  <span>
+                    {customLabel}: "{searchTerm}"
+                  </span>
                 </button>
               </div>
             )}
@@ -282,9 +292,10 @@ export const CustomSelect = ({
                         w-full px-3 py-2 text-left
                         flex items-center justify-between gap-2
                         transition-colors duration-150
-                        ${isSelected
-                          ? 'bg-secondary/20 text-secondary font-medium'
-                          : 'text-theme-primary hover:bg-secondary hover:text-white'
+                        ${
+                          isSelected
+                            ? 'bg-secondary/20 text-secondary font-medium'
+                            : 'text-theme-primary hover:bg-secondary hover:text-white'
                         }
                       `}
                     >
@@ -314,8 +325,8 @@ export const CustomSelect = ({
                     </button>
                   )
                 })}
-            </div>
-          )}
+              </div>
+            )}
 
             {/* Option Groups */}
             {filteredOptionGroups.map((group, groupIndex) => (
@@ -338,9 +349,10 @@ export const CustomSelect = ({
                           w-full px-3 py-2 text-left
                           flex items-center justify-between gap-2
                           transition-colors duration-150
-                          ${isSelected
-                            ? 'bg-secondary/20 text-secondary font-medium'
-                            : 'text-theme-primary hover:bg-secondary hover:text-white'
+                          ${
+                            isSelected
+                              ? 'bg-secondary/20 text-secondary font-medium'
+                              : 'text-theme-primary hover:bg-secondary hover:text-white'
                           }
                         `}
                       >

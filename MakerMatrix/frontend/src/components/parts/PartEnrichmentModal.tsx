@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Zap, Check, AlertCircle, Loader2, Download, Image, FileText, DollarSign, Package, Info, RefreshCw, Search, Clock, CheckCircle, AlertTriangle } from 'lucide-react'
+import {
+  X,
+  Zap,
+  Check,
+  AlertCircle,
+  Loader2,
+  Download,
+  Image,
+  FileText,
+  DollarSign,
+  Package,
+  Info,
+  RefreshCw,
+  Search,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+} from 'lucide-react'
 import { tasksService, Task } from '@/services/tasks.service'
 import { Part } from '@/types/parts'
 import { partsService, EnrichmentRequirementCheckResponse } from '@/services/parts.service'
@@ -22,7 +39,12 @@ interface EnrichmentResult {
   description: string
 }
 
-const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnrichmentModalProps) => {
+const PartEnrichmentModal = ({
+  isOpen,
+  onClose,
+  part,
+  onPartUpdated,
+}: PartEnrichmentModalProps) => {
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([])
   const [availableCapabilities, setAvailableCapabilities] = useState<any[]>([])
   const [enrichmentResults, setEnrichmentResults] = useState<EnrichmentResult[]>([])
@@ -32,7 +54,8 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
   const [currentStep, setCurrentStep] = useState('')
   const [supplierCapabilities, setSupplierCapabilities] = useState<any>({})
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
-  const [requirementCheck, setRequirementCheck] = useState<EnrichmentRequirementCheckResponse | null>(null)
+  const [requirementCheck, setRequirementCheck] =
+    useState<EnrichmentRequirementCheckResponse | null>(null)
   const [isCheckingRequirements, setIsCheckingRequirements] = useState(false)
 
   // Capability definitions with icons and descriptions
@@ -40,63 +63,63 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
     enrich_basic_info: {
       icon: Info,
       label: 'Basic Info',
-      description: 'Enrich basic part information (description, manufacturer, etc.)'
+      description: 'Enrich basic part information (description, manufacturer, etc.)',
     },
     fetch_datasheet: {
       icon: FileText,
       label: 'Datasheet',
-      description: 'Download and attach datasheet PDF'
+      description: 'Download and attach datasheet PDF',
     },
     fetch_image: {
       icon: Image,
       label: 'Product Image',
-      description: 'Fetch high-quality product image'
+      description: 'Fetch high-quality product image',
     },
     fetch_pricing: {
       icon: DollarSign,
       label: 'Pricing',
-      description: 'Get current pricing information'
+      description: 'Get current pricing information',
     },
     fetch_stock: {
       icon: Package,
       label: 'Stock Information',
-      description: 'Check availability and stock levels'
+      description: 'Check availability and stock levels',
     },
     fetch_specifications: {
       icon: RefreshCw,
       label: 'Technical Specifications',
-      description: 'Retrieve detailed component specifications'
+      description: 'Retrieve detailed component specifications',
     },
     fetch_alternatives: {
       icon: Search,
       label: 'Alternative Parts',
-      description: 'Find alternative/substitute parts'
+      description: 'Find alternative/substitute parts',
     },
     fetch_lifecycle_status: {
       icon: Clock,
       label: 'Lifecycle Status',
-      description: 'Get part lifecycle and availability status'
+      description: 'Get part lifecycle and availability status',
     },
     validate_part_number: {
       icon: CheckCircle,
       label: 'Part Validation',
-      description: 'Validate part numbers and existence'
+      description: 'Validate part numbers and existence',
     },
     search_parts: {
       icon: Search,
       label: 'Search Parts',
-      description: 'Search for parts using supplier databases'
+      description: 'Search for parts using supplier databases',
     },
     get_part_details: {
       icon: Info,
       label: 'Part Details',
-      description: 'Get detailed part information from supplier'
+      description: 'Get detailed part information from supplier',
     },
     import_orders: {
       icon: Download,
       label: 'Import Orders',
-      description: 'Import order data from supplier systems'
-    }
+      description: 'Import order data from supplier systems',
+    },
   }
 
   // Intelligently detect supplier from part data
@@ -106,44 +129,44 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
       lcsc_part_number: part.lcsc_part_number,
       supplier: part.supplier,
       part_vendor: part.part_vendor,
-      additional_properties: part.additional_properties
+      additional_properties: part.additional_properties,
     })
-    
+
     // First check enrichment_source
     if (part.enrichment_source) {
       console.log('Using enrichment_source:', part.enrichment_source)
       return part.enrichment_source.toLowerCase()
     }
-    
+
     // Check for supplier-specific part numbers
     const additionalProps = part.additional_properties || {}
-    
+
     if (part.lcsc_part_number || additionalProps.lcsc_part_number) {
       console.log('Detected LCSC from part number')
       return 'lcsc'
     }
-    
+
     if (part.digikey_part_number || additionalProps.digikey_part_number) {
       console.log('Detected DIGIKEY from part number')
       return 'digikey'
     }
-    
+
     if (part.mouser_part_number || additionalProps.mouser_part_number) {
       console.log('Detected MOUSER from part number')
       return 'mouser'
     }
-    
+
     // Fallback to existing logic
     if (part.supplier) {
       console.log('Using part.supplier:', part.supplier)
       return part.supplier.toLowerCase()
     }
-    
+
     if (part.part_vendor) {
       console.log('Using part.part_vendor:', part.part_vendor)
       return part.part_vendor.toLowerCase()
     }
-    
+
     console.log('No supplier detected from part data')
     return ''
   }
@@ -159,8 +182,13 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
     if (isOpen && Object.keys(supplierCapabilities).length > 0 && !selectedSupplier) {
       // Set default selected supplier with intelligent detection
       const detectedSupplier = detectSupplierFromPart(part)
-      console.log('Detected supplier:', detectedSupplier, 'Available suppliers:', Object.keys(supplierCapabilities))
-      
+      console.log(
+        'Detected supplier:',
+        detectedSupplier,
+        'Available suppliers:',
+        Object.keys(supplierCapabilities)
+      )
+
       if (detectedSupplier && supplierCapabilities[detectedSupplier]) {
         console.log('Auto-selecting detected supplier:', detectedSupplier)
         setSelectedSupplier(detectedSupplier)
@@ -218,11 +246,11 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
       const response = await tasksService.getSupplierCapabilities()
       console.log('Raw response:', response)
       console.log('Response data:', response.data)
-      
+
       // Handle the response structure - it might be response.data.data or response.data
       const capabilitiesData = response.data?.data || response.data
       console.log('Extracted capabilities data:', capabilitiesData)
-      
+
       setSupplierCapabilities(capabilitiesData || {})
     } catch (error) {
       console.error('Failed to load supplier capabilities:', error)
@@ -230,10 +258,8 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
   }
 
   const handleCapabilityToggle = (capability: string) => {
-    setSelectedCapabilities(prev => 
-      prev.includes(capability)
-        ? prev.filter(c => c !== capability)
-        : [...prev, capability]
+    setSelectedCapabilities((prev) =>
+      prev.includes(capability) ? prev.filter((c) => c !== capability) : [...prev, capability]
     )
   }
 
@@ -254,16 +280,16 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
         part_id: part.id,
         supplier: selectedSupplier,
         capabilities: selectedCapabilities,
-        force_refresh: true
+        force_refresh: true,
       })
 
       setCurrentTask(response.data)
-      
+
       // Poll for task progress
       const cleanup = await tasksService.pollTaskProgress(response.data.id, (task) => {
         setTaskProgress(task.progress_percentage)
         setCurrentStep(task.current_step || 'Processing...')
-        
+
         if (task.status === 'completed') {
           handleEnrichmentComplete(task)
         } else if (task.status === 'failed') {
@@ -282,13 +308,13 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
 
   const handleEnrichmentComplete = (task: Task) => {
     setIsEnriching(false)
-    
+
     // Process enrichment results
     const results = task.result_data?.enrichment_summary?.results || {}
-    const enrichmentResults: EnrichmentResult[] = selectedCapabilities.map(capability => {
+    const enrichmentResults: EnrichmentResult[] = selectedCapabilities.map((capability) => {
       const result = results[capability]
       const definition = capabilityDefinitions[capability as keyof typeof capabilityDefinitions]
-      
+
       return {
         capability,
         success: result?.success || false,
@@ -296,12 +322,12 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
         error: result?.error,
         icon: definition?.icon || Info,
         label: definition?.label || capability,
-        description: definition?.description || ''
+        description: definition?.description || '',
       }
     })
-    
+
     setEnrichmentResults(enrichmentResults)
-    
+
     // Refresh the part data to show updates
     onPartUpdated({ ...part, ...task.result_data })
   }
@@ -325,15 +351,17 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
               <div
                 key={result.capability}
                 className={`p-5 rounded-lg border ${
-                  result.success 
-                    ? 'bg-green-500/10 border-green-500/20' 
+                  result.success
+                    ? 'bg-green-500/10 border-green-500/20'
                     : 'bg-red-500/10 border-red-500/20'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${
-                    result.success ? 'bg-green-500/20' : 'bg-red-500/20'
-                  }`}>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      result.success ? 'bg-green-500/20' : 'bg-red-500/20'
+                    }`}
+                  >
                     {result.success ? (
                       <Check className="w-5 h-5 text-green-400" />
                     ) : (
@@ -346,7 +374,7 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                       <span className="font-medium text-primary">{result.label}</span>
                     </div>
                     <p className="text-sm text-secondary mb-2">{result.description}</p>
-                    
+
                     {result.success && result.data && (
                       <div className="bg-bg-secondary p-4 rounded border text-sm">
                         <h4 className="font-medium text-green-400 mb-2">Retrieved Data:</h4>
@@ -355,11 +383,9 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                         </pre>
                       </div>
                     )}
-                    
+
                     {!result.success && result.error && (
-                      <div className="text-sm text-red-400">
-                        Error: {result.error}
-                      </div>
+                      <div className="text-sm text-red-400">Error: {result.error}</div>
                     )}
                   </div>
                 </div>
@@ -388,7 +414,9 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                 <Zap className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Enrich Part Data</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Enrich Part Data
+                </h2>
                 <p className="text-gray-600 dark:text-gray-300">{part.name}</p>
               </div>
             </div>
@@ -403,11 +431,22 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
           <div className="p-6 max-h-[calc(90vh-8rem)] overflow-y-auto bg-white dark:bg-gray-800">
             {/* Debug info */}
             <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm">
-              <div><strong>Debug Info:</strong></div>
+              <div>
+                <strong>Debug Info:</strong>
+              </div>
               <div>Selected Supplier: {selectedSupplier || 'None'}</div>
-              <div>Available Capabilities: {availableCapabilities.length > 0 ? availableCapabilities.join(', ') : 'None'}</div>
-              <div>Selected Capabilities: {selectedCapabilities.length > 0 ? selectedCapabilities.join(', ') : 'None'}</div>
-              <div>Button Enabled: {!(selectedCapabilities.length === 0 || !selectedSupplier) ? 'Yes' : 'No'}</div>
+              <div>
+                Available Capabilities:{' '}
+                {availableCapabilities.length > 0 ? availableCapabilities.join(', ') : 'None'}
+              </div>
+              <div>
+                Selected Capabilities:{' '}
+                {selectedCapabilities.length > 0 ? selectedCapabilities.join(', ') : 'None'}
+              </div>
+              <div>
+                Button Enabled:{' '}
+                {!(selectedCapabilities.length === 0 || !selectedSupplier) ? 'Yes' : 'No'}
+              </div>
             </div>
             {!isEnriching && enrichmentResults.length === 0 && (
               <div className="space-y-6">
@@ -430,8 +469,10 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                     ) : (
                       <>
                         <option value="">Select a supplier...</option>
-                        {Object.keys(supplierCapabilities).map(supplier => (
-                          <option key={supplier} value={supplier}>{supplier}</option>
+                        {Object.keys(supplierCapabilities).map((supplier) => (
+                          <option key={supplier} value={supplier}>
+                            {supplier}
+                          </option>
                         ))}
                       </>
                     )}
@@ -453,12 +494,19 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                           Missing Required Fields
                         </h3>
                         <p className="text-sm text-red-700 dark:text-red-400 mb-3">
-                          This part is missing required information for enrichment from {requirementCheck.supplier_name}:
+                          This part is missing required information for enrichment from{' '}
+                          {requirementCheck.supplier_name}:
                         </p>
                         <ul className="space-y-2">
-                          {requirementCheck.required_checks.map(check => (
+                          {requirementCheck.required_checks.map((check) => (
                             <li key={check.field_name} className="text-sm">
-                              <span className={check.is_present ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                              <span
+                                className={
+                                  check.is_present
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : 'text-red-600 dark:text-red-400'
+                                }
+                              >
                                 {check.is_present ? '✓' : '✗'}
                               </span>
                               <span className="ml-2 font-medium text-gray-900 dark:text-white">
@@ -472,49 +520,56 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                             </li>
                           ))}
                         </ul>
-                        {requirementCheck.suggestions && requirementCheck.suggestions.length > 0 && (
-                          <div className="mt-4 pt-3 border-t border-red-200 dark:border-red-800">
-                            <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-2">Suggestions:</p>
-                            <ul className="space-y-1">
-                              {requirementCheck.suggestions.map((suggestion, idx) => (
-                                <li key={idx} className="text-sm text-red-700 dark:text-red-400">
-                                  • {suggestion}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                        {requirementCheck.suggestions &&
+                          requirementCheck.suggestions.length > 0 && (
+                            <div className="mt-4 pt-3 border-t border-red-200 dark:border-red-800">
+                              <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-2">
+                                Suggestions:
+                              </p>
+                              <ul className="space-y-1">
+                                {requirementCheck.suggestions.map((suggestion, idx) => (
+                                  <li key={idx} className="text-sm text-red-700 dark:text-red-400">
+                                    • {suggestion}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* Recommended Fields Warning */}
-                {requirementCheck && requirementCheck.can_enrich && requirementCheck.missing_recommended.length > 0 && (
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <Info className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">
-                          Recommended Fields Missing
-                        </h3>
-                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-2">
-                          Adding these fields will improve enrichment quality:
-                        </p>
-                        <ul className="space-y-1">
-                          {requirementCheck.recommended_checks
-                            .filter(check => !check.is_present)
-                            .map(check => (
-                              <li key={check.field_name} className="text-sm text-yellow-700 dark:text-yellow-400">
-                                • {check.display_name}
-                              </li>
-                            ))
-                          }
-                        </ul>
+                {requirementCheck &&
+                  requirementCheck.can_enrich &&
+                  requirementCheck.missing_recommended.length > 0 && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Info className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">
+                            Recommended Fields Missing
+                          </h3>
+                          <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-2">
+                            Adding these fields will improve enrichment quality:
+                          </p>
+                          <ul className="space-y-1">
+                            {requirementCheck.recommended_checks
+                              .filter((check) => !check.is_present)
+                              .map((check) => (
+                                <li
+                                  key={check.field_name}
+                                  className="text-sm text-yellow-700 dark:text-yellow-400"
+                                >
+                                  • {check.display_name}
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Capability Selection */}
                 {availableCapabilities.length > 0 && (
@@ -523,17 +578,18 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                       Select enrichment capabilities
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {availableCapabilities.map(capability => {
-                        const definition = capabilityDefinitions[capability as keyof typeof capabilityDefinitions]
+                      {availableCapabilities.map((capability) => {
+                        const definition =
+                          capabilityDefinitions[capability as keyof typeof capabilityDefinitions]
                         console.log(`Capability: ${capability}, Definition found: ${!!definition}`)
                         if (!definition) {
                           console.warn(`No definition found for capability: ${capability}`)
                           return null
                         }
-                        
+
                         const IconComponent = definition.icon
                         const isSelected = selectedCapabilities.includes(capability)
-                        
+
                         return (
                           <div
                             key={capability}
@@ -545,12 +601,18 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                             }`}
                           >
                             <div className="flex items-start gap-3">
-                              <div className={`p-2 rounded-lg ${
-                                isSelected ? 'bg-blue-500/20' : 'bg-gray-200 dark:bg-gray-600'
-                              }`}>
-                                <IconComponent className={`w-4 h-4 ${
-                                  isSelected ? 'text-blue-400' : 'text-gray-600 dark:text-gray-300'
-                                }`} />
+                              <div
+                                className={`p-2 rounded-lg ${
+                                  isSelected ? 'bg-blue-500/20' : 'bg-gray-200 dark:bg-gray-600'
+                                }`}
+                              >
+                                <IconComponent
+                                  className={`w-4 h-4 ${
+                                    isSelected
+                                      ? 'text-blue-400'
+                                      : 'text-gray-600 dark:text-gray-300'
+                                  }`}
+                                />
                               </div>
                               <div className="flex-1">
                                 <h3 className="font-medium text-gray-900 dark:text-white mb-1">
@@ -560,9 +622,7 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                                   {definition.description}
                                 </p>
                               </div>
-                              {isSelected && (
-                                <Check className="w-5 h-5 text-blue-400" />
-                              )}
+                              {isSelected && <Check className="w-5 h-5 text-blue-400" />}
                             </div>
                           </div>
                         )
@@ -573,8 +633,8 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
 
                 {/* Start Button */}
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button 
-                    onClick={onClose} 
+                  <button
+                    onClick={onClose}
                     className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                   >
                     Cancel
@@ -590,14 +650,14 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                     className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
                     title={
                       !selectedSupplier
-                        ? "Select a supplier to start enrichment"
+                        ? 'Select a supplier to start enrichment'
                         : isCheckingRequirements
-                        ? "Checking enrichment requirements..."
-                        : requirementCheck && !requirementCheck.can_enrich
-                        ? `Cannot enrich: Missing required fields (${requirementCheck.missing_required.join(', ')})`
-                        : selectedCapabilities.length === 0
-                        ? "Select at least one capability to enrich (e.g., fetch datasheet, fetch image)"
-                        : `Start enriching ${part.name} using ${selectedSupplier} with ${selectedCapabilities.length} selected capabilities`
+                          ? 'Checking enrichment requirements...'
+                          : requirementCheck && !requirementCheck.can_enrich
+                            ? `Cannot enrich: Missing required fields (${requirementCheck.missing_required.join(', ')})`
+                            : selectedCapabilities.length === 0
+                              ? 'Select at least one capability to enrich (e.g., fetch datasheet, fetch image)'
+                              : `Start enriching ${part.name} using ${selectedSupplier} with ${selectedCapabilities.length} selected capabilities`
                     }
                   >
                     {isCheckingRequirements ? (
@@ -623,7 +683,7 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-secondary">Progress</span>
@@ -647,8 +707,8 @@ const PartEnrichmentModal = ({ isOpen, onClose, part, onPartUpdated }: PartEnric
             {/* Close Button for Results */}
             {enrichmentResults.length > 0 && (
               <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button 
-                  onClick={onClose} 
+                <button
+                  onClick={onClose}
                   className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                 >
                   Close

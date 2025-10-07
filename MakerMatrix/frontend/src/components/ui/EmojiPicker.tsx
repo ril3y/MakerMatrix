@@ -16,10 +16,10 @@ const EMOJI_CATEGORIES = {
   'Power Tools': ['⚡', '🔌', '💡', '🔋', '🪫', '🪥', '🧲', '⚠️', '🔥', '💥', '⭐', '🌟'],
   'Workshop & Garage': ['🏭', '🏗️', '🚗', '🛞', '🛢️', '⛽', '🧯', '🚨', '🦺', '👷', '🏴‍☠️', '⚙️'],
   'Toolboxes & Cases': ['🧰', '💼', '👜', '🎒', '🗃️', '📦', '🗳️', '🛄', '📱', '💻', '🖥️', '⌨️'],
-  'Colors': ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔶', '🟥', '🟨'],
-  'Numbers': ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '💯', '#️⃣'],
-  'Letters': ['🅰️', '🅱️', '🅾️', '🆎', '🆑', '🆒', '🆓', '🆔', '🆕', '🆗', '🔤', '🔡'],
-  'Arrows & Shapes': ['⬆️', '⬇️', '⬅️', '➡️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '🔺', '🔻']
+  Colors: ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔶', '🟥', '🟨'],
+  Numbers: ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '💯', '#️⃣'],
+  Letters: ['🅰️', '🅱️', '🅾️', '🆎', '🆑', '🆒', '🆓', '🆔', '🆕', '🆗', '🔤', '🔡'],
+  'Arrows & Shapes': ['⬆️', '⬇️', '⬅️', '➡️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '🔺', '🔻'],
 }
 
 // Emoji search keywords mapping
@@ -91,10 +91,10 @@ const EMOJI_KEYWORDS = {
   '🎛️': ['control', 'panel', 'knobs', 'mixer', 'electronic'],
   '🎚️': ['slider', 'control', 'level', 'audio', 'adjustment'],
   '🔘': ['button', 'control', 'interface', 'input', 'round'],
-  '⚪': ['white', 'circle', 'button', 'component', 'part']
+  '⚪': ['white', 'circle', 'button', 'component', 'part'],
 }
 
-const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: EmojiPickerProps) => {
+const EmojiPicker = ({ value, onChange, placeholder = 'Select emoji...' }: EmojiPickerProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('Location Types')
   const [searchTerm, setSearchTerm] = useState('')
@@ -128,38 +128,36 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
   // Search functionality
   const searchEmojis = (searchTerm: string) => {
     if (!searchTerm.trim()) return []
-    
+
     const query = searchTerm.toLowerCase().trim()
     const matchedEmojis: string[] = []
-    
+
     // Search through all emojis and their keywords
     Object.entries(EMOJI_KEYWORDS).forEach(([emoji, keywords]) => {
-      const matchesKeyword = keywords.some(keyword => 
-        keyword.toLowerCase().includes(query)
-      )
+      const matchesKeyword = keywords.some((keyword) => keyword.toLowerCase().includes(query))
       if (matchesKeyword && !matchedEmojis.includes(emoji)) {
         matchedEmojis.push(emoji)
       }
     })
-    
+
     // Also search through category names and emoji unicode names
     Object.entries(EMOJI_CATEGORIES).forEach(([categoryName, emojis]) => {
       if (categoryName.toLowerCase().includes(query)) {
-        emojis.forEach(emoji => {
+        emojis.forEach((emoji) => {
           if (!matchedEmojis.includes(emoji)) {
             matchedEmojis.push(emoji)
           }
         })
       }
     })
-    
+
     return matchedEmojis
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSearchTerm = e.target.value
     setSearchTerm(newSearchTerm)
-    
+
     // If searching, switch to search results
     if (newSearchTerm.trim()) {
       setSelectedCategory('Search Results')
@@ -208,7 +206,9 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
               <X className="w-4 h-4 text-theme-muted" />
             </button>
           )}
-          <ChevronDown className={`w-4 h-4 text-theme-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`w-4 h-4 text-theme-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
         </div>
       </div>
 
@@ -287,9 +287,7 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
             ) : searchTerm.trim() ? (
               <div className="text-center py-8">
                 <Search className="w-8 h-8 text-theme-muted mx-auto mb-2" />
-                <p className="text-sm text-theme-secondary">
-                  No emojis found for "{searchTerm}"
-                </p>
+                <p className="text-sm text-theme-secondary">No emojis found for "{searchTerm}"</p>
                 <p className="text-xs text-theme-muted mt-1">
                   Try searching for 'tool', 'box', 'storage', 'power', etc.
                 </p>
@@ -308,7 +306,10 @@ const EmojiPicker = ({ value, onChange, placeholder = "Select emoji..." }: Emoji
             <div className="border-t border-theme-primary p-3 bg-theme-secondary">
               <button
                 type="button"
-                onClick={() => { onChange(null); setIsOpen(false) }}
+                onClick={() => {
+                  onChange(null)
+                  setIsOpen(false)
+                }}
                 className="w-full text-left px-3 py-2 text-sm font-medium text-error hover:bg-theme-tertiary rounded-lg transition-colors flex items-center gap-2"
               >
                 <X className="w-4 h-4" />

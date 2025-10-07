@@ -1,22 +1,22 @@
 /**
  * LCSC-Specific Configuration Form
- * 
+ *
  * Custom configuration form for LCSC API setup with their specific requirements.
  */
 
-import React from 'react';
-import { HelpCircle, AlertTriangle } from 'lucide-react';
+import React from 'react'
+import { HelpCircle, AlertTriangle } from 'lucide-react'
 
 interface LCSCConfigFormProps {
-  config: any;
-  onConfigChange: (field: string, value: any) => void;
-  errors: string[];
+  config: any
+  onConfigChange: (field: string, value: any) => void
+  errors: string[]
 }
 
 export const LCSCConfigForm: React.FC<LCSCConfigFormProps> = ({
   config,
   onConfigChange,
-  errors
+  errors,
 }) => {
   return (
     <div className="space-y-6">
@@ -30,7 +30,17 @@ export const LCSCConfigForm: React.FC<LCSCConfigFormProps> = ({
             </h3>
             <div className="mt-1 text-sm text-blue-700 dark:text-blue-300">
               <ol className="list-decimal list-inside space-y-1">
-                <li>Register for an account at <a href="https://lcsc.com" target="_blank" rel="noopener noreferrer" className="underline">lcsc.com</a></li>
+                <li>
+                  Register for an account at{' '}
+                  <a
+                    href="https://lcsc.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    lcsc.com
+                  </a>
+                </li>
                 <li>Access the EasyEDA API portal to get your API key</li>
                 <li>LCSC uses simple API key authentication</li>
                 <li>No complex OAuth setup required</li>
@@ -77,7 +87,10 @@ export const LCSCConfigForm: React.FC<LCSCConfigFormProps> = ({
               Description
             </label>
             <textarea
-              value={config.description || 'Chinese electronics component supplier with EasyEDA integration'}
+              value={
+                config.description ||
+                'Chinese electronics component supplier with EasyEDA integration'
+              }
               onChange={(e) => onConfigChange('description', e.target.value)}
               rows={2}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -156,11 +169,36 @@ export const LCSCConfigForm: React.FC<LCSCConfigFormProps> = ({
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {[
-            { key: 'datasheet', label: 'Datasheet Download', description: 'Download component datasheets', default: true },
-            { key: 'image', label: 'Image Download', description: 'Download component images', default: true },
-            { key: 'pricing', label: 'Pricing Information', description: 'Retrieve current pricing data', default: true },
-            { key: 'stock', label: 'Stock Information', description: 'Check availability and stock levels', default: true },
-            { key: 'specifications', label: 'Technical Specifications', description: 'Retrieve detailed component specifications', default: true }
+            {
+              key: 'datasheet',
+              label: 'Datasheet Download',
+              description: 'Download component datasheets',
+              default: true,
+            },
+            {
+              key: 'image',
+              label: 'Image Download',
+              description: 'Download component images',
+              default: true,
+            },
+            {
+              key: 'pricing',
+              label: 'Pricing Information',
+              description: 'Retrieve current pricing data',
+              default: true,
+            },
+            {
+              key: 'stock',
+              label: 'Stock Information',
+              description: 'Check availability and stock levels',
+              default: true,
+            },
+            {
+              key: 'specifications',
+              label: 'Technical Specifications',
+              description: 'Retrieve detailed component specifications',
+              default: true,
+            },
           ].map((capability) => (
             <label key={capability.key} className="flex items-start space-x-3">
               <input
@@ -191,12 +229,12 @@ export const LCSCConfigForm: React.FC<LCSCConfigFormProps> = ({
               Next Step: Add API Key
             </h3>
             <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-              After creating this configuration, you'll need to add your LCSC API key 
-              using the "Manage Credentials" button.
+              After creating this configuration, you'll need to add your LCSC API key using the
+              "Manage Credentials" button.
             </p>
           </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

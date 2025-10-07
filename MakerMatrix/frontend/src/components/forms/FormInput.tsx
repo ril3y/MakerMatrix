@@ -13,22 +13,25 @@ interface FormInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id
 }
 
 const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
-  ({ 
-    label, 
-    registration, 
-    error, 
-    description, 
-    required, 
-    className, 
-    fieldClassName,
-    type = 'text',
-    ...inputProps 
-  }, ref) => {
+  (
+    {
+      label,
+      registration,
+      error,
+      description,
+      required,
+      className,
+      fieldClassName,
+      type = 'text',
+      ...inputProps
+    },
+    ref
+  ) => {
     return (
-      <FormField 
-        label={label} 
-        required={required} 
-        error={error} 
+      <FormField
+        label={label}
+        required={required}
+        error={error}
         description={description}
         className={className}
       >

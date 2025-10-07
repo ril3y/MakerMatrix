@@ -42,25 +42,25 @@ describe('useAuthStore', () => {
       {
         id: 'role1',
         name: 'admin',
-        permissions: ['parts:read', 'parts:write', 'admin:access']
+        permissions: ['parts:read', 'parts:write', 'admin:access'],
       },
       {
-        id: 'role2', 
+        id: 'role2',
         name: 'user',
-        permissions: ['parts:read']
-      }
-    ]
+        permissions: ['parts:read'],
+      },
+    ],
   }
 
   const mockLoginResponse: LoginResponse = {
     access_token: 'mock-token',
     token_type: 'bearer',
-    user: mockUser
+    user: mockUser,
   }
 
   const mockCredentials: LoginRequest = {
     username: 'testuser',
-    password: 'password123'
+    password: 'password123',
   }
 
   beforeEach(() => {
@@ -70,7 +70,7 @@ describe('useAuthStore', () => {
       user: null,
       isAuthenticated: false,
       isLoading: false,
-      error: null
+      error: null,
     })
   })
 
@@ -81,7 +81,7 @@ describe('useAuthStore', () => {
   describe('Initial State', () => {
     it('should have correct initial state', () => {
       const { result } = renderHook(() => useAuthStore())
-      
+
       expect(result.current.user).toBeNull()
       expect(result.current.isAuthenticated).toBe(false)
       expect(result.current.isLoading).toBe(false)
@@ -92,7 +92,7 @@ describe('useAuthStore', () => {
   describe('Login', () => {
     it('should handle successful login', async () => {
       mockAuthService.login.mockResolvedValueOnce(mockLoginResponse)
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -111,12 +111,12 @@ describe('useAuthStore', () => {
       const mockError = {
         response: {
           data: {
-            detail: 'Invalid credentials'
-          }
-        }
+            detail: 'Invalid credentials',
+          },
+        },
       }
       mockAuthService.login.mockRejectedValueOnce(mockError)
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -137,7 +137,7 @@ describe('useAuthStore', () => {
     it('should handle login failure with generic error', async () => {
       const mockError = new Error('Network error')
       mockAuthService.login.mockRejectedValueOnce(mockError)
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -157,7 +157,7 @@ describe('useAuthStore', () => {
         resolveLogin = resolve
       })
       mockAuthService.login.mockReturnValueOnce(loginPromise)
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       // Start login and immediately check state
@@ -187,13 +187,13 @@ describe('useAuthStore', () => {
         user: mockUser,
         isAuthenticated: true,
         isLoading: false,
-        error: null
+        error: null,
       })
     })
 
     it('should handle successful logout', async () => {
       mockAuthService.logout.mockResolvedValueOnce()
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -221,12 +221,12 @@ describe('useAuthStore', () => {
         user: null,
         isAuthenticated: true,
         isLoading: false,
-        error: null
+        error: null,
       })
 
       mockAuthService.isAuthenticated.mockReturnValueOnce(true)
       mockAuthService.getCurrentUser.mockResolvedValueOnce(mockUser)
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -245,12 +245,12 @@ describe('useAuthStore', () => {
         user: mockUser,
         isAuthenticated: true,
         isLoading: false,
-        error: null
+        error: null,
       })
 
       mockAuthService.isAuthenticated.mockReturnValueOnce(true)
       mockAuthService.getCurrentUser.mockRejectedValueOnce(new Error('Invalid token'))
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -268,11 +268,11 @@ describe('useAuthStore', () => {
         user: mockUser,
         isAuthenticated: true,
         isLoading: false,
-        error: null
+        error: null,
       })
 
       mockAuthService.isAuthenticated.mockReturnValueOnce(false)
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -287,11 +287,11 @@ describe('useAuthStore', () => {
 
   describe('UpdatePassword', () => {
     it('should handle successful password update', async () => {
-      mockAuthService.updatePassword.mockResolvedValueOnce({ 
-        status: 'success', 
-        message: 'Password updated' 
+      mockAuthService.updatePassword.mockResolvedValueOnce({
+        status: 'success',
+        message: 'Password updated',
       })
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -308,12 +308,12 @@ describe('useAuthStore', () => {
       const mockError = {
         response: {
           data: {
-            detail: 'Current password is incorrect'
-          }
-        }
+            detail: 'Current password is incorrect',
+          },
+        },
       }
       mockAuthService.updatePassword.mockRejectedValueOnce(mockError)
-      
+
       const { result } = renderHook(() => useAuthStore())
 
       await act(async () => {
@@ -335,21 +335,21 @@ describe('useAuthStore', () => {
         user: mockUser,
         isAuthenticated: true,
         isLoading: false,
-        error: null
+        error: null,
       })
     })
 
     describe('hasRole', () => {
       it('should return true for existing role', () => {
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasRole('admin')).toBe(true)
         expect(result.current.hasRole('user')).toBe(true)
       })
 
       it('should return false for non-existing role', () => {
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasRole('moderator')).toBe(false)
       })
 
@@ -358,11 +358,11 @@ describe('useAuthStore', () => {
           user: { ...mockUser, roles: undefined },
           isAuthenticated: true,
           isLoading: false,
-          error: null
+          error: null,
         })
-        
+
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasRole('admin')).toBe(false)
       })
 
@@ -371,11 +371,11 @@ describe('useAuthStore', () => {
           user: null,
           isAuthenticated: false,
           isLoading: false,
-          error: null
+          error: null,
         })
-        
+
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasRole('admin')).toBe(false)
       })
     })
@@ -383,7 +383,7 @@ describe('useAuthStore', () => {
     describe('hasPermission', () => {
       it('should return true for existing permission', () => {
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasPermission('parts:read')).toBe(true)
         expect(result.current.hasPermission('parts:write')).toBe(true)
         expect(result.current.hasPermission('admin:access')).toBe(true)
@@ -391,7 +391,7 @@ describe('useAuthStore', () => {
 
       it('should return false for non-existing permission', () => {
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasPermission('users:delete')).toBe(false)
       })
 
@@ -400,11 +400,11 @@ describe('useAuthStore', () => {
           user: { ...mockUser, roles: undefined },
           isAuthenticated: true,
           isLoading: false,
-          error: null
+          error: null,
         })
-        
+
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasPermission('parts:read')).toBe(false)
       })
 
@@ -413,11 +413,11 @@ describe('useAuthStore', () => {
           user: null,
           isAuthenticated: false,
           isLoading: false,
-          error: null
+          error: null,
         })
-        
+
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasPermission('parts:read')).toBe(false)
       })
 
@@ -425,15 +425,15 @@ describe('useAuthStore', () => {
         useAuthStore.setState({
           user: {
             ...mockUser,
-            roles: [{ id: 'role1', name: 'basic', permissions: undefined }]
+            roles: [{ id: 'role1', name: 'basic', permissions: undefined }],
           },
           isAuthenticated: true,
           isLoading: false,
-          error: null
+          error: null,
         })
-        
+
         const { result } = renderHook(() => useAuthStore())
-        
+
         expect(result.current.hasPermission('parts:read')).toBe(false)
       })
     })
@@ -445,11 +445,11 @@ describe('useAuthStore', () => {
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: 'Some error message'
+        error: 'Some error message',
       })
-      
+
       const { result } = renderHook(() => useAuthStore())
-      
+
       act(() => {
         result.current.clearError()
       })

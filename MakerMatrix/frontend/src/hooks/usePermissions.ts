@@ -12,11 +12,11 @@ export const usePermissions = () => {
   }
 
   const hasAnyPermission = (permissions: string[]): boolean => {
-    return permissions.some(p => hasPermission(p))
+    return permissions.some((p) => hasPermission(p))
   }
 
   const hasAllPermissions = (permissions: string[]): boolean => {
-    return permissions.every(p => hasPermission(p))
+    return permissions.every((p) => hasPermission(p))
   }
 
   const isAdmin = (): boolean => {
@@ -49,6 +49,6 @@ export const usePermissions = () => {
     canCreate,
     canRead,
     canUpdate,
-    canDelete
+    canDelete,
   }
 }

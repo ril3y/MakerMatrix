@@ -16,23 +16,26 @@ interface FormSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 
 }
 
 const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
-  ({ 
-    label, 
-    registration, 
-    error, 
-    description, 
-    required, 
-    className, 
-    fieldClassName,
-    placeholder,
-    children,
-    ...selectProps 
-  }, ref) => {
+  (
+    {
+      label,
+      registration,
+      error,
+      description,
+      required,
+      className,
+      fieldClassName,
+      placeholder,
+      children,
+      ...selectProps
+    },
+    ref
+  ) => {
     return (
-      <FormField 
-        label={label} 
-        required={required} 
-        error={error} 
+      <FormField
+        label={label}
+        required={required}
+        error={error}
         description={description}
         className={className}
       >
