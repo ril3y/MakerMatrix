@@ -2,12 +2,14 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { server } from './mocks/server'
+import type { ReactNode } from 'react'
 import { createElement } from 'react'
 
 // Global framer-motion mock
 vi.mock('framer-motion', () => {
   const createMotionComponent = (tag: string) => {
-    return ({ children, ...props }: any) => createElement(tag, props, children)
+    return ({ children, ...props }: { children?: ReactNode; [key: string]: unknown }) =>
+      createElement(tag, props, children)
   }
 
   return {
@@ -21,7 +23,7 @@ vi.mock('framer-motion', () => {
       li: createMotionComponent('li'),
       ul: createMotionComponent('ul'),
     },
-    AnimatePresence: ({ children }: any) => children,
+    AnimatePresence: ({ children }: { children: ReactNode }) => children,
     useAnimation: () => ({
       start: vi.fn(),
       set: vi.fn(),

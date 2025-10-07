@@ -32,7 +32,7 @@ interface FilePreviewData {
   size: number
   type: string
   detected_parser: string | null
-  preview_rows: any[]
+  preview_rows: Record<string, unknown>[]
   headers: string[]
   total_rows: number | string
   is_supported: boolean
@@ -48,7 +48,22 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
-  const [parsers, setParsers] = useState<any[]>([])
+  const [parsers, setParsers] = useState<
+    Array<{
+      id: string
+      name: string
+      description: string
+      color: string
+      supported: boolean
+      import_available: boolean
+      missing_credentials: string[]
+      is_configured: boolean
+      configuration_status: string
+      enrichment_capabilities: string[]
+      enrichment_available: boolean
+      enrichment_missing_credentials: string[]
+    }>
+  >([])
   const [isLoadingParsers, setIsLoadingParsers] = useState<boolean>(true)
   const [selectedEnrichmentCapabilities, setSelectedEnrichmentCapabilities] = useState<string[]>([])
   const [enableAutoEnrichment, setEnableAutoEnrichment] = useState<boolean>(true)
@@ -68,7 +83,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
   }
 
   const getCapabilityIcon = (capability: string) => {
-    const icons: Record<string, any> = {
+    const icons: Record<string, React.ReactNode> = {
       get_part_details: <Info className="w-4 h-4" />,
       fetch_datasheet: <FileText className="w-4 h-4" />,
       fetch_pricing_stock: <DollarSign className="w-4 h-4" />,

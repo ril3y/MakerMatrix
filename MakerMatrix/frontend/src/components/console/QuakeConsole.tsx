@@ -9,7 +9,7 @@ import { apiClient } from '../../services/api'
 
 interface CommandResult {
   message: string
-  data?: any
+  data?: unknown
   action?: 'navigate' | 'update-view' | 'show-results'
 }
 
