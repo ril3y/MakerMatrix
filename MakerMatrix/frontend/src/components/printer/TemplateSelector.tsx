@@ -20,7 +20,7 @@ const TemplateSelector = ({
   onTemplatesLoaded,
   partData,
   labelSize = '12mm',
-  showCustomOption = true
+  showCustomOption = true,
 }: TemplateSelectorProps) => {
   const [templates, setTemplates] = useState<LabelTemplate[]>([])
   const [systemTemplates, setSystemTemplates] = useState<LabelTemplate[]>([])
@@ -47,7 +47,7 @@ const TemplateSelector = ({
       // Load both system and user templates
       const [systemList, userList] = await Promise.all([
         templateService.getSystemTemplates(),
-        templateService.getUserTemplates()
+        templateService.getUserTemplates(),
       ])
 
       // Ensure we have arrays
@@ -59,16 +59,14 @@ const TemplateSelector = ({
 
       // Combine and deduplicate templates by ID
       const allTemplates = [...systemArray, ...userArray]
-      const uniqueTemplates = Array.from(
-        new Map(allTemplates.map(t => [t.id, t])).values()
-      )
+      const uniqueTemplates = Array.from(new Map(allTemplates.map((t) => [t.id, t])).values())
 
       if (labelSize) {
         const heightMm = parseFloat(labelSize.replace('mm', ''))
         if (!isNaN(heightMm)) {
           // Filter templates compatible with the selected label size
-          const compatible = uniqueTemplates.filter(t =>
-            Math.abs(t.label_height_mm - heightMm) <= 1 // Allow 1mm tolerance
+          const compatible = uniqueTemplates.filter(
+            (t) => Math.abs(t.label_height_mm - heightMm) <= 1 // Allow 1mm tolerance
           )
           setTemplates(compatible)
         } else {
@@ -82,7 +80,6 @@ const TemplateSelector = ({
       if (uniqueTemplates.length === 0) {
         console.info('No templates available. Check authentication or create templates.')
       }
-
     } catch (error) {
       console.error('Failed to load templates:', error)
       // Don't show error toast, just fall back to custom template
@@ -142,13 +139,14 @@ const TemplateSelector = ({
   }
 
   const selectedTemplate = selectedTemplateId
-    ? templates.find(t => t.id === selectedTemplateId)
+    ? templates.find((t) => t.id === selectedTemplateId)
     : null
 
-  const filteredTemplates = templates.filter(template =>
-    template.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTemplates = templates.filter(
+    (template) =>
+      template.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Get suggested templates based on part data
@@ -173,9 +171,7 @@ const TemplateSelector = ({
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-primary mb-2">
-        Label Template
-      </label>
+      <label className="block text-sm font-medium text-primary mb-2">Label Template</label>
 
       <div className="relative">
         <button
@@ -201,9 +197,11 @@ const TemplateSelector = ({
               </>
             )}
           </div>
-          <ChevronDown className={`w-4 h-4 text-secondary transition-transform ${
-            showDropdown ? 'rotate-180' : ''
-          }`} />
+          <ChevronDown
+            className={`w-4 h-4 text-secondary transition-transform ${
+              showDropdown ? 'rotate-180' : ''
+            }`}
+          />
         </button>
 
         {showDropdown && (
@@ -256,7 +254,7 @@ const TemplateSelector = ({
                       ⭐ System Templates
                     </div>
                     {filteredTemplates
-                      .filter(t => t.is_system_template)
+                      .filter((t) => t.is_system_template)
                       .map((template) => (
                         <button
                           key={`system-${template.id}`}
@@ -275,7 +273,8 @@ const TemplateSelector = ({
                                 {template.description}
                               </div>
                               <div className="text-xs text-muted">
-                                {getLayoutDescription(template)} • {template.label_width_mm}×{template.label_height_mm}mm
+                                {getLayoutDescription(template)} • {template.label_width_mm}×
+                                {template.label_height_mm}mm
                               </div>
                             </div>
                           </div>
@@ -291,7 +290,7 @@ const TemplateSelector = ({
                       👤 My Templates
                     </div>
                     {filteredTemplates
-                      .filter(t => !t.is_system_template)
+                      .filter((t) => !t.is_system_template)
                       .map((template) => (
                         <div
                           key={`user-${template.id}`}
@@ -313,7 +312,8 @@ const TemplateSelector = ({
                                   {template.description}
                                 </div>
                                 <div className="text-xs text-muted">
-                                  {getLayoutDescription(template)} • {template.label_width_mm}×{template.label_height_mm}mm
+                                  {getLayoutDescription(template)} • {template.label_width_mm}×
+                                  {template.label_height_mm}mm
                                 </div>
                               </div>
                             </button>
@@ -345,9 +345,7 @@ const TemplateSelector = ({
                   <div className="p-4 text-center text-secondary">
                     <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No templates found</p>
-                    {searchTerm && (
-                      <p className="text-xs mt-1">Try a different search term</p>
-                    )}
+                    {searchTerm && <p className="text-xs mt-1">Try a different search term</p>}
                   </div>
                 )}
               </>
@@ -362,12 +360,20 @@ const TemplateSelector = ({
           <h6 className="text-sm font-medium text-primary mb-2">Template Details</h6>
 
           <div className="space-y-1 text-xs text-secondary">
-            <p><strong>Size:</strong> {selectedTemplate.label_width_mm} × {selectedTemplate.label_height_mm}mm</p>
-            <p><strong>Layout:</strong> {getLayoutDescription(selectedTemplate)}</p>
+            <p>
+              <strong>Size:</strong> {selectedTemplate.label_width_mm} ×{' '}
+              {selectedTemplate.label_height_mm}mm
+            </p>
+            <p>
+              <strong>Layout:</strong> {getLayoutDescription(selectedTemplate)}
+            </p>
             {selectedTemplate.text_template && (
-              <p><strong>Template:</strong> <code className="bg-background-primary px-1 rounded text-primary">
-                {selectedTemplate.text_template}
-              </code></p>
+              <p>
+                <strong>Template:</strong>{' '}
+                <code className="bg-background-primary px-1 rounded text-primary">
+                  {selectedTemplate.text_template}
+                </code>
+              </p>
             )}
           </div>
         </div>

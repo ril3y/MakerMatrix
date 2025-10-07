@@ -2,13 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import CrudModal from '../CrudModal'
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  },
-  AnimatePresence: ({ children }: any) => <>{children}</>,
-}))
+
 
 describe('CrudModal', () => {
   const mockOnClose = vi.fn()
@@ -20,12 +14,7 @@ describe('CrudModal', () => {
 
   it('renders modal when isOpen is true', () => {
     render(
-      <CrudModal
-        isOpen={true}
-        onClose={mockOnClose}
-        title="Test Modal"
-        onSubmit={mockOnSubmit}
-      >
+      <CrudModal isOpen={true} onClose={mockOnClose} title="Test Modal" onSubmit={mockOnSubmit}>
         <div>Modal content</div>
       </CrudModal>
     )
@@ -36,12 +25,7 @@ describe('CrudModal', () => {
 
   it('does not render modal when isOpen is false', () => {
     render(
-      <CrudModal
-        isOpen={false}
-        onClose={mockOnClose}
-        title="Test Modal"
-        onSubmit={mockOnSubmit}
-      >
+      <CrudModal isOpen={false} onClose={mockOnClose} title="Test Modal" onSubmit={mockOnSubmit}>
         <div>Modal content</div>
       </CrudModal>
     )
@@ -134,12 +118,7 @@ describe('CrudModal', () => {
 
   it('calls onSubmit when form is submitted', async () => {
     render(
-      <CrudModal
-        isOpen={true}
-        onClose={mockOnClose}
-        title="Submit Modal"
-        onSubmit={mockOnSubmit}
-      >
+      <CrudModal isOpen={true} onClose={mockOnClose} title="Submit Modal" onSubmit={mockOnSubmit}>
         <input data-testid="test-input" />
       </CrudModal>
     )
@@ -154,12 +133,7 @@ describe('CrudModal', () => {
 
   it('calls onClose when cancel button is clicked', () => {
     render(
-      <CrudModal
-        isOpen={true}
-        onClose={mockOnClose}
-        title="Cancel Modal"
-        onSubmit={mockOnSubmit}
-      >
+      <CrudModal isOpen={true} onClose={mockOnClose} title="Cancel Modal" onSubmit={mockOnSubmit}>
         <div>Content</div>
       </CrudModal>
     )

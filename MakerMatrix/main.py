@@ -15,7 +15,7 @@ import os
 
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
-    parts_routes, locations_routes, categories_routes, printer_routes, preview_routes,
+    parts_routes, locations_routes, categories_routes, project_routes, printer_routes, preview_routes,
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
     rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes
@@ -390,6 +390,7 @@ app.include_router(parts_routes.router, prefix="/api/parts", tags=["parts"])
 app.include_router(part_allocation_routes.router, prefix="/api", tags=["Part Allocations"])
 app.include_router(locations_routes.router, prefix="/api/locations", tags=["locations"])
 app.include_router(categories_routes.router, prefix="/api/categories", tags=["categories"])
+app.include_router(project_routes.router, prefix="/api/projects", tags=["projects"])
 app.include_router(printer_routes.router, prefix="/api/printer", tags=["printer"])
 app.include_router(preview_routes.router, prefix="/api/preview", tags=["Label Preview"])
 app.include_router(label_template_routes.router, prefix="/api/templates", tags=["Label Templates"])

@@ -31,7 +31,7 @@ const FormActions = ({
   submitVariant = 'primary',
   cancelVariant = 'outline',
   resetVariant = 'ghost',
-  layout = 'right'
+  layout = 'right',
 }: FormActionsProps) => {
   const layoutClass = {
     left: 'justify-start',
@@ -41,11 +41,13 @@ const FormActions = ({
   }
 
   return (
-    <div className={`
+    <div
+      className={`
       flex items-center gap-3 pt-4 mt-6 border-t border-border
       ${layoutClass[layout]}
       ${className || ''}
-    `}>
+    `}
+    >
       {/* Left side (reset button if layout is between) */}
       {layout === 'between' && onReset && (
         <button

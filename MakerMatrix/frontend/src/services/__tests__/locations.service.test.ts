@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LocationsService, locationsService } from '../locations.service'
 import { apiClient } from '../api'
-import { 
-  Location, 
-  CreateLocationRequest, 
+import {
+  Location,
+  CreateLocationRequest,
   UpdateLocationRequest,
   LocationDetails,
   LocationPath,
   LocationDeletePreview,
   LocationDeleteResponse,
-  LocationCleanupResponse
+  LocationCleanupResponse,
 } from '@/types/locations'
 
 // Mock dependencies
@@ -25,7 +25,7 @@ describe('LocationsService', () => {
     parent_id: undefined,
     location_type: 'warehouse',
     created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z'
+    updated_at: '2024-01-01T00:00:00Z',
   }
 
   const mockChildLocation: Location = {
@@ -35,7 +35,7 @@ describe('LocationsService', () => {
     parent_id: 'loc-123',
     location_type: 'room',
     created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z'
+    updated_at: '2024-01-01T00:00:00Z',
   }
 
   beforeEach(() => {
@@ -47,13 +47,13 @@ describe('LocationsService', () => {
       const createRequest: CreateLocationRequest = {
         name: 'New Warehouse',
         type: 'warehouse',
-        parent_id: undefined
+        parent_id: undefined,
       }
 
       const mockResponse = {
         status: 'success',
         message: 'Location created successfully',
-        data: mockLocation
+        data: mockLocation,
       }
 
       mockApiClient.post.mockResolvedValueOnce(mockResponse)
@@ -67,23 +67,25 @@ describe('LocationsService', () => {
     it('should throw error when creation fails', async () => {
       const createRequest: CreateLocationRequest = {
         name: 'New Warehouse',
-        type: 'warehouse'
+        type: 'warehouse',
       }
 
       const mockResponse = {
         status: 'error',
-        message: 'Location already exists'
+        message: 'Location already exists',
       }
 
       mockApiClient.post.mockResolvedValueOnce(mockResponse)
 
-      await expect(locationsService.createLocation(createRequest)).rejects.toThrow('Location already exists')
+      await expect(locationsService.createLocation(createRequest)).rejects.toThrow(
+        'Location already exists'
+      )
     })
 
     it('should handle API error during creation', async () => {
       const createRequest: CreateLocationRequest = {
         name: 'New Warehouse',
-        type: 'warehouse'
+        type: 'warehouse',
       }
 
       mockApiClient.post.mockRejectedValueOnce(new Error('Network error'))
@@ -96,44 +98,52 @@ describe('LocationsService', () => {
     it('should get location by ID successfully', async () => {
       const mockResponse = {
         status: 'success',
-        data: mockLocation
+        data: mockLocation,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
 
       const result = await locationsService.getLocation({ id: 'loc-123' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_location?location_id=loc-123')
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        '/api/locations/get_location?location_id=loc-123'
+      )
       expect(result).toEqual(mockLocation)
     })
 
     it('should get location by name successfully', async () => {
       const mockResponse = {
         status: 'success',
-        data: mockLocation
+        data: mockLocation,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
 
       const result = await locationsService.getLocation({ name: 'Main Warehouse' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/get_location?name=Main+Warehouse')
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        '/api/locations/get_location?name=Main+Warehouse'
+      )
       expect(result).toEqual(mockLocation)
     })
 
     it('should throw error when neither id nor name provided', async () => {
-      await expect(locationsService.getLocation({})).rejects.toThrow('Either id or name must be provided')
+      await expect(locationsService.getLocation({})).rejects.toThrow(
+        'Either id or name must be provided'
+      )
     })
 
     it('should handle location not found', async () => {
       const mockResponse = {
         status: 'error',
-        message: 'Location not found'
+        message: 'Location not found',
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
 
-      await expect(locationsService.getLocation({ id: 'invalid' })).rejects.toThrow('Location not found')
+      await expect(locationsService.getLocation({ id: 'invalid' })).rejects.toThrow(
+        'Location not found'
+      )
     })
   })
 
@@ -142,13 +152,13 @@ describe('LocationsService', () => {
       const updateRequest: UpdateLocationRequest = {
         id: 'loc-123',
         name: 'Updated Warehouse',
-        description: 'Updated description'
+        description: 'Updated description',
       }
 
       const updatedLocation = { ...mockLocation, name: 'Updated Warehouse' }
       const mockResponse = {
         status: 'success',
-        data: updatedLocation
+        data: updatedLocation,
       }
 
       mockApiClient.put.mockResolvedValueOnce(mockResponse)
@@ -157,7 +167,7 @@ describe('LocationsService', () => {
 
       expect(mockApiClient.put).toHaveBeenCalledWith('/api/locations/update_location/loc-123', {
         name: 'Updated Warehouse',
-        description: 'Updated description'
+        description: 'Updated description',
       })
       expect(result).toEqual(updatedLocation)
     })
@@ -165,12 +175,12 @@ describe('LocationsService', () => {
     it('should handle update failure', async () => {
       const updateRequest: UpdateLocationRequest = {
         id: 'loc-123',
-        name: 'Updated Warehouse'
+        name: 'Updated Warehouse',
       }
 
       const mockResponse = {
         status: 'error',
-        message: 'Update failed'
+        message: 'Update failed',
       }
 
       mockApiClient.put.mockResolvedValueOnce(mockResponse)
@@ -185,12 +195,12 @@ describe('LocationsService', () => {
         deleted_location: mockLocation,
         affected_parts_count: 5,
         moved_parts_count: 3,
-        deleted_children_count: 2
+        deleted_children_count: 2,
       }
 
       const mockResponse = {
         status: 'success',
-        data: mockDeleteResponse
+        data: mockDeleteResponse,
       }
 
       mockApiClient.delete.mockResolvedValueOnce(mockResponse)
@@ -207,7 +217,7 @@ describe('LocationsService', () => {
       const mockLocations = [mockLocation, mockChildLocation]
       const mockResponse = {
         status: 'success',
-        data: mockLocations
+        data: mockLocations,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -221,7 +231,7 @@ describe('LocationsService', () => {
     it('should return empty array when no locations found', async () => {
       const mockResponse = {
         status: 'success',
-        data: null
+        data: null,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -244,12 +254,12 @@ describe('LocationsService', () => {
         location: mockLocation,
         children: [mockChildLocation],
         parts_count: 10,
-        children_count: 1
+        children_count: 1,
       }
 
       const mockResponse = {
         status: 'success',
-        data: mockDetails
+        data: mockDetails,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -265,12 +275,12 @@ describe('LocationsService', () => {
     it('should get location path successfully', async () => {
       const mockPath: LocationPath = {
         path: [mockLocation, mockChildLocation],
-        location_names: ['Main Warehouse', 'Electronics Section']
+        location_names: ['Main Warehouse', 'Electronics Section'],
       }
 
       const mockResponse = {
         status: 'success',
-        data: mockPath
+        data: mockPath,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -288,19 +298,21 @@ describe('LocationsService', () => {
         location: mockLocation,
         affected_parts: 5,
         affected_children: 2,
-        warnings: ['This will delete 2 child locations']
+        warnings: ['This will delete 2 child locations'],
       }
 
       const mockResponse = {
         status: 'success',
-        data: mockPreview
+        data: mockPreview,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
 
       const result = await locationsService.previewLocationDelete('loc-123')
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/locations/preview-location-delete/loc-123')
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        '/api/locations/preview-location-delete/loc-123'
+      )
       expect(result).toEqual(mockPreview)
     })
   })
@@ -309,12 +321,12 @@ describe('LocationsService', () => {
     it('should cleanup locations successfully', async () => {
       const mockCleanup: LocationCleanupResponse = {
         cleaned_locations_count: 3,
-        cleaned_location_ids: ['loc-orphan1', 'loc-orphan2', 'loc-orphan3']
+        cleaned_location_ids: ['loc-orphan1', 'loc-orphan2', 'loc-orphan3'],
       }
 
       const mockResponse = {
         status: 'success',
-        data: mockCleanup
+        data: mockCleanup,
       }
 
       mockApiClient.delete.mockResolvedValueOnce(mockResponse)
@@ -330,7 +342,7 @@ describe('LocationsService', () => {
     it('should return true when location name exists with same parent', async () => {
       mockApiClient.get.mockResolvedValueOnce({
         status: 'success',
-        data: { ...mockLocation, parent_id: 'parent-123' }
+        data: { ...mockLocation, parent_id: 'parent-123' },
       })
 
       const result = await locationsService.checkNameExists('Main Warehouse', 'parent-123')
@@ -341,7 +353,7 @@ describe('LocationsService', () => {
     it('should return false when location name exists with different parent', async () => {
       mockApiClient.get.mockResolvedValueOnce({
         status: 'success',
-        data: { ...mockLocation, parent_id: 'different-parent' }
+        data: { ...mockLocation, parent_id: 'different-parent' },
       })
 
       const result = await locationsService.checkNameExists('Main Warehouse', 'parent-123')
@@ -360,7 +372,7 @@ describe('LocationsService', () => {
     it('should exclude specified location ID', async () => {
       mockApiClient.get.mockResolvedValueOnce({
         status: 'success',
-        data: mockLocation
+        data: mockLocation,
       })
 
       const result = await locationsService.checkNameExists('Main Warehouse', undefined, 'loc-123')
@@ -387,14 +399,14 @@ describe('LocationsService', () => {
         parent_id: 'non-existent-parent',
         location_type: 'room',
         created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z'
+        updated_at: '2024-01-01T00:00:00Z',
       }
 
       const locations = [mockLocation, orphanedChild]
       const tree = locationsService.buildLocationTree(locations)
 
       expect(tree).toHaveLength(2) // Both root and orphaned child
-      expect(tree.some(loc => loc.id === 'loc-orphan')).toBe(true)
+      expect(tree.some((loc) => loc.id === 'loc-orphan')).toBe(true)
     })
   })
 
@@ -402,7 +414,7 @@ describe('LocationsService', () => {
     it('should flatten location tree correctly', () => {
       const parentWithChildren: Location = {
         ...mockLocation,
-        children: [mockChildLocation]
+        children: [mockChildLocation],
       }
 
       const flattened = locationsService.flattenLocationTree([parentWithChildren])
@@ -421,7 +433,7 @@ describe('LocationsService', () => {
         parent_id: 'loc-456',
         location_type: 'drawer',
         created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z'
+        updated_at: '2024-01-01T00:00:00Z',
       }
 
       const parentWithChildren: Location = {
@@ -429,9 +441,9 @@ describe('LocationsService', () => {
         children: [
           {
             ...mockChildLocation,
-            children: [grandChild]
-          }
-        ]
+            children: [grandChild],
+          },
+        ],
       }
 
       const descendantIds = locationsService.getDescendantIds(parentWithChildren)
@@ -451,7 +463,7 @@ describe('LocationsService', () => {
       const mockLocations = [mockLocation]
       const mockResponse = {
         status: 'success',
-        data: mockLocations
+        data: mockLocations,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -466,7 +478,7 @@ describe('LocationsService', () => {
   describe('LocationsService class instantiation', () => {
     it('should create a new LocationsService instance', () => {
       const newLocationsService = new LocationsService()
-      
+
       expect(newLocationsService).toBeInstanceOf(LocationsService)
       expect(newLocationsService.createLocation).toBeDefined()
       expect(newLocationsService.getAllLocations).toBeDefined()

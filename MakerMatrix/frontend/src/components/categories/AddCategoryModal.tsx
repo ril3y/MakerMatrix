@@ -13,11 +13,19 @@ interface AddCategoryModalProps {
   existingCategories?: string[]
 }
 
-const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] }: AddCategoryModalProps) => {
-  const initialData: CreateCategoryRequest = useMemo(() => ({
-    name: '',
-    description: ''
-  }), [])
+const AddCategoryModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  existingCategories = [],
+}: AddCategoryModalProps) => {
+  const initialData: CreateCategoryRequest = useMemo(
+    () => ({
+      name: '',
+      description: '',
+    }),
+    []
+  )
 
   const validate = (data: CreateCategoryRequest): Record<string, string> => {
     const errors: Record<string, string> = {}
@@ -31,7 +39,7 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
     }
 
     // Check for duplicate names
-    if (existingCategories.some(cat => cat.toLowerCase() === data.name.toLowerCase().trim())) {
+    if (existingCategories.some((cat) => cat.toLowerCase() === data.name.toLowerCase().trim())) {
       errors.name = 'A category with this name already exists'
     }
 
@@ -46,7 +54,7 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
   const handleSubmit = async (data: CreateCategoryRequest) => {
     const submitData: CreateCategoryRequest = {
       name: data.name.trim(),
-      description: data.description?.trim() || undefined
+      description: data.description?.trim() || undefined,
     }
 
     await categoriesService.createCategory(submitData)
@@ -59,12 +67,12 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
     loading,
     handleSubmit: onSubmit,
     handleClose,
-    updateField
+    updateField,
   } = useModalForm({
     initialData,
     validate,
     onSubmit: handleSubmit,
-    successMessage: 'Category created successfully'
+    successMessage: 'Category created successfully',
   })
 
   const suggestedCategories = [
@@ -81,18 +89,18 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
     'Mechanical',
     'Fasteners',
     'Arduino',
-    'Raspberry Pi'
+    'Raspberry Pi',
   ]
 
   const availableSuggestions = suggestedCategories.filter(
-    cat => !existingCategories.some(existing => existing.toLowerCase() === cat.toLowerCase())
+    (cat) => !existingCategories.some((existing) => existing.toLowerCase() === cat.toLowerCase())
   )
 
   return (
-    <CrudModal 
-      isOpen={isOpen} 
-      onClose={() => handleClose(onClose)} 
-      title="Add New Category" 
+    <CrudModal
+      isOpen={isOpen}
+      onClose={() => handleClose(onClose)}
+      title="Add New Category"
       size="md"
       onSubmit={onSubmit}
       loading={loading}
@@ -117,7 +125,9 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
 
       {/* Character count */}
       <div className="text-right">
-        <span className={`text-xs ${formData.name.length > 40 ? 'text-warning' : 'text-theme-secondary'}`}>
+        <span
+          className={`text-xs ${formData.name.length > 40 ? 'text-warning' : 'text-theme-secondary'}`}
+        >
           {formData.name.length}/50 characters
         </span>
       </div>
@@ -164,9 +174,7 @@ const AddCategoryModal = ({ isOpen, onClose, onSuccess, existingCategories = [] 
           <p className="text-sm text-theme-muted mb-1">Preview:</p>
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-primary-accent" />
-            <span className="text-sm font-medium text-theme-primary">
-              {formData.name.trim()}
-            </span>
+            <span className="text-sm font-medium text-theme-primary">{formData.name.trim()}</span>
           </div>
         </div>
       )}

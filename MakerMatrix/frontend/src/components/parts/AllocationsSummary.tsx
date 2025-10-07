@@ -5,48 +5,52 @@
  * are distributed across multiple locations (reels, cassettes, etc.)
  */
 
-import React, { useState, useEffect } from 'react';
-import { Package, MapPin, ArrowRightLeft, Plus, AlertCircle } from 'lucide-react';
-import { partAllocationService, AllocationSummary, PartAllocation } from '../../services/part-allocation.service';
+import React, { useState, useEffect } from 'react'
+import { Package, MapPin, ArrowRightLeft, Plus, AlertCircle } from 'lucide-react'
+import {
+  partAllocationService,
+  AllocationSummary,
+  PartAllocation,
+} from '../../services/part-allocation.service'
 
 interface AllocationsSummaryProps {
-  partId: string;
-  onTransferClick?: (allocation: PartAllocation) => void;
-  onRefresh?: () => void;
+  partId: string
+  onTransferClick?: (allocation: PartAllocation) => void
+  onRefresh?: () => void
 }
 
 export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
   partId,
   onTransferClick,
-  onRefresh
+  onRefresh,
 }) => {
-  const [allocations, setAllocations] = useState<AllocationSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [allocations, setAllocations] = useState<AllocationSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadAllocations();
-  }, [partId]);
+    loadAllocations()
+  }, [partId])
 
   const loadAllocations = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const data = await partAllocationService.getPartAllocations(partId);
-      setAllocations(data);
+      setLoading(true)
+      setError(null)
+      const data = await partAllocationService.getPartAllocations(partId)
+      setAllocations(data)
       // Don't call onRefresh here - only call it when user explicitly clicks refresh
     } catch (err: any) {
-      console.error('Error loading allocations:', err);
-      setError(err.response?.data?.detail || err.message || 'Failed to load allocations');
+      console.error('Error loading allocations:', err)
+      setError(err.response?.data?.detail || err.message || 'Failed to load allocations')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleRefreshClick = async () => {
-    await loadAllocations();
-    onRefresh?.();
-  };
+    await loadAllocations()
+    onRefresh?.()
+  }
 
   if (loading) {
     return (
@@ -55,7 +59,7 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -66,7 +70,7 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
           <span>{error}</span>
         </div>
       </div>
-    );
+    )
   }
 
   if (!allocations || allocations.allocations.length === 0) {
@@ -74,31 +78,29 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="text-center py-8">
           <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No Allocations
-          </h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Allocations</h3>
           <p className="text-gray-500 dark:text-gray-400">
             This part has not been allocated to any locations yet.
           </p>
         </div>
       </div>
-    );
+    )
   }
 
   const getLocationIcon = (locationType: string) => {
     switch (locationType.toLowerCase()) {
       case 'cassette':
-        return '📦';
+        return '📦'
       case 'reel':
-        return '🎞️';
+        return '🎞️'
       case 'bin':
-        return '🗄️';
+        return '🗄️'
       case 'shelf':
-        return '📚';
+        return '📚'
       default:
-        return '📍';
+        return '📍'
     }
-  };
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -140,7 +142,8 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
               <div className="flex items-center space-x-3 flex-1">
                 <div className="flex-shrink-0">
                   <span className="text-2xl">
-                    {allocation.location?.emoji || getLocationIcon(allocation.location?.location_type || '')}
+                    {allocation.location?.emoji ||
+                      getLocationIcon(allocation.location?.location_type || '')}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -175,7 +178,10 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
                     {allocation.quantity_at_location.toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {((allocation.quantity_at_location / allocations.total_quantity) * 100).toFixed(1)}%
+                    {((allocation.quantity_at_location / allocations.total_quantity) * 100).toFixed(
+                      1
+                    )}
+                    %
                   </div>
                 </div>
                 {onTransferClick && (
@@ -203,5 +209,5 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
         </button>
       </div>
     </div>
-  );
-};
+  )
+}

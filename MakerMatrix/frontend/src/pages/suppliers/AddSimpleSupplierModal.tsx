@@ -5,48 +5,51 @@
  * Only requires name and website URL - automatically fetches favicon.
  */
 
-import React, { useState, useEffect } from 'react';
-import { X, Plus, CheckCircle, AlertTriangle, Link as LinkIcon } from 'lucide-react';
-import { supplierService } from '../../services/supplier.service';
+import React, { useState, useEffect } from 'react'
+import { X, Plus, CheckCircle, AlertTriangle, Link as LinkIcon } from 'lucide-react'
+import { supplierService } from '../../services/supplier.service'
 
 interface AddSimpleSupplierModalProps {
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose: () => void
+  onSuccess: () => void
 }
 
-export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({ onClose, onSuccess }) => {
+export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({
+  onClose,
+  onSuccess,
+}) => {
   const [formData, setFormData] = useState({
     supplier_name: '',
     display_name: '',
     website_url: '',
-    description: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [websiteUrlManuallyEdited, setWebsiteUrlManuallyEdited] = useState(false);
+    description: '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [websiteUrlManuallyEdited, setWebsiteUrlManuallyEdited] = useState(false)
 
   // Handle Escape key to close modal
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onClose()
       }
-    };
+    }
 
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [onClose])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value } = e.target
 
     // If user manually edits website_url, mark it as edited
     if (name === 'website_url') {
-      setWebsiteUrlManuallyEdited(true);
+      setWebsiteUrlManuallyEdited(true)
     }
 
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }))
 
     // Auto-fill website_url from display_name if not manually edited
     if (name === 'display_name' && !websiteUrlManuallyEdited && value.trim()) {
@@ -55,76 +58,82 @@ export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({ 
         .toLowerCase()
         .replace(/\s*(electronics|store|shop|inc|llc|corporation|corp)\.?\s*$/i, '')
         .trim()
-        .replace(/[^a-z0-9]/g, '');
+        .replace(/[^a-z0-9]/g, '')
 
       if (cleanCompanyName) {
-        setFormData(prev => ({ ...prev, website_url: `https://${cleanCompanyName}.com` }));
+        setFormData((prev) => ({ ...prev, website_url: `https://${cleanCompanyName}.com` }))
       }
     }
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(false);
+    e.preventDefault()
+    setError(null)
+    setSuccess(false)
 
     // Validation
     if (!formData.display_name.trim()) {
-      setError('Display name is required');
-      return;
+      setError('Display name is required')
+      return
     }
 
     if (!formData.website_url.trim()) {
-      setError('Website URL is required');
-      return;
+      setError('Website URL is required')
+      return
     }
 
     // Validate URL format
     try {
-      new URL(formData.website_url.startsWith('http') ? formData.website_url : `https://${formData.website_url}`);
+      new URL(
+        formData.website_url.startsWith('http')
+          ? formData.website_url
+          : `https://${formData.website_url}`
+      )
     } catch {
-      setError('Invalid website URL format');
-      return;
+      setError('Invalid website URL format')
+      return
     }
 
     try {
-      setLoading(true);
+      setLoading(true)
 
       // Create supplier config
       const supplierConfig = {
-        supplier_name: formData.supplier_name || formData.display_name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+        supplier_name:
+          formData.supplier_name || formData.display_name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
         display_name: formData.display_name,
         description: formData.description || `Simple supplier: ${formData.display_name}`,
-        website_url: formData.website_url.startsWith('http') ? formData.website_url : `https://${formData.website_url}`,
+        website_url: formData.website_url.startsWith('http')
+          ? formData.website_url
+          : `https://${formData.website_url}`,
         supplier_type: 'simple',
-        api_type: 'rest',  // Default to rest but won't be used for simple suppliers
-        base_url: '',  // Not needed for simple suppliers
+        api_type: 'rest', // Default to rest but won't be used for simple suppliers
+        base_url: '', // Not needed for simple suppliers
         enabled: true,
         supports_datasheet: false,
         supports_image: false,
         supports_pricing: false,
         supports_stock: false,
-        supports_specifications: false
-      };
+        supports_specifications: false,
+      }
 
-      console.log('Creating simple supplier:', supplierConfig);
-      await supplierService.createSupplier(supplierConfig);
+      console.log('Creating simple supplier:', supplierConfig)
+      await supplierService.createSupplier(supplierConfig)
 
-      setSuccess(true);
+      setSuccess(true)
 
       // Wait a moment to show success message, then close
       setTimeout(() => {
-        onSuccess();
-      }, 1500);
-
+        onSuccess()
+      }, 1500)
     } catch (err: any) {
-      console.error('Failed to create simple supplier:', err);
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to create supplier';
-      setError(errorMessage);
+      console.error('Failed to create simple supplier:', err)
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to create supplier'
+      setError(errorMessage)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   if (success) {
     return (
@@ -143,7 +152,7 @@ export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({ 
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -274,5 +283,5 @@ export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({ 
         </form>
       </div>
     </div>
-  );
-};
+  )
+}

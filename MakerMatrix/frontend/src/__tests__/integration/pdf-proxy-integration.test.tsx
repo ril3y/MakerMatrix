@@ -1,6 +1,6 @@
 /**
  * Integration tests for PDF proxy functionality across components.
- * 
+ *
  * Tests the complete flow from PartDetailsPage opening PDF preview
  * to PDFViewer displaying the proxied PDF.
  */
@@ -15,7 +15,7 @@ const mockGetPDFProxyUrl = (url: string) => `/static/proxy-pdf?url=${encodeURICo
 
 // Mock LoadingScreen component
 vi.mock('../../components/ui/LoadingScreen', () => ({
-  default: () => <div data-testid="loading-screen">Loading...</div>
+  default: () => <div data-testid="loading-screen">Loading...</div>,
 }))
 
 // Mock react-router-dom
@@ -24,45 +24,48 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useParams: () => ({ id: 'test-part-id' }),
-    useNavigate: () => vi.fn()
+    useNavigate: () => vi.fn(),
   }
 })
 
 // Mock services
 vi.mock('../../services/parts.service', () => ({
   partsService: {
-    getPart: vi.fn(() => Promise.resolve({
-      id: 'test-part-id',
-      name: 'Test Resistor',
-      part_number: 'R1001',
-      quantity: 100,
-      supplier: 'LCSC',
-      additional_properties: {
-        datasheet_url: 'https://datasheet.lcsc.com/lcsc/2304140030_Texas-Instruments-TLV9061IDBVR_C693210.pdf',
-        description: 'High precision resistor'
-      },
-      datasheets: [
-        {
-          id: 'ds1',
-          filename: 'local-datasheet.pdf',
-          title: 'Local Datasheet',
-          is_downloaded: true,
-          file_size: 1024000,
-          created_at: '2024-01-01T00:00:00Z'
-        }
-      ],
-      categories: [],
-      location: { id: 'loc1', name: 'Bin A1' }
-    })),
-    deletePart: vi.fn()
-  }
+    getPart: vi.fn(() =>
+      Promise.resolve({
+        id: 'test-part-id',
+        name: 'Test Resistor',
+        part_number: 'R1001',
+        quantity: 100,
+        supplier: 'LCSC',
+        additional_properties: {
+          datasheet_url:
+            'https://datasheet.lcsc.com/lcsc/2304140030_Texas-Instruments-TLV9061IDBVR_C693210.pdf',
+          description: 'High precision resistor',
+        },
+        datasheets: [
+          {
+            id: 'ds1',
+            filename: 'local-datasheet.pdf',
+            title: 'Local Datasheet',
+            is_downloaded: true,
+            file_size: 1024000,
+            created_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+        categories: [],
+        location: { id: 'loc1', name: 'Bin A1' },
+      })
+    ),
+    deletePart: vi.fn(),
+  },
 }))
 
 // Mock analytics service
 vi.mock('../../services/analytics.service', () => ({
   analyticsService: {
-    getPriceTrends: vi.fn(() => Promise.resolve([]))
-  }
+    getPriceTrends: vi.fn(() => Promise.resolve([])),
+  },
 }))
 
 // Mock react-pdf
@@ -86,8 +89,8 @@ vi.mock('react-pdf', () => ({
   )),
   pdfjs: {
     version: '3.4.120',
-    GlobalWorkerOptions: { workerSrc: '' }
-  }
+    GlobalWorkerOptions: { workerSrc: '' },
+  },
 }))
 
 // Mock Lucide icons
@@ -129,33 +132,33 @@ vi.mock('lucide-react', () => ({
   ZoomIn: () => <div>+</div>,
   ZoomOut: () => <div>-</div>,
   X: () => <div data-testid="close-icon">×</div>,
-  AlertCircle: () => <div data-testid="alert-circle">⚠️</div>
+  AlertCircle: () => <div data-testid="alert-circle">⚠️</div>,
 }))
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>
-  }
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  },
 }))
 
 // Mock Chart.js components
 vi.mock('react-chartjs-2', () => ({
-  Line: () => <div data-testid="price-chart">Price Chart</div>
+  Line: () => <div data-testid="price-chart">Price Chart</div>,
 }))
 
 // Mock other modals
 vi.mock('../../components/parts/PartEnrichmentModal', () => ({
-  default: () => <div data-testid="enrichment-modal">Enrichment Modal</div>
+  default: () => <div data-testid="enrichment-modal">Enrichment Modal</div>,
 }))
 
 vi.mock('../../components/printer/PrinterModal', () => ({
-  default: () => <div data-testid="printer-modal">Printer Modal</div>
+  default: () => <div data-testid="printer-modal">Printer Modal</div>,
 }))
 
 vi.mock('../../components/parts/PartPDFViewer', () => ({
-  default: ({ isOpen, onClose }: any) => 
-    isOpen ? <div data-testid="part-pdf-viewer">Part PDF Viewer</div> : null
+  default: ({ isOpen, onClose }: any) =>
+    isOpen ? <div data-testid="part-pdf-viewer">Part PDF Viewer</div> : null,
 }))
 
 describe('PDF Proxy Integration Tests', () => {
@@ -179,17 +182,17 @@ describe('PDF Proxy Integration Tests', () => {
     it('should generate correct proxy URL for external datasheet', () => {
       const externalUrl = 'https://datasheet.lcsc.com/lcsc/test.pdf'
       const proxyUrl = mockGetPDFProxyUrl(externalUrl)
-      
+
       expect(proxyUrl).toBe('/static/proxy-pdf?url=' + encodeURIComponent(externalUrl))
     })
 
     it('should handle complex URLs with query parameters', () => {
       const complexUrl = 'https://datasheet.lcsc.com/lcsc/TI-TLV9061IDBVR_C693210.pdf?version=2'
       const proxyUrl = mockGetPDFProxyUrl(complexUrl)
-      
+
       expect(proxyUrl).toContain(encodeURIComponent(complexUrl))
-      expect(proxyUrl).toContain('%3F')  // Encoded ?
-      expect(proxyUrl).toContain('%3D')  // Encoded =
+      expect(proxyUrl).toContain('%3F') // Encoded ?
+      expect(proxyUrl).toContain('%3D') // Encoded =
     })
   })
 
@@ -245,7 +248,7 @@ describe('PDF Proxy Integration Tests', () => {
       // Find and click the local datasheet view button
       const localDatasheetSection = screen.getByText('Local Datasheet').closest('div')
       const viewButton = localDatasheetSection?.querySelector('button')
-      
+
       if (viewButton && viewButton.textContent?.includes('View')) {
         fireEvent.click(viewButton)
 
@@ -268,11 +271,11 @@ describe('PDF Proxy Integration Tests', () => {
         quantity: 50,
         supplier: 'LCSC',
         additional_properties: {
-          datasheet_url: 'https://datasheet.lcsc.com/lcsc/error-file.pdf'
+          datasheet_url: 'https://datasheet.lcsc.com/lcsc/error-file.pdf',
         },
         datasheets: [],
         categories: [],
-        location: { id: 'loc1', name: 'Bin A1' }
+        location: { id: 'loc1', name: 'Bin A1' },
       })
 
       renderPartDetailsPage()
@@ -309,11 +312,11 @@ describe('PDF Proxy Integration Tests', () => {
         quantity: 50,
         supplier: 'LCSC',
         additional_properties: {
-          datasheet_url: 'https://datasheet.lcsc.com/lcsc/success-file.pdf'
+          datasheet_url: 'https://datasheet.lcsc.com/lcsc/success-file.pdf',
         },
         datasheets: [],
         categories: [],
-        location: { id: 'loc1', name: 'Bin A1' }
+        location: { id: 'loc1', name: 'Bin A1' },
       })
 
       renderPartDetailsPage()
@@ -344,9 +347,12 @@ describe('PDF Proxy Integration Tests', () => {
       // Find the external link button (should be next to Preview PDF)
       const externalLinkIcon = screen.getAllByText('🔗')[0]
       expect(externalLinkIcon).toBeInTheDocument()
-      
+
       const linkElement = externalLinkIcon.closest('a')
-      expect(linkElement).toHaveAttribute('href', 'https://datasheet.lcsc.com/lcsc/2304140030_Texas-Instruments-TLV9061IDBVR_C693210.pdf')
+      expect(linkElement).toHaveAttribute(
+        'href',
+        'https://datasheet.lcsc.com/lcsc/2304140030_Texas-Instruments-TLV9061IDBVR_C693210.pdf'
+      )
       expect(linkElement).toHaveAttribute('target', '_blank')
     })
   })

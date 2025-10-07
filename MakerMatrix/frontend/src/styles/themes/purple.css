@@ -1,11 +1,11 @@
 /* Royal Purple Theme */
-:root[data-theme="purple"],
+:root[data-theme='purple'],
 .theme-purple {
   --primary: #8b5cf6;
   --primary-dark: #7c3aed;
   --primary-light: #a78bfa;
   --primary-rgb: 139, 92, 246;
-  
+
   /* Background colors */
   --bg-primary: #faf9fc;
   --bg-secondary: #f4f1f8;
@@ -15,105 +15,105 @@
 
 /* Override Tailwind classes for theme colors */
 .theme-purple .bg-primary,
-:root[data-theme="purple"] .bg-primary { 
-  background-color: #8b5cf6 !important; 
+:root[data-theme='purple'] .bg-primary {
+  background-color: #8b5cf6 !important;
 }
 
 .theme-purple .bg-primary-dark,
-:root[data-theme="purple"] .bg-primary-dark { 
-  background-color: #7c3aed !important; 
+:root[data-theme='purple'] .bg-primary-dark {
+  background-color: #7c3aed !important;
 }
 
 .theme-purple .bg-primary-10,
-:root[data-theme="purple"] .bg-primary-10 { 
-  background-color: rgba(139, 92, 246, 0.1) !important; 
+:root[data-theme='purple'] .bg-primary-10 {
+  background-color: rgba(139, 92, 246, 0.1) !important;
 }
 
 .theme-purple .bg-primary-20,
-:root[data-theme="purple"] .bg-primary-20 { 
-  background-color: rgba(139, 92, 246, 0.2) !important; 
+:root[data-theme='purple'] .bg-primary-20 {
+  background-color: rgba(139, 92, 246, 0.2) !important;
 }
 
 .theme-purple .text-primary-accent,
-:root[data-theme="purple"] .text-primary-accent { 
-  color: #8b5cf6 !important; 
+:root[data-theme='purple'] .text-primary-accent {
+  color: #8b5cf6 !important;
 }
 
 .theme-purple .border-primary,
-:root[data-theme="purple"] .border-primary { 
-  border-color: #8b5cf6 !important; 
+:root[data-theme='purple'] .border-primary {
+  border-color: #8b5cf6 !important;
 }
 
 .theme-purple .border-primary-20,
-:root[data-theme="purple"] .border-primary-20 { 
-  border-color: rgba(139, 92, 246, 0.2) !important; 
+:root[data-theme='purple'] .border-primary-20 {
+  border-color: rgba(139, 92, 246, 0.2) !important;
 }
 
 .theme-purple .ring-primary-20,
-:root[data-theme="purple"] .ring-primary-20 { 
-  --tw-ring-color: rgba(139, 92, 246, 0.2) !important; 
+:root[data-theme='purple'] .ring-primary-20 {
+  --tw-ring-color: rgba(139, 92, 246, 0.2) !important;
 }
 
 /* Background color overrides */
 .theme-purple .bg-background-primary,
-:root[data-theme="purple"] .bg-background-primary { 
-  background-color: #faf9fc !important; 
+:root[data-theme='purple'] .bg-background-primary {
+  background-color: #faf9fc !important;
 }
 
 .theme-purple .bg-background-secondary,
-:root[data-theme="purple"] .bg-background-secondary { 
-  background-color: #f4f1f8 !important; 
+:root[data-theme='purple'] .bg-background-secondary {
+  background-color: #f4f1f8 !important;
 }
 
 .theme-purple .bg-background-tertiary,
-:root[data-theme="purple"] .bg-background-tertiary { 
-  background-color: #ede7f3 !important; 
+:root[data-theme='purple'] .bg-background-tertiary {
+  background-color: #ede7f3 !important;
 }
 
 /* Override common Tailwind background classes */
 .theme-purple .bg-white,
-:root[data-theme="purple"] .bg-white { 
-  background-color: #faf9fc !important; 
+:root[data-theme='purple'] .bg-white {
+  background-color: #faf9fc !important;
 }
 
 .theme-purple .bg-gray-50,
-:root[data-theme="purple"] .bg-gray-50 { 
-  background-color: #f4f1f8 !important; 
+:root[data-theme='purple'] .bg-gray-50 {
+  background-color: #f4f1f8 !important;
 }
 
 .theme-purple .bg-gray-100,
-:root[data-theme="purple"] .bg-gray-100 { 
-  background-color: #ede7f3 !important; 
+:root[data-theme='purple'] .bg-gray-100 {
+  background-color: #ede7f3 !important;
 }
 
 .theme-purple .bg-gray-200,
-:root[data-theme="purple"] .bg-gray-200 { 
-  background-color: #e9dffc !important; 
+:root[data-theme='purple'] .bg-gray-200 {
+  background-color: #e9dffc !important;
 }
 
 /* Override text colors */
 .theme-purple .text-gray-900,
-:root[data-theme="purple"] .text-gray-900 { 
-  color: #581c87 !important; 
+:root[data-theme='purple'] .text-gray-900 {
+  color: #581c87 !important;
 }
 
 .theme-purple .text-gray-700,
-:root[data-theme="purple"] .text-gray-700 { 
-  color: #6b21a8 !important; 
+:root[data-theme='purple'] .text-gray-700 {
+  color: #6b21a8 !important;
 }
 
 .theme-purple .text-gray-600,
-:root[data-theme="purple"] .text-gray-600 { 
-  color: #7c2d92 !important; 
+:root[data-theme='purple'] .text-gray-600 {
+  color: #7c2d92 !important;
 }
 
 /* Override border colors */
 .theme-purple .border-gray-200,
-:root[data-theme="purple"] .border-gray-200 { 
-  border-color: #ddd6fe !important; 
+:root[data-theme='purple'] .border-gray-200 {
+  border-color: #ddd6fe !important;
 }
 
 .theme-purple .border-gray-300,
-:root[data-theme="purple"] .border-gray-300 { 
-  border-color: #c4b5fd !important; 
+:root[data-theme='purple'] .border-gray-300 {
+  border-color: #c4b5fd !important;
 }

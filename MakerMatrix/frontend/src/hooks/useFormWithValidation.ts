@@ -32,109 +32,143 @@ export const useFormWithValidation = <T extends FieldValues>({
     ...formOptions,
   })
 
-  const { handleSubmit, reset: formReset, formState: { errors, isValid, isDirty } } = form
+  const {
+    handleSubmit,
+    reset: formReset,
+    formState: { errors, isValid, isDirty },
+  } = form
 
-  const onSubmitHandler = useCallback(async (data: T) => {
-    try {
-      setLoading(true)
-      
-      // Transform data if transformer is provided
-      const submitData = transformData ? transformData(data) : data
-      
-      // Call the submit function
-      const result = await onSubmit(submitData)
-      
-      // Handle success
-      if (successMessage) {
-        toast.success(successMessage)
-      }
-      
-      if (resetOnSuccess) {
-        formReset()
-      }
-      
-      onSuccess?.(result)
-      
-      return result
-    } catch (error: any) {
-      console.error('Form submission error:', error)
-      
-      // Handle validation errors from server
-      if (error.response?.status === 422) {
-        const validationErrors = error.response.data.detail
-        if (Array.isArray(validationErrors)) {
-          validationErrors.forEach((err: any) => {
-            if (err.loc && err.msg) {
-              const field = err.loc[err.loc.length - 1] as Path<T>
-              form.setError(field, { message: err.msg })
-            }
-          })
+  const onSubmitHandler = useCallback(
+    async (data: T) => {
+      try {
+        setLoading(true)
+
+        // Transform data if transformer is provided
+        const submitData = transformData ? transformData(data) : data
+
+        // Call the submit function
+        const result = await onSubmit(submitData)
+
+        // Handle success
+        if (successMessage) {
+          toast.success(successMessage)
         }
-      } else {
-        // Handle general errors
-        const errorMessage = error.response?.data?.message || error.message || 'An error occurred'
-        toast.error(errorMessage)
+
+        if (resetOnSuccess) {
+          formReset()
+        }
+
+        onSuccess?.(result)
+
+        return result
+      } catch (error: any) {
+        console.error('Form submission error:', error)
+
+        // Handle validation errors from server
+        if (error.response?.status === 422) {
+          const validationErrors = error.response.data.detail
+          if (Array.isArray(validationErrors)) {
+            validationErrors.forEach((err: any) => {
+              if (err.loc && err.msg) {
+                const field = err.loc[err.loc.length - 1] as Path<T>
+                form.setError(field, { message: err.msg })
+              }
+            })
+          }
+        } else {
+          // Handle general errors
+          const errorMessage = error.response?.data?.message || error.message || 'An error occurred'
+          toast.error(errorMessage)
+        }
+
+        onError?.(error)
+        throw error
+      } finally {
+        setLoading(false)
       }
-      
-      onError?.(error)
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }, [onSubmit, onSuccess, onError, successMessage, resetOnSuccess, transformData, formReset, form])
+    },
+    [onSubmit, onSuccess, onError, successMessage, resetOnSuccess, transformData, formReset, form]
+  )
 
   // Enhanced field registration with better error handling
-  const register = useCallback((name: Path<T>, options?: any) => {
-    return form.register(name, options)
-  }, [form])
+  const register = useCallback(
+    (name: Path<T>, options?: any) => {
+      return form.register(name, options)
+    },
+    [form]
+  )
 
   // Get field error message
-  const getFieldError = useCallback((name: Path<T>) => {
-    return errors[name]?.message as string | undefined
-  }, [errors])
+  const getFieldError = useCallback(
+    (name: Path<T>) => {
+      return errors[name]?.message as string | undefined
+    },
+    [errors]
+  )
 
   // Check if field has error
-  const hasFieldError = useCallback((name: Path<T>) => {
-    return !!errors[name]
-  }, [errors])
+  const hasFieldError = useCallback(
+    (name: Path<T>) => {
+      return !!errors[name]
+    },
+    [errors]
+  )
 
   // Get field props for easier component integration
-  const getFieldProps = useCallback((name: Path<T>) => {
-    return {
-      registration: register(name),
-      error: getFieldError(name),
-    }
-  }, [register, getFieldError])
+  const getFieldProps = useCallback(
+    (name: Path<T>) => {
+      return {
+        registration: register(name),
+        error: getFieldError(name),
+      }
+    },
+    [register, getFieldError]
+  )
 
   // Reset specific field
-  const resetField = useCallback((name: Path<T>) => {
-    form.resetField(name)
-  }, [form])
+  const resetField = useCallback(
+    (name: Path<T>) => {
+      form.resetField(name)
+    },
+    [form]
+  )
 
   // Set field value programmatically
-  const setValue = useCallback((name: Path<T>, value: any, options?: any) => {
-    form.setValue(name, value, options)
-  }, [form])
+  const setValue = useCallback(
+    (name: Path<T>, value: any, options?: any) => {
+      form.setValue(name, value, options)
+    },
+    [form]
+  )
 
   // Get field value
-  const getValue = useCallback((name: Path<T>) => {
-    return form.getValues(name)
-  }, [form])
+  const getValue = useCallback(
+    (name: Path<T>) => {
+      return form.getValues(name)
+    },
+    [form]
+  )
 
   // Watch field changes
-  const watch = useCallback((name?: Path<T> | Path<T>[]) => {
-    return form.watch(name as any)
-  }, [form])
+  const watch = useCallback(
+    (name?: Path<T> | Path<T>[]) => {
+      return form.watch(name as any)
+    },
+    [form]
+  )
 
   // Trigger field validation
-  const trigger = useCallback((name?: Path<T> | Path<T>[]) => {
-    return form.trigger(name as any)
-  }, [form])
+  const trigger = useCallback(
+    (name?: Path<T> | Path<T>[]) => {
+      return form.trigger(name as any)
+    },
+    [form]
+  )
 
   return {
     // Form methods
     ...form,
-    
+
     // Custom methods
     onSubmit: handleSubmit(onSubmitHandler),
     register,
@@ -146,13 +180,13 @@ export const useFormWithValidation = <T extends FieldValues>({
     getValue,
     watch,
     trigger,
-    
+
     // State
     loading,
     isValid,
     isDirty,
     errors,
-    
+
     // Utilities
     reset: () => {
       formReset()

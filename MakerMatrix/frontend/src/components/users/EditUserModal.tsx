@@ -11,13 +11,19 @@ interface EditUserModalProps {
   availableRoles: Array<{ id: string; name: string }>
 }
 
-const EditUserModal = ({ isOpen, onClose, user, onUpdateRoles, availableRoles }: EditUserModalProps) => {
+const EditUserModal = ({
+  isOpen,
+  onClose,
+  user,
+  onUpdateRoles,
+  availableRoles,
+}: EditUserModalProps) => {
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (user) {
-      setSelectedRoleIds(user.roles.map(r => r.id))
+      setSelectedRoleIds(user.roles.map((r) => r.id))
     }
   }, [user])
 
@@ -46,8 +52,8 @@ const EditUserModal = ({ isOpen, onClose, user, onUpdateRoles, availableRoles }:
           style: {
             background: '#FEF3C7',
             color: '#92400E',
-            border: '1px solid #FCD34D'
-          }
+            border: '1px solid #FCD34D',
+          },
         })
       } else {
         toast.success(message)
@@ -62,10 +68,8 @@ const EditUserModal = ({ isOpen, onClose, user, onUpdateRoles, availableRoles }:
   }
 
   const toggleRole = (roleId: string) => {
-    setSelectedRoleIds(prev =>
-      prev.includes(roleId)
-        ? prev.filter(id => id !== roleId)
-        : [...prev, roleId]
+    setSelectedRoleIds((prev) =>
+      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
     )
   }
 
@@ -80,10 +84,7 @@ const EditUserModal = ({ isOpen, onClose, user, onUpdateRoles, availableRoles }:
             <User className="w-5 h-5" />
             Edit User
           </h2>
-          <button
-            onClick={onClose}
-            className="text-secondary hover:text-primary transition-colors"
-          >
+          <button onClick={onClose} className="text-secondary hover:text-primary transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -141,7 +142,9 @@ const EditUserModal = ({ isOpen, onClose, user, onUpdateRoles, availableRoles }:
             <div className="flex gap-2">
               <Lock className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs text-blue-800 dark:text-blue-200 font-medium">Password Changes</p>
+                <p className="text-xs text-blue-800 dark:text-blue-200 font-medium">
+                  Password Changes
+                </p>
                 <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                   To change password, use the "Reset Password" option in user settings.
                 </p>
@@ -159,11 +162,7 @@ const EditUserModal = ({ isOpen, onClose, user, onUpdateRoles, availableRoles }:
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary flex-1"
-              disabled={loading}
-            >
+            <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

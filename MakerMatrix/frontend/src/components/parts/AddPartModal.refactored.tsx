@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Save, Plus } from 'lucide-react'
-import { 
-  FormInput, 
-  FormTextarea, 
-  FormSelect, 
+import {
+  FormInput,
+  FormTextarea,
+  FormSelect,
   FormNumberInput,
   FormSection,
   FormGrid,
   FormActions,
   ImageUpload,
   CategorySelector,
-  LocationTreeSelector
+  LocationTreeSelector,
 } from '@/components/forms'
 import Modal from '@/components/ui/Modal'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
@@ -52,14 +52,17 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         // Handle image upload
         image_url: imageUrl || data.image_url,
         // Convert additional properties array to object
-        additional_properties: customProperties.reduce((acc, prop) => {
-          if (prop.key && prop.value) {
-            acc[prop.key] = prop.value
-          }
-          return acc
-        }, {} as Record<string, any>),
+        additional_properties: customProperties.reduce(
+          (acc, prop) => {
+            if (prop.key && prop.value) {
+              acc[prop.key] = prop.value
+            }
+            return acc
+          },
+          {} as Record<string, any>
+        ),
       }
-      
+
       const result = await partsService.createPart(submitData)
       return result
     },
@@ -75,12 +78,16 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   // Data loading states
   const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [suppliers, setSuppliers] = useState<Array<{id: string; name: string; description: string}>>([])
+  const [suppliers, setSuppliers] = useState<
+    Array<{ id: string; name: string; description: string }>
+  >([])
   const [loadingData, setLoadingData] = useState(false)
-  
+
   // Additional form states
   const [imageUrl, setImageUrl] = useState<string>('')
-  const [customProperties, setCustomProperties] = useState<Array<{key: string, value: string}>>([])
+  const [customProperties, setCustomProperties] = useState<Array<{ key: string; value: string }>>(
+    []
+  )
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
 
@@ -104,7 +111,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       const [locationsData, categoriesData, suppliersData] = await Promise.all([
         locationsService.getAllLocations(),
         categoriesService.getAllCategories(),
-        DynamicSupplierService.getInstance().getConfiguredSuppliers()
+        DynamicSupplierService.getInstance().getConfiguredSuppliers(),
       ])
       setLocations(locationsData || [])
       setCategories(categoriesData || [])
@@ -190,13 +197,13 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 {...form.getFieldProps('part_name')}
                 placeholder="Enter part name"
               />
-              
+
               <FormInput
                 label="Part Number"
                 {...form.getFieldProps('part_number')}
                 placeholder="Supplier part number"
               />
-              
+
               <FormNumberInput
                 label="Quantity"
                 required
@@ -205,7 +212,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 className="md:col-span-2"
               />
             </FormGrid>
-            
+
             <FormTextarea
               label="Description"
               {...form.getFieldProps('description')}
@@ -234,9 +241,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           <FormSection title="Organization">
             <FormGrid columns={2}>
               <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  Location
-                </label>
+                <label className="block text-sm font-medium text-primary mb-2">Location</label>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <LocationTreeSelector
@@ -258,9 +263,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  Categories
-                </label>
+                <label className="block text-sm font-medium text-primary mb-2">Categories</label>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <CategorySelector
@@ -299,14 +302,14 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               {customProperties.map((prop, index) => (
                 <div key={index} className="flex gap-2 items-end">
                   <FormInput
-                    label={index === 0 ? "Property Name" : ""}
+                    label={index === 0 ? 'Property Name' : ''}
                     value={prop.key}
                     onChange={(e) => updateCustomProperty(index, 'key', e.target.value)}
                     placeholder="Property name"
                     className="flex-1"
                   />
                   <FormInput
-                    label={index === 0 ? "Value" : ""}
+                    label={index === 0 ? 'Value' : ''}
                     value={prop.value}
                     onChange={(e) => updateCustomProperty(index, 'value', e.target.value)}
                     placeholder="Property value"
@@ -322,7 +325,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                   </button>
                 </div>
               ))}
-              
+
               <button
                 type="button"
                 onClick={addCustomProperty}

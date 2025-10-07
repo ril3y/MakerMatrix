@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CategoriesService, categoriesService } from '../categories.service'
 import { apiClient } from '../api'
-import { 
-  Category, 
-  CreateCategoryRequest, 
+import {
+  Category,
+  CreateCategoryRequest,
   UpdateCategoryRequest,
   CategoryResponse,
   CategoriesListResponse,
-  DeleteCategoriesResponse
+  DeleteCategoriesResponse,
 } from '@/types/categories'
 
 // Mock dependencies
@@ -21,7 +21,7 @@ describe('CategoriesService', () => {
     name: 'Electronics',
     description: 'Electronic components and devices',
     created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z'
+    updated_at: '2024-01-01T00:00:00Z',
   }
 
   const mockCategory2: Category = {
@@ -29,7 +29,7 @@ describe('CategoriesService', () => {
     name: 'Resistors',
     description: 'Various resistor types',
     created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z'
+    updated_at: '2024-01-01T00:00:00Z',
   }
 
   beforeEach(() => {
@@ -40,15 +40,15 @@ describe('CategoriesService', () => {
     it('should create category successfully', async () => {
       const createRequest: CreateCategoryRequest = {
         name: 'Capacitors',
-        description: 'Various capacitor types'
+        description: 'Various capacitor types',
       }
 
       const mockResponse = {
         status: 'success',
         message: 'Category created successfully',
         data: {
-          category: mockCategory
-        }
+          category: mockCategory,
+        },
       }
 
       mockApiClient.post.mockResolvedValueOnce(mockResponse)
@@ -61,12 +61,14 @@ describe('CategoriesService', () => {
 
     it('should handle creation API error', async () => {
       const createRequest: CreateCategoryRequest = {
-        name: 'Duplicated Category'
+        name: 'Duplicated Category',
       }
 
       mockApiClient.post.mockRejectedValueOnce(new Error('Category already exists'))
 
-      await expect(categoriesService.createCategory(createRequest)).rejects.toThrow('Category already exists')
+      await expect(categoriesService.createCategory(createRequest)).rejects.toThrow(
+        'Category already exists'
+      )
     })
   })
 
@@ -75,15 +77,17 @@ describe('CategoriesService', () => {
       const mockResponse = {
         status: 'success',
         data: {
-          category: mockCategory
-        }
+          category: mockCategory,
+        },
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
 
       const result = await categoriesService.getCategory({ id: 'cat-123' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/categories/get_category?category_id=cat-123')
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        '/api/categories/get_category?category_id=cat-123'
+      )
       expect(result).toEqual(mockCategory)
     })
 
@@ -91,26 +95,32 @@ describe('CategoriesService', () => {
       const mockResponse = {
         status: 'success',
         data: {
-          category: mockCategory
-        }
+          category: mockCategory,
+        },
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
 
       const result = await categoriesService.getCategory({ name: 'Electronics' })
 
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/categories/get_category?name=Electronics')
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        '/api/categories/get_category?name=Electronics'
+      )
       expect(result).toEqual(mockCategory)
     })
 
     it('should throw error when neither id nor name provided', async () => {
-      await expect(categoriesService.getCategory({})).rejects.toThrow('Either id or name must be provided')
+      await expect(categoriesService.getCategory({})).rejects.toThrow(
+        'Either id or name must be provided'
+      )
     })
 
     it('should handle category not found', async () => {
       mockApiClient.get.mockRejectedValueOnce(new Error('Category not found'))
 
-      await expect(categoriesService.getCategory({ id: 'invalid' })).rejects.toThrow('Category not found')
+      await expect(categoriesService.getCategory({ id: 'invalid' })).rejects.toThrow(
+        'Category not found'
+      )
     })
   })
 
@@ -119,15 +129,15 @@ describe('CategoriesService', () => {
       const updateRequest: UpdateCategoryRequest = {
         id: 'cat-123',
         name: 'Updated Electronics',
-        description: 'Updated description'
+        description: 'Updated description',
       }
 
       const updatedCategory = { ...mockCategory, name: 'Updated Electronics' }
       const mockResponse = {
         status: 'success',
         data: {
-          category: updatedCategory
-        }
+          category: updatedCategory,
+        },
       }
 
       mockApiClient.put.mockResolvedValueOnce(mockResponse)
@@ -136,7 +146,7 @@ describe('CategoriesService', () => {
 
       expect(mockApiClient.put).toHaveBeenCalledWith('/api/categories/update_category/cat-123', {
         name: 'Updated Electronics',
-        description: 'Updated description'
+        description: 'Updated description',
       })
       expect(result).toEqual(updatedCategory)
     })
@@ -144,7 +154,7 @@ describe('CategoriesService', () => {
     it('should handle update failure', async () => {
       const updateRequest: UpdateCategoryRequest = {
         id: 'cat-123',
-        name: 'Updated Category'
+        name: 'Updated Category',
       }
 
       mockApiClient.put.mockRejectedValueOnce(new Error('Update failed'))
@@ -158,15 +168,17 @@ describe('CategoriesService', () => {
       const mockResponse = {
         status: 'success',
         data: {
-          category: mockCategory
-        }
+          category: mockCategory,
+        },
       }
 
       mockApiClient.delete.mockResolvedValueOnce(mockResponse)
 
       const result = await categoriesService.deleteCategory({ id: 'cat-123' })
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/api/categories/remove_category?cat_id=cat-123')
+      expect(mockApiClient.delete).toHaveBeenCalledWith(
+        '/api/categories/remove_category?cat_id=cat-123'
+      )
       expect(result).toEqual(mockCategory)
     })
 
@@ -174,20 +186,24 @@ describe('CategoriesService', () => {
       const mockResponse = {
         status: 'success',
         data: {
-          category: mockCategory
-        }
+          category: mockCategory,
+        },
       }
 
       mockApiClient.delete.mockResolvedValueOnce(mockResponse)
 
       const result = await categoriesService.deleteCategory({ name: 'Electronics' })
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/api/categories/remove_category?name=Electronics')
+      expect(mockApiClient.delete).toHaveBeenCalledWith(
+        '/api/categories/remove_category?name=Electronics'
+      )
       expect(result).toEqual(mockCategory)
     })
 
     it('should throw error when neither id nor name provided', async () => {
-      await expect(categoriesService.deleteCategory({})).rejects.toThrow('Either id or name must be provided')
+      await expect(categoriesService.deleteCategory({})).rejects.toThrow(
+        'Either id or name must be provided'
+      )
     })
   })
 
@@ -197,8 +213,8 @@ describe('CategoriesService', () => {
       const mockResponse = {
         status: 'success',
         data: {
-          categories: mockCategories
-        }
+          categories: mockCategories,
+        },
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -212,7 +228,7 @@ describe('CategoriesService', () => {
     it('should return empty array when no categories found', async () => {
       const mockResponse = {
         status: 'success',
-        data: null
+        data: null,
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -234,8 +250,8 @@ describe('CategoriesService', () => {
       const mockResponse = {
         status: 'success',
         data: {
-          deleted_count: 5
-        }
+          deleted_count: 5,
+        },
       }
 
       mockApiClient.delete.mockResolvedValueOnce(mockResponse)
@@ -251,7 +267,7 @@ describe('CategoriesService', () => {
     it('should return true when category name exists', async () => {
       mockApiClient.get.mockResolvedValueOnce({
         status: 'success',
-        data: { category: mockCategory }
+        data: { category: mockCategory },
       })
 
       const result = await categoriesService.checkNameExists('Electronics')
@@ -270,7 +286,7 @@ describe('CategoriesService', () => {
     it('should exclude specified category ID', async () => {
       mockApiClient.get.mockResolvedValueOnce({
         status: 'success',
-        data: { category: mockCategory }
+        data: { category: mockCategory },
       })
 
       const result = await categoriesService.checkNameExists('Electronics', 'cat-123')
@@ -281,7 +297,7 @@ describe('CategoriesService', () => {
     it('should return true for different category with same name', async () => {
       mockApiClient.get.mockResolvedValueOnce({
         status: 'success',
-        data: { category: mockCategory }
+        data: { category: mockCategory },
       })
 
       const result = await categoriesService.checkNameExists('Electronics', 'different-id')
@@ -302,11 +318,11 @@ describe('CategoriesService', () => {
 
       it('should not mutate original array', () => {
         const categories = [mockCategory2, mockCategory]
-        const originalOrder = categories.map(c => c.name)
-        
+        const originalOrder = categories.map((c) => c.name)
+
         categoriesService.sortCategoriesByName(categories)
-        
-        expect(categories.map(c => c.name)).toEqual(originalOrder)
+
+        expect(categories.map((c) => c.name)).toEqual(originalOrder)
       })
     })
 
@@ -428,7 +444,7 @@ describe('CategoriesService', () => {
       const mockCategories = [mockCategory]
       const mockResponse = {
         status: 'success',
-        data: { categories: mockCategories }
+        data: { categories: mockCategories },
       }
 
       mockApiClient.get.mockResolvedValueOnce(mockResponse)
@@ -443,7 +459,7 @@ describe('CategoriesService', () => {
   describe('CategoriesService class instantiation', () => {
     it('should create a new CategoriesService instance', () => {
       const newCategoriesService = new CategoriesService()
-      
+
       expect(newCategoriesService).toBeInstanceOf(CategoriesService)
       expect(newCategoriesService.createCategory).toBeDefined()
       expect(newCategoriesService.getAllCategories).toBeDefined()

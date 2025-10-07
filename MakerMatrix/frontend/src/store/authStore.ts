@@ -9,7 +9,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
-  
+
   // Actions
   login: (credentials: LoginRequest) => Promise<void>
   logout: () => Promise<void>
@@ -33,16 +33,16 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null })
           try {
             const response = await authService.login(credentials)
-            set({ 
-              user: response.user, 
-              isAuthenticated: true, 
-              isLoading: false 
+            set({
+              user: response.user,
+              isAuthenticated: true,
+              isLoading: false,
             })
             toast.success('Login successful!')
           } catch (error: any) {
-            set({ 
-              isLoading: false, 
-              error: error.response?.data?.detail || 'Login failed' 
+            set({
+              isLoading: false,
+              error: error.response?.data?.detail || 'Login failed',
             })
             throw error
           }
@@ -53,10 +53,10 @@ export const useAuthStore = create<AuthState>()(
           try {
             await authService.logout()
           } finally {
-            set({ 
-              user: null, 
-              isAuthenticated: false, 
-              isLoading: false 
+            set({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
             })
             toast.success('Logged out successfully')
           }
@@ -64,24 +64,24 @@ export const useAuthStore = create<AuthState>()(
 
         checkAuth: async () => {
           const { isAuthenticated: currentAuthState } = get()
-          
+
           // If we already have auth state from persistence, validate the token
           if (currentAuthState && authService.isAuthenticated()) {
             set({ isLoading: true })
             try {
               const user = await authService.getCurrentUser()
-              set({ 
-                user, 
-                isAuthenticated: true, 
-                isLoading: false 
+              set({
+                user,
+                isAuthenticated: true,
+                isLoading: false,
               })
             } catch (error) {
               // Token is invalid, clear auth state
               authService.clearAuth()
-              set({ 
-                user: null, 
-                isAuthenticated: false, 
-                isLoading: false 
+              set({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
               })
             }
           } else if (!authService.isAuthenticated()) {
@@ -97,9 +97,9 @@ export const useAuthStore = create<AuthState>()(
             toast.success('Password updated successfully')
             set({ isLoading: false })
           } catch (error: any) {
-            set({ 
-              isLoading: false, 
-              error: error.response?.data?.detail || 'Failed to update password' 
+            set({
+              isLoading: false,
+              error: error.response?.data?.detail || 'Failed to update password',
             })
             throw error
           }
@@ -109,23 +109,21 @@ export const useAuthStore = create<AuthState>()(
 
         hasRole: (role) => {
           const { user } = get()
-          return user?.roles?.some(r => r.name === role) || false
+          return user?.roles?.some((r) => r.name === role) || false
         },
 
         hasPermission: (permission) => {
           const { user } = get()
           if (!user?.roles) return false
-          
-          return user.roles.some(role => 
-            role.permissions?.includes(permission)
-          )
+
+          return user.roles.some((role) => role.permissions?.includes(permission))
         },
       }),
       {
         name: 'auth-storage',
-        partialize: (state) => ({ 
-          user: state.user, 
-          isAuthenticated: state.isAuthenticated 
+        partialize: (state) => ({
+          user: state.user,
+          isAuthenticated: state.isAuthenticated,
         }),
       }
     )

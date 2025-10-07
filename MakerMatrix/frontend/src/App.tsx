@@ -17,6 +17,7 @@ import PartDetailsPage from '@/pages/parts/PartDetailsPage'
 import EditPartPage from '@/pages/parts/EditPartPage'
 import LocationsPage from '@/pages/locations/LocationsPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
+import ProjectsPage from '@/pages/projects/ProjectsPage'
 import UsersPage from '@/pages/users/UsersPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 import TasksPage from '@/pages/tasks/TasksPage'
@@ -56,31 +57,40 @@ function AppContent() {
             <Route element={<MainLayout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
-              
+
               {/* Parts Management */}
               <Route path="/parts" element={<PartsPage />} />
               <Route path="/parts/:id" element={<PartDetailsPage />} />
               <Route path="/parts/:id/edit" element={<EditPartPage />} />
-              
+
               {/* Location Management */}
               <Route path="/locations" element={<LocationsPage />} />
-              
+
               {/* Category Management */}
               <Route path="/categories" element={<CategoriesPage />} />
 
+              {/* Project Management */}
+              <Route path="/projects" element={<ProjectsPage />} />
+
               {/* Template Management - Redirect to Settings */}
-              <Route path="/templates" element={<Navigate to="/settings?tab=templates" replace />} />
+              <Route
+                path="/templates"
+                element={<Navigate to="/settings?tab=templates" replace />}
+              />
 
               {/* User Management - Admin Only */}
-              <Route path="/users" element={
-                <ProtectedRoute requireRole="admin">
-                  <UsersPage />
-                </ProtectedRoute>
-              } />
-              
+              <Route
+                path="/users"
+                element={
+                  <ProtectedRoute requireRole="admin">
+                    <UsersPage />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Settings */}
               <Route path="/settings" element={<SettingsPage />} />
-              
+
               {/* Tasks Management */}
               <Route path="/tasks" element={<TasksPage />} />
             </Route>
@@ -91,7 +101,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Router>
-      
+
       <Toaster
         position="top-right"
         toastOptions={{

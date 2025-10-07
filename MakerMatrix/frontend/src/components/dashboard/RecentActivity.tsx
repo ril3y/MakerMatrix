@@ -18,7 +18,7 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
     try {
       const data = await activityService.getRecentActivities({
         limit,
-        hours: 24 // Show activities from last 24 hours
+        hours: 24, // Show activities from last 24 hours
       })
       setActivities(data)
       setLastUpdated(new Date())
@@ -39,34 +39,42 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
   }
 
   // Handle real-time activity updates via WebSocket
-  const handleEntityEvent = useCallback((data: EntityEventData) => {
-    // Convert WebSocket entity event to Activity format
-    const newActivity: Activity = {
-      id: `${data.entity_id}-${Date.now()}`, // Generate temporary ID
-      action: data.action,
-      entity_type: data.entity_type,
-      entity_id: data.entity_id,
-      entity_name: data.entity_name,
-      username: data.username || 'system',
-      timestamp: data.timestamp,
-      details: data.details || {}
-    }
+  const handleEntityEvent = useCallback(
+    (data: EntityEventData) => {
+      // Convert WebSocket entity event to Activity format
+      const newActivity: Activity = {
+        id: `${data.entity_id}-${Date.now()}`, // Generate temporary ID
+        action: data.action,
+        entity_type: data.entity_type,
+        entity_id: data.entity_id,
+        entity_name: data.entity_name,
+        username: data.username || 'system',
+        timestamp: data.timestamp,
+        details: data.details || {},
+      }
 
-    // Add to the beginning of activities list
-    setActivities(prev => {
-      const newActivities = [newActivity, ...prev]
-      // Keep only the specified limit
-      return newActivities.slice(0, limit)
-    })
+      // Add to the beginning of activities list
+      setActivities((prev) => {
+        const newActivities = [newActivity, ...prev]
+        // Keep only the specified limit
+        return newActivities.slice(0, limit)
+      })
 
-    // Update last updated time
-    setLastUpdated(new Date())
+      // Update last updated time
+      setLastUpdated(new Date())
 
-    // TOAST NOTIFICATIONS PERMANENTLY DISABLED (2025-07-11)
-    // Component-level toasts in modals provide better user feedback
-    // This component is for activity tracking and display only
-    console.log('RecentActivity: Entity event received (NO TOAST):', data.action, data.entity_type, data.entity_name)
-  }, [limit])
+      // TOAST NOTIFICATIONS PERMANENTLY DISABLED (2025-07-11)
+      // Component-level toasts in modals provide better user feedback
+      // This component is for activity tracking and display only
+      console.log(
+        'RecentActivity: Entity event received (NO TOAST):',
+        data.action,
+        data.entity_type,
+        data.entity_name
+      )
+    },
+    [limit]
+  )
 
   useEffect(() => {
     fetchActivities()
@@ -87,7 +95,7 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
       generalWebSocket.off('entity_created', handleEntityEvent)
       generalWebSocket.off('entity_updated', handleEntityEvent)
       generalWebSocket.off('entity_deleted', handleEntityEvent)
-      
+
       if (interval) {
         clearInterval(interval)
       }
@@ -164,7 +172,9 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
-                    <p className={`text-sm font-medium ${activityService.getActivityColor(activity)}`}>
+                    <p
+                      className={`text-sm font-medium ${activityService.getActivityColor(activity)}`}
+                    >
                       {activityService.formatActivityDescription(activity)}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
@@ -178,7 +188,7 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Show additional details for certain activities */}
                 {activity.details && Object.keys(activity.details).length > 0 && (
                   <div className="mt-2 text-xs text-muted">
@@ -186,9 +196,7 @@ const RecentActivity = ({ limit = 10, refreshInterval = 30000 }: RecentActivityP
                       <span>Label type: {activity.details.label_type}</span>
                     )}
                     {activity.action === 'updated' && activity.details.changes && (
-                      <span>
-                        Changed: {Object.keys(activity.details.changes).join(', ')}
-                      </span>
+                      <span>Changed: {Object.keys(activity.details.changes).join(', ')}</span>
                     )}
                   </div>
                 )}

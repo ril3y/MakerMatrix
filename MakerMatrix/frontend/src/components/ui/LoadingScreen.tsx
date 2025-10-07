@@ -13,12 +13,12 @@ const LoadingScreen = () => {
           <motion.div
             className="w-16 h-16 border-4 border-primary-20 rounded-full"
             animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
           />
           <motion.div
             className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-primary rounded-full"
             animate={{ rotate: 360 }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
           />
         </div>
         <motion.p

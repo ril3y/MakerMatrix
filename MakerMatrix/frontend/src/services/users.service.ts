@@ -1,5 +1,13 @@
 import { apiClient, ApiResponse } from './api'
-import { User, CreateUserRequest, UpdateUserRolesRequest, Role, CreateRoleRequest, UpdateRoleRequest, UserStats } from '@/types/users'
+import {
+  User,
+  CreateUserRequest,
+  UpdateUserRolesRequest,
+  Role,
+  CreateRoleRequest,
+  UpdateRoleRequest,
+  UserStats,
+} from '@/types/users'
 
 export class UsersService {
   // User Management
@@ -46,15 +54,15 @@ export class UsersService {
   async getUserStats(): Promise<UserStats> {
     const users = await this.getAllUsers()
     const total = users.length
-    const active = users.filter(u => u.is_active).length
+    const active = users.filter((u) => u.is_active).length
     const inactive = total - active
-    const admins = users.filter(u => u.roles.some(r => r.name.toLowerCase() === 'admin')).length
+    const admins = users.filter((u) => u.roles.some((r) => r.name.toLowerCase() === 'admin')).length
 
     return {
       total,
       active,
       inactive,
-      admins
+      admins,
     }
   }
 }

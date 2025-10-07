@@ -1,22 +1,22 @@
 /**
  * Mouser-Specific Configuration Form
- * 
+ *
  * Custom configuration form for Mouser API setup with their specific requirements.
  */
 
-import React from 'react';
-import { HelpCircle, AlertTriangle } from 'lucide-react';
+import React from 'react'
+import { HelpCircle, AlertTriangle } from 'lucide-react'
 
 interface MouserConfigFormProps {
-  config: any;
-  onConfigChange: (field: string, value: any) => void;
-  errors: string[];
+  config: any
+  onConfigChange: (field: string, value: any) => void
+  errors: string[]
 }
 
 export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({
   config,
   onConfigChange,
-  errors
+  errors,
 }) => {
   return (
     <div className="space-y-6">
@@ -30,10 +30,30 @@ export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({
             </h3>
             <div className="mt-1 text-sm text-blue-700 dark:text-blue-300">
               <ol className="list-decimal list-inside space-y-1">
-                <li>Register for an account at <a href="https://mouser.com" target="_blank" rel="noopener noreferrer" className="underline">mouser.com</a></li>
+                <li>
+                  Register for an account at{' '}
+                  <a
+                    href="https://mouser.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    mouser.com
+                  </a>
+                </li>
                 <li>Apply for API access through Mouser's API portal</li>
                 <li>Get your API key from Mouser support</li>
-                <li>Review API documentation at <a href="https://api.mouser.com/api/docs/ui/index" target="_blank" rel="noopener noreferrer" className="underline">api.mouser.com/api/docs</a></li>
+                <li>
+                  Review API documentation at{' '}
+                  <a
+                    href="https://api.mouser.com/api/docs/ui/index"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    api.mouser.com/api/docs
+                  </a>
+                </li>
               </ol>
             </div>
           </div>
@@ -77,7 +97,10 @@ export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({
               Description
             </label>
             <textarea
-              value={config.description || 'Electronic component distributor with comprehensive inventory and global shipping'}
+              value={
+                config.description ||
+                'Electronic component distributor with comprehensive inventory and global shipping'
+              }
               onChange={(e) => onConfigChange('description', e.target.value)}
               rows={2}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -167,11 +190,36 @@ export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {[
-            { key: 'datasheet', label: 'Datasheet Download', description: 'Download component datasheets', default: true },
-            { key: 'image', label: 'Image Download', description: 'Download component images', default: true },
-            { key: 'pricing', label: 'Pricing Information', description: 'Retrieve current pricing data', default: true },
-            { key: 'stock', label: 'Stock Information', description: 'Check availability and stock levels', default: true },
-            { key: 'specifications', label: 'Technical Specifications', description: 'Retrieve detailed component specifications', default: true }
+            {
+              key: 'datasheet',
+              label: 'Datasheet Download',
+              description: 'Download component datasheets',
+              default: true,
+            },
+            {
+              key: 'image',
+              label: 'Image Download',
+              description: 'Download component images',
+              default: true,
+            },
+            {
+              key: 'pricing',
+              label: 'Pricing Information',
+              description: 'Retrieve current pricing data',
+              default: true,
+            },
+            {
+              key: 'stock',
+              label: 'Stock Information',
+              description: 'Check availability and stock levels',
+              default: true,
+            },
+            {
+              key: 'specifications',
+              label: 'Technical Specifications',
+              description: 'Retrieve detailed component specifications',
+              default: true,
+            },
           ].map((capability) => (
             <label key={capability.key} className="flex items-start space-x-3">
               <input
@@ -195,9 +243,7 @@ export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({
 
       {/* Custom Headers */}
       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Custom Headers
-        </h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Custom Headers</h3>
         <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <input
@@ -242,12 +288,12 @@ export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({
               Next Step: Add API Key
             </h3>
             <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-              After creating this configuration, you'll need to add your Mouser API key 
-              using the "Manage Credentials" button.
+              After creating this configuration, you'll need to add your Mouser API key using the
+              "Manage Credentials" button.
             </p>
           </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

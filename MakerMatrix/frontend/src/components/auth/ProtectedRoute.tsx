@@ -9,10 +9,10 @@ interface ProtectedRouteProps {
   requirePermission?: string
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requireRole, 
-  requirePermission 
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requireRole,
+  requirePermission,
 }) => {
   const { isAuthenticated, isLoading, hasRole, hasPermission, checkAuth } = useAuthStore()
 

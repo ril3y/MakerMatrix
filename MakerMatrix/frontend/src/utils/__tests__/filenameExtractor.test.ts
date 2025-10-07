@@ -12,9 +12,9 @@ describe('filenameExtractor', () => {
             file_type: 'CSV',
             order_info: {
               order_number: '88269818',
-              notes: 'Auto-extracted from filename: DK_PRODUCTS_88269818.csv'
-            }
-          }
+              notes: 'Auto-extracted from filename: DK_PRODUCTS_88269818.csv',
+            },
+          },
         },
         {
           filename: 'digikey-export-ORD789123.xlsx',
@@ -23,9 +23,9 @@ describe('filenameExtractor', () => {
             file_type: 'XLSX',
             order_info: {
               order_number: 'ORD789123',
-              notes: 'Auto-extracted from filename: digikey-export-ORD789123.xlsx'
-            }
-          }
+              notes: 'Auto-extracted from filename: digikey-export-ORD789123.xlsx',
+            },
+          },
         },
         {
           filename: 'digi-key_order_ABC12345.xls',
@@ -34,15 +34,15 @@ describe('filenameExtractor', () => {
             file_type: 'XLS',
             order_info: {
               order_number: 'ABC12345',
-              notes: 'Auto-extracted from filename: digi-key_order_ABC12345.xls'
-            }
-          }
-        }
+              notes: 'Auto-extracted from filename: digi-key_order_ABC12345.xls',
+            },
+          },
+        },
       ]
 
       testCases.forEach(({ filename, expected }) => {
         const result = extractFilenameInfo(filename)
-        
+
         expect(result.detected_supplier).toBe(expected.detected_supplier)
         expect(result.file_type).toBe(expected.file_type)
         expect(result.order_info.order_number).toBe(expected.order_info.order_number)
@@ -60,9 +60,9 @@ describe('filenameExtractor', () => {
             file_type: 'CSV',
             order_info: {
               order_date: '20240101',
-              notes: 'Auto-extracted from filename: lcsc_parts_20240101.csv'
-            }
-          }
+              notes: 'Auto-extracted from filename: lcsc_parts_20240101.csv',
+            },
+          },
         },
         {
           filename: 'LCSC-Order-12345678.xlsx',
@@ -71,10 +71,10 @@ describe('filenameExtractor', () => {
             file_type: 'XLSX',
             order_info: {
               order_number: '12345678',
-              notes: 'Auto-extracted from filename: LCSC-Order-12345678.xlsx'
-            }
-          }
-        }
+              notes: 'Auto-extracted from filename: LCSC-Order-12345678.xlsx',
+            },
+          },
+        },
       ]
 
       testCases.forEach(({ filename, expected }) => {
@@ -102,9 +102,9 @@ describe('filenameExtractor', () => {
             order_info: {
               order_date: '2024-12-22',
               order_number: '232703',
-              notes: 'Auto-extracted from LCSC filename: LCSC_Exported__20241222_232703.csv'
-            }
-          }
+              notes: 'Auto-extracted from LCSC filename: LCSC_Exported__20241222_232703.csv',
+            },
+          },
         },
         {
           filename: '20241222_232709.csv',
@@ -114,9 +114,9 @@ describe('filenameExtractor', () => {
             order_info: {
               order_date: '2024-12-22',
               order_number: '232709',
-              notes: 'Auto-extracted from LCSC filename: 20241222_232709.csv'
-            }
-          }
+              notes: 'Auto-extracted from LCSC filename: 20241222_232709.csv',
+            },
+          },
         },
         {
           filename: 'LCSC_Exported__20240315_123456.csv',
@@ -126,9 +126,9 @@ describe('filenameExtractor', () => {
             order_info: {
               order_date: '2024-03-15',
               order_number: '123456',
-              notes: 'Auto-extracted from LCSC filename: LCSC_Exported__20240315_123456.csv'
-            }
-          }
+              notes: 'Auto-extracted from LCSC filename: LCSC_Exported__20240315_123456.csv',
+            },
+          },
         },
         {
           filename: 'lcsc_exported__20240101_000000.csv',
@@ -138,10 +138,10 @@ describe('filenameExtractor', () => {
             order_info: {
               order_date: '2024-01-01',
               order_number: '000000',
-              notes: 'Auto-extracted from LCSC filename: lcsc_exported__20240101_000000.csv'
-            }
-          }
-        }
+              notes: 'Auto-extracted from LCSC filename: lcsc_exported__20240101_000000.csv',
+            },
+          },
+        },
       ]
 
       testCases.forEach(({ filename, expected }) => {
@@ -164,9 +164,9 @@ describe('filenameExtractor', () => {
             file_type: 'XLS',
             order_info: {
               order_number: '123456',
-              notes: 'Auto-extracted from filename: mouser_order_123456.xls'
-            }
-          }
+              notes: 'Auto-extracted from filename: mouser_order_123456.xls',
+            },
+          },
         },
         {
           filename: 'Mouser-PO-987654321.xlsx',
@@ -175,15 +175,15 @@ describe('filenameExtractor', () => {
             file_type: 'XLSX',
             order_info: {
               order_number: '987654321',
-              notes: 'Auto-extracted from filename: Mouser-PO-987654321.xlsx'
-            }
-          }
-        }
+              notes: 'Auto-extracted from filename: Mouser-PO-987654321.xlsx',
+            },
+          },
+        },
       ]
 
       testCases.forEach(({ filename, expected }) => {
         const result = extractFilenameInfo(filename)
-        
+
         expect(result.detected_supplier).toBe(expected.detected_supplier)
         expect(result.file_type).toBe(expected.file_type)
         expect(result.order_info.order_number).toBe(expected.order_info.order_number)
@@ -195,20 +195,20 @@ describe('filenameExtractor', () => {
       const testCases = [
         {
           filename: 'parts_2024-01-15.csv',
-          expected: { order_date: '2024-01-15' }
+          expected: { order_date: '2024-01-15' },
         },
         {
           filename: 'export_20240115.xlsx',
-          expected: { order_date: '20240115' }
+          expected: { order_date: '20240115' },
         },
         {
           filename: 'order_01-15-2024.xls',
-          expected: { order_date: '01-15-2024' }
+          expected: { order_date: '01-15-2024' },
         },
         {
           filename: 'data_2024_01_15.csv',
-          expected: { order_date: '2024_01_15' }
-        }
+          expected: { order_date: '2024_01_15' },
+        },
       ]
 
       testCases.forEach(({ filename, expected }) => {
@@ -222,12 +222,12 @@ describe('filenameExtractor', () => {
         'random_file.csv',
         'unknown_format.xlsx',
         'no_patterns_here.xls',
-        'justtext.csv'
+        'justtext.csv',
       ]
 
       testCases.forEach((filename) => {
         const result = extractFilenameInfo(filename)
-        
+
         expect(result.detected_supplier).toBeUndefined()
         expect(result.order_info.order_number).toBeUndefined()
         expect(result.order_info.order_date).toBeUndefined()
@@ -240,27 +240,23 @@ describe('filenameExtractor', () => {
       const testCases = [
         { filename: '271360826.xls', expectedType: 'XLS' },
         { filename: '123456789.xlsx', expectedType: 'XLSX' },
-        { filename: 'order_987654321.xls', expectedType: 'XLS' }
+        { filename: 'order_987654321.xls', expectedType: 'XLS' },
       ]
 
       testCases.forEach(({ filename, expectedType }) => {
         const result = extractFilenameInfo(filename)
-        
+
         expect(result.detected_supplier).toBe('mouser')
         expect(result.file_type).toBe(expectedType)
       })
     })
 
     it('should detect DigiKey from numeric CSV filenames', () => {
-      const testCases = [
-        'DK_PRODUCTS_88269818.csv',
-        '12345678_export.csv',
-        'parts_87654321.csv'
-      ]
+      const testCases = ['DK_PRODUCTS_88269818.csv', '12345678_export.csv', 'parts_87654321.csv']
 
       testCases.forEach((filename) => {
         const result = extractFilenameInfo(filename)
-        
+
         expect(result.detected_supplier).toBe('digikey')
         expect(result.file_type).toBe('CSV')
       })
@@ -271,19 +267,19 @@ describe('filenameExtractor', () => {
       const testCases = [
         { filename: 'DIGIKEY_order.csv', expected: 'digikey' },
         { filename: 'MOUSER_cart.xls', expected: 'mouser' },
-        { filename: 'LCSC_parts.csv', expected: 'lcsc' }
+        { filename: 'LCSC_parts.csv', expected: 'lcsc' },
       ]
 
       testCases.forEach(({ filename, expected }) => {
         const result = extractFilenameInfo(filename)
-        
+
         expect(result.detected_supplier).toBe(expected)
       })
     })
 
     it('should handle files without extensions', () => {
       const result = extractFilenameInfo('digikey_order_123')
-      
+
       expect(result.detected_supplier).toBe('digikey')
       expect(result.file_type).toBe('')
       expect(result.order_info.order_number).toBe('123')
@@ -297,7 +293,7 @@ describe('filenameExtractor', () => {
         'LCSC_parts.csv',
         'lcsc_ORDER.xlsx',
         'MOUSER_export.xls',
-        'mouser_PARTS.csv'
+        'mouser_PARTS.csv',
       ]
 
       testCases.forEach((filename) => {
@@ -311,30 +307,30 @@ describe('filenameExtractor', () => {
     it('should maintain backward compatibility with existing code', async () => {
       const filename = 'DK_PRODUCTS_88269818.csv'
       const parserType = 'digikey'
-      
+
       const result = await extractOrderInfoFromFilename(filename, parserType)
-      
+
       expect(result).toEqual({
         order_number: '88269818',
-        notes: 'Auto-extracted from filename: DK_PRODUCTS_88269818.csv'
+        notes: 'Auto-extracted from filename: DK_PRODUCTS_88269818.csv',
       })
     })
 
     it('should return empty object for unrecognized patterns', async () => {
       const filename = 'random_file.csv'
       const parserType = 'unknown'
-      
+
       const result = await extractOrderInfoFromFilename(filename, parserType)
-      
+
       expect(result).toEqual({})
     })
 
     it('should handle files with both order number and date', async () => {
       const filename = 'lcsc_order_12345_2024-01-15.csv'
       const parserType = 'lcsc'
-      
+
       const result = await extractOrderInfoFromFilename(filename, parserType)
-      
+
       expect(result.order_number).toBe('12345')
       expect(result.order_date).toBe('2024-01-15')
       expect(result.notes).toBe('Auto-extracted from filename: lcsc_order_12345_2024-01-15.csv')
@@ -343,10 +339,10 @@ describe('filenameExtractor', () => {
     it('should handle DK_PRODUCTS_88269818.csv correctly', async () => {
       const filename = 'DK_PRODUCTS_88269818.csv'
       const parserType = 'digikey'
-      
+
       const result = await extractOrderInfoFromFilename(filename, parserType)
       const fullInfo = extractFilenameInfo(filename)
-      
+
       // Should extract as order number, NOT date
       expect(result.order_number).toBe('88269818')
       expect(result.order_date).toBeUndefined()
@@ -358,7 +354,7 @@ describe('filenameExtractor', () => {
   describe('edge cases', () => {
     it('should handle empty filename', () => {
       const result = extractFilenameInfo('')
-      
+
       expect(result.detected_supplier).toBeUndefined()
       expect(result.file_type).toBe('')
       expect(result.order_info).toEqual({})
@@ -368,13 +364,13 @@ describe('filenameExtractor', () => {
     it('should handle filenames with multiple potential patterns', () => {
       // Should extract the first matching order number pattern
       const result = extractFilenameInfo('order_123_po_456.csv')
-      
+
       expect(result.order_info.order_number).toBe('123')
     })
 
     it('should prioritize longer digit sequences for order numbers', () => {
       const result = extractFilenameInfo('file_12345678.csv')
-      
+
       expect(result.order_info.order_number).toBe('12345678')
     })
   })

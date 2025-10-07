@@ -110,7 +110,7 @@ export const createMockTask = (overrides = {}) => ({
  * Utility to wait for async operations
  */
 export const waitFor = (ms: number): Promise<void> => {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -130,7 +130,7 @@ export const createMockFile = (
 export const createMockDragEvent = (files: File[]) => ({
   dataTransfer: {
     files,
-    items: files.map(file => ({
+    items: files.map((file) => ({
       kind: 'file',
       getAsFile: () => file,
     })),
@@ -145,12 +145,16 @@ export const createMockDragEvent = (files: File[]) => ({
  */
 export const expectAccessibleElement = (element: HTMLElement) => {
   expect(element).toBeVisible()
-  
+
   // Check for proper labeling
-  if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
+  if (
+    element.tagName === 'INPUT' ||
+    element.tagName === 'TEXTAREA' ||
+    element.tagName === 'SELECT'
+  ) {
     expect(element).toHaveAccessibleName()
   }
-  
+
   // Check for proper roles
   if (element.getAttribute('role')) {
     expect(element).toHaveAttribute('role')
@@ -169,9 +173,9 @@ export const mockConsole = () => {
     info: vi.fn(),
     debug: vi.fn(),
   }
-  
+
   Object.assign(console, mockMethods)
-  
+
   return {
     restore: () => Object.assign(console, originalConsole),
     ...mockMethods,

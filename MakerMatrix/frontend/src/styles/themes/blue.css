@@ -1,11 +1,11 @@
 /* Ocean Blue Theme */
-:root[data-theme="blue"],
+:root[data-theme='blue'],
 .theme-blue {
   --primary: #3b82f6;
   --primary-dark: #2563eb;
   --primary-light: #60a5fa;
   --primary-rgb: 59, 130, 246;
-  
+
   /* Background colors */
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
@@ -15,105 +15,105 @@
 
 /* Override Tailwind classes for theme colors */
 .theme-blue .bg-primary,
-:root[data-theme="blue"] .bg-primary { 
-  background-color: #3b82f6 !important; 
+:root[data-theme='blue'] .bg-primary {
+  background-color: #3b82f6 !important;
 }
 
 .theme-blue .bg-primary-dark,
-:root[data-theme="blue"] .bg-primary-dark { 
-  background-color: #2563eb !important; 
+:root[data-theme='blue'] .bg-primary-dark {
+  background-color: #2563eb !important;
 }
 
 .theme-blue .bg-primary-10,
-:root[data-theme="blue"] .bg-primary-10 { 
-  background-color: rgba(59, 130, 246, 0.1) !important; 
+:root[data-theme='blue'] .bg-primary-10 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
 }
 
 .theme-blue .bg-primary-20,
-:root[data-theme="blue"] .bg-primary-20 { 
-  background-color: rgba(59, 130, 246, 0.2) !important; 
+:root[data-theme='blue'] .bg-primary-20 {
+  background-color: rgba(59, 130, 246, 0.2) !important;
 }
 
 .theme-blue .text-primary-accent,
-:root[data-theme="blue"] .text-primary-accent { 
-  color: #3b82f6 !important; 
+:root[data-theme='blue'] .text-primary-accent {
+  color: #3b82f6 !important;
 }
 
 .theme-blue .border-primary,
-:root[data-theme="blue"] .border-primary { 
-  border-color: #3b82f6 !important; 
+:root[data-theme='blue'] .border-primary {
+  border-color: #3b82f6 !important;
 }
 
 .theme-blue .border-primary-20,
-:root[data-theme="blue"] .border-primary-20 { 
-  border-color: rgba(59, 130, 246, 0.2) !important; 
+:root[data-theme='blue'] .border-primary-20 {
+  border-color: rgba(59, 130, 246, 0.2) !important;
 }
 
 .theme-blue .ring-primary-20,
-:root[data-theme="blue"] .ring-primary-20 { 
-  --tw-ring-color: rgba(59, 130, 246, 0.2) !important; 
+:root[data-theme='blue'] .ring-primary-20 {
+  --tw-ring-color: rgba(59, 130, 246, 0.2) !important;
 }
 
 /* Background color overrides */
 .theme-blue .bg-background-primary,
-:root[data-theme="blue"] .bg-background-primary { 
-  background-color: #f8fafc !important; 
+:root[data-theme='blue'] .bg-background-primary {
+  background-color: #f8fafc !important;
 }
 
 .theme-blue .bg-background-secondary,
-:root[data-theme="blue"] .bg-background-secondary { 
-  background-color: #f1f5f9 !important; 
+:root[data-theme='blue'] .bg-background-secondary {
+  background-color: #f1f5f9 !important;
 }
 
 .theme-blue .bg-background-tertiary,
-:root[data-theme="blue"] .bg-background-tertiary { 
-  background-color: #e2e8f0 !important; 
+:root[data-theme='blue'] .bg-background-tertiary {
+  background-color: #e2e8f0 !important;
 }
 
 /* Override common Tailwind background classes */
 .theme-blue .bg-white,
-:root[data-theme="blue"] .bg-white { 
-  background-color: #f8fafc !important; 
+:root[data-theme='blue'] .bg-white {
+  background-color: #f8fafc !important;
 }
 
 .theme-blue .bg-gray-50,
-:root[data-theme="blue"] .bg-gray-50 { 
-  background-color: #f1f5f9 !important; 
+:root[data-theme='blue'] .bg-gray-50 {
+  background-color: #f1f5f9 !important;
 }
 
 .theme-blue .bg-gray-100,
-:root[data-theme="blue"] .bg-gray-100 { 
-  background-color: #e2e8f0 !important; 
+:root[data-theme='blue'] .bg-gray-100 {
+  background-color: #e2e8f0 !important;
 }
 
 .theme-blue .bg-gray-200,
-:root[data-theme="blue"] .bg-gray-200 { 
-  background-color: #cbd5e1 !important; 
+:root[data-theme='blue'] .bg-gray-200 {
+  background-color: #cbd5e1 !important;
 }
 
 /* Override text colors */
 .theme-blue .text-gray-900,
-:root[data-theme="blue"] .text-gray-900 { 
-  color: #0f172a !important; 
+:root[data-theme='blue'] .text-gray-900 {
+  color: #0f172a !important;
 }
 
 .theme-blue .text-gray-700,
-:root[data-theme="blue"] .text-gray-700 { 
-  color: #334155 !important; 
+:root[data-theme='blue'] .text-gray-700 {
+  color: #334155 !important;
 }
 
 .theme-blue .text-gray-600,
-:root[data-theme="blue"] .text-gray-600 { 
-  color: #475569 !important; 
+:root[data-theme='blue'] .text-gray-600 {
+  color: #475569 !important;
 }
 
 /* Override border colors */
 .theme-blue .border-gray-200,
-:root[data-theme="blue"] .border-gray-200 { 
-  border-color: #cbd5e1 !important; 
+:root[data-theme='blue'] .border-gray-200 {
+  border-color: #cbd5e1 !important;
 }
 
 .theme-blue .border-gray-300,
-:root[data-theme="blue"] .border-gray-300 { 
-  border-color: #94a3b8 !important; 
+:root[data-theme='blue'] .border-gray-300 {
+  border-color: #94a3b8 !important;
 }

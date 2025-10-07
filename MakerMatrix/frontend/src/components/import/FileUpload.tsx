@@ -25,7 +25,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   onDrop,
   onDragOver,
   onClear,
-  fileInputRef
+  fileInputRef,
 }) => {
   return (
     <div
@@ -50,10 +50,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           <p className="text-sm text-secondary">
             {(file.size / 1024).toFixed(1)} KB • {totalRows || 0} rows
           </p>
-          <button
-            onClick={onClear}
-            className="btn btn-secondary btn-sm mt-2"
-          >
+          <button onClick={onClear} className="btn btn-secondary btn-sm mt-2">
             <X className="w-4 h-4 mr-1" />
             Clear
           </button>
@@ -61,15 +58,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
       ) : (
         <div className="space-y-2">
           <Upload className="w-8 h-8 text-muted mx-auto" />
-          <p className="text-primary font-medium">Drop {parserName} CSV file here or click to browse</p>
+          <p className="text-primary font-medium">
+            Drop {parserName} CSV file here or click to browse
+          </p>
           <p className="text-sm text-secondary">{description}</p>
-          {filePattern && (
-            <p className="text-xs text-muted">Expected format: {filePattern}</p>
-          )}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="btn btn-primary mt-2"
-          >
+          {filePattern && <p className="text-xs text-muted">Expected format: {filePattern}</p>}
+          <button onClick={() => fileInputRef.current?.click()} className="btn btn-primary mt-2">
             Select File
           </button>
         </div>

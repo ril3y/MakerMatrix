@@ -50,18 +50,21 @@ class TemplateService {
   private baseUrl = '/api/templates'
 
   // Get all templates with optional filtering
-  async getTemplates(params: {
-    category?: string
-    is_system?: boolean
-    search?: string
-    page?: number
-    page_size?: number
-  } = {}): Promise<LabelTemplate[]> {
+  async getTemplates(
+    params: {
+      category?: string
+      is_system?: boolean
+      search?: string
+      page?: number
+      page_size?: number
+    } = {}
+  ): Promise<LabelTemplate[]> {
     try {
       const searchParams = new URLSearchParams()
 
       if (params.category) searchParams.append('category', params.category)
-      if (params.is_system !== undefined) searchParams.append('is_system', params.is_system.toString())
+      if (params.is_system !== undefined)
+        searchParams.append('is_system', params.is_system.toString())
       if (params.search) searchParams.append('search', params.search)
       if (params.page) searchParams.append('page', params.page.toString())
       if (params.page_size) searchParams.append('page_size', params.page_size.toString())
@@ -198,9 +201,9 @@ class TemplateService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
       },
-      body: JSON.stringify(request)
+      body: JSON.stringify(request),
     })
 
     if (!response.ok) {
@@ -231,9 +234,12 @@ class TemplateService {
   }
 
   // Get template usage suggestions based on part data
-  getTemplateSuggestions(partData: Record<string, any>, templates: LabelTemplate[]): LabelTemplate[] {
+  getTemplateSuggestions(
+    partData: Record<string, any>,
+    templates: LabelTemplate[]
+  ): LabelTemplate[] {
     // Prioritize system templates that match the use case
-    const suggestions = templates.filter(t => t.is_system_template)
+    const suggestions = templates.filter((t) => t.is_system_template)
 
     // Sort by relevance based on part data
     return suggestions.sort((a, b) => {
@@ -244,13 +250,13 @@ class TemplateService {
       const dataKeys = Object.keys(partData)
 
       if (a.text_template) {
-        dataKeys.forEach(key => {
+        dataKeys.forEach((key) => {
           if (a.text_template.includes(`{${key}}`)) scoreA++
         })
       }
 
       if (b.text_template) {
-        dataKeys.forEach(key => {
+        dataKeys.forEach((key) => {
           if (b.text_template.includes(`{${key}}`)) scoreB++
         })
       }

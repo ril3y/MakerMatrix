@@ -21,7 +21,7 @@ describe('Store Refactoring Tests', () => {
   describe('PartsStore', () => {
     it('should have clean parts-only state', () => {
       const store = usePartsStore.getState()
-      
+
       // Should have parts-specific state
       expect(store.parts).toEqual([])
       expect(store.currentPart).toBe(null)
@@ -34,7 +34,7 @@ describe('Store Refactoring Tests', () => {
       expect(store.error).toBe(null)
       expect(store.searchQuery).toBe('')
       expect(store.selectedFilters).toEqual({})
-      
+
       // Should NOT have locations or categories
       expect('locations' in store).toBe(false)
       expect('categories' in store).toBe(false)
@@ -45,12 +45,12 @@ describe('Store Refactoring Tests', () => {
     it('should load parts correctly', async () => {
       const mockParts = [
         { id: '1', name: 'Part 1', description: 'Description 1' },
-        { id: '2', name: 'Part 2', description: 'Description 2' }
+        { id: '2', name: 'Part 2', description: 'Description 2' },
       ]
-      
+
       vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
         data: mockParts,
-        total_parts: 2
+        total_parts: 2,
       })
 
       const store = usePartsStore.getState()
@@ -65,22 +65,22 @@ describe('Store Refactoring Tests', () => {
 
     it('should create parts correctly', async () => {
       const mockPart = { id: '1', name: 'New Part', description: 'New Description' }
-      
+
       vi.mocked(partsService.createPart).mockResolvedValueOnce(mockPart)
       vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
         data: [mockPart],
-        total_parts: 1
+        total_parts: 1,
       })
 
       const store = usePartsStore.getState()
       const result = await store.createPart({
         name: 'New Part',
-        description: 'New Description'
+        description: 'New Description',
       })
 
       expect(partsService.createPart).toHaveBeenCalledWith({
         name: 'New Part',
-        description: 'New Description'
+        description: 'New Description',
       })
       expect(result).toEqual(mockPart)
       expect(toast.success).toHaveBeenCalledWith('Part created successfully')
@@ -91,9 +91,9 @@ describe('Store Refactoring Tests', () => {
         items: [{ id: '1', name: 'Found Part' }],
         total: 1,
         page: 1,
-        total_pages: 1
+        total_pages: 1,
       }
-      
+
       vi.mocked(partsService.searchParts).mockResolvedValueOnce(mockSearchResponse)
 
       const store = usePartsStore.getState()
@@ -103,7 +103,7 @@ describe('Store Refactoring Tests', () => {
         query: 'test query',
         category_names: ['electronics'],
         page: 1,
-        page_size: 20
+        page_size: 20,
       })
       expect(usePartsStore.getState().parts).toEqual(mockSearchResponse.items)
       expect(usePartsStore.getState().totalParts).toBe(1)
@@ -114,14 +114,14 @@ describe('Store Refactoring Tests', () => {
   describe('LocationsStore', () => {
     it('should have clean locations-only state', () => {
       const store = useLocationsStore.getState()
-      
+
       expect(store.locations).toEqual([])
       expect(store.currentLocation).toBe(null)
       expect(store.locationTree).toEqual([])
       expect(store.isLoading).toBe(false)
       expect(store.isLoadingLocation).toBe(false)
       expect(store.error).toBe(null)
-      
+
       // Should have location-specific methods
       expect(typeof store.loadLocations).toBe('function')
       expect(typeof store.createLocation).toBe('function')
@@ -135,14 +135,17 @@ describe('Store Refactoring Tests', () => {
     it('should load locations correctly', async () => {
       const mockLocations = [
         { id: '1', name: 'Location 1', parent_id: null },
-        { id: '2', name: 'Location 2', parent_id: '1' }
+        { id: '2', name: 'Location 2', parent_id: '1' },
       ]
-      
+
       vi.mocked(locationsService.getAllLocations).mockResolvedValueOnce(mockLocations)
       vi.mocked(locationsService.buildLocationTree).mockReturnValueOnce([
-        { id: '1', name: 'Location 1', parent_id: null, children: [
-          { id: '2', name: 'Location 2', parent_id: '1', children: [] }
-        ]}
+        {
+          id: '1',
+          name: 'Location 1',
+          parent_id: null,
+          children: [{ id: '2', name: 'Location 2', parent_id: '1', children: [] }],
+        },
       ])
 
       const store = useLocationsStore.getState()
@@ -155,7 +158,7 @@ describe('Store Refactoring Tests', () => {
 
     it('should create locations correctly', async () => {
       const mockLocation = { id: '1', name: 'New Location', parent_id: null }
-      
+
       vi.mocked(locationsService.createLocation).mockResolvedValueOnce(mockLocation)
       vi.mocked(locationsService.getAllLocations).mockResolvedValueOnce([mockLocation])
       vi.mocked(locationsService.buildLocationTree).mockReturnValueOnce([mockLocation])
@@ -163,12 +166,12 @@ describe('Store Refactoring Tests', () => {
       const store = useLocationsStore.getState()
       const result = await store.createLocation({
         name: 'New Location',
-        parent_id: null
+        parent_id: null,
       })
 
       expect(locationsService.createLocation).toHaveBeenCalledWith({
         name: 'New Location',
-        parent_id: null
+        parent_id: null,
       })
       expect(result).toEqual(mockLocation)
       expect(toast.success).toHaveBeenCalledWith('Location created successfully')
@@ -179,9 +182,9 @@ describe('Store Refactoring Tests', () => {
         { id: '1', name: 'Location 1', parent_id: null },
         { id: '2', name: 'Location 2', parent_id: '1' },
         { id: '3', name: 'Location 3', parent_id: '1' },
-        { id: '4', name: 'Location 4', parent_id: '2' }
+        { id: '4', name: 'Location 4', parent_id: '2' },
       ]
-      
+
       // Set up initial state
       useLocationsStore.setState({ locations: mockLocations })
 
@@ -190,7 +193,7 @@ describe('Store Refactoring Tests', () => {
       const rootLocations = store.getLocationsByParent(null)
 
       expect(childrenOf1).toHaveLength(2)
-      expect(childrenOf1.map(l => l.id)).toEqual(['2', '3'])
+      expect(childrenOf1.map((l) => l.id)).toEqual(['2', '3'])
       expect(rootLocations).toHaveLength(1)
       expect(rootLocations[0].id).toBe('1')
     })
@@ -199,7 +202,7 @@ describe('Store Refactoring Tests', () => {
   describe('CategoriesStore', () => {
     it('should have clean categories-only state', () => {
       const store = useCategoriesStore.getState()
-      
+
       expect(store.categories).toEqual([])
       expect(store.currentCategory).toBe(null)
       expect(store.isLoading).toBe(false)
@@ -207,7 +210,7 @@ describe('Store Refactoring Tests', () => {
       expect(store.error).toBe(null)
       expect(store.searchQuery).toBe('')
       expect(store.filteredCategories).toEqual([])
-      
+
       // Should have category-specific methods
       expect(typeof store.loadCategories).toBe('function')
       expect(typeof store.createCategory).toBe('function')
@@ -221,9 +224,9 @@ describe('Store Refactoring Tests', () => {
     it('should load categories correctly', async () => {
       const mockCategories = [
         { id: '1', name: 'Category 1', description: 'Description 1' },
-        { id: '2', name: 'Category 2', description: 'Description 2' }
+        { id: '2', name: 'Category 2', description: 'Description 2' },
       ]
-      
+
       vi.mocked(categoriesService.getAllCategories).mockResolvedValueOnce(mockCategories)
 
       const store = useCategoriesStore.getState()
@@ -237,19 +240,19 @@ describe('Store Refactoring Tests', () => {
 
     it('should create categories correctly', async () => {
       const mockCategory = { id: '1', name: 'New Category', description: 'New Description' }
-      
+
       vi.mocked(categoriesService.createCategory).mockResolvedValueOnce(mockCategory)
       vi.mocked(categoriesService.getAllCategories).mockResolvedValueOnce([mockCategory])
 
       const store = useCategoriesStore.getState()
       const result = await store.createCategory({
         name: 'New Category',
-        description: 'New Description'
+        description: 'New Description',
       })
 
       expect(categoriesService.createCategory).toHaveBeenCalledWith({
         name: 'New Category',
-        description: 'New Description'
+        description: 'New Description',
       })
       expect(result).toEqual(mockCategory)
       expect(toast.success).toHaveBeenCalledWith('Category created successfully')
@@ -259,11 +262,11 @@ describe('Store Refactoring Tests', () => {
       const mockCategories = [
         { id: '1', name: 'Electronics', description: 'Electronic components' },
         { id: '2', name: 'Resistors', description: 'Passive components' },
-        { id: '3', name: 'Capacitors', description: 'Energy storage' }
+        { id: '3', name: 'Capacitors', description: 'Energy storage' },
       ]
-      
+
       vi.mocked(categoriesService.filterCategories).mockReturnValueOnce([
-        { id: '1', name: 'Electronics', description: 'Electronic components' }
+        { id: '1', name: 'Electronics', description: 'Electronic components' },
       ])
 
       // Set up initial state
@@ -279,9 +282,9 @@ describe('Store Refactoring Tests', () => {
     it('should find categories by ID and name correctly', () => {
       const mockCategories = [
         { id: '1', name: 'Electronics', description: 'Electronic components' },
-        { id: '2', name: 'Resistors', description: 'Passive components' }
+        { id: '2', name: 'Resistors', description: 'Passive components' },
       ]
-      
+
       // Set up initial state
       useCategoriesStore.setState({ categories: mockCategories })
 

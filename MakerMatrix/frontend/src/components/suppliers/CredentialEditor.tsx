@@ -1,6 +1,6 @@
 /**
  * Reusable Credential Editor Component
- * 
+ *
  * Provides a consistent interface for editing supplier credentials across all suppliers.
  * Shows masked current values, allows editing, and includes test functionality.
  */
@@ -8,10 +8,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Eye, EyeOff, TestTube, Save, HelpCircle, CheckCircle, XCircle } from 'lucide-react'
 import { useFormWithValidation } from '@/hooks/useFormWithValidation'
-import { createCredentialFormSchema, type CredentialField, type CredentialFormData, type CredentialTestResult, type CredentialStatus } from '@/schemas/credentials'
+import {
+  createCredentialFormSchema,
+  type CredentialField,
+  type CredentialFormData,
+  type CredentialTestResult,
+  type CredentialStatus,
+} from '@/schemas/credentials'
 import { FormInput } from '@/components/forms'
 import toast from 'react-hot-toast'
-
 
 interface CredentialEditorProps {
   supplierName: string
@@ -34,7 +39,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
   onTest,
   onSave,
   loading = false,
-  onCredentialsReady
+  onCredentialsReady,
 }) => {
   const [showValues, setShowValues] = useState<Record<string, boolean>>({})
   const [testing, setTesting] = useState(false)
@@ -64,18 +69,21 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
   // Initialize credentials when schema changes or credential status loads
   useEffect(() => {
     if (credentialSchema.length === 0) return
-    
+
     const initializeCredentials = async () => {
       const credentials: CredentialFormData = {}
       const showValuesState: Record<string, boolean> = {}
-      
+
       // Fetch actual credentials if any are configured
       let actualCredentials: CredentialFormData = {}
-      if (credentialStatus && (credentialStatus.has_database_credentials || credentialStatus.has_environment_credentials)) {
+      if (
+        credentialStatus &&
+        (credentialStatus.has_database_credentials || credentialStatus.has_environment_credentials)
+      ) {
         try {
           const apiUrl = `/api/suppliers/${supplierName.toLowerCase()}/credentials`
           const response = await fetch(apiUrl, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+            headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
           })
           if (response.ok) {
             const data = await response.json()
@@ -87,23 +95,23 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
           console.error('Failed to fetch credentials:', error)
         }
       }
-      
-      credentialSchema.forEach(field => {
+
+      credentialSchema.forEach((field) => {
         // Use actual value if available, otherwise empty string
         const actualValue = actualCredentials[field.name]
         credentials[field.name] = actualValue || ''
-        
+
         // Password fields start hidden, text fields start visible
         showValuesState[field.name] = field.field_type !== 'password'
       })
-      
+
       setInitialCredentials(credentials)
       setShowValues(showValuesState)
-      
+
       // Reset form with initial data
       form.reset(credentials)
     }
-    
+
     initializeCredentials()
   }, [credentialSchema, credentialStatus, supplierName])
 
@@ -127,27 +135,26 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
   }, [currentCredentials])
 
   const toggleShowValue = (fieldName: string) => {
-    setShowValues(prev => ({ ...prev, [fieldName]: !prev[fieldName] }))
+    setShowValues((prev) => ({ ...prev, [fieldName]: !prev[fieldName] }))
   }
 
   const handleTest = async () => {
     if (!onTest) return
-    
+
     try {
       setTesting(true)
       setTestResult(null)
       const result = await onTest(currentCredentials)
       setTestResult(result)
     } catch (error) {
-      setTestResult({ 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Test failed' 
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Test failed',
       })
     } finally {
       setTesting(false)
     }
   }
-
 
   const getConfiguredStatus = (): boolean => {
     if (!credentialStatus) return false
@@ -156,15 +163,15 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
 
   const getStatusText = (): string => {
     if (!credentialStatus) return 'Loading...'
-    
+
     if (credentialStatus.error) {
       return 'Error Loading Status'
     }
-    
+
     const hasDb = credentialStatus.has_database_credentials
     const hasEnv = credentialStatus.has_environment_credentials
     const isConfigured = credentialStatus.fully_configured
-    
+
     if (isConfigured) {
       if (hasDb && hasEnv) {
         return 'Credentials Set (DB + Environment)'
@@ -177,7 +184,9 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
       }
     } else {
       const missing = credentialStatus.missing_required?.length || 0
-      return missing > 0 ? `Missing ${missing} Required Field${missing > 1 ? 's' : ''}` : 'No Credentials Set'
+      return missing > 0
+        ? `Missing ${missing} Required Field${missing > 1 ? 's' : ''}`
+        : 'No Credentials Set'
     }
   }
 
@@ -191,12 +200,13 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
               No Credentials Required
             </h4>
             <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-              This supplier uses public APIs or web scraping and doesn't require authentication credentials.
+              This supplier uses public APIs or web scraping and doesn't require authentication
+              credentials.
             </p>
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -209,43 +219,44 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
           ) : (
             <XCircle className="w-5 h-5 text-red-500" />
           )}
-          <span className="text-sm font-medium">
-            {getStatusText()}
-          </span>
+          <span className="text-sm font-medium">{getStatusText()}</span>
         </div>
         <span className="text-xs text-gray-500">
           {getConfiguredStatus() ? 'Enter new values to update' : 'Required for API access'}
         </span>
       </div>
-      
 
       {/* Test Result */}
       {testResult && (
-        <div className={`border rounded-md p-4 ${
-          testResult.success 
-            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-        }`}>
+        <div
+          className={`border rounded-md p-4 ${
+            testResult.success
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+          }`}
+        >
           <div className="flex items-center">
-            <div className={`w-5 h-5 ${
-              testResult.success ? 'text-green-400' : 'text-red-400'
-            }`}>
+            <div className={`w-5 h-5 ${testResult.success ? 'text-green-400' : 'text-red-400'}`}>
               {testResult.success ? '✓' : '✗'}
             </div>
             <div className="ml-3">
-              <h3 className={`text-sm font-medium ${
-                testResult.success 
-                  ? 'text-green-800 dark:text-green-200' 
-                  : 'text-red-800 dark:text-red-200'
-              }`}>
+              <h3
+                className={`text-sm font-medium ${
+                  testResult.success
+                    ? 'text-green-800 dark:text-green-200'
+                    : 'text-red-800 dark:text-red-200'
+                }`}
+              >
                 Credentials Test {testResult.success ? 'Successful' : 'Failed'}
               </h3>
               {testResult.message && (
-                <p className={`mt-1 text-sm ${
-                  testResult.success 
-                    ? 'text-green-700 dark:text-green-300' 
-                    : 'text-red-700 dark:text-red-300'
-                }`}>
+                <p
+                  className={`mt-1 text-sm ${
+                    testResult.success
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
+                  }`}
+                >
                   {testResult.message}
                 </p>
               )}
@@ -262,7 +273,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
           const isConfigured = credentialStatus?.configured_fields?.includes(field.name) || false
           const shouldShow = showValues[field.name]
           const hasValue = currentValue.length > 0
-          
+
           return (
             <div key={field.name} className="space-y-1">
               <div className="flex items-center space-x-2 mb-1">
@@ -270,7 +281,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
                   {field.label}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
                 </span>
-                
+
                 {/* Status Indicator */}
                 <div className="flex items-center space-x-1">
                   {isConfigured ? (
@@ -282,20 +293,24 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
                       REQUIRED
                     </span>
                   )}
-                  
+
                   {/* Help Tooltip */}
                   {(field.description || field.help_text) && (
                     <div className="group relative">
                       <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-2 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                        {field.description && <div className="font-medium">{field.description}</div>}
-                        {field.help_text && <div className="mt-1 text-gray-300">{field.help_text}</div>}
+                        {field.description && (
+                          <div className="font-medium">{field.description}</div>
+                        )}
+                        {field.help_text && (
+                          <div className="mt-1 text-gray-300">{field.help_text}</div>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
               </div>
-              
+
               <div className="relative">
                 <FormInput
                   type={shouldShow ? 'text' : 'password'}
@@ -305,7 +320,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
                   disabled={loading}
                   className="pr-10"
                 />
-                
+
                 {(isPassword || hasValue) && (
                   <button
                     type="button"
@@ -334,7 +349,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
             {testing ? 'Testing...' : 'Test Connection'}
           </button>
         )}
-        
+
         {onSave && !['digikey', 'mouser'].includes(supplierName.toLowerCase()) && (
           <button
             onClick={form.onSubmit}
@@ -346,7 +361,6 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
           </button>
         )}
       </div>
-
     </div>
   )
 }

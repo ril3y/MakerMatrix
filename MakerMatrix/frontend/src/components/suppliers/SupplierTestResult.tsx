@@ -1,54 +1,56 @@
 /**
  * Supplier Test Result Component
- * 
+ *
  * Reusable component for displaying supplier connection test results
  * with proper OAuth handling, instructions, and error messages.
  * Used by both Add and Edit supplier modals.
  */
 
-import React from 'react';
-import { CheckCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import React from 'react'
+import { CheckCircle, AlertTriangle, HelpCircle } from 'lucide-react'
 
 export interface SupplierTestResultData {
-  success: boolean;
-  message: string;
-  error_message?: string;
-  test_duration_seconds?: number;
+  success: boolean
+  message: string
+  error_message?: string
+  test_duration_seconds?: number
   details?: {
-    oauth_required?: boolean;
-    oauth_url?: string;
-    environment?: string;
-    instructions?: string;
-    configuration_needed?: boolean;
-    missing_credentials?: string[];
-    setup_url?: string;
-    install_command?: string;
-    api_reachable?: boolean;
-    credentials_valid?: boolean;
-    [key: string]: any;
-  };
+    oauth_required?: boolean
+    oauth_url?: string
+    environment?: string
+    instructions?: string
+    configuration_needed?: boolean
+    missing_credentials?: string[]
+    setup_url?: string
+    install_command?: string
+    api_reachable?: boolean
+    credentials_valid?: boolean
+    [key: string]: any
+  }
 }
 
 interface SupplierTestResultProps {
-  testResult: SupplierTestResultData;
-  className?: string;
+  testResult: SupplierTestResultData
+  className?: string
 }
 
-export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({ 
-  testResult, 
-  className = "" 
+export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
+  testResult,
+  className = '',
 }) => {
   // Debug logging to see what the frontend is receiving
-  console.log('SupplierTestResult received:', testResult);
-  
+  console.log('SupplierTestResult received:', testResult)
+
   return (
-    <div className={`border rounded-md p-3 ${
-      testResult.success 
-        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-        : testResult.details?.configuration_needed || testResult.details?.oauth_required
-        ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-    } ${className}`}>
+    <div
+      className={`border rounded-md p-3 ${
+        testResult.success
+          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+          : testResult.details?.configuration_needed || testResult.details?.oauth_required
+            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+      } ${className}`}
+    >
       <div className="flex">
         {testResult.success ? (
           <CheckCircle className="w-5 h-5 text-green-400" />
@@ -58,19 +60,20 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
           <AlertTriangle className="w-5 h-5 text-red-400" />
         )}
         <div className="ml-3 flex-1">
-          <p className={`text-sm font-medium ${
-            testResult.success 
-              ? 'text-green-800 dark:text-green-200' 
-              : testResult.details?.configuration_needed || testResult.details?.oauth_required
-              ? 'text-yellow-800 dark:text-yellow-200'
-              : 'text-red-800 dark:text-red-200'
-          }`}>
-            {testResult.success 
+          <p
+            className={`text-sm font-medium ${
+              testResult.success
+                ? 'text-green-800 dark:text-green-200'
+                : testResult.details?.configuration_needed || testResult.details?.oauth_required
+                  ? 'text-yellow-800 dark:text-yellow-200'
+                  : 'text-red-800 dark:text-red-200'
+            }`}
+          >
+            {testResult.success
               ? `Connection established in ${testResult.test_duration_seconds?.toFixed(2) || '0'}s`
-              : testResult.message || testResult.error_message
-            }
+              : testResult.message || testResult.error_message}
           </p>
-          
+
           {/* Enhanced details */}
           {!testResult.success && testResult.details && (
             <div className="mt-3 space-y-2">
@@ -86,9 +89,9 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
                     </p>
                   )}
                   {testResult.details.setup_url && (
-                    <a 
-                      href={testResult.details.setup_url} 
-                      target="_blank" 
+                    <a
+                      href={testResult.details.setup_url}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                     >
@@ -97,7 +100,7 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
                   )}
                 </div>
               )}
-              
+
               {/* OAuth required */}
               {testResult.details.oauth_required && testResult.details.oauth_url && (
                 <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-3">
@@ -105,14 +108,13 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
                     OAuth Authentication Required
                   </h4>
                   <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">
-                    {testResult.details.environment === 'headless' 
+                    {testResult.details.environment === 'headless'
                       ? 'Running in headless environment - manual OAuth needed'
-                      : 'Complete OAuth authentication to test API connection'
-                    }
+                      : 'Complete OAuth authentication to test API connection'}
                   </p>
-                  <a 
-                    href={testResult.details.oauth_url} 
-                    target="_blank" 
+                  <a
+                    href={testResult.details.oauth_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-xs bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-1 rounded hover:bg-purple-200 dark:hover:bg-purple-700"
                   >
@@ -120,7 +122,7 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
                   </a>
                 </div>
               )}
-              
+
               {/* Instructions */}
               {testResult.details.instructions && (
                 <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded p-3">
@@ -132,7 +134,7 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
                   </pre>
                 </div>
               )}
-              
+
               {/* Install command for missing dependencies */}
               {testResult.details.install_command && (
                 <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-3">
@@ -144,20 +146,20 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
                   </code>
                 </div>
               )}
-              
+
               {/* Fallback: Show other details as JSON only if not OAuth/config related */}
-              {!testResult.details.oauth_required && 
-               !testResult.details.configuration_needed && 
-               !testResult.details.instructions && 
-               !testResult.details.install_command && (
-                <pre className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 p-2 rounded">
-                  {JSON.stringify(testResult.details, null, 2)}
-                </pre>
-              )}
+              {!testResult.details.oauth_required &&
+                !testResult.details.configuration_needed &&
+                !testResult.details.instructions &&
+                !testResult.details.install_command && (
+                  <pre className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                    {JSON.stringify(testResult.details, null, 2)}
+                  </pre>
+                )}
             </div>
           )}
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

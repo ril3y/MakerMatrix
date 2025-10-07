@@ -39,16 +39,19 @@ const CrudModal = ({
   submitButtonIcon,
   disabled = false,
   className = '',
-  footerContent
+  footerContent,
 }: CrudModalProps) => {
   // Default submit text based on mode
   const getDefaultSubmitText = () => {
     if (loading && loadingText) return loadingText
     if (loading) {
       switch (mode) {
-        case 'create': return 'Creating...'
-        case 'edit': return 'Updating...'
-        default: return 'Processing...'
+        case 'create':
+          return 'Creating...'
+        case 'edit':
+          return 'Updating...'
+        default:
+          return 'Processing...'
       }
     }
     return submitText || (mode === 'create' ? 'Create' : mode === 'edit' ? 'Update' : 'Save')
@@ -61,9 +64,12 @@ const CrudModal = ({
     }
     if (submitButtonIcon) return submitButtonIcon
     switch (mode) {
-      case 'create': return <Plus className="w-4 h-4" />
-      case 'edit': return <Edit3 className="w-4 h-4" />
-      default: return <Save className="w-4 h-4" />
+      case 'create':
+        return <Plus className="w-4 h-4" />
+      case 'edit':
+        return <Edit3 className="w-4 h-4" />
+      default:
+        return <Save className="w-4 h-4" />
     }
   }
 
@@ -115,7 +121,12 @@ const CrudModal = ({
       loading={loading}
       className={className}
     >
-      <form id="crud-modal-form" data-testid="crud-modal-form" onSubmit={handleSubmit} className="space-y-6">
+      <form
+        id="crud-modal-form"
+        data-testid="crud-modal-form"
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
         {children}
       </form>
     </Modal>

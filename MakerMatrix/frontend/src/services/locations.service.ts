@@ -1,5 +1,5 @@
 import { apiClient, ApiResponse } from './api'
-import { 
+import {
   Location,
   CreateLocationRequest,
   UpdateLocationRequest,
@@ -7,7 +7,7 @@ import {
   LocationPath,
   LocationDeletePreview,
   LocationDeleteResponse,
-  LocationCleanupResponse
+  LocationCleanupResponse,
 } from '@/types/locations'
 
 export class LocationsService {
@@ -24,11 +24,11 @@ export class LocationsService {
     if (!params.id && !params.name) {
       throw new Error('Either id or name must be provided')
     }
-    
+
     const queryParams = new URLSearchParams()
     if (params.id) queryParams.append('location_id', params.id)
     if (params.name) queryParams.append('name', params.name)
-    
+
     const response = await apiClient.get<any>(`/api/locations/get_location?${queryParams}`)
     if (response.status === 'success' && response.data) {
       return response.data
@@ -46,7 +46,9 @@ export class LocationsService {
   }
 
   async deleteLocation(id: string): Promise<LocationDeleteResponse> {
-    const response = await apiClient.delete<ApiResponse<LocationDeleteResponse>>(`/api/locations/delete_location/${id}`)
+    const response = await apiClient.delete<ApiResponse<LocationDeleteResponse>>(
+      `/api/locations/delete_location/${id}`
+    )
     return response.data!
   }
 
@@ -59,22 +61,30 @@ export class LocationsService {
   }
 
   async getLocationDetails(id: string): Promise<LocationDetails> {
-    const response = await apiClient.get<ApiResponse<LocationDetails>>(`/api/locations/get_location_details/${id}`)
+    const response = await apiClient.get<ApiResponse<LocationDetails>>(
+      `/api/locations/get_location_details/${id}`
+    )
     return response.data!
   }
 
   async getLocationPath(id: string): Promise<LocationPath> {
-    const response = await apiClient.get<ApiResponse<LocationPath>>(`/api/locations/get_location_path/${id}`)
+    const response = await apiClient.get<ApiResponse<LocationPath>>(
+      `/api/locations/get_location_path/${id}`
+    )
     return response.data!
   }
 
   async previewLocationDelete(id: string): Promise<LocationDeletePreview> {
-    const response = await apiClient.get<ApiResponse<LocationDeletePreview>>(`/api/locations/preview-location-delete/${id}`)
+    const response = await apiClient.get<ApiResponse<LocationDeletePreview>>(
+      `/api/locations/preview-location-delete/${id}`
+    )
     return response.data!
   }
 
   async cleanupLocations(): Promise<LocationCleanupResponse> {
-    const response = await apiClient.delete<ApiResponse<LocationCleanupResponse>>('/api/locations/cleanup-locations')
+    const response = await apiClient.delete<ApiResponse<LocationCleanupResponse>>(
+      '/api/locations/cleanup-locations'
+    )
     return response.data!
   }
 
@@ -86,13 +96,13 @@ export class LocationsService {
     try {
       // Try to get a location with this name
       const location = await this.getLocation({ name })
-      
+
       // If we found a location and it's not the one we're excluding
       if (location && location.id !== excludeId) {
         // Check if it has the same parent
         return location.parent_id === parentId
       }
-      
+
       return false
     } catch {
       return false
@@ -105,14 +115,14 @@ export class LocationsService {
     const rootLocations: Location[] = []
 
     // First pass: create map of all locations
-    locations.forEach(location => {
+    locations.forEach((location) => {
       locationMap.set(location.id, { ...location, children: [] })
     })
 
     // Second pass: build tree structure
-    locations.forEach(location => {
+    locations.forEach((location) => {
       const locationNode = locationMap.get(location.id)!
-      
+
       if (location.parent_id) {
         const parent = locationMap.get(location.parent_id)
         if (parent) {
@@ -137,11 +147,11 @@ export class LocationsService {
     const traverse = (location: Location) => {
       flattened.push(location)
       if (location.children) {
-        location.children.forEach(child => traverse(child))
+        location.children.forEach((child) => traverse(child))
       }
     }
 
-    locations.forEach(location => traverse(location))
+    locations.forEach((location) => traverse(location))
     return flattened
   }
 
@@ -151,7 +161,7 @@ export class LocationsService {
 
     const traverse = (loc: Location) => {
       if (loc.children) {
-        loc.children.forEach(child => {
+        loc.children.forEach((child) => {
           ids.push(child.id)
           traverse(child)
         })

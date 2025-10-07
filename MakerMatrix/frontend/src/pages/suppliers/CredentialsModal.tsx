@@ -1,34 +1,38 @@
 /**
  * Environment Variables Guide Modal
- * 
+ *
  * Simple modal explaining how to configure supplier credentials via environment variables.
  */
 
-import React from 'react';
-import { X, Shield, AlertCircle, ExternalLink } from 'lucide-react';
+import React from 'react'
+import { X, Shield, AlertCircle, ExternalLink } from 'lucide-react'
 
 interface CredentialsModalProps {
-  supplierName: string;
-  onClose: () => void;
-  onSuccess: () => void;
+  supplierName: string
+  onClose: () => void
+  onSuccess: () => void
 }
 
-export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName, onClose, onSuccess }) => {
+export const CredentialsModal: React.FC<CredentialsModalProps> = ({
+  supplierName,
+  onClose,
+  onSuccess,
+}) => {
   const getEnvironmentVariables = (supplier: string) => {
-    const upperSupplier = supplier.toUpperCase();
+    const upperSupplier = supplier.toUpperCase()
     switch (upperSupplier) {
       case 'LCSC':
-        return [];
+        return []
       case 'DIGIKEY':
-        return ['DIGIKEY_API_KEY', 'DIGIKEY_SECRET_KEY'];
+        return ['DIGIKEY_API_KEY', 'DIGIKEY_SECRET_KEY']
       case 'MOUSER':
-        return ['MOUSER_API_KEY'];
+        return ['MOUSER_API_KEY']
       default:
-        return [`${upperSupplier}_API_KEY`];
+        return [`${upperSupplier}_API_KEY`]
     }
-  };
+  }
 
-  const envVars = getEnvironmentVariables(supplierName);
+  const envVars = getEnvironmentVariables(supplierName)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -66,8 +70,9 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName
                     Credential Storage Change
                   </h3>
                   <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                    For improved security, supplier credentials are no longer stored in the database. 
-                    Instead, set them as environment variables on the server where MakerMatrix is running.
+                    For improved security, supplier credentials are no longer stored in the
+                    database. Instead, set them as environment variables on the server where
+                    MakerMatrix is running.
                   </p>
                 </div>
               </div>
@@ -81,7 +86,10 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName
                 </h3>
                 <div className="space-y-3">
                   {envVars.map((envVar) => (
-                    <div key={envVar} className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 p-3">
+                    <div
+                      key={envVar}
+                      className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 p-3"
+                    >
                       <code className="text-sm font-mono text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
                         {envVar}=your_api_key_here
                       </code>
@@ -98,7 +106,8 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName
                       No Credentials Required
                     </h3>
                     <p className="mt-1 text-sm text-green-700 dark:text-green-300">
-                      {supplierName} uses a public API and does not require authentication credentials.
+                      {supplierName} uses a public API and does not require authentication
+                      credentials.
                     </p>
                   </div>
                 </div>
@@ -116,22 +125,29 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName
                     1. Obtain API Credentials
                   </h4>
                   <p>
-                    Visit the {supplierName} developer portal or account settings to generate API keys.
+                    Visit the {supplierName} developer portal or account settings to generate API
+                    keys.
                   </p>
                 </div>
-                
+
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                     2. Set Environment Variables
                   </h4>
                   <p className="mb-2">Add the environment variables to your system:</p>
                   <ul className="list-disc list-inside space-y-1 ml-4">
-                    <li><strong>Linux/macOS:</strong> Add to ~/.bashrc or ~/.zshrc</li>
-                    <li><strong>Docker:</strong> Add to docker-compose.yml or Dockerfile</li>
-                    <li><strong>Systemd:</strong> Add to service file Environment section</li>
+                    <li>
+                      <strong>Linux/macOS:</strong> Add to ~/.bashrc or ~/.zshrc
+                    </li>
+                    <li>
+                      <strong>Docker:</strong> Add to docker-compose.yml or Dockerfile
+                    </li>
+                    <li>
+                      <strong>Systemd:</strong> Add to service file Environment section
+                    </li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                     3. Restart MakerMatrix
@@ -150,7 +166,7 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName
                   Example (.env file)
                 </h3>
                 <pre className="bg-gray-800 text-green-400 p-3 rounded text-sm overflow-x-auto">
-{envVars.map(envVar => `${envVar}=your_actual_api_key_here`).join('\n')}
+                  {envVars.map((envVar) => `${envVar}=your_actual_api_key_here`).join('\n')}
                 </pre>
               </div>
             )}
@@ -179,5 +195,5 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

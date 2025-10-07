@@ -1,19 +1,19 @@
-import React from 'react';
-import { Plus } from 'lucide-react';
-import { Category } from '../../types/categories';
-import FormField from './FormField';
+import React from 'react'
+import { Plus } from 'lucide-react'
+import { Category } from '../../types/categories'
+import FormField from './FormField'
 
 interface CategorySelectorProps {
-  categories: Category[];
-  selectedCategories: string[];
-  onToggleCategory: (categoryId: string) => void;
-  onAddNewCategory?: () => void;
-  label?: string;
-  description?: string;
-  error?: string;
-  showAddButton?: boolean;
-  layout?: 'checkboxes' | 'pills';
-  className?: string;
+  categories: Category[]
+  selectedCategories: string[]
+  onToggleCategory: (categoryId: string) => void
+  onAddNewCategory?: () => void
+  label?: string
+  description?: string
+  error?: string
+  showAddButton?: boolean
+  layout?: 'checkboxes' | 'pills'
+  className?: string
 }
 
 const CategorySelector: React.FC<CategorySelectorProps> = ({
@@ -21,12 +21,12 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   selectedCategories,
   onToggleCategory,
   onAddNewCategory,
-  label = "Categories",
+  label = 'Categories',
   description,
   error,
   showAddButton = false,
   layout = 'checkboxes',
-  className = ''
+  className = '',
 }) => {
   if (layout === 'pills') {
     return (
@@ -45,7 +45,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {categories.map(category => (
+          {categories.map((category) => (
             <button
               key={category.id}
               type="button"
@@ -60,21 +60,18 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
             </button>
           ))}
           {categories.length === 0 && (
-            <p className="text-muted text-sm">No categories available. Create your first category above.</p>
+            <p className="text-muted text-sm">
+              No categories available. Create your first category above.
+            </p>
           )}
         </div>
       </div>
-    );
+    )
   }
 
   // Checkboxes layout (similar to AddPartModal)
   return (
-    <FormField 
-      label={label} 
-      description={description}
-      error={error}
-      className={className}
-    >
+    <FormField label={label} description={description} error={error} className={className}>
       <div className="space-y-3">
         {showAddButton && onAddNewCategory && (
           <div className="flex justify-end">
@@ -88,7 +85,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
             </button>
           </div>
         )}
-        
+
         <div className="border border-border rounded-md p-3 max-h-32 overflow-y-auto">
           {categories.length > 0 ? (
             <div className="space-y-2">
@@ -110,7 +107,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
         </div>
       </div>
     </FormField>
-  );
-};
+  )
+}
 
-export default CategorySelector;
+export default CategorySelector

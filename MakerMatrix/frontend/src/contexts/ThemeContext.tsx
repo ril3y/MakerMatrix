@@ -25,7 +25,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (savedTheme && availableThemes.includes(savedTheme)) {
       setCurrentTheme(savedTheme)
     }
-    
+
     const savedCompactMode = localStorage.getItem('makermatrix-compact-mode')
     if (savedCompactMode === 'true') {
       setIsCompactMode(true)
@@ -37,13 +37,13 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     document.documentElement.className = document.documentElement.className
       .replace(/theme-\w+/g, '')
       .trim()
-    
+
     // Add new theme class
     document.documentElement.classList.add(`theme-${currentTheme}`)
-    
+
     // Set data attribute for CSS selectors
     document.documentElement.setAttribute('data-theme', currentTheme)
-    
+
     console.log('Theme applied:', currentTheme)
   }, [currentTheme])
 
@@ -70,7 +70,16 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode }}>
+    <ThemeContext.Provider
+      value={{
+        isDarkMode,
+        toggleDarkMode,
+        currentTheme,
+        setTheme,
+        isCompactMode,
+        toggleCompactMode,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   )

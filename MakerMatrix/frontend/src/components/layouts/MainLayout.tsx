@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Menu,
   X,
   Package,
   MapPin,
   Tags,
+  Hash,
   Users,
   Home,
   LogOut,
@@ -17,94 +18,97 @@ import {
   CircuitBoard,
   Settings,
   Activity,
-  FileText
-} from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
-import { motion, AnimatePresence } from 'framer-motion';
-import { clsx } from 'clsx';
-import QuakeConsole from '../console/QuakeConsole';
+  FileText,
+} from 'lucide-react'
+import { useAuthStore } from '../../store/authStore'
+import { motion, AnimatePresence } from 'framer-motion'
+import { clsx } from 'clsx'
+import QuakeConsole from '../console/QuakeConsole'
 
 interface NavItem {
-  label: string;
-  path: string;
-  icon: React.ReactNode;
-  children?: NavItem[];
+  label: string
+  path: string
+  icon: React.ReactNode
+  children?: NavItem[]
 }
 
 const MainLayout: React.FC = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout, hasRole } = useAuthStore();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout, hasRole } = useAuthStore()
 
   const navItems: NavItem[] = [
     {
       label: 'Dashboard',
       path: '/',
-      icon: <Home className="w-5 h-5" />
+      icon: <Home className="w-5 h-5" />,
     },
     {
       label: 'Parts',
       path: '/parts',
-      icon: <CircuitBoard className="w-5 h-5" />
+      icon: <CircuitBoard className="w-5 h-5" />,
     },
     {
       label: 'Locations',
       path: '/locations',
-      icon: <MapPin className="w-5 h-5" />
+      icon: <MapPin className="w-5 h-5" />,
     },
     {
       label: 'Categories',
       path: '/categories',
-      icon: <Tags className="w-5 h-5" />
+      icon: <Tags className="w-5 h-5" />,
+    },
+    {
+      label: 'Projects',
+      path: '/projects',
+      icon: <Hash className="w-5 h-5" />,
     },
     {
       label: 'Tasks',
       path: '/tasks',
-      icon: <Activity className="w-5 h-5" />
+      icon: <Activity className="w-5 h-5" />,
     },
     {
       label: 'Settings',
       path: '/settings',
-      icon: <Settings className="w-5 h-5" />
-    }
-  ];
+      icon: <Settings className="w-5 h-5" />,
+    },
+  ]
 
   // Admin-only nav items
   if (hasRole('admin')) {
     navItems.push({
       label: 'Users',
       path: '/users',
-      icon: <Users className="w-5 h-5" />
-    });
+      icon: <Users className="w-5 h-5" />,
+    })
   }
 
   const handleLogout = async () => {
     try {
-      await logout();
-      navigate('/login');
+      await logout()
+      navigate('/login')
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('Logout failed:', error)
     }
-  };
+  }
 
   const toggleExpanded = (path: string) => {
-    setExpandedItems(prev =>
-      prev.includes(path)
-        ? prev.filter(item => item !== path)
-        : [...prev, path]
-    );
-  };
+    setExpandedItems((prev) =>
+      prev.includes(path) ? prev.filter((item) => item !== path) : [...prev, path]
+    )
+  }
 
   const isActive = (path: string) => {
-    return location.pathname === path || location.pathname.startsWith(path + '/');
-  };
+    return location.pathname === path || location.pathname.startsWith(path + '/')
+  }
 
   const renderNavItem = (item: NavItem, depth = 0) => {
-    const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedItems.includes(item.path);
-    const active = isActive(item.path);
+    const hasChildren = item.children && item.children.length > 0
+    const isExpanded = expandedItems.includes(item.path)
+    const active = isActive(item.path)
 
     return (
       <div key={item.path}>
@@ -117,24 +121,28 @@ const MainLayout: React.FC = () => {
           )}
           onClick={() => {
             if (hasChildren) {
-              toggleExpanded(item.path);
+              toggleExpanded(item.path)
             } else {
-              navigate(item.path);
+              navigate(item.path)
             }
           }}
         >
           <div className="flex items-center space-x-3">
-            <div className={clsx(
-              'transition-colors duration-200',
-              active ? 'text-primary-accent' : 'text-theme-secondary'
-            )}>
+            <div
+              className={clsx(
+                'transition-colors duration-200',
+                active ? 'text-primary-accent' : 'text-theme-secondary'
+              )}
+            >
               {item.icon}
             </div>
             {isSidebarOpen && (
-              <span className={clsx(
-                'font-medium transition-colors duration-200',
-                active ? 'text-theme-primary' : 'text-theme-secondary'
-              )}>
+              <span
+                className={clsx(
+                  'font-medium transition-colors duration-200',
+                  active ? 'text-theme-primary' : 'text-theme-secondary'
+                )}
+              >
                 {item.label}
               </span>
             )}
@@ -149,7 +157,7 @@ const MainLayout: React.FC = () => {
             </motion.div>
           )}
         </div>
-        
+
         <AnimatePresence>
           {hasChildren && isExpanded && isSidebarOpen && (
             <motion.div
@@ -159,13 +167,13 @@ const MainLayout: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              {item.children!.map(child => renderNavItem(child, depth + 1))}
+              {item.children!.map((child) => renderNavItem(child, depth + 1))}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    );
-  };
+    )
+  }
 
   return (
     <div className="min-h-screen bg-theme-secondary text-theme-primary transition-colors duration-300">
@@ -208,17 +216,14 @@ const MainLayout: React.FC = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="mt-8 flex-1">
-          {navItems.map(item => renderNavItem(item))}
-        </nav>
+        <nav className="mt-8 flex-1">{navItems.map((item) => renderNavItem(item))}</nav>
 
         {/* User Section */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-theme-primary">
           <div className="flex items-center justify-between">
-            <div className={clsx(
-              'flex items-center space-x-3',
-              !isSidebarOpen && 'justify-center'
-            )}>
+            <div
+              className={clsx('flex items-center space-x-3', !isSidebarOpen && 'justify-center')}
+            >
               <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
                 <span className="text-sm font-medium">
                   {user?.username?.charAt(0).toUpperCase()}
@@ -252,14 +257,10 @@ const MainLayout: React.FC = () => {
       >
         {/* Top Bar */}
         <header className="h-20 bg-theme-primary/50 backdrop-blur-lg border-b border-theme-primary px-8 flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-theme-secondary">
-        
-          </div>
+          <div className="flex items-center space-x-2 text-theme-secondary"></div>
           <div className="flex items-center space-x-4">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-sm text-theme-muted">
-              {new Date().toLocaleString()}
-            </span>
+            <span className="text-sm text-theme-muted">{new Date().toLocaleString()}</span>
           </div>
         </header>
 
@@ -272,7 +273,7 @@ const MainLayout: React.FC = () => {
       {/* Quake Console */}
       <QuakeConsole />
     </div>
-  );
-};
+  )
+}
 
-export default MainLayout;
+export default MainLayout

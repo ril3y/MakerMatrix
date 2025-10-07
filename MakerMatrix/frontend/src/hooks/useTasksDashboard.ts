@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import {
-  Task,
-  TaskStats,
-  WorkerStatus,
-  tasksService
-} from '@/services/tasks.service'
+import { Task, TaskStats, WorkerStatus, tasksService } from '@/services/tasks.service'
 import { partsService } from '@/services/parts.service'
 import { taskWebSocket } from '@/services/task-websocket.service'
 
@@ -42,7 +37,9 @@ export function useTasksDashboard() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([])
-  const [supplierConfigStatus, setSupplierConfigStatus] = useState<SupplierConfigStatus | null>(null)
+  const [supplierConfigStatus, setSupplierConfigStatus] = useState<SupplierConfigStatus | null>(
+    null
+  )
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(taskWebSocket.isConnected)
 
   const messageCounter = useRef(0)
@@ -62,10 +59,10 @@ export function useTasksDashboard() {
         type,
         message,
         taskName,
-        taskId
+        taskId,
       }
 
-      setConsoleMessages(prev => [...prev.slice(-(MAX_CONSOLE_MESSAGES - 1)), newMessage])
+      setConsoleMessages((prev) => [...prev.slice(-(MAX_CONSOLE_MESSAGES - 1)), newMessage])
     },
     []
   )
@@ -75,14 +72,16 @@ export function useTasksDashboard() {
       const [allParts, configuredResponse, capabilitiesResponse] = await Promise.all([
         partsService.getAll(),
         fetch('/api/suppliers/configured', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
         }),
         fetch('/api/tasks/capabilities/suppliers', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
-        })
+          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+        }),
       ])
 
-      const configuredSuppliers = configuredResponse.ok ? await configuredResponse.json() : { data: [] }
+      const configuredSuppliers = configuredResponse.ok
+        ? await configuredResponse.json()
+        : { data: [] }
       const configuredNames = new Set(
         configuredSuppliers.data?.map((supplier: any) => {
           const supplierName = supplier.id || supplier.supplier_name || supplier.name || ''
@@ -90,16 +89,18 @@ export function useTasksDashboard() {
         }) || []
       )
 
-      const availableSuppliers = capabilitiesResponse.ok ? await capabilitiesResponse.json() : { data: {} }
+      const availableSuppliers = capabilitiesResponse.ok
+        ? await capabilitiesResponse.json()
+        : { data: {} }
       const availableSupplierNames = new Set(
-        Object.keys(availableSuppliers.data || {}).map(name => name.toUpperCase())
+        Object.keys(availableSuppliers.data || {}).map((name) => name.toUpperCase())
       )
 
       const supplierCounts = new Map<string, number>()
       let partsWithoutSuppliers = 0
       let partsWithMetadataSuppliers = 0
 
-      allParts.forEach(part => {
+      allParts.forEach((part) => {
         if (part.supplier) {
           if (availableSupplierNames.has(part.supplier.toUpperCase())) {
             supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
@@ -112,14 +113,14 @@ export function useTasksDashboard() {
       })
 
       const unconfiguredSuppliers = Array.from(supplierCounts.keys()).filter(
-        supplier => !configuredNames.has(supplier.toUpperCase())
+        (supplier) => !configuredNames.has(supplier.toUpperCase())
       )
 
       setSupplierConfigStatus({
         configured: Array.from(configuredNames),
         partsWithoutSuppliers,
         unconfiguredSuppliers,
-        totalParts: allParts.length
+        totalParts: allParts.length,
       })
 
       if (partsWithMetadataSuppliers > 0) {
@@ -174,16 +175,26 @@ export function useTasksDashboard() {
       const previousTasks = tasksRef.current
 
       if (previousTasks.length > 0) {
-        newTasks.forEach(newTask => {
-          const oldTask = previousTasks.find(task => task.id === newTask.id)
+        newTasks.forEach((newTask) => {
+          const oldTask = previousTasks.find((task) => task.id === newTask.id)
 
           if (!oldTask) {
-            addConsoleMessage('success', `Task discovered: ${newTask.status}`, newTask.name, newTask.id)
+            addConsoleMessage(
+              'success',
+              `Task discovered: ${newTask.status}`,
+              newTask.name,
+              newTask.id
+            )
             if (newTask.status === 'running') {
               addConsoleMessage('info', 'Task is running...', newTask.name, newTask.id)
             } else if (newTask.status === 'completed') {
               const duration = formatDuration(newTask.started_at, newTask.completed_at)
-              addConsoleMessage('success', `Task completed in ${duration}`, newTask.name, newTask.id)
+              addConsoleMessage(
+                'success',
+                `Task completed in ${duration}`,
+                newTask.name,
+                newTask.id
+              )
             } else if (newTask.status === 'failed') {
               addConsoleMessage(
                 'error',
@@ -197,7 +208,12 @@ export function useTasksDashboard() {
 
             if (newTask.status === 'completed') {
               const duration = formatDuration(newTask.started_at, newTask.completed_at)
-              addConsoleMessage('success', `${statusMessage} (${duration})`, newTask.name, newTask.id)
+              addConsoleMessage(
+                'success',
+                `${statusMessage} (${duration})`,
+                newTask.name,
+                newTask.id
+              )
             } else if (newTask.status === 'failed') {
               addConsoleMessage(
                 'error',
@@ -223,8 +239,8 @@ export function useTasksDashboard() {
           }
         })
 
-        previousTasks.forEach(oldTask => {
-          if (!newTasks.find(task => task.id === oldTask.id)) {
+        previousTasks.forEach((oldTask) => {
+          if (!newTasks.find((task) => task.id === oldTask.id)) {
             addConsoleMessage('warning', 'Task removed from list', oldTask.name, oldTask.id)
           }
         })
@@ -263,253 +279,319 @@ export function useTasksDashboard() {
     }
   }, [loadWorkerStatus])
 
-  const cancelTask = useCallback(async (taskId: string) => {
-    try {
-      await tasksService.cancelTask(taskId)
-      toast.success('Task cancelled')
-      loadTasks()
-    } catch (error) {
-      toast.error('Failed to cancel task')
-    }
-  }, [loadTasks])
+  const cancelTask = useCallback(
+    async (taskId: string) => {
+      try {
+        await tasksService.cancelTask(taskId)
+        toast.success('Task cancelled')
+        loadTasks()
+      } catch (error) {
+        toast.error('Failed to cancel task')
+      }
+    },
+    [loadTasks]
+  )
 
-  const retryTask = useCallback(async (taskId: string) => {
-    try {
-      await tasksService.retryTask(taskId)
-      toast.success('Task retry scheduled')
-      loadTasks()
-    } catch (error) {
-      toast.error('Failed to retry task')
-    }
-  }, [loadTasks])
+  const retryTask = useCallback(
+    async (taskId: string) => {
+      try {
+        await tasksService.retryTask(taskId)
+        toast.success('Task retry scheduled')
+        loadTasks()
+      } catch (error) {
+        toast.error('Failed to retry task')
+      }
+    },
+    [loadTasks]
+  )
 
-  const deleteTask = useCallback(async (taskId: string) => {
-    if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-      return
-    }
-
-    try {
-      await tasksService.deleteTask(taskId)
-      toast.success('Task deleted successfully')
-      loadTasks()
-    } catch (error) {
-      toast.error('Failed to delete task')
-    }
-  }, [loadTasks])
-
-  const ensureSupplierConfiguration = useCallback(async (supplierCounts: Map<string, number>) => {
-    try {
-      const response = await fetch('/api/suppliers/configured', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`
-        }
-      })
-
-      if (!response.ok) {
-        addConsoleMessage('error', `Failed to check supplier configurations: ${response.status} ${response.statusText}`)
-        toast.error('Failed to verify supplier configurations. Please try again.')
-        return false
+  const deleteTask = useCallback(
+    async (taskId: string) => {
+      if (
+        !window.confirm('Are you sure you want to delete this task? This action cannot be undone.')
+      ) {
+        return
       }
 
-      const configuredSuppliers = await response.json()
-      const configuredNames = new Set(
-        configuredSuppliers.data?.map((supplier: any) => {
-          const supplierName = supplier.id || supplier.supplier_name || supplier.name || ''
-          return supplierName.toUpperCase()
-        }) || []
-      )
+      try {
+        await tasksService.deleteTask(taskId)
+        toast.success('Task deleted successfully')
+        loadTasks()
+      } catch (error) {
+        toast.error('Failed to delete task')
+      }
+    },
+    [loadTasks]
+  )
 
-      const unconfiguredSuppliers = Array.from(supplierCounts.keys()).filter(
-        supplier => !configuredNames.has(supplier.toUpperCase())
-      )
+  const ensureSupplierConfiguration = useCallback(
+    async (supplierCounts: Map<string, number>) => {
+      try {
+        const response = await fetch('/api/suppliers/configured', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          },
+        })
 
-      if (unconfiguredSuppliers.length > 0) {
-        addConsoleMessage('error', `Unconfigured suppliers detected: ${unconfiguredSuppliers.join(', ')}`)
-        toast.error(
-          `Cannot enrich parts - ${unconfiguredSuppliers.length} supplier(s) need configuration: ${unconfiguredSuppliers.join(', ')}`
+        if (!response.ok) {
+          addConsoleMessage(
+            'error',
+            `Failed to check supplier configurations: ${response.status} ${response.statusText}`
+          )
+          toast.error('Failed to verify supplier configurations. Please try again.')
+          return false
+        }
+
+        const configuredSuppliers = await response.json()
+        const configuredNames = new Set(
+          configuredSuppliers.data?.map((supplier: any) => {
+            const supplierName = supplier.id || supplier.supplier_name || supplier.name || ''
+            return supplierName.toUpperCase()
+          }) || []
         )
-        addConsoleMessage('info', 'Please configure suppliers in Settings → Suppliers before attempting enrichment')
+
+        const unconfiguredSuppliers = Array.from(supplierCounts.keys()).filter(
+          (supplier) => !configuredNames.has(supplier.toUpperCase())
+        )
+
+        if (unconfiguredSuppliers.length > 0) {
+          addConsoleMessage(
+            'error',
+            `Unconfigured suppliers detected: ${unconfiguredSuppliers.join(', ')}`
+          )
+          toast.error(
+            `Cannot enrich parts - ${unconfiguredSuppliers.length} supplier(s) need configuration: ${unconfiguredSuppliers.join(', ')}`
+          )
+          addConsoleMessage(
+            'info',
+            'Please configure suppliers in Settings → Suppliers before attempting enrichment'
+          )
+          return false
+        }
+
+        addConsoleMessage('success', 'All suppliers are configured for enrichment')
+        return true
+      } catch (error: any) {
+        console.error('Error checking supplier configurations:', error)
+        addConsoleMessage('error', `Error checking supplier configurations: ${error.message}`)
+        toast.error(
+          'Could not verify supplier configurations. Please check your connection and try again.'
+        )
         return false
       }
+    },
+    [addConsoleMessage]
+  )
 
-      addConsoleMessage('success', 'All suppliers are configured for enrichment')
-      return true
-    } catch (error: any) {
-      console.error('Error checking supplier configurations:', error)
-      addConsoleMessage('error', `Error checking supplier configurations: ${error.message}`)
-      toast.error('Could not verify supplier configurations. Please check your connection and try again.')
-      return false
-    }
-  }, [addConsoleMessage])
+  const createQuickTask = useCallback(
+    async (taskType: string) => {
+      try {
+        let taskData: Record<string, unknown> = {}
 
-  const createQuickTask = useCallback(async (taskType: string) => {
-    try {
-      let taskData: Record<string, unknown> = {}
+        switch (taskType) {
+          case 'price-update': {
+            toast.loading('Checking parts for price updates...', { id: 'price-update-loading' })
+            const allParts = await partsService.getAll()
 
-      switch (taskType) {
-        case 'price-update': {
-          toast.loading('Checking parts for price updates...', { id: 'price-update-loading' })
-          const allParts = await partsService.getAll()
+            if (allParts.length === 0) {
+              toast.dismiss('price-update-loading')
+              toast.error('No parts found for price updates')
+              return
+            }
 
-          if (allParts.length === 0) {
+            const capabilitiesResponse = await fetch('/api/tasks/capabilities/suppliers', {
+              headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+            })
+
+            const availableSuppliers = capabilitiesResponse.ok
+              ? await capabilitiesResponse.json()
+              : { data: {} }
+            const availableSupplierNames = new Set(
+              Object.keys(availableSuppliers.data || {}).map((name) => name.toUpperCase())
+            )
+
+            const supplierCounts = new Map<string, number>()
+            let partsWithMetadataSuppliers = 0
+
+            allParts.forEach((part) => {
+              if (part.supplier) {
+                if (availableSupplierNames.has(part.supplier.toUpperCase())) {
+                  supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+                } else {
+                  partsWithMetadataSuppliers += 1
+                }
+              }
+            })
+
             toast.dismiss('price-update-loading')
-            toast.error('No parts found for price updates')
-            return
-          }
 
-          const capabilitiesResponse = await fetch('/api/tasks/capabilities/suppliers', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
-          })
-
-          const availableSuppliers = capabilitiesResponse.ok ? await capabilitiesResponse.json() : { data: {} }
-          const availableSupplierNames = new Set(
-            Object.keys(availableSuppliers.data || {}).map(name => name.toUpperCase())
-          )
-
-          const supplierCounts = new Map<string, number>()
-          let partsWithMetadataSuppliers = 0
-
-          allParts.forEach(part => {
-            if (part.supplier) {
-              if (availableSupplierNames.has(part.supplier.toUpperCase())) {
-                supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
-              } else {
-                partsWithMetadataSuppliers += 1
-              }
+            if (supplierCounts.size === 0) {
+              const message =
+                partsWithMetadataSuppliers > 0
+                  ? `No parts have enrichable suppliers. Found ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
+                  : 'No parts have suppliers assigned. Cannot update prices without supplier information.'
+              toast.error(message)
+              addConsoleMessage('error', `Price update failed: ${message}`)
+              return
             }
-          })
 
-          toast.dismiss('price-update-loading')
+            const supplierList = Array.from(supplierCounts.entries())
+              .map(([supplier, count]) => `${supplier}: ${count} parts`)
+              .join(', ')
 
-          if (supplierCounts.size === 0) {
-            const message = partsWithMetadataSuppliers > 0
-              ? `No parts have enrichable suppliers. Found ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
-              : 'No parts have suppliers assigned. Cannot update prices without supplier information.'
-            toast.error(message)
-            addConsoleMessage('error', `Price update failed: ${message}`)
-            return
+            addConsoleMessage('info', `Found parts from enrichable suppliers: ${supplierList}`)
+            if (partsWithMetadataSuppliers > 0) {
+              addConsoleMessage(
+                'info',
+                `Skipped ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
+              )
+            }
+            addConsoleMessage(
+              'warning',
+              'Note: Price updates require supplier configurations to be set up in Settings → Suppliers'
+            )
+
+            const ready = await ensureSupplierConfiguration(supplierCounts)
+            if (!ready) {
+              return
+            }
+
+            taskData = { update_all: true }
+            toast.success(
+              `Found ${allParts.length} parts for price updates from ${supplierCounts.size} suppliers`
+            )
+            break
           }
+          case 'bulk-enrichment': {
+            toast.loading('Fetching parts for enrichment...', { id: 'bulk-enrichment-loading' })
+            const allParts = await partsService.getAll()
 
-          const supplierList = Array.from(supplierCounts.entries())
-            .map(([supplier, count]) => `${supplier}: ${count} parts`)
-            .join(', ')
+            if (allParts.length === 0) {
+              toast.dismiss('bulk-enrichment-loading')
+              toast.error('No parts available for enrichment')
+              return
+            }
 
-          addConsoleMessage('info', `Found parts from enrichable suppliers: ${supplierList}`)
-          if (partsWithMetadataSuppliers > 0) {
-            addConsoleMessage('info', `Skipped ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`)
-          }
-          addConsoleMessage('warning', 'Note: Price updates require supplier configurations to be set up in Settings → Suppliers')
+            const capabilitiesResponse = await fetch('/api/tasks/capabilities/suppliers', {
+              headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+            })
 
-          const ready = await ensureSupplierConfiguration(supplierCounts)
-          if (!ready) {
-            return
-          }
+            const availableSuppliers = capabilitiesResponse.ok
+              ? await capabilitiesResponse.json()
+              : { data: {} }
+            const availableSupplierNames = new Set(
+              Object.keys(availableSuppliers.data || {}).map((name) => name.toUpperCase())
+            )
 
-          taskData = { update_all: true }
-          toast.success(`Found ${allParts.length} parts for price updates from ${supplierCounts.size} suppliers`)
-          break
-        }
-        case 'bulk-enrichment': {
-          toast.loading('Fetching parts for enrichment...', { id: 'bulk-enrichment-loading' })
-          const allParts = await partsService.getAll()
+            const supplierCounts = new Map<string, number>()
+            let partsWithMetadataSuppliers = 0
+            const partIds: string[] = []
 
-          if (allParts.length === 0) {
+            allParts.forEach((part) => {
+              partIds.push(part.id)
+              if (part.supplier) {
+                if (availableSupplierNames.has(part.supplier.toUpperCase())) {
+                  supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
+                } else {
+                  partsWithMetadataSuppliers += 1
+                }
+              }
+            })
+
             toast.dismiss('bulk-enrichment-loading')
-            toast.error('No parts available for enrichment')
-            return
-          }
 
-          const capabilitiesResponse = await fetch('/api/tasks/capabilities/suppliers', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
-          })
-
-          const availableSuppliers = capabilitiesResponse.ok ? await capabilitiesResponse.json() : { data: {} }
-          const availableSupplierNames = new Set(
-            Object.keys(availableSuppliers.data || {}).map(name => name.toUpperCase())
-          )
-
-          const supplierCounts = new Map<string, number>()
-          let partsWithMetadataSuppliers = 0
-          const partIds: string[] = []
-
-          allParts.forEach(part => {
-            partIds.push(part.id)
-            if (part.supplier) {
-              if (availableSupplierNames.has(part.supplier.toUpperCase())) {
-                supplierCounts.set(part.supplier, (supplierCounts.get(part.supplier) || 0) + 1)
-              } else {
-                partsWithMetadataSuppliers += 1
-              }
+            if (supplierCounts.size === 0) {
+              const message =
+                partsWithMetadataSuppliers > 0
+                  ? `No parts have enrichable suppliers. Found ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
+                  : 'No parts have suppliers assigned. Cannot enrich parts without supplier information.'
+              toast.error(message)
+              addConsoleMessage('error', `Enrichment failed: ${message}`)
+              return
             }
-          })
 
-          toast.dismiss('bulk-enrichment-loading')
+            const supplierList = Array.from(supplierCounts.entries())
+              .map(([supplier, count]) => `${supplier}: ${count} parts`)
+              .join(', ')
 
-          if (supplierCounts.size === 0) {
-            const message = partsWithMetadataSuppliers > 0
-              ? `No parts have enrichable suppliers. Found ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
-              : 'No parts have suppliers assigned. Cannot enrich parts without supplier information.'
-            toast.error(message)
-            addConsoleMessage('error', `Enrichment failed: ${message}`)
-            return
+            addConsoleMessage('info', `Found parts from enrichable suppliers: ${supplierList}`)
+            if (partsWithMetadataSuppliers > 0) {
+              addConsoleMessage(
+                'info',
+                `Skipped ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`
+              )
+            }
+            addConsoleMessage(
+              'warning',
+              'Note: Enrichment requires supplier configurations to be set up in Settings → Suppliers'
+            )
+
+            const ready = await ensureSupplierConfiguration(supplierCounts)
+            if (!ready) {
+              return
+            }
+
+            taskData = {
+              enrich_all: true,
+              batch_size: 10,
+              page_size: 10,
+              capabilities: [
+                'fetch_pricing',
+                'fetch_datasheet',
+                'fetch_specifications',
+                'fetch_image',
+              ],
+              force_refresh: false,
+            }
+            toast.success(
+              `Found ${partIds.length} parts for enrichment from ${supplierCounts.size} suppliers. Task will process 10 parts at a time.`
+            )
+            break
           }
-
-          const supplierList = Array.from(supplierCounts.entries())
-            .map(([supplier, count]) => `${supplier}: ${count} parts`)
-            .join(', ')
-
-          addConsoleMessage('info', `Found parts from enrichable suppliers: ${supplierList}`)
-          if (partsWithMetadataSuppliers > 0) {
-            addConsoleMessage('info', `Skipped ${partsWithMetadataSuppliers} parts with metadata-only suppliers (Amazon, etc.)`)
+          case 'database-cleanup': {
+            taskData = { cleanup_type: 'full' }
+            break
           }
-          addConsoleMessage('warning', 'Note: Enrichment requires supplier configurations to be set up in Settings → Suppliers')
-
-          const ready = await ensureSupplierConfiguration(supplierCounts)
-          if (!ready) {
-            return
+          default: {
+            taskData = {}
           }
-
-          taskData = {
-            enrich_all: true,
-            batch_size: 10,
-            page_size: 10,
-            capabilities: ['fetch_pricing', 'fetch_datasheet', 'fetch_specifications', 'fetch_image'],
-            force_refresh: false
-          }
-          toast.success(`Found ${partIds.length} parts for enrichment from ${supplierCounts.size} suppliers. Task will process 10 parts at a time.`)
-          break
         }
-        case 'database-cleanup': {
-          taskData = { cleanup_type: 'full' }
-          break
-        }
-        default: {
-          taskData = {}
-        }
+
+        const taskName = `${taskType
+          .split('-')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')} Task`
+
+        addConsoleMessage('info', `Creating ${taskName}...`)
+        const response = await tasksService.createQuickTask(taskType, taskData)
+        addConsoleMessage(
+          'success',
+          `${taskName} created successfully`,
+          taskName,
+          response.data?.id
+        )
+        toast.success('Task created successfully')
+
+        await Promise.all([loadTasks(), loadWorkerStatus(), loadTaskStats()])
+      } catch (error: any) {
+        console.error('Failed to create task:', error)
+        const detail = error?.response?.data?.detail || error.message
+        const taskName = `${taskType
+          .split('-')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')} Task`
+        addConsoleMessage('error', `Failed to create ${taskName}: ${detail}`)
+        toast.error(`Failed to create task: ${detail}`)
+      } finally {
+        toast.dismiss('price-update-loading')
+        toast.dismiss('bulk-enrichment-loading')
       }
-
-      const taskName = `${taskType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Task`
-
-      addConsoleMessage('info', `Creating ${taskName}...`)
-      const response = await tasksService.createQuickTask(taskType, taskData)
-      addConsoleMessage('success', `${taskName} created successfully`, taskName, response.data?.id)
-      toast.success('Task created successfully')
-
-      await Promise.all([loadTasks(), loadWorkerStatus(), loadTaskStats()])
-    } catch (error: any) {
-      console.error('Failed to create task:', error)
-      const detail = error?.response?.data?.detail || error.message
-      const taskName = `${taskType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Task`
-      addConsoleMessage('error', `Failed to create ${taskName}: ${detail}`)
-      toast.error(`Failed to create task: ${detail}`)
-    } finally {
-      toast.dismiss('price-update-loading')
-      toast.dismiss('bulk-enrichment-loading')
-    }
-  }, [addConsoleMessage, ensureSupplierConfiguration, loadTaskStats, loadTasks, loadWorkerStatus])
+    },
+    [addConsoleMessage, ensureSupplierConfiguration, loadTaskStats, loadTasks, loadWorkerStatus]
+  )
 
   const toggleAutoRefresh = useCallback(() => {
-    setAutoRefresh(prev => !prev)
+    setAutoRefresh((prev) => !prev)
   }, [])
 
   const reconnectWebSocket = useCallback(async () => {
@@ -540,8 +622,8 @@ export function useTasksDashboard() {
         task.id
       )
 
-      setTasks(prevTasks => {
-        const existingIndex = prevTasks.findIndex(t => t.id === task.id)
+      setTasks((prevTasks) => {
+        const existingIndex = prevTasks.findIndex((t) => t.id === task.id)
         let updatedTasks: Task[]
 
         if (existingIndex >= 0) {
@@ -559,8 +641,8 @@ export function useTasksDashboard() {
     const handleTaskCreated = (task: Task) => {
       setIsWebSocketConnected(true)
       addConsoleMessage('success', 'Task created', task.name, task.id)
-      setTasks(prevTasks => {
-        if (prevTasks.find(t => t.id === task.id)) {
+      setTasks((prevTasks) => {
+        if (prevTasks.find((t) => t.id === task.id)) {
           return prevTasks
         }
         const updatedTasks = [...prevTasks, task]
@@ -572,10 +654,10 @@ export function useTasksDashboard() {
 
     const handleTaskDeleted = (taskId: string) => {
       setIsWebSocketConnected(true)
-      const deletedTask = tasksRef.current.find(t => t.id === taskId)
+      const deletedTask = tasksRef.current.find((t) => t.id === taskId)
       addConsoleMessage('warning', 'Task deleted', deletedTask?.name, taskId)
-      setTasks(prevTasks => {
-        const updatedTasks = prevTasks.filter(t => t.id !== taskId)
+      setTasks((prevTasks) => {
+        const updatedTasks = prevTasks.filter((t) => t.id !== taskId)
         tasksRef.current = updatedTasks
         return updatedTasks
       })
@@ -629,21 +711,28 @@ export function useTasksDashboard() {
       unsubscribeWorkerStatus?.()
       unsubscribeTaskStats?.()
     }
-  }, [addConsoleMessage, autoRefresh, checkSupplierConfigStatus, loadTaskStats, loadTasks, loadWorkerStatus])
+  }, [
+    addConsoleMessage,
+    autoRefresh,
+    checkSupplierConfigStatus,
+    loadTaskStats,
+    loadTasks,
+    loadWorkerStatus,
+  ])
 
   useEffect(() => {
     let filtered = tasks
 
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(task => task.status === statusFilter)
+      filtered = filtered.filter((task) => task.status === statusFilter)
     }
 
     if (typeFilter !== 'all') {
-      filtered = filtered.filter(task => task.task_type === typeFilter)
+      filtered = filtered.filter((task) => task.task_type === typeFilter)
     }
 
     if (priorityFilter !== 'all') {
-      filtered = filtered.filter(task => task.priority === priorityFilter)
+      filtered = filtered.filter((task) => task.priority === priorityFilter)
     }
 
     setFilteredTasks(filtered)
@@ -681,7 +770,7 @@ export function useTasksDashboard() {
     checkSupplierConfigStatus,
     isWebSocketConnected,
     reconnectWebSocket,
-    loadTasks
+    loadTasks,
   }
 }
 

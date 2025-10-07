@@ -4,14 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 
 export const useAuth = (requireAuth = true) => {
   const navigate = useNavigate()
-  const { 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    checkAuth,
-    hasRole,
-    hasPermission 
-  } = useAuthStore()
+  const { user, isAuthenticated, isLoading, checkAuth, hasRole, hasPermission } = useAuthStore()
 
   useEffect(() => {
     if (!user && !isLoading) {
@@ -33,4 +26,3 @@ export const useAuth = (requireAuth = true) => {
     hasPermission,
   }
 }
-

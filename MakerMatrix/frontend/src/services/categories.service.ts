@@ -1,16 +1,19 @@
 import { apiClient, ApiResponse } from './api'
-import { 
+import {
   Category,
   CreateCategoryRequest,
   UpdateCategoryRequest,
   CategoryResponse,
   CategoriesListResponse,
-  DeleteCategoriesResponse
+  DeleteCategoriesResponse,
 } from '@/types/categories'
 
 export class CategoriesService {
   async createCategory(data: CreateCategoryRequest): Promise<Category> {
-    const response = await apiClient.post<ApiResponse<CategoryResponse>>('/api/categories/add_category', data)
+    const response = await apiClient.post<ApiResponse<CategoryResponse>>(
+      '/api/categories/add_category',
+      data
+    )
     if (response.status === 'success' && response.data) {
       return response.data.category
     }
@@ -21,12 +24,14 @@ export class CategoriesService {
     if (!params.id && !params.name) {
       throw new Error('Either id or name must be provided')
     }
-    
+
     const queryParams = new URLSearchParams()
     if (params.id) queryParams.append('category_id', params.id)
     if (params.name) queryParams.append('name', params.name)
-    
-    const response = await apiClient.get<ApiResponse<CategoryResponse>>(`/api/categories/get_category?${queryParams}`)
+
+    const response = await apiClient.get<ApiResponse<CategoryResponse>>(
+      `/api/categories/get_category?${queryParams}`
+    )
     if (response.status === 'success' && response.data) {
       return response.data.category
     }
@@ -35,7 +40,10 @@ export class CategoriesService {
 
   async updateCategory(data: UpdateCategoryRequest): Promise<Category> {
     const { id, ...updateData } = data
-    const response = await apiClient.put<ApiResponse<CategoryResponse>>(`/api/categories/update_category/${id}`, updateData)
+    const response = await apiClient.put<ApiResponse<CategoryResponse>>(
+      `/api/categories/update_category/${id}`,
+      updateData
+    )
     if (response.status === 'success' && response.data) {
       return response.data.category
     }
@@ -46,12 +54,14 @@ export class CategoriesService {
     if (!params.id && !params.name) {
       throw new Error('Either id or name must be provided')
     }
-    
+
     const queryParams = new URLSearchParams()
     if (params.id) queryParams.append('cat_id', params.id)
     if (params.name) queryParams.append('name', params.name)
-    
-    const response = await apiClient.delete<ApiResponse<CategoryResponse>>(`/api/categories/remove_category?${queryParams}`)
+
+    const response = await apiClient.delete<ApiResponse<CategoryResponse>>(
+      `/api/categories/remove_category?${queryParams}`
+    )
     if (response.status === 'success' && response.data) {
       return response.data.category
     }
@@ -59,7 +69,9 @@ export class CategoriesService {
   }
 
   async getAllCategories(): Promise<Category[]> {
-    const response = await apiClient.get<ApiResponse<CategoriesListResponse>>('/api/categories/get_all_categories')
+    const response = await apiClient.get<ApiResponse<CategoriesListResponse>>(
+      '/api/categories/get_all_categories'
+    )
     if (response.status === 'success' && response.data) {
       return response.data.categories || []
     }
@@ -67,7 +79,9 @@ export class CategoriesService {
   }
 
   async deleteAllCategories(): Promise<number> {
-    const response = await apiClient.delete<ApiResponse<DeleteCategoriesResponse>>('/api/categories/delete_all_categories')
+    const response = await apiClient.delete<ApiResponse<DeleteCategoriesResponse>>(
+      '/api/categories/delete_all_categories'
+    )
     if (response.status === 'success' && response.data) {
       return response.data.deleted_count
     }
@@ -96,21 +110,22 @@ export class CategoriesService {
   // Helper method to filter categories by search term
   filterCategories(categories: Category[], searchTerm: string): Category[] {
     const term = searchTerm.toLowerCase()
-    return categories.filter(category => 
-      category.name.toLowerCase().includes(term) ||
-      (category.description && category.description.toLowerCase().includes(term))
+    return categories.filter(
+      (category) =>
+        category.name.toLowerCase().includes(term) ||
+        (category.description && category.description.toLowerCase().includes(term))
     )
   }
 
   // Helper method to get category by ID from a list
   getCategoryById(categories: Category[], id: string): Category | undefined {
-    return categories.find(category => category.id === id)
+    return categories.find((category) => category.id === id)
   }
 
   // Helper method to get categories by IDs from a list
   getCategoriesByIds(categories: Category[], ids: string[]): Category[] {
     const idSet = new Set(ids)
-    return categories.filter(category => idSet.has(category.id))
+    return categories.filter((category) => idSet.has(category.id))
   }
 
   // Helper method to validate category name
@@ -118,15 +133,15 @@ export class CategoriesService {
     if (!name || name.trim().length === 0) {
       return { valid: false, error: 'Category name is required' }
     }
-    
+
     if (name.trim().length < 2) {
       return { valid: false, error: 'Category name must be at least 2 characters long' }
     }
-    
+
     if (name.trim().length > 100) {
       return { valid: false, error: 'Category name must be less than 100 characters' }
     }
-    
+
     return { valid: true }
   }
 }

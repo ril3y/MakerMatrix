@@ -46,7 +46,7 @@ const BulkEditModal = ({
   onClose,
   onSuccess,
   selectedPartIds,
-  selectedCount
+  selectedCount,
 }: BulkEditModalProps) => {
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
@@ -62,7 +62,7 @@ const BulkEditModal = ({
     location_id: '',
     minimum_quantity: undefined,
     categories_to_add: [],
-    categories_to_remove: []
+    categories_to_remove: [],
   })
 
   useEffect(() => {
@@ -96,11 +96,13 @@ const BulkEditModal = ({
     e.preventDefault()
 
     // Validate that at least one field is being updated
-    if (!formData.updateSupplier &&
-        !formData.updateLocation &&
-        !formData.updateMinimumQuantity &&
-        !formData.addCategories &&
-        !formData.removeCategories) {
+    if (
+      !formData.updateSupplier &&
+      !formData.updateLocation &&
+      !formData.updateMinimumQuantity &&
+      !formData.addCategories &&
+      !formData.removeCategories
+    ) {
       toast.error('Please select at least one field to update')
       return
     }
@@ -129,21 +131,27 @@ const BulkEditModal = ({
         supplier: formData.updateSupplier ? formData.supplier : undefined,
         location_id: formData.updateLocation ? formData.location_id : undefined,
         minimum_quantity: formData.updateMinimumQuantity ? formData.minimum_quantity : undefined,
-        add_categories: formData.addCategories && formData.categories_to_add.length > 0
-          ? formData.categories_to_add
-          : undefined,
-        remove_categories: formData.removeCategories && formData.categories_to_remove.length > 0
-          ? formData.categories_to_remove
-          : undefined
+        add_categories:
+          formData.addCategories && formData.categories_to_add.length > 0
+            ? formData.categories_to_add
+            : undefined,
+        remove_categories:
+          formData.removeCategories && formData.categories_to_remove.length > 0
+            ? formData.categories_to_remove
+            : undefined,
       })
 
       // Show success/error messages
       if (result.updated_count > 0) {
-        toast.success(`Successfully updated ${result.updated_count} part${result.updated_count > 1 ? 's' : ''}`)
+        toast.success(
+          `Successfully updated ${result.updated_count} part${result.updated_count > 1 ? 's' : ''}`
+        )
       }
 
       if (result.failed_count > 0) {
-        toast.error(`Failed to update ${result.failed_count} part${result.failed_count > 1 ? 's' : ''}`)
+        toast.error(
+          `Failed to update ${result.failed_count} part${result.failed_count > 1 ? 's' : ''}`
+        )
         console.error('Bulk update errors:', result.errors)
       }
 
@@ -171,27 +179,27 @@ const BulkEditModal = ({
         location_id: '',
         minimum_quantity: undefined,
         categories_to_add: [],
-        categories_to_remove: []
+        categories_to_remove: [],
       })
       onClose()
     }
   }
 
   const toggleCategoryToAdd = (categoryName: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       categories_to_add: prev.categories_to_add.includes(categoryName)
-        ? prev.categories_to_add.filter(c => c !== categoryName)
-        : [...prev.categories_to_add, categoryName]
+        ? prev.categories_to_add.filter((c) => c !== categoryName)
+        : [...prev.categories_to_add, categoryName],
     }))
   }
 
   const toggleCategoryToRemove = (categoryName: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       categories_to_remove: prev.categories_to_remove.includes(categoryName)
-        ? prev.categories_to_remove.filter(c => c !== categoryName)
-        : [...prev.categories_to_remove, categoryName]
+        ? prev.categories_to_remove.filter((c) => c !== categoryName)
+        : [...prev.categories_to_remove, categoryName],
     }))
   }
 
@@ -233,7 +241,10 @@ const BulkEditModal = ({
               onChange={(e) => setFormData({ ...formData, updateSupplier: e.target.checked })}
               className="w-4 h-4 rounded border-theme-primary"
             />
-            <label htmlFor="updateSupplier" className="text-sm font-medium text-theme-primary cursor-pointer">
+            <label
+              htmlFor="updateSupplier"
+              className="text-sm font-medium text-theme-primary cursor-pointer"
+            >
               Update Supplier
             </label>
           </div>
@@ -256,7 +267,10 @@ const BulkEditModal = ({
               onChange={(e) => setFormData({ ...formData, updateLocation: e.target.checked })}
               className="w-4 h-4 rounded border-theme-primary"
             />
-            <label htmlFor="updateLocation" className="text-sm font-medium text-theme-primary cursor-pointer">
+            <label
+              htmlFor="updateLocation"
+              className="text-sm font-medium text-theme-primary cursor-pointer"
+            >
               Update Primary Location
             </label>
           </div>
@@ -264,9 +278,9 @@ const BulkEditModal = ({
             <CustomSelect
               value={formData.location_id || ''}
               onChange={(value) => setFormData({ ...formData, location_id: value })}
-              options={locations.map(loc => ({
+              options={locations.map((loc) => ({
                 value: loc.id,
-                label: loc.name
+                label: loc.name,
               }))}
               placeholder="Select location..."
               searchable
@@ -282,10 +296,15 @@ const BulkEditModal = ({
               type="checkbox"
               id="updateMinimumQuantity"
               checked={formData.updateMinimumQuantity}
-              onChange={(e) => setFormData({ ...formData, updateMinimumQuantity: e.target.checked })}
+              onChange={(e) =>
+                setFormData({ ...formData, updateMinimumQuantity: e.target.checked })
+              }
               className="w-4 h-4 rounded border-theme-primary"
             />
-            <label htmlFor="updateMinimumQuantity" className="text-sm font-medium text-theme-primary cursor-pointer">
+            <label
+              htmlFor="updateMinimumQuantity"
+              className="text-sm font-medium text-theme-primary cursor-pointer"
+            >
               Set Minimum Quantity
             </label>
           </div>
@@ -293,7 +312,9 @@ const BulkEditModal = ({
             <input
               type="number"
               value={formData.minimum_quantity || ''}
-              onChange={(e) => setFormData({ ...formData, minimum_quantity: parseInt(e.target.value) || 0 })}
+              onChange={(e) =>
+                setFormData({ ...formData, minimum_quantity: parseInt(e.target.value) || 0 })
+              }
               className="input w-full"
               placeholder="Enter minimum quantity..."
               min={0}
@@ -311,14 +332,17 @@ const BulkEditModal = ({
               onChange={(e) => setFormData({ ...formData, addCategories: e.target.checked })}
               className="w-4 h-4 rounded border-theme-primary"
             />
-            <label htmlFor="addCategories" className="text-sm font-medium text-theme-primary cursor-pointer">
+            <label
+              htmlFor="addCategories"
+              className="text-sm font-medium text-theme-primary cursor-pointer"
+            >
               Add Categories
             </label>
           </div>
           {formData.addCategories && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                {formData.categories_to_add.map(categoryName => (
+                {formData.categories_to_add.map((categoryName) => (
                   <span
                     key={categoryName}
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
@@ -336,16 +360,16 @@ const BulkEditModal = ({
               <CustomSelect
                 value=""
                 onChange={(value) => {
-                  const category = categories.find(c => c.id === value)
+                  const category = categories.find((c) => c.id === value)
                   if (category && !formData.categories_to_add.includes(category.name)) {
                     toggleCategoryToAdd(category.name)
                   }
                 }}
                 options={categories
-                  .filter(c => !formData.categories_to_add.includes(c.name))
-                  .map(c => ({
+                  .filter((c) => !formData.categories_to_add.includes(c.name))
+                  .map((c) => ({
                     value: c.id,
-                    label: c.name
+                    label: c.name,
                   }))}
                 placeholder="Select category to add..."
                 searchable
@@ -365,14 +389,17 @@ const BulkEditModal = ({
               onChange={(e) => setFormData({ ...formData, removeCategories: e.target.checked })}
               className="w-4 h-4 rounded border-theme-primary"
             />
-            <label htmlFor="removeCategories" className="text-sm font-medium text-theme-primary cursor-pointer">
+            <label
+              htmlFor="removeCategories"
+              className="text-sm font-medium text-theme-primary cursor-pointer"
+            >
               Remove Categories
             </label>
           </div>
           {formData.removeCategories && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                {formData.categories_to_remove.map(categoryName => (
+                {formData.categories_to_remove.map((categoryName) => (
                   <span
                     key={categoryName}
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"
@@ -390,16 +417,16 @@ const BulkEditModal = ({
               <CustomSelect
                 value=""
                 onChange={(value) => {
-                  const category = categories.find(c => c.id === value)
+                  const category = categories.find((c) => c.id === value)
                   if (category && !formData.categories_to_remove.includes(category.name)) {
                     toggleCategoryToRemove(category.name)
                   }
                 }}
                 options={categories
-                  .filter(c => !formData.categories_to_remove.includes(c.name))
-                  .map(c => ({
+                  .filter((c) => !formData.categories_to_remove.includes(c.name))
+                  .map((c) => ({
                     value: c.id,
-                    label: c.name
+                    label: c.name,
                   }))}
                 placeholder="Select category to remove..."
                 searchable

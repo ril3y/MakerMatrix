@@ -241,9 +241,28 @@ class LocationAlreadyExistsError(ResourceAlreadyExistsError):
 
 class LocationNotFoundError(ResourceNotFoundError):
     """Raised when a location is not found."""
-    
+
     def __init__(self, message: str, location_id: Optional[str] = None):
         super().__init__(message, resource_type="location", resource_id=location_id)
+
+
+# Project Management Exceptions
+class ProjectAlreadyExistsError(ResourceAlreadyExistsError):
+    """Raised when a project already exists."""
+
+    def __init__(self, message: str, project_name: Optional[str] = None):
+        super().__init__(message, resource_type="project", conflicting_field="name")
+        self.project_name = project_name
+
+        if project_name:
+            self.details.update({"project_name": project_name})
+
+
+class ProjectNotFoundError(ResourceNotFoundError):
+    """Raised when a project is not found."""
+
+    def __init__(self, message: str, project_id: Optional[str] = None):
+        super().__init__(message, resource_type="project", resource_id=project_id)
 
 
 # User Management Exceptions

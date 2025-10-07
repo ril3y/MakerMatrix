@@ -1,128 +1,129 @@
 /**
  * Import/Export Modal
- * 
+ *
  * Modal for importing and exporting supplier configurations with support for
  * JSON files and optional credential inclusion.
  */
 
-import React, { useState } from 'react';
-import { X, Upload, Download, AlertTriangle, CheckCircle, FileText, Shield } from 'lucide-react';
-import { supplierService } from '../../services/supplier.service';
+import React, { useState } from 'react'
+import { X, Upload, Download, AlertTriangle, CheckCircle, FileText, Shield } from 'lucide-react'
+import { supplierService } from '../../services/supplier.service'
 
 interface ImportExportModalProps {
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose: () => void
+  onSuccess: () => void
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, onSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [success, setSuccess] = useState<string | null>(null);
-  
+  const [activeTab, setActiveTab] = useState<'import' | 'export'>('import')
+  const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<string[]>([])
+  const [success, setSuccess] = useState<string | null>(null)
+
   // Import state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+
   // Export state
-  const [includeCredentials, setIncludeCredentials] = useState(false);
-  const [exportData, setExportData] = useState<any>(null);
+  const [includeCredentials, setIncludeCredentials] = useState(false)
+  const [exportData, setExportData] = useState<any>(null)
 
   const handleFileSelect = (file: File) => {
     if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
-      setErrors(['Please select a valid JSON file']);
-      return;
+      setErrors(['Please select a valid JSON file'])
+      return
     }
-    
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      setErrors(['File size must be less than 10MB']);
-      return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      // 10MB limit
+      setErrors(['File size must be less than 10MB'])
+      return
     }
-    
-    setSelectedFile(file);
-    setErrors([]);
-  };
+
+    setSelectedFile(file)
+    setErrors([])
+  }
 
   const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    
-    const files = Array.from(e.dataTransfer.files);
+    e.preventDefault()
+    setDragOver(false)
+
+    const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFileSelect(files[0])
     }
-  };
+  }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+    const files = e.target.files
     if (files && files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFileSelect(files[0])
     }
-  };
+  }
 
   const handleImport = async () => {
     if (!selectedFile) {
-      setErrors(['Please select a file to import']);
-      return;
+      setErrors(['Please select a file to import'])
+      return
     }
 
     try {
-      setLoading(true);
-      setErrors([]);
-      
-      const importedSuppliers = await supplierService.importConfigurations(selectedFile);
-      setSuccess(`Successfully imported ${importedSuppliers.length} supplier configurations: ${importedSuppliers.join(', ')}`);
-      
+      setLoading(true)
+      setErrors([])
+
+      const importedSuppliers = await supplierService.importConfigurations(selectedFile)
+      setSuccess(
+        `Successfully imported ${importedSuppliers.length} supplier configurations: ${importedSuppliers.join(', ')}`
+      )
+
       // Auto-close after successful import
       setTimeout(() => {
-        onSuccess();
-      }, 2000);
-      
+        onSuccess()
+      }, 2000)
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to import supplier configurations';
-      setErrors([errorMessage]);
+      const errorMessage = err.response?.data?.detail || 'Failed to import supplier configurations'
+      setErrors([errorMessage])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleExport = async () => {
     try {
-      setLoading(true);
-      setErrors([]);
-      
-      const data = await supplierService.exportConfigurations(includeCredentials);
-      setExportData(data);
-      
+      setLoading(true)
+      setErrors([])
+
+      const data = await supplierService.exportConfigurations(includeCredentials)
+      setExportData(data)
+
       // Create and download file
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      const timestamp = new Date().toISOString().split('T')[0];
-      const credentialsText = includeCredentials ? '_with_credentials' : '';
-      link.download = `makermatrix_suppliers_${timestamp}${credentialsText}.json`;
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      setSuccess(`Successfully exported ${data.suppliers?.length || 0} supplier configurations`);
-      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      const timestamp = new Date().toISOString().split('T')[0]
+      const credentialsText = includeCredentials ? '_with_credentials' : ''
+      link.download = `makermatrix_suppliers_${timestamp}${credentialsText}.json`
+
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      setSuccess(`Successfully exported ${data.suppliers?.length || 0} supplier configurations`)
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to export supplier configurations';
-      setErrors([errorMessage]);
+      const errorMessage = err.response?.data?.detail || 'Failed to export supplier configurations'
+      setErrors([errorMessage])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const clearMessages = () => {
-    setErrors([]);
-    setSuccess(null);
-  };
+    setErrors([])
+    setSuccess(null)
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -150,8 +151,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
           <nav className="flex">
             <button
               onClick={() => {
-                setActiveTab('import');
-                clearMessages();
+                setActiveTab('import')
+                clearMessages()
               }}
               className={`flex-1 py-3 px-4 text-sm font-medium text-center border-b-2 ${
                 activeTab === 'import'
@@ -164,8 +165,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
             </button>
             <button
               onClick={() => {
-                setActiveTab('export');
-                clearMessages();
+                setActiveTab('export')
+                clearMessages()
               }}
               className={`flex-1 py-3 px-4 text-sm font-medium text-center border-b-2 ${
                 activeTab === 'export'
@@ -187,9 +188,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
               <div className="flex">
                 <AlertTriangle className="w-5 h-5 text-red-400" />
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                    Error
-                  </h3>
+                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
                   <ul className="mt-1 text-sm text-red-700 dark:text-red-300 list-disc list-inside">
                     {errors.map((error, index) => (
                       <li key={index}>{error}</li>
@@ -208,9 +207,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                   <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
                     Success
                   </h3>
-                  <p className="mt-1 text-sm text-green-700 dark:text-green-300">
-                    {success}
-                  </p>
+                  <p className="mt-1 text-sm text-green-700 dark:text-green-300">{success}</p>
                 </div>
               </div>
             </div>
@@ -224,7 +221,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                   Import Supplier Configurations
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  Upload a JSON file containing supplier configurations. Existing suppliers with the same name will be updated.
+                  Upload a JSON file containing supplier configurations. Existing suppliers with the
+                  same name will be updated.
                 </p>
               </div>
 
@@ -236,14 +234,14 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                     : 'border-gray-300 dark:border-gray-600'
                 }`}
                 onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
+                  e.preventDefault()
+                  setDragOver(true)
                 }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleFileDrop}
               >
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                
+
                 {selectedFile ? (
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -303,7 +301,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                   Export Supplier Configurations
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  Download all supplier configurations as a JSON file. You can choose to include encrypted credentials.
+                  Download all supplier configurations as a JSON file. You can choose to include
+                  encrypted credentials.
                 </p>
               </div>
 
@@ -312,7 +311,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                 <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                   Export Options
                 </h4>
-                
+
                 <label className="flex items-start space-x-3">
                   <input
                     type="checkbox"
@@ -325,8 +324,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                       Include Credentials
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Export encrypted credentials along with configurations. 
-                      Credentials remain encrypted in the export file.
+                      Export encrypted credentials along with configurations. Credentials remain
+                      encrypted in the export file.
                     </div>
                   </div>
                 </label>
@@ -337,7 +336,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                       <Shield className="w-4 h-4 text-yellow-400 mt-0.5" />
                       <div className="ml-2">
                         <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                          <strong>Security Notice:</strong> Exported credentials remain encrypted, 
+                          <strong>Security Notice:</strong> Exported credentials remain encrypted,
                           but exercise caution when sharing export files.
                         </p>
                       </div>
@@ -356,9 +355,11 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
                     <p>Suppliers: {exportData.suppliers?.length || 0}</p>
                     <p>Export Date: {exportData.export_date}</p>
                     <p>Includes Credentials: {exportData.includes_credentials ? 'Yes' : 'No'}</p>
-                    <p>File Size: ~{JSON.stringify(exportData).length > 1024 ? 
-                      `${(JSON.stringify(exportData).length / 1024).toFixed(1)} KB` : 
-                      `${JSON.stringify(exportData).length} bytes`}
+                    <p>
+                      File Size: ~
+                      {JSON.stringify(exportData).length > 1024
+                        ? `${(JSON.stringify(exportData).length / 1024).toFixed(1)} KB`
+                        : `${JSON.stringify(exportData).length} bytes`}
                     </p>
                   </div>
                 </div>
@@ -390,7 +391,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
           >
             Close
           </button>
-          
+
           {activeTab === 'import' ? (
             <button
               onClick={handleImport}
@@ -431,5 +432,5 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

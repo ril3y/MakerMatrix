@@ -10,6 +10,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from sqlmodel import SQLModel, Field, Relationship, Session, Column, String, ForeignKey, JSON, select
+from MakerMatrix.models.project_models import PartProjectLink
 from sqlalchemy import or_, UniqueConstraint, Numeric
 from pydantic import field_serializer, model_validator, ConfigDict
 
@@ -123,6 +124,13 @@ class PartModel(SQLModel, table=True):
     datasheets: List["DatasheetModel"] = Relationship(
         back_populates="part",
         sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+    )
+
+    # Projects (many-to-many relationship through link table)
+    projects: List["ProjectModel"] = Relationship(
+        back_populates="parts",
+        link_model=PartProjectLink,
+        sa_relationship_kwargs={"lazy": "selectin"}
     )
 
     # === MULTI-LOCATION ALLOCATIONS (NEW) ===

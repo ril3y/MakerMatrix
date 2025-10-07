@@ -32,7 +32,7 @@ export interface PaginatedResponse<T> {
 export abstract class BaseCrudService<
   TEntity extends BaseEntity,
   TCreateRequest extends CreateRequest,
-  TUpdateRequest extends UpdateRequest
+  TUpdateRequest extends UpdateRequest,
 > {
   protected abstract baseUrl: string
   protected abstract entityName: string // For error messages
@@ -45,9 +45,11 @@ export abstract class BaseCrudService<
   // Generic CRUD operations
   async getAll(): Promise<TEntity[]> {
     try {
-      const response = await apiClient.get<ApiResponse<TEntity[]>>(`${this.baseUrl}/get_all_${this.entityName}s`)
+      const response = await apiClient.get<ApiResponse<TEntity[]>>(
+        `${this.baseUrl}/get_all_${this.entityName}s`
+      )
       if (response.status === 'success' && response.data) {
-        return response.data.map(item => this.mapResponseToEntity(item))
+        return response.data.map((item) => this.mapResponseToEntity(item))
       }
       return []
     } catch (error: any) {
@@ -58,29 +60,32 @@ export abstract class BaseCrudService<
   async getAllPaginated(params: PaginatedParams = {}): Promise<PaginatedResponse<TEntity>> {
     try {
       const { page = 1, pageSize = 20, ...filters } = params
-      const response = await apiClient.get<ApiResponse<TEntity[]>>(`${this.baseUrl}/get_all_${this.entityName}s`, {
-        params: { page, page_size: pageSize, ...filters }
-      })
-      
+      const response = await apiClient.get<ApiResponse<TEntity[]>>(
+        `${this.baseUrl}/get_all_${this.entityName}s`,
+        {
+          params: { page, page_size: pageSize, ...filters },
+        }
+      )
+
       if (response.status === 'success' && response.data) {
-        const mappedData = response.data.map(item => this.mapResponseToEntity(item))
+        const mappedData = response.data.map((item) => this.mapResponseToEntity(item))
         const totalPages = Math.ceil((response.total_parts || 0) / pageSize)
-        
+
         return {
           data: mappedData,
           total: response.total_parts || 0,
           page,
           pageSize,
-          totalPages
+          totalPages,
         }
       }
-      
+
       return {
         data: [],
         total: 0,
         page: 1,
         pageSize: 20,
-        totalPages: 0
+        totalPages: 0,
       }
     } catch (error: any) {
       throw new Error(error.message || `Failed to load ${this.entityName}s`)
@@ -89,7 +94,9 @@ export abstract class BaseCrudService<
 
   async getById(id: string): Promise<TEntity> {
     try {
-      const response = await apiClient.get<ApiResponse<TEntity>>(`${this.baseUrl}/get_${this.entityName}?${this.entityName}_id=${id}`)
+      const response = await apiClient.get<ApiResponse<TEntity>>(
+        `${this.baseUrl}/get_${this.entityName}?${this.entityName}_id=${id}`
+      )
       if (response.status === 'success' && response.data) {
         return this.mapResponseToEntity(response.data)
       }
@@ -102,8 +109,11 @@ export abstract class BaseCrudService<
   async create(data: TCreateRequest): Promise<TEntity> {
     try {
       const backendData = this.mapCreateRequestToBackend(data)
-      const response = await apiClient.post<ApiResponse<TEntity>>(`${this.baseUrl}/add_${this.entityName}`, backendData)
-      
+      const response = await apiClient.post<ApiResponse<TEntity>>(
+        `${this.baseUrl}/add_${this.entityName}`,
+        backendData
+      )
+
       if (response.status === 'success' && response.data) {
         return this.mapResponseToEntity(response.data)
       }
@@ -117,8 +127,11 @@ export abstract class BaseCrudService<
     try {
       const { id, ...updateData } = data
       const backendData = this.mapUpdateRequestToBackend(updateData as TUpdateRequest)
-      const response = await apiClient.put<ApiResponse<TEntity>>(`${this.baseUrl}/update_${this.entityName}/${id}`, backendData)
-      
+      const response = await apiClient.put<ApiResponse<TEntity>>(
+        `${this.baseUrl}/update_${this.entityName}/${id}`,
+        backendData
+      )
+
       if (response.status === 'success' && response.data) {
         return this.mapResponseToEntity(response.data)
       }
@@ -130,7 +143,9 @@ export abstract class BaseCrudService<
 
   async delete(id: string): Promise<void> {
     try {
-      const response = await apiClient.delete<ApiResponse>(`${this.baseUrl}/delete_${this.entityName}?${this.entityName}_id=${id}`)
+      const response = await apiClient.delete<ApiResponse>(
+        `${this.baseUrl}/delete_${this.entityName}?${this.entityName}_id=${id}`
+      )
       if (response.status !== 'success') {
         throw new Error(response.message || `Failed to delete ${this.entityName}`)
       }
@@ -184,12 +199,13 @@ export abstract class BaseCrudService<
 export abstract class BaseNamedCrudService<
   TEntity extends BaseEntity & { name: string },
   TCreateRequest extends CreateRequest,
-  TUpdateRequest extends UpdateRequest
+  TUpdateRequest extends UpdateRequest,
 > extends BaseCrudService<TEntity, TCreateRequest, TUpdateRequest> {
-  
   async getByName(name: string): Promise<TEntity> {
     try {
-      const response = await apiClient.get<ApiResponse<TEntity>>(`${this.baseUrl}/get_${this.entityName}?name=${encodeURIComponent(name)}`)
+      const response = await apiClient.get<ApiResponse<TEntity>>(
+        `${this.baseUrl}/get_${this.entityName}?name=${encodeURIComponent(name)}`
+      )
       if (response.status === 'success' && response.data) {
         return this.mapResponseToEntity(response.data)
       }
@@ -211,7 +227,9 @@ export abstract class BaseNamedCrudService<
   // Delete by name (for services that support it)
   async deleteByName(name: string): Promise<void> {
     try {
-      const response = await apiClient.delete<ApiResponse>(`${this.baseUrl}/remove_${this.entityName}?name=${encodeURIComponent(name)}`)
+      const response = await apiClient.delete<ApiResponse>(
+        `${this.baseUrl}/remove_${this.entityName}?name=${encodeURIComponent(name)}`
+      )
       if (response.status !== 'success') {
         throw new Error(response.message || `Failed to delete ${this.entityName}`)
       }
@@ -225,7 +243,7 @@ export abstract class BaseNamedCrudService<
 export interface CrudServiceInterface<
   TEntity extends BaseEntity,
   TCreateRequest extends CreateRequest,
-  TUpdateRequest extends UpdateRequest
+  TUpdateRequest extends UpdateRequest,
 > {
   getAll(): Promise<TEntity[]>
   getAllPaginated(params?: PaginatedParams): Promise<PaginatedResponse<TEntity>>

@@ -16,7 +16,7 @@ import {
   Monitor,
   Trash2,
   RefreshCw,
-  Zap
+  Zap,
 } from 'lucide-react'
 import { Task } from '@/services/tasks.service'
 import { useTasksDashboard } from '@/hooks/useTasksDashboard'
@@ -57,7 +57,7 @@ const getPriorityColor = (priority: string) => {
 const formatTaskType = (type: string) =>
   type
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 
 const formatDuration = (startTime?: string, endTime?: string) => {
@@ -98,16 +98,13 @@ const TasksManagement: React.FC = () => {
     createQuickTask,
     checkSupplierConfigStatus,
     isWebSocketConnected,
-    reconnectWebSocket
+    reconnectWebSocket,
   } = useTasksDashboard()
 
   const [consoleVisible, setConsoleVisible] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
 
-  const runningTasks = useMemo(
-    () => tasks.filter(task => task.status === 'running'),
-    [tasks]
-  )
+  const runningTasks = useMemo(() => tasks.filter((task) => task.status === 'running'), [tasks])
 
   return (
     <div className="space-y-6">
@@ -116,9 +113,7 @@ const TasksManagement: React.FC = () => {
           <Activity className="w-6 h-6" />
           Background Tasks
         </h1>
-        <p className="text-secondary mt-1">
-          Monitor and manage background tasks and processes
-        </p>
+        <p className="text-secondary mt-1">Monitor and manage background tasks and processes</p>
       </div>
 
       {/* Worker Status and Controls */}
@@ -138,9 +133,7 @@ const TasksManagement: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <span
-              className={`w-2 h-2 rounded-full ${
-                isWebSocketConnected ? 'bg-success' : 'bg-error'
-              }`}
+              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-success' : 'bg-error'}`}
             />
             <span className="text-xs text-secondary">
               {isWebSocketConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'}
@@ -252,8 +245,8 @@ const TasksManagement: React.FC = () => {
                     </p>
                   )}
                   <p className="text-secondary">
-                    Configure suppliers in <span className="font-medium">Settings → Suppliers</span> to
-                    enable enrichment and price updates.
+                    Configure suppliers in <span className="font-medium">Settings → Suppliers</span>{' '}
+                    to enable enrichment and price updates.
                   </p>
                 </div>
               </div>
@@ -272,15 +265,24 @@ const TasksManagement: React.FC = () => {
       <div className="card p-4">
         <h4 className="font-medium text-primary mb-3">Quick Actions</h4>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => createQuickTask('price-update')} className="btn btn-secondary btn-sm">
+          <button
+            onClick={() => createQuickTask('price-update')}
+            className="btn btn-secondary btn-sm"
+          >
             <Zap className="w-4 h-4" />
             Update Prices
           </button>
-          <button onClick={() => createQuickTask('bulk-enrichment')} className="btn btn-secondary btn-sm">
+          <button
+            onClick={() => createQuickTask('bulk-enrichment')}
+            className="btn btn-secondary btn-sm"
+          >
             <RefreshCw className="w-4 h-4" />
             Enrich All Parts
           </button>
-          <button onClick={() => createQuickTask('database-cleanup')} className="btn btn-secondary btn-sm">
+          <button
+            onClick={() => createQuickTask('database-cleanup')}
+            className="btn btn-secondary btn-sm"
+          >
             <Trash2 className="w-4 h-4" />
             Clean Database
           </button>
@@ -304,7 +306,7 @@ const TasksManagement: React.FC = () => {
               { value: 'running', label: 'Running' },
               { value: 'completed', label: 'Completed' },
               { value: 'failed', label: 'Failed' },
-              { value: 'cancelled', label: 'Cancelled' }
+              { value: 'cancelled', label: 'Cancelled' },
             ]}
             className="w-48"
           />
@@ -321,7 +323,7 @@ const TasksManagement: React.FC = () => {
               { value: 'price_update', label: 'Price Update' },
               { value: 'database_cleanup', label: 'Database Cleanup' },
               { value: 'file_download', label: 'File Download' },
-              { value: 'data_sync', label: 'Data Sync' }
+              { value: 'data_sync', label: 'Data Sync' },
             ]}
             className="w-56"
           />
@@ -334,7 +336,7 @@ const TasksManagement: React.FC = () => {
               { value: 'urgent', label: 'Urgent' },
               { value: 'high', label: 'High' },
               { value: 'normal', label: 'Normal' },
-              { value: 'low', label: 'Low' }
+              { value: 'low', label: 'Low' },
             ]}
             className="w-44"
           />
@@ -363,7 +365,7 @@ const TasksManagement: React.FC = () => {
               <p className="text-secondary">No tasks found</p>
             </div>
           ) : (
-            filteredTasks.map(task => (
+            filteredTasks.map((task) => (
               <motion.div
                 key={task.id}
                 initial={{ opacity: 0 }}
@@ -376,10 +378,14 @@ const TasksManagement: React.FC = () => {
                     <div className="flex items-center gap-2 mb-1">
                       {getStatusIcon(task.status)}
                       <h5 className="font-medium text-primary truncate">{task.name}</h5>
-                      <span className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}
+                      >
                         {task.priority}
                       </span>
-                      <span className="text-xs text-secondary">{formatTaskType(task.task_type)}</span>
+                      <span className="text-xs text-secondary">
+                        {formatTaskType(task.task_type)}
+                      </span>
                     </div>
 
                     {task.description && (
@@ -426,14 +432,20 @@ const TasksManagement: React.FC = () => {
                     </button>
 
                     {task.status === 'running' && (
-                      <button onClick={() => cancelTask(task.id)} className="btn btn-destructive btn-sm">
+                      <button
+                        onClick={() => cancelTask(task.id)}
+                        className="btn btn-destructive btn-sm"
+                      >
                         <Square className="w-4 h-4" />
                       </button>
                     )}
 
                     {task.status === 'failed' && (
                       <>
-                        <button onClick={() => retryTask(task.id)} className="btn btn-primary btn-sm">
+                        <button
+                          onClick={() => retryTask(task.id)}
+                          className="btn btn-primary btn-sm"
+                        >
                           <RotateCcw className="w-4 h-4" />
                         </button>
                         <button
@@ -486,7 +498,7 @@ const TasksManagement: React.FC = () => {
               {consoleMessages.length === 0 ? (
                 <div className="text-muted">Task console initialized - waiting for activity...</div>
               ) : (
-                consoleMessages.map(msg => (
+                consoleMessages.map((msg) => (
                   <div key={msg.id} className="mb-1">
                     <span className="text-info">[{msg.timestamp}]</span>
                     <span
@@ -494,10 +506,10 @@ const TasksManagement: React.FC = () => {
                         msg.type === 'success'
                           ? 'text-success'
                           : msg.type === 'warning'
-                          ? 'text-warning'
-                          : msg.type === 'error'
-                          ? 'text-error'
-                          : 'text-primary'
+                            ? 'text-warning'
+                            : msg.type === 'error'
+                              ? 'text-error'
+                              : 'text-primary'
                       }`}
                     >
                       {msg.taskName ? `${msg.taskName}: ${msg.message}` : msg.message}
@@ -509,7 +521,7 @@ const TasksManagement: React.FC = () => {
               {runningTasks.length > 0 ? (
                 <>
                   <div className="text-accent mt-3 mb-1">--- Currently Running ---</div>
-                  {runningTasks.map(task => (
+                  {runningTasks.map((task) => (
                     <div key={`running-${task.id}`} className="mb-1">
                       <span className="text-info">[LIVE]</span>
                       <span className="text-warning"> {task.name}:</span>
@@ -562,7 +574,9 @@ const TasksManagement: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-secondary">Priority</label>
-                  <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(selectedTask.priority)}`}>
+                  <span
+                    className={`px-2 py-1 rounded text-xs ${getPriorityColor(selectedTask.priority)}`}
+                  >
                     {selectedTask.priority}
                   </span>
                 </div>

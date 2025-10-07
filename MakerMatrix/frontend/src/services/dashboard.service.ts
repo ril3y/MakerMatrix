@@ -36,27 +36,24 @@ export class DashboardService {
 
   async getDashboardStats(): Promise<DashboardStats> {
     try {
-      const [counts, users] = await Promise.all([
-        this.getCounts(),
-        this.getAllUsers()
-      ])
+      const [counts, users] = await Promise.all([this.getCounts(), this.getAllUsers()])
 
       return {
         totalParts: counts.parts,
         totalLocations: counts.locations,
         totalCategories: counts.categories,
-        activeUsers: users.filter(user => user.is_active).length
+        activeUsers: users.filter((user) => user.is_active).length,
       }
     } catch (error) {
       // Fallback to individual calls if utility endpoint fails
       const partCount = await this.getPartCounts()
       const users = await this.getAllUsers()
-      
+
       return {
         totalParts: partCount,
         totalLocations: 0,
         totalCategories: 0,
-        activeUsers: users.filter(user => user.is_active).length
+        activeUsers: users.filter((user) => user.is_active).length,
       }
     }
   }

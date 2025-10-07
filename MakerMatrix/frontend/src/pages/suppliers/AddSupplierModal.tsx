@@ -5,26 +5,26 @@
  * and custom configuration options.
  */
 
-import React, { useState } from 'react';
-import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
-import { supplierService, SupplierConfigCreate } from '../../services/supplier.service';
-import { DigiKeyConfigForm } from './DigiKeyConfigForm';
-import { LCSCConfigForm } from './LCSCConfigForm';
-import { MouserConfigForm } from './MouserConfigForm';
-import { prepareDigiKeyConfig } from './configs/digikey-config';
-import { prepareLCSCConfig } from './configs/lcsc-config';
-import { prepareMouserConfig } from './configs/mouser-config';
+import React, { useState } from 'react'
+import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
+import { supplierService, SupplierConfigCreate } from '../../services/supplier.service'
+import { DigiKeyConfigForm } from './DigiKeyConfigForm'
+import { LCSCConfigForm } from './LCSCConfigForm'
+import { MouserConfigForm } from './MouserConfigForm'
+import { prepareDigiKeyConfig } from './configs/digikey-config'
+import { prepareLCSCConfig } from './configs/lcsc-config'
+import { prepareMouserConfig } from './configs/mouser-config'
 
 interface AddSupplierModalProps {
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose: () => void
+  onSuccess: () => void
 }
 
 export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSuccess }) => {
-  const [step, setStep] = useState(1); // 1: Select Type, 2: Configure
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
+  const [step, setStep] = useState(1) // 1: Select Type, 2: Configure
+  const [selectedType, setSelectedType] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<string[]>([])
 
   // Base configuration - supplier-specific fields handled separately
   const [config, setConfig] = useState<SupplierConfigCreate>({
@@ -45,18 +45,18 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
     supports_stock: false,
     supports_specifications: false,
     custom_headers: {},
-    custom_parameters: {}
-  });
+    custom_parameters: {},
+  })
 
   // Supplier-specific data (e.g., DigiKey fields)
-  const [supplierSpecificData, setSupplierSpecificData] = useState<Record<string, any>>({});
+  const [supplierSpecificData, setSupplierSpecificData] = useState<Record<string, any>>({})
 
-  const supplierTypes = supplierService.getAvailableSupplierTypes();
-  const capabilities = supplierService.getSupportedCapabilities();
+  const supplierTypes = supplierService.getAvailableSupplierTypes()
+  const capabilities = supplierService.getSupportedCapabilities()
 
   const handleTypeSelection = (typeName: string) => {
-    setSelectedType(typeName);
-    
+    setSelectedType(typeName)
+
     // Apply predefined configuration for known suppliers
     const presets: Record<string, Partial<SupplierConfigCreate>> = {
       lcsc: {
@@ -69,7 +69,7 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
         supports_datasheet: true,
         supports_image: true,
         supports_pricing: true,
-        supports_specifications: true
+        supports_specifications: true,
       },
       digikey: {
         supplier_name: 'digikey',
@@ -82,7 +82,7 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
         supports_image: true,
         supports_pricing: true,
         supports_stock: true,
-        supports_specifications: true
+        supports_specifications: true,
       },
       mouser: {
         supplier_name: 'mouser',
@@ -95,82 +95,82 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
         supports_image: true,
         supports_pricing: true,
         supports_stock: true,
-        supports_specifications: true
+        supports_specifications: true,
       },
-    };
+    }
 
     if (presets[typeName]) {
-      setConfig(prev => ({ ...prev, ...presets[typeName] }));
+      setConfig((prev) => ({ ...prev, ...presets[typeName] }))
     }
-  };
+  }
 
   const handleConfigChange = (field: string, value: any) => {
     // Check if this is a base config field or supplier-specific
     if (field in config) {
-      setConfig(prev => ({ ...prev, [field]: value }));
+      setConfig((prev) => ({ ...prev, [field]: value }))
     } else {
       // Store supplier-specific fields separately
-      setSupplierSpecificData(prev => ({ ...prev, [field]: value }));
+      setSupplierSpecificData((prev) => ({ ...prev, [field]: value }))
     }
-    setErrors([]); // Clear errors when user makes changes
-  };
+    setErrors([]) // Clear errors when user makes changes
+  }
 
   const handleCapabilityChange = (capability: string, enabled: boolean) => {
-    const field = `supports_${capability.replace('fetch_', '')}` as keyof SupplierConfigCreate;
-    handleConfigChange(field, enabled);
-  };
+    const field = `supports_${capability.replace('fetch_', '')}` as keyof SupplierConfigCreate
+    handleConfigChange(field, enabled)
+  }
 
   const handleCustomHeaderChange = (key: string, value: string) => {
-    const newHeaders = { ...config.custom_headers };
+    const newHeaders = { ...config.custom_headers }
     if (value.trim()) {
-      newHeaders[key] = value;
+      newHeaders[key] = value
     } else {
-      delete newHeaders[key];
+      delete newHeaders[key]
     }
-    handleConfigChange('custom_headers', newHeaders);
-  };
+    handleConfigChange('custom_headers', newHeaders)
+  }
 
   const addCustomHeader = () => {
-    const key = prompt('Enter header name:');
+    const key = prompt('Enter header name:')
     if (key && key.trim()) {
-      handleCustomHeaderChange(key.trim(), '');
+      handleCustomHeaderChange(key.trim(), '')
     }
-  };
+  }
 
   const handleSubmit = async () => {
     try {
-      setLoading(true);
-      setErrors([]);
+      setLoading(true)
+      setErrors([])
 
       // Prepare configuration using supplier-specific transformation
-      let configForAPI: SupplierConfigCreate = { ...config };
+      let configForAPI: SupplierConfigCreate = { ...config }
 
       // Apply supplier-specific transformations
       if (selectedType === 'digikey') {
-        configForAPI = prepareDigiKeyConfig(config, supplierSpecificData);
+        configForAPI = prepareDigiKeyConfig(config, supplierSpecificData)
       } else if (selectedType === 'lcsc') {
-        configForAPI = prepareLCSCConfig(config, supplierSpecificData);
+        configForAPI = prepareLCSCConfig(config, supplierSpecificData)
       } else if (selectedType === 'mouser') {
-        configForAPI = prepareMouserConfig(config, supplierSpecificData);
+        configForAPI = prepareMouserConfig(config, supplierSpecificData)
       }
 
       // Validate configuration
-      const validationErrors = supplierService.validateConfig(configForAPI);
+      const validationErrors = supplierService.validateConfig(configForAPI)
       if (validationErrors.length > 0) {
-        setErrors(validationErrors);
-        return;
+        setErrors(validationErrors)
+        return
       }
 
       // Create supplier
-      await supplierService.createSupplier(configForAPI);
-      onSuccess();
+      await supplierService.createSupplier(configForAPI)
+      onSuccess()
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to create supplier configuration';
-      setErrors([errorMessage]);
+      const errorMessage = err.response?.data?.detail || 'Failed to create supplier configuration'
+      setErrors([errorMessage])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -202,8 +202,8 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
                 <button
                   key={type.name}
                   onClick={() => {
-                    handleTypeSelection(type.name);
-                    setStep(2);
+                    handleTypeSelection(type.name)
+                    setStep(2)
                   }}
                   className={`p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors ${
                     selectedType === type.name
@@ -317,5 +317,5 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

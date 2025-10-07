@@ -9,13 +9,6 @@ import { partsService } from '@/services/parts.service'
 vi.mock('@/services/parts.service')
 const mockPartsService = partsService as any
 
-// Mock framer-motion to avoid issues in tests
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  },
-}))
-
 // Mock react-router-dom navigation
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -28,21 +21,28 @@ vi.mock('react-router-dom', async () => {
 
 // Mock components
 vi.mock('@/components/parts/AddPartModal', () => ({
-  default: ({ isOpen, onClose, onSuccess }: any) => 
+  default: ({ isOpen, onClose, onSuccess }: any) =>
     isOpen ? (
       <div data-testid="add-part-modal">
-        <button onClick={() => { onSuccess(); onClose(); }}>Add Part</button>
+        <button
+          onClick={() => {
+            onSuccess()
+            onClose()
+          }}
+        >
+          Add Part
+        </button>
         <button onClick={onClose}>Close</button>
       </div>
-    ) : null
+    ) : null,
 }))
 
 vi.mock('@/components/ui/LoadingScreen', () => ({
-  default: () => <div data-testid="loading-screen">Loading...</div>
+  default: () => <div data-testid="loading-screen">Loading...</div>,
 }))
 
 vi.mock('@/components/parts/PartImage', () => ({
-  default: ({ partName }: any) => <img alt={`Part image: ${partName}`} data-testid="part-image" />
+  default: ({ partName }: any) => <img alt={`Part image: ${partName}`} data-testid="part-image" />,
 }))
 
 // Mock data
@@ -58,8 +58,8 @@ const mockParts = [
     categories: [{ id: 'cat1', name: 'Microcontrollers' }],
     image_url: 'http://example.com/arduino.jpg',
     additional_properties: {
-      description: 'Arduino Uno R3 microcontroller board'
-    }
+      description: 'Arduino Uno R3 microcontroller board',
+    },
   },
   {
     id: '2',
@@ -72,16 +72,16 @@ const mockParts = [
     categories: [{ id: 'cat2', name: 'Resistors' }],
     image_url: null,
     additional_properties: {
-      description: '10K Ohm 1/4W resistor'
-    }
-  }
+      description: '10K Ohm 1/4W resistor',
+    },
+  },
 ]
 
 const mockApiResponse = {
   data: mockParts,
   total_parts: 2,
   page: 1,
-  page_size: 20
+  page_size: 20,
 }
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -103,7 +103,7 @@ describe('PartsPage', () => {
   describe('Basic Rendering', () => {
     it('renders page header and title correctly', async () => {
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       expect(screen.getByText('Parts Inventory')).toBeInTheDocument()
       expect(screen.getByText('Manage your parts inventory')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /add part/i })).toBeInTheDocument()
@@ -116,12 +116,12 @@ describe('PartsPage', () => {
 
     it('displays parts list after loading', async () => {
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
         expect(screen.getByText('Resistor 10K Ohm')).toBeInTheDocument()
       })
-      
+
       expect(mockPartsService.getAllParts).toHaveBeenCalledWith(1, 20)
     })
 
@@ -130,14 +130,16 @@ describe('PartsPage', () => {
         data: [],
         total_parts: 0,
         page: 1,
-        page_size: 20
+        page_size: 20,
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('No Parts Found')).toBeInTheDocument()
-        expect(screen.getByText('Start by adding your first part to the inventory.')).toBeInTheDocument()
+        expect(
+          screen.getByText('Start by adding your first part to the inventory.')
+        ).toBeInTheDocument()
       })
     })
   })
@@ -145,7 +147,7 @@ describe('PartsPage', () => {
   describe('Search Functionality', () => {
     it('renders search input and controls', async () => {
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument()
@@ -156,7 +158,7 @@ describe('PartsPage', () => {
     it('performs search when form is submitted', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
       })
@@ -175,16 +177,16 @@ describe('PartsPage', () => {
     it('shows search suggestions when typing', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
       })
 
       const searchInput = screen.getByPlaceholderText(/search parts/i)
-      
+
       // Type more than 3 characters to trigger suggestions
       await user.type(searchInput, 'Ardu')
-      
+
       await waitFor(() => {
         expect(mockPartsService.getPartSuggestions).toHaveBeenCalledWith('Ardu', 8)
       })
@@ -199,14 +201,14 @@ describe('PartsPage', () => {
     it('handles suggestion clicks', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
       })
 
       const searchInput = screen.getByPlaceholderText(/search parts/i)
       await user.type(searchInput, 'Ardu')
-      
+
       await waitFor(() => {
         expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
       })
@@ -221,7 +223,7 @@ describe('PartsPage', () => {
     it('clears search when clear button is clicked', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
       })
@@ -242,7 +244,7 @@ describe('PartsPage', () => {
     it('shows search status when searching', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
       })
@@ -262,28 +264,28 @@ describe('PartsPage', () => {
   describe('Parts Table', () => {
     it('displays all part information correctly', async () => {
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         // Check part names
         expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
         expect(screen.getByText('Resistor 10K Ohm')).toBeInTheDocument()
-        
+
         // Check part numbers
         expect(screen.getByText('ARD-UNO-R3')).toBeInTheDocument()
         expect(screen.getByText('RES-10K')).toBeInTheDocument()
-        
+
         // Check quantities
         expect(screen.getByText('10')).toBeInTheDocument()
         expect(screen.getByText('100')).toBeInTheDocument()
-        
+
         // Check locations
         expect(screen.getByText('Shelf A1')).toBeInTheDocument()
         expect(screen.getByText('Drawer B2')).toBeInTheDocument()
-        
+
         // Check categories
         expect(screen.getByText('Microcontrollers')).toBeInTheDocument()
         expect(screen.getByText('Resistors')).toBeInTheDocument()
-        
+
         // Check suppliers
         expect(screen.getByText('Arduino')).toBeInTheDocument()
         expect(screen.getByText('Vishay')).toBeInTheDocument()
@@ -294,18 +296,18 @@ describe('PartsPage', () => {
       const lowQuantityPart = {
         ...mockParts[0],
         quantity: 3,
-        minimum_quantity: 5
+        minimum_quantity: 5,
       }
-      
+
       mockPartsService.getAllParts.mockResolvedValue({
         data: [lowQuantityPart],
         total_parts: 1,
         page: 1,
-        page_size: 20
+        page_size: 20,
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         const quantityCell = screen.getByText('3')
         expect(quantityCell).toHaveClass('text-red-400')
@@ -315,7 +317,7 @@ describe('PartsPage', () => {
     it('navigates to part details when view button is clicked', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getAllByText('View')).toHaveLength(2)
       })
@@ -328,7 +330,7 @@ describe('PartsPage', () => {
 
     it('displays part images correctly', async () => {
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         const images = screen.getAllByTestId('part-image')
         expect(images).toHaveLength(2)
@@ -342,11 +344,11 @@ describe('PartsPage', () => {
         data: mockParts,
         total_parts: 50,
         page: 1,
-        page_size: 20
+        page_size: 20,
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Showing 1 to 20 of 50 parts')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled()
@@ -360,11 +362,11 @@ describe('PartsPage', () => {
         data: mockParts,
         total_parts: 50,
         page: 1,
-        page_size: 20
+        page_size: 20,
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument()
       })
@@ -383,11 +385,11 @@ describe('PartsPage', () => {
         data: mockParts,
         total_parts: 100,
         page: 1,
-        page_size: 20
+        page_size: 20,
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('3')).toBeInTheDocument()
       })
@@ -405,7 +407,7 @@ describe('PartsPage', () => {
     it('opens add part modal when add button is clicked', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       const addButton = screen.getByRole('button', { name: /add part/i })
       await user.click(addButton)
 
@@ -415,7 +417,7 @@ describe('PartsPage', () => {
     it('reloads parts list when part is added successfully', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       const addButton = screen.getByRole('button', { name: /add part/i })
       await user.click(addButton)
 
@@ -433,11 +435,11 @@ describe('PartsPage', () => {
     it('displays error message when parts loading fails', async () => {
       const errorMessage = 'Failed to load parts'
       mockPartsService.getAllParts.mockRejectedValue({
-        response: { data: { error: errorMessage } }
+        response: { data: { error: errorMessage } },
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText(errorMessage)).toBeInTheDocument()
       })
@@ -447,11 +449,11 @@ describe('PartsPage', () => {
       const user = userEvent.setup()
       const errorMessage = 'Failed to load parts'
       mockPartsService.getAllParts.mockRejectedValue({
-        response: { data: { error: errorMessage } }
+        response: { data: { error: errorMessage } },
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText(errorMessage)).toBeInTheDocument()
       })
@@ -465,11 +467,11 @@ describe('PartsPage', () => {
     it('handles search errors gracefully', async () => {
       const user = userEvent.setup()
       mockPartsService.searchPartsText.mockRejectedValue({
-        response: { data: { error: 'Search failed' } }
+        response: { data: { error: 'Search failed' } },
       })
 
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
       })
@@ -490,14 +492,14 @@ describe('PartsPage', () => {
     it('handles keyboard navigation in search suggestions', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search parts/i)).toBeInTheDocument()
       })
 
       const searchInput = screen.getByPlaceholderText(/search parts/i)
       await user.type(searchInput, 'Ardu')
-      
+
       await waitFor(() => {
         expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
       })
@@ -514,10 +516,10 @@ describe('PartsPage', () => {
     it('closes suggestions on escape key', async () => {
       const user = userEvent.setup()
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       const searchInput = screen.getByPlaceholderText(/search parts/i)
       await user.type(searchInput, 'Ardu')
-      
+
       await waitFor(() => {
         expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
       })
@@ -533,7 +535,7 @@ describe('PartsPage', () => {
   describe('Accessibility', () => {
     it('has proper ARIA labels and roles', async () => {
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /add part/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument()
@@ -543,11 +545,11 @@ describe('PartsPage', () => {
 
     it('supports screen reader navigation', async () => {
       render(<PartsPage />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         const table = screen.getByRole('table')
         expect(table).toBeInTheDocument()
-        
+
         const columnHeaders = screen.getAllByRole('columnheader')
         expect(columnHeaders).toHaveLength(8) // Image, Name, Part Number, Quantity, Location, Categories, Supplier, Actions
       })

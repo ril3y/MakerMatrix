@@ -14,7 +14,7 @@ const toastMock = vi.hoisted(() => {
 })
 
 vi.mock('react-hot-toast', () => ({
-  default: toastMock
+  default: toastMock,
 }))
 
 vi.mock('@/contexts/ThemeContext')
@@ -28,27 +28,28 @@ vi.mock('@/services/settings.service', () => ({
     getAvailableModels: vi.fn(),
     getBackupStatus: vi.fn(),
     getAvailablePrinters: vi.fn(),
-  }
+  },
 }))
 
 vi.mock('@/components/ui/ThemeSelector', () => ({
-  default: () => <div data-testid="theme-selector">Theme Selector Component</div>
+  default: () => <div data-testid="theme-selector">Theme Selector Component</div>,
 }))
 
 vi.mock('@/components/import/ImportSelector', () => ({
-  default: () => <div data-testid="import-selector">Import Selector</div>
+  default: () => <div data-testid="import-selector">Import Selector</div>,
 }))
 
 vi.mock('@/components/tasks/TasksManagement', () => ({
-  default: () => <div data-testid="tasks-management">Tasks Management</div>
+  default: () => <div data-testid="tasks-management">Tasks Management</div>,
 }))
 
 vi.mock('@/pages/suppliers/SupplierConfigPage', () => ({
-  SupplierConfigPage: () => <div data-testid="supplier-config">Supplier Config</div>
+  SupplierConfigPage: () => <div data-testid="supplier-config">Supplier Config</div>,
 }))
 
 vi.mock('@/components/printer/DynamicPrinterModal', () => ({
-  default: ({ isOpen }: any) => (isOpen ? <div data-testid="printer-modal">Printer Modal</div> : null)
+  default: ({ isOpen }: any) =>
+    isOpen ? <div data-testid="printer-modal">Printer Modal</div> : null,
 }))
 
 const settingsServiceMock = settingsService as unknown as {
@@ -143,7 +144,10 @@ describe('SettingsPage - AI Helper Tab', () => {
     await openAiTab()
 
     await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith('Model llama3 missing locally', expect.objectContaining({ icon: '⚠️' }))
+      expect(toastMock).toHaveBeenCalledWith(
+        'Model llama3 missing locally',
+        expect.objectContaining({ icon: '⚠️' })
+      )
     })
   })
 
@@ -179,7 +183,10 @@ describe('SettingsPage - AI Helper Tab', () => {
     await user.click(testButton)
 
     await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith('Model unavailable', expect.objectContaining({ icon: '⚠️' }))
+      expect(toastMock).toHaveBeenCalledWith(
+        'Model unavailable',
+        expect.objectContaining({ icon: '⚠️' })
+      )
     })
   })
 

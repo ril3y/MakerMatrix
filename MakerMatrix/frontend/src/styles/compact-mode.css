@@ -6,19 +6,33 @@
   --spacing-lg: 0.75rem;
   --spacing-xl: 1rem;
   --spacing-2xl: 1.5rem;
-  
+
   /* Smaller font sizes */
   font-size: 0.875rem;
 }
 
 /* Global font size reductions */
-.compact-mode h1 { @apply text-lg font-semibold; }
-.compact-mode h2 { @apply text-base font-semibold; }
-.compact-mode h3 { @apply text-sm font-semibold; }
-.compact-mode h4 { @apply text-xs font-semibold; }
-.compact-mode p { @apply text-xs; }
-.compact-mode span { @apply text-xs; }
-.compact-mode div { @apply text-xs; }
+.compact-mode h1 {
+  @apply text-lg font-semibold;
+}
+.compact-mode h2 {
+  @apply text-base font-semibold;
+}
+.compact-mode h3 {
+  @apply text-sm font-semibold;
+}
+.compact-mode h4 {
+  @apply text-xs font-semibold;
+}
+.compact-mode p {
+  @apply text-xs;
+}
+.compact-mode span {
+  @apply text-xs;
+}
+.compact-mode div {
+  @apply text-xs;
+}
 
 /* Button compact styles */
 .compact-mode .btn {
@@ -233,7 +247,7 @@
   .compact-mode .btn {
     @apply px-1.5 py-0.5 text-xs;
   }
-  
+
   .compact-mode .card {
     @apply p-2;
   }

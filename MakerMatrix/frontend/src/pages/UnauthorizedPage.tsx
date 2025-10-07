@@ -16,16 +16,14 @@ const UnauthorizedPage = () => {
         <motion.div
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
-          transition={{ duration: 0.5, type: "spring" }}
+          transition={{ duration: 0.5, type: 'spring' }}
           className="inline-flex items-center justify-center w-24 h-24 bg-destructive/10 rounded-full mb-6"
         >
           <ShieldOff className="w-12 h-12 text-destructive" />
         </motion.div>
 
-        <h1 className="text-4xl font-bold text-primary mb-4">
-          403 - Access Denied
-        </h1>
-        
+        <h1 className="text-4xl font-bold text-primary mb-4">403 - Access Denied</h1>
+
         <p className="text-lg text-secondary mb-8">
           You don't have permission to access this resource in the Battle With Bytes system.
         </p>
@@ -39,8 +37,8 @@ const UnauthorizedPage = () => {
           <div className="flex items-center justify-center gap-3 text-secondary">
             <Lock className="w-5 h-5" />
             <p className="text-sm">
-              This area requires elevated permissions. Please contact your system administrator
-              if you believe you should have access.
+              This area requires elevated permissions. Please contact your system administrator if
+              you believe you should have access.
             </p>
           </div>
         </motion.div>
@@ -53,10 +51,7 @@ const UnauthorizedPage = () => {
             <ArrowLeft className="w-4 h-4" />
             Go Back
           </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="btn btn-primary"
-          >
+          <button onClick={() => navigate('/dashboard')} className="btn btn-primary">
             Return to Dashboard
           </button>
         </div>
@@ -69,7 +64,8 @@ const UnauthorizedPage = () => {
         >
           <p>Error Code: BWB-403</p>
           <p className="mt-1">
-            If you continue to experience issues, please reference this code when contacting support.
+            If you continue to experience issues, please reference this code when contacting
+            support.
           </p>
         </motion.div>
       </motion.div>

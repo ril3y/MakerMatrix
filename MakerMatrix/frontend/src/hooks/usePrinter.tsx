@@ -43,7 +43,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       setLoading(true)
       const printers = await settingsService.getAvailablePrinters()
       setAvailablePrinters(printers || [])
-      
+
       // Auto-select first printer if available
       if (printers?.length > 0 && !selectedPrinter) {
         setSelectedPrinter(printers[0].printer_id)
@@ -63,10 +63,11 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
     try {
       const info = await settingsService.getPrinterInfo(printerId)
       setPrinterInfo(info)
-      
+
       // Set default label size if supported
       if (info.supported_sizes?.length > 0) {
-        const defaultSize = info.supported_sizes.find((s: any) => s.name === '12mm') || info.supported_sizes[0]
+        const defaultSize =
+          info.supported_sizes.find((s: any) => s.name === '12mm') || info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
     } catch (error) {
@@ -76,10 +77,13 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
   }, [])
 
   // Handle printer selection change
-  const handlePrinterChange = useCallback(async (printerId: string) => {
-    setSelectedPrinter(printerId)
-    await loadPrinterInfo(printerId)
-  }, [loadPrinterInfo])
+  const handlePrinterChange = useCallback(
+    async (printerId: string) => {
+      setSelectedPrinter(printerId)
+      await loadPrinterInfo(printerId)
+    },
+    [loadPrinterInfo]
+  )
 
   // Process label template with data
   const processLabelTemplate = useCallback((template: string, data: PartData) => {
@@ -92,7 +96,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       location: data.location || '',
       category: data.category || '',
       quantity: data.quantity || '',
-      description: data.description || ''
+      description: data.description || '',
     }
 
     for (const [key, value] of Object.entries(standardReplacements)) {
@@ -109,11 +113,10 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
     // Handle QR codes
     const qrMatches = processed.match(/\{qr=([^}]+)\}/g)
     if (qrMatches) {
-      qrMatches.forEach(match => {
+      qrMatches.forEach((match) => {
         const qrDataKey = match.replace(/\{qr=([^}]+)\}/, '$1')
-        const qrValue = data[qrDataKey as keyof PartData] || 
-                       data.additional_properties?.[qrDataKey] || 
-                       qrDataKey
+        const qrValue =
+          data[qrDataKey as keyof PartData] || data.additional_properties?.[qrDataKey] || qrDataKey
         processed = processed.replace(match, `[QR:${qrValue}]`)
       })
     }
@@ -131,20 +134,20 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
         category: 'Electronics',
         quantity: '10',
         description: 'Test part description',
-        additional_properties: {}
+        additional_properties: {},
       }
 
       const requestData = {
         template: labelTemplate,
-        text: "",
+        text: '',
         label_size: selectedLabelSize,
         label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
         options: {
           fit_to_label: fitToLabel,
           include_qr: includeQR,
-          qr_data: includeQR ? qrData : undefined
+          qr_data: includeQR ? qrData : undefined,
         },
-        data
+        data,
       }
 
       const blob = await settingsService.previewAdvancedLabel(requestData)
@@ -170,30 +173,30 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
         category: 'Electronics',
         quantity: '10',
         description: 'Test part description',
-        additional_properties: {}
+        additional_properties: {},
       }
 
       const requestData = {
         printer_id: selectedPrinter,
         template: labelTemplate,
-        text: "",
+        text: '',
         label_size: selectedLabelSize,
         label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
         options: {
           fit_to_label: fitToLabel,
           include_qr: includeQR,
-          qr_data: includeQR ? qrData : undefined
+          qr_data: includeQR ? qrData : undefined,
         },
-        data
+        data,
       }
 
       const result = await settingsService.printAdvancedLabel(requestData)
-      
+
       // Handle API response format: { status, message, data: { success, error, ... } }
       const printData = result.data || result
       const success = printData.success || result.status === 'success'
       const errorMessage = printData.error || printData.message || result.message
-      
+
       if (success) {
         toast.success('✅ Label printed successfully!')
         onPrintSuccess?.()
@@ -206,7 +209,17 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       toast.error('Failed to print label')
       return false
     }
-  }, [selectedPrinter, labelTemplate, selectedLabelSize, labelLength, fitToLabel, includeQR, qrData, partData, onPrintSuccess])
+  }, [
+    selectedPrinter,
+    labelTemplate,
+    selectedLabelSize,
+    labelLength,
+    fitToLabel,
+    includeQR,
+    qrData,
+    partData,
+    onPrintSuccess,
+  ])
 
   // Test printer connection
   const testConnection = useCallback(async () => {
@@ -217,11 +230,12 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
 
     try {
       const result = await settingsService.testPrinterConnection(selectedPrinter)
-      
+
       // Check both the data.success field and top-level status
       const isSuccess = result.data?.success || result.status === 'success'
-      const errorMessage = result.data?.error || result.data?.message || result.message || 'Unknown error'
-      
+      const errorMessage =
+        result.data?.error || result.data?.message || result.message || 'Unknown error'
+
       if (isSuccess) {
         toast.success('✅ Printer connection successful!')
         return true
@@ -277,6 +291,6 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
     processLabelTemplate,
     generatePreview,
     printLabel,
-    testConnection
+    testConnection,
   }
 }

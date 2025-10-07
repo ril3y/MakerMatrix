@@ -9,34 +9,34 @@
  */
 export function normalizeImageUrl(imageUrl: string | null | undefined): string | null {
   if (!imageUrl || imageUrl.trim() === '') {
-    return null;
+    return null
   }
 
-  const url = imageUrl.trim();
-  
+  const url = imageUrl.trim()
+
   // Already normalized URLs (new format)
   if (url.startsWith('/utility/get_image/')) {
-    return url;
+    return url
   }
-  
+
   // Handle API prefixed URLs (keep the /api prefix)
   if (url.startsWith('/api/utility/get_image/')) {
-    return url;
+    return url
   }
-  
+
   // Legacy static URLs (backward compatibility)
   if (url.startsWith('/static/images/')) {
-    return url;
+    return url
   }
-  
+
   // External URLs (keep as-is)
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
+    return url
   }
-  
+
   // Invalid or malformed URLs
-  console.warn(`Invalid image URL format: ${url}`);
-  return null;
+  console.warn(`Invalid image URL format: ${url}`)
+  return null
 }
 
 /**
@@ -45,7 +45,7 @@ export function normalizeImageUrl(imageUrl: string | null | undefined): string |
  * @returns True if using new format, false otherwise
  */
 export function isNewImageFormat(imageUrl: string | null | undefined): boolean {
-  return imageUrl?.startsWith('/utility/get_image/') ?? false;
+  return imageUrl?.startsWith('/utility/get_image/') ?? false
 }
 
 /**
@@ -54,7 +54,7 @@ export function isNewImageFormat(imageUrl: string | null | undefined): boolean {
  * @returns True if using legacy format, false otherwise
  */
 export function isLegacyImageFormat(imageUrl: string | null | undefined): boolean {
-  return imageUrl?.startsWith('/static/images/') ?? false;
+  return imageUrl?.startsWith('/static/images/') ?? false
 }
 
 /**
@@ -63,5 +63,5 @@ export function isLegacyImageFormat(imageUrl: string | null | undefined): boolea
  */
 export function getFallbackImageUrl(): string | null {
   // Could return a default placeholder image URL here if needed
-  return null;
+  return null
 }

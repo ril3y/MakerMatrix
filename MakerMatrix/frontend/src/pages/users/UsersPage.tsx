@@ -1,5 +1,16 @@
 import { motion } from 'framer-motion'
-import { Users, Plus, Search, Filter, UserCheck, UserX, Shield, Edit, Trash2, MoreVertical } from 'lucide-react'
+import {
+  Users,
+  Plus,
+  Search,
+  Filter,
+  UserCheck,
+  UserX,
+  Shield,
+  Edit,
+  Trash2,
+  MoreVertical,
+} from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { usersService } from '@/services/users.service'
 import { User, UserStats, Role } from '@/types/users'
@@ -27,7 +38,7 @@ const UsersPage = () => {
       const [usersData, rolesData, statsData] = await Promise.all([
         usersService.getAllUsers(),
         usersService.getAllRoles(),
-        usersService.getUserStats()
+        usersService.getUserStats(),
       ])
       setUsers(usersData)
       setRoles(rolesData)
@@ -40,14 +51,15 @@ const UsersPage = () => {
     }
   }
 
-  const filteredUsers = users.filter(user =>
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter(
+    (user) =>
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return
-    
+
     try {
       await usersService.deleteUser(userId)
       toast.success('User deleted successfully')
@@ -93,9 +105,7 @@ const UsersPage = () => {
             <Users className="w-6 h-6" />
             Users
           </h1>
-          <p className="text-secondary mt-1">
-            Manage user accounts and permissions
-          </p>
+          <p className="text-secondary mt-1">Manage user accounts and permissions</p>
         </div>
         <PermissionGuard permission="users:create">
           <button
@@ -188,7 +198,7 @@ const UsersPage = () => {
         <div className="p-4 border-b border-border">
           <h3 className="text-lg font-semibold text-primary">Users</h3>
         </div>
-        
+
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -214,7 +224,10 @@ const UsersPage = () => {
               </thead>
               <tbody>
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-border hover:bg-background-secondary/50">
+                  <tr
+                    key={user.id}
+                    className="border-b border-border hover:bg-background-secondary/50"
+                  >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-primary-20 rounded-full flex items-center justify-center">
@@ -229,7 +242,7 @@ const UsersPage = () => {
                     <td className="py-3 px-4">
                       <div className="flex flex-wrap gap-1">
                         {user.roles.map((role) => (
-                          <span 
+                          <span
                             key={role.id}
                             className="inline-block px-2 py-1 text-xs rounded-full bg-primary-20 text-primary"
                           >
@@ -239,11 +252,11 @@ const UsersPage = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
-                        user.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
+                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}
+                      >
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>

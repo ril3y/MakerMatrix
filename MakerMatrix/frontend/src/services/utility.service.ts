@@ -9,11 +9,15 @@ class UtilityService {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await apiClient.post<ApiResponse<ImageUploadResponse>>('/api/utility/upload_image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await apiClient.post<ApiResponse<ImageUploadResponse>>(
+      '/api/utility/upload_image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    )
 
     console.log('🔍 Upload response:', response)
     console.log('📊 Response status:', response.status)

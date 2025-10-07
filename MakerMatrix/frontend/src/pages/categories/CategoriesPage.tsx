@@ -50,7 +50,9 @@ const CategoriesPage = () => {
   }
 
   const handleDelete = async (category: Category) => {
-    if (!confirm(`Are you sure you want to delete "${category.name}"? This action cannot be undone.`)) {
+    if (
+      !confirm(`Are you sure you want to delete "${category.name}"? This action cannot be undone.`)
+    ) {
       return
     }
 
@@ -68,11 +70,11 @@ const CategoriesPage = () => {
   const stats = {
     total: categories.length,
     active: categories.length, // All categories are active for now
-    mostUsed: categories.length > 0 ? categories[0].name : '-'
+    mostUsed: categories.length > 0 ? categories[0].name : '-',
   }
 
   // Get existing category names for validation (memoized to prevent unnecessary re-renders)
-  const existingCategories = useMemo(() => categories.map(cat => cat.name), [categories])
+  const existingCategories = useMemo(() => categories.map((cat) => cat.name), [categories])
 
   return (
     <div className="max-w-screen-2xl space-y-6">
@@ -87,11 +89,9 @@ const CategoriesPage = () => {
             <Tag className="w-6 h-6" />
             Categories
           </h1>
-          <p className="text-secondary mt-1">
-            Organize parts with categories and tags
-          </p>
+          <p className="text-secondary mt-1">Organize parts with categories and tags</p>
         </div>
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           className="btn btn-primary flex items-center gap-2"
         >
@@ -214,7 +214,9 @@ const CategoriesPage = () => {
             {searchTerm ? 'No categories found' : 'No categories yet'}
           </h3>
           <p className="text-secondary">
-            {searchTerm ? 'Try adjusting your search terms' : 'Click "Add Category" to create your first category'}
+            {searchTerm
+              ? 'Try adjusting your search terms'
+              : 'Click "Add Category" to create your first category'}
           </p>
         </motion.div>
       ) : (
@@ -236,16 +238,17 @@ const CategoriesPage = () => {
               </thead>
               <tbody>
                 {sortedCategories.map((category) => (
-                  <tr key={category.id} className="border-b border-border hover:bg-background-secondary transition-colors">
+                  <tr
+                    key={category.id}
+                    className="border-b border-border hover:bg-background-secondary transition-colors"
+                  >
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Tag className="w-4 h-4 text-primary" />
                         <span className="font-medium text-primary">{category.name}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-secondary">
-                      {category.description || '-'}
-                    </td>
+                    <td className="p-4 text-secondary">{category.description || '-'}</td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Package className="w-4 h-4 text-muted" />
@@ -296,7 +299,7 @@ const CategoriesPage = () => {
           }}
           onSuccess={handleCategoryUpdated}
           category={editingCategory}
-          existingCategories={existingCategories.filter(name => name !== editingCategory.name)}
+          existingCategories={existingCategories.filter((name) => name !== editingCategory.name)}
         />
       )}
     </div>

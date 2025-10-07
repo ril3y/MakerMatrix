@@ -19,27 +19,33 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
   onClose,
   onSuccess,
   category,
-  existingCategories
+  existingCategories,
 }) => {
-  const initialData: UpdateCategoryRequest = useMemo(() => ({
-    id: category.id,
-    name: category.name,
-    description: category.description || ''
-  }), [category.id, category.name, category.description])
+  const initialData: UpdateCategoryRequest = useMemo(
+    () => ({
+      id: category.id,
+      name: category.name,
+      description: category.description || '',
+    }),
+    [category.id, category.name, category.description]
+  )
 
   const validate = (data: UpdateCategoryRequest): Record<string, string> => {
     const errors: Record<string, string> = {}
-    
+
     const validation = categoriesService.validateCategoryName(data.name)
     if (!validation.valid) {
       errors.name = validation.error!
     }
 
     // Check for duplicate names (excluding current category)
-    if (existingCategories.some(cat => 
-      cat.toLowerCase() === data.name.toLowerCase() && 
-      cat.toLowerCase() !== category.name.toLowerCase()
-    )) {
+    if (
+      existingCategories.some(
+        (cat) =>
+          cat.toLowerCase() === data.name.toLowerCase() &&
+          cat.toLowerCase() !== category.name.toLowerCase()
+      )
+    ) {
       errors.name = 'A category with this name already exists'
     }
 
@@ -57,12 +63,12 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
     loading,
     handleSubmit: onSubmit,
     handleClose,
-    updateField
+    updateField,
   } = useModalForm({
     initialData,
     validate,
     onSubmit: handleSubmit,
-    successMessage: 'Category updated successfully'
+    successMessage: 'Category updated successfully',
   })
 
   return (
@@ -78,11 +84,7 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
       className="min-h-[400px]"
     >
       <div className="space-y-6 pb-6">
-        <FormField
-          label="Category Name"
-          required
-          error={errors.name}
-        >
+        <FormField label="Category Name" required error={errors.name}>
           <input
             type="text"
             value={formData.name}

@@ -1,5 +1,25 @@
 import { motion } from 'framer-motion'
-import { Settings, Shield, Database, Printer, Palette, Globe, Bot, Save, TestTube, RefreshCw, Upload as ImportIcon, Activity, Plus, X, Monitor, Sun, Moon, AlertTriangle, FileText } from 'lucide-react'
+import {
+  Settings,
+  Shield,
+  Database,
+  Printer,
+  Palette,
+  Globe,
+  Bot,
+  Save,
+  TestTube,
+  RefreshCw,
+  Upload as ImportIcon,
+  Activity,
+  Plus,
+  X,
+  Monitor,
+  Sun,
+  Moon,
+  AlertTriangle,
+  FileText,
+} from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { CustomSelect } from '@/components/ui/CustomSelect'
@@ -17,7 +37,8 @@ import ApiKeyManagement from '@/components/settings/ApiKeyManagement'
 import { usePermissions } from '@/hooks/usePermissions'
 
 const SettingsPage = () => {
-  const { isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode } = useTheme()
+  const { isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode } =
+    useTheme()
   const { isAdmin } = usePermissions()
   const isDebugMode = import.meta.env.VITE_DEBUG === 'true'
   const [searchParams] = useSearchParams()
@@ -47,7 +68,7 @@ const SettingsPage = () => {
       setLoading(true)
       const config = await settingsService.getAIConfig()
       setAiConfig(config)
-      
+
       // Load models for the current provider
       if (config.provider && config.enabled) {
         await loadAvailableModels(config)
@@ -91,11 +112,11 @@ const SettingsPage = () => {
 
   const handleProviderChange = async (newProvider: string) => {
     if (!aiConfig) return
-    
-    setAiConfig({...aiConfig, provider: newProvider})
-    
+
+    setAiConfig({ ...aiConfig, provider: newProvider })
+
     // Load models for the new provider
-    const tempConfig = {...aiConfig, provider: newProvider}
+    const tempConfig = { ...aiConfig, provider: newProvider }
     setAiConfig(tempConfig)
     await loadAvailableModels(tempConfig)
   }
@@ -112,7 +133,6 @@ const SettingsPage = () => {
       setLoading(false)
     }
   }
-
 
   const handlePrinterModalSuccess = async () => {
     await loadPrinters()
@@ -196,21 +216,23 @@ const SettingsPage = () => {
             { id: 'templates', label: 'Label Templates', icon: FileText, adminOnly: true },
             { id: 'database', label: 'Database', icon: Database, adminOnly: true },
             { id: 'appearance', label: 'Appearance', icon: Palette, adminOnly: false },
-            { id: 'security', label: 'Security', icon: Shield, adminOnly: false }
-          ].filter(tab => !tab.adminOnly || isAdmin()).map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors font-medium ${
-                activeTab === tab.id
-                  ? 'bg-primary-20 text-primary border border-primary shadow-lg font-semibold'
-                  : 'text-secondary hover:text-primary hover:bg-background-secondary border border-border bg-background-primary'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
+            { id: 'security', label: 'Security', icon: Shield, adminOnly: false },
+          ]
+            .filter((tab) => !tab.adminOnly || isAdmin())
+            .map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors font-medium ${
+                  activeTab === tab.id
+                    ? 'bg-primary-20 text-primary border border-primary shadow-lg font-semibold'
+                    : 'text-secondary hover:text-primary hover:bg-background-secondary border border-border bg-background-primary'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
         </div>
       </motion.div>
 
@@ -249,7 +271,7 @@ const SettingsPage = () => {
                 </label>
               </div>
             </div>
-            
+
             <div className="border-t border-border pt-6">
               <h4 className="text-md font-medium text-primary mb-4">Language & Region</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -325,10 +347,7 @@ const SettingsPage = () => {
                   <TestTube className="w-4 h-4" />
                   Test Connection
                 </button>
-                <button
-                  onClick={saveAIConfig}
-                  className="btn btn-primary flex items-center gap-2"
-                >
+                <button onClick={saveAIConfig} className="btn btn-primary flex items-center gap-2">
                   <Save className="w-4 h-4" />
                   Save
                 </button>
@@ -343,25 +362,21 @@ const SettingsPage = () => {
             ) : aiConfig ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-2">
-                    Enabled
-                  </label>
+                  <label className="block text-sm font-medium text-primary mb-2">Enabled</label>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="sr-only peer"
                       checked={aiConfig.enabled}
-                      onChange={(e) => setAiConfig({...aiConfig, enabled: e.target.checked})}
+                      onChange={(e) => setAiConfig({ ...aiConfig, enabled: e.target.checked })}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-2">
-                    Provider
-                  </label>
-                  <select 
+                  <label className="block text-sm font-medium text-primary mb-2">Provider</label>
+                  <select
                     className="input w-full"
                     value={aiConfig.provider}
                     onChange={(e) => handleProviderChange(e.target.value)}
@@ -373,34 +388,29 @@ const SettingsPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-2">
-                    API URL
-                  </label>
+                  <label className="block text-sm font-medium text-primary mb-2">API URL</label>
                   <input
                     type="url"
                     className="input w-full"
                     value={aiConfig.api_url}
-                    onChange={(e) => setAiConfig({...aiConfig, api_url: e.target.value})}
+                    onChange={(e) => setAiConfig({ ...aiConfig, api_url: e.target.value })}
                   />
                 </div>
 
                 {(aiConfig.provider === 'openai' || aiConfig.provider === 'anthropic') && (
                   <div>
-                    <label className="block text-sm font-medium text-primary mb-2">
-                      API Key
-                    </label>
+                    <label className="block text-sm font-medium text-primary mb-2">API Key</label>
                     <input
                       type="password"
                       className="input w-full"
                       value={aiConfig.api_key || ''}
-                      onChange={(e) => setAiConfig({...aiConfig, api_key: e.target.value})}
+                      onChange={(e) => setAiConfig({ ...aiConfig, api_key: e.target.value })}
                       placeholder={`Enter your ${aiConfig.provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key`}
                     />
                     <p className="text-xs text-secondary mt-1">
-                      {aiConfig.provider === 'openai' 
-                        ? 'Get your API key from platform.openai.com' 
-                        : 'Get your API key from console.anthropic.com'
-                      }
+                      {aiConfig.provider === 'openai'
+                        ? 'Get your API key from platform.openai.com'
+                        : 'Get your API key from console.anthropic.com'}
                     </p>
                   </div>
                 )}
@@ -416,7 +426,7 @@ const SettingsPage = () => {
                     <select
                       className="input w-full"
                       value={aiConfig.model_name}
-                      onChange={(e) => setAiConfig({...aiConfig, model_name: e.target.value})}
+                      onChange={(e) => setAiConfig({ ...aiConfig, model_name: e.target.value })}
                       disabled={loadingModels}
                     >
                       <option value="">Select a model...</option>
@@ -431,7 +441,7 @@ const SettingsPage = () => {
                     <select
                       className="input w-full"
                       value={aiConfig.model_name}
-                      onChange={(e) => setAiConfig({...aiConfig, model_name: e.target.value})}
+                      onChange={(e) => setAiConfig({ ...aiConfig, model_name: e.target.value })}
                     >
                       <option value="">Select a model...</option>
                       {availableModels.map((model) => (
@@ -445,7 +455,7 @@ const SettingsPage = () => {
                     <select
                       className="input w-full"
                       value={aiConfig.model_name}
-                      onChange={(e) => setAiConfig({...aiConfig, model_name: e.target.value})}
+                      onChange={(e) => setAiConfig({ ...aiConfig, model_name: e.target.value })}
                     >
                       <option value="">Select a model...</option>
                       {availableModels.map((model) => (
@@ -460,15 +470,17 @@ const SettingsPage = () => {
                       type="text"
                       className="input w-full"
                       value={aiConfig.model_name}
-                      onChange={(e) => setAiConfig({...aiConfig, model_name: e.target.value})}
+                      onChange={(e) => setAiConfig({ ...aiConfig, model_name: e.target.value })}
                       placeholder="Enter model name manually"
                     />
                   )}
-                  {aiConfig.provider === 'ollama' && availableModels.length === 0 && !loadingModels && (
-                    <p className="text-xs text-secondary mt-1">
-                      No models found. Make sure Ollama is running and has models installed.
-                    </p>
-                  )}
+                  {aiConfig.provider === 'ollama' &&
+                    availableModels.length === 0 &&
+                    !loadingModels && (
+                      <p className="text-xs text-secondary mt-1">
+                        No models found. Make sure Ollama is running and has models installed.
+                      </p>
+                    )}
                 </div>
 
                 <div>
@@ -482,19 +494,21 @@ const SettingsPage = () => {
                     step="0.1"
                     className="w-full"
                     value={aiConfig.temperature}
-                    onChange={(e) => setAiConfig({...aiConfig, temperature: parseFloat(e.target.value)})}
+                    onChange={(e) =>
+                      setAiConfig({ ...aiConfig, temperature: parseFloat(e.target.value) })
+                    }
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-primary mb-2">
-                    Max Tokens
-                  </label>
+                  <label className="block text-sm font-medium text-primary mb-2">Max Tokens</label>
                   <input
                     type="number"
                     className="input w-full"
                     value={aiConfig.max_tokens}
-                    onChange={(e) => setAiConfig({...aiConfig, max_tokens: parseInt(e.target.value)})}
+                    onChange={(e) =>
+                      setAiConfig({ ...aiConfig, max_tokens: parseInt(e.target.value) })
+                    }
                   />
                 </div>
 
@@ -505,7 +519,7 @@ const SettingsPage = () => {
                   <textarea
                     className="input w-full h-32 resize-none"
                     value={aiConfig.system_prompt}
-                    onChange={(e) => setAiConfig({...aiConfig, system_prompt: e.target.value})}
+                    onChange={(e) => setAiConfig({ ...aiConfig, system_prompt: e.target.value })}
                   />
                 </div>
               </div>
@@ -520,7 +534,7 @@ const SettingsPage = () => {
 
         {activeTab === 'import' && (
           <div className="space-y-6">
-            <ImportSelector 
+            <ImportSelector
               onImportComplete={(result) => {
                 toast.success(`Import completed: ${result.success_parts.length} parts added`)
                 if (result.failed_parts.length > 0) {
@@ -531,13 +545,9 @@ const SettingsPage = () => {
           </div>
         )}
 
-        {activeTab === 'tasks' && (
-          <TasksManagement />
-        )}
+        {activeTab === 'tasks' && <TasksManagement />}
 
-        {activeTab === 'suppliers' && (
-          <SupplierConfigPage />
-        )}
+        {activeTab === 'suppliers' && <SupplierConfigPage />}
 
         {activeTab === 'database' && (
           <div className="space-y-6">
@@ -553,11 +563,15 @@ const SettingsPage = () => {
                   <p className="text-sm text-secondary">Total Records</p>
                 </div>
                 <div className="text-center p-4 bg-background-secondary rounded-lg">
-                  <p className="text-2xl font-bold text-primary">{(backupStatus.database_size / 1024 / 1024).toFixed(2)} MB</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {(backupStatus.database_size / 1024 / 1024).toFixed(2)} MB
+                  </p>
                   <p className="text-sm text-secondary">Database Size</p>
                 </div>
                 <div className="text-center p-4 bg-background-secondary rounded-lg">
-                  <p className="text-2xl font-bold text-primary">{new Date(backupStatus.last_modified).toLocaleDateString()}</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {new Date(backupStatus.last_modified).toLocaleDateString()}
+                  </p>
                   <p className="text-sm text-secondary">Last Modified</p>
                 </div>
               </div>
@@ -577,7 +591,7 @@ const SettingsPage = () => {
                 Export JSON
               </button>
             </div>
-            
+
             <div className="border-t pt-6">
               <h4 className="text-md font-medium text-red-600 mb-4 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4" />
@@ -589,14 +603,18 @@ const SettingsPage = () => {
               <div className="flex gap-4 flex-wrap">
                 <button
                   onClick={async () => {
-                    if (window.confirm('Are you sure you want to clear ALL PARTS? This action cannot be undone!')) {
+                    if (
+                      window.confirm(
+                        'Are you sure you want to clear ALL PARTS? This action cannot be undone!'
+                      )
+                    ) {
                       try {
-                        await settingsService.clearAllParts();
-                        await loadBackupStatus();
-                        alert('All parts have been cleared successfully');
+                        await settingsService.clearAllParts()
+                        await loadBackupStatus()
+                        alert('All parts have been cleared successfully')
                       } catch (error) {
-                        console.error('Error clearing parts:', error);
-                        alert('Failed to clear parts: ' + (error as Error).message);
+                        console.error('Error clearing parts:', error)
+                        alert('Failed to clear parts: ' + (error as Error).message)
                       }
                     }
                   }}
@@ -606,14 +624,18 @@ const SettingsPage = () => {
                 </button>
                 <button
                   onClick={async () => {
-                    if (window.confirm('Are you sure you want to clear ALL SUPPLIERS data? This action cannot be undone!')) {
+                    if (
+                      window.confirm(
+                        'Are you sure you want to clear ALL SUPPLIERS data? This action cannot be undone!'
+                      )
+                    ) {
                       try {
-                        await settingsService.clearAllSuppliers();
-                        await loadBackupStatus();
-                        alert('All supplier data has been cleared successfully');
+                        await settingsService.clearAllSuppliers()
+                        await loadBackupStatus()
+                        alert('All supplier data has been cleared successfully')
                       } catch (error) {
-                        console.error('Error clearing suppliers:', error);
-                        alert('Failed to clear suppliers: ' + (error as Error).message);
+                        console.error('Error clearing suppliers:', error)
+                        alert('Failed to clear suppliers: ' + (error as Error).message)
                       }
                     }
                   }}
@@ -623,14 +645,18 @@ const SettingsPage = () => {
                 </button>
                 <button
                   onClick={async () => {
-                    if (window.confirm('Are you sure you want to clear ALL CATEGORIES? This action cannot be undone!')) {
+                    if (
+                      window.confirm(
+                        'Are you sure you want to clear ALL CATEGORIES? This action cannot be undone!'
+                      )
+                    ) {
                       try {
-                        await settingsService.clearAllCategories();
-                        await loadBackupStatus();
-                        alert('All categories have been cleared successfully');
+                        await settingsService.clearAllCategories()
+                        await loadBackupStatus()
+                        alert('All categories have been cleared successfully')
                       } catch (error) {
-                        console.error('Error clearing categories:', error);
-                        alert('Failed to clear categories: ' + (error as Error).message);
+                        console.error('Error clearing categories:', error)
+                        alert('Failed to clear categories: ' + (error as Error).message)
                       }
                     }
                   }}
@@ -673,7 +699,7 @@ const SettingsPage = () => {
                         backend: 'network',
                         identifier: 'tcp://192.168.1.71:9100',
                         dpi: 300,
-                        scaling_factor: 1.1
+                        scaling_factor: 1.1,
                       })
                       toast.success('Debug printer added!')
                       await loadPrinters()
@@ -713,28 +739,35 @@ const SettingsPage = () => {
                           <h4 className="font-medium text-primary">{printer.name}</h4>
                           <p className="text-sm text-secondary">{printer.model}</p>
                           <div className="flex items-center gap-4 mt-2">
-                            <span className={`inline-block px-2 py-1 rounded text-xs ${
-                              printer.status === 'available' || printer.status === 'ready'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            }`}>
+                            <span
+                              className={`inline-block px-2 py-1 rounded text-xs ${
+                                printer.status === 'available' || printer.status === 'ready'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}
+                            >
                               {printer.status}
                             </span>
-                            <span className="text-xs text-secondary">
-                              ID: {printer.printer_id}
-                            </span>
+                            <span className="text-xs text-secondary">ID: {printer.printer_id}</span>
                           </div>
                         </div>
                         <div className="flex gap-2">
                           <button
                             onClick={async () => {
                               try {
-                                const result = await settingsService.testPrinterConnection(printer.printer_id)
-                                
+                                const result = await settingsService.testPrinterConnection(
+                                  printer.printer_id
+                                )
+
                                 // Check both the data.success field and top-level status
-                                const isSuccess = result.data?.success || result.status === 'success'
-                                const errorMessage = result.data?.error || result.data?.message || result.message || 'Unknown error'
-                                
+                                const isSuccess =
+                                  result.data?.success || result.status === 'success'
+                                const errorMessage =
+                                  result.data?.error ||
+                                  result.data?.message ||
+                                  result.message ||
+                                  'Unknown error'
+
                                 if (isSuccess) {
                                   toast.success('✅ Printer connection successful!')
                                 } else {
@@ -760,7 +793,11 @@ const SettingsPage = () => {
                           </button>
                           <button
                             onClick={async () => {
-                              if (confirm(`Are you sure you want to delete printer "${printer.name}"?`)) {
+                              if (
+                                confirm(
+                                  `Are you sure you want to delete printer "${printer.name}"?`
+                                )
+                              ) {
                                 try {
                                   await settingsService.deletePrinter(printer.printer_id)
                                   toast.success('✅ Printer deleted successfully!')
@@ -784,9 +821,7 @@ const SettingsPage = () => {
             ) : (
               <div className="text-center py-8">
                 <Printer className="w-12 h-12 text-muted mx-auto mb-2" />
-                <h3 className="text-lg font-semibold text-primary mb-2">
-                  No Printers Registered
-                </h3>
+                <h3 className="text-lg font-semibold text-primary mb-2">No Printers Registered</h3>
                 <p className="text-secondary mb-4">
                   Add your Brother QL label printer to start printing labels.
                 </p>
@@ -814,7 +849,6 @@ const SettingsPage = () => {
               existingPrinter={selectedPrinterForEdit}
               onSuccess={handlePrinterModalSuccess}
             />
-
           </div>
         )}
 
@@ -842,12 +876,12 @@ const SettingsPage = () => {
                     <div className="text-sm text-secondary">Follow system</div>
                   </div>
                 </button>
-                
+
                 <button
                   onClick={() => isDarkMode && toggleDarkMode()}
                   className={`flex flex-col items-center gap-3 p-4 rounded-lg border transition-all ${
-                    !isDarkMode 
-                      ? 'border-primary bg-primary-10 text-primary' 
+                    !isDarkMode
+                      ? 'border-primary bg-primary-10 text-primary'
                       : 'border-border hover:border-primary/30 hover:bg-primary/5'
                   }`}
                 >
@@ -857,12 +891,12 @@ const SettingsPage = () => {
                     <div className="text-sm opacity-70">Bright theme</div>
                   </div>
                 </button>
-                
+
                 <button
                   onClick={() => !isDarkMode && toggleDarkMode()}
                   className={`flex flex-col items-center gap-3 p-4 rounded-lg border transition-all ${
-                    isDarkMode 
-                      ? 'border-primary bg-primary-10 text-primary' 
+                    isDarkMode
+                      ? 'border-primary bg-primary-10 text-primary'
                       : 'border-border hover:border-primary/30 hover:bg-primary/5'
                   }`}
                 >
@@ -894,8 +928,8 @@ const SettingsPage = () => {
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     className="sr-only peer"
                     checked={isCompactMode}
                     onChange={toggleCompactMode}
@@ -907,17 +941,12 @@ const SettingsPage = () => {
           </div>
         )}
 
-        {activeTab === 'templates' && (
-          <Templates />
-        )}
+        {activeTab === 'templates' && <Templates />}
 
-        {activeTab === 'security' && (
-          <ApiKeyManagement />
-        )}
+        {activeTab === 'security' && <ApiKeyManagement />}
       </motion.div>
     </div>
   )
 }
 
 export default SettingsPage
-

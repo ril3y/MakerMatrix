@@ -2,7 +2,18 @@ import { WebSocketService, WebSocketMessage } from './websocket.service'
 import { Task, WorkerStatus, TaskStats } from './tasks.service'
 
 export interface TaskWebSocketMessage extends WebSocketMessage {
-  type: 'task_update' | 'task_created' | 'task_deleted' | 'worker_status_update' | 'task_stats_update' | 'ping' | 'pong' | 'error' | 'task_subscription' | 'task_unsubscription' | 'connection_info'
+  type:
+    | 'task_update'
+    | 'task_created'
+    | 'task_deleted'
+    | 'worker_status_update'
+    | 'task_stats_update'
+    | 'ping'
+    | 'pong'
+    | 'error'
+    | 'task_subscription'
+    | 'task_unsubscription'
+    | 'connection_info'
   data: any
 }
 
@@ -97,7 +108,7 @@ export class TaskWebSocketService extends WebSocketService {
       this.sendMessage({
         type: 'subscribe_task',
         task_id: taskId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     }
   }
@@ -108,7 +119,7 @@ export class TaskWebSocketService extends WebSocketService {
       this.sendMessage({
         type: 'unsubscribe_task',
         task_id: taskId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     }
   }
@@ -119,7 +130,7 @@ export class TaskWebSocketService extends WebSocketService {
   getConnectionInfo() {
     this.sendMessage({
       type: 'get_connection_info',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
   }
 
@@ -141,10 +152,13 @@ export const taskWebSocket = new TaskWebSocketService()
 // Auto-connect when module is imported
 if (typeof window !== 'undefined') {
   // Add connection event logging
-  taskWebSocket.connect().then(() => {
-    console.log('✅ Task WebSocket connected successfully')
-  }).catch((error) => {
-    console.error('❌ Task WebSocket connection failed:', error)
-  })
+  taskWebSocket
+    .connect()
+    .then(() => {
+      console.log('✅ Task WebSocket connected successfully')
+    })
+    .catch((error) => {
+      console.error('❌ Task WebSocket connection failed:', error)
+    })
   taskWebSocket.startHeartbeat()
 }

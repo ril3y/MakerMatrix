@@ -13,49 +13,51 @@ interface PartImageProps {
 
 const sizeClasses = {
   sm: 'w-8 h-8',
-  md: 'w-12 h-12', 
+  md: 'w-12 h-12',
   lg: 'w-24 h-24',
-  xl: 'w-48 h-48'
+  xl: 'w-48 h-48',
 }
 
-const PartImage: React.FC<PartImageProps> = ({ 
-  imageUrl, 
-  partName, 
-  className = '', 
+const PartImage: React.FC<PartImageProps> = ({
+  imageUrl,
+  partName,
+  className = '',
   size = 'md',
-  showFallback = true 
+  showFallback = true,
 }) => {
   const [imageError, setImageError] = useState(false)
   const [imageBlob, setImageBlob] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const normalizedUrl = normalizeImageUrl(imageUrl)
-  
+
   useEffect(() => {
     if (!normalizedUrl) return
-    
+
     // Only fetch for our authenticated endpoints
-    if (normalizedUrl.startsWith('/utility/get_image/') || normalizedUrl.startsWith('/api/utility/get_image/')) {
+    if (
+      normalizedUrl.startsWith('/utility/get_image/') ||
+      normalizedUrl.startsWith('/api/utility/get_image/')
+    ) {
       fetchAuthenticatedImage(normalizedUrl)
     } else {
       // For external URLs or legacy static URLs, use direct loading
       setImageBlob(normalizedUrl)
     }
   }, [normalizedUrl])
-  
+
   const fetchAuthenticatedImage = async (url: string) => {
     try {
       setLoading(true)
       setImageError(false)
-      
+
       // Use the API client to make authenticated request
       const response = await apiClient.get(url, {
-        responseType: 'blob'
+        responseType: 'blob',
       })
-      
+
       // Create blob URL for the image
       const blobUrl = URL.createObjectURL(response)
       setImageBlob(blobUrl)
-      
     } catch (error) {
       console.warn(`Failed to load authenticated image for part: ${partName}, URL: ${url}`, error)
       setImageError(true)
@@ -63,7 +65,7 @@ const PartImage: React.FC<PartImageProps> = ({
       setLoading(false)
     }
   }
-  
+
   // Cleanup blob URL on unmount
   useEffect(() => {
     return () => {
@@ -72,14 +74,14 @@ const PartImage: React.FC<PartImageProps> = ({
       }
     }
   }, [imageBlob])
-  
+
   const baseClasses = `${sizeClasses[size]} object-cover rounded border border-border`
   const fallbackClasses = `${sizeClasses[size]} bg-background-secondary rounded border border-border flex items-center justify-center`
-  
+
   // Show fallback if no URL, normalization failed, or image failed to load
   if (!normalizedUrl || imageError) {
     if (!showFallback) return null
-    
+
     return (
       <div className={`${fallbackClasses} ${className}`}>
         {size === 'sm' ? (
@@ -93,7 +95,7 @@ const PartImage: React.FC<PartImageProps> = ({
       </div>
     )
   }
-  
+
   // Show loading state
   if (loading || !imageBlob) {
     return (
@@ -105,7 +107,7 @@ const PartImage: React.FC<PartImageProps> = ({
       </div>
     )
   }
-  
+
   return (
     <img
       src={imageBlob}
