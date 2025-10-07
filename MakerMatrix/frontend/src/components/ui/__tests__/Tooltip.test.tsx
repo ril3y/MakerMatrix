@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect } from 'vitest'
 import { Tooltip, TooltipText, TooltipIcon } from '../Tooltip'
@@ -17,7 +17,11 @@ describe('Tooltip', () => {
 
     it('shows tooltip on hover when trigger is hover', async () => {
       const user = userEvent.setup()
-      render(<Tooltip content="Tooltip content" trigger="hover">Hover</Tooltip>)
+      render(
+        <Tooltip content="Tooltip content" trigger="hover">
+          Hover
+        </Tooltip>
+      )
 
       const trigger = screen.getByText('Hover')
 
@@ -39,7 +43,11 @@ describe('Tooltip', () => {
 
     it('shows tooltip on click when trigger is click', async () => {
       const user = userEvent.setup()
-      render(<Tooltip content="Click content" trigger="click">Click me</Tooltip>)
+      render(
+        <Tooltip content="Click content" trigger="click">
+          Click me
+        </Tooltip>
+      )
 
       const trigger = screen.getByText('Click me')
 
@@ -98,7 +106,9 @@ describe('Tooltip', () => {
       const user = userEvent.setup()
       render(
         <div>
-          <Tooltip content="Click content" trigger="click">Click me</Tooltip>
+          <Tooltip content="Click content" trigger="click">
+            Click me
+          </Tooltip>
           <button>Outside</button>
         </div>
       )
@@ -170,9 +180,7 @@ describe('Tooltip', () => {
     })
 
     it('supports custom className', () => {
-      const { container } = render(
-        <TooltipIcon tooltip="Test" className="custom-icon-class" />
-      )
+      const { container } = render(<TooltipIcon tooltip="Test" className="custom-icon-class" />)
 
       const wrapper = container.querySelector('.custom-icon-class')
       expect(wrapper).toBeInTheDocument()

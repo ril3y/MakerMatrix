@@ -46,21 +46,21 @@ describe('CRUD Operations API Tests', () => {
     if (createdPartId) {
       try {
         await partsService.deletePart(createdPartId)
-      } catch (e) {
+      } catch (_e) {
         /* ignore cleanup errors */
       }
     }
     if (createdLocationId) {
       try {
         await locationsService.deleteLocation(createdLocationId)
-      } catch (e) {
+      } catch (_e) {
         /* ignore cleanup errors */
       }
     }
     if (createdCategoryId) {
       try {
         await categoriesService.deleteCategory(createdCategoryId)
-      } catch (e) {
+      } catch (_e) {
         /* ignore cleanup errors */
       }
     }
