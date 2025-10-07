@@ -13,8 +13,8 @@ import { SupplierTestResult } from '../../components/suppliers/SupplierTestResul
 
 interface DynamicSupplierConfigFormProps {
   supplierName: string
-  onCredentialsChange: (credentials: Record<string, any>) => void
-  onConfigChange: (config: Record<string, any>) => void
+  onCredentialsChange: (credentials: Record<string, unknown>) => void
+  onConfigChange: (config: Record<string, unknown>) => void
   errors: string[]
   onTest?: () => void
   isTestLoading?: boolean
@@ -33,8 +33,8 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
   const [supplierInfo, setSupplierInfo] = useState<SupplierInfo | null>(null)
   const [credentialFields, setCredentialFields] = useState<FieldDefinition[]>([])
   const [configFields, setConfigFields] = useState<FieldDefinition[]>([])
-  const [credentials, setCredentials] = useState<Record<string, any>>({})
-  const [config, setConfig] = useState<Record<string, any>>({})
+  const [credentials, setCredentials] = useState<Record<string, unknown>>({})
+  const [config, setConfig] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(true)
   const [loadingError, setLoadingError] = useState<string | null>(null)
 
@@ -42,7 +42,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
     loadSupplierData()
   }, [supplierName])
 
-  const reloadSchemasWithConfig = async (currentConfig: Record<string, any>) => {
+  const reloadSchemasWithConfig = async (currentConfig: Record<string, unknown>) => {
     try {
       setLoading(true)
       const { dynamicSupplierService } = await import('../../services/dynamic-supplier.service')
@@ -121,14 +121,14 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
       setConfigFields(safeConfigSchema)
 
       // Initialize with default values from schema
-      const defaultCredentials: Record<string, any> = {}
+      const defaultCredentials: Record<string, unknown> = {}
       safeCredSchema.forEach((field) => {
         if (field.default_value !== undefined) {
           defaultCredentials[field.name] = field.default_value
         }
       })
 
-      const defaultConfig: Record<string, any> = {}
+      const defaultConfig: Record<string, unknown> = {}
       safeConfigSchema.forEach((field) => {
         if (field.default_value !== undefined) {
           defaultConfig[field.name] = field.default_value
@@ -154,13 +154,13 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
     }
   }
 
-  const handleCredentialChange = (fieldName: string, value: any) => {
+  const handleCredentialChange = (fieldName: string, value: unknown) => {
     const newCredentials = { ...credentials, [fieldName]: value }
     setCredentials(newCredentials)
     onCredentialsChange(newCredentials)
   }
 
-  const handleConfigChange = (fieldName: string, value: any) => {
+  const handleConfigChange = (fieldName: string, value: unknown) => {
     const newConfig = { ...config, [fieldName]: value }
     setConfig(newConfig)
     onConfigChange(newConfig)
@@ -173,7 +173,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
     }
   }
 
-  const renderField = (field: FieldDefinition, value: any, onChange: (value: any) => void) => {
+  const renderField = (field: FieldDefinition, value: unknown, onChange: (value: unknown) => void) => {
     const fieldId = `field-${field.name}`
 
     switch (field.field_type) {

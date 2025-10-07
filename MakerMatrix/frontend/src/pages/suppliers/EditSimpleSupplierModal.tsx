@@ -96,9 +96,10 @@ export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = (
       setTimeout(() => {
         onSuccess()
       }, 1500)
-    } catch (err: any) {
-      console.error('Failed to update simple supplier:', err)
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to update supplier'
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string }
+      console.error('Failed to update simple supplier:' error)
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to update supplier'
       setError(errorMessage)
     } finally {
       setLoading(false)

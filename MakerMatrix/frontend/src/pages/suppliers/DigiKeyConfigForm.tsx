@@ -9,8 +9,8 @@ import { HelpCircle, AlertTriangle } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 
 interface DigiKeyConfigFormProps {
-  config: any
-  onConfigChange: (field: string, value: any) => void
+  config: Record<string, unknown>
+  onConfigChange: (field: string, value: unknown) => void
   errors: string[]
 }
 
