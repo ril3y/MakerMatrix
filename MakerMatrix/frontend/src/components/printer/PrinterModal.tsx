@@ -8,6 +8,22 @@ import { templateService } from '@/services/template.service'
 import TemplateSelector from './TemplateSelector'
 import toast from 'react-hot-toast'
 
+interface LabelSize {
+  name: string
+  [key: string]: unknown
+}
+
+interface PrinterInfo {
+  supported_sizes?: LabelSize[]
+  [key: string]: unknown
+}
+
+interface AvailablePrinter {
+  printer_id: string
+  name?: string
+  [key: string]: unknown
+}
+
 interface PrinterModalProps {
   isOpen: boolean
   onClose: () => void
@@ -32,9 +48,9 @@ const PrinterModal = ({
   showTestMode = false,
   partData,
 }: PrinterModalProps) => {
-  const [availablePrinters, setAvailablePrinters] = useState<any[]>([])
+  const [availablePrinters, setAvailablePrinters] = useState<AvailablePrinter[]>([])
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
-  const [printerInfo, setPrinterInfo] = useState<any>(null)
+  const [printerInfo, setPrinterInfo] = useState<PrinterInfo | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<LabelTemplate | null>(null)
   const [labelTemplate, setLabelTemplate] = useState('{part_name}')
   const [selectedLabelSize, setSelectedLabelSize] = useState('12mm')
@@ -122,8 +138,8 @@ const PrinterModal = ({
 
       if (info.supported_sizes && info.supported_sizes.length > 0) {
         const defaultSize =
-          info.supported_sizes.find((s: any) => s.name === '12mm') ||
-          info.supported_sizes.find((s: any) => s.name === '12') ||
+          info.supported_sizes.find((s: LabelSize) => s.name === '12mm') ||
+          info.supported_sizes.find((s: LabelSize) => s.name === '12') ||
           info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
