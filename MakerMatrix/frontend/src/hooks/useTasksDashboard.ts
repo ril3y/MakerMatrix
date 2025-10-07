@@ -139,8 +139,9 @@ export function useTasksDashboard() {
     try {
       const status = await tasksService.getWorkerStatus()
       setWorkerStatus(status.data)
-    } catch (error: any) {
-      if (error?.response?.status !== 404) {
+    } catch (error) {
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
+      if (err?.response?.status !== 404) {
         console.error('Failed to load worker status:', error)
       }
     }
@@ -150,8 +151,9 @@ export function useTasksDashboard() {
     try {
       const stats = await tasksService.getTaskStats()
       setTaskStats(stats.data)
-    } catch (error: any) {
-      if (error?.response?.status !== 404) {
+    } catch (error) {
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
+      if (err?.response?.status !== 404) {
         console.error('Failed to load task stats:', error)
       }
     }
@@ -250,9 +252,10 @@ export function useTasksDashboard() {
       }
 
       updateTasksState(newTasks)
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
       console.error('Failed to load tasks:', error)
-      if (!tasksRef.current.length && error?.response?.status !== 404) {
+      if (!tasksRef.current.length && err?.response?.status !== 404) {
         toast.error('Failed to load tasks')
       }
     } finally {
@@ -372,9 +375,10 @@ export function useTasksDashboard() {
 
         addConsoleMessage('success', 'All suppliers are configured for enrichment')
         return true
-      } catch (error: any) {
+      } catch (error) {
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
         console.error('Error checking supplier configurations:', error)
-        addConsoleMessage('error', `Error checking supplier configurations: ${error.message}`)
+        addConsoleMessage('error', `Error checking supplier configurations: ${err.message || 'Unknown error'}`)
         toast.error(
           'Could not verify supplier configurations. Please check your connection and try again.'
         )
@@ -574,9 +578,10 @@ export function useTasksDashboard() {
         toast.success('Task created successfully')
 
         await Promise.all([loadTasks(), loadWorkerStatus(), loadTaskStats()])
-      } catch (error: any) {
+      } catch (error) {
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
         console.error('Failed to create task:', error)
-        const detail = error?.response?.data?.detail || error.message
+        const detail = err?.response?.data?.detail || err.message || 'Unknown error'
         const taskName = `${taskType
           .split('-')
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
