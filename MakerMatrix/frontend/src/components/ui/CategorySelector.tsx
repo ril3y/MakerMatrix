@@ -1,6 +1,6 @@
 import React from 'react'
 import { Plus } from 'lucide-react'
-import { Category } from '../../types/categories'
+import type { Category } from '../../types/categories'
 import FormField from './FormField'
 
 interface CategorySelectorProps {

@@ -1,4 +1,5 @@
-import { apiClient, ApiResponse } from './api'
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
 
 export interface BaseEntity {
   id: string

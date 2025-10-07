@@ -7,7 +7,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
-import { dynamicSupplierService, SupplierInfo } from '../../services/dynamic-supplier.service'
+import type { SupplierInfo } from '../../services/dynamic-supplier.service'
+import { dynamicSupplierService } from '../../services/dynamic-supplier.service'
 import { DynamicSupplierConfigForm } from './DynamicSupplierConfigForm'
 
 interface DynamicAddSupplierModalProps {

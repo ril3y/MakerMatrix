@@ -3,12 +3,12 @@
  * Handles conversion of Mouser form fields to standard SupplierConfigCreate format
  */
 
-import { SupplierConfigCreate } from '../../../services/supplier.service'
+import type { SupplierConfigCreate } from '../../../services/supplier.service'
 
-export interface MouserFormData {
-  // Mouser doesn't have any supplier-specific fields beyond the base config
-  // All fields (base_url, api_version, rate_limit_per_minute, etc.) are in SupplierConfigCreate
-}
+// Mouser doesn't have any supplier-specific fields beyond the base config
+// All fields (base_url, api_version, rate_limit_per_minute, etc.) are in SupplierConfigCreate
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface MouserFormData {}
 
 /**
  * Transform Mouser form data into standard SupplierConfigCreate format

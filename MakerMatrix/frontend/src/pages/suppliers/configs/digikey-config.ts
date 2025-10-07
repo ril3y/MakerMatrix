@@ -3,7 +3,7 @@
  * Handles conversion of DigiKey form fields to standard SupplierConfigCreate format
  */
 
-import { SupplierConfigCreate } from '../../../services/supplier.service'
+import type { SupplierConfigCreate } from '../../../services/supplier.service'
 
 export interface DigiKeyFormData {
   sandbox_mode?: boolean

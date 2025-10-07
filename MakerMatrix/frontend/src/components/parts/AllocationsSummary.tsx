@@ -6,12 +6,9 @@
  */
 
 import React, { useState, useEffect } from 'react'
-import { Package, MapPin, ArrowRightLeft, Plus, AlertCircle } from 'lucide-react'
-import {
-  partAllocationService,
-  AllocationSummary,
-  PartAllocation,
-} from '../../services/part-allocation.service'
+import { Package, MapPin, ArrowRightLeft, AlertCircle } from 'lucide-react'
+import type { AllocationSummary, PartAllocation } from '../../services/part-allocation.service'
+import { partAllocationService } from '../../services/part-allocation.service'
 
 interface AllocationsSummaryProps {
   partId: string

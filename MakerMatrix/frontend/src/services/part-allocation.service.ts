@@ -7,7 +7,8 @@
  * - Splitting quantities to cassettes
  */
 
-import { apiClient, ApiResponse } from './api'
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
 
 // Types
 export interface PartAllocation {

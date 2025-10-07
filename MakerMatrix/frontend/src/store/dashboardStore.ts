@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { dashboardService, DashboardStats } from '@/services/dashboard.service'
+import type { DashboardStats } from '@/services/dashboard.service'
+import { dashboardService } from '@/services/dashboard.service'
 
 interface DashboardState {
   stats: DashboardStats | null

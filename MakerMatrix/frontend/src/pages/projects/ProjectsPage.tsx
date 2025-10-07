@@ -1,19 +1,10 @@
 import { motion } from 'framer-motion'
-import {
-  Hash,
-  Plus,
-  Search,
-  Edit2,
-  Trash2,
-  Package,
-  ExternalLink,
-  Image as ImageIcon,
-} from 'lucide-react'
+import { Hash, Plus, Search, Edit2, Trash2, Package, ExternalLink } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import AddProjectModal from '@/components/projects/AddProjectModal'
 import EditProjectModal from '@/components/projects/EditProjectModal'
 import { projectsService } from '@/services/projects.service'
-import { Project } from '@/types/projects'
+import type { Project } from '@/types/projects'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 
 const ProjectsPage = () => {

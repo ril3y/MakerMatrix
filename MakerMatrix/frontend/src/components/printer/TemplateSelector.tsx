@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, FileText, Sparkles, User, Copy, Eye, Trash2, Edit } from 'lucide-react'
-import { templateService, LabelTemplate } from '@/services/template.service'
+import { ChevronDown, FileText, Sparkles, User, Trash2, Edit } from 'lucide-react'
+import type { LabelTemplate } from '@/services/template.service'
+import { templateService } from '@/services/template.service'
 import toast from 'react-hot-toast'
 
 interface TemplateSelectorProps {

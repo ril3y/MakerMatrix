@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Save, X, Hash, Plus, Link as LinkIcon } from 'lucide-react'
+import { Save, X, Hash, Plus } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
 import { projectsService } from '@/services/projects.service'
-import { ProjectCreate } from '@/types/projects'
+import type { ProjectCreate } from '@/types/projects'
 import toast from 'react-hot-toast'
 
 interface AddProjectModalProps {

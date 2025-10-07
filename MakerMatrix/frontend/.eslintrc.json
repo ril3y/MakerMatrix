@@ -11,7 +11,13 @@
     "plugin:react-hooks/recommended",
     "plugin:prettier/recommended"
   ],
-  "ignorePatterns": ["dist", ".eslintrc.json", "node_modules", "coverage"],
+  "ignorePatterns": [
+    "dist",
+    ".eslintrc.json",
+    "node_modules",
+    "coverage",
+    "*.config.ts"
+  ],
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint", "react-hooks", "react-refresh", "unused-imports"],
   "rules": {

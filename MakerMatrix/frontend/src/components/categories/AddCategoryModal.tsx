@@ -4,7 +4,7 @@ import CrudModal from '@/components/ui/CrudModal'
 import FormField from '@/components/ui/FormField'
 import { useModalForm } from '@/hooks/useModalForm'
 import { categoriesService } from '@/services/categories.service'
-import { CreateCategoryRequest } from '@/types/parts'
+import type { CreateCategoryRequest } from '@/types/parts'
 
 interface AddCategoryModalProps {
   isOpen: boolean

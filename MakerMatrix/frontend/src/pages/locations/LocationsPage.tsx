@@ -19,7 +19,7 @@ import EditLocationModal from '@/components/locations/EditLocationModal'
 import LocationDetailsModal from '@/components/locations/LocationDetailsModal'
 import AuthenticatedImage from '@/components/ui/AuthenticatedImage'
 import { locationsService } from '@/services/locations.service'
-import { Location } from '@/types/locations'
+import type { Location } from '@/types/locations'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 
 const LocationsPage = () => {

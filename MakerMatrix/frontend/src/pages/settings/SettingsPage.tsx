@@ -13,7 +13,6 @@ import {
   Upload as ImportIcon,
   Activity,
   Plus,
-  X,
   Monitor,
   Sun,
   Moon,
@@ -22,9 +21,8 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
-import { AIConfig, PrinterConfig, BackupStatus } from '@/types/settings'
+import type { AIConfig, BackupStatus } from '@/types/settings'
 import toast from 'react-hot-toast'
 import ImportSelector from '@/components/import/ImportSelector'
 import TasksManagement from '@/components/tasks/TasksManagement'

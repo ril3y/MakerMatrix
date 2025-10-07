@@ -1,15 +1,16 @@
 import { BaseNamedCrudService } from './baseCrud.service'
-import {
+import type {
   Location,
   CreateLocationRequest,
   UpdateLocationRequest,
   LocationDetails,
   LocationPath,
   LocationDeletePreview,
-  LocationDeleteResponse,
   LocationCleanupResponse,
 } from '@/types/locations'
-import { apiClient, ApiResponse } from './api'
+
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
 
 export class EnhancedLocationsService extends BaseNamedCrudService<
   Location,

@@ -5,16 +5,15 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Edit3, AlertCircle, Plus, X } from 'lucide-react'
+import { Edit3, AlertCircle, X } from 'lucide-react'
 import CrudModal from '@/components/ui/CrudModal'
-import FormField from '@/components/ui/FormField'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { SupplierSelector } from '@/components/ui/SupplierSelector'
 import { categoriesService } from '@/services/categories.service'
 import { locationsService } from '@/services/locations.service'
 import { partsService } from '@/services/parts.service'
-import { Category } from '@/types/categories'
-import { Location } from '@/types/locations'
+import type { Category } from '@/types/categories'
+import type { Location } from '@/types/locations'
 import toast from 'react-hot-toast'
 
 interface BulkEditModalProps {

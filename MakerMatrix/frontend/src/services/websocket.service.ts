@@ -1,5 +1,3 @@
-import { authStore } from '../store/authStore'
-
 export interface WebSocketMessage {
   type: string
   timestamp: string

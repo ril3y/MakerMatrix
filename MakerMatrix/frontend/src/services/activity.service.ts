@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from './api'
+import { apiClient } from './api'
 
 export interface Activity {
   id: string

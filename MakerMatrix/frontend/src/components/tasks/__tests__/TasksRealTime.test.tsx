@@ -38,8 +38,6 @@ vi.mock('@/services/parts.service', () => ({
   },
 }))
 
-
-
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({
   default: {

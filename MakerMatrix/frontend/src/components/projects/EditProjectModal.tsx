@@ -4,7 +4,7 @@ import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
 import { projectsService } from '@/services/projects.service'
-import { Project, ProjectUpdate } from '@/types/projects'
+import type { Project, ProjectUpdate } from '@/types/projects'
 import toast from 'react-hot-toast'
 
 interface EditProjectModalProps {

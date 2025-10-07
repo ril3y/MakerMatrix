@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Key, Plus, Trash2, Copy, Eye, EyeOff, RefreshCw, Shield, AlertCircle } from 'lucide-react'
+import { Key, Plus, Trash2, Copy, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiKeyService } from '@/services/apiKey.service'
 import { useAuthStore } from '@/store/authStore'

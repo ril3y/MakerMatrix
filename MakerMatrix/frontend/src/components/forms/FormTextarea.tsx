@@ -1,5 +1,6 @@
-import { forwardRef, TextareaHTMLAttributes } from 'react'
-import { UseFormRegisterReturn } from 'react-hook-form'
+import type { TextareaHTMLAttributes } from 'react'
+import { forwardRef } from 'react'
+import type { UseFormRegisterReturn } from 'react-hook-form'
 import FormField from '../ui/FormField'
 
 interface FormTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'id'> {

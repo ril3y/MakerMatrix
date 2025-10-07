@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react'
 import { AlertTriangle, CheckCircle, HelpCircle, ExternalLink, Info } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
-import { FieldDefinition, SupplierInfo } from '../../services/dynamic-supplier.service'
+import type { FieldDefinition, SupplierInfo } from '../../services/dynamic-supplier.service'
 import { SupplierTestResult } from '../../components/suppliers/SupplierTestResult'
 
 interface DynamicSupplierConfigFormProps {

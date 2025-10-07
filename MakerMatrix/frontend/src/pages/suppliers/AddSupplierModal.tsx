@@ -7,7 +7,8 @@
 
 import React, { useState } from 'react'
 import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
-import { supplierService, SupplierConfigCreate } from '../../services/supplier.service'
+import type { SupplierConfigCreate } from '../../services/supplier.service'
+import { supplierService } from '../../services/supplier.service'
 import { DigiKeyConfigForm } from './DigiKeyConfigForm'
 import { LCSCConfigForm } from './LCSCConfigForm'
 import { MouserConfigForm } from './MouserConfigForm'

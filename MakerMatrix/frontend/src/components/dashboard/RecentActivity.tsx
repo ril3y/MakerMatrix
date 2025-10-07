@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Clock, Activity as ActivityIcon, RefreshCw } from 'lucide-react'
-import { activityService, Activity } from '@/services/activity.service'
-import { generalWebSocket, EntityEventData } from '@/services/websocket.service'
+import type { Activity } from '@/services/activity.service'
+import { activityService } from '@/services/activity.service'
+import type { EntityEventData } from '@/services/websocket.service'
+import { generalWebSocket } from '@/services/websocket.service'
 import toast from 'react-hot-toast'
 
 interface RecentActivityProps {

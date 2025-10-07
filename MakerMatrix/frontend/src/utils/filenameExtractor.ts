@@ -121,7 +121,7 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
   for (const pattern of orderPatterns) {
     const match = filename.match(pattern)
     if (match) {
-      let orderNumber = match[1]
+      const orderNumber = match[1]
 
       // For long digit sequences, make sure it's not actually a date
       if (/^\d{8,}$/.test(orderNumber)) {
@@ -151,7 +151,7 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
   for (const pattern of datePatterns) {
     const match = filename.match(pattern)
     if (match) {
-      let dateCandidate = match[1]
+      const dateCandidate = match[1]
 
       // Skip if this is the same as the order number we already found
       if (dateCandidate === orderInfo.order_number) {

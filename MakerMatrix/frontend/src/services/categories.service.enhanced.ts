@@ -1,12 +1,13 @@
 import { BaseNamedCrudService } from './baseCrud.service'
-import {
+import type {
   Category,
   CreateCategoryRequest,
   UpdateCategoryRequest,
   CategoriesListResponse,
   DeleteCategoriesResponse,
 } from '@/types/categories'
-import { apiClient, ApiResponse } from './api'
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
 
 export class EnhancedCategoriesService extends BaseNamedCrudService<
   Category,

@@ -1,5 +1,6 @@
-import { WebSocketService, WebSocketMessage } from './websocket.service'
-import { Task, WorkerStatus, TaskStats } from './tasks.service'
+import type { WebSocketMessage } from './websocket.service'
+import { WebSocketService } from './websocket.service'
+import type { Task, WorkerStatus, TaskStats } from './tasks.service'
 
 export interface TaskWebSocketMessage extends WebSocketMessage {
   type:

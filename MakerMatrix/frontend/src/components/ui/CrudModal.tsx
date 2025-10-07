@@ -1,5 +1,5 @@
-import { ReactNode, FormEvent } from 'react'
-import { Save, X, Plus, Edit3 } from 'lucide-react'
+import type { ReactNode, FormEvent } from 'react'
+import { Save, Plus, Edit3 } from 'lucide-react'
 import Modal from './Modal'
 
 interface CrudModalProps {

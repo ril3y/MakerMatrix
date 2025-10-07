@@ -1,5 +1,6 @@
-import { apiClient, ApiResponse, PaginatedResponse } from './api'
-import { Part, CreatePartRequest, UpdatePartRequest, SearchPartsRequest } from '@/types/parts'
+import type { ApiResponse, PaginatedResponse } from './api'
+import { apiClient } from './api'
+import type { Part, CreatePartRequest, UpdatePartRequest, SearchPartsRequest } from '@/types/parts'
 
 export class PartsService {
   // Helper function to map backend part format to frontend format

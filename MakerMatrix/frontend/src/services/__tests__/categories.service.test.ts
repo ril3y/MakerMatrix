@@ -1,14 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CategoriesService, categoriesService } from '../categories.service'
 import { apiClient } from '../api'
-import {
-  Category,
-  CreateCategoryRequest,
-  UpdateCategoryRequest,
-  CategoryResponse,
-  CategoriesListResponse,
-  DeleteCategoriesResponse,
-} from '@/types/categories'
+import type { Category, CreateCategoryRequest, UpdateCategoryRequest } from '@/types/categories'
 
 // Mock dependencies
 vi.mock('../api')

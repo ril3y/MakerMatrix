@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios'
+import type { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios'
+import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
 // In development, use relative URLs to benefit from Vite proxy

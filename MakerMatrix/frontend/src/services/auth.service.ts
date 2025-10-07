@@ -1,5 +1,6 @@
-import { apiClient, ApiResponse } from './api'
-import { User, LoginRequest, LoginResponse } from '@/types/auth'
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
+import type { User, LoginRequest, LoginResponse } from '@/types/auth'
 
 export class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {

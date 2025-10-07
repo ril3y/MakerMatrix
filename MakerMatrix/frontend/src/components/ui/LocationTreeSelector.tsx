@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ChevronRight, ChevronDown, MapPin, Plus } from 'lucide-react'
-import { Location } from '../../types/locations'
+import type { Location } from '../../types/locations'
 import { locationsService } from '../../services/locations.service'
 import FormField from './FormField'
 

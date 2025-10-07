@@ -286,7 +286,7 @@ const DynamicPrinterModal = ({
       }
 
       // Auto-generate printer_id from name if not provided (for add mode)
-      let finalPrinterData = { ...printerData }
+      const finalPrinterData = { ...printerData }
       if (mode === 'add' && !finalPrinterData.printer_id) {
         finalPrinterData.printer_id = finalPrinterData.name
           .toLowerCase()

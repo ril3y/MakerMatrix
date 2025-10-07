@@ -1,4 +1,4 @@
-import { UserEvent } from '@testing-library/user-event'
+import type { UserEvent } from '@testing-library/user-event'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 

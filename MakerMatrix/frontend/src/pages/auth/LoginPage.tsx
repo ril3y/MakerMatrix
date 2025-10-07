@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { LoginRequest } from '@/types/auth'
+import type { LoginRequest } from '@/types/auth'
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),

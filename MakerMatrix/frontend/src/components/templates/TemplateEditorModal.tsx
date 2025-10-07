@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { X, Save, FileText, AlertCircle } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
-import { templateService, LabelTemplate } from '@/services/template.service'
+import type { LabelTemplate } from '@/services/template.service'
+import { templateService } from '@/services/template.service'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 

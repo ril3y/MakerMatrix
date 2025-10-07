@@ -1,8 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, Image as ImageIcon, X, Camera } from 'lucide-react'
+import { Upload, X, Camera } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { settingsService } from '@/services/settings.service'
 import AuthenticatedImage from './AuthenticatedImage'
 
 interface ImageUploadProps {

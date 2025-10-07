@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import ThemeSelector from '../ThemeSelector'
@@ -7,8 +7,6 @@ import { useTheme } from '@/contexts/ThemeContext'
 // Mock the theme context
 vi.mock('@/contexts/ThemeContext')
 const mockUseTheme = useTheme as any
-
-
 
 describe('ThemeSelector', () => {
   const mockThemeContext = {

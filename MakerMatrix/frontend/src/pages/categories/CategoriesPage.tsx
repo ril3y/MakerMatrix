@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import EditCategoryModal from '@/components/categories/EditCategoryModal'
 import { categoriesService } from '@/services/categories.service'
-import { Category } from '@/types/categories'
+import type { Category } from '@/types/categories'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 
 const CategoriesPage = () => {

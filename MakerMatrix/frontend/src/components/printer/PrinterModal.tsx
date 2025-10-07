@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Printer, TestTube, FileText, HelpCircle } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
-import { templateService, LabelTemplate } from '@/services/template.service'
+import type { LabelTemplate } from '@/services/template.service'
+import { templateService } from '@/services/template.service'
 import TemplateSelector from './TemplateSelector'
 import toast from 'react-hot-toast'
 
@@ -165,7 +166,7 @@ const PrinterModal = ({
           String(value || '')
         )
         // Also support direct access to additional_properties fields
-        if (!data.hasOwnProperty(key)) {
+        if (!Object.prototype.hasOwnProperty.call(data, key)) {
           processed = processed.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value || ''))
         }
       })

@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react'
-import { useForm, UseFormProps, FieldValues, Path } from 'react-hook-form'
+import type { UseFormProps, FieldValues, Path } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { toast } from 'react-hot-toast'
 
 interface UseFormWithValidationOptions<T extends FieldValues> extends UseFormProps<T> {

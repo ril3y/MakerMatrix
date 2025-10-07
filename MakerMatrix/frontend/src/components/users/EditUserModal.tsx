@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, User, Mail, Shield, Lock } from 'lucide-react'
-import { User as UserType, UpdateUserRolesRequest } from '@/types/users'
+import type { User as UserType, UpdateUserRolesRequest } from '@/types/users'
 import toast from 'react-hot-toast'
 
 interface EditUserModalProps {

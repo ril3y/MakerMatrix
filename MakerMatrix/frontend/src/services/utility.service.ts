@@ -1,4 +1,5 @@
-import { apiClient, ApiResponse } from '@/services/api'
+import type { ApiResponse } from '@/services/api'
+import { apiClient } from '@/services/api'
 
 export interface ImageUploadResponse {
   image_id: string

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Plus, Hash } from 'lucide-react'
-import { Project } from '../../types/projects'
+import type { Project } from '../../types/projects'
 import FormField from './FormField'
 
 interface ProjectSelectorProps {

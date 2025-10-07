@@ -1,5 +1,6 @@
-import { forwardRef, SelectHTMLAttributes, ReactNode } from 'react'
-import { UseFormRegisterReturn } from 'react-hook-form'
+import type { SelectHTMLAttributes, ReactNode } from 'react'
+import { forwardRef } from 'react'
+import type { UseFormRegisterReturn } from 'react-hook-form'
 import FormField from '../ui/FormField'
 import { ChevronDown } from 'lucide-react'
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FilePreviewData } from './hooks/useOrderImport'
+import type { FilePreviewData } from './hooks/useOrderImport'
 
 interface FilePreviewProps {
   showPreview: boolean

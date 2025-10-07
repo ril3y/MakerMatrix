@@ -5,13 +5,13 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { X, AlertTriangle, Save, TestTube, HelpCircle } from 'lucide-react'
-import {
-  supplierService,
+import { X, AlertTriangle, Save, TestTube } from 'lucide-react'
+import type {
   SupplierConfig,
   SupplierConfigUpdate,
   ConnectionTestResult,
 } from '../../services/supplier.service'
+import { supplierService } from '../../services/supplier.service'
 import { CredentialEditor } from '../../components/suppliers/CredentialEditor'
 import { SupplierTestResult } from '../../components/suppliers/SupplierTestResult'
 

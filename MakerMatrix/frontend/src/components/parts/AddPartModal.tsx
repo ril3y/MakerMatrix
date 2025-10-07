@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, Package, Plus, X, Upload, Image, Tag, MapPin, Hash } from 'lucide-react'
+import { Save, Package, Plus, X, Tag, MapPin, Hash } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
@@ -7,7 +7,6 @@ import { CustomSelect } from '@/components/ui/CustomSelect'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import SupplierSelector from '@/components/ui/SupplierSelector'
 import { TooltipIcon } from '@/components/ui/Tooltip'
-import ProjectSelector from '@/components/ui/ProjectSelector'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import AddProjectModal from '@/components/projects/AddProjectModal'
@@ -15,13 +14,12 @@ import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
 import { projectsService } from '@/services/projects.service'
-import { utilityService } from '@/services/utility.service'
 import { tasksService } from '@/services/tasks.service'
 import supplierService from '@/services/supplier.service'
 import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
-import { CreatePartRequest } from '@/types/parts'
-import { Location, Category } from '@/types/parts'
-import { Project } from '@/types/projects'
+import type { CreatePartRequest } from '@/types/parts'
+import type { Location, Category } from '@/types/parts'
+import type { Project } from '@/types/projects'
 import toast from 'react-hot-toast'
 
 interface AddPartModalProps {
@@ -426,7 +424,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       const hostname = urlObj.hostname
 
       // Remove common subdomains (www, shop, store, buy, order, checkout)
-      let domain = hostname.replace(/^(www|shop|store|buy|order|checkout)\./i, '')
+      const domain = hostname.replace(/^(www|shop|store|buy|order|checkout)\./i, '')
 
       // Extract base domain (e.g., "snapon.com" from "snapon.com" or remaining subdomains)
       const parts = domain.split('.')

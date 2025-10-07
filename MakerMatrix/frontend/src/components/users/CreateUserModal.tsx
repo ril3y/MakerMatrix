@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, User, Mail, Lock, Shield } from 'lucide-react'
-import { CreateUserRequest } from '@/types/users'
+import type { CreateUserRequest } from '@/types/users'
 import toast from 'react-hot-toast'
 
 interface CreateUserModalProps {

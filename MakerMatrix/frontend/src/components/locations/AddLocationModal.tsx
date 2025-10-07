@@ -7,7 +7,7 @@ import ImageUpload from '@/components/ui/ImageUpload'
 import { useModalFormWithValidation } from '@/hooks/useFormWithValidation'
 import { locationFormSchema, type LocationFormData } from '@/schemas/locations'
 import { locationsService } from '@/services/locations.service'
-import { Location } from '@/types/locations'
+import type { Location } from '@/types/locations'
 import toast from 'react-hot-toast'
 
 interface AddLocationModalProps {
