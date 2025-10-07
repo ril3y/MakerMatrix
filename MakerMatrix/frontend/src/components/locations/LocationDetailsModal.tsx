@@ -9,16 +9,11 @@
  */
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import {
-  X,
   MapPin,
   Package,
   Edit,
-  Trash2,
   Printer,
-  ArrowRight,
-  RotateCcw,
   AlertCircle,
   ChevronRight,
   Undo2,
@@ -26,7 +21,7 @@ import {
   Plus,
 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
-import { Location, LocationDetails } from '@/types/locations'
+import type { Location, LocationDetails } from '@/types/locations'
 import { locationsService } from '@/services/locations.service'
 import { partsService } from '@/services/parts.service'
 import { partAllocationService } from '@/services/part-allocation.service'

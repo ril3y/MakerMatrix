@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { Location, CreateLocationRequest, UpdateLocationRequest } from '@/types/locations'
+import type { Location, CreateLocationRequest, UpdateLocationRequest } from '@/types/locations'
 import { locationsService } from '@/services/locations.service'
 import { toast } from 'react-hot-toast'
 

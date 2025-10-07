@@ -1,5 +1,6 @@
-import { forwardRef, InputHTMLAttributes } from 'react'
-import { UseFormRegisterReturn } from 'react-hook-form'
+import type { InputHTMLAttributes } from 'react'
+import { forwardRef } from 'react'
+import type { UseFormRegisterReturn } from 'react-hook-form'
 import { Check } from 'lucide-react'
 
 interface FormCheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 'type'> {

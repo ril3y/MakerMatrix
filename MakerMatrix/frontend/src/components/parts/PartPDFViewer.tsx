@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Download, Eye, FileText, ExternalLink } from 'lucide-react'
-import { Datasheet } from '@/types/parts'
+import { X, Download, FileText, ExternalLink } from 'lucide-react'
+import type { Datasheet } from '@/types/parts'
 
 interface PartPDFViewerProps {
   isOpen: boolean

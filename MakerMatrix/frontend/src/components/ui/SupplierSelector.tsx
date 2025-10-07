@@ -5,8 +5,8 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
-import { supplierService, SupplierConfig } from '@/services/supplier.service'
+import type { SupplierConfig } from '@/services/supplier.service'
+import { supplierService } from '@/services/supplier.service'
 import { CustomSelect } from './CustomSelect'
 import toast from 'react-hot-toast'
 
@@ -91,7 +91,7 @@ export const SupplierSelector = ({
       const hostname = url.hostname
 
       // Remove common subdomains (www, shop, store, etc.)
-      let domain = hostname.replace(/^(www|shop|store|buy|order|checkout)\./i, '')
+      const domain = hostname.replace(/^(www|shop|store|buy|order|checkout)\./i, '')
 
       // Extract base domain (e.g., ebay.com from subdomain.ebay.com)
       const parts = domain.split('.')

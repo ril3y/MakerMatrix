@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { commonValidation } from './common'
 
 // Base credential field interface for form validation
 export const credentialFieldSchema = z.object({

@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '../authStore'
 import { authService } from '@/services/auth.service'
-import { User, LoginRequest, LoginResponse } from '@/types/auth'
+import type { User, LoginRequest, LoginResponse } from '@/types/auth'
 
 // Mock dependencies
 vi.mock('react-hot-toast')

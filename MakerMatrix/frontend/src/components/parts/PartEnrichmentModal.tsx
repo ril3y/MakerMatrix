@@ -18,9 +18,11 @@ import {
   CheckCircle,
   AlertTriangle,
 } from 'lucide-react'
-import { tasksService, Task } from '@/services/tasks.service'
-import { Part } from '@/types/parts'
-import { partsService, EnrichmentRequirementCheckResponse } from '@/services/parts.service'
+import type { Task } from '@/services/tasks.service'
+import { tasksService } from '@/services/tasks.service'
+import type { Part } from '@/types/parts'
+import type { EnrichmentRequirementCheckResponse } from '@/services/parts.service'
+import { partsService } from '@/services/parts.service'
 
 interface PartEnrichmentModalProps {
   isOpen: boolean

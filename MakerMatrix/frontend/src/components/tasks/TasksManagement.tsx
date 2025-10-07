@@ -18,7 +18,7 @@ import {
   RefreshCw,
   Zap,
 } from 'lucide-react'
-import { Task } from '@/services/tasks.service'
+import type { Task } from '@/services/tasks.service'
 import { useTasksDashboard } from '@/hooks/useTasksDashboard'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 

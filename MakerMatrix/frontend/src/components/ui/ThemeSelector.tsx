@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Palette, Check, Monitor, Sun, Moon, Laptop } from 'lucide-react'
+import { Palette, Check } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 
 interface Theme {

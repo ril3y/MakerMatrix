@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'react-hot-toast'
 import AddCategoryModal from '../AddCategoryModal'
 import { categoriesService } from '@/services/categories.service'
-import { Category } from '@/types/parts'
+import type { Category } from '@/types/parts'
 
 // Mock dependencies
 vi.mock('react-hot-toast')

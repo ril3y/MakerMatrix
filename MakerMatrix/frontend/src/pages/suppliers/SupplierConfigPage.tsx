@@ -16,9 +16,11 @@ import {
   Activity,
   Clock,
 } from 'lucide-react'
-import { supplierService, SupplierConfig } from '../../services/supplier.service'
+import type { SupplierConfig } from '../../services/supplier.service'
+import { supplierService } from '../../services/supplier.service'
 import { dynamicSupplierService } from '../../services/dynamic-supplier.service'
-import { rateLimitService, SupplierRateLimitData } from '../../services/rate-limit.service'
+import type { SupplierRateLimitData } from '../../services/rate-limit.service'
+import { rateLimitService } from '../../services/rate-limit.service'
 import { DynamicAddSupplierModal } from './DynamicAddSupplierModal'
 import { EditSupplierModal } from './EditSupplierModal'
 import { EditSimpleSupplierModal } from './EditSimpleSupplierModal'

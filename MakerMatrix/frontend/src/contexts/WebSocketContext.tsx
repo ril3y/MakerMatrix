@@ -5,16 +5,11 @@
  * with toast notifications for all entity changes.
  */
 
-import React, {
-  createContext,
-  useContext,
-  ReactNode,
-  useState,
-  useEffect,
-  useCallback,
-} from 'react'
+import type { ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { generalWebSocket, EntityEventData, WebSocketMessage } from '@/services/websocket.service'
+import type { EntityEventData, WebSocketMessage } from '@/services/websocket.service'
+import { generalWebSocket } from '@/services/websocket.service'
 import { useAuthStore } from '@/store/authStore'
 
 export interface WebSocketContextType {
@@ -180,7 +175,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
           })
           break
 
-        case 'updated':
+        case 'updated': {
           // Show change details if available
           let changeDetails = ''
           if (data.changes && Object.keys(data.changes).length > 0) {
@@ -198,6 +193,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
             },
           })
           break
+        }
 
         case 'deleted':
           toast.error(message, {
@@ -207,7 +203,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
           })
           break
 
-        case 'bulk_updated':
+        case 'bulk_updated': {
           // Special handling for bulk operations
           const count = data.details?.updated_count || 0
           const bulkMessage = `${count} ${entityTypeName.toLowerCase()}${count !== 1 ? 's' : ''} ${actionVerb}`
@@ -218,6 +214,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
             icon,
           })
           break
+        }
 
         default:
           toast(message, {

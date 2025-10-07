@@ -1,5 +1,6 @@
-import { apiClient, ApiResponse } from './api'
-import { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
+import type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 
 // Re-export types for convenience
 export type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'

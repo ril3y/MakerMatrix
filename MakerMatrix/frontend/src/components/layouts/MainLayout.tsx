@@ -3,7 +3,6 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Menu,
   X,
-  Package,
   MapPin,
   Tags,
   Hash,
@@ -13,12 +12,9 @@ import {
   ChevronRight,
   Cpu,
   Binary,
-  Code2,
-  Terminal,
   CircuitBoard,
   Settings,
   Activity,
-  FileText,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { motion, AnimatePresence } from 'framer-motion'

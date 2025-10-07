@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Edit, Trash2, Copy, FileText, Sparkles, User } from 'lucide-react'
-import { templateService, LabelTemplate } from '@/services/template.service'
+import type { LabelTemplate } from '@/services/template.service'
+import { templateService } from '@/services/template.service'
 import TemplateEditorModal from '@/components/templates/TemplateEditorModal'
 import toast from 'react-hot-toast'
 

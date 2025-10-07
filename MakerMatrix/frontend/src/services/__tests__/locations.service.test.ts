@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LocationsService, locationsService } from '../locations.service'
 import { apiClient } from '../api'
-import {
+import type {
   Location,
   CreateLocationRequest,
   UpdateLocationRequest,

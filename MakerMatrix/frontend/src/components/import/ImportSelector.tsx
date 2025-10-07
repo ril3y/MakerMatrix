@@ -2,7 +2,6 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   FileText,
-  ChevronDown,
   Upload,
   CheckCircle,
   AlertCircle,
@@ -18,10 +17,9 @@ import {
 } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import UnifiedFileImporter from './UnifiedFileImporter'
-import { ImportResult } from './hooks/useOrderImport'
+import type { ImportResult } from './hooks/useOrderImport'
 import { apiClient } from '@/services/api'
 import { previewFile } from '@/utils/filePreview'
-import { extractFilenameInfo } from '@/utils/filenameExtractor'
 import toast from 'react-hot-toast'
 import { DynamicAddSupplierModal } from '../../pages/suppliers/DynamicAddSupplierModal'
 

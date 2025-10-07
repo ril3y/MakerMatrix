@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { User, LoginRequest } from '@/types/auth'
+import type { User, LoginRequest } from '@/types/auth'
 import { authService } from '@/services/auth.service'
 import { toast } from 'react-hot-toast'
 

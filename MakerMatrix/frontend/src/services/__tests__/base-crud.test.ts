@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { BaseCrudService, BaseNamedCrudService } from '../baseCrud.service'
+import { BaseNamedCrudService } from '../baseCrud.service'
 import { enhancedCategoriesService } from '../categories.service.enhanced'
 import { enhancedLocationsService } from '../locations.service.enhanced'
 import { apiClient } from '../api'

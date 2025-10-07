@@ -11,13 +11,10 @@ import CrudModal from '@/components/ui/CrudModal'
 import { FormInput, FormField } from '@/components/forms'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { useModalFormWithValidation } from '@/hooks/useFormWithValidation'
-import {
-  partAllocationService,
-  PartAllocation,
-  TransferRequest,
-} from '@/services/part-allocation.service'
+import type { PartAllocation, TransferRequest } from '@/services/part-allocation.service'
+import { partAllocationService } from '@/services/part-allocation.service'
 import { locationsService } from '@/services/locations.service'
-import { Location } from '@/types/locations'
+import type { Location } from '@/types/locations'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
 

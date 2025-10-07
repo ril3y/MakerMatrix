@@ -1,5 +1,6 @@
-import { forwardRef, InputHTMLAttributes } from 'react'
-import { UseFormRegisterReturn } from 'react-hook-form'
+import type { InputHTMLAttributes } from 'react'
+import { forwardRef } from 'react'
+import type { UseFormRegisterReturn } from 'react-hook-form'
 import FormField from '../ui/FormField'
 
 interface FormInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {

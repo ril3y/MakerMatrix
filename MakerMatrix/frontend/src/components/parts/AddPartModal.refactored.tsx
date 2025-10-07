@@ -21,7 +21,7 @@ import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
 import { DynamicSupplierService } from '@/services/dynamic-supplier.service'
-import { Location, Category } from '@/types/parts'
+import type { Location, Category } from '@/types/parts'
 import toast from 'react-hot-toast'
 
 interface AddPartModalProps {

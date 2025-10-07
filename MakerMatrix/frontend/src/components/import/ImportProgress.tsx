@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ImportProgress as ImportProgressType } from './hooks/useOrderImport'
+import type { ImportProgress as ImportProgressType } from './hooks/useOrderImport'
 
 interface ImportProgressProps {
   showProgress: boolean

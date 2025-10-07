@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { MapPin, AlertCircle, Save } from 'lucide-react'
+import { MapPin, AlertCircle } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import EmojiPicker from '@/components/ui/EmojiPicker'
 import ImageUpload from '@/components/ui/ImageUpload'
 import { locationsService } from '@/services/locations.service'
-import { Location, UpdateLocationRequest } from '@/types/locations'
+import type { Location, UpdateLocationRequest } from '@/types/locations'
 import toast from 'react-hot-toast'
 
 interface EditLocationModalProps {

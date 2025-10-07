@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Hash,
   Box,
-  Image,
   Info,
   Zap,
   Settings,
@@ -27,7 +26,6 @@ import {
   Check,
   Factory,
   Cpu,
-  Leaf,
   AlertCircle,
   Layers,
   ShieldCheck,
@@ -41,9 +39,10 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { partsService } from '@/services/parts.service'
 import { categoriesService } from '@/services/categories.service'
-import { supplierService, SupplierConfig } from '@/services/supplier.service'
-import { Part, Datasheet } from '@/types/parts'
-import { Category } from '@/types/categories'
+import type { SupplierConfig } from '@/services/supplier.service'
+import { supplierService } from '@/services/supplier.service'
+import type { Part, Datasheet } from '@/types/parts'
+import type { Category } from '@/types/categories'
 import { getPDFProxyUrl } from '@/services/api'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
@@ -59,12 +58,11 @@ import { Line } from 'react-chartjs-2'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import TransferQuantityModal from '@/components/parts/TransferQuantityModal'
-import { PartAllocation, partAllocationService } from '@/services/part-allocation.service'
+import type { PartAllocation } from '@/services/part-allocation.service'
+import { partAllocationService } from '@/services/part-allocation.service'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import Modal from '@/components/ui/Modal'
-import { locationsService } from '@/services/locations.service'
-import { Location } from '@/types/locations'
 
 // Icon mapping for property explorer
 const getIconForProperty = (propertyKey: string) => {

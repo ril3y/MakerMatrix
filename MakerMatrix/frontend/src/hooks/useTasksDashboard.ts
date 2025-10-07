@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Task, TaskStats, WorkerStatus, tasksService } from '@/services/tasks.service'
+import type { Task, TaskStats, WorkerStatus } from '@/services/tasks.service'
+import { tasksService } from '@/services/tasks.service'
 import { partsService } from '@/services/parts.service'
 import { taskWebSocket } from '@/services/task-websocket.service'
 

@@ -7,7 +7,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { X, Save, CheckCircle, AlertTriangle, Link as LinkIcon } from 'lucide-react'
-import { supplierService, SupplierConfig } from '../../services/supplier.service'
+import type { SupplierConfig } from '../../services/supplier.service'
+import { supplierService } from '../../services/supplier.service'
 
 interface EditSimpleSupplierModalProps {
   supplier: SupplierConfig

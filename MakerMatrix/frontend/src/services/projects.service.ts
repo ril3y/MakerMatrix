@@ -1,5 +1,6 @@
-import { apiClient, ApiResponse } from './api'
-import { Project, ProjectCreate, ProjectUpdate, ProjectsResponse } from '../types/projects'
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
+import type { Project, ProjectCreate, ProjectUpdate, ProjectsResponse } from '../types/projects'
 
 export class ProjectsService {
   async createProject(data: ProjectCreate): Promise<Project> {

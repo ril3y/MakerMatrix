@@ -2,8 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import CrudModal from '../CrudModal'
 
-
-
 describe('CrudModal', () => {
   const mockOnClose = vi.fn()
   const mockOnSubmit = vi.fn()

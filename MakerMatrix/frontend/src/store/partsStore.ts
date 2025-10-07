@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { Part, CreatePartRequest, UpdatePartRequest, SearchPartsRequest } from '@/types/parts'
+import type { Part, CreatePartRequest, UpdatePartRequest, SearchPartsRequest } from '@/types/parts'
 import { partsService } from '@/services/parts.service'
-import { PaginatedResponse } from '@/services/api'
+import type { PaginatedResponse } from '@/services/api'
 import { toast } from 'react-hot-toast'
 
 interface PartsState {

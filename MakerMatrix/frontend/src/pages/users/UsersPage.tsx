@@ -1,19 +1,8 @@
 import { motion } from 'framer-motion'
-import {
-  Users,
-  Plus,
-  Search,
-  Filter,
-  UserCheck,
-  UserX,
-  Shield,
-  Edit,
-  Trash2,
-  MoreVertical,
-} from 'lucide-react'
+import { Users, Plus, Search, Filter, UserCheck, UserX, Shield, Edit, Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { usersService } from '@/services/users.service'
-import { User, UserStats, Role } from '@/types/users'
+import type { User, UserStats, Role } from '@/types/users'
 import toast from 'react-hot-toast'
 import CreateUserModal from '@/components/users/CreateUserModal'
 import EditUserModal from '@/components/users/EditUserModal'

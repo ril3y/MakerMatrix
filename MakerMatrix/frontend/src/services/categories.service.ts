@@ -1,5 +1,6 @@
-import { apiClient, ApiResponse } from './api'
-import {
+import type { ApiResponse } from './api'
+import { apiClient } from './api'
+import type {
   Category,
   CreateCategoryRequest,
   UpdateCategoryRequest,

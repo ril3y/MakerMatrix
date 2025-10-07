@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { Category, CreateCategoryRequest, UpdateCategoryRequest } from '@/types/categories'
+import type { Category, CreateCategoryRequest, UpdateCategoryRequest } from '@/types/categories'
 import { categoriesService } from '@/services/categories.service'
 import { toast } from 'react-hot-toast'
 

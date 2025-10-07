@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'react-hot-toast'
 import AddLocationModal from '../AddLocationModal'
 import { locationsService } from '@/services/locations.service'
 import { utilityService } from '@/services/utility.service'
-import { Location } from '@/types/locations'
+import type { Location } from '@/types/locations'
 
 // Mock dependencies
 vi.mock('react-hot-toast')
