@@ -261,6 +261,12 @@ curl -X POST http://localhost:8080/api/auth/mobile-login \
   - Visual identification with emojis or custom images
   - Drag-and-drop organization support
 - **Category System**: Flexible part categorization with counts and associations
+- **Project Management**: Organize parts by project with hashtag-style tags
+  - Create projects with status tracking (Planning, Active, Completed, Archived)
+  - Many-to-many part-project relationships
+  - Project details view showing all associated parts
+  - Inline project assignment in part details and edit pages
+  - Project images and custom links
 - **Label Templates**: 7 pre-designed templates plus custom template creation
   - QR code support with 8 positioning options
   - Text rotation, multi-line, and auto-sizing

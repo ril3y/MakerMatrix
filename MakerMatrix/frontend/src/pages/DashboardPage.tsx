@@ -349,6 +349,38 @@ const DashboardPage = () => {
           <div className="p-6 space-y-6">
             {/* Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Locations Chart */}
+              <div>
+                <h3 className="text-md font-medium text-primary mb-4">By Location</h3>
+                <div className="h-64">
+                  {data.parts_by_location.length > 0 ? (
+                    <Doughnut
+                      data={locationChartData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                            labels: {
+                              padding: 10,
+                              usePointStyle: true,
+                              font: {
+                                size: 10,
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted">
+                      No location data available
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Categories Chart */}
               <div>
                 <h3 className="text-md font-medium text-primary mb-4">By Category</h3>
@@ -377,38 +409,6 @@ const DashboardPage = () => {
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted">
                       No category data available
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Locations Chart */}
-              <div>
-                <h3 className="text-md font-medium text-primary mb-4">By Location</h3>
-                <div className="h-64">
-                  {data.parts_by_location.length > 0 ? (
-                    <Doughnut
-                      data={locationChartData}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: 'right',
-                            labels: {
-                              padding: 10,
-                              usePointStyle: true,
-                              font: {
-                                size: 10,
-                              },
-                            },
-                          },
-                        },
-                      }}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted">
-                      No location data available
                     </div>
                   )}
                 </div>
