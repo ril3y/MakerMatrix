@@ -57,8 +57,9 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
         role_ids: [],
       })
       setConfirmPassword('')
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to create user')
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } }
+      toast.error(err?.response?.data?.message || 'Failed to create user')
     } finally {
       setLoading(false)
     }

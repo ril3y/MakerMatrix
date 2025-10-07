@@ -7,7 +7,7 @@ interface EditUserModalProps {
   isOpen: boolean
   onClose: () => void
   user: UserType | null
-  onUpdateRoles: (userId: string, roleData: UpdateUserRolesRequest) => Promise<any>
+  onUpdateRoles: (userId: string, roleData: UpdateUserRolesRequest) => Promise<void>
   availableRoles: Array<{ id: string; name: string }>
 }
 
