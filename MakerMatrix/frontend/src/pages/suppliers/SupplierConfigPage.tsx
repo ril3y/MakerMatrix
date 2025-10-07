@@ -147,10 +147,11 @@ export const SupplierConfigPage: React.FC = () => {
       setCredentialRequirements(newRequirements)
       setCredentialStatuses(newStatuses)
       setLoadingCredentialStatus(newLoadingStates)
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Error loading suppliers:', err)
       const errorMessage =
-        err.response?.data?.detail || err.message || 'Failed to load supplier configurations'
+        err.response?.data?.detail || error.message || 'Failed to load supplier configurations'
       setError(errorMessage)
       setSuppliers([]) // Ensure suppliers is always an array
     } finally {
@@ -170,7 +171,8 @@ export const SupplierConfigPage: React.FC = () => {
       })
 
       setRateLimitData(rateLimitMap)
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Error loading rate limit data:', err)
       // Don't show error for rate limits as it's supplementary data
     } finally {
@@ -184,8 +186,9 @@ export const SupplierConfigPage: React.FC = () => {
         enabled: !supplier.enabled,
       })
       await loadSuppliers()
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update supplier status')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      setError(error.response?.data?.detail || 'Failed to update supplier status')
     }
   }
 
@@ -201,8 +204,9 @@ export const SupplierConfigPage: React.FC = () => {
     try {
       await supplierService.deleteSupplier(supplierName)
       await loadSuppliers()
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete supplier configuration')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      setError(error.response?.data?.detail || 'Failed to delete supplier configuration')
     }
   }
 

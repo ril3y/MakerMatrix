@@ -60,8 +60,9 @@ const CategoriesPage = () => {
     try {
       await categoriesService.deleteCategory({ id: category.id.toString() })
       loadCategories()
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete category')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      alert(error.response?.data?.error || 'Failed to delete category')
     }
   }
 

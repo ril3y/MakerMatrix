@@ -45,8 +45,9 @@ const LocationsPage = () => {
       setLocations(data)
       const tree = locationsService.buildLocationTree(data)
       setLocationTree(tree)
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load locations')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      setError(error.response?.data?.error || 'Failed to load locations')
     } finally {
       setLoading(false)
     }
@@ -87,8 +88,9 @@ const LocationsPage = () => {
     try {
       await locationsService.deleteLocation(location.id.toString())
       loadLocations()
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete location')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      alert(error.response?.data?.error || 'Failed to delete location')
     }
   }
 

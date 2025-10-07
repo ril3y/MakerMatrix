@@ -223,8 +223,9 @@ const PartDetailsPage = () => {
       // Load price history and allocations after part is loaded
       loadPriceHistory(partId)
       loadAllocations(partId)
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load part details')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      setError(error.response?.data?.error || 'Failed to load part details')
     } finally {
       setLoading(false)
     }
@@ -278,8 +279,9 @@ const PartDetailsPage = () => {
       try {
         await partsService.deletePart(part.id)
         navigate('/parts')
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to delete part')
+      } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+        setError(error.response?.data?.error || 'Failed to delete part')
       }
     }
   }
@@ -334,8 +336,9 @@ const PartDetailsPage = () => {
       setPart(updatedPart)
       setEditingField(null)
       setEditingValue('')
-    } catch (err: any) {
-      setError(err.response?.data?.error || `Failed to update ${field}`)
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      setError(error.response?.data?.error || `Failed to update ${field}`)
     } finally {
       setSaving(false)
     }
