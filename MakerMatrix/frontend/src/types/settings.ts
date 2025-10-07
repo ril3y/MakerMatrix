@@ -6,7 +6,7 @@ export interface PrinterConfig {
   dpi: number
   model: string
   scaling_factor: number
-  additional_settings?: Record<string, any>
+  additional_settings?: Record<string, unknown>
 }
 
 // AI Configuration
@@ -19,7 +19,7 @@ export interface AIConfig {
   temperature: number
   max_tokens: number
   system_prompt: string
-  additional_settings?: Record<string, any>
+  additional_settings?: Record<string, unknown>
 }
 
 export interface AIConfigUpdate {
@@ -31,7 +31,7 @@ export interface AIConfigUpdate {
   temperature?: number
   max_tokens?: number
   system_prompt?: string
-  additional_settings?: Record<string, any>
+  additional_settings?: Record<string, unknown>
 }
 
 // Backup Status

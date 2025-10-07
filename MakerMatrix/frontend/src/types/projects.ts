@@ -5,8 +5,8 @@ export interface Project {
   description?: string
   status: 'planning' | 'active' | 'completed' | 'archived'
   image_url?: string
-  links?: Record<string, any>
-  project_metadata?: Record<string, any>
+  links?: Record<string, unknown>
+  project_metadata?: Record<string, unknown>
   parts_count: number
   estimated_cost?: number
   created_at: string
@@ -20,8 +20,8 @@ export interface ProjectCreate {
   description?: string
   status?: 'planning' | 'active' | 'completed' | 'archived'
   image_url?: string
-  links?: Record<string, any>
-  project_metadata?: Record<string, any>
+  links?: Record<string, unknown>
+  project_metadata?: Record<string, unknown>
 }
 
 export interface ProjectUpdate {
@@ -30,8 +30,8 @@ export interface ProjectUpdate {
   description?: string
   status?: 'planning' | 'active' | 'completed' | 'archived'
   image_url?: string
-  links?: Record<string, any>
-  project_metadata?: Record<string, any>
+  links?: Record<string, unknown>
+  project_metadata?: Record<string, unknown>
   estimated_cost?: number
   completed_at?: string
 }
