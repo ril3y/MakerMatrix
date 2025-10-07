@@ -31,12 +31,14 @@ interface PartEnrichmentModalProps {
   onPartUpdated: (updatedPart: Part) => void
 }
 
+import type { LucideIcon } from 'lucide-react'
+
 interface EnrichmentResult {
   capability: string
   success: boolean
-  data?: any
+  data?: unknown
   error?: string
-  icon: any
+  icon: LucideIcon
   label: string
   description: string
 }
@@ -48,13 +50,13 @@ const PartEnrichmentModal = ({
   onPartUpdated,
 }: PartEnrichmentModalProps) => {
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([])
-  const [availableCapabilities, setAvailableCapabilities] = useState<any[]>([])
+  const [availableCapabilities, setAvailableCapabilities] = useState<string[]>([])
   const [enrichmentResults, setEnrichmentResults] = useState<EnrichmentResult[]>([])
   const [isEnriching, setIsEnriching] = useState(false)
   const [currentTask, setCurrentTask] = useState<Task | null>(null)
   const [taskProgress, setTaskProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState('')
-  const [supplierCapabilities, setSupplierCapabilities] = useState<any>({})
+  const [supplierCapabilities, setSupplierCapabilities] = useState<Record<string, string[]>>({})
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [requirementCheck, setRequirementCheck] =
     useState<EnrichmentRequirementCheckResponse | null>(null)
@@ -125,7 +127,7 @@ const PartEnrichmentModal = ({
   }
 
   // Intelligently detect supplier from part data
-  const detectSupplierFromPart = (part: any): string => {
+  const detectSupplierFromPart = (part: Part): string => {
     console.log('Detecting supplier from part data:', {
       enrichment_source: part.enrichment_source,
       lcsc_part_number: part.lcsc_part_number,

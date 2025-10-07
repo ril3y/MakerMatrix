@@ -9,8 +9,8 @@ export interface FilePreviewData {
   detected_type?: string | null // Backward compatibility
   type_info?: string
   headers: string[]
-  preview_rows: any[]
-  parsed_preview?: any[]
+  preview_rows: Record<string, unknown>[]
+  parsed_preview?: Record<string, unknown>[]
   total_rows: number
   is_supported: boolean
   validation_errors: string[]
@@ -259,10 +259,13 @@ export const useOrderImport = ({
           }
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch task progress:', error)
-      if (error.response?.status !== 404) {
-        toast.error('Failed to fetch import progress')
+      if (error && typeof error === 'object' && 'response' in error) {
+        const err = error as { response?: { status?: number } }
+        if (err.response?.status !== 404) {
+          toast.error('Failed to fetch import progress')
+        }
       }
     }
   }, [])
@@ -390,20 +393,26 @@ export const useOrderImport = ({
 
       onImportComplete?.(transformedResult)
       clearFile()
-    } catch (error: any) {
+    } catch (error) {
       let errorMessage = 'Failed to import parts from file'
 
-      // Provide more specific error messages
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.'
-      } else if (error.response?.status === 413) {
-        errorMessage = 'File too large. Please select a smaller file.'
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Server error. Please try again later.'
-      } else if (error.message?.includes('Network Error')) {
-        errorMessage = 'Network error. Please check your connection.'
+      // Provide more specific error messages with proper type checking
+      if (error && typeof error === 'object') {
+        const err = error as {
+          response?: { data?: { message?: string }; status?: number }
+          message?: string
+        }
+        if (err.response?.data?.message) {
+          errorMessage = err.response.data.message
+        } else if (err.response?.status === 401) {
+          errorMessage = 'Authentication failed. Please log in again.'
+        } else if (err.response?.status === 413) {
+          errorMessage = 'File too large. Please select a smaller file.'
+        } else if (err.response?.status === 500) {
+          errorMessage = 'Server error. Please try again later.'
+        } else if (err.message?.includes('Network Error')) {
+          errorMessage = 'Network error. Please check your connection.'
+        }
       }
 
       toast.error(errorMessage)
