@@ -88,13 +88,17 @@ export const useModalForm = <T extends Record<string, any>>({
         if (onSuccess) {
           onSuccess()
         }
-      } catch (error: any) {
-        const errorMessage = error.response?.data?.message || error.message || 'An error occurred'
+      } catch (error) {
+        const err = error as {
+          response?: { data?: { message?: string; errors?: Record<string, string> } }
+          message?: string
+        }
+        const errorMessage = err.response?.data?.message || err.message || 'An error occurred'
         toast.error(errorMessage)
 
         // If server returns field-specific errors, set them
-        if (error.response?.data?.errors) {
-          setErrors(error.response.data.errors)
+        if (err.response?.data?.errors) {
+          setErrors(err.response.data.errors)
         }
       } finally {
         setLoading(false)

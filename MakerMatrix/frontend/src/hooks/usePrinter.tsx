@@ -2,6 +2,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { settingsService } from '@/services/settings.service'
 import toast from 'react-hot-toast'
 
+interface LabelSize {
+  name: string
+  [key: string]: unknown
+}
+
+interface PrinterInfo {
+  supported_sizes?: LabelSize[]
+  [key: string]: unknown
+}
+
 interface PartData {
   part_name?: string
   part_number?: string
@@ -9,7 +19,7 @@ interface PartData {
   category?: string
   quantity?: string
   description?: string
-  additional_properties?: Record<string, any>
+  additional_properties?: Record<string, unknown>
 }
 
 interface PrinterHookOptions {
@@ -21,9 +31,9 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
   const { partData, onPrintSuccess } = options
 
   // Printer state
-  const [availablePrinters, setAvailablePrinters] = useState<any[]>([])
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
-  const [printerInfo, setPrinterInfo] = useState<any>(null)
+  const [printerInfo, setPrinterInfo] = useState<PrinterInfo | null>(null)
 
   // Label configuration state
   const [labelTemplate, setLabelTemplate] = useState('{part_name}')
@@ -67,7 +77,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       // Set default label size if supported
       if (info.supported_sizes?.length > 0) {
         const defaultSize =
-          info.supported_sizes.find((s: any) => s.name === '12mm') || info.supported_sizes[0]
+          info.supported_sizes.find((s: LabelSize) => s.name === '12mm') || info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
     } catch (error) {
