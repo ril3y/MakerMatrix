@@ -12,7 +12,15 @@ vi.mock('react-hot-toast')
 vi.mock('@/services/locations.service')
 vi.mock('@/services/utility.service')
 vi.mock('@/components/ui/EmojiPicker', () => ({
-  default: ({ value, onChange, placeholder }: any) => (
+  default: ({
+    value,
+    onChange,
+    placeholder,
+  }: {
+    value?: string
+    onChange: (value: string) => void
+    placeholder?: string
+  }) => (
     <input
       data-testid="emoji-picker"
       value={value || ''}
@@ -22,7 +30,15 @@ vi.mock('@/components/ui/EmojiPicker', () => ({
   ),
 }))
 vi.mock('@/components/ui/LocationTreeSelector', () => ({
-  default: ({ selectedLocationId, onLocationSelect, label }: any) => (
+  default: ({
+    selectedLocationId,
+    onLocationSelect,
+    label,
+  }: {
+    selectedLocationId?: string | null
+    onLocationSelect: (id: string | null) => void
+    label?: string
+  }) => (
     <div>
       <label>{label}</label>
       <select

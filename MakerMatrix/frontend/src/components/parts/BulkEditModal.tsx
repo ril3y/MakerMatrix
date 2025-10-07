@@ -110,7 +110,7 @@ const BulkEditModal = ({
 
     try {
       // Build update payload with only enabled fields
-      const updates: any = {}
+      const updates: Record<string, unknown> = {}
 
       if (formData.updateSupplier && formData.supplier) {
         updates.supplier = formData.supplier
@@ -157,9 +157,9 @@ const BulkEditModal = ({
       // Wait for onSuccess to complete before closing (handles async callbacks)
       await Promise.resolve(onSuccess())
       onClose()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Bulk update failed:', error)
-      toast.error(error.message || 'Failed to update parts')
+      toast.error(error instanceof Error ? error.message : 'Failed to update parts')
     } finally {
       setLoading(false)
     }
