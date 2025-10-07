@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import type { UseFormProps, FieldValues, Path } from 'react-hook-form'
+import type { UseFormProps, FieldValues, Path, RegisterOptions, SetValueConfig } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
@@ -7,12 +7,12 @@ import { toast } from 'react-hot-toast'
 
 interface UseFormWithValidationOptions<T extends FieldValues> extends UseFormProps<T> {
   schema: z.ZodSchema<T>
-  onSubmit: (data: T) => Promise<any> | any
-  onSuccess?: (data: any) => void
-  onError?: (error: any) => void
+  onSubmit: (data: T) => Promise<unknown> | void
+  onSuccess?: (data: unknown) => void
+  onError?: (error: unknown) => void
   successMessage?: string
   resetOnSuccess?: boolean
-  transformData?: (data: T) => any
+  transformData?: (data: T) => unknown
 }
 
 export const useFormWithValidation = <T extends FieldValues>({
@@ -62,23 +62,32 @@ export const useFormWithValidation = <T extends FieldValues>({
         onSuccess?.(result)
 
         return result
-      } catch (error: any) {
+      } catch (error) {
         console.error('Form submission error:', error)
 
+        const err = error as {
+          response?: {
+            status?: number
+            data?: { detail?: unknown; message?: string }
+          }
+          message?: string
+        }
+
         // Handle validation errors from server
-        if (error.response?.status === 422) {
-          const validationErrors = error.response.data.detail
+        if (err.response?.status === 422) {
+          const validationErrors = err.response.data.detail
           if (Array.isArray(validationErrors)) {
-            validationErrors.forEach((err: any) => {
-              if (err.loc && err.msg) {
-                const field = err.loc[err.loc.length - 1] as Path<T>
-                form.setError(field, { message: err.msg })
+            validationErrors.forEach((validationError: unknown) => {
+              const ve = validationError as { loc?: unknown[]; msg?: string }
+              if (ve.loc && ve.msg) {
+                const field = ve.loc[ve.loc.length - 1] as Path<T>
+                form.setError(field, { message: ve.msg })
               }
             })
           }
         } else {
           // Handle general errors
-          const errorMessage = error.response?.data?.message || error.message || 'An error occurred'
+          const errorMessage = err.response?.data?.message || err.message || 'An error occurred'
           toast.error(errorMessage)
         }
 
@@ -93,7 +102,7 @@ export const useFormWithValidation = <T extends FieldValues>({
 
   // Enhanced field registration with better error handling
   const register = useCallback(
-    (name: Path<T>, options?: any) => {
+    (name: Path<T>, options?: RegisterOptions<T>) => {
       return form.register(name, options)
     },
     [form]
@@ -136,7 +145,7 @@ export const useFormWithValidation = <T extends FieldValues>({
 
   // Set field value programmatically
   const setValue = useCallback(
-    (name: Path<T>, value: any, options?: any) => {
+    (name: Path<T>, value: unknown, options?: SetValueConfig) => {
       form.setValue(name, value, options)
     },
     [form]
@@ -153,7 +162,7 @@ export const useFormWithValidation = <T extends FieldValues>({
   // Watch field changes
   const watch = useCallback(
     (name?: Path<T> | Path<T>[]) => {
-      return form.watch(name as any)
+      return form.watch(name)
     },
     [form]
   )
@@ -161,7 +170,7 @@ export const useFormWithValidation = <T extends FieldValues>({
   // Trigger field validation
   const trigger = useCallback(
     (name?: Path<T> | Path<T>[]) => {
-      return form.trigger(name as any)
+      return form.trigger(name)
     },
     [form]
   )
