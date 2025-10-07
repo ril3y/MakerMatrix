@@ -1,0 +1,171 @@
+name: Backend Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'MakerMatrix/**/*.py'
+      - 'vulture.toml'
+      - '.github/workflows/backend-quality.yml'
+      - 'requirements.txt'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'MakerMatrix/**/*.py'
+      - 'vulture.toml'
+      - '.github/workflows/backend-quality.yml'
+      - 'requirements.txt'
+
+jobs:
+  # Dead Code Analysis
+  dead-code-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+
+    - name: Install dependencies
+      run: |
+        source venv_test/bin/activate
+        pip install -r requirements.txt
+        pip install vulture
+
+    - name: Run Vulture dead code analysis
+      run: |
+        source venv_test/bin/activate
+        vulture MakerMatrix/ --config vulture.toml --sort-by-size > vulture_report.txt || true
+        cat vulture_report.txt
+
+    - name: Check for critical dead code
+      run: |
+        source venv_test/bin/activate
+        # Fail if vulture finds high-confidence (>95%) unused code outside of tests
+        if vulture MakerMatrix/ --config vulture.toml --min-confidence 95 --exclude MakerMatrix/tests/ | grep -q "unused"; then
+          echo "❌ High-confidence dead code found!"
+          vulture MakerMatrix/ --config vulture.toml --min-confidence 95 --exclude MakerMatrix/tests/
+          exit 1
+        else
+          echo "✅ No critical dead code found"
+        fi
+
+    - name: Upload vulture report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: vulture-report
+        path: vulture_report.txt
+        retention-days: 30
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+
+          if (fs.existsSync('vulture_report.txt')) {
+            const report = fs.readFileSync('vulture_report.txt', 'utf8');
+            const lines = report.split('\n').filter(l => l.trim());
+
+            if (lines.length > 0) {
+              let comment = '## 🔍 Dead Code Analysis Report\n\n';
+              comment += `Found ${lines.length} potential dead code issues:\n\n`;
+              comment += '```\n' + lines.slice(0, 20).join('\n') + '\n```\n\n';
+
+              if (lines.length > 20) {
+                comment += `\n_Showing first 20 of ${lines.length} issues. See the full report in the artifacts._\n`;
+              }
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+          }
+
+  # Python Linting
+  python-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pylint flake8
+
+    - name: Run pylint
+      run: |
+        source venv_test/bin/activate
+        pylint MakerMatrix/ --exit-zero --output-format=text > pylint_report.txt
+        cat pylint_report.txt
+      continue-on-error: true
+
+    - name: Run flake8
+      run: |
+        source venv_test/bin/activate
+        flake8 MakerMatrix/ --max-line-length=120 --exclude=venv_test,node_modules --exit-zero
+      continue-on-error: true
+
+    - name: Upload lint reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: lint-reports
+        path: |
+          pylint_report.txt
+        retention-days: 30
+
+  # Type Checking
+  type-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install mypy
+
+    - name: Run mypy type checking
+      run: |
+        source venv_test/bin/activate
+        mypy MakerMatrix/ --ignore-missing-imports --no-strict-optional || true
+      continue-on-error: true
