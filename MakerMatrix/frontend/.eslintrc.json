@@ -64,7 +64,9 @@
     ],
 
     // General best practices
-    "no-console": ["warn", { "allow": ["warn", "error", "info"] }],
+    // Allow console statements in development (useful for debugging)
+    // In production builds, these will be removed by build tools
+    "no-console": "off",
     "no-debugger": "warn",
     "prefer-const": "warn",
     "no-unused-vars": "off",
