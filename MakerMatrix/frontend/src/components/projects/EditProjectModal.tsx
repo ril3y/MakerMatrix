@@ -97,12 +97,16 @@ const EditProjectModal = ({
       toast.success('Project updated successfully')
       handleClose()
       onSuccess()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to update project:', error)
+      const err = error as {
+        response?: { data?: { detail?: string; message?: string } }
+        message?: string
+      }
       const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        error.message ||
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        err.message ||
         'Failed to update project'
       toast.error(errorMessage)
     } finally {

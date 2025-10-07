@@ -6,7 +6,7 @@ interface Theme {
   id: string
   name: string
   description: string
-  icon: any
+  icon: React.ComponentType<{ className?: string }>
   primary: string
   background: string
   text: string
