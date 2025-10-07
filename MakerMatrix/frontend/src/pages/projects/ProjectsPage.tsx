@@ -62,8 +62,9 @@ const ProjectsPage = () => {
     try {
       await projectsService.deleteProject(project.id)
       loadProjects()
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete project')
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      alert(error.response?.data?.error || 'Failed to delete project')
     }
   }
 

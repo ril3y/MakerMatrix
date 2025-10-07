@@ -189,7 +189,8 @@ const PartsPage = () => {
       setParts(mappedParts)
       setTotalParts(totalCount)
       setCurrentPage(page)
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Error loading parts:', err)
       setError(err.response?.data?.error || err.message || 'Failed to load parts')
       // Set empty array on error to prevent map issues
