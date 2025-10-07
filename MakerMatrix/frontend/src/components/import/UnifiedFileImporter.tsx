@@ -7,16 +7,37 @@ import { extractFilenameInfo } from '@/utils/filenameExtractor'
 import FileUpload from './FileUpload'
 import ImportProgress from './ImportProgress'
 import FilePreview from './FilePreview'
+import type { ImportResult } from './hooks/useOrderImport'
+
+interface FilePreviewData {
+  filename: string
+  size: number
+  type: string
+  detected_parser: string | null
+  preview_rows: Record<string, unknown>[]
+  headers: string[]
+  total_rows: number | string
+  is_supported: boolean
+  validation_errors: string[]
+  file_format: string
+}
+
+interface SupplierCapabilities {
+  enrichment_capabilities?: string[]
+  enrichment_available?: boolean
+  enrichment_missing_credentials?: string[]
+  [key: string]: unknown
+}
 
 interface UnifiedFileImporterProps {
-  onImportComplete?: (result: any) => void
+  onImportComplete?: (result: ImportResult) => void
   parserType: string
   parserName: string
   description: string
   uploadedFile?: File | null
-  filePreview?: any
+  filePreview?: FilePreviewData | null
   selectedEnrichmentCapabilities?: string[]
-  supplierCapabilities?: any
+  supplierCapabilities?: SupplierCapabilities
 }
 
 const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({

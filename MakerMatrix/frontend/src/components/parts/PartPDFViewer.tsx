@@ -15,13 +15,13 @@ const PartPDFViewer = ({ isOpen, onClose, datasheet }: PartPDFViewerProps) => {
 
   const getDatasheetUrl = (datasheet: Datasheet) => {
     // In development, use the vite proxy. In production, use the configured API URL
-    const isDevelopment = (import.meta as any).env?.DEV
+    const isDevelopment = import.meta.env?.DEV
     if (isDevelopment) {
       // Use relative URL so it goes through Vite proxy
       return `/static/datasheets/${datasheet.filename}`
     } else {
       // Production: use full API URL
-      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080'
       return `${API_BASE_URL}/static/datasheets/${datasheet.filename}`
     }
   }
