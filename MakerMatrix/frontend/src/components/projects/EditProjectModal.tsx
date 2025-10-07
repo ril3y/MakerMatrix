@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, X, Hash, Plus } from 'lucide-react'
+import { Save, X, Hash, Plus, Settings, Link as LinkIcon } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
@@ -140,61 +140,80 @@ const EditProjectModal = ({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Edit Project" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <FormField label="Project Name" required error={errors.name}>
-          <div className="relative">
-            <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
-            <input
-              type="text"
-              className="input w-full pl-10"
-              value={formData.name || ''}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., golfcart-harness"
-            />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information Section */}
+        <div className="bg-theme-secondary rounded-lg p-4 border border-theme-primary">
+          <h3 className="text-sm font-semibold text-theme-primary mb-4 flex items-center gap-2">
+            <Hash className="w-4 h-4" />
+            Basic Information
+          </h3>
+          <div className="space-y-4">
+            <FormField label="Project Name" required error={errors.name}>
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
+                <input
+                  type="text"
+                  className="input w-full pl-10"
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., golfcart-harness"
+                />
+              </div>
+              <p className="text-xs text-muted mt-1">
+                Use lowercase with hyphens for hashtag-like names
+              </p>
+            </FormField>
+
+            <FormField label="Description" error={errors.description}>
+              <textarea
+                className="input w-full min-h-[80px] resize-y"
+                value={formData.description || ''}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Brief description of the project (optional)"
+                rows={3}
+              />
+            </FormField>
           </div>
-          <p className="text-xs text-muted mt-1">
-            Use lowercase with hyphens for hashtag-like names
-          </p>
-        </FormField>
+        </div>
 
-        <FormField label="Description" error={errors.description}>
-          <textarea
-            className="input w-full min-h-[80px] resize-y"
-            value={formData.description || ''}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Brief description of the project (optional)"
-            rows={3}
-          />
-        </FormField>
+        {/* Status and Image Section */}
+        <div className="bg-theme-secondary rounded-lg p-4 border border-theme-primary">
+          <h3 className="text-sm font-semibold text-theme-primary mb-4 flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            Status & Visual
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Status" error={errors.status}>
+              <select
+                className="input w-full"
+                value={formData.status || 'planning'}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+              >
+                <option value="planning">📋 Planning</option>
+                <option value="active">🚀 Active</option>
+                <option value="completed">✅ Completed</option>
+                <option value="archived">📦 Archived</option>
+              </select>
+            </FormField>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Status" error={errors.status}>
-            <select
-              className="input w-full"
-              value={formData.status || 'planning'}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-            >
-              <option value="planning">Planning</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="archived">Archived</option>
-            </select>
-          </FormField>
-
-          <FormField label="Project Image" description="Upload an image for the project">
-            <ImageUpload
-              onImageUploaded={setImageUrl}
-              currentImageUrl={imageUrl}
-              placeholder="Upload project image"
-              className="w-full"
-            />
-          </FormField>
+            <FormField label="Project Image" description="Upload an image for the project">
+              <ImageUpload
+                onImageUploaded={setImageUrl}
+                currentImageUrl={imageUrl}
+                placeholder="Upload project image"
+                className="w-full"
+              />
+            </FormField>
+          </div>
         </div>
 
         {/* Links Section */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-primary">Links</label>
+        <div className="bg-theme-secondary rounded-lg p-4 border border-theme-primary">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-theme-primary flex items-center gap-2">
+              <LinkIcon className="w-4 h-4" />
+              Project Links
+            </h3>
             <button
               type="button"
               onClick={addLink}
@@ -205,38 +224,42 @@ const EditProjectModal = ({
             </button>
           </div>
 
-          {links.map((link, index) => (
-            <div key={index} className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Link name (e.g., GitHub)"
-                className="input flex-1"
-                value={link.key}
-                onChange={(e) => updateLink(index, 'key', e.target.value)}
-              />
-              <input
-                type="url"
-                placeholder="URL (e.g., https://github.com/...)"
-                className="input flex-1"
-                value={link.value}
-                onChange={(e) => updateLink(index, 'value', e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => removeLink(index)}
-                className="btn btn-secondary btn-sm"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
+          <div className="space-y-3">
+            {links.map((link, index) => (
+              <div key={index} className="flex gap-2 bg-theme-elevated p-3 rounded-lg border border-theme-primary">
+                <input
+                  type="text"
+                  placeholder="Link name (e.g., GitHub)"
+                  className="input flex-1"
+                  value={link.key}
+                  onChange={(e) => updateLink(index, 'key', e.target.value)}
+                />
+                <input
+                  type="url"
+                  placeholder="URL (e.g., https://github.com/...)"
+                  className="input flex-1"
+                  value={link.value}
+                  onChange={(e) => updateLink(index, 'value', e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeLink(index)}
+                  className="btn btn-secondary btn-sm hover:bg-red-600 hover:text-white transition-colors"
+                  title="Remove link"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
 
-          {links.length === 0 && (
-            <p className="text-sm text-secondary">
-              No links added. Click "Add Link" to include project-related URLs (GitHub,
-              documentation, etc.)
-            </p>
-          )}
+            {links.length === 0 && (
+              <div className="text-center py-6 text-muted text-sm bg-theme-elevated rounded-lg border border-dashed border-theme-primary">
+                <LinkIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No links added yet.</p>
+                <p className="text-xs mt-1">Click "Add Link" to include project-related URLs</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">

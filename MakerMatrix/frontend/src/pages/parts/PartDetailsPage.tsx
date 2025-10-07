@@ -53,6 +53,10 @@ import PartImage from '@/components/parts/PartImage'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import CategorySelector from '@/components/ui/CategorySelector'
 import SupplierSelector from '@/components/ui/SupplierSelector'
+import ProjectSelector from '@/components/ui/ProjectSelector'
+import AddProjectModal from '@/components/projects/AddProjectModal'
+import { projectsService } from '@/services/projects.service'
+import type { Project } from '@/types/projects'
 import { analyticsService } from '@/services/analytics.service'
 import { Line } from 'react-chartjs-2'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
@@ -139,6 +143,13 @@ const PartDetailsPage = () => {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [openedFromManagement, setOpenedFromManagement] = useState(false)
+
+  // Project management state
+  const [addProjectModalOpen, setAddProjectModalOpen] = useState(false)
+  const [projectManagementOpen, setProjectManagementOpen] = useState(false)
+  const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
 
   // Inline editing states
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -453,6 +464,85 @@ const PartDetailsPage = () => {
     // Opened directly from main buttons
     setOpenedFromManagement(false)
     setAddCategoryModalOpen(true)
+  }
+
+  // Project management functions
+  const loadAllProjects = async () => {
+    try {
+      setLoadingProjects(true)
+      const projects = await projectsService.getAllProjects()
+      console.log('Loaded projects:', projects)
+      setAllProjects(projects || [])
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+      setError('Failed to load projects')
+    } finally {
+      setLoadingProjects(false)
+    }
+  }
+
+  const handleToggleProject = (projectId: string) => {
+    setSelectedProjectIds((prev) =>
+      prev.includes(projectId) ? prev.filter((id) => id !== projectId) : [...prev, projectId]
+    )
+  }
+
+  const saveProjectChanges = async () => {
+    if (!part || !id) return
+
+    try {
+      setSaving(true)
+
+      // Get current project IDs
+      const currentProjectIds = part.projects?.map(p => p.id) || []
+
+      // Find projects to add (selected but not in current)
+      const projectsToAdd = selectedProjectIds.filter(pid => !currentProjectIds.includes(pid))
+
+      // Find projects to remove (in current but not selected)
+      const projectsToRemove = currentProjectIds.filter(pid => !selectedProjectIds.includes(pid))
+
+      // Add new projects
+      for (const projectId of projectsToAdd) {
+        await projectsService.addPartToProject(projectId, id)
+      }
+
+      // Remove deselected projects
+      for (const projectId of projectsToRemove) {
+        await projectsService.removePartFromProject(projectId, id)
+      }
+
+      // Refresh the part to get updated data
+      await loadPart(id)
+      setProjectManagementOpen(false)
+    } catch (error) {
+      console.error('Failed to save project changes:', error)
+      setError('Failed to save project changes')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddProjectSuccess = async () => {
+    setAddProjectModalOpen(false)
+    // Reload projects to include the newly created one
+    await loadAllProjects()
+    // If we came from the management modal, return to it
+    if (openedFromManagement) {
+      setProjectManagementOpen(true)
+      setOpenedFromManagement(false)
+    }
+  }
+
+  const handleAddProjectFromManagement = () => {
+    setOpenedFromManagement(true)
+    setProjectManagementOpen(false)
+    setAddProjectModalOpen(true)
+  }
+
+  const handleAddProjectDirect = () => {
+    setOpenedFromManagement(false)
+    setAddProjectModalOpen(true)
   }
 
   const handleTransferClick = (allocation: PartAllocation) => {
@@ -1346,9 +1436,13 @@ const PartDetailsPage = () => {
                 </h2>
 
                 <button
-                  onClick={() => navigate(`/parts/${part.id}/edit`)}
+                  onClick={async () => {
+                    await loadAllProjects()
+                    setSelectedProjectIds(part.projects?.map(p => p.id) || [])
+                    setProjectManagementOpen(true)
+                  }}
                   className="btn btn-primary btn-sm flex items-center gap-2"
-                  title="Edit part to manage projects"
+                  title="Manage projects for this part"
                 >
                   <Edit className="w-4 h-4" />
                   Manage Projects
@@ -1377,13 +1471,26 @@ const PartDetailsPage = () => {
                   <p className="text-theme-muted text-sm mb-4">
                     No projects assigned to this part yet.
                   </p>
-                  <button
-                    onClick={() => navigate(`/parts/${part.id}/edit`)}
-                    className="btn btn-primary btn-sm flex items-center gap-2 mx-auto"
-                  >
-                    <Hash className="w-4 h-4" />
-                    Assign to Project
-                  </button>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={async () => {
+                        await loadAllProjects()
+                        setSelectedProjectIds([])
+                        setProjectManagementOpen(true)
+                      }}
+                      className="btn btn-primary btn-sm flex items-center gap-2"
+                    >
+                      <Hash className="w-4 h-4" />
+                      Assign to Existing Project
+                    </button>
+                    <button
+                      onClick={handleAddProjectDirect}
+                      className="btn btn-secondary btn-sm flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create New Project
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1960,6 +2067,75 @@ const PartDetailsPage = () => {
                       <>
                         <Tag className="w-4 h-4" />
                         Save Categories
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Project Modal */}
+          <AddProjectModal
+            isOpen={addProjectModalOpen}
+            onClose={() => setAddProjectModalOpen(false)}
+            onSuccess={handleAddProjectSuccess}
+            existingProjects={allProjects.map((proj) => proj.name)}
+          />
+
+          {/* Project Management Modal */}
+          {projectManagementOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-theme-elevated border border-theme-primary rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+                <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+                  <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
+                    <Hash className="w-5 h-5 text-purple-400" />
+                    Manage Projects for {part?.name}
+                  </h2>
+                </div>
+
+                <div className="p-6">
+                  {loadingProjects ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto"></div>
+                      <p className="text-theme-muted mt-3">Loading projects...</p>
+                    </div>
+                  ) : (
+                    <ProjectSelector
+                      projects={allProjects}
+                      selectedProjects={selectedProjectIds}
+                      onToggleProject={handleToggleProject}
+                      onAddNewProject={handleAddProjectFromManagement}
+                      label="Select Projects"
+                      description="Choose which projects to assign this part to"
+                      showAddButton={true}
+                      layout="pills"
+                    />
+                  )}
+                </div>
+
+                <div className="bg-theme-tertiary border-t border-theme-primary px-6 py-4 flex items-center justify-between">
+                  <button
+                    onClick={() => setProjectManagementOpen(false)}
+                    className="btn btn-secondary"
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveProjectChanges}
+                    className="btn btn-primary flex items-center gap-2"
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Hash className="w-4 h-4" />
+                        Save Projects
                       </>
                     )}
                   </button>
