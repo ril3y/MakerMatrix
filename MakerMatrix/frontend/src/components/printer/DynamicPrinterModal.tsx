@@ -260,7 +260,7 @@ const DynamicPrinterModal = ({
           toast.warning('Discovery timeout - check latest results')
         }
       }, 60000)
-    } catch (error) {
+    } catch {
       toast.error('Failed to start printer discovery')
       setLoading(false)
     }
@@ -273,7 +273,7 @@ const DynamicPrinterModal = ({
       if (result.discovered_printers && result.discovered_printers.length > 0) {
         setDiscoveredPrinters(result.discovered_printers)
       }
-    } catch (error) {
+    } catch {
       // Ignore error - no previous discovery results
     }
   }

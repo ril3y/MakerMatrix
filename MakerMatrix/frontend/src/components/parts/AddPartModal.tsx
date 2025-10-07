@@ -435,7 +435,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
       // Fallback: just use the first part if no dots
       return parts[0]
-    } catch (err) {
+    } catch {
       return null
     }
   }
@@ -448,7 +448,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
         baseUrl = `${urlObj.protocol}//${urlObj.hostname}`
       }
-    } catch (err) {
+    } catch {
       // If URL parsing fails, use the original URL
       baseUrl = url
     }

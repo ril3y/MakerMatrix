@@ -86,7 +86,7 @@ const AddLocationModal = ({
       setLoadingData(true)
       const locations = await locationsService.getAllLocations()
       setParentLocations(locations)
-    } catch (error) {
+    } catch {
       toast.error('Failed to load parent locations')
     } finally {
       setLoadingData(false)
