@@ -256,7 +256,8 @@ const PrinterModal = ({
 
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Preview error:', error)
 
       // Extract user-friendly error message
@@ -362,7 +363,8 @@ const PrinterModal = ({
       } else {
         toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
       }
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Print error:', error)
 
       // Extract user-friendly error message
@@ -484,7 +486,8 @@ const PrinterModal = ({
       if (reloadTemplatesRef.current) {
         await reloadTemplatesRef.current()
       }
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Failed to save template:', error)
       toast.error(error.message || 'Failed to save template')
     }

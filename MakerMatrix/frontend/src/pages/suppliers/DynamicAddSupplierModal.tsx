@@ -160,8 +160,9 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
         try {
           // Try to create new supplier
           await supplierService.createSupplier(supplierConfig)
-        } catch (error: any) {
-          if (error.response?.status === 409) {
+        } catch (error) {
+          const err = error as { response?: { status?: number } }
+          if (err.response?.status === 409) {
             // Supplier already exists, try to update instead
             console.log(`Supplier ${selectedSupplier} already exists, updating configuration...`)
             await supplierService.updateSupplier(supplierConfig.supplier_name, {

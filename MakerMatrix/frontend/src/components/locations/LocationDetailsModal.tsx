@@ -147,7 +147,8 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       )
 
       setPartsAtLocation(partsWithAllocations)
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Failed to load location data:', error)
       toast.error('Failed to load location details')
     } finally {
@@ -215,7 +216,8 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       setPartToReturn(null)
       loadLocationData()
       if (onRefresh) onRefresh()
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Failed to return part:', error)
       toast.error(error.message || 'Failed to return part to original location')
     }
