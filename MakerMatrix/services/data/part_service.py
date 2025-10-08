@@ -310,6 +310,13 @@ class PartService(BaseService):
                 category_names = part_data.pop("category_names", [])
                 categories = []
 
+                # Auto-assign "Hardware" category for Bolt Depot parts
+                supplier = part_data.get("supplier", "").lower()
+                self.logger.debug(f"Checking hardware category auto-assign: supplier='{supplier}', category_names={category_names}")
+                if supplier == "boltdepot" and "hardware" not in [cat.lower() for cat in category_names]:
+                    category_names.append("hardware")
+                    self.logger.info(f"✅ Auto-assigned 'hardware' category for Bolt Depot part '{part_name}'")
+
                 # Check for supplier categories in additional_properties and auto-assign
                 additional_props = part_data.get("additional_properties", {})
                 if isinstance(additional_props, dict):
@@ -349,7 +356,7 @@ class PartService(BaseService):
                 # Filter out only valid PartModel fields (removed 'quantity', 'location_id', and 'pricing_data')
                 valid_part_fields = {
                     'part_number', 'part_name', 'description',
-                    'supplier', 'supplier_part_number', 'supplier_url', 'image_url', 'additional_properties',
+                    'supplier', 'supplier_part_number', 'supplier_url', 'product_url', 'image_url', 'additional_properties',
                     # Pricing fields (removed pricing_data - goes to PartPricingHistory instead)
                     'unit_price', 'currency',
                     # Enhanced fields from PartModel
@@ -365,7 +372,7 @@ class PartService(BaseService):
                 for key, value in part_data.items():
                     if key in valid_part_fields:
                         # Convert empty strings to None for optional fields (removed location_id - no longer a part field)
-                        if value == "" and key in ['image_url', 'description', 'part_number', 'supplier', 'supplier_part_number', 'supplier_url',
+                        if value == "" and key in ['image_url', 'description', 'part_number', 'supplier', 'supplier_part_number', 'supplier_url', 'product_url',
                                                   'manufacturer', 'manufacturer_part_number', 'component_type',
                                                   'package', 'mounting_type',
                                                   'price_source', 'enrichment_source']:

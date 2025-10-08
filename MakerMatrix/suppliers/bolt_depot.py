@@ -13,7 +13,8 @@ import logging
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo, CapabilityRequirement
+    PartSearchResult, SupplierInfo, CapabilityRequirement,
+    EnrichmentFieldMapping
 )
 from .registry import register_supplier
 from .exceptions import (
@@ -23,13 +24,13 @@ from .exceptions import (
 
 logger = logging.getLogger(__name__)
 
-@register_supplier("bolt-depot")
+@register_supplier("boltdepot")
 class BoltDepotSupplier(BaseSupplier):
     """Bolt Depot supplier implementation using web scraping"""
-    
+
     def get_supplier_info(self) -> SupplierInfo:
         return SupplierInfo(
-            name="bolt-depot",
+            name="boltdepot",
             display_name="Bolt Depot",
             description="Specialty fastener supplier offering bolts, screws, nuts, washers, and threaded rod. Uses web scraping to extract product details, pricing, and specifications from product pages.",
             website_url="https://boltdepot.com",
@@ -57,6 +58,27 @@ class BoltDepotSupplier(BaseSupplier):
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for public web scraping
         return []
+
+    def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
+        """
+        Define URL patterns for extracting part numbers from Bolt Depot product URLs.
+
+        Bolt Depot product URLs follow the pattern:
+        https://boltdepot.com/Product-Details?product=15294
+        """
+        return [
+            EnrichmentFieldMapping(
+                field_name="supplier_part_number",
+                display_name="Bolt Depot Product ID",
+                url_patterns=[
+                    r'[?&]product=([^&]+)',  # Extract from ?product=15294 or &product=15294
+                    r'/Product-Details\?product=([^&]+)',  # More specific pattern
+                ],
+                example="15294",
+                description="Product ID from Bolt Depot URL (e.g., ?product=15294)",
+                required_for_enrichment=True
+            )
+        ]
     
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         return [
@@ -111,7 +133,43 @@ class BoltDepotSupplier(BaseSupplier):
     
     def _get_base_url(self) -> str:
         """Get base URL for Bolt Depot"""
-        return self._config.get("base_url", "https://boltdepot.com")
+        base_url = self._config.get("base_url", "https://boltdepot.com")
+        # Ensure we always have a valid URL, never empty string
+        return base_url if base_url else "https://boltdepot.com"
+
+    def extract_part_number_from_url(self, url: str) -> Optional[str]:
+        """
+        Extract product number from Bolt Depot URL.
+
+        Examples:
+            https://boltdepot.com/Product-Details?product=15294 -> 15294
+            https://www.boltdepot.com/Product-Details?product=15294 -> 15294
+        """
+        import re
+        from urllib.parse import urlparse, parse_qs
+
+        try:
+            # Parse the URL
+            parsed = urlparse(url)
+
+            # Check if it's a Bolt Depot URL
+            if 'boltdepot.com' not in parsed.netloc.lower():
+                logger.debug(f"URL {url} is not a Bolt Depot URL")
+                return None
+
+            # Extract product parameter from query string
+            query_params = parse_qs(parsed.query)
+            if 'product' in query_params:
+                product_id = query_params['product'][0]
+                logger.debug(f"Extracted product number {product_id} from URL {url}")
+                return product_id
+
+            logger.debug(f"Could not find product parameter in URL {url}")
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error parsing Bolt Depot URL {url}: {e}")
+            return None
     
     def _get_headers(self) -> Dict[str, str]:
         """Get headers for HTTP requests"""

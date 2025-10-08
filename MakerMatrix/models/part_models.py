@@ -92,7 +92,8 @@ class PartModel(SQLModel, table=True):
     # Use part.total_quantity and part.primary_location computed properties instead
     supplier: Optional[str] = None  # Primary/preferred supplier
     supplier_part_number: Optional[str] = Field(default=None, index=True, description="Supplier's part number for API calls (e.g., LCSC: C25804, DigiKey: 296-1234-ND)")
-    supplier_url: Optional[str] = None  # URL to supplier product page
+    supplier_url: Optional[str] = None  # URL to supplier homepage (e.g., https://boltdepot.com)
+    product_url: Optional[str] = None  # URL to specific product page (e.g., https://boltdepot.com/Product-Details?product=15294)
 
     # === MEDIA ===
     image_url: Optional[str] = None

@@ -224,15 +224,30 @@ export class PartsService {
   async getSupplierEnrichmentRequirements(
     supplier: string
   ): Promise<SupplierEnrichmentRequirements> {
-    const response = await apiClient.get<ApiResponse<SupplierEnrichmentRequirements>>(
-      `/api/parts/enrichment-requirements/${supplier}`
-    )
-    // apiClient.get already returns response.data, so response is the API response object
-    // We need to extract the data field from the API response
-    if (response.status === 'success' && response.data) {
-      return response.data
+    try {
+      const response = await apiClient.get<ApiResponse<SupplierEnrichmentRequirements>>(
+        `/api/parts/enrichment-requirements/${supplier}`
+      )
+      // apiClient.get already returns response.data, so response is the API response object
+      // We need to extract the data field from the API response
+      if (response.status === 'success' && response.data) {
+        return response.data
+      }
+      throw new Error(response.message || 'Failed to get enrichment requirements')
+    } catch (error: any) {
+      // 404 is expected for new-style suppliers that use field mappings instead of enrichment requirements
+      if (error.response?.status === 404) {
+        // Return empty requirements object to indicate no legacy requirements
+        return {
+          supplier_name: supplier,
+          display_name: supplier,
+          description: '',
+          required_fields: [],
+          optional_fields: []
+        }
+      }
+      throw error
     }
-    throw new Error(response.message || 'Failed to get enrichment requirements')
   }
 
   /**

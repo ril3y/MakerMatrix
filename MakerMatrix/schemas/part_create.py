@@ -10,6 +10,7 @@ class PartCreate(BaseModel):
     description: Optional[str] = None
     supplier: Optional[str] = None
     supplier_url: Optional[str] = None
+    product_url: Optional[str] = None
     supplier_part_number: Optional[str] = None
     manufacturer_part_number: Optional[str] = None
     location_id: Optional[str] = None
@@ -39,6 +40,7 @@ class PartUpdate(BaseModel):
     description: Optional[str] = None
     supplier: Optional[str] = None
     supplier_url: Optional[str] = None
+    product_url: Optional[str] = None
     supplier_part_number: Optional[str] = None
     manufacturer_part_number: Optional[str] = None
     location_id: Optional[str] = None

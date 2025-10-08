@@ -37,6 +37,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     minimum_quantity: 0,
     supplier: '',
     supplier_url: '',
+    product_url: '',
     supplier_part_number: '',
     location_id: '',
     categories: [],
@@ -173,7 +174,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const loadSupplierRequiredFields = async (supplierName: string) => {
     try {
       setLoadingSupplierFields(true)
-      // Get enrichment requirements for the supplier
+      // Get enrichment requirements for the supplier (404 is expected for new-style suppliers)
       const response = await partsService.getSupplierEnrichmentRequirements(supplierName)
 
       console.log('Enrichment requirements response:', response)
@@ -457,8 +458,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   }
 
   const handleSupplierUrlChange = async (url: string) => {
-    // Extract base domain URL (not the full product URL)
+    // Extract base domain URL for supplier_url, keep full URL for product_url
     let baseUrl = url
+    const fullUrl = url
     try {
       if (url.trim()) {
         const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
@@ -469,7 +471,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       baseUrl = url
     }
 
-    setFormData({ ...formData, supplier_url: baseUrl })
+    setFormData({ ...formData, supplier_url: baseUrl, product_url: fullUrl })
 
     // If supplier field is empty and URL contains a domain, auto-populate supplier
     if (!formData.supplier && url.trim()) {
@@ -479,8 +481,8 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         const formattedName = supplierName.charAt(0).toUpperCase() + supplierName.slice(1)
         const supplierLower = supplierName.toLowerCase()
 
-        // Set supplier field first with base URL, not full product URL
-        setFormData({ ...formData, supplier_url: baseUrl, supplier: formattedName })
+        // Set supplier field with both base URL and full product URL
+        setFormData({ ...formData, supplier_url: baseUrl, product_url: fullUrl, supplier: formattedName })
         toast.success(`Auto-detected supplier: ${formattedName} from ${baseUrl}`)
 
         // Check supplier type
@@ -621,6 +623,8 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         description: enrichedData.description || prev.description,
         unit_price: enrichedData.unit_price || prev.unit_price,
         currency: enrichedData.currency || prev.currency,
+        // Preserve product_url from earlier URL paste (it's already in prev from handleSupplierUrlChange)
+        product_url: prev.product_url,
       }))
 
       // Set image if available
@@ -641,6 +645,18 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           }))
         setCustomProperties(customProps)
         console.log('✅ Populated custom properties from backend:', customProps)
+      }
+
+      // Auto-select "Hardware" category for Bolt Depot parts
+      if (supplierName.toLowerCase() === 'boltdepot') {
+        const hardwareCategory = categories.find(cat => cat.name.toLowerCase() === 'hardware')
+        if (hardwareCategory && !selectedCategories.includes(hardwareCategory.id)) {
+          setSelectedCategories([...selectedCategories, hardwareCategory.id])
+          console.log('✅ Auto-selected Hardware category for Bolt Depot part')
+        } else if (!hardwareCategory) {
+          // Hardware category doesn't exist yet, it will be auto-created on backend
+          console.log('ℹ️ Hardware category will be auto-created when part is saved')
+        }
       }
 
       toast.success(`Auto-populated from ${formattedName}!`)

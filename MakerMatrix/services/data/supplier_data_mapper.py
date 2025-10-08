@@ -29,7 +29,7 @@ class SupplierDataMapper:
             'mouser': self._map_mouser_data,
             'digikey': self._map_digikey_data,
             'mcmaster-carr': self._map_mcmaster_data,
-            'bolt-depot': self._map_bolt_depot_data,
+            'boltdepot': self._map_bolt_depot_data,
         }
     
     def map_supplier_result_to_part_data(
@@ -499,17 +499,24 @@ class SupplierDataMapper:
     
     def _map_bolt_depot_data(self, result: PartSearchResult) -> Dict[str, Any]:
         """Bolt Depot specific data mapping"""
-        
+
         custom_fields = {}
-        
+
         if result.additional_data:
+            # Note: Bolt Depot scraper provides capitalized keys like "Material", "Length", etc.
             custom_fields.update({
-                'bolt_depot_url': result.additional_data.get('product_detail_url'),
-                'material_spec': result.additional_data.get('material'),
-                'thread_spec': result.additional_data.get('thread'),
-                'length': result.additional_data.get('length')
+                'material': result.additional_data.get('Material'),
+                'grade': result.additional_data.get('Grade'),
+                'thread_density': result.additional_data.get('Thread density'),
+                'diameter': result.additional_data.get('Diameter'),
+                'thread_pitch': result.additional_data.get('Thread pitch'),
+                'length': result.additional_data.get('Length'),
+                'head_style': result.additional_data.get('Head style'),
+                'drive_type': result.additional_data.get('Drive type'),
+                'drive_size': result.additional_data.get('Drive size'),
+                'units': result.additional_data.get('Units'),
             })
-        
+
         return {
             'core_fields': {},
             'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
