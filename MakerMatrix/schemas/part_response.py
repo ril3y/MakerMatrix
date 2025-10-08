@@ -37,6 +37,7 @@ class PartResponse(BaseModel):
     location: Optional[Dict[str, Any]] = None  # Use generic dict for location data
     supplier: Optional[str] = None
     supplier_url: Optional[str] = None
+    product_url: Optional[str] = None
     
     # Media
     image_url: Optional[str] = None

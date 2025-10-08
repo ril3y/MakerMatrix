@@ -26,6 +26,7 @@ export interface Part {
   minimum_quantity?: number
   supplier?: string
   supplier_url?: string
+  product_url?: string
   image_url?: string
   manufacturer?: string
   manufacturer_part_number?: string
@@ -85,6 +86,7 @@ export interface CreatePartRequest {
   minimum_quantity?: number
   supplier?: string
   supplier_url?: string
+  product_url?: string
   supplier_part_number?: string
   image_url?: string
   manufacturer?: string

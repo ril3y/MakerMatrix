@@ -72,7 +72,11 @@ class ApiClient {
           } else if (status === 403) {
             toast.error('You do not have permission to perform this action.')
           } else if (status === 404) {
-            toast.error(data?.message || 'Resource not found')
+            // Don't show toast for enrichment requirements - these are expected for new-style suppliers
+            const url = error.config?.url || ''
+            if (!url.includes('/enrichment-requirements/')) {
+              toast.error(data?.message || 'Resource not found')
+            }
           } else if (status === 409) {
             toast.error(data?.message || 'Resource already exists')
           } else if (status === 422) {
