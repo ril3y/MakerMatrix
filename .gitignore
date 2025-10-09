@@ -167,6 +167,9 @@ htmlcov/
 # Database
 *.sqlite3
 *.sqlite3-journal
+makermatrix.db
+*.db
+*.db-journal
 
 # Generated files
 *.png
@@ -204,6 +207,9 @@ MakerMatrix/frontend/.env.local
 MakerMatrix/frontend/.env.development.local
 MakerMatrix/frontend/.env.test.local
 MakerMatrix/frontend/.env.production.local
+
+# AI Configuration (user-specific)
+ai_config.json
 
 # Virtual environments
 venv_test/
