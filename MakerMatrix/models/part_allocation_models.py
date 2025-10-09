@@ -105,14 +105,8 @@ class PartLocationAllocation(SQLModel, table=True):
 
         # Include location details if loaded
         if hasattr(self, 'location') and self.location is not None:
-            base_dict["location"] = {
-                "id": self.location.id,
-                "name": self.location.name,
-                "location_type": self.location.location_type,
-                "description": self.location.description,
-                "emoji": self.location.emoji,
-                "image_url": self.location.image_url
-            }
+            # Use LocationModel's to_dict() to include all fields (container slots, parent, etc.)
+            base_dict["location"] = self.location.to_dict()
 
             # Add location path if available
             try:

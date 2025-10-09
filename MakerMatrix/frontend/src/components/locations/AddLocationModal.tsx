@@ -37,6 +37,7 @@ const AddLocationModal = ({
     { value: 'bin', label: 'Bin' },
     { value: 'cabinet', label: 'Cabinet' },
     { value: 'building', label: 'Building' },
+    { value: 'container', label: 'Container' },
   ]
 
   // Form with validation
@@ -52,6 +53,11 @@ const AddLocationModal = ({
       image_url: undefined,
       emoji: undefined,
       image_file: undefined,
+      slot_count: 10,
+      slot_naming_pattern: 'Slot {n}',
+      slot_layout_type: 'simple' as any,
+      grid_rows: 2,
+      grid_columns: 5,
     },
     onSubmit: handleFormSubmit,
     onSuccess: () => {
@@ -70,6 +76,16 @@ const AddLocationModal = ({
       }
     },
   })
+
+  // Container slot state - use form state instead of local state
+  const slotLayoutType = (form.watch('slot_layout_type') as unknown as 'simple' | 'grid') || 'simple'
+  const slotCount = (form.watch('slot_count') as unknown as number) || 10
+  const gridRows = (form.watch('grid_rows') as unknown as number) || 2
+  const gridColumns = (form.watch('grid_columns') as unknown as number) || 5
+  const namingPattern = (form.watch('slot_naming_pattern') as unknown as string) || 'Slot {n}'
+
+  // Check if current location type is container
+  const isContainer = (form.watch('location_type') as unknown as string) === 'container'
 
   useEffect(() => {
     if (isOpen) {
@@ -93,6 +109,41 @@ const AddLocationModal = ({
     }
   }
 
+  // Generate preview slot names - show ALL slots (no truncation)
+  function generatePreviewSlots(
+    layoutType: 'simple' | 'grid',
+    count: number,
+    rows: number,
+    cols: number,
+    pattern: string
+  ): string[] | string[][] {
+    if (layoutType === 'simple') {
+      // Return flat array for simple layout
+      const preview: string[] = []
+      for (let i = 1; i <= count; i++) {
+        preview.push(pattern.replace('{n}', String(i)))
+      }
+      return preview
+    } else {
+      // Return 2D array for grid layout (rows of columns)
+      const grid: string[][] = []
+      let n = 1
+      for (let r = 1; r <= rows; r++) {
+        const row: string[] = []
+        for (let c = 1; c <= cols; c++) {
+          const name = pattern
+            .replace('{n}', String(n))
+            .replace('{row}', String(r))
+            .replace('{col}', String(c))
+          row.push(name)
+          n++
+        }
+        grid.push(row)
+      }
+      return grid
+    }
+  }
+
   // Handle form submission
   async function handleFormSubmit(data: LocationFormData) {
     // Check for duplicate names at the same level
@@ -104,13 +155,27 @@ const AddLocationModal = ({
       throw new Error('A location with this name already exists at this level')
     }
 
-    // Create location with image URL
-    const locationData = {
+    // Create location with image URL and container data
+    const locationData: any = {
       ...data,
       name: data.name.trim(),
       parent_id: data.parent_id || undefined,
       location_type: data.location_type || 'standard',
       image_url: imageUrl || undefined,
+    }
+
+    // Add container slot configuration if it's a container
+    if (isContainer) {
+      locationData.slot_layout_type = slotLayoutType
+      locationData.slot_naming_pattern = namingPattern
+
+      if (slotLayoutType === 'simple') {
+        locationData.slot_count = slotCount
+      } else if (slotLayoutType === 'grid') {
+        locationData.slot_count = gridRows * gridColumns
+        locationData.grid_rows = gridRows
+        locationData.grid_columns = gridColumns
+      }
     }
 
     return await locationsService.createLocation(locationData)
@@ -195,8 +260,8 @@ const AddLocationModal = ({
                 error={form.getFieldError('location_type')}
               >
                 <CustomSelect
-                  value={form.watch('location_type') || 'standard'}
-                  onChange={(value) => form.setValue('location_type', value)}
+                  value={(form.watch('location_type') as unknown as string) || 'standard'}
+                  onChange={(value) => form.setValue('location_type', value as unknown as string)}
                   options={locationTypes}
                   placeholder="Select or type a custom type"
                   searchPlaceholder="Type to search or create custom type..."
@@ -221,7 +286,7 @@ const AddLocationModal = ({
               description="Select a parent location to create a hierarchy (optional)"
             >
               <LocationTreeSelector
-                selectedLocationId={form.watch('parent_id')}
+                selectedLocationId={form.watch('parent_id') as unknown as string | undefined}
                 onLocationSelect={(locationId) =>
                   form.setValue('parent_id', locationId || undefined)
                 }
@@ -236,7 +301,8 @@ const AddLocationModal = ({
                 <p className="text-sm text-theme-muted mb-1">Full path will be:</p>
                 <p className="text-sm font-medium text-theme-primary">
                   {(() => {
-                    const parent = parentLocations.find((loc) => loc.id === form.watch('parent_id'))
+                    const parentId = form.watch('parent_id') as unknown as string | undefined
+                    const parent = parentLocations.find((loc) => loc.id === parentId)
                     if (parent) {
                       // Build full path from flat list
                       const buildPath = (loc: Location): string => {
@@ -248,11 +314,162 @@ const AddLocationModal = ({
                         }
                         return loc.name
                       }
-                      return buildPath(parent) + ' → ' + (form.watch('name') || '[New Location]')
+                      return buildPath(parent) + ' → ' + ((form.watch('name') as unknown as string) || '[New Location]')
                     }
-                    return form.watch('name') || '[New Location]'
+                    return (form.watch('name') as unknown as string) || '[New Location]'
                   })()}
                 </p>
+              </div>
+            )}
+
+            {/* Container Slot Configuration */}
+            {isContainer && (
+              <div className="p-4 bg-theme-secondary rounded-md border border-theme-primary space-y-4">
+                <h4 className="text-base font-semibold text-theme-primary">
+                  Container Slot Configuration
+                </h4>
+
+                {/* Layout Type Selector */}
+                <FormField label="Layout Type">
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="simple"
+                        checked={slotLayoutType === 'simple'}
+                        onChange={(e) => {
+                          form.setValue('slot_layout_type', 'simple' as any)
+                          form.setValue('slot_naming_pattern', 'Slot {n}')
+                        }}
+                        className="w-4 h-4 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm text-theme-primary">Simple (numbered slots)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="grid"
+                        checked={slotLayoutType === 'grid'}
+                        onChange={(e) => {
+                          form.setValue('slot_layout_type', 'grid' as any)
+                          form.setValue('slot_naming_pattern', 'R{row}-C{col}')
+                        }}
+                        className="w-4 h-4 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm text-theme-primary">Grid (rows × columns)</span>
+                    </label>
+                  </div>
+                </FormField>
+
+                {/* Simple Mode - Slot Count */}
+                {slotLayoutType === 'simple' && (
+                  <FormInput
+                    label="Number of Slots"
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={slotCount.toString()}
+                    onChange={(e) => form.setValue('slot_count', Number(e.target.value))}
+                  />
+                )}
+
+                {/* Grid Mode - Rows and Columns */}
+                {slotLayoutType === 'grid' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormInput
+                        label="Rows"
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={gridRows.toString()}
+                        onChange={(e) => {
+                          const rows = Number(e.target.value)
+                          form.setValue('grid_rows', rows)
+                          form.setValue('slot_count', rows * gridColumns)
+                        }}
+                      />
+                      <FormInput
+                        label="Columns"
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={gridColumns.toString()}
+                        onChange={(e) => {
+                          const cols = Number(e.target.value)
+                          form.setValue('grid_columns', cols)
+                          form.setValue('slot_count', gridRows * cols)
+                        }}
+                      />
+                    </div>
+                    <div className="p-2 bg-theme-elevated rounded text-sm text-theme-secondary">
+                      Total slots: <strong className="text-theme-primary">{gridRows * gridColumns}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Naming Pattern */}
+                <FormInput
+                  label="Slot Naming Pattern"
+                  value={namingPattern}
+                  onChange={(e) => form.setValue('slot_naming_pattern', e.target.value)}
+                  placeholder={slotLayoutType === 'grid' ? 'R{row}-C{col}' : 'Slot {n}'}
+                  description={
+                    slotLayoutType === 'grid'
+                      ? 'Use {n} for number, {row} for row, {col} for column'
+                      : 'Use {n} for slot number'
+                  }
+                />
+
+                {/* Live Preview - Show all slots with scrolling */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-theme-primary">
+                    Preview ({slotLayoutType === 'simple' ? slotCount : gridRows * gridColumns} slots):
+                  </label>
+                  <div className="max-h-48 overflow-y-auto p-3 bg-theme-elevated rounded border border-theme-primary">
+                    {slotLayoutType === 'simple' ? (
+                      // Simple layout - flat wrap
+                      <div className="flex flex-wrap gap-2">
+                        {(generatePreviewSlots(
+                          slotLayoutType,
+                          slotCount,
+                          gridRows,
+                          gridColumns,
+                          namingPattern
+                        ) as string[]).map((name, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-1 text-xs rounded bg-primary/20 text-primary border border-primary/30"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      // Grid layout - display as rows
+                      <div className="space-y-2">
+                        {(generatePreviewSlots(
+                          slotLayoutType,
+                          slotCount,
+                          gridRows,
+                          gridColumns,
+                          namingPattern
+                        ) as string[][]).map((row, rowIdx) => (
+                          <div key={rowIdx} className="flex gap-2 flex-wrap">
+                            {row.map((name, colIdx) => (
+                              <span
+                                key={colIdx}
+                                className="px-2 py-1 text-xs rounded bg-primary/20 text-primary border border-primary/30"
+                              >
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -275,7 +492,7 @@ const AddLocationModal = ({
               description="Choose an emoji to identify this location"
             >
               <EmojiPicker
-                value={form.watch('emoji') || undefined}
+                value={(form.watch('emoji') as unknown as string) || undefined}
                 onChange={(emoji) => form.setValue('emoji', emoji)}
                 placeholder="Click to select an emoji..."
               />

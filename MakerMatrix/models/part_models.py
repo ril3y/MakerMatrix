@@ -327,12 +327,8 @@ class PartModel(SQLModel, table=True):
         # Always include primary location from allocations (core part data)
         primary_loc = self.primary_location
         if primary_loc:
-            base_dict["location"] = {
-                "id": primary_loc.id,
-                "name": primary_loc.name,
-                "description": primary_loc.description,
-                "location_type": primary_loc.location_type
-            }
+            # Use LocationModel's to_dict() to include all fields (container slots, parent, etc.)
+            base_dict["location"] = primary_loc.to_dict()
             # Include location_id for frontend compatibility
             base_dict["location_id"] = primary_loc.id
         else:

@@ -11,12 +11,14 @@ import {
   ChevronRight,
   ChevronDown,
   Eye,
+  Package,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import EditLocationModal from '@/components/locations/EditLocationModal'
 import LocationDetailsModal from '@/components/locations/LocationDetailsModal'
+import ContainerSlotPickerModal from '@/components/locations/ContainerSlotPickerModal'
 import AuthenticatedImage from '@/components/ui/AuthenticatedImage'
 import { locationsService } from '@/services/locations.service'
 import type { Location } from '@/types/locations'
@@ -26,8 +28,10 @@ const LocationsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showSlotPickerModal, setShowSlotPickerModal] = useState(false)
   const [editingLocation, setEditingLocation] = useState<Location | null>(null)
   const [viewingLocation, setViewingLocation] = useState<Location | null>(null)
+  const [selectedContainer, setSelectedContainer] = useState<Location | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
   const [locationTree, setLocationTree] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,13 +39,14 @@ const LocationsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('tree')
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  const [hideAutoSlots, setHideAutoSlots] = useState(true)
   const navigate = useNavigate()
 
   const loadLocations = async () => {
     try {
       setLoading(true)
       setError(null)
-      const data = await locationsService.getAllLocations()
+      const data = await locationsService.getAllLocations({ hide_auto_slots: hideAutoSlots })
       setLocations(data)
       const tree = locationsService.buildLocationTree(data)
       setLocationTree(tree)
@@ -55,7 +60,7 @@ const LocationsPage = () => {
 
   useEffect(() => {
     loadLocations()
-  }, [])
+  }, [hideAutoSlots])
 
   const handleLocationAdded = () => {
     loadLocations()
@@ -76,6 +81,12 @@ const LocationsPage = () => {
   const handleEdit = (location: Location) => {
     setEditingLocation(location)
     setShowEditModal(true)
+  }
+
+  const handleViewSlots = (location: Location, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent triggering location details
+    setSelectedContainer(location)
+    setShowSlotPickerModal(true)
   }
 
   const handleDelete = async (location: Location) => {
@@ -102,6 +113,19 @@ const LocationsPage = () => {
       newExpanded.add(locationId)
     }
     setExpandedNodes(newExpanded)
+  }
+
+  // Calculate total parts for a location, including parts in child slots for containers
+  const getTotalPartsCount = (location: Location): number => {
+    // For containers with slots, sum parts from all child slot locations
+    if (location.location_type === 'container' && location.slot_count) {
+      const childSlots = locations.filter(
+        (loc) => loc.parent_id === location.id && loc.is_auto_generated_slot
+      )
+      return childSlots.reduce((sum, slot) => sum + (slot.parts_count || 0), 0)
+    }
+    // For regular locations, just return the parts_count
+    return location.parts_count || 0
   }
 
   const filteredLocations = locations.filter(
@@ -159,6 +183,14 @@ const LocationsPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <button
+            onClick={() => setHideAutoSlots(!hideAutoSlots)}
+            className="btn btn-secondary flex items-center gap-2"
+            title={hideAutoSlots ? 'Show auto-generated slots' : 'Hide auto-generated slots'}
+          >
+            <Package className="w-4 h-4" />
+            {hideAutoSlots ? 'Show' : 'Hide'} Auto-Slots
+          </button>
           <button className="btn btn-secondary flex items-center gap-2">
             <Filter className="w-4 h-4" />
             Filters
@@ -281,9 +313,20 @@ const LocationsPage = () => {
                         <span className="font-medium text-primary group-hover:text-secondary transition-colors">
                           {location.name}
                         </span>
+                        {location.slot_count && location.slot_count > 0 && (
+                          <span className="ml-2 px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded border border-primary/30 flex items-center gap-1">
+                            <Package className="w-3 h-3" />
+                            {location.slot_count} slots
+                          </span>
+                        )}
                       </div>
                     </td>
-                    <td className="p-4 text-secondary">{location.location_type || 'General'}</td>
+                    <td className="p-4 text-secondary">
+                      {location.location_type || 'General'}
+                      {location.location_type === 'container' && location.slot_count && (
+                        <span className="ml-2 text-xs text-muted">({location.slot_layout_type || 'simple'})</span>
+                      )}
+                    </td>
                     <td className="p-4 text-secondary">{location.parent?.name || '-'}</td>
                     <td className="p-4 text-secondary">{location.description || '-'}</td>
                     <td className="p-4">
@@ -326,11 +369,13 @@ const LocationsPage = () => {
         >
           <LocationTreeNode
             locations={locationTree}
+            allLocations={locations}
             expandedNodes={expandedNodes}
             toggleExpanded={toggleExpanded}
             onViewDetails={handleViewDetails}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onViewSlots={handleViewSlots}
           />
         </motion.div>
       )}
@@ -371,6 +416,23 @@ const LocationsPage = () => {
           }}
         />
       )}
+
+      {/* Container Slot Picker Modal */}
+      {selectedContainer && (
+        <ContainerSlotPickerModal
+          isOpen={showSlotPickerModal}
+          onClose={() => {
+            setShowSlotPickerModal(false)
+            setSelectedContainer(null)
+          }}
+          containerLocation={selectedContainer}
+          onSlotSelect={(slotId) => {
+            // Just close the modal - we're just viewing slots, not selecting
+            setShowSlotPickerModal(false)
+            setSelectedContainer(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -378,23 +440,40 @@ const LocationsPage = () => {
 // Tree view component
 interface LocationTreeNodeProps {
   locations: Location[]
+  allLocations: Location[] // Full list for calculating parts in child slots
   expandedNodes: Set<string>
   toggleExpanded: (id: string) => void
   onViewDetails: (location: Location) => void
   onEdit: (location: Location) => void
   onDelete: (location: Location) => void
+  onViewSlots: (location: Location, event: React.MouseEvent) => void
   level?: number
 }
 
 const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
   locations,
+  allLocations,
   expandedNodes,
   toggleExpanded,
   onViewDetails,
   onEdit,
   onDelete,
+  onViewSlots,
   level = 0,
 }) => {
+  // Calculate total parts for a location, including parts in child slots for containers
+  const getTotalPartsCount = (location: Location): number => {
+    // For containers with slots, sum parts from all child slot locations
+    if (location.location_type === 'container' && location.slot_count) {
+      const childSlots = allLocations.filter(
+        (loc) => loc.parent_id === location.id && loc.is_auto_generated_slot
+      )
+      return childSlots.reduce((sum, slot) => sum + (slot.parts_count || 0), 0)
+    }
+    // For regular locations, just return the parts_count
+    return location.parts_count || 0
+  }
+
   return (
     <div className="space-y-1">
       {locations.map((location) => {
@@ -441,14 +520,32 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                   <span className="font-medium text-primary hover:text-secondary transition-colors">
                     {location.name}
                   </span>
-                  <span className="text-sm text-secondary ml-2">
-                    ({location.location_type || 'General'})
-                  </span>
-                  {location.parts_count && location.parts_count > 0 && (
-                    <span className="ml-2 px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded">
-                      {location.parts_count} {location.parts_count === 1 ? 'part' : 'parts'}
+                  {/* Only show location type if it's not a container with slots (slots badge makes it obvious) */}
+                  {!(location.location_type === 'container' && location.slot_count) && (
+                    <span className="text-sm text-secondary ml-2">
+                      ({location.location_type || 'General'})
                     </span>
                   )}
+                  {location.slot_count && location.slot_count > 0 && (
+                    <span
+                      onClick={(e) => onViewSlots(location, e)}
+                      className="ml-2 px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded border border-primary/30 flex items-center gap-1 inline-flex cursor-pointer hover:bg-primary/30 transition-colors"
+                      title="View slot layout"
+                    >
+                      <Package className="w-3 h-3" />
+                      {location.slot_count} slots
+                    </span>
+                  )}
+                  {(() => {
+                    const totalParts = getTotalPartsCount(location)
+                    return (
+                      totalParts > 0 && (
+                        <span className="ml-2 px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded">
+                          {totalParts} {totalParts === 1 ? 'part' : 'parts'}
+                        </span>
+                      )
+                    )
+                  })()}
                   {location.description && (
                     <span className="text-sm text-muted ml-2">- {location.description}</span>
                   )}
@@ -481,11 +578,13 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
             {hasChildren && isExpanded && (
               <LocationTreeNode
                 locations={location.children!}
+                allLocations={allLocations}
                 expandedNodes={expandedNodes}
                 toggleExpanded={toggleExpanded}
                 onViewDetails={onViewDetails}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onViewSlots={onViewSlots}
                 level={level + 1}
               />
             )}

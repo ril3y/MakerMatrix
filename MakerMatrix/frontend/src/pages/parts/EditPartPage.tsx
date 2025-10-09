@@ -31,6 +31,7 @@ import ImageUpload from '../../components/ui/ImageUpload'
 import EmojiPicker from '../../components/ui/EmojiPicker'
 import AddCategoryModal from '../../components/categories/AddCategoryModal'
 import AddLocationModal from '../../components/locations/AddLocationModal'
+import ContainerSlotPickerModal from '../../components/locations/ContainerSlotPickerModal'
 import CategorySelector from '../../components/ui/CategorySelector'
 import ProjectSelector from '../../components/ui/ProjectSelector'
 import AddProjectModal from '../../components/projects/AddProjectModal'
@@ -78,6 +79,8 @@ const EditPartPage: React.FC = () => {
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showAddProjectModal, setShowAddProjectModal] = useState(false)
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
+  const [showSlotPickerModal, setShowSlotPickerModal] = useState(false)
+  const [selectedContainer, setSelectedContainer] = useState<Location | null>(null)
   const [enrichmentRequirements, setEnrichmentRequirements] =
     useState<SupplierEnrichmentRequirements | null>(null)
   const [loadingRequirements, setLoadingRequirements] = useState(false)
@@ -132,7 +135,7 @@ const EditPartPage: React.FC = () => {
 
         const [partData, locationsData, categoriesData, projectsData] = await Promise.all([
           partsService.getPart(id),
-          locationsService.getAll(),
+          locationsService.getAllLocations({ hide_auto_slots: false }), // Get all locations including slots
           categoriesService.getAll(),
           projectsService.getAllProjects(),
         ])
@@ -397,7 +400,7 @@ const EditPartPage: React.FC = () => {
 
   const handleLocationAdded = async () => {
     try {
-      const locationsData = await locationsService.getAll()
+      const locationsData = await locationsService.getAllLocations({ hide_auto_slots: false })
       setLocations(locationsData)
       setShowAddLocationModal(false)
     } catch (error) {
@@ -546,30 +549,64 @@ const EditPartPage: React.FC = () => {
         {/* Inventory Information */}
         <div className="card p-6">
           <h2 className="text-lg font-semibold text-primary mb-6">Inventory Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FormField label="Quantity" error={errors.quantity?.message} required>
-              <input
-                {...register('quantity', { valueAsNumber: true })}
-                type="number"
-                min="0"
-                className="input w-full"
-                placeholder="0"
-              />
-            </FormField>
+          <div className="space-y-6">
+            {/* Quantity Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField label="Quantity" error={errors.quantity?.message} required>
+                <input
+                  {...register('quantity', { valueAsNumber: true })}
+                  type="number"
+                  min="0"
+                  className="input w-full"
+                  placeholder="0"
+                />
+              </FormField>
 
-            <FormField label="Minimum Quantity" error={errors.minimum_quantity?.message}>
-              <input
-                {...register('minimum_quantity', { valueAsNumber: true })}
-                type="number"
-                min="0"
-                className="input w-full"
-                placeholder="0"
-              />
-            </FormField>
+              <FormField label="Minimum Quantity" error={errors.minimum_quantity?.message}>
+                <input
+                  {...register('minimum_quantity', { valueAsNumber: true })}
+                  type="number"
+                  min="0"
+                  className="input w-full"
+                  placeholder="0"
+                />
+              </FormField>
+            </div>
 
+            {/* Location - Full Width */}
             <LocationTreeSelector
               selectedLocationId={watch('location_id')}
-              onLocationSelect={(locationId) => setValue('location_id', locationId || '')}
+              onLocationSelect={(locationId) => {
+                console.log('=== Location Selection Debug ===')
+                console.log('Selected locationId:', locationId)
+                if (!locationId) {
+                  setValue('location_id', '')
+                  return
+                }
+                // Check if selected location is a container
+                const selectedLocation = locations.find((loc) => loc.id === locationId)
+                console.log('Found location:', selectedLocation)
+                console.log('All location keys:', selectedLocation ? Object.keys(selectedLocation) : 'none')
+                console.log('Location type:', selectedLocation?.location_type)
+                console.log('Slot count:', selectedLocation?.slot_count)
+                console.log('Slot layout type:', selectedLocation?.slot_layout_type)
+                console.log('Grid rows:', selectedLocation?.grid_rows)
+                console.log('Grid columns:', selectedLocation?.grid_columns)
+                console.log('Is container check:', selectedLocation?.location_type === 'container')
+                console.log('Has slots check:', !!selectedLocation?.slot_count)
+                console.log('Should show modal:', selectedLocation?.location_type === 'container' && selectedLocation.slot_count)
+
+                if (selectedLocation?.location_type === 'container' && selectedLocation.slot_count) {
+                  // Show slot picker modal for containers
+                  console.log('✅ Opening slot picker modal for:', selectedLocation.name)
+                  setSelectedContainer(selectedLocation)
+                  setShowSlotPickerModal(true)
+                } else {
+                  // Directly set location for non-containers
+                  console.log('⏩ Setting location directly (not a container)')
+                  setValue('location_id', locationId)
+                }
+              }}
               onAddNewLocation={() => setShowAddLocationModal(true)}
               label="Location"
               description="Select where this part is stored"
@@ -1111,6 +1148,19 @@ const EditPartPage: React.FC = () => {
         onClose={() => setShowAddLocationModal(false)}
         onSuccess={handleLocationAdded}
       />
+
+      {selectedContainer && (
+        <ContainerSlotPickerModal
+          isOpen={showSlotPickerModal}
+          onClose={() => setShowSlotPickerModal(false)}
+          containerLocation={selectedContainer}
+          currentSlotId={watch('location_id')}
+          onSlotSelect={(slotId) => {
+            setValue('location_id', slotId)
+            setShowSlotPickerModal(false)
+          }}
+        />
+      )}
 
       <AddProjectModal
         isOpen={showAddProjectModal}

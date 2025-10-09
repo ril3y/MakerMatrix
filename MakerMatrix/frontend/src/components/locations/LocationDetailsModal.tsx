@@ -28,6 +28,7 @@ import { partAllocationService } from '@/services/part-allocation.service'
 import PrinterModal from '@/components/printer/PrinterModal'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import EditLocationModal from '@/components/locations/EditLocationModal'
+import ContainerSlotPickerModal from '@/components/locations/ContainerSlotPickerModal'
 import toast from 'react-hot-toast'
 
 interface LocationDetailsModalProps {
@@ -78,6 +79,9 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
   // Edit location modal state
   const [showEditModal, setShowEditModal] = useState(false)
 
+  // Container slot picker modal state
+  const [showSlotPickerModal, setShowSlotPickerModal] = useState(false)
+
   useEffect(() => {
     if (isOpen) {
       loadLocationData()
@@ -97,22 +101,57 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       setLocationPath(path)
 
       // Search for parts at this location
-      const searchResponse = await partsService.searchParts({
-        location_id: location.id,
-        page: 1,
-        page_size: 1000, // Get all parts at this location
-      })
+      let partsData: any[] = []
 
-      // The response structure is { data: { items: [...], total, page, page_size } }
-      const partsData = searchResponse?.data?.items || searchResponse?.items || []
+      // For containers with slots, get parts from all child slots
+      if (location.location_type === 'container' && location.slot_count && details.children) {
+        console.log(
+          `[LocationDetailsModal] Loading parts from container with ${details.children.length} child slots`
+        )
+        // Get parts from each child slot and tag with slot info
+        const allSlotParts = await Promise.all(
+          details.children.map(async (childSlot: any) => {
+            try {
+              const response = await partsService.searchParts({
+                location_id: childSlot.id,
+                page: 1,
+                page_size: 1000,
+              })
+              const items = response?.data?.items || response?.items || []
+              console.log(`[LocationDetailsModal] Slot ${childSlot.name} has ${items.length} parts`)
+              // Tag each part with its slot location
+              return items.map((part: any) => ({
+                ...part,
+                _slotLocation: childSlot, // Store slot info for display
+              }))
+            } catch (error) {
+              console.error(`Failed to load parts for slot ${childSlot.name}:`, error)
+              return []
+            }
+          })
+        )
+        // Flatten array of arrays
+        partsData = allSlotParts.flat()
+        console.log(`[LocationDetailsModal] Total parts across all slots: ${partsData.length}`)
+      } else {
+        // Regular location - just get parts at this specific location
+        const searchResponse = await partsService.searchParts({
+          location_id: location.id,
+          page: 1,
+          page_size: 1000,
+        })
+        partsData = searchResponse?.data?.items || searchResponse?.items || []
+      }
 
       // Fetch allocation data for each part to get accurate quantity at this location
       const partsWithAllocations = await Promise.all(
         partsData.map(async (part: any) => {
           try {
             const allocations = await partAllocationService.getPartAllocations(part.id)
+            // For container slots, look up allocation at the slot's location, not the container
+            const targetLocationId = part._slotLocation ? part._slotLocation.id : location.id
             const locationAllocation = allocations.allocations.find(
-              (a) => a.location_id === location.id
+              (a) => a.location_id === targetLocationId
             )
 
             return {
@@ -127,6 +166,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               category: part.categories?.[0]?.name,
               manufacturer: part.manufacturer,
               image_url: part.image_url,
+              slot_location: part._slotLocation, // Preserve slot info
             }
           } catch (error) {
             console.error(`Failed to get allocations for part ${part.id}:`, error)
@@ -141,6 +181,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               category: part.categories?.[0]?.name,
               manufacturer: part.manufacturer,
               image_url: part.image_url,
+              slot_location: part._slotLocation, // Preserve slot info
             }
           }
         })
@@ -295,11 +336,19 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
-              <div className="text-sm text-theme-muted">Parts</div>
+              <div className="text-sm text-theme-muted">
+                {location.location_type === 'container' && location.slot_count
+                  ? 'Unique Parts'
+                  : 'Parts'}
+              </div>
               <div className="text-2xl font-bold text-theme-primary">{partsAtLocation.length}</div>
             </div>
             <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
-              <div className="text-sm text-theme-muted">Total Quantity</div>
+              <div className="text-sm text-theme-muted">
+                {location.location_type === 'container' && location.slot_count
+                  ? 'Total Parts (All Slots)'
+                  : 'Total Quantity'}
+              </div>
               <div className="text-2xl font-bold text-theme-primary">
                 {partsAtLocation
                   .reduce((sum, p) => sum + p.quantity_at_location, 0)
@@ -307,7 +356,9 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               </div>
             </div>
             <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
-              <div className="text-sm text-theme-muted">Child Locations</div>
+              <div className="text-sm text-theme-muted">
+                {location.location_type === 'container' && location.slot_count ? 'Slots' : 'Child Locations'}
+              </div>
               <div className="text-2xl font-bold text-theme-primary">
                 {locationDetails?.children.length || 0}
               </div>
@@ -316,8 +367,10 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
           {/* Child Locations or Parts */}
           <div>
-            {locationDetails && locationDetails.children.length > 0 ? (
-              // Show child locations if this is a parent location
+            {locationDetails &&
+            locationDetails.children.length > 0 &&
+            !(location.location_type === 'container' && location.slot_count) ? (
+              // Show child locations ONLY if NOT a container with slots
               <>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold text-theme-primary flex items-center gap-2">
@@ -384,20 +437,30 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                 )}
               </>
             ) : (
-              // Show parts if this is a leaf location (no children yet)
+              // Show parts for leaf locations OR containers with slots
               <>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold text-theme-primary flex items-center gap-2">
                     <Package className="w-5 h-5" />
                     Parts at this Location
                   </h3>
-                  <button
-                    onClick={() => setShowAddChildModal(true)}
-                    className="btn btn-sm btn-secondary flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Child Location
-                  </button>
+                  {location.location_type === 'container' && location.slot_count ? (
+                    <button
+                      onClick={() => setShowSlotPickerModal(true)}
+                      className="btn btn-sm btn-primary flex items-center gap-2"
+                    >
+                      <Package className="w-4 h-4" />
+                      View Container Allocation
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowAddChildModal(true)}
+                      className="btn btn-sm btn-secondary flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Child Location
+                    </button>
+                  )}
                 </div>
 
                 {loading ? (
@@ -429,11 +492,18 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                             )}
                             <div className="flex-1">
                               <h4 className="font-medium text-theme-primary">{part.part_name}</h4>
-                              {part.part_number && (
-                                <p className="text-sm text-theme-secondary">
-                                  PN: {part.part_number}
-                                </p>
-                              )}
+                              <div className="flex items-center gap-3 flex-wrap">
+                                {part.part_number && (
+                                  <p className="text-sm text-theme-secondary">
+                                    PN: {part.part_number}
+                                  </p>
+                                )}
+                                {part.slot_location && (
+                                  <p className="text-sm text-primary font-medium">
+                                    Slot: {part.slot_location.name}
+                                  </p>
+                                )}
+                              </div>
                               {part.description && (
                                 <p className="text-xs text-theme-muted mt-1 line-clamp-1">
                                   {part.description}
@@ -461,13 +531,15 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                             >
                               <Printer className="w-4 h-4 text-primary" />
                             </button>
-                            <button
-                              onClick={() => handleReturnToOriginal(part)}
-                              className="p-2 hover:bg-orange-500/10 rounded-md transition-colors"
-                              title="Return to Original Location"
-                            >
-                              <Undo2 className="w-4 h-4 text-orange-500" />
-                            </button>
+                            {!part.is_primary_storage && (
+                              <button
+                                onClick={() => handleReturnToOriginal(part)}
+                                className="p-2 hover:bg-orange-500/10 rounded-md transition-colors"
+                                title="Return to Primary Storage"
+                              >
+                                <Undo2 className="w-4 h-4 text-orange-500" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -617,6 +689,22 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         }}
         location={location}
       />
+
+      {/* Container Slot Picker Modal (View Only) */}
+      {location.location_type === 'container' && location.slot_count && (
+        <ContainerSlotPickerModal
+          isOpen={showSlotPickerModal}
+          onClose={() => setShowSlotPickerModal(false)}
+          containerLocation={location}
+          currentSlotId={undefined}
+          onSlotSelect={(slotId) => {
+            // View-only mode - just close the modal
+            // Could optionally navigate to the slot or show its details
+            setShowSlotPickerModal(false)
+            toast.success('Slot viewed successfully')
+          }}
+        />
+      )}
     </>
   )
 }
