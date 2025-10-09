@@ -41,7 +41,8 @@ class PartResponse(BaseModel):
     
     # Media
     image_url: Optional[str] = None
-    
+    emoji: Optional[str] = None
+
     # Part-specific properties (resistor values, screwdriver type, etc.)
     additional_properties: Optional[Dict[str, Any]] = {}
     

@@ -97,6 +97,7 @@ class PartModel(SQLModel, table=True):
 
     # === MEDIA ===
     image_url: Optional[str] = None
+    emoji: Optional[str] = Field(default=None, max_length=50, description="Unicode emoji character or shortcode to use as visual icon (e.g., '🔩' or ':screw:')")
     
     # === PART-SPECIFIC PROPERTIES ===
     # Examples:
@@ -317,8 +318,11 @@ class PartModel(SQLModel, table=True):
                 "description": primary_loc.description,
                 "location_type": primary_loc.location_type
             }
+            # Include location_id for frontend compatibility
+            base_dict["location_id"] = primary_loc.id
         else:
             base_dict["location"] = None
+            base_dict["location_id"] = None
 
         # Include total quantity from allocations
         base_dict["quantity"] = self.total_quantity

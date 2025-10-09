@@ -21,6 +21,7 @@ export interface Part {
   id: string
   name: string
   part_number?: string
+  supplier_part_number?: string  // Supplier's part number (different from our internal part_number)
   description?: string
   quantity: number
   minimum_quantity?: number
@@ -28,6 +29,7 @@ export interface Part {
   supplier_url?: string
   product_url?: string
   image_url?: string
+  emoji?: string
   manufacturer?: string
   manufacturer_part_number?: string
   component_type?: string
@@ -89,6 +91,7 @@ export interface CreatePartRequest {
   product_url?: string
   supplier_part_number?: string
   image_url?: string
+  emoji?: string
   manufacturer?: string
   manufacturer_part_number?: string
   component_type?: string

@@ -1245,20 +1245,36 @@ const PartDetailsPage = () => {
                                   <Edit className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                                 )}
                               </div>
-                              {part.supplier_url && (
-                                <a
-                                  href={part.supplier_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 transition-colors group/link"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <ExternalLink className="w-4 h-4 flex-shrink-0" />
-                                  <span className="truncate max-w-md underline decoration-dotted">
-                                    {part.supplier_url}
-                                  </span>
-                                </a>
-                              )}
+                              <div className="flex flex-col gap-1">
+                                {part.supplier_url && (
+                                  <a
+                                    href={part.supplier_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 transition-colors group/link"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                                    <span className="truncate max-w-md underline decoration-dotted">
+                                      Supplier Homepage
+                                    </span>
+                                  </a>
+                                )}
+                                {part.product_url && (
+                                  <a
+                                    href={part.product_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-sm text-green-500 hover:text-green-400 transition-colors group/link"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                                    <span className="truncate max-w-md underline decoration-dotted">
+                                      Product Page
+                                    </span>
+                                  </a>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1998,6 +2014,7 @@ const PartDetailsPage = () => {
               id: part.id,
               part_name: part.name,
               part_number: part.part_number || '',
+              emoji: part.emoji || '',
               location: part.location?.name || '',
               category: part.categories?.[0]?.name || '',
               quantity: part.quantity?.toString() || '0',

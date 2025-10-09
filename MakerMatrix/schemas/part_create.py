@@ -15,6 +15,7 @@ class PartCreate(BaseModel):
     manufacturer_part_number: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
+    emoji: Optional[str] = None
     additional_properties: Optional[dict] = {}
     category_names: Optional[List[str]] = []
 
@@ -45,6 +46,7 @@ class PartUpdate(BaseModel):
     manufacturer_part_number: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
+    emoji: Optional[str] = None
     additional_properties: Optional[dict] = {}
     category_names: Optional[List[str]] = []
 

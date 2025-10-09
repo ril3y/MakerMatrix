@@ -28,6 +28,7 @@ import type { Category } from '../../types/categories'
 import type { Project } from '../../types/projects'
 import FormField from '../../components/ui/FormField'
 import ImageUpload from '../../components/ui/ImageUpload'
+import EmojiPicker from '../../components/ui/EmojiPicker'
 import AddCategoryModal from '../../components/categories/AddCategoryModal'
 import AddLocationModal from '../../components/locations/AddLocationModal'
 import CategorySelector from '../../components/ui/CategorySelector'
@@ -47,7 +48,12 @@ const partSchema = z.object({
   location_id: z.string().optional(),
   supplier: z.string().optional(),
   supplier_url: z.string().optional(),
+  product_url: z.string().optional(),
   image_url: z.string().optional(),
+  emoji: z.string().optional(),
+  manufacturer: z.string().optional(),  // Enriched field
+  manufacturer_part_number: z.string().optional(),  // Enriched field
+  component_type: z.string().optional(),  // Enriched field
   category_ids: z.array(z.string()).optional(),
 })
 
@@ -157,7 +163,12 @@ const EditPartPage: React.FC = () => {
           location_id: partData.location_id || undefined,
           supplier: partData.supplier || '',
           supplier_url: partData.supplier_url || '',
+          product_url: partData.product_url || '',
           image_url: partData.image_url || '',
+          emoji: partData.emoji || '',
+          manufacturer: partData.manufacturer || '',  // CRITICAL: Preserve enriched data
+          manufacturer_part_number: partData.manufacturer_part_number || '',  // CRITICAL: Preserve enriched data
+          component_type: partData.component_type || '',  // CRITICAL: Preserve enriched data
           category_ids: categoryIds,
         })
       } catch (error) {
@@ -267,6 +278,7 @@ const EditPartPage: React.FC = () => {
         // Convert empty strings to undefined to prevent foreign key constraint errors
         location_id: data.location_id === '' ? undefined : data.location_id,
         supplier_url: data.supplier_url === '' ? undefined : data.supplier_url,
+        product_url: data.product_url === '' ? undefined : data.product_url,
       }
 
       console.log('Sending update data:', updateData)
@@ -477,8 +489,12 @@ const EditPartPage: React.FC = () => {
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        {/* Hidden input to register image_url field */}
+        {/* Hidden inputs to register enriched fields and preserve them on edit */}
         <input type="hidden" {...register('image_url')} />
+        <input type="hidden" {...register('emoji')} />
+        <input type="hidden" {...register('manufacturer')} />
+        <input type="hidden" {...register('manufacturer_part_number')} />
+        <input type="hidden" {...register('component_type')} />
 
         {/* Basic Information */}
         <div className="card p-6">
@@ -609,13 +625,26 @@ const EditPartPage: React.FC = () => {
             <FormField
               label="Supplier URL"
               error={errors.supplier_url?.message}
-              description="Optional product page URL"
+              description="Supplier homepage URL"
             >
               <input
                 {...register('supplier_url')}
                 type="url"
                 className="input w-full"
-                placeholder="https://supplier.com/part-page"
+                placeholder="https://supplier.com"
+              />
+            </FormField>
+
+            <FormField
+              label="Product URL"
+              error={errors.product_url?.message}
+              description="Specific product page URL"
+            >
+              <input
+                {...register('product_url')}
+                type="url"
+                className="input w-full"
+                placeholder="https://supplier.com/product/12345"
               />
             </FormField>
           </div>
@@ -907,6 +936,17 @@ const EditPartPage: React.FC = () => {
                 currentImageUrl={watch('image_url')}
                 placeholder="Upload part image"
                 className="w-full"
+              />
+            </FormField>
+
+            <FormField
+              label="Part Emoji"
+              description="Select an emoji icon for this part (can be used on printer labels)"
+            >
+              <EmojiPicker
+                value={watch('emoji') || undefined}
+                onChange={(selectedEmoji) => setValue('emoji', selectedEmoji || '')}
+                placeholder="Select emoji icon..."
               />
             </FormField>
           </div>

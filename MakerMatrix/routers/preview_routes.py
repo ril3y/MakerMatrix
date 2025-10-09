@@ -43,6 +43,7 @@ class AdvancedPreviewOptions(BaseModel):
     fit_to_label: bool = True
     include_qr: bool = False
     qr_data: Optional[str] = None
+    font_size_override: Optional[int] = None
 
 
 class AdvancedPreviewRequest(BaseModel):
@@ -453,9 +454,15 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         print(f"[DEBUG] Processing template...")
         processed_text = request.template
 
-        # Check if template contains {qr} placeholder (auto-enable QR)
+        # Check for placeholders BEFORE applying template data
         has_qr_placeholder = '{qr}' in processed_text or re.search(r'\{qr=[^}]+\}', processed_text)
+        has_emoji_placeholder = '{emoji}' in processed_text
+
+        # Extract emoji value from data if placeholder exists
+        emoji_value = request.data.get('emoji') if (request.data and has_emoji_placeholder) else None
+
         print(f"[DEBUG] Template has QR placeholder: {has_qr_placeholder}")
+        print(f"[DEBUG] Template has emoji placeholder: {has_emoji_placeholder}, emoji value: {emoji_value}")
 
         # Extract QR field name if specified (e.g., {qr=description})
         qr_field = None
@@ -469,9 +476,17 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
             processed_text = re.sub(r'\{qr=[^}]+\}', '', processed_text)
             processed_text = processed_text.replace('{qr}', '')
 
+        # Remove emoji placeholders from text (they will be rendered as actual emoji images)
+        if has_emoji_placeholder:
+            processed_text = processed_text.replace('{emoji}', '')
+
+        # Apply template data (after extracting special placeholders)
         if request.data:
             print(f"[DEBUG] Applying template data: {request.data}")
             for key, value in request.data.items():
+                # Skip emoji key as we handle it specially
+                if key == 'emoji':
+                    continue
                 processed_text = processed_text.replace(f"{{{key}}}", str(value))
 
         # Extract and remove rotation directive (default 0 degrees)
@@ -489,49 +504,40 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         include_qr = (request.options.include_qr if request.options else False) or has_qr_placeholder
         print(f"[DEBUG] Include QR code: {include_qr}")
 
-        # Generate preview based on whether QR is requested
+        # Use combined label if we have QR or emoji (both need special rendering)
+        use_combined_label = include_qr or has_emoji_placeholder
+        print(f"[DEBUG] Use combined label: {use_combined_label} (QR: {include_qr}, Emoji: {has_emoji_placeholder})")
+
+        # Generate preview using THE SAME CODE PATH AS PRINT
         print(f"[DEBUG] Generating preview with label_size: {request.label_size}")
         try:
-            if include_qr:
-                # Generate QR code data with validation
-                if qr_field:
-                    # User specified a field like {qr=description}
-                    if qr_field not in request.data:
-                        return PreviewResponse(
-                            success=False,
-                            error=f"Field '{qr_field}' not found in data. Available fields: {', '.join(request.data.keys())}",
-                            message=f"QR field '{qr_field}' does not exist in part data"
-                        )
-                    qr_data = str(request.data[qr_field])
+            # Use PrinterManagerService to create the label image (same as print)
+            from MakerMatrix.services.printer.printer_manager_service import get_printer_manager
+            printer_manager = get_printer_manager()
 
-                    # Check QR data size constraint (200 char max for 11mm QR code)
-                    if len(qr_data) > 200:
-                        return PreviewResponse(
-                            success=False,
-                            error=f"QR data too long: {len(qr_data)} characters (max 200 for 11mm QR code)",
-                            message=f"QR code data exceeds size limit"
-                        )
-                else:
-                    # Default to MM:id format
-                    qr_data = f"MM:{request.data.get('id') or request.data.get('part_id') or 'UNKNOWN'}"
+            # Create options dict for advanced label creation
+            options_dict = {
+                'include_qr': include_qr,
+                'skip_qr': not include_qr,
+            }
+            if request.options:
+                if request.options.font_size_override:
+                    options_dict['font_size_override'] = request.options.font_size_override
 
-                print(f"[DEBUG] QR data: {qr_data}")
+            # Create label image using the SAME method as print
+            label_image = await printer_manager._create_advanced_label_image(
+                template=request.template,
+                data=request.data or {},
+                label_size=request.label_size,
+                label_length=request.label_length,
+                options=options_dict
+            )
 
-                # Create mock part for preview (only needs ID for QR generation)
-                from dataclasses import dataclass
+            print(f"[DEBUG] Preview: Created label image size: {label_image.width}x{label_image.height}px")
 
-                @dataclass
-                class MockPart:
-                    id: str
-                    part_name: str = ""
-                    part_number: str = ""
-
-                mock_part = MockPart(id=qr_data)
-                result = await service.preview_combined_label(mock_part, processed_text, request.label_size)
-            else:
-                # Generate text-only preview
-                print(f"[DEBUG] Generating text-only preview")
-                result = await service.preview_text_label(processed_text, request.label_size)
+            # Use mock printer to add preview border and info text
+            mock_printer = MockPrinter(printer_id="mock_preview")
+            result = await mock_printer.preview_label(label_image, request.label_size)
 
             print(f"[DEBUG] Preview generated successfully: {result.width_px}x{result.height_px}")
 
