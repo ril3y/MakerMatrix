@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Menu,
@@ -17,12 +17,14 @@ import {
   Activity,
   Search,
   Command,
+  HelpCircle,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import QuakeConsole from '../console/QuakeConsole'
 import GlobalSearchPanel from '../ui/GlobalSearchPanel'
+import { Tooltip } from '../ui/Tooltip'
 
 interface NavItem {
   label: string
@@ -36,6 +38,7 @@ const MainLayout: React.FC = () => {
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, hasRole } = useAuthStore()
@@ -87,18 +90,27 @@ const MainLayout: React.FC = () => {
     })
   }
 
+  // Clear search when navigating to a different page
+  useEffect(() => {
+    setSearchValue('')
+    setIsSearchOpen(false)
+  }, [location.pathname])
+
   // Global keyboard shortcut for search (Cmd+K / Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        setIsSearchOpen(true)
+        searchInputRef.current?.focus()
+        if (searchValue) {
+          setIsSearchOpen(true)
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [searchValue])
 
   const handleLogout = async () => {
     try {
@@ -276,6 +288,7 @@ const MainLayout: React.FC = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-theme-muted pointer-events-none" />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Search parts by name, part number, description..."
                 value={searchValue}
@@ -290,15 +303,33 @@ const MainLayout: React.FC = () => {
                     setIsSearchOpen(true)
                   }
                 }}
-                className="w-full pl-11 pr-20 py-2.5 bg-theme-secondary border border-theme-primary rounded-lg text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                className="w-full pl-11 pr-32 py-2.5 bg-theme-secondary border border-theme-primary rounded-lg text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-                <kbd className="px-2 py-1 text-xs bg-theme-tertiary border border-theme-primary rounded text-theme-muted">
-                  {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}
-                </kbd>
-                <kbd className="px-2 py-1 text-xs bg-theme-tertiary border border-theme-primary rounded text-theme-muted">
-                  K
-                </kbd>
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                <Tooltip
+                  content={
+                    <div className="space-y-3">
+                      <div className="font-semibold text-base mb-2 text-white">Search Syntax</div>
+                      <div className="space-y-2 text-sm">
+                        <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">"5mm"</code> <span className="text-gray-300">- Exact match (only "5mm", not "1.5mm")</span></div>
+                        <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">desc:capacitor</code> <span className="text-gray-300">- Search in description only</span></div>
+                        <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">pn:100k</code> <span className="text-gray-300">- Search part number only</span></div>
+                        <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">name:resistor</code> <span className="text-gray-300">- Search part name only</span></div>
+                        <div className="pt-2 border-t border-gray-600"><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">resistor</code> <span className="text-gray-300">- Search all fields</span></div>
+                        <div className="pt-2 border-t border-gray-600 text-xs text-gray-400">
+                          Press <kbd className="px-1.5 py-0.5 bg-gray-700 border border-gray-600 rounded text-gray-300 font-mono">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</kbd> + <kbd className="px-1.5 py-0.5 bg-gray-700 border border-gray-600 rounded text-gray-300 font-mono">K</kbd> to focus search
+                        </div>
+                      </div>
+                    </div>
+                  }
+                  position="bottom"
+                  variant="help"
+                  trigger="hover"
+                  maxWidth="400px"
+                  minWidth="360px"
+                >
+                  <HelpCircle className="w-4 h-4 text-theme-muted hover:text-primary cursor-help transition-colors" />
+                </Tooltip>
               </div>
             </div>
           </div>
