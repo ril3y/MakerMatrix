@@ -46,8 +46,8 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
         return (
           <div key={location.id}>
             <div
-              className={`flex items-start gap-2 p-2 rounded hover:bg-theme-secondary transition-colors cursor-pointer min-w-0 ${
-                isSelected ? 'bg-primary-10 border border-primary-20' : ''
+              className={`flex items-start gap-2 p-2 rounded hover:bg-primary/10 transition-colors cursor-pointer min-w-0 ${
+                isSelected ? 'bg-primary/20 border border-primary/40' : ''
               }`}
               style={{ paddingLeft: `${level * (compact ? 16 : 24) + 8}px` }}
               onClick={() => onLocationSelect(isSelected ? undefined : location.id)}
@@ -60,7 +60,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                       e.stopPropagation()
                       toggleExpanded(location.id.toString())
                     }}
-                    className="p-1 hover:bg-theme-tertiary rounded transition-colors"
+                    className="p-1 hover:bg-primary/20 rounded transition-colors"
                   >
                     {isExpanded ? (
                       <ChevronDown
@@ -258,7 +258,7 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
       )}
 
       <div
-        className={`border border-theme-primary rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto`}
+        className={`border border-primary/20 rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto scrollbar-hide bg-background-primary`}
       >
         {locationTree && locationTree.length > 0 ? (
           <div className="p-2">
