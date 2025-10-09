@@ -81,7 +81,7 @@ const PartsPage = () => {
 
   const SortableHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
     <th
-      className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider cursor-pointer hover:bg-background-secondary/50 transition-colors"
+      className="px-3 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider cursor-pointer hover:bg-background-secondary/50 transition-colors"
       onClick={() => handleSort(field)}
     >
       <div className="flex items-center gap-2">
@@ -109,11 +109,9 @@ const PartsPage = () => {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      year: '2-digit',
     })
   }
 
@@ -727,7 +725,7 @@ const PartsPage = () => {
                 <thead className="bg-background-secondary border-b border-border">
                   <tr>
                     {bulkEditMode && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider w-12">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider w-10">
                         <button
                           onClick={selectAllInSearch}
                           className="flex items-center justify-center w-5 h-5 text-primary hover:text-primary-dark transition-colors"
@@ -745,23 +743,23 @@ const PartsPage = () => {
                         </button>
                       </th>
                     )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider w-16">
                       Image
                     </th>
                     <SortableHeader field="part_name">Name</SortableHeader>
-                    <SortableHeader field="part_number">Part Number</SortableHeader>
-                    <SortableHeader field="quantity">Quantity</SortableHeader>
+                    <SortableHeader field="part_number">Part #</SortableHeader>
+                    <SortableHeader field="quantity">Qty</SortableHeader>
                     <SortableHeader field="location">Location</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                       Categories
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                       Projects
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                       Supplier
                     </th>
-                    <SortableHeader field="created_at">Added At</SortableHeader>
+                    <SortableHeader field="created_at">Added</SortableHeader>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -791,7 +789,7 @@ const PartsPage = () => {
                         }}
                       >
                         {bulkEditMode && (
-                          <td className="px-6 py-4 whitespace-nowrap w-12">
+                          <td className="px-3 py-3 whitespace-nowrap w-12">
                             <button
                               onClick={() => togglePartSelection(part.id)}
                               className="flex items-center justify-center w-5 h-5 text-primary hover:text-primary-dark transition-colors"
@@ -804,7 +802,7 @@ const PartsPage = () => {
                             </button>
                           </td>
                         )}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <PartImage
                             imageUrl={part.image_url}
                             partName={part.name}
@@ -812,7 +810,7 @@ const PartsPage = () => {
                             showFallback={true}
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <button
                               onMouseDown={(e) => {
@@ -864,7 +862,7 @@ const PartsPage = () => {
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {part.part_number ? (
                             <div className="flex items-center gap-2">
                               <button
@@ -915,7 +913,7 @@ const PartsPage = () => {
                             '-'
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span
                               className={`text-sm font-medium ${
@@ -942,7 +940,7 @@ const PartsPage = () => {
                             <div className="text-xs text-muted">Min: {part.minimum_quantity}</div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           <div className="flex items-center gap-1">
                             {part.primary_location?.name || part.location?.name || '-'}
                             {part.primary_location && (
@@ -955,7 +953,7 @@ const PartsPage = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {part.categories && part.categories.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {part.categories.map((category, index) => (
@@ -971,7 +969,7 @@ const PartsPage = () => {
                             '-'
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {part.projects && part.projects.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {part.projects.map((project, index) => (
@@ -988,7 +986,7 @@ const PartsPage = () => {
                             '-'
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {part.supplier ? (
                             <div className="flex items-center gap-2">
                               {supplierImageMap[part.supplier.toLowerCase()] ? (
@@ -1012,7 +1010,7 @@ const PartsPage = () => {
                             '-'
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {formatDate(part.created_at)}
                         </td>
                       </tr>
