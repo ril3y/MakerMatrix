@@ -726,10 +726,10 @@ const PartsPage = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-background-secondary border-b border-border">
+                <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-b border-purple-500/10">
                   <tr>
                     {bulkEditMode && (
-                      <th className="px-2 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider w-10">
+                      <th className="px-2 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider w-10">
                         <button
                           onClick={selectAllInSearch}
                           className="flex items-center justify-center w-5 h-5 text-primary hover:text-primary-dark transition-colors"
@@ -747,35 +747,35 @@ const PartsPage = () => {
                         </button>
                       </th>
                     )}
-                    <th className="px-2 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider w-16">
+                    <th className="px-2 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider w-16">
                       Image
                     </th>
                     <SortableHeader field="part_name">Name</SortableHeader>
                     <SortableHeader field="part_number">Part #</SortableHeader>
                     <SortableHeader field="quantity">Qty</SortableHeader>
                     <SortableHeader field="location">Location</SortableHeader>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
                       Categories
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
                       Projects
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
                       Supplier
                     </th>
                     <SortableHeader field="created_at">Added</SortableHeader>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-purple-500/10 bg-theme-elevated/50">
                   {(parts || []).map((part) => {
                     const isSelected = selectedPartIds.has(part.id)
                     return (
                       <tr
                         key={part.id}
-                        className={`transition-colors ${
+                        className={`transition-all duration-200 ${
                           isSelected
                             ? 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                            : 'hover:bg-background-secondary/50'
+                            : 'hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5'
                         }`}
                         onMouseDown={(e) => {
                           // Only handle Ctrl+click on the row itself, not on interactive elements

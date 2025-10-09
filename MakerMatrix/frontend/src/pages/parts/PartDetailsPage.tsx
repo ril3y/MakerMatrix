@@ -1945,15 +1945,15 @@ const PartDetailsPage = () => {
                       <h3 className="text-md font-medium text-primary mb-4">Order Details</h3>
                       <div className="overflow-x-auto">
                         <table className="table w-full">
-                          <thead>
+                          <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                             <tr>
-                              <th>Date</th>
-                              <th>Supplier</th>
-                              <th>Unit Price</th>
-                              <th>Change</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Date</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Supplier</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Unit Price</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Change</th>
                             </tr>
                           </thead>
-                          <tbody>
+                          <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
                             {priceTrends.map((trend, index) => {
                               const prevPrice =
                                 index < priceTrends.length - 1
@@ -1964,13 +1964,13 @@ const PartDetailsPage = () => {
                                 : 0
 
                               return (
-                                <tr key={index}>
-                                  <td className="text-primary">
+                                <tr key={index} className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200">
+                                  <td className="px-4 py-3 text-primary">
                                     {new Date(trend.order_date).toLocaleDateString()}
                                   </td>
-                                  <td className="text-secondary">{trend.supplier}</td>
-                                  <td className="text-secondary">${trend.unit_price.toFixed(2)}</td>
-                                  <td>
+                                  <td className="px-4 py-3 text-secondary">{trend.supplier}</td>
+                                  <td className="px-4 py-3 text-secondary">${trend.unit_price.toFixed(2)}</td>
+                                  <td className="px-4 py-3">
                                     {prevPrice && (
                                       <span
                                         className={`flex items-center gap-1 ${priceChange > 0 ? 'text-error' : priceChange < 0 ? 'text-success' : 'text-secondary'}`}
