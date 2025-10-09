@@ -35,6 +35,7 @@ from . import mouser
 from . import mcmaster_carr
 from . import bolt_depot
 from . import adafruit
+from . import seeed_studio
 
 __all__ = [
     'BaseSupplier',
