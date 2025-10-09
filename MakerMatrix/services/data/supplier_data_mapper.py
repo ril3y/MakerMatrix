@@ -30,6 +30,7 @@ class SupplierDataMapper:
             'digikey': self._map_digikey_data,
             'mcmaster-carr': self._map_mcmaster_data,
             'boltdepot': self._map_bolt_depot_data,
+            'seeedstudio': self._map_seeedstudio_data,
         }
     
     def map_supplier_result_to_part_data(
@@ -516,6 +517,25 @@ class SupplierDataMapper:
                 'drive_size': result.additional_data.get('Drive size'),
                 'units': result.additional_data.get('Units'),
             })
+
+        return {
+            'core_fields': {},
+            'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
+        }
+
+    def _map_seeedstudio_data(self, result: PartSearchResult) -> Dict[str, Any]:
+        """Seeed Studio specific data mapping - maps all specifications to additional_properties"""
+
+        custom_fields = {}
+
+        # Map all specifications from additional_data as flat key-value pairs
+        # Seeed Studio provides specifications like Operating Voltage, Interface, etc.
+        if result.additional_data:
+            # All fields from additional_data go directly to custom_fields
+            for key, value in result.additional_data.items():
+                # Convert to snake_case for consistency
+                field_name = key.lower().replace(' ', '_').replace('(', '').replace(')', '').replace('.', '')
+                custom_fields[field_name] = str(value) if value is not None else None
 
         return {
             'core_fields': {},
