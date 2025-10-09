@@ -374,8 +374,10 @@ class SeeedStudioSupplier(BaseSupplier):
     def _extract_description(self, soup: BeautifulSoup) -> str:
         """Extract product description from page"""
         try:
-            # Try various description patterns
+            # Try various description patterns - Seeed Studio uses 'short_description'
             desc_tag = (
+                soup.find('div', class_='product attribute short_description') or
+                soup.find('div', class_=re.compile(r'short.*desc', re.I)) or
                 soup.find('div', class_='ais_p_desc') or
                 soup.find('div', class_=re.compile(r'product.*desc', re.I)) or
                 soup.find('div', class_='description') or
@@ -383,6 +385,10 @@ class SeeedStudioSupplier(BaseSupplier):
             )
 
             if desc_tag:
+                # Extract text from the value div if it exists
+                value_div = desc_tag.find('div', class_='value')
+                if value_div:
+                    return value_div.get_text().strip()
                 return desc_tag.get_text().strip()
 
             # Fallback to meta description
@@ -538,14 +544,14 @@ class SeeedStudioSupplier(BaseSupplier):
                 for row in rows:
                     cells = row.find_all(['th', 'td'])
                     if len(cells) >= 2:
-                        # Extract text from paragraph tags if present (Seeed Studio format)
-                        key_elem = cells[0].find('p') or cells[0]
-                        value_elem = cells[1].find('p') or cells[1]
+                        # Extract text directly from cells (handles p, span, or plain text)
+                        key = cells[0].get_text(strip=True)
+                        value = cells[1].get_text(strip=True)
 
-                        key = key_elem.get_text().strip()
-                        value = value_elem.get_text().strip()
-                        if key and value:
+                        # Skip empty keys/values and header rows
+                        if key and value and key.lower() not in ['symbol', 'sysmbol']:
                             specifications[key] = value
+                            logger.debug(f"Extracted spec: {key} = {value}")
 
             # Strategy 2: Look for definition lists
             if not specifications:
