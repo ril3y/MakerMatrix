@@ -33,6 +33,7 @@ interface PrinterModalProps {
     id?: string
     part_name?: string
     part_number?: string
+    emoji?: string
     location?: string
     category?: string
     quantity?: string
@@ -61,6 +62,7 @@ const PrinterModal = ({
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [editingTemplateName, setEditingTemplateName] = useState<string | null>(null)
   const [showTemplateSyntaxHelp, setShowTemplateSyntaxHelp] = useState(false)
+  const [fontSizeOverride, setFontSizeOverride] = useState<number | null>(null)
   const reloadTemplatesRef = useRef<(() => Promise<void>) | null>(null)
 
   // Load custom template from localStorage on mount
@@ -97,6 +99,23 @@ const PrinterModal = ({
       setPreviewUrl(null)
     }
   }, [isOpen, partData])
+
+  // Auto-generate preview when template configuration changes
+  useEffect(() => {
+    if (!isOpen) return
+
+    // Only auto-preview if we have a template or custom text and label size
+    const hasTemplate = selectedTemplate || (labelTemplate && labelTemplate.trim())
+    if (!hasTemplate || !selectedLabelSize) return
+
+    // Debounce the preview generation to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      generatePreview()
+    }, 800) // 800ms delay after last change
+
+    return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplate, labelTemplate, selectedLabelSize, labelLength, fontSizeOverride, isOpen])
 
   const handleTemplateSelect = (template: LabelTemplate | null) => {
     setSelectedTemplate(template)
@@ -221,6 +240,7 @@ const PrinterModal = ({
         id: 'test-part-id-12345',
         part_name: 'Test Part',
         part_number: 'TP-001',
+        emoji: '🔧',
         location: 'A1-B2',
         category: 'Electronics',
         quantity: '10',
@@ -244,7 +264,9 @@ const PrinterModal = ({
           text: '', // Not used anymore
           label_size: selectedLabelSize,
           label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-          options: {},
+          options: {
+            font_size_override: fontSizeOverride,
+          },
           data: testData,
         }
         blob = await settingsService.previewAdvancedLabel(requestData)
@@ -313,6 +335,7 @@ const PrinterModal = ({
         id: 'test-part-id-12345',
         part_name: 'Test Part',
         part_number: 'TP-001',
+        emoji: '🔧',
         location: 'A1-B2',
         category: 'Electronics',
         quantity: '10',
@@ -342,7 +365,9 @@ const PrinterModal = ({
           text: '', // Not used anymore
           label_size: selectedLabelSize,
           label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-          options: {},
+          options: {
+            font_size_override: fontSizeOverride,
+          },
           data: testData,
         }
         result = await settingsService.printAdvancedLabel(requestData)
@@ -694,6 +719,33 @@ const PrinterModal = ({
                 </div>
               </div>
 
+              {/* Font Size Override - Advanced Option */}
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
+                  Font Size
+                </label>
+                <CustomSelect
+                  options={[
+                    { value: 'auto', label: 'Auto (Smart Sizing)' },
+                    { value: '8', label: '8px - Tiny' },
+                    { value: '10', label: '10px - Very Small' },
+                    { value: '12', label: '12px - Small' },
+                    { value: '14', label: '14px' },
+                    { value: '16', label: '16px' },
+                    { value: '18', label: '18px' },
+                    { value: '20', label: '20px' },
+                    { value: '24', label: '24px - Large' },
+                    { value: '28', label: '28px' },
+                    { value: '32', label: '32px - Very Large' },
+                    { value: '36', label: '36px' },
+                    { value: '40', label: '40px - Extra Large' },
+                  ]}
+                  value={fontSizeOverride !== null ? String(fontSizeOverride) : 'auto'}
+                  onChange={(value) => setFontSizeOverride(value === 'auto' ? null : Number(value))}
+                  placeholder="Select font size"
+                />
+              </div>
+
               {/* Options - only show for custom templates */}
 
               {/* Action Buttons */}
@@ -712,8 +764,9 @@ const PrinterModal = ({
                   onClick={generatePreview}
                   className="btn btn-secondary flex items-center gap-2 flex-1"
                   disabled={(!selectedTemplate && !labelTemplate) || !selectedLabelSize}
+                  title="Preview updates automatically, click to refresh immediately"
                 >
-                  👁️ Preview
+                  👁️ Refresh Preview
                 </button>
               </div>
 
@@ -750,7 +803,7 @@ const PrinterModal = ({
                 ) : (
                   <div className="text-center text-muted">
                     <Printer className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Click "Preview" to see your label</p>
+                    <p>Select a template or enter text to see preview</p>
                   </div>
                 )}
               </div>

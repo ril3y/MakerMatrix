@@ -19,6 +19,7 @@ from enum import Enum
 
 from MakerMatrix.lib.print_settings import PrintSettings
 from MakerMatrix.services.printer.label_service import LabelService
+from MakerMatrix.services.printer.emoji_render_service import EmojiRenderService
 from MakerMatrix.models.label_template_models import (
     LabelTemplateModel,
     TextRotation,
@@ -133,6 +134,7 @@ class TemplateProcessor:
         - {part_number}
         - {description}
         - {qr} or {qr=field_name} (removed from text, rendered as actual QR code)
+        - {emoji} (removed from text, rendered as emoji image)
         - etc.
         """
         processed = template_text
@@ -142,6 +144,9 @@ class TemplateProcessor:
         processed = re.sub(r'\{qr=[^}]+\}', '', processed)
         # Handle plain {qr} pattern
         processed = processed.replace('{qr}', '')
+
+        # Remove emoji placeholders from text (they will be rendered as emoji images)
+        processed = processed.replace('{emoji}', '')
 
         # Replace placeholders with actual data
         for key, value in data.items():
@@ -575,6 +580,30 @@ class TemplateProcessor:
             qr_img = self._generate_qr_image(qr_data, layout.qr_size_px)
             img.paste(qr_img, (layout.qr_x, layout.qr_y))
 
+        # Generate and paste emoji if present in template
+        if self._has_emoji_placeholder(context.template.text_template):
+            emoji_char = self._get_emoji_char(context.data)
+            if emoji_char:
+                # Calculate emoji size and position
+                # Place emoji to the right of QR (if QR exists) or on the left side
+                emoji_size = min(layout.text_area_height, layout.text_area_height)
+                emoji_img = self._render_emoji_image(emoji_char, emoji_size, emoji_size)
+
+                if emoji_img:
+                    # Position emoji: if QR is on left, put emoji after QR
+                    # Otherwise, put emoji on left side before text
+                    if context.template.qr_enabled and context.template.qr_position == QRPosition.LEFT:
+                        emoji_x = layout.qr_x + layout.qr_size_px + layout.margins.get("left", 0)
+                    else:
+                        emoji_x = layout.text_area_x
+
+                    emoji_y = (context.label_height_px - emoji_img.height) // 2
+                    img.paste(emoji_img, (emoji_x, emoji_y))
+
+                    # Adjust text area to account for emoji
+                    layout.text_area_x = emoji_x + emoji_img.width + layout.margins.get("left", 0)
+                    layout.text_area_width = max(1, layout.text_area_width - emoji_img.width - layout.margins.get("left", 0))
+
         # Generate and paste text
         if text.strip():
             if context.template.supports_vertical_text and '\n' not in text and len(text) > 1:
@@ -693,3 +722,43 @@ class TemplateProcessor:
         qr_img = qr_img.resize((size_px, size_px), Image.Resampling.NEAREST)
 
         return qr_img
+
+    def _has_emoji_placeholder(self, template_text: str) -> bool:
+        """Check if template has {emoji} placeholder"""
+        return '{emoji}' in template_text
+
+    def _get_emoji_char(self, data: Dict[str, Any]) -> Optional[str]:
+        """
+        Get emoji character from data.
+        Returns the emoji field value if present, otherwise None.
+        """
+        return data.get('emoji', None)
+
+    def _render_emoji_image(
+        self,
+        emoji_char: str,
+        max_width: int,
+        max_height: int
+    ) -> Optional[Image.Image]:
+        """
+        Render emoji as an image using EmojiRenderService.
+
+        Args:
+            emoji_char: Emoji character or shortcode
+            max_width: Maximum width in pixels
+            max_height: Maximum height in pixels
+
+        Returns:
+            PIL Image of rendered emoji, or None if rendering fails
+        """
+        try:
+            return EmojiRenderService.render_emoji_with_auto_size(
+                emoji_char=emoji_char,
+                max_width=max_width,
+                max_height=max_height,
+                background_color="white",
+                convert_shortcode=True
+            )
+        except Exception as e:
+            print(f"[ERROR] Failed to render emoji '{emoji_char}': {e}")
+            return None

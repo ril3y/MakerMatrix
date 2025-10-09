@@ -43,9 +43,8 @@ class LabelService:
         Measure the width/height of a text block given the label's allowed height.
         Returns the final text width and text height in pixels (after auto-scaling).
 
-        We ignore allowed_width here and just find the maximum font size that
-        fits the provided allowed_height. Then we measure the text's width
-        at that font size.
+        Uses binary search to find the maximum font size that fits the provided
+        allowed_height. Then we measure the text's width at that font size.
 
         Returns:
             (max_line_width_px, total_text_height_px)
@@ -57,12 +56,16 @@ class LabelService:
         font_file = print_settings.font
         spacing_factor = 0.1  # 10% of font size for spacing
 
-        candidate_font_size = print_settings.font_size
+        # Use binary search for efficiency - start with reasonable bounds
+        min_font_size = 10  # Minimum readable size
         max_font_size = 300
-        best_font_size = candidate_font_size
+        best_font_size = min_font_size
         best_metrics = None
 
-        while candidate_font_size < max_font_size:
+        # Binary search to find optimal font size
+        while min_font_size <= max_font_size:
+            candidate_font_size = (min_font_size + max_font_size) // 2
+
             try:
                 font = ImageFont.truetype(font_file, candidate_font_size)
             except Exception as e:
@@ -80,9 +83,9 @@ class LabelService:
             # Calculate total height needed
             total_text_height = (line_height * len(lines)) + inter_line * (len(lines) - 1)
 
-            # We only check the height constraint here
+            # Check if this size fits
             if total_text_height <= allowed_height:
-                # Now find the max line width
+                # This size fits, try larger
                 max_line_width = 0
                 for line in lines:
                     bbox = draw.textbbox((0, 0), line, font=font)
@@ -91,9 +94,10 @@ class LabelService:
 
                 best_font_size = candidate_font_size
                 best_metrics = (max_line_width, total_text_height, line_height, inter_line)
-                candidate_font_size += 1
+                min_font_size = candidate_font_size + 1
             else:
-                break
+                # Too large, try smaller
+                max_font_size = candidate_font_size - 1
 
         # If no suitable size was found, use the original font size
         if best_metrics is None:

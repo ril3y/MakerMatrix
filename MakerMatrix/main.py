@@ -18,7 +18,7 @@ from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, project_routes, printer_routes, preview_routes,
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
-    rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes
+    rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes, font_routes
 )
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
@@ -394,6 +394,7 @@ app.include_router(project_routes.router, prefix="/api/projects", tags=["project
 app.include_router(printer_routes.router, prefix="/api/printer", tags=["printer"])
 app.include_router(preview_routes.router, prefix="/api/preview", tags=["Label Preview"])
 app.include_router(label_template_routes.router, prefix="/api/templates", tags=["Label Templates"])
+app.include_router(font_routes.router, prefix="/api", tags=["Fonts"])
 app.include_router(utility_routes.router, prefix="/api/utility", tags=["utility"])
 app.include_router(auth_routes.router, prefix="/api", tags=["Authentication"])
 app.include_router(user_management_routes.router, prefix="/api/users", tags=["Users"])
