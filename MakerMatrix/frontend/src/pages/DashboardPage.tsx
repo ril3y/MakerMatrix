@@ -538,28 +538,32 @@ const DashboardPage = () => {
                 Most Stocked Parts
               </h3>
               <div className="overflow-x-auto">
-                <table className="table w-full">
-                  <thead>
+                <table className="w-full">
+                  <thead className="bg-theme-tertiary">
                     <tr>
-                      <th>Part Name</th>
-                      <th>Quantity</th>
-                      <th>Location</th>
+                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Part Name</th>
+                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Quantity</th>
+                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Location</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="bg-theme-elevated">
                     {data.most_stocked_parts.length > 0 ? (
                       data.most_stocked_parts.map((part) => (
-                        <tr key={part.id}>
-                          <td>
+                        <tr
+                          key={part.id}
+                          onClick={() => navigate(`/parts/${part.id}`)}
+                          className="border-b border-theme-primary cursor-pointer hover:bg-theme-secondary transition-colors"
+                        >
+                          <td className="px-4 py-3">
                             <div>
-                              <div className="font-medium text-primary">{part.part_name}</div>
+                              <div className="font-medium text-primary hover:text-primary-dark">{part.part_name}</div>
                               <div className="text-xs text-muted">{part.part_number}</div>
                             </div>
                           </td>
-                          <td className="font-semibold text-success">
+                          <td className="px-4 py-3 font-semibold text-success">
                             {part.quantity.toLocaleString()}
                           </td>
-                          <td className="text-secondary text-sm">{part.location}</td>
+                          <td className="px-4 py-3 text-secondary text-sm">{part.location}</td>
                         </tr>
                       ))
                     ) : (
@@ -581,28 +585,32 @@ const DashboardPage = () => {
                 Least Stocked Parts
               </h3>
               <div className="overflow-x-auto">
-                <table className="table w-full">
-                  <thead>
+                <table className="w-full">
+                  <thead className="bg-theme-tertiary">
                     <tr>
-                      <th>Part Name</th>
-                      <th>Quantity</th>
-                      <th>Location</th>
+                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Part Name</th>
+                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Quantity</th>
+                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Location</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="bg-theme-elevated">
                     {data.least_stocked_parts.length > 0 ? (
                       data.least_stocked_parts.map((part) => (
-                        <tr key={part.id}>
-                          <td>
+                        <tr
+                          key={part.id}
+                          onClick={() => navigate(`/parts/${part.id}`)}
+                          className="border-b border-theme-primary cursor-pointer hover:bg-theme-secondary transition-colors"
+                        >
+                          <td className="px-4 py-3">
                             <div>
-                              <div className="font-medium text-primary">{part.part_name}</div>
+                              <div className="font-medium text-primary hover:text-primary-dark">{part.part_name}</div>
                               <div className="text-xs text-muted">{part.part_number}</div>
                             </div>
                           </td>
-                          <td className="font-semibold text-warning">
+                          <td className="px-4 py-3 font-semibold text-warning">
                             {part.quantity.toLocaleString()}
                           </td>
-                          <td className="text-secondary text-sm">{part.location}</td>
+                          <td className="px-4 py-3 text-secondary text-sm">{part.location}</td>
                         </tr>
                       ))
                     ) : (
@@ -643,8 +651,12 @@ const DashboardPage = () => {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.low_stock_parts.map((part) => (
-                  <div key={part.id} className="bg-error/5 border border-error/20 rounded-lg p-4">
-                    <h4 className="font-medium text-primary">{part.part_name}</h4>
+                  <div
+                    key={part.id}
+                    onClick={() => navigate(`/parts/${part.id}`)}
+                    className="bg-error/5 border border-error/20 rounded-lg p-4 cursor-pointer hover:bg-error/10 hover:border-error/30 transition-colors"
+                  >
+                    <h4 className="font-medium text-primary hover:text-primary-dark">{part.part_name}</h4>
                     <p className="text-sm text-secondary mb-2">{part.part_number}</p>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
