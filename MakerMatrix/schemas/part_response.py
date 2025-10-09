@@ -48,6 +48,7 @@ class PartResponse(BaseModel):
     
     # Core relationships (always included)
     categories: Optional[List[CategoryResponse]] = []
+    projects: Optional[List[Dict[str, Any]]] = []  # Project assignments
     datasheets: Optional[List[Dict[str, Any]]] = []  # Always included (core part data)
     
     # Timestamps

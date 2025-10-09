@@ -18,6 +18,8 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [displayCount, setDisplayCount] = useState(4)
+  const partsPerLoad = 4
 
   useEffect(() => {
     const loadParts = async () => {
@@ -28,6 +30,7 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
         setError(null)
         const projectParts = await projectsService.getProjectParts(project.id)
         setParts(projectParts)
+        setDisplayCount(4) // Reset to show first 4 parts
       } catch (err) {
         console.error('Failed to load project parts:', err)
         setError('Failed to load parts for this project')
@@ -61,6 +64,20 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
     }
   }
 
+  // Get parts to display (limited by displayCount)
+  const displayedParts = parts.slice(0, displayCount)
+  const hasMore = displayCount < parts.length
+
+  // Handle scroll to load more
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget
+    const scrolledToBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50
+
+    if (scrolledToBottom && hasMore && !loading) {
+      setDisplayCount((prev) => Math.min(prev + partsPerLoad, parts.length))
+    }
+  }
+
   if (!project) return null
 
   return (
@@ -68,49 +85,60 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
       <div className="space-y-6">
         {/* Project Header */}
         <div className="bg-theme-secondary rounded-lg p-6 border border-theme-primary">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <Hash className="w-6 h-6 text-muted" />
-                <h2 className="text-2xl font-bold text-primary">{project.name}</h2>
-              </div>
-              <span
-                className={`inline-block px-3 py-1 rounded text-sm font-medium ${getStatusColor(project.status)}`}
-              >
-                {project.status}
-              </span>
-            </div>
+          <div className="flex items-start gap-4">
+            {/* Project Image */}
             {project.image_url && (
               <img
                 src={project.image_url}
                 alt={project.name}
-                className="w-32 h-32 object-cover rounded-lg border border-theme-primary"
+                className="w-24 h-24 object-cover rounded-lg border border-theme-primary flex-shrink-0"
               />
             )}
-          </div>
 
-          {project.description && (
-            <p className="text-secondary mb-4">{project.description}</p>
-          )}
-
-          {/* Project Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-theme-elevated p-3 rounded-lg border border-theme-primary">
-              <p className="text-xs text-muted mb-1">Parts Count</p>
-              <p className="text-xl font-bold text-primary">{project.parts_count}</p>
-            </div>
-            {project.estimated_cost && (
-              <div className="bg-theme-elevated p-3 rounded-lg border border-theme-primary">
-                <p className="text-xs text-muted mb-1">Estimated Cost</p>
-                <p className="text-xl font-bold text-primary">${project.estimated_cost.toFixed(2)}</p>
+            {/* Project Info */}
+            <div className="flex-1 min-w-0">
+              {/* Name and Status */}
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Hash className="w-5 h-5 text-purple-400" />
+                  <h2 className="text-xl font-bold text-theme-primary">{project.name}</h2>
+                </div>
+                <span
+                  className={`inline-block px-2.5 py-1 rounded text-xs font-medium ${getStatusColor(project.status)}`}
+                >
+                  {project.status}
+                </span>
               </div>
-            )}
+
+              {/* Description */}
+              {project.description && (
+                <p className="text-theme-secondary text-sm mb-3">{project.description}</p>
+              )}
+
+              {/* Stats - Inline and compact */}
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-theme-muted" />
+                  <span className="text-theme-secondary">
+                    <span className="font-semibold text-theme-primary">{project.parts_count}</span> parts
+                  </span>
+                </div>
+                {project.estimated_cost && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-theme-muted">•</span>
+                    <span className="text-theme-secondary">
+                      Est. <span className="font-semibold text-theme-primary">${project.estimated_cost.toFixed(2)}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Project Links */}
           {project.links && Object.keys(project.links).length > 0 && (
-            <div>
-              <p className="text-sm font-semibold text-primary mb-2">Project Links</p>
+            <div className="mt-4 pt-4 border-t border-theme-primary">
+              <p className="text-xs font-semibold text-theme-secondary mb-2 uppercase tracking-wide">Project Links</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(project.links).map(([key, value]) => {
                   const domain = extractDomain(value as string)
@@ -121,14 +149,13 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
                       href={value as string}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-theme-elevated border border-theme-primary rounded-lg text-sm text-accent hover:text-accent-hover transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-theme-elevated border border-theme-primary rounded-lg text-sm text-primary hover:text-secondary hover:border-secondary transition-colors"
                     >
                       <img
                         src={getFaviconUrl(value as string)}
                         alt=""
                         className="w-4 h-4"
                         onError={(e) => {
-                          // Fallback to external link icon if favicon fails
                           e.currentTarget.style.display = 'none'
                         }}
                       />
@@ -164,8 +191,8 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
               <p>No parts assigned to this project yet.</p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {parts.map((part) => (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2" onScroll={handleScroll}>
+              {displayedParts.map((part) => (
                 <div
                   key={part.id}
                   onClick={() => handlePartClick(part.id)}
@@ -206,6 +233,13 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
                   </div>
                 </div>
               ))}
+
+              {/* Loading more indicator */}
+              {hasMore && (
+                <div className="text-center py-4 text-theme-muted text-sm">
+                  Scroll for more parts...
+                </div>
+              )}
             </div>
           )}
         </div>
