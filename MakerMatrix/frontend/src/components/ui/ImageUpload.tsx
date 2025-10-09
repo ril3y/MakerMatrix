@@ -236,25 +236,26 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                 />
               )}
 
-              {/* Remove button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRemoveImage()
-                }}
-                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
-                disabled={disabled}
-              >
-                <X className="w-3 h-3" />
-              </button>
-
               {/* Overlay on hover */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
                 <div className="text-white text-center">
                   <Camera className="w-6 h-6 mx-auto mb-1" />
                   <span className="text-sm">Click to change</span>
                 </div>
               </div>
+
+              {/* Remove button - Higher z-index and pointer events enabled */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRemoveImage()
+                }}
+                className="absolute top-2 right-2 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 transition-colors shadow-lg pointer-events-auto"
+                disabled={disabled}
+                title="Remove image"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </motion.div>
           ) : (
             <motion.div

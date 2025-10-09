@@ -32,7 +32,7 @@ const Modal = ({
     sm: 'max-w-md',
     md: 'max-w-lg',
     lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
+    xl: 'max-w-6xl',
   }
 
   // Handle Escape key to close modal
@@ -67,7 +67,10 @@ const Modal = ({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className={`relative w-full ${sizeClasses[size]} mx-auto mt-20 bg-background-primary border border-border rounded-lg shadow-xl text-primary ${className}`}
+              className={`relative w-full ${sizeClasses[size]} mx-auto mt-20 bg-background-secondary border-2 border-purple-500/30 rounded-lg shadow-2xl shadow-purple-500/10 text-primary ${className}`}
+              style={{
+                boxShadow: '0 25px 50px -12px rgba(168, 85, 247, 0.15), 0 0 0 1px rgba(168, 85, 247, 0.1)',
+              }}
             >
               {/* Header */}
               {showHeader && (

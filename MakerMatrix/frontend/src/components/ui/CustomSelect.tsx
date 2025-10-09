@@ -36,6 +36,9 @@ interface CustomSelectProps {
   multiSelect?: boolean
   selectedValues?: string[]
   onMultiSelectChange?: (values: string[]) => void
+  // Add new item
+  onAddNew?: () => void
+  addNewLabel?: string
 }
 
 export const CustomSelect = ({
@@ -54,6 +57,8 @@ export const CustomSelect = ({
   multiSelect = false,
   selectedValues = [],
   onMultiSelectChange,
+  onAddNew,
+  addNewLabel = 'Add New',
 }: CustomSelectProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -259,6 +264,24 @@ export const CustomSelect = ({
 
           {/* Options List */}
           <div className="overflow-auto flex-1">
+            {/* Add New Option */}
+            {onAddNew && (
+              <div className="py-1 border-b border-theme-primary">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddNew()
+                    setIsOpen(false)
+                    setSearchTerm('')
+                  }}
+                  className="w-full px-3 py-2 text-left flex items-center gap-2 text-primary hover:bg-primary/10 transition-colors duration-150 font-medium"
+                >
+                  <span className="text-primary text-lg leading-none">+</span>
+                  <span>{addNewLabel}</span>
+                </button>
+              </div>
+            )}
+
             {/* Create Custom Option */}
             {isCustomValue && (
               <div className="py-1 border-b border-theme-primary">

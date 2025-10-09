@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, Package, Plus, X, Tag, MapPin, Hash } from 'lucide-react'
+import { Save, Package, Plus, X, Tag, MapPin, Hash, ChevronDown } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
@@ -79,10 +79,27 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
   const [showAddProjectModal, setShowAddProjectModal] = useState(false)
+  const [isAdditionalPropsOpen, setIsAdditionalPropsOpen] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
       loadData()
+      // Load cached form data if available
+      const cachedData = localStorage.getItem('addPartFormData')
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData)
+          setFormData(parsed.formData || formData)
+          setSelectedCategories(parsed.selectedCategories || [])
+          setSelectedProjects(parsed.selectedProjects || [])
+          setCustomProperties(parsed.customProperties || [])
+          setImageUrl(parsed.imageUrl || '')
+          setEmoji(parsed.emoji || null)
+          toast.success('Restored previous form data')
+        } catch (error) {
+          console.error('Failed to restore cached form data:', error)
+        }
+      }
     }
   }, [isOpen])
 
@@ -361,6 +378,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       }
 
       console.log('Part created successfully, calling onSuccess and handleClose')
+      clearFormData() // Clear cached data on successful submission
       onSuccess()
       handleClose()
     } catch (error) {
@@ -383,7 +401,36 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     }
   }
 
+  // Auto-save form data to localStorage whenever it changes
+  useEffect(() => {
+    if (isOpen) {
+      const cacheData = {
+        formData,
+        selectedCategories,
+        selectedProjects,
+        customProperties,
+        imageUrl,
+        emoji,
+      }
+      localStorage.setItem('addPartFormData', JSON.stringify(cacheData))
+    }
+  }, [isOpen, formData, selectedCategories, selectedProjects, customProperties, imageUrl, emoji])
+
   const handleClose = () => {
+    // Don't clear form data on close - keep it cached for next time
+    // Only clear on successful submit or explicit clear
+
+    // Close any open inline modals
+    setShowAddCategoryModal(false)
+    setShowAddLocationModal(false)
+    setShowAddProjectModal(false)
+    setShowConfigureSupplierPrompt(false)
+    setDetectedSupplierInfo(null)
+
+    onClose()
+  }
+
+  const clearFormData = () => {
     setFormData({
       name: '',
       part_number: '',
@@ -404,19 +451,12 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setImageUrl('')
     setEmoji(null)
     setSupplierRequiredFields([])
-
-    // Close any open inline modals
-    setShowAddCategoryModal(false)
-    setShowAddLocationModal(false)
-    setShowAddProjectModal(false)
-    setShowConfigureSupplierPrompt(false)
-    setDetectedSupplierInfo(null)
-
-    onClose()
+    localStorage.removeItem('addPartFormData')
   }
 
   const addCustomProperty = () => {
     setCustomProperties([...customProperties, { key: '', value: '' }])
+    setIsAdditionalPropsOpen(true) // Auto-expand when adding a property
   }
 
   const updateCustomProperty = (index: number, field: 'key' | 'value', value: string) => {
@@ -805,13 +845,13 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           <p className="text-secondary mt-2">Loading...</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Basic Information */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Row 1: Basic Info - 3 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
             <FormField label="Part Name" required error={errors.name}>
               <input
                 type="text"
-                className="input w-full"
+                className="input w-full focus:ring-primary/50 focus:border-primary"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Enter part name"
@@ -821,51 +861,102 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             <FormField label="Part Number" error={errors.part_number}>
               <input
                 type="text"
-                className="input w-full"
+                className="input w-full focus:ring-primary/50 focus:border-primary"
                 value={formData.part_number}
                 onChange={(e) => setFormData({ ...formData, part_number: e.target.value })}
                 placeholder="Enter part number"
               />
             </FormField>
+
+            <FormField
+              label="Supplier"
+              error={errors.supplier}
+              description="Select or enter supplier"
+            >
+              <SupplierSelector
+                value={formData.supplier}
+                onChange={(value) => setFormData({ ...formData, supplier: value })}
+                error={errors.supplier}
+                placeholder="Select supplier..."
+              />
+            </FormField>
           </div>
 
-          {/* Description Field - Full Width */}
-          <FormField label="Description" error={errors.description}>
-            <textarea
-              className="input w-full min-h-[100px] resize-y"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Enter part description (optional)"
-              rows={3}
-            />
-          </FormField>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField label="Quantity" required error={errors.quantity}>
-              <input
-                type="number"
-                min="0"
-                className="input w-full"
-                value={formData.quantity === 0 ? '' : formData.quantity}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    quantity: e.target.value === '' ? 0 : parseInt(e.target.value),
-                  })
-                }
-                placeholder="0"
+          {/* Row 2: Description and Supplier URL - 2 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+            <FormField label="Description" error={errors.description}>
+              <textarea
+                className="input w-full min-h-[80px] resize-y focus:ring-primary/50 focus:border-primary"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Enter part description (optional)"
+                rows={2}
               />
             </FormField>
 
             <FormField
-              label="Minimum Quantity"
+              label="Supplier URL"
+              error={errors.supplier_url}
+              description="Paste product URL for auto-detection"
+            >
+              <input
+                type="url"
+                className="input w-full focus:ring-primary/50 focus:border-primary"
+                value={formData.supplier_url}
+                onChange={(e) => handleSupplierUrlChange(e.target.value)}
+                placeholder="https://ebay.com/itm/12345..."
+              />
+            </FormField>
+          </div>
+
+          {/* Row 3: Quantities, Emoji, and Location - 4 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+            <div className="space-y-4">
+              <FormField label="Quantity" required error={errors.quantity}>
+                <input
+                  type="number"
+                  min="0"
+                  className="input w-full focus:ring-primary/50 focus:border-primary"
+                  value={formData.quantity === 0 ? '' : formData.quantity}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      quantity: e.target.value === '' ? 0 : parseInt(e.target.value),
+                    })
+                  }
+                  placeholder="0"
+                />
+              </FormField>
+
+              <FormField
+                label="Emoji Icon"
+                description="For printer labels"
+              >
+                <EmojiPicker
+                  value={emoji || undefined}
+                  onChange={(selectedEmoji) => setEmoji(selectedEmoji)}
+                  placeholder="Select emoji..."
+                />
+              </FormField>
+            </div>
+
+            <FormField
+              label={
+                <div className="flex items-center gap-1">
+                  <span>Min. Quantity</span>
+                  <TooltipIcon
+                    variant="help"
+                    position="top"
+                    tooltip="Alert when quantity falls below this threshold"
+                  />
+                </div>
+              }
               error={errors.minimum_quantity}
-              description="Alert when quantity falls below this level"
             >
               <input
                 type="number"
                 min="0"
-                className="input w-full"
+                className="input w-full focus:ring-primary/50 focus:border-primary"
                 value={formData.minimum_quantity === 0 ? '' : formData.minimum_quantity}
                 onChange={(e) =>
                   setFormData({
@@ -877,63 +968,36 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               />
             </FormField>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-primary">Location</label>
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-medium text-primary">Location</label>
+              <div className="relative">
+                <LocationTreeSelector
+                  selectedLocationId={formData.location_id}
+                  onLocationSelect={(locationId) =>
+                    setFormData({ ...formData, location_id: locationId || '' })
+                  }
+                  description="Storage location"
+                  error={errors.location_id}
+                  showAddButton={false}
+                  compact={true}
+                  showLabel={false}
+                />
                 <button
                   type="button"
                   onClick={() => setShowAddLocationModal(true)}
-                  className="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
+                  className="absolute top-2 right-2 p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/30"
                   disabled={loading}
+                  title="Add new location"
                 >
-                  <MapPin className="w-3 h-3" />
-                  Add Location
+                  <Plus className="w-4 h-4 text-primary" />
                 </button>
               </div>
-              <LocationTreeSelector
-                selectedLocationId={formData.location_id}
-                onLocationSelect={(locationId) =>
-                  setFormData({ ...formData, location_id: locationId || '' })
-                }
-                description="Select where this part will be stored"
-                error={errors.location_id}
-                showAddButton={false}
-                compact={true}
-                showLabel={false}
-              />
             </div>
-
-            <FormField
-              label="Supplier"
-              error={errors.supplier}
-              description="Select a configured supplier or enter a custom one"
-            >
-              <SupplierSelector
-                value={formData.supplier}
-                onChange={(value) => setFormData({ ...formData, supplier: value })}
-                error={errors.supplier}
-                placeholder="Select supplier..."
-              />
-            </FormField>
           </div>
-
-          <FormField
-            label="Supplier URL"
-            error={errors.supplier_url}
-            description="Paste product URL - supplier will be auto-detected if not set"
-          >
-            <input
-              type="url"
-              className="input w-full"
-              value={formData.supplier_url}
-              onChange={(e) => handleSupplierUrlChange(e.target.value)}
-              placeholder="https://ebay.com/itm/12345... (auto-detects supplier)"
-            />
-          </FormField>
 
           {/* Supplier-Specific Required Fields */}
           {loadingSupplierFields && (
-            <div className="p-4 bg-theme-secondary rounded-md">
+            <div className="p-3 bg-theme-secondary rounded-md">
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                 <p className="text-sm text-theme-secondary">Loading supplier requirements...</p>
@@ -942,19 +1006,15 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           )}
 
           {!loadingSupplierFields && supplierRequiredFields.length > 0 && (
-            <div className="space-y-4 p-4 bg-theme-secondary rounded-md border border-theme-primary">
+            <div className="space-y-3 p-3 bg-theme-secondary rounded-md border border-theme-primary">
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-primary" />
                 <h3 className="text-sm font-semibold text-theme-primary">
                   Required for Enrichment from {formData.supplier}
                 </h3>
               </div>
-              <p className="text-xs text-theme-muted">
-                These fields are required to enable automatic part data enrichment from{' '}
-                {formData.supplier}.
-              </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {supplierRequiredFields.map((field) => (
                   <FormField
                     key={field.field}
@@ -983,108 +1043,74 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             </div>
           )}
 
-          {/* Image Upload */}
-          <FormField
-            label="Part Image"
-            description="Upload, drag & drop, or paste an image of the part (max 5MB)"
-          >
-            <ImageUpload
-              onImageUploaded={setImageUrl}
-              currentImageUrl={imageUrl}
-              placeholder="Upload part image"
-              className="w-full"
-            />
-          </FormField>
+          {/* Row 4: Image and Categories/Projects - larger image */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+            <FormField label="Part Image">
+              <ImageUpload
+                onImageUploaded={setImageUrl}
+                currentImageUrl={imageUrl}
+                placeholder="Upload image"
+                className="w-full"
+              />
+            </FormField>
 
-          {/* Emoji Picker */}
-          <FormField
-            label="Part Emoji"
-            description="Select an emoji icon for this part (can be used on printer labels)"
-          >
-            <EmojiPicker
-              value={emoji || undefined}
-              onChange={(selectedEmoji) => setEmoji(selectedEmoji)}
-              placeholder="Select emoji icon..."
-            />
-          </FormField>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-primary">Categories</label>
+                <CustomSelect
+                  value=""
+                  onChange={() => {}}
+                  multiSelect={true}
+                  selectedValues={selectedCategories}
+                  onMultiSelectChange={(values) => setSelectedCategories(values)}
+                  options={categories.map((cat) => ({
+                    value: cat.id,
+                    label: cat.name,
+                  }))}
+                  placeholder="Select categories..."
+                  searchable={true}
+                  searchPlaceholder="Search..."
+                  error={errors.categories}
+                  onAddNew={() => setShowAddCategoryModal(true)}
+                  addNewLabel="Add Category"
+                />
+              </div>
 
-          {/* Categories */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-primary">Categories</label>
-              <button
-                type="button"
-                onClick={() => setShowAddCategoryModal(true)}
-                className="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
-                disabled={loading}
-              >
-                <Tag className="w-3 h-3" />
-                Add Category
-              </button>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-primary">Projects</label>
+                <CustomSelect
+                  value=""
+                  onChange={() => {}}
+                  multiSelect={true}
+                  selectedValues={selectedProjects}
+                  onMultiSelectChange={(values) => setSelectedProjects(values)}
+                  options={projects.map((proj) => ({
+                    value: proj.id,
+                    label: proj.name,
+                  }))}
+                  placeholder="Select projects..."
+                  searchable={true}
+                  searchPlaceholder="Search..."
+                  error={errors.projects}
+                  onAddNew={() => setShowAddProjectModal(true)}
+                  addNewLabel="Add Project"
+                />
+              </div>
             </div>
-            <CustomSelect
-              value=""
-              onChange={() => {}} // Not used in multi-select mode
-              multiSelect={true}
-              selectedValues={selectedCategories}
-              onMultiSelectChange={(values) => setSelectedCategories(values)}
-              options={categories.map((cat) => ({
-                value: cat.id,
-                label: cat.name,
-              }))}
-              placeholder="Select categories..."
-              searchable={true}
-              searchPlaceholder="Search categories..."
-              error={errors.categories}
-            />
-            <p className="text-xs text-theme-muted">Select categories that apply to this part</p>
           </div>
 
-          {/* Projects */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-primary">Projects</label>
-              <button
-                type="button"
-                onClick={() => setShowAddProjectModal(true)}
-                className="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
-                disabled={loading}
-              >
-                <Hash className="w-3 h-3" />
-                New Project
-              </button>
-            </div>
-            <CustomSelect
-              value=""
-              onChange={() => {}} // Not used in multi-select mode
-              multiSelect={true}
-              selectedValues={selectedProjects}
-              onMultiSelectChange={(values) => setSelectedProjects(values)}
-              options={projects.map((proj) => ({
-                value: proj.id,
-                label: proj.name,
-              }))}
-              placeholder="Select projects..."
-              searchable={true}
-              searchPlaceholder="Search projects..."
-              error={errors.projects}
-            />
-            <p className="text-xs text-theme-muted">
-              Tag this part to projects (e.g., golfcart-harness)
-            </p>
-          </div>
-
-          {/* Custom Properties */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          {/* Additional Properties - Collapsible */}
+          <details className="group" open={isAdditionalPropsOpen}>
+            <summary className="flex items-center justify-between cursor-pointer p-3 bg-primary/5 border border-primary/20 rounded-md hover:bg-primary/10 transition-colors list-none">
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-primary">Custom Properties</label>
+                <ChevronDown className="w-4 h-4 text-primary transition-transform group-open:rotate-180" />
+                <label className="text-sm font-medium text-primary">Additional Properties</label>
                 <TooltipIcon
                   variant="help"
                   position="left"
                   tooltip={
                     <div className="space-y-2">
-                      <p className="font-semibold">What are Custom Properties?</p>
+                      <p className="font-semibold">What are Additional Properties?</p>
                       <p>
                         Add any additional information specific to this part that doesn't fit in the
                         standard fields.
@@ -1101,88 +1127,100 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                           <li>
                             <span className="font-medium">Package Type:</span> SMD 0805
                           </li>
-                          <li>
-                            <span className="font-medium">Color:</span> Blue
-                          </li>
-                          <li>
-                            <span className="font-medium">Material:</span> ABS Plastic
-                          </li>
                         </ul>
                       </div>
-                      <p className="text-xs pt-2 border-t border-white/20">
-                        💡 Tip: These properties are searchable and can be used to filter parts
-                        later.
-                      </p>
                     </div>
                   }
                 />
+                <span className="text-xs text-theme-muted">
+                  ({customProperties.length} {customProperties.length === 1 ? 'property' : 'properties'})
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={addCustomProperty}
-                className="btn btn-secondary btn-sm flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                Add Property
-              </button>
-            </div>
-
-            {customProperties.map((prop, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Property name (e.g., Tolerance)"
-                  className="input flex-1"
-                  value={prop.key}
-                  onChange={(e) => updateCustomProperty(index, 'key', e.target.value)}
-                />
-                <input
-                  type="text"
-                  placeholder="Property value (e.g., ±5%)"
-                  className="input flex-1"
-                  value={prop.value}
-                  onChange={(e) => updateCustomProperty(index, 'value', e.target.value)}
-                />
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => removeCustomProperty(index)}
-                  className="btn btn-secondary btn-sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    addCustomProperty()
+                  }}
+                  className="px-2 py-1 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/30 flex items-center gap-1 text-xs text-primary font-medium"
                 >
-                  <X className="w-3 h-3" />
+                  <Plus className="w-3 h-3" />
+                  Add
                 </button>
               </div>
-            ))}
+            </summary>
 
-            {customProperties.length === 0 && (
-              <p className="text-sm text-theme-secondary">
-                No custom properties added. Click "Add Property" to include additional part
-                specifications.
-              </p>
-            )}
-          </div>
+            <div className="mt-3 space-y-2">
+              {customProperties.map((prop, index) => (
+                <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2">
+                  <input
+                    type="text"
+                    placeholder="Property name"
+                    className="input w-full"
+                    value={prop.key}
+                    onChange={(e) => updateCustomProperty(index, 'key', e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Property value"
+                    className="input w-full"
+                    value={prop.value}
+                    onChange={(e) => updateCustomProperty(index, 'value', e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeCustomProperty(index)}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+
+              {customProperties.length === 0 && (
+                <p className="text-xs text-theme-muted p-2">
+                  No custom properties added. Click "Add" to include additional specifications.
+                </p>
+              )}
+            </div>
+          </details>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <div className="flex justify-between items-center pt-4 border-t border-border">
             <button
               type="button"
-              onClick={handleClose}
-              className="btn btn-secondary"
+              onClick={() => {
+                clearFormData()
+                toast.success('Form cleared')
+              }}
+              className="btn btn-ghost text-xs"
               disabled={loading}
             >
-              Cancel
+              Clear Form
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary flex items-center gap-2"
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              {loading ? 'Creating...' : 'Create Part'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="btn btn-secondary"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary flex items-center gap-2"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {loading ? 'Creating...' : 'Create Part'}
+              </button>
+            </div>
           </div>
         </form>
       )}
