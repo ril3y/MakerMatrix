@@ -308,7 +308,22 @@ class PartModel(SQLModel, table=True):
             {"id": category.id, "name": category.name, "description": category.description}
             for category in self.categories
         ] if self.categories else []
-        
+
+        # Always include projects (core part data)
+        base_dict["projects"] = [
+            {
+                "id": project.id,
+                "name": project.name,
+                "description": project.description,
+                "status": project.status,
+                "image_url": project.image_url,
+                "parts_count": project.parts_count,
+                "estimated_cost": project.estimated_cost,
+                "links": project.links
+            }
+            for project in self.projects
+        ] if self.projects else []
+
         # Always include primary location from allocations (core part data)
         primary_loc = self.primary_location
         if primary_loc:

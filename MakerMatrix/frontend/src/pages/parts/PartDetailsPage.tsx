@@ -54,7 +54,9 @@ import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import CategorySelector from '@/components/ui/CategorySelector'
 import SupplierSelector from '@/components/ui/SupplierSelector'
 import ProjectSelector from '@/components/ui/ProjectSelector'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import AddProjectModal from '@/components/projects/AddProjectModal'
+import ProjectDetailsModal from '@/components/projects/ProjectDetailsModal'
 import { projectsService } from '@/services/projects.service'
 import type { Project } from '@/types/projects'
 import { analyticsService } from '@/services/analytics.service'
@@ -147,6 +149,8 @@ const PartDetailsPage = () => {
   // Project management state
   const [addProjectModalOpen, setAddProjectModalOpen] = useState(false)
   const [projectManagementOpen, setProjectManagementOpen] = useState(false)
+  const [projectDetailsModalOpen, setProjectDetailsModalOpen] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
   const [loadingProjects, setLoadingProjects] = useState(false)
@@ -186,6 +190,18 @@ const PartDetailsPage = () => {
   useEffect(() => {
     loadAllCategories()
   }, [])
+
+  // Load all projects on mount
+  useEffect(() => {
+    loadAllProjects()
+  }, [])
+
+  // Update selected projects when part changes
+  useEffect(() => {
+    if (part?.projects) {
+      setSelectedProjectIds(part.projects.map((proj) => proj.id))
+    }
+  }, [part?.projects])
 
   // Update selected categories when part changes
   useEffect(() => {
@@ -481,10 +497,28 @@ const PartDetailsPage = () => {
     }
   }
 
-  const handleToggleProject = (projectId: string) => {
-    setSelectedProjectIds((prev) =>
-      prev.includes(projectId) ? prev.filter((id) => id !== projectId) : [...prev, projectId]
-    )
+  const handleToggleProject = async (projectId: string) => {
+    if (!part || !id) return
+
+    try {
+      const isCurrentlySelected = selectedProjectIds.includes(projectId)
+
+      if (isCurrentlySelected) {
+        // Remove from project
+        await projectsService.removePartFromProject(projectId, id)
+        setSelectedProjectIds((prev) => prev.filter((pid) => pid !== projectId))
+      } else {
+        // Add to project
+        await projectsService.addPartToProject(projectId, id)
+        setSelectedProjectIds((prev) => [...prev, projectId])
+      }
+
+      // Refresh the part to get updated data
+      await loadPart(id)
+    } catch (error) {
+      console.error('Failed to toggle project:', error)
+      setError('Failed to update project assignment')
+    }
   }
 
   const saveProjectChanges = async () => {
@@ -1432,85 +1466,58 @@ const PartDetailsPage = () => {
             </div>
           </motion.div>
 
-          {/* Enhanced Projects Section - Always Visible */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
-          >
-            <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
-                  <div className="p-2 bg-purple-600/10 rounded-lg">
-                    <Hash className="w-5 h-5 text-purple-400" />
-                  </div>
-                  Projects
-                  <span className="text-sm bg-purple-600/10 text-purple-400 px-3 py-1 rounded-full font-medium">
-                    {part.projects?.length || 0}
-                  </span>
-                </h2>
-
-                <button
-                  onClick={async () => {
-                    await loadAllProjects()
-                    setSelectedProjectIds(part.projects?.map(p => p.id) || [])
-                    setProjectManagementOpen(true)
-                  }}
-                  className="btn btn-primary btn-sm flex items-center gap-2"
-                  title="Manage projects for this part"
-                >
-                  <Edit className="w-4 h-4" />
-                  Manage Projects
-                </button>
+          {/* Enhanced Projects Section - Only show if part has projects */}
+          {part.projects && part.projects.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
+            >
+              <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
+                    <div className="p-2 bg-purple-600/10 rounded-lg">
+                      <Hash className="w-5 h-5 text-purple-400" />
+                    </div>
+                    Projects
+                    <span className="text-sm bg-purple-600/10 text-purple-400 px-3 py-1 rounded-full font-medium">
+                      {part.projects.length}
+                    </span>
+                  </h2>
+                  <button
+                    onClick={async () => {
+                      await loadAllProjects()
+                      setProjectManagementOpen(true)
+                    }}
+                    className="p-2 hover:bg-purple-600/10 rounded-lg transition-colors"
+                    title="Manage projects"
+                  >
+                    <Plus className="w-5 h-5 text-purple-400" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="p-6">
-              {part.projects && part.projects.length > 0 ? (
+              <div className="p-6">
                 <div className="flex flex-wrap gap-3">
                   {part.projects.map((project) => (
                     <span
                       key={project.id}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600/10 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-600/20 transition-colors border border-purple-600/30 cursor-pointer"
-                      onClick={() => navigate(`/projects`)}
-                      title="Click to view all projects"
+                      onClick={() => {
+                        setSelectedProject(project)
+                        setProjectDetailsModalOpen(true)
+                      }}
+                      title={`View ${project.name} project`}
                     >
                       <Hash className="w-4 h-4" />
                       {project.name}
                     </span>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Hash className="w-12 h-12 text-theme-muted mx-auto mb-3" />
-                  <p className="text-theme-muted text-sm mb-4">
-                    No projects assigned to this part yet.
-                  </p>
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={async () => {
-                        await loadAllProjects()
-                        setSelectedProjectIds([])
-                        setProjectManagementOpen(true)
-                      }}
-                      className="btn btn-primary btn-sm flex items-center gap-2"
-                    >
-                      <Hash className="w-4 h-4" />
-                      Assign to Existing Project
-                    </button>
-                    <button
-                      onClick={handleAddProjectDirect}
-                      className="btn btn-secondary btn-sm flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create New Project
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
+              </div>
+            </motion.div>
+          )}
 
           {/* Enhanced Description Section */}
           {part.description && (
@@ -2100,6 +2107,16 @@ const PartDetailsPage = () => {
             existingProjects={allProjects.map((proj) => proj.name)}
           />
 
+          {/* Project Details Modal */}
+          <ProjectDetailsModal
+            isOpen={projectDetailsModalOpen}
+            onClose={() => {
+              setProjectDetailsModalOpen(false)
+              setSelectedProject(null)
+            }}
+            project={selectedProject}
+          />
+
           {/* Project Management Modal */}
           {projectManagementOpen && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -2118,43 +2135,46 @@ const PartDetailsPage = () => {
                       <p className="text-theme-muted mt-3">Loading projects...</p>
                     </div>
                   ) : (
-                    <ProjectSelector
-                      projects={allProjects}
-                      selectedProjects={selectedProjectIds}
-                      onToggleProject={handleToggleProject}
-                      onAddNewProject={handleAddProjectFromManagement}
-                      label="Select Projects"
-                      description="Choose which projects to assign this part to"
-                      showAddButton={true}
-                      layout="pills"
-                    />
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-theme-primary">
+                        Select Projects
+                      </label>
+                      <p className="text-sm text-theme-secondary mb-3">
+                        Choose which projects to assign this part to
+                      </p>
+                      <CustomSelect
+                        multiSelect={true}
+                        selectedValues={selectedProjectIds}
+                        onMultiSelectChange={(values) => {
+                          // Handle multi-select change by comparing with current and calling API
+                          const added = values.filter(v => !selectedProjectIds.includes(v))
+                          const removed = selectedProjectIds.filter(v => !values.includes(v))
+
+                          // Process additions
+                          added.forEach(projectId => handleToggleProject(projectId))
+                          // Process removals
+                          removed.forEach(projectId => handleToggleProject(projectId))
+                        }}
+                        options={allProjects.map((project) => ({
+                          value: project.id,
+                          label: project.name,
+                        }))}
+                        placeholder="Select projects..."
+                        searchable={true}
+                        searchPlaceholder="Search projects..."
+                        onAddNew={handleAddProjectFromManagement}
+                        addNewLabel="Add New Project"
+                      />
+                    </div>
                   )}
                 </div>
 
-                <div className="bg-theme-tertiary border-t border-theme-primary px-6 py-4 flex items-center justify-between">
+                <div className="bg-theme-tertiary border-t border-theme-primary px-6 py-4 flex items-center justify-end">
                   <button
                     onClick={() => setProjectManagementOpen(false)}
-                    className="btn btn-secondary"
-                    disabled={saving}
+                    className="btn btn-primary"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={saveProjectChanges}
-                    className="btn btn-primary flex items-center gap-2"
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Hash className="w-4 h-4" />
-                        Save Projects
-                      </>
-                    )}
+                    Done
                   </button>
                 </div>
               </div>

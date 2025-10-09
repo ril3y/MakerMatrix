@@ -36,6 +36,7 @@ import ProjectSelector from '../../components/ui/ProjectSelector'
 import AddProjectModal from '../../components/projects/AddProjectModal'
 import LocationTreeSelector from '../../components/ui/LocationTreeSelector'
 import SupplierSelector from '../../components/ui/SupplierSelector'
+import { CustomSelect } from '../../components/ui/CustomSelect'
 import toast from 'react-hot-toast'
 
 const partSchema = z.object({
@@ -150,6 +151,10 @@ const EditPartPage: React.FC = () => {
 
         // Set selected projects
         const projectIds = partData.projects?.map((proj) => proj.id) || []
+        console.log('Initial projects loaded:', {
+          partDataProjects: partData.projects,
+          projectIds
+        })
         setSelectedProjects(projectIds)
 
         // Populate form with existing data using reset() for proper form population
@@ -185,6 +190,11 @@ const EditPartPage: React.FC = () => {
 
   // Watch supplier field
   const supplierValue = watch('supplier')
+
+  // Debug: Watch selectedProjects changes
+  useEffect(() => {
+    console.log('selectedProjects state changed:', selectedProjects)
+  }, [selectedProjects])
 
   // Load enrichment requirements when supplier changes
   useEffect(() => {
@@ -287,8 +297,14 @@ const EditPartPage: React.FC = () => {
 
       // Handle project assignments
       const currentProjectIds = part.projects?.map((p) => p.id) || []
+      console.log('Project assignment debug:', {
+        selectedProjects,
+        currentProjectIds,
+        part_projects: part.projects
+      })
       const projectsToAdd = selectedProjects.filter((pid) => !currentProjectIds.includes(pid))
       const projectsToRemove = currentProjectIds.filter((pid) => !selectedProjects.includes(pid))
+      console.log('Project changes:', { projectsToAdd, projectsToRemove })
 
       // Add new project assignments
       for (const projectId of projectsToAdd) {
@@ -580,16 +596,28 @@ const EditPartPage: React.FC = () => {
 
         {/* Projects */}
         <div className="card p-6">
-          <ProjectSelector
-            projects={projects}
-            selectedProjects={selectedProjects}
-            onToggleProject={toggleProject}
-            onAddNewProject={() => setShowAddProjectModal(true)}
+          <FormField
             label="Projects"
             description="Assign this part to one or more projects"
-            showAddButton={true}
-            layout="pills"
-          />
+          >
+            <CustomSelect
+              multiSelect={true}
+              selectedValues={selectedProjects}
+              onMultiSelectChange={(values) => {
+                console.log('Projects changed:', values)
+                setSelectedProjects(values)
+              }}
+              options={projects.map((project) => ({
+                value: project.id,
+                label: project.name,
+              }))}
+              placeholder="Select projects..."
+              searchable={true}
+              searchPlaceholder="Search projects..."
+              onAddNew={() => setShowAddProjectModal(true)}
+              addNewLabel="Add New Project"
+            />
+          </FormField>
         </div>
 
         {/* Supplier Information */}
