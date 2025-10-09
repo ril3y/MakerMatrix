@@ -230,45 +230,48 @@ const CategoriesPage = () => {
         >
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-4 text-secondary font-medium">Name</th>
-                  <th className="text-left p-4 text-secondary font-medium">Description</th>
-                  <th className="text-center p-4 text-secondary font-medium">Parts Count</th>
-                  <th className="text-right p-4 text-secondary font-medium">Actions</th>
+              <thead className="bg-theme-tertiary">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Description</th>
+                  <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Parts Count</th>
+                  <th className="text-right px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-theme-elevated">
                 {sortedCategories.map((category) => (
                   <tr
                     key={category.id}
-                    className="border-b border-border hover:bg-background-secondary transition-colors"
+                    className="border-b border-theme-primary hover:bg-theme-secondary transition-colors"
                   >
-                    <td className="p-4">
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Tag className="w-4 h-4 text-primary" />
+                        <div className="p-1.5 bg-primary/10 rounded">
+                          <Tag className="w-4 h-4 text-primary" />
+                        </div>
                         <span className="font-medium text-primary">{category.name}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-secondary">{category.description || '-'}</td>
-                    <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Package className="w-4 h-4 text-muted" />
-                        <span className="text-secondary">{category.part_count || 0}</span>
+                    <td className="px-4 py-3 text-secondary">{category.description || '-'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-primary">{category.part_count || 0}</span>
+                        <span className="text-xs text-muted">parts</span>
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleEdit(category)}
-                          className="btn btn-icon btn-secondary"
+                          className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                           title="Edit category"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(category)}
-                          className="btn btn-icon btn-secondary text-red-400 hover:text-red-300"
+                          className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                           title="Delete category"
                         >
                           <Trash2 className="w-4 h-4" />
