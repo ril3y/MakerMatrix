@@ -51,6 +51,53 @@ class LocationModel(SQLModel, table=True):
         description="Maximum quantity this container can hold (for capacity tracking)"
     )
 
+    # === CONTAINER SLOT GENERATION ===
+    # Slot auto-generation configuration (for container creation)
+    slot_count: Optional[int] = Field(
+        default=None,
+        description="Number of auto-generated compartment/slot locations (e.g., 32 for 32-compartment box)"
+    )
+    slot_naming_pattern: Optional[str] = Field(
+        default="Slot {n}",
+        description="Pattern for auto-generated slot names. Use {n} for slot number, {row} and {col} for grid layouts (e.g., 'Compartment {n}' or 'R{row}-C{col}')"
+    )
+    slot_layout_type: Optional[str] = Field(
+        default="simple",
+        description="Slot layout type: 'simple' (linear 1,2,3...), 'grid' (rows×columns), or 'custom' (Phase 2+)"
+    )
+
+    # Grid layout configuration (used when slot_layout_type='grid')
+    grid_rows: Optional[int] = Field(
+        default=None,
+        description="Number of rows in grid layout (e.g., 4 rows × 8 columns = 32 slots)"
+    )
+    grid_columns: Optional[int] = Field(
+        default=None,
+        description="Number of columns in grid layout"
+    )
+
+    # Custom layout configuration (Phase 2+ - multi-sided containers, variable rows)
+    slot_layout: Optional[Dict] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="JSON configuration for custom layouts (Phase 2+). Example: {'sides': [{'name': 'front', 'rows': [{'row': 1, 'slots': 2}, ...]}]}"
+    )
+
+    # Per-slot identification and metadata (set on auto-generated slot locations)
+    is_auto_generated_slot: bool = Field(
+        default=False,
+        description="True if this location was auto-created as a container slot"
+    )
+    slot_number: Optional[int] = Field(
+        default=None,
+        description="Linear slot number for auto-generated slots (1, 2, 3, etc.). Always present regardless of layout type."
+    )
+    slot_metadata: Optional[Dict] = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Spatial metadata for slot positioning. Grid mode: {'row': 1, 'column': 2}. Phase 2: {'side': 'front', 'row': 1, 'column': 2}"
+    )
+
     # === SMART LOCATION SUPPORT (Phase 2 - Not Implemented Yet) ===
     is_smart_location: bool = Field(
         default=False,
@@ -173,6 +220,19 @@ class LocationModel(SQLModel, table=True):
             "is_mobile": self.is_mobile,
             "container_capacity": self.container_capacity,
 
+            # Container slot generation configuration
+            "slot_count": self.slot_count,
+            "slot_naming_pattern": self.slot_naming_pattern,
+            "slot_layout_type": self.slot_layout_type,
+            "grid_rows": self.grid_rows,
+            "grid_columns": self.grid_columns,
+            "slot_layout": self.slot_layout,
+
+            # Per-slot identification and metadata
+            "is_auto_generated_slot": self.is_auto_generated_slot,
+            "slot_number": self.slot_number,
+            "slot_metadata": self.slot_metadata,
+
             # Smart location properties (Phase 2)
             "is_smart_location": self.is_smart_location,
             "smart_device_id": self.smart_device_id,
@@ -233,6 +293,23 @@ class LocationUpdate(SQLModel):
     location_type: Optional[str] = None
     image_url: Optional[str] = None
     emoji: Optional[str] = None
+
+    # Container properties
+    is_mobile: Optional[bool] = None
+    container_capacity: Optional[int] = None
+
+    # Container slot generation configuration
+    slot_count: Optional[int] = None
+    slot_naming_pattern: Optional[str] = None
+    slot_layout_type: Optional[str] = None
+    grid_rows: Optional[int] = None
+    grid_columns: Optional[int] = None
+    slot_layout: Optional[Dict] = None
+
+    # Per-slot identification (typically not updated after creation)
+    is_auto_generated_slot: Optional[bool] = None
+    slot_number: Optional[int] = None
+    slot_metadata: Optional[Dict] = None
 
 
 # Forward reference updates (resolved when all model files are imported)
