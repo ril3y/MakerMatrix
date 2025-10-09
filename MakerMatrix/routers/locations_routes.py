@@ -70,7 +70,20 @@ async def get_all_locations(
             "location_type": location.get("location_type"),
             "image_url": location.get("image_url"),
             "emoji": location.get("emoji"),
-            "parts_count": 0  # Set to 0 since we don't have parts loaded in basic fetch
+            "parts_count": 0,  # Set to 0 since we don't have parts loaded in basic fetch
+
+            # Container slot generation fields
+            "slot_count": location.get("slot_count"),
+            "slot_naming_pattern": location.get("slot_naming_pattern"),
+            "slot_layout_type": location.get("slot_layout_type"),
+            "grid_rows": location.get("grid_rows"),
+            "grid_columns": location.get("grid_columns"),
+            "slot_layout": location.get("slot_layout"),
+
+            # Per-slot identification
+            "is_auto_generated_slot": location.get("is_auto_generated_slot", False),
+            "slot_number": location.get("slot_number"),
+            "slot_metadata": location.get("slot_metadata"),
         }
         location_data.append(location_dict)
 

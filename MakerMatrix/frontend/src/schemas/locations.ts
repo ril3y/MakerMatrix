@@ -24,6 +24,14 @@ export const baseLocationSchema = z.object({
   location_type: z.string().min(1, 'Location type is required').default('standard'),
 
   image_url: commonValidation.optionalUrl,
+
+  // Container slot generation fields
+  slot_count: z.number().int().min(1).max(200).optional(),
+  slot_naming_pattern: z.string().default('Slot {n}'),
+  slot_layout_type: z.enum(['simple', 'grid', 'custom']).default('simple'),
+  grid_rows: z.number().int().min(1).max(20).optional(),
+  grid_columns: z.number().int().min(1).max(20).optional(),
+  slot_layout: z.record(z.any()).optional(),
 })
 
 // Schema for creating a new location
@@ -61,13 +69,45 @@ export const updateLocationSchema = baseUpdateLocationSchema.refine(
 )
 
 // Schema for location form with image upload
-export const locationFormSchema = createLocationSchema.extend({
-  image_file: commonValidation.optionalImageFile,
-  emoji: z
-    .string()
-    .optional()
-    .refine((val) => !val || /^[\u{1F300}-\u{1F9FF}]$/u.test(val), 'Must be a valid emoji'),
-})
+export const locationFormSchema = createLocationSchema
+  .extend({
+    image_file: commonValidation.optionalImageFile,
+    emoji: z
+      .string()
+      .optional()
+      .refine((val) => !val || /^[\u{1F300}-\u{1F9FF}]$/u.test(val), 'Must be a valid emoji'),
+  })
+  .refine(
+    (data) => {
+      // Grid layout validation: if grid layout and slot_count exists, rows and columns required
+      if (data.slot_layout_type === 'grid' && data.slot_count) {
+        return data.grid_rows !== undefined && data.grid_columns !== undefined
+      }
+      return true
+    },
+    {
+      message: 'Grid layout requires rows and columns',
+      path: ['grid_rows'],
+    }
+  )
+  .refine(
+    (data) => {
+      // Verify slot_count matches grid if both provided
+      if (
+        data.slot_layout_type === 'grid' &&
+        data.slot_count &&
+        data.grid_rows !== undefined &&
+        data.grid_columns !== undefined
+      ) {
+        return data.slot_count === data.grid_rows * data.grid_columns
+      }
+      return true
+    },
+    {
+      message: 'Slot count must equal rows × columns',
+      path: ['slot_count'],
+    }
+  )
 
 // Schema for updating location form with image upload
 export const updateLocationFormSchema = baseUpdateLocationSchema

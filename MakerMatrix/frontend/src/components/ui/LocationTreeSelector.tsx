@@ -244,22 +244,23 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
 
   const selectorContent = (
     <div className="space-y-3">
-      {showAddButton && onAddNewLocation && (
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            onClick={onAddNewLocation}
-            className="btn btn-secondary btn-sm flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add New
-          </button>
-        </div>
-      )}
-
       <div
-        className={`border border-primary/20 rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto scrollbar-hide bg-background-primary`}
+        className={`border border-theme-primary rounded-md ${compact ? 'max-h-48' : 'max-h-64'} overflow-y-auto scrollbar-hide bg-theme-elevated relative`}
       >
+        {/* Add New Button - Top Right Inside Container */}
+        {showAddButton && onAddNewLocation && locationTree && locationTree.length > 0 && (
+          <div className="sticky top-0 z-10 flex justify-end p-2 bg-theme-elevated/95 backdrop-blur-sm border-b border-theme-primary">
+            <button
+              type="button"
+              onClick={onAddNewLocation}
+              className="p-1.5 hover:bg-theme-primary rounded-md transition-colors text-primary"
+              title="Add new location"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {locationTree && locationTree.length > 0 ? (
           <div className="p-2">
             <LocationTreeNode

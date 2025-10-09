@@ -68,7 +68,10 @@ import type { PartAllocation } from '@/services/part-allocation.service'
 import { partAllocationService } from '@/services/part-allocation.service'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import AddLocationModal from '@/components/locations/AddLocationModal'
+import ContainerSlotPickerModal from '@/components/locations/ContainerSlotPickerModal'
 import Modal from '@/components/ui/Modal'
+import type { Location } from '@/types/locations'
+import { locationsService } from '@/services/locations.service'
 
 // Icon mapping for property explorer
 const getIconForProperty = (propertyKey: string) => {
@@ -173,6 +176,9 @@ const PartDetailsPage = () => {
   const [selectedLocationForPicker, setSelectedLocationForPicker] = useState<string | undefined>(
     undefined
   )
+  const [showSlotPickerModal, setShowSlotPickerModal] = useState(false)
+  const [selectedContainer, setSelectedContainer] = useState<Location | null>(null)
+  const [allLocations, setAllLocations] = useState<Location[]>([])
 
   // Debug copy state
   const [debugCopied, setDebugCopied] = useState(false)
@@ -194,6 +200,19 @@ const PartDetailsPage = () => {
   // Load all projects on mount
   useEffect(() => {
     loadAllProjects()
+  }, [])
+
+  // Load all locations on mount (for container detection)
+  useEffect(() => {
+    const loadLocations = async () => {
+      try {
+        const locations = await locationsService.getAllLocations({ hide_auto_slots: false })
+        setAllLocations(locations)
+      } catch (error) {
+        console.error('Failed to load locations:', error)
+      }
+    }
+    loadLocations()
   }, [])
 
   // Update selected projects when part changes
@@ -609,6 +628,21 @@ const PartDetailsPage = () => {
     setLocationPickerModalOpen(true)
   }
 
+  const handleChangeContainerSlot = async () => {
+    if (!part?.location) return
+
+    // If current location is a slot, get the parent container
+    if (part.location.is_auto_generated_slot && part.location.parent) {
+      // Load the full container details
+      const container = allLocations.find((loc) => loc.id === part.location.parent.id)
+      if (container) {
+        setSelectedContainer(container)
+        setLocationManagementModalOpen(false)
+        setShowSlotPickerModal(true)
+      }
+    }
+  }
+
   const handleTransferFromPrimary = async () => {
     if (!part?.location) return
 
@@ -636,6 +670,18 @@ const PartDetailsPage = () => {
   const handleLocationSelect = async (locationId: string | undefined) => {
     if (!locationId || !part) return
 
+    // Check if selected location is a container
+    const selectedLocation = allLocations.find((loc) => loc.id === locationId)
+
+    if (selectedLocation?.location_type === 'container' && selectedLocation.slot_count) {
+      // Show slot picker modal for containers
+      setSelectedContainer(selectedLocation)
+      setLocationPickerModalOpen(false)
+      setShowSlotPickerModal(true)
+      return
+    }
+
+    // Non-container location - directly update
     try {
       setSaving(true)
       await partsService.updatePart({ id: part.id, location_id: locationId })
@@ -655,6 +701,26 @@ const PartDetailsPage = () => {
   const handleAddNewLocationFromPicker = () => {
     setLocationPickerModalOpen(false)
     setAddLocationModalOpen(true)
+  }
+
+  const handleSlotSelect = async (slotId: string) => {
+    if (!part) return
+
+    try {
+      setSaving(true)
+      await partsService.updatePart({ id: part.id, location_id: slotId })
+      // Reload part to get updated location data
+      if (id) {
+        await loadPart(id)
+      }
+      setShowSlotPickerModal(false)
+      setSelectedContainer(null)
+    } catch (error: any) {
+      console.error('Failed to update location:', error)
+      alert('Failed to update location: ' + (error.message || 'Unknown error'))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSupplierClick = () => {
@@ -707,6 +773,18 @@ const PartDetailsPage = () => {
     } catch (error) {
       console.error('Failed to copy:', error)
     }
+  }
+
+  // Helper to build location display name (container → slot if applicable)
+  const getLocationDisplayName = (location: any): string => {
+    if (!location) return ''
+
+    // If this is an auto-generated slot with a parent, show "Parent → Slot"
+    if (location.is_auto_generated_slot && location.parent) {
+      return `${location.parent.name} → ${location.name}`
+    }
+
+    return location.name
   }
 
   if (loading) {
@@ -1058,7 +1136,7 @@ const PartDetailsPage = () => {
                                     <span className="text-2xl">{part.location.emoji}</span>
                                   )}
                                   <p className="font-bold text-lg text-theme-primary hover:text-primary transition-colors">
-                                    {part.location.name}
+                                    {getLocationDisplayName(part.location)}
                                   </p>
                                 </div>
                                 {part.location.description && (
@@ -1115,7 +1193,7 @@ const PartDetailsPage = () => {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium text-theme-primary truncate">
-                                      {allocation.location.name}
+                                      {getLocationDisplayName(allocation.location)}
                                     </p>
                                     {allocation.is_primary_storage && (
                                       <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex-shrink-0">
@@ -2209,7 +2287,9 @@ const PartDetailsPage = () => {
                   <MapPin className="w-5 h-5 text-primary" />
                   <div>
                     <p className="text-sm text-theme-muted">Current Primary Location</p>
-                    <p className="font-medium text-theme-primary">{part?.location?.name}</p>
+                    <p className="font-medium text-theme-primary">
+                      {getLocationDisplayName(part?.location)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2219,6 +2299,26 @@ const PartDetailsPage = () => {
               </p>
 
               <div className="space-y-2">
+                {/* Show "Change Container Slot" button if current location is a slot */}
+                {part?.location?.is_auto_generated_slot && part?.location?.parent && (
+                  <button
+                    onClick={handleChangeContainerSlot}
+                    className="w-full p-4 bg-theme-secondary border border-primary/40 rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Package className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="font-medium text-theme-primary group-hover:text-secondary transition-colors">
+                          Change Container Slot
+                        </p>
+                        <p className="text-xs text-theme-muted">
+                          Move to a different slot in {part.location.parent.name}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                )}
+
                 <button
                   onClick={handleChangePrimaryLocation}
                   className="w-full p-4 bg-theme-secondary border border-theme-primary rounded-lg hover:bg-theme-tertiary hover:border-primary transition-colors text-left group"
@@ -2320,6 +2420,20 @@ const PartDetailsPage = () => {
             }}
             onSuccess={handleLocationAdded}
           />
+
+          {/* Container Slot Picker Modal */}
+          {selectedContainer && (
+            <ContainerSlotPickerModal
+              isOpen={showSlotPickerModal}
+              onClose={() => {
+                setShowSlotPickerModal(false)
+                setSelectedContainer(null)
+              }}
+              containerLocation={selectedContainer}
+              currentSlotId={part?.location?.id}
+              onSlotSelect={handleSlotSelect}
+            />
+          )}
 
           {/* Debug Section */}
           <motion.div

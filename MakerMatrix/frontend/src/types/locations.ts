@@ -6,6 +6,20 @@ export interface Location {
   location_type: string
   image_url?: string
   emoji?: string
+
+  // Container slot generation fields
+  slot_count?: number
+  slot_naming_pattern?: string
+  slot_layout_type?: 'simple' | 'grid' | 'custom'
+  grid_rows?: number
+  grid_columns?: number
+  slot_layout?: Record<string, any>
+
+  // Per-slot identification
+  is_auto_generated_slot?: boolean
+  slot_number?: number
+  slot_metadata?: Record<string, any>
+
   parent?: Location
   children?: Location[]
   parts_count?: number
@@ -18,6 +32,14 @@ export interface CreateLocationRequest {
   location_type?: string
   image_url?: string
   emoji?: string
+
+  // Container slot generation fields
+  slot_count?: number
+  slot_naming_pattern?: string
+  slot_layout_type?: 'simple' | 'grid' | 'custom'
+  grid_rows?: number
+  grid_columns?: number
+  slot_layout?: Record<string, any>
 }
 
 export interface UpdateLocationRequest {
@@ -28,6 +50,14 @@ export interface UpdateLocationRequest {
   location_type?: string
   image_url?: string
   emoji?: string
+
+  // Container slot generation fields (for updates)
+  slot_count?: number
+  slot_naming_pattern?: string
+  slot_layout_type?: 'simple' | 'grid' | 'custom'
+  grid_rows?: number
+  grid_columns?: number
+  slot_layout?: Record<string, any>
 }
 
 export interface LocationPath {

@@ -53,8 +53,17 @@ export class LocationsService {
     return response.data!
   }
 
-  async getAllLocations(): Promise<Location[]> {
-    const response = await apiClient.get<any>('/api/locations/get_all_locations')
+  async getAllLocations(params?: { hide_auto_slots?: boolean }): Promise<Location[]> {
+    const queryParams = new URLSearchParams()
+    if (params?.hide_auto_slots !== undefined) {
+      queryParams.append('hide_auto_slots', String(params.hide_auto_slots))
+    }
+
+    const url = queryParams.toString()
+      ? `/api/locations/get_all_locations?${queryParams}`
+      : '/api/locations/get_all_locations'
+
+    const response = await apiClient.get<any>(url)
     if (response.status === 'success' && response.data) {
       return response.data
     }
