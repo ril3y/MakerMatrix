@@ -10,6 +10,7 @@ specification extraction.
 
 from typing import List, Dict, Any, Optional
 import re
+import html as html_lib
 from bs4 import BeautifulSoup
 from decimal import Decimal
 import logging
@@ -301,6 +302,29 @@ class SeeedStudioSupplier(BaseSupplier):
                 return None
 
             soup = BeautifulSoup(response.raw_content, 'html.parser')
+
+            # Debug: Check what we actually got
+            html_content = response.raw_content if isinstance(response.raw_content, str) else response.raw_content.decode('utf-8', errors='ignore')
+            logger.info(f"Response content type: {type(response.raw_content)}, length: {len(response.raw_content)}")
+
+            # Check for actual table tags
+            table_tag_count = html_content.count('<table')
+            logger.info(f"Found {table_tag_count} <table> tags in raw HTML")
+
+            # Check for description content
+            if 'Specifications' in html_content or 'specifications' in html_content:
+                logger.info("Found 'Specifications' text in HTML")
+                spec_idx = html_content.find('Specifications')
+                if spec_idx == -1:
+                    spec_idx = html_content.find('specifications')
+                if spec_idx > 0:
+                    sample = html_content[spec_idx:spec_idx+800]
+                    logger.info(f"Specifications context: {sample[:500]}")
+
+                    # Check if it's HTML-escaped
+                    if '&lt;' in sample or '&gt;' in sample:
+                        logger.info("HTML is escaped - need to unescape before parsing")
+
             return self._parse_product_page(soup, supplier_part_number, url)
 
         except Exception as e:
@@ -310,13 +334,16 @@ class SeeedStudioSupplier(BaseSupplier):
     def _parse_product_page(self, soup: BeautifulSoup, part_slug: str, url: str) -> Optional[PartSearchResult]:
         """Parse a Seeed Studio product page"""
         try:
+            # First, try to find and extract escaped HTML content with specifications
+            escaped_specs = self._extract_escaped_content(soup)
+
             # Extract product details
             title = self._extract_product_title(soup)
             description = self._extract_description(soup)
             image_url = self._extract_image_url(soup)
             pricing = self._extract_pricing(soup)
             stock_quantity = self._extract_stock(soup)
-            specifications = self._extract_specifications(soup)
+            specifications = self._extract_specifications(soup, escaped_specs)
             sku = self._extract_sku(soup)
 
             # Build additional_data from specifications for backward compatibility
@@ -344,6 +371,68 @@ class SeeedStudioSupplier(BaseSupplier):
 
         except Exception as e:
             logger.error(f"Error parsing product page for {part_slug}: {e}")
+            return None
+
+    def _extract_escaped_content(self, soup: BeautifulSoup) -> Optional[BeautifulSoup]:
+        """
+        Extract and unescape HTML content that's stored as escaped HTML entities.
+        Seeed Studio stores detailed description/specs as escaped HTML in script tags or text.
+        """
+        try:
+            # Look through all text in the page for escaped HTML with "Specifications"
+            page_text = str(soup)
+
+            if 'Specifications' in page_text and '&lt;' in page_text:
+                # Find where "Specifications" appears
+                spec_idx = page_text.find('Specifications')
+                # Get 2000 chars around it to see the structure
+                sample = page_text[max(0, spec_idx-100):spec_idx+2000]
+                logger.info(f"Specifications context (2000 chars): {sample[:1000]}")
+
+                # Look for escaped table after "Specifications"
+                # Just find any table structure after the word
+                escaped_section = None
+
+                # Find "Specifications" and then look for the next escaped table
+                if spec_idx >= 0:
+                    remaining_text = page_text[spec_idx:]
+                    # Look for &lt;table
+                    table_start = remaining_text.find('&lt;table')
+                    if table_start >= 0:
+                        # Found a table start, now find the end
+                        # Try both patterns - with and without escaped forward slash
+                        table_end1 = remaining_text.find('&lt;/table&gt;', table_start)
+                        table_end2 = remaining_text.find(r'&lt;\/table&gt;', table_start)
+                        table_end = max(table_end1, table_end2)
+
+                        if table_end >= 0:
+                            # Extract the whole table section including closing tag (14 chars)
+                            escaped_section = remaining_text[table_start:table_end + 14]
+                            logger.info(f"Extracted table section, length: {len(escaped_section)}")
+
+                if escaped_section:
+                    logger.info(f"Found escaped section with Specifications, length: {len(escaped_section)}")
+
+                    # Unescape the HTML entities
+                    unescaped = html_lib.unescape(escaped_section)
+
+                    # Also unescape backslash-escaped forward slashes (\/  -> /)
+                    unescaped = unescaped.replace(r'\/', '/')
+
+                    # Remove \r\n for cleaner parsing
+                    unescaped = unescaped.replace(r'\r\n', '\n')
+
+                    logger.info(f"Unescaped content sample: {unescaped[:300]}")
+
+                    # Parse the unescaped HTML
+                    return BeautifulSoup(unescaped, 'html.parser')
+                else:
+                    logger.warning("Found 'Specifications' and escaped HTML but couldn't extract table section")
+
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error extracting escaped content: {e}")
             return None
 
     def _extract_product_title(self, soup: BeautifulSoup) -> str:
@@ -516,7 +605,30 @@ class SeeedStudioSupplier(BaseSupplier):
             logger.warning(f"Error extracting SKU: {e}")
             return None
 
-    def _extract_specifications(self, soup: BeautifulSoup) -> Optional[Dict[str, str]]:
+    def _parse_specs_from_soup(self, soup: BeautifulSoup) -> Optional[Dict[str, str]]:
+        """Helper method to extract specs from a BeautifulSoup object"""
+        specifications = {}
+
+        # Look for specification tables
+        spec_table = soup.find('table')  # Get any table
+
+        if spec_table:
+            rows = spec_table.find_all('tr')
+            logger.info(f"Found table with {len(rows)} rows")
+            for row in rows:
+                cells = row.find_all(['th', 'td'])
+                if len(cells) >= 2:
+                    key = cells[0].get_text(strip=True)
+                    value = cells[1].get_text(strip=True)
+
+                    # Skip empty keys/values and header rows
+                    if key and value and key.lower() not in ['symbol', 'sysmbol', 'specifications']:
+                        specifications[key] = value
+                        logger.info(f"Extracted spec: {key} = {value}")
+
+        return specifications if specifications else None
+
+    def _extract_specifications(self, soup: BeautifulSoup, escaped_content: Optional[BeautifulSoup] = None) -> Optional[Dict[str, str]]:
         """
         Extract specifications from various HTML formats.
 
@@ -530,30 +642,23 @@ class SeeedStudioSupplier(BaseSupplier):
         specifications = {}
 
         try:
-            # Strategy 1: Look for specification tables
-            # Seeed Studio uses class="p_2981_table" specifically
-            spec_table = (
-                soup.find('table', class_='p_2981_table') or  # Seeed Studio specific
-                soup.find('table', class_=re.compile(r'spec|technical|parameter', re.I)) or
-                soup.find('table', id=re.compile(r'spec|technical|parameter', re.I))
-            )
+            # First try the escaped content if available
+            if escaped_content:
+                logger.info("Trying to extract specs from escaped content")
+                specs_from_escaped = self._parse_specs_from_soup(escaped_content)
+                if specs_from_escaped:
+                    logger.info(f"Successfully extracted {len(specs_from_escaped)} specs from escaped content")
+                    return specs_from_escaped
 
-            if spec_table:
-                logger.debug("Found specification table")
-                rows = spec_table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all(['th', 'td'])
-                    if len(cells) >= 2:
-                        # Extract text directly from cells (handles p, span, or plain text)
-                        key = cells[0].get_text(strip=True)
-                        value = cells[1].get_text(strip=True)
+            # If no specs from escaped content, try the main soup
+            all_tables = soup.find_all('table')
+            logger.info(f"Found {len(all_tables)} tables total in main soup")
 
-                        # Skip empty keys/values and header rows
-                        if key and value and key.lower() not in ['symbol', 'sysmbol']:
-                            specifications[key] = value
-                            logger.debug(f"Extracted spec: {key} = {value}")
+            specs_from_main = self._parse_specs_from_soup(soup)
+            if specs_from_main:
+                return specs_from_main
 
-            # Strategy 2: Look for definition lists
+            # Strategy 2: Look for definition lists (fallback)
             if not specifications:
                 spec_dl = (
                     soup.find('dl', class_=re.compile(r'spec|technical|parameter', re.I)) or
