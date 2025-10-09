@@ -1,8 +1,8 @@
 from typing import Optional, Dict, Any, List
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from starlette.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from MakerMatrix.models.models import LocationModel, LocationQueryModel
 from MakerMatrix.models.models import LocationUpdate
@@ -19,6 +19,7 @@ from MakerMatrix.services.system.websocket_service import websocket_manager
 
 class LocationCreateRequest(BaseModel):
     """Request model for creating locations with required name."""
+    # Existing fields
     name: str  # Required
     description: Optional[str] = None
     parent_id: Optional[str] = None
@@ -26,20 +27,39 @@ class LocationCreateRequest(BaseModel):
     image_url: Optional[str] = None
     emoji: Optional[str] = None
 
+    # NEW: Container slot generation fields (Phase 1)
+    slot_count: Optional[int] = Field(None, ge=1, le=200, description="Number of slots to auto-generate")
+    slot_naming_pattern: Optional[str] = Field("Slot {n}", description="Pattern for slot names. Use {n}, {row}, {col}")
+    slot_layout_type: Optional[str] = Field("simple", description="Layout type: 'simple', 'grid', or 'custom'")
+
+    # Grid layout fields
+    grid_rows: Optional[int] = Field(None, ge=1, le=20, description="Number of rows for grid layout")
+    grid_columns: Optional[int] = Field(None, ge=1, le=20, description="Number of columns for grid layout")
+
+    # Custom layout (Phase 2+ ready)
+    slot_layout: Optional[Dict[str, Any]] = Field(None, description="Custom layout JSON (Phase 2+)")
+
 router = APIRouter()
 base_router = BaseRouter()
 
 
 @router.get("/get_all_locations")
 @standard_error_handling
-async def get_all_locations() -> ResponseSchema[List[Dict[str, Any]]]:
+async def get_all_locations(
+    hide_auto_slots: bool = Query(False, description="Hide auto-generated container slots")
+) -> ResponseSchema[List[Dict[str, Any]]]:
     location_service = LocationService()
     service_response = location_service.get_all_locations()
-    
+
     validate_service_response(service_response)
-    
+
     # Locations are already dictionaries from the service
     locations = service_response.data
+
+    # Filter auto-generated slots if requested
+    if hide_auto_slots:
+        locations = [loc for loc in locations if not loc.get("is_auto_generated_slot", False)]
+
     location_data = []
     for location in locations:
         location_dict = {
@@ -53,7 +73,7 @@ async def get_all_locations() -> ResponseSchema[List[Dict[str, Any]]]:
             "parts_count": 0  # Set to 0 since we don't have parts loaded in basic fetch
         }
         location_data.append(location_dict)
-    
+
     return base_router.build_success_response(
         message=service_response.message,
         data=location_data
@@ -169,18 +189,40 @@ async def update_location(
 @standard_error_handling
 @log_activity("location_created", "User {username} created location")
 async def add_location(
-    location_data: LocationCreateRequest, 
+    location_data: LocationCreateRequest,
     request: Request,
     current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[Dict[str, Any]]:
     location_service = LocationService()
-    service_response = location_service.add_location(location_data.model_dump())
-    
+
+    # Check if this is a container creation with slots
+    if location_data.slot_count is not None and location_data.slot_count > 0:
+        # Use container creation method
+        service_response = location_service.create_container_with_slots(
+            location_data.model_dump()
+        )
+    else:
+        # Use regular location creation
+        service_response = location_service.add_location(location_data.model_dump())
+
     validate_service_response(service_response)
-    
-    location = service_response.data
+
+    # Handle both regular location and container creation responses
+    if location_data.slot_count is not None and location_data.slot_count > 0:
+        # Container creation returns {"container": {...}, "slots_created": N}
+        container = service_response.data.get("container", service_response.data)
+        slots_created = service_response.data.get("slots_created", 0)
+        location = container
+        success_message = f"Container '{location['name']}' created successfully with {slots_created} slots"
+        response_data = service_response.data  # Include full response with slots_created
+    else:
+        # Regular location creation
+        location = service_response.data
+        success_message = "Location added successfully"
+        response_data = location
+
     print(f"[DEBUG] Location created successfully: {location['id']}")
-    
+
     # Log activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
@@ -196,6 +238,11 @@ async def add_location(
 
     # Broadcast location creation via websocket
     try:
+        # Include slot count in entity_data for container creation
+        broadcast_data = location.copy()
+        if location_data.slot_count is not None and location_data.slot_count > 0:
+            broadcast_data['slots_created'] = service_response.data.get("slots_created", 0)
+
         await websocket_manager.broadcast_crud_event(
             action="created",
             entity_type="location",
@@ -203,16 +250,13 @@ async def add_location(
             entity_name=location['name'],
             user_id=current_user.id,
             username=current_user.username,
-            entity_data=location
+            entity_data=broadcast_data
         )
     except Exception as e:
         print(f"Failed to broadcast location creation: {e}")
 
-    # Location data is already a dictionary from the service
-    response_data = location
-
     return base_router.build_success_response(
-        message="Location added successfully",
+        message=success_message,
         data=response_data
     )
 
