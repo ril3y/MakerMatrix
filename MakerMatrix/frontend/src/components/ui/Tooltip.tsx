@@ -147,14 +147,14 @@ export const Tooltip = ({
   const getPositionClasses = () => {
     switch (adjustedPosition) {
       case 'bottom':
-        return 'top-full left-1/2 -translate-x-1/2 mt-2'
+        return 'top-full left-1/2 -translate-x-1/2 mt-3'
       case 'left':
-        return 'right-full top-1/2 -translate-y-1/2 mr-2'
+        return 'right-full top-1/2 -translate-y-1/2 mr-3'
       case 'right':
-        return 'left-full top-1/2 -translate-y-1/2 ml-2'
+        return 'left-full top-1/2 -translate-y-1/2 ml-3'
       case 'top':
       default:
-        return 'bottom-full left-1/2 -translate-x-1/2 mb-2'
+        return 'bottom-full left-1/2 -translate-x-1/2 mb-3'
     }
   }
 
@@ -173,7 +173,7 @@ export const Tooltip = ({
     }
   }
 
-  // Arrow color classes
+  // Arrow color classes - using high contrast colors
   const getArrowColorClasses = () => {
     const base = 'absolute w-0 h-0 border-8 border-transparent'
 
@@ -191,17 +191,17 @@ export const Tooltip = ({
       }
     }
 
-    // Default (help/info) - gray-800
+    // Default (help/info) - dark gray background
     switch (adjustedPosition) {
       case 'bottom':
-        return `${base} border-b-gray-800`
+        return `${base} border-b-gray-900 dark:border-b-gray-800`
       case 'left':
-        return `${base} border-l-gray-800`
+        return `${base} border-l-gray-900 dark:border-l-gray-800`
       case 'right':
-        return `${base} border-r-gray-800`
+        return `${base} border-r-gray-900 dark:border-r-gray-800`
       case 'top':
       default:
-        return `${base} border-t-gray-800`
+        return `${base} border-t-gray-900 dark:border-t-gray-800`
     }
   }
 
@@ -220,12 +220,14 @@ export const Tooltip = ({
       {isVisible && (
         <div
           ref={tooltipRef}
-          className={`absolute z-50 ${getPositionClasses()} animate-in fade-in-0 zoom-in-95 duration-200 w-max`}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className={`absolute z-[9999] ${getPositionClasses()} animate-in fade-in-0 zoom-in-95 duration-200 w-max`}
           style={{ maxWidth, minWidth, width: minWidth }}
         >
-          {/* Tooltip content */}
+          {/* Tooltip content with high contrast */}
           <div
-            className={`${getTooltipBgClass()} text-white px-4 py-3 rounded-lg shadow-xl border w-full`}
+            className="bg-gray-900 dark:bg-gray-800 text-white px-4 py-3 rounded-lg shadow-2xl border-2 border-primary w-full"
           >
             <div className="text-sm leading-relaxed">{content}</div>
           </div>

@@ -476,38 +476,96 @@ class PartRepository:
     @staticmethod
     def search_parts_text(session: Session, query: str, page: int = 1, page_size: int = 20) -> tuple[List[PartModel], int]:
         """
-        Simple text search across part names, part numbers, and descriptions.
+        Advanced text search with field-specific and exact matching support.
+
+        Supported syntax:
+        - "5mm" - Exact match (only "5mm", not "1.5mm")
+        - desc:capacitor - Search in description only
+        - pn:100k - Search part number only
+        - name:resistor - Search part name only
+        - resistor - Search all fields
+
         Returns a tuple of (results, total_count).
         """
-        # Create search term with wildcards
-        search_term = f"%{query}%"
-        
+        # Parse search query for field-specific search
+        field_specific = None
+        search_query = query.strip()
+
+        # Check for field-specific search (desc:, pn:, name:)
+        if ':' in search_query and not search_query.startswith('"'):
+            parts = search_query.split(':', 1)
+            if len(parts) == 2:
+                field_prefix = parts[0].lower().strip()
+                search_value = parts[1].strip()
+
+                if field_prefix in ['desc', 'description']:
+                    field_specific = 'description'
+                    search_query = search_value
+                elif field_prefix in ['pn', 'part_number', 'partnumber']:
+                    field_specific = 'part_number'
+                    search_query = search_value
+                elif field_prefix in ['name', 'part_name', 'partname']:
+                    field_specific = 'part_name'
+                    search_query = search_value
+
+        # Check if query is wrapped in quotes for exact matching
+        is_exact_match = search_query.startswith('"') and search_query.endswith('"') and len(search_query) > 2
+
+        if is_exact_match:
+            # Remove quotes and create exact match pattern with word boundaries
+            search_query = search_query[1:-1]  # Remove surrounding quotes
+            # For exact match, we'll use a more precise filter
+            exact_filter = lambda field: field.ilike(f"% {search_query} %") | \
+                                        field.ilike(f"{search_query} %") | \
+                                        field.ilike(f"% {search_query}") | \
+                                        field.ilike(search_query)
+
+        # Create search term for regular searches
+        search_term = f"%{search_query}%"
+
         # Base query with eager loading
         base_query = select(PartModel).options(
             joinedload(PartModel.categories),
             selectinload(PartModel.allocations)
         )
-        
+
         # Count query
         count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel)
-        
-        # Apply search filter across multiple fields
-        search_filter = or_(
-            PartModel.part_name.ilike(search_term),
-            PartModel.part_number.ilike(search_term),
-            PartModel.description.ilike(search_term)
-        )
+
+        # Apply search filter based on field-specific or all fields
+        if field_specific:
+            # Field-specific search
+            field = getattr(PartModel, field_specific)
+            if is_exact_match:
+                search_filter = exact_filter(field)
+            else:
+                search_filter = field.ilike(search_term)
+        else:
+            # Search across all fields
+            if is_exact_match:
+                search_filter = or_(
+                    exact_filter(PartModel.part_name),
+                    exact_filter(PartModel.part_number),
+                    exact_filter(PartModel.description)
+                )
+            else:
+                search_filter = or_(
+                    PartModel.part_name.ilike(search_term),
+                    PartModel.part_number.ilike(search_term),
+                    PartModel.description.ilike(search_term)
+                )
         
         # Apply filter to both queries
         query_with_filter = base_query.where(search_filter)
         count_query_with_filter = count_query.where(search_filter)
-        
+
         # Order by relevance (exact matches first, then partial matches)
+        comparison_query = search_query if is_exact_match else query
         query_with_filter = query_with_filter.order_by(
             # Exact part name matches first
-            func.lower(PartModel.part_name) == query.lower(),
+            func.lower(PartModel.part_name) == comparison_query.lower(),
             # Exact part number matches second
-            func.lower(PartModel.part_number) == query.lower(),
+            func.lower(PartModel.part_number) == comparison_query.lower(),
             # Then by part name alphabetically
             PartModel.part_name
         )

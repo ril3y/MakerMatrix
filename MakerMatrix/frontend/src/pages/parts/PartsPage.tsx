@@ -205,10 +205,14 @@ const PartsPage = () => {
   }
 
   useEffect(() => {
-    // Read supplier filter from URL params on mount
+    // Read supplier filter and search term from URL params on mount
     const supplier = searchParams.get('supplier')
+    const search = searchParams.get('search')
     if (supplier) {
       setSupplierFilter(supplier)
+    }
+    if (search) {
+      setSearchTerm(search)
     }
     // Mark that initial URL params have been processed
     setInitialLoadComplete(true)
