@@ -232,7 +232,8 @@ const DashboardPage = () => {
       mouser: 'mouser.png',
       'mcmaster-carr': 'mcmaster-carr.ico',
       mcmaster: 'mcmaster-carr.ico',
-      'bolt-depot': 'bolt-depot.png',
+      boltdepot: 'bolt-depot.png',
+      'bolt-depot': 'bolt-depot.png', // Legacy support
     }
 
     return iconMap[normalizedName] || null
