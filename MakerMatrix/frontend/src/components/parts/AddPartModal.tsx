@@ -3,6 +3,7 @@ import { Save, Package, Plus, X, Tag, MapPin, Hash } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
+import EmojiPicker from '@/components/ui/EmojiPicker'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import SupplierSelector from '@/components/ui/SupplierSelector'
@@ -56,6 +57,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>('')
+  const [emoji, setEmoji] = useState<string | null>(null)
 
   // Supplier required fields for enrichment
   const [supplierRequiredFields, setSupplierRequiredFields] = useState<CredentialFieldDefinition[]>(
@@ -307,6 +309,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       const submitData: CreatePartRequest = {
         ...formData,
         image_url: imageUrl || undefined,
+        emoji: emoji || undefined,
         categories: categoryNames,
         additional_properties: Object.keys(properties).length > 0 ? properties : undefined,
       }
@@ -399,6 +402,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setCustomProperties([])
     setErrors({})
     setImageUrl('')
+    setEmoji(null)
     setSupplierRequiredFields([])
 
     // Close any open inline modals
@@ -989,6 +993,18 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               currentImageUrl={imageUrl}
               placeholder="Upload part image"
               className="w-full"
+            />
+          </FormField>
+
+          {/* Emoji Picker */}
+          <FormField
+            label="Part Emoji"
+            description="Select an emoji icon for this part (can be used on printer labels)"
+          >
+            <EmojiPicker
+              value={emoji || undefined}
+              onChange={(selectedEmoji) => setEmoji(selectedEmoji)}
+              placeholder="Select emoji icon..."
             />
           </FormField>
 

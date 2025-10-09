@@ -438,25 +438,25 @@ class PrinterManagerService:
         from PIL import Image, ImageDraw, ImageFont
         import qrcode
         import re
-        
+
         options = options or {}
-        
+
         # Get label size info
         # We need to get a printer to get supported sizes - use any available printer
         printer = await self.get_printer()
         if not printer:
             raise Exception("No printer available for label creation")
-            
+
         supported_sizes = printer.get_supported_label_sizes()
         label_info = None
         for size in supported_sizes:
             if size.name == label_size:
                 label_info = size
                 break
-        
+
         if not label_info:
             raise Exception(f"Label size {label_size} not supported")
-        
+
         # Determine dimensions
         if label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0:
             # Create appropriate length x 12mm image that will be rotated 90°
@@ -479,173 +479,219 @@ class PrinterManagerService:
                 height = int(label_length * 300 / 25.4)
             else:
                 height = max(100, 200)  # Default height
-        
-        # Parse template for QR codes, text, and rotation
+
+        # Parse template for QR codes, emoji, text, and rotation
         # Check for both {qr} and {qr=field} syntax
         has_simple_qr = '{qr}' in template
         qr_field_matches = re.findall(r'\{qr=([^}]+)\}', template)
         has_qr = has_simple_qr or len(qr_field_matches) > 0 or options.get('include_qr', False)
 
+        # Check for emoji placeholder BEFORE processing template text
+        has_emoji_placeholder = '{emoji}' in template
+        emoji_value = data.get('emoji') if has_emoji_placeholder else None
+        skip_qr = options.get('skip_qr', False)
+
+        print(f"[DEBUG] Print: Template has QR placeholder: {has_qr}, skip_qr: {skip_qr}")
+        print(f"[DEBUG] Print: Template has emoji placeholder: {has_emoji_placeholder}, emoji value: {emoji_value}")
+
         # Extract rotation (default 0 degrees)
         rotate_match = re.search(r'\{rotate=(\d+)\}', template)
         rotation_degrees = int(rotate_match.group(1)) if rotate_match else 0
-        print(f"[DEBUG] Rotation: {rotation_degrees}°")
+        print(f"[DEBUG] Print: Rotation: {rotation_degrees}°")
 
         # Replace text placeholders using template processor's method
         processed_text = self.template_processor._process_template_text(template, data)
+
+        # Remove emoji placeholder from text (it's rendered separately)
+        if has_emoji_placeholder:
+            processed_text = processed_text.replace('{emoji}', '')
+            print(f"[DEBUG] Print: Removed {{emoji}} placeholder from text")
         
         # Create base image
         image = Image.new('RGB', (width, height), 'white')
         draw = ImageDraw.Draw(image)
         
-        if has_qr:
-            # Create optimized layout with QR code and text using improved sizing logic
+        if has_qr or has_emoji_placeholder:
+            # Create optimized layout with QR code, emoji, and text using improved sizing logic
 
-            # Create print settings for optimal QR sizing
-            label_height_mm = label_info.width_mm if label_info else 12.0  # Label width becomes height in output
-            print_settings = PrintSettings(
-                label_size=label_height_mm,
-                dpi=300,  # Standard Brother QL DPI
-                qr_scale=0.95,  # Use 95% of available height for better scanning
-                qr_min_size_mm=8.0,  # Minimum 8mm for phone scanning
-                qr_max_margin_mm=1.0  # 1mm max margin
-            )
+            # Current x position for elements
+            current_x = 2  # Start with minimal left padding
 
-            # Generate optimized QR code using LabelService
-            # Determine QR data based on template syntax
-            if qr_field_matches:
-                # User specified {qr=field_name}
-                qr_field = qr_field_matches[0]
-                qr_data = str(data.get(qr_field, 'UNKNOWN'))
-                print(f"[DEBUG] Using QR field '{qr_field}': {qr_data}")
-                part_dict = {'id': qr_data}
-            else:
-                # Default to MM:id format
-                part_id = data.get('id') or data.get('part_id') or 'UNKNOWN'
-                qr_data = f"MM:{part_id}"
-                print(f"[DEBUG] Using default QR data: {qr_data}")
-                part_dict = {'id': qr_data}
+            # Handle QR code if needed
+            qr_size = 0
+            if has_qr and not skip_qr:
+                # Create print settings for optimal QR sizing
+                label_height_mm = label_info.width_mm if label_info else 12.0  # Label width becomes height in output
+                print_settings = PrintSettings(
+                    label_size=label_height_mm,
+                    dpi=300,  # Standard Brother QL DPI
+                    qr_scale=0.95,  # Use 95% of available height for better scanning
+                    qr_min_size_mm=8.0,  # Minimum 8mm for phone scanning
+                    qr_max_margin_mm=1.0  # 1mm max margin
+                )
 
-            qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
-            qr_size = qr_image.width  # Get actual optimized size
+                # Generate optimized QR code using LabelService
+                # Determine QR data based on template syntax
+                if qr_field_matches:
+                    # User specified {qr=field_name}
+                    qr_field = qr_field_matches[0]
+                    qr_data = str(data.get(qr_field, 'UNKNOWN'))
+                    print(f"[DEBUG] Print: Using QR field '{qr_field}': {qr_data}")
+                    part_dict = {'id': qr_data}
+                else:
+                    # Default to MM:id format
+                    part_id = data.get('id') or data.get('part_id') or 'UNKNOWN'
+                    qr_data = f"MM:{part_id}"
+                    print(f"[DEBUG] Print: Using default QR data: {qr_data}")
+                    part_dict = {'id': qr_data}
 
-            # Calculate layout - absolute minimal margins to maximize text size
-            if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
-                # For 12mm labels, use absolute minimal margins
-                left_padding = 2  # ~0.17mm
-                qr_text_spacing = 4  # ~0.34mm between QR and text
-                right_padding = 2  # ~0.17mm
+                qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
+                qr_size = qr_image.width  # Get actual optimized size
 
-                # Calculate available text area
-                text_x = left_padding + qr_size + qr_text_spacing
-                text_width = width - text_x - right_padding
-                text_height = height - 4  # 2px top/bottom margins (~0.17mm each)
+                # Paste QR code
+                qr_y = (height - qr_size) // 2
+                image.paste(qr_image, (current_x, qr_y))
+                current_x += qr_size + 4  # Move position after QR code with spacing
+                print(f"[DEBUG] Print: QR rendered at ({current_x - qr_size - 4}, {qr_y}), size: {qr_size}px")
 
-                print(f"[DEBUG] 12mm QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
-            else:
-                # For other label sizes, use absolute minimal margins
-                min_qr_size = max(qr_size, height // 4)
-                qr_size = max(min_qr_size, min(height - 6, width // 3))
+            # Handle emoji if needed
+            emoji_size = 0
+            if has_emoji_placeholder and emoji_value:
+                print(f"[DEBUG] Print: Rendering emoji: {emoji_value}")
+                try:
+                    from MakerMatrix.services.printer.emoji_render_service import EmojiRenderService
 
-                if qr_image.width != qr_size:
-                    qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+                    # Calculate emoji size (use most of available height)
+                    emoji_size = int(height * 0.8)
+                    emoji_img = EmojiRenderService.render_emoji(
+                        emoji_char=emoji_value,
+                        size_px=emoji_size,
+                        background_color="white",
+                        convert_shortcode=True
+                    )
 
-                left_padding = 2
-                qr_text_spacing = 4
-                right_padding = 2
+                    # Paste emoji
+                    emoji_y = (height - emoji_img.height) // 2
+                    image.paste(emoji_img, (current_x, emoji_y))
+                    current_x += emoji_img.width + 4  # Move position after emoji with spacing
+                    print(f"[DEBUG] Print: Emoji rendered at ({current_x - emoji_img.width - 4}, {emoji_y}), size: {emoji_img.width}x{emoji_img.height}")
+                except Exception as e:
+                    print(f"[ERROR] Print: Failed to render emoji '{emoji_value}': {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Continue without emoji if rendering fails
 
-                text_x = left_padding + qr_size + qr_text_spacing
-                text_width = width - text_x - right_padding
-                text_height = height - 4  # 2px top/bottom margins
+            # Calculate available text area (after QR and emoji)
+            text_x = current_x
+            text_width = width - text_x - 2  # Minimal right padding
+            text_height = height - 4  # 2px top/bottom margins
 
-                print(f"[DEBUG] Other label QR+text layout: QR={qr_size}px, text_area={text_width}x{text_height}px")
+            print(f"[DEBUG] Print: Layout - QR={qr_size}px, emoji={emoji_size}px, text_area={text_width}x{text_height}px")
 
-            # Paste QR code (left side)
-            qr_y = (height - qr_size) // 2
-            image.paste(qr_image, (left_padding if 'left_padding' in locals() else 10, qr_y))
+            # Use SIMPLE auto-sizing logic with proper multi-line support AND text wrapping
+            target_height = int(text_height * 0.8)  # Use 80% of available height
+            max_width = int(text_width * 0.9)       # Use 90% of available width
 
-            # Optimized text sizing for the available space
-            max_text_width = text_width
+            # Start with user-provided line breaks
+            text_lines = processed_text.split('\n')
+            num_lines = len(text_lines)
 
-            # Maximize text size for available space
-            clean_text = processed_text.strip()
-            is_single_line = '\n' not in clean_text
+            print(f"[DEBUG] Initial lines ({num_lines}): {text_lines}")
 
-            # Use nearly all available height for maximum text size
-            if is_single_line:
-                # Single line - use 98% of available height
-                max_font_height = int(text_height * 0.98)
-                print(f"[DEBUG] Single line, max height: {max_font_height}px from {text_height}px available")
+            # NEW STRATEGY: Find the largest font where ALL user lines fit without wrapping
+            # ONLY wrap lines that are still too long even at minimum font size
 
-                font_size = max_font_height
-                font = None
+            font_size = max(target_height, 20)  # Start larger
+            font = None
+            final_wrapped_lines = text_lines
 
-                while font_size > 8:
-                    try:
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                    except:
-                        font = ImageFont.load_default()
-                        break
+            # First pass: Find largest font where user's lines DON'T need wrapping
+            while font_size > 8:
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+                    break
 
-                    test_bbox = draw.textbbox((0, 0), clean_text, font=font)
-                    test_width = test_bbox[2] - test_bbox[0]
+                # Check if ALL user lines fit at this font size WITHOUT wrapping
+                all_lines_fit = True
+                max_line_width = 0
+                total_height = 0
 
-                    if test_width <= max_text_width:
-                        print(f"[DEBUG] Single line fits at font_size={font_size}px")
-                        break
+                for i, line in enumerate(text_lines):
+                    if line.strip():
+                        bbox = draw.textbbox((0, 0), line, font=font)
+                        line_width = bbox[2] - bbox[0]
+                        line_height = bbox[3] - bbox[1]
 
-                    font_size = int(font_size * 0.95)
-            else:
-                # Multi-line - calculate per-line sizing
-                text_lines = clean_text.split('\n')
-                num_lines = len(text_lines)
+                        max_line_width = max(max_line_width, line_width)
+                        total_height += line_height
+                        if i > 0:
+                            total_height += 4  # Line spacing
 
-                # Use 95% of available height, divided by number of lines
-                target_height = int(text_height * 0.95)
-                max_line_height = target_height // num_lines
-                font_size = max(max_line_height - 4, 12)  # Account for line spacing
+                        # Check if this line is too wide
+                        if line_width > max_width:
+                            all_lines_fit = False
 
-                print(f"[DEBUG] Multi-line ({num_lines} lines), max line height: {max_line_height}px, starting font: {font_size}px")
+                # Check if all lines fit both width AND height
+                if all_lines_fit and total_height <= target_height:
+                    final_wrapped_lines = text_lines  # Use original lines!
+                    print(f"[DEBUG] All user lines fit at font_size={font_size}px")
+                    break
 
-                font = None
-                while font_size > 8:
-                    try:
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                    except:
-                        font = ImageFont.load_default()
-                        break
+                font_size = int(font_size * 0.9)
 
-                    # Check if all lines fit within width
-                    all_fit = True
-                    for line in text_lines:
-                        if line.strip():
-                            test_bbox = draw.textbbox((0, 0), line, font=font)
-                            test_width = test_bbox[2] - test_bbox[0]
-                            if test_width > max_text_width:
-                                all_fit = False
-                                break
+            # If we got down to minimum font and lines STILL don't fit, wrap them
+            if font_size <= 8 or not all_lines_fit:
+                print(f"[DEBUG] Lines too long, wrapping at minimum font_size={max(font_size, 12)}px")
+                font_size = max(font_size, 12)
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
 
-                    if all_fit:
-                        print(f"[DEBUG] All lines fit at font_size={font_size}px")
-                        break
+                # Wrap lines that are too long
+                wrapped = []
+                for line in text_lines:
+                    bbox = draw.textbbox((0, 0), line, font=font)
+                    if bbox[2] - bbox[0] <= max_width:
+                        wrapped.append(line)
+                    else:
+                        # Wrap this line
+                        words = line.split()
+                        current = ""
+                        for word in words:
+                            test = current + " " + word if current else word
+                            bbox = draw.textbbox((0, 0), test, font=font)
+                            if bbox[2] - bbox[0] <= max_width:
+                                current = test
+                            else:
+                                if current:
+                                    wrapped.append(current)
+                                current = word
+                        if current:
+                            wrapped.append(current)
+                final_wrapped_lines = wrapped
 
-                    font_size = int(font_size * 0.95)
+            print(f"[DEBUG] Final: {len(final_wrapped_lines)} lines at font_size={font_size}px")
+            print(f"[DEBUG] Lines: {final_wrapped_lines}")
 
             if font is None:
                 font = ImageFont.load_default()
-            
-            # Split text into lines and fit in available space
-            lines = processed_text.strip().split('\n')
-            line_height = font_size + 2
-            start_y = (height - len(lines) * line_height) // 2
-            
-            for i, line in enumerate(lines):
-                if line.strip():
-                    y = start_y + i * line_height
-                    # Simple text fitting - truncate if too long
-                    while font.getbbox(line)[2] > text_width and len(line) > 1:
-                        line = line[:-1]
-                    draw.text((text_x, y), line, fill='black', font=font)
+
+            # Draw multi-line wrapped text centered
+            wrapped_text = '\n'.join(final_wrapped_lines)
+
+            # Use multiline_textbbox for proper measurement
+            bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font)
+            final_text_width = bbox[2] - bbox[0]
+            final_text_height = bbox[3] - bbox[1]
+
+            x = text_x + (text_width - final_text_width) // 2
+            y = (height - final_text_height) // 2
+
+            draw.multiline_text((x, y), wrapped_text, fill='black', font=font)
+            print(f"[DEBUG] Rendered wrapped text ({len(final_wrapped_lines)} lines) at font_size={font_size}px")
         else:
             # Text-only layout - maximize text size
             target_height = int(height * 0.98)  # Use 98% of label height
@@ -749,7 +795,8 @@ class PrinterManagerService:
         try:
             # Process template and create label image
             label_image = await self._create_advanced_label_image(template, data, label_size, label_length, options)
-            
+            print(f"[DEBUG] Print: Created label image size: {label_image.width}x{label_image.height}px")
+
             # Apply rotation for 12mm labels for printing
             supported_sizes = printer.get_supported_label_sizes()
             label_info = None
@@ -757,10 +804,11 @@ class PrinterManagerService:
                 if size.name == label_size:
                     label_info = size
                     break
-            
+
             if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
                 label_image = label_image.rotate(90, expand=True)
-            
+                print(f"[DEBUG] Print: Rotated label image size: {label_image.width}x{label_image.height}px")
+
             # Print the label
             return await printer.print_label(label_image, label_size, copies)
             

@@ -138,7 +138,15 @@ class MockPrinter(BasePrinter):
         font = self._get_safe_font()
         print(f"[DEBUG] Font loaded: {font}")
 
-        info_text = f"Label: {label_size}mm ({label_info.width_mm}x{label_info.height_mm}mm)"
+        # Calculate actual dimensions in mm from image pixels at 300 DPI
+        dpi = 300
+        mm_to_inch = 25.4
+        actual_width_mm = round(image.width * mm_to_inch / dpi, 1)
+        actual_height_mm = round(image.height * mm_to_inch / dpi, 1)
+
+        # Remove 'mm' suffix if already present in label_size
+        label_size_display = label_size.replace('mm', '')
+        info_text = f"Label: {label_size_display}mm ({actual_width_mm}x{actual_height_mm}mm actual)"
         size_text = f"Image: {image.width}x{image.height}px"
 
         print(f"[DEBUG] Drawing text: {info_text}")
