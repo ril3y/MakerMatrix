@@ -381,10 +381,10 @@ class PartRepository:
             count_query = count_query.join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)\
                                      .where(PartLocationAllocation.location_id == search_params.location_id)
 
-        # Apply supplier filter
+        # Apply supplier filter (case-insensitive)
         if search_params.supplier:
-            query = query.where(PartModel.supplier == search_params.supplier)
-            count_query = count_query.where(PartModel.supplier == search_params.supplier)
+            query = query.where(PartModel.supplier.ilike(search_params.supplier))
+            count_query = count_query.where(PartModel.supplier.ilike(search_params.supplier))
 
         # Apply sorting
         if search_params.sort_by:

@@ -7,6 +7,7 @@ import ProjectDetailsModal from '@/components/projects/ProjectDetailsModal'
 import { projectsService } from '@/services/projects.service'
 import type { Project } from '@/types/projects'
 import LoadingScreen from '@/components/ui/LoadingScreen'
+import { getFaviconUrl, extractDisplayName, extractDomain } from '@/utils/url.utils'
 
 const ProjectsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
@@ -285,19 +286,32 @@ const ProjectsPage = () => {
                   {/* Links */}
                   {project.links && Object.keys(project.links).length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
-                      {Object.entries(project.links).map(([key, value]) => (
-                        <a
-                          key={key}
-                          href={value as string}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          {key}
-                        </a>
-                      ))}
+                      {Object.entries(project.links).map(([key, value]) => {
+                        const domain = extractDomain(value as string)
+                        const displayName = domain ? extractDisplayName(domain) : key
+                        return (
+                          <a
+                            key={key}
+                            href={value as string}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-theme-elevated border border-theme-primary rounded text-xs text-accent hover:text-accent-hover transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <img
+                              src={getFaviconUrl(value as string)}
+                              alt=""
+                              className="w-4 h-4"
+                              onError={(e) => {
+                                // Fallback to external link icon if favicon fails
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                            {displayName}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
