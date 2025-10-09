@@ -19,6 +19,47 @@ from MakerMatrix.services.base_service import BaseService, ServiceResponse
 logger = logging.getLogger(__name__)
 
 
+def apply_slot_naming_pattern(
+    pattern: str,
+    slot_number: int,
+    slot_metadata: Optional[Dict] = None
+) -> str:
+    """
+    Apply naming pattern with variable substitution.
+
+    Supported variables:
+    - {n} - Slot number (always available)
+    - {row} - Row number (from slot_metadata)
+    - {col} - Column number (from slot_metadata)
+    - {side} - Side name (Phase 2+, from slot_metadata)
+
+    Args:
+        pattern: Naming pattern string (e.g., "Slot {n}" or "R{row}-C{col}")
+        slot_number: Linear slot number (1, 2, 3, ...)
+        slot_metadata: Optional dict with row, column, side, etc.
+
+    Returns:
+        Formatted slot name with variables substituted
+    """
+    # Start with the pattern
+    result = pattern
+
+    # Always substitute {n} with slot number
+    result = result.replace("{n}", str(slot_number))
+
+    # Substitute spatial variables if metadata is provided
+    if slot_metadata:
+        if "row" in slot_metadata:
+            result = result.replace("{row}", str(slot_metadata["row"]))
+        if "column" in slot_metadata:
+            result = result.replace("{col}", str(slot_metadata["column"]))
+        # Phase 2+ support for side
+        if "side" in slot_metadata:
+            result = result.replace("{side}", str(slot_metadata["side"]))
+
+    return result
+
+
 class LocationService(BaseService):
     """
     Location service with consolidated session management using BaseService.
@@ -344,6 +385,242 @@ class LocationService(BaseService):
         except Exception as e:
             logger.error(f"Failed to get or create 'Unsorted' location: {e}")
             return self.error_response(f"Could not create or access 'Unsorted' location: {str(e)}")
+
+    def create_container_with_slots(
+        self,
+        container_data: Dict[str, Any]
+    ) -> ServiceResponse:
+        """
+        Create a container location with auto-generated child slot locations.
+
+        Supports:
+        - Simple layout: Linear numbering (1, 2, 3, ...)
+        - Grid layout: Rows × columns with spatial metadata
+        - Phase 2: Custom layouts via slot_layout JSON
+
+        Args:
+            container_data: Container location data including:
+                - name, description, parent_id, etc. (standard location fields)
+                - slot_count: Number of slots to create
+                - slot_naming_pattern: Pattern for slot names (default: "Slot {n}")
+                - slot_layout_type: "simple" | "grid" | "custom"
+                - grid_rows: For grid layout
+                - grid_columns: For grid layout
+
+        Returns:
+            ServiceResponse with container data and slots_created count
+        """
+        try:
+            # Extract slot configuration
+            slot_count = container_data.get("slot_count")
+            slot_naming_pattern = container_data.get("slot_naming_pattern", "Slot {n}")
+            slot_layout_type = container_data.get("slot_layout_type", "simple")
+            grid_rows = container_data.get("grid_rows")
+            grid_columns = container_data.get("grid_columns")
+
+            # Validate slot configuration if provided
+            if slot_count is not None:
+                # Validate slot_count
+                if slot_count < 1:
+                    return self.error_response("slot_count must be at least 1")
+
+                # Validate based on layout type
+                if slot_layout_type == "simple":
+                    # Simple layout only needs slot_count
+                    pass
+
+                elif slot_layout_type == "grid":
+                    # Grid layout requires rows and columns
+                    if grid_rows is None or grid_columns is None:
+                        return self.error_response(
+                            "grid_rows and grid_columns are required for grid layout"
+                        )
+
+                    if grid_rows < 1 or grid_columns < 1:
+                        return self.error_response(
+                            "grid_rows and grid_columns must be at least 1"
+                        )
+
+                    # Calculate expected slot count
+                    expected_slot_count = grid_rows * grid_columns
+
+                    # If slot_count is provided, verify it matches
+                    if slot_count != expected_slot_count:
+                        return self.error_response(
+                            f"slot_count ({slot_count}) must equal grid_rows × grid_columns ({expected_slot_count})"
+                        )
+
+                    # Use grid-appropriate default naming pattern if not provided
+                    if container_data.get("slot_naming_pattern") is None:
+                        slot_naming_pattern = "R{row}-C{col}"
+
+                elif slot_layout_type == "custom":
+                    # Phase 2: Custom layouts - not implemented yet
+                    return self.error_response(
+                        "Custom slot layouts are not yet implemented (Phase 2+)"
+                    )
+
+                else:
+                    return self.error_response(
+                        f"Invalid slot_layout_type: {slot_layout_type}. Must be 'simple', 'grid', or 'custom'"
+                    )
+
+            # Log operation
+            container_name = container_data.get("name", "Unknown")
+            self.log_operation("create_container_with_slots", self.entity_name, container_name)
+
+            with self.get_session() as session:
+                # Create the parent container location
+                container = self.location_repo.add_location(session, container_data)
+                self.logger.info(
+                    f"Created container '{container.name}' (ID: {container.id})"
+                )
+
+                # Generate child slots if slot_count is specified
+                slots_created = 0
+                if slot_count is not None and slot_count > 0:
+                    if slot_layout_type == "simple":
+                        slots = self._generate_simple_slots(
+                            session, container, slot_count, slot_naming_pattern
+                        )
+                        slots_created = len(slots)
+                        self.logger.info(
+                            f"Generated {slots_created} simple slots for container '{container.name}'"
+                        )
+
+                    elif slot_layout_type == "grid":
+                        slots = self._generate_grid_slots(
+                            session, container, grid_rows, grid_columns, slot_naming_pattern
+                        )
+                        slots_created = len(slots)
+                        self.logger.info(
+                            f"Generated {slots_created} grid slots ({grid_rows}×{grid_columns}) for container '{container.name}'"
+                        )
+
+                # Convert to dictionary to avoid DetachedInstanceError
+                container_dict = container.model_dump()
+
+                # Add slots_created count to response
+                response_data = {
+                    "container": container_dict,
+                    "slots_created": slots_created
+                }
+
+                return self.success_response(
+                    f"Container '{container.name}' created successfully with {slots_created} slots",
+                    response_data
+                )
+
+        except Exception as e:
+            return self.handle_exception(e, f"create container with slots")
+
+    def _generate_simple_slots(
+        self,
+        session: Session,
+        container: LocationModel,
+        slot_count: int,
+        naming_pattern: str
+    ) -> List[LocationModel]:
+        """
+        Generate simple linear slots (1, 2, 3, ...).
+
+        Args:
+            session: Database session
+            container: Parent container location
+            slot_count: Number of slots to create
+            naming_pattern: Naming pattern (e.g., "Slot {n}")
+
+        Returns:
+            List of created slot LocationModel instances
+        """
+        slots = []
+
+        for i in range(1, slot_count + 1):
+            # Apply naming pattern with slot number
+            slot_name = apply_slot_naming_pattern(naming_pattern, i, None)
+
+            # Create slot location data
+            slot_data = {
+                "name": slot_name,
+                "parent_id": container.id,
+                "location_type": "slot",
+                "is_auto_generated_slot": True,
+                "slot_number": i,
+                "slot_metadata": None  # No spatial data in simple mode
+            }
+
+            # Create the slot location
+            slot = self.location_repo.add_location(session, slot_data)
+            slots.append(slot)
+            self.logger.debug(f"Created simple slot: {slot_name} (#{i})")
+
+        return slots
+
+    def _generate_grid_slots(
+        self,
+        session: Session,
+        container: LocationModel,
+        rows: int,
+        columns: int,
+        naming_pattern: str
+    ) -> List[LocationModel]:
+        """
+        Generate grid-based slots with row/column metadata.
+
+        Slot numbering: Top-left is slot 1, incrementing left-to-right, top-to-bottom.
+        Example 4×3 grid:
+          C1  C2  C3
+        R1 1   2   3
+        R2 4   5   6
+        R3 7   8   9
+        R4 10  11  12
+
+        Args:
+            session: Database session
+            container: Parent container location
+            rows: Number of rows
+            columns: Number of columns
+            naming_pattern: Naming pattern (e.g., "R{row}-C{col}")
+
+        Returns:
+            List of created slot LocationModel instances
+        """
+        slots = []
+        slot_number = 1
+
+        for row in range(1, rows + 1):
+            for col in range(1, columns + 1):
+                # Build slot metadata with spatial information
+                slot_metadata = {
+                    "row": row,
+                    "column": col
+                }
+
+                # Apply naming pattern with all variables
+                slot_name = apply_slot_naming_pattern(
+                    naming_pattern, slot_number, slot_metadata
+                )
+
+                # Create slot location data
+                slot_data = {
+                    "name": slot_name,
+                    "parent_id": container.id,
+                    "location_type": "slot",
+                    "is_auto_generated_slot": True,
+                    "slot_number": slot_number,
+                    "slot_metadata": slot_metadata
+                }
+
+                # Create the slot location
+                slot = self.location_repo.add_location(session, slot_data)
+                slots.append(slot)
+                self.logger.debug(
+                    f"Created grid slot: {slot_name} (#{slot_number}, R{row}C{col})"
+                )
+
+                slot_number += 1
+
+        return slots
 
     @staticmethod
     def cleanup_locations() -> dict:
