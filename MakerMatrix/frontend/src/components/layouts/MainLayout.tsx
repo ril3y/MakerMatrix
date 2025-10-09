@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Menu,
@@ -15,11 +15,14 @@ import {
   CircuitBoard,
   Settings,
   Activity,
+  Search,
+  Command,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import QuakeConsole from '../console/QuakeConsole'
+import GlobalSearchPanel from '../ui/GlobalSearchPanel'
 
 interface NavItem {
   label: string
@@ -31,6 +34,8 @@ interface NavItem {
 const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, hasRole } = useAuthStore()
@@ -81,6 +86,19 @@ const MainLayout: React.FC = () => {
       icon: <Users className="w-5 h-5" />,
     })
   }
+
+  // Global keyboard shortcut for search (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsSearchOpen(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -252,8 +270,38 @@ const MainLayout: React.FC = () => {
         )}
       >
         {/* Top Bar */}
-        <header className="h-20 bg-theme-primary/50 backdrop-blur-lg border-b border-theme-primary px-8 flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-theme-secondary"></div>
+        <header className="h-20 bg-theme-primary/50 backdrop-blur-lg border-b border-theme-primary px-8 flex items-center justify-between gap-6">
+          {/* Full Width Search Bar */}
+          <div className="flex-1 max-w-2xl">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-theme-muted pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search parts by name, part number, description..."
+                value={searchValue}
+                onChange={(e) => {
+                  setSearchValue(e.target.value)
+                  if (e.target.value) {
+                    setIsSearchOpen(true)
+                  }
+                }}
+                onFocus={() => {
+                  if (searchValue) {
+                    setIsSearchOpen(true)
+                  }
+                }}
+                className="w-full pl-11 pr-20 py-2.5 bg-theme-secondary border border-theme-primary rounded-lg text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              />
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                <kbd className="px-2 py-1 text-xs bg-theme-tertiary border border-theme-primary rounded text-theme-muted">
+                  {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}
+                </kbd>
+                <kbd className="px-2 py-1 text-xs bg-theme-tertiary border border-theme-primary rounded text-theme-muted">
+                  K
+                </kbd>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center space-x-4">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span className="text-sm text-theme-muted">{new Date().toLocaleString()}</span>
@@ -268,6 +316,17 @@ const MainLayout: React.FC = () => {
 
       {/* Quake Console */}
       <QuakeConsole />
+
+      {/* Global Search Panel */}
+      <GlobalSearchPanel
+        isOpen={isSearchOpen}
+        onClose={() => {
+          setIsSearchOpen(false)
+          setSearchValue('')
+        }}
+        initialSearchTerm={searchValue}
+        onSearchChange={setSearchValue}
+      />
     </div>
   )
 }
