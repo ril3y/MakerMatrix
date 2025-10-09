@@ -6,6 +6,7 @@ import ImageUpload from '@/components/ui/ImageUpload'
 import { projectsService } from '@/services/projects.service'
 import type { ProjectCreate } from '@/types/projects'
 import toast from 'react-hot-toast'
+import { parseUrl, getFaviconUrl } from '@/utils/url.utils'
 
 interface AddProjectModalProps {
   isOpen: boolean
@@ -26,7 +27,7 @@ const AddProjectModal = ({
     status: 'planning',
   })
   const [imageUrl, setImageUrl] = useState<string>('')
-  const [links, setLinks] = useState<Array<{ key: string; value: string }>>([])
+  const [links, setLinks] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
@@ -53,11 +54,15 @@ const AddProjectModal = ({
     try {
       setLoading(true)
 
-      // Prepare links object
+      // Prepare links object - use domain as key and full URL as value
       const linksObject: Record<string, string> = {}
-      links.forEach(({ key, value }) => {
-        if (key.trim() && value.trim()) {
-          linksObject[key.trim()] = value.trim()
+      links.forEach((url) => {
+        if (url.trim()) {
+          const normalizedUrl = normalizeUrl(url.trim())
+          const urlInfo = parseUrl(normalizedUrl)
+          if (urlInfo) {
+            linksObject[urlInfo.domain] = normalizedUrl
+          }
         }
       })
 
@@ -101,12 +106,12 @@ const AddProjectModal = ({
   }
 
   const addLink = () => {
-    setLinks([...links, { key: '', value: '' }])
+    setLinks([...links, ''])
   }
 
-  const updateLink = (index: number, field: 'key' | 'value', value: string) => {
+  const updateLink = (index: number, value: string) => {
     const updated = [...links]
-    updated[index][field] = value
+    updated[index] = value
     setLinks(updated)
   }
 
@@ -188,20 +193,26 @@ const AddProjectModal = ({
           </div>
 
           {links.map((link, index) => (
-            <div key={index} className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Link name (e.g., GitHub)"
-                className="input flex-1"
-                value={link.key}
-                onChange={(e) => updateLink(index, 'key', e.target.value)}
-              />
+            <div key={index} className="flex gap-2 items-center">
+              {/* Favicon Preview */}
+              {link && (
+                <img
+                  src={getFaviconUrl(link)}
+                  alt=""
+                  className="w-6 h-6 flex-shrink-0"
+                  onError={(e) => {
+                    // Hide image if favicon fails to load
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              )}
+
               <input
                 type="url"
-                placeholder="URL (e.g., https://github.com/...)"
+                placeholder="URL (e.g., github.com/project or https://example.com)"
                 className="input flex-1"
-                value={link.value}
-                onChange={(e) => updateLink(index, 'value', e.target.value)}
+                value={link}
+                onChange={(e) => updateLink(index, e.target.value)}
               />
               <button
                 type="button"

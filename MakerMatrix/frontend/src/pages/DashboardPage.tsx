@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import {
   Package,
   AlertTriangle,
@@ -87,6 +88,7 @@ interface DashboardData {
 }
 
 const DashboardPage = () => {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
   const [expandedSections, setExpandedSections] = useState({
@@ -119,6 +121,11 @@ const DashboardPage = () => {
     }))
   }
 
+  const handleSupplierClick = (supplierName: string) => {
+    // Navigate to parts page with supplier filter
+    navigate(`/parts?supplier=${encodeURIComponent(supplierName)}`)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -135,7 +142,7 @@ const DashboardPage = () => {
     )
   }
 
-  // Prepare chart data
+  // Prepare chart data with theme colors
   const categoryChartData = {
     labels:
       data.parts_by_category.length > 0
@@ -148,8 +155,8 @@ const DashboardPage = () => {
           data.parts_by_category.length > 0
             ? data.parts_by_category.slice(0, 10).map((item) => item.part_count)
             : [0],
-        backgroundColor: 'rgba(99, 102, 241, 0.8)',
-        borderColor: 'rgba(99, 102, 241, 1)',
+        backgroundColor: 'rgba(0, 255, 157, 0.8)', // --primary color
+        borderColor: 'rgba(0, 255, 157, 1)',
         borderWidth: 1,
       },
     ],
@@ -167,14 +174,14 @@ const DashboardPage = () => {
             ? data.parts_by_location.slice(0, 8).map((item) => item.part_count)
             : [0],
         backgroundColor: [
-          'rgba(99, 102, 241, 0.8)',
-          'rgba(239, 68, 68, 0.8)',
-          'rgba(34, 197, 94, 0.8)',
-          'rgba(251, 191, 36, 0.8)',
-          'rgba(168, 85, 247, 0.8)',
-          'rgba(236, 72, 153, 0.8)',
-          'rgba(14, 165, 233, 0.8)',
-          'rgba(132, 204, 22, 0.8)',
+          'rgba(0, 255, 157, 0.8)',   // primary (cyan/green)
+          'rgba(239, 68, 68, 0.8)',   // error (red)
+          'rgba(16, 185, 129, 0.8)',  // success (green)
+          'rgba(245, 158, 11, 0.8)',  // warning (amber)
+          'rgba(147, 51, 234, 0.8)',  // purple
+          'rgba(236, 72, 153, 0.8)',  // pink
+          'rgba(14, 165, 233, 0.8)',  // cyan
+          'rgba(132, 204, 22, 0.8)',  // lime
         ],
         borderWidth: 0,
       },
@@ -193,16 +200,16 @@ const DashboardPage = () => {
             ? data.parts_by_supplier.map((item) => item.part_count)
             : [0],
         backgroundColor: [
-          'rgba(99, 102, 241, 0.8)',
-          'rgba(239, 68, 68, 0.8)',
-          'rgba(34, 197, 94, 0.8)',
-          'rgba(251, 191, 36, 0.8)',
-          'rgba(168, 85, 247, 0.8)',
-          'rgba(236, 72, 153, 0.8)',
-          'rgba(14, 165, 233, 0.8)',
-          'rgba(132, 204, 22, 0.8)',
-          'rgba(245, 158, 11, 0.8)',
-          'rgba(16, 185, 129, 0.8)',
+          'rgba(0, 255, 157, 0.8)',   // primary (cyan/green)
+          'rgba(239, 68, 68, 0.8)',   // error (red)
+          'rgba(16, 185, 129, 0.8)',  // success (green)
+          'rgba(245, 158, 11, 0.8)',  // warning (amber)
+          'rgba(147, 51, 234, 0.8)',  // purple
+          'rgba(236, 72, 153, 0.8)',  // pink
+          'rgba(14, 165, 233, 0.8)',  // cyan
+          'rgba(132, 204, 22, 0.8)',  // lime
+          'rgba(168, 85, 247, 0.8)',  // violet
+          'rgba(59, 130, 246, 0.8)',  // blue
         ],
         borderWidth: 0,
       },
@@ -260,19 +267,21 @@ const DashboardPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="card p-6"
+          className="card p-6 border-l-4 border-l-accent"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Total Parts</p>
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-2xl font-bold text-accent">
                 {data.summary.total_parts.toLocaleString()}
               </p>
               <p className="text-xs text-muted mt-1">
                 {data.summary.total_units.toLocaleString()} total units
               </p>
             </div>
-            <Package className="w-8 h-8 text-primary opacity-20" />
+            <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+              <Package className="w-6 h-6 text-accent" />
+            </div>
           </div>
         </motion.div>
 
@@ -280,7 +289,7 @@ const DashboardPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="card p-6"
+          className="card p-6 border-l-4 border-l-error"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -288,7 +297,9 @@ const DashboardPage = () => {
               <p className="text-2xl font-bold text-error">{data.summary.low_stock_count}</p>
               <p className="text-xs text-muted mt-1">Parts below 10 units</p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-error opacity-20" />
+            <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-error" />
+            </div>
           </div>
         </motion.div>
 
@@ -296,15 +307,17 @@ const DashboardPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="card p-6"
+          className="card p-6 border-l-4 border-l-purple-500"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Categories</p>
-              <p className="text-2xl font-bold text-primary">{data.summary.total_categories}</p>
+              <p className="text-2xl font-bold text-purple-400">{data.summary.total_categories}</p>
               <p className="text-xs text-muted mt-1">Active categories</p>
             </div>
-            <Tag className="w-8 h-8 text-primary opacity-20" />
+            <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+              <Tag className="w-6 h-6 text-purple-400" />
+            </div>
           </div>
         </motion.div>
 
@@ -312,17 +325,19 @@ const DashboardPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="card p-6"
+          className="card p-6 border-l-4 border-l-blue-500"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-secondary">Locations</p>
-              <p className="text-2xl font-bold text-primary">{data.summary.total_locations}</p>
+              <p className="text-2xl font-bold text-blue-400">{data.summary.total_locations}</p>
               <p className="text-xs text-muted mt-1">
                 {data.summary.parts_with_location} parts located
               </p>
             </div>
-            <MapPin className="w-8 h-8 text-primary opacity-20" />
+            <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <MapPin className="w-6 h-6 text-blue-400" />
+            </div>
           </div>
         </motion.div>
       </div>
@@ -456,7 +471,9 @@ const DashboardPage = () => {
                     return (
                       <div
                         key={supplier.supplier}
-                        className="flex items-center gap-3 p-3 bg-card-light dark:bg-card-dark rounded-lg border border-border hover:border-primary transition-colors"
+                        onClick={() => handleSupplierClick(supplier.supplier)}
+                        className="flex items-center gap-3 p-3 bg-card-light dark:bg-card-dark rounded-lg border border-border hover:border-primary transition-colors cursor-pointer"
+                        title={`Click to view all ${supplier.part_count} parts from ${supplier.supplier}`}
                       >
                         <div className="w-8 h-8 flex items-center justify-center">
                           <img

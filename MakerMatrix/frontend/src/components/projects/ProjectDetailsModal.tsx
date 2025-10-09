@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal'
 import { projectsService } from '@/services/projects.service'
 import type { Project } from '@/types/projects'
 import type { Part } from '@/types/parts'
+import { getFaviconUrl, extractDisplayName, extractDomain } from '@/utils/url.utils'
 
 interface ProjectDetailsModalProps {
   isOpen: boolean
@@ -111,18 +112,31 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
             <div>
               <p className="text-sm font-semibold text-primary mb-2">Project Links</p>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(project.links).map(([key, value]) => (
-                  <a
-                    key={key}
-                    href={value as string}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-theme-elevated border border-theme-primary rounded-lg text-sm text-accent hover:text-accent-hover transition-colors"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    {key}
-                  </a>
-                ))}
+                {Object.entries(project.links).map(([key, value]) => {
+                  const domain = extractDomain(value as string)
+                  const displayName = domain ? extractDisplayName(domain) : key
+                  return (
+                    <a
+                      key={key}
+                      href={value as string}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-theme-elevated border border-theme-primary rounded-lg text-sm text-accent hover:text-accent-hover transition-colors"
+                    >
+                      <img
+                        src={getFaviconUrl(value as string)}
+                        alt=""
+                        className="w-4 h-4"
+                        onError={(e) => {
+                          // Fallback to external link icon if favicon fails
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                      {displayName}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )
+                })}
               </div>
             </div>
           )}

@@ -19,7 +19,7 @@ import {
   Hash,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
 import { supplierService } from '@/services/supplier.service'
 import type { Part } from '@/types/parts'
@@ -30,6 +30,7 @@ import PartImage from '@/components/parts/PartImage'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 const PartsPage = () => {
+  const [searchParams] = useSearchParams()
   const [showAddModal, setShowAddModal] = useState(false)
   const [showBulkEditModal, setShowBulkEditModal] = useState(false)
   const [parts, setParts] = useState<Part[]>([])
@@ -38,7 +39,9 @@ const PartsPage = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalParts, setTotalParts] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
+  const [supplierFilter, setSupplierFilter] = useState<string>('')
   const [isSearching, setIsSearching] = useState(false)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -138,8 +141,9 @@ const PartsPage = () => {
       let response: any
 
       // Always use advanced search API for sorting support
-      const searchParams = {
+      const searchParamsObj = {
         search_term: search && search.trim() ? search.trim() : undefined,
+        supplier: supplierFilter || undefined,
         sort_by: sortBy || 'created_at',
         sort_order: sortOrder || 'desc',
         page,
@@ -147,8 +151,9 @@ const PartsPage = () => {
       }
 
       console.log('Current state - sortBy:', sortBy, 'sortOrder:', sortOrder)
-      console.log('Using advanced search with params:', searchParams)
-      response = await partsService.searchParts(searchParams)
+      console.log('Supplier filter:', supplierFilter)
+      console.log('Using advanced search with params:', searchParamsObj)
+      response = await partsService.searchParts(searchParamsObj)
 
       // Debug logging to understand response structure
       console.log('API response:', response)
@@ -202,9 +207,24 @@ const PartsPage = () => {
   }
 
   useEffect(() => {
-    loadParts()
+    // Read supplier filter from URL params on mount
+    const supplier = searchParams.get('supplier')
+    if (supplier) {
+      setSupplierFilter(supplier)
+    }
+    // Mark that initial URL params have been processed
+    setInitialLoadComplete(true)
+    // Load initial data
     loadSuppliers()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load parts when supplier filter changes OR on initial load
+  useEffect(() => {
+    // Only load parts after initial URL params have been processed
+    if (initialLoadComplete) {
+      loadParts(1, searchTerm)
+    }
+  }, [supplierFilter, initialLoadComplete]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load suppliers for image display
   const loadSuppliers = async () => {
@@ -458,16 +478,17 @@ const PartsPage = () => {
       }
 
       // Build search params matching current filters
-      const searchParams = {
+      const searchParamsObj = {
         search_term: searchTerm,
+        supplier: supplierFilter || undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
         page: 1,
         page_size: totalParts || 10000, // Request all results
       }
 
-      console.log('Fetching all part IDs with params:', searchParams)
-      const response = await partsService.searchParts(searchParams)
+      console.log('Fetching all part IDs with params:', searchParamsObj)
+      const response = await partsService.searchParts(searchParamsObj)
 
       // Extract all part IDs from response
       let allPartIds: string[] = []
@@ -616,12 +637,35 @@ const PartsPage = () => {
           </button>
         </form>
 
-        {/* Search status */}
-        {isSearching && searchTerm && (
-          <div className="mt-3 text-sm text-muted">
-            {loading
-              ? `Searching for "${searchTerm}"...`
-              : `Found ${totalParts} result${totalParts !== 1 ? 's' : ''} for "${searchTerm}"`}
+        {/* Active filters display */}
+        {(supplierFilter || (isSearching && searchTerm)) && (
+          <div className="mt-3 flex flex-wrap gap-2 items-center">
+            <span className="text-sm text-muted">Active filters:</span>
+
+            {supplierFilter && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/10 border border-accent/30 rounded-full text-sm">
+                <span className="text-accent">Supplier: {supplierFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSupplierFilter('')
+                    loadParts(1, searchTerm)
+                  }}
+                  className="text-accent hover:text-accent-hover"
+                  title="Clear supplier filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {isSearching && searchTerm && (
+              <div className="text-sm text-muted">
+                {loading
+                  ? `Searching for "${searchTerm}"...`
+                  : `Found ${totalParts} result${totalParts !== 1 ? 's' : ''}`}
+              </div>
+            )}
           </div>
         )}
       </motion.div>
