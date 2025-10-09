@@ -247,20 +247,20 @@ const LocationsPage = () => {
         >
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-4 text-secondary font-medium">Name</th>
-                  <th className="text-left p-4 text-secondary font-medium">Type</th>
-                  <th className="text-left p-4 text-secondary font-medium">Parent</th>
-                  <th className="text-left p-4 text-secondary font-medium">Description</th>
-                  <th className="text-right p-4 text-secondary font-medium">Actions</th>
+              <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
+                <tr className="border-b border-purple-500/10">
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Name</th>
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Type</th>
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Parent</th>
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Description</th>
+                  <th className="text-right p-4 text-primary font-bold text-xs uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
                 {filteredLocations.map((location) => (
                   <tr
                     key={location.id}
-                    className="border-b border-border hover:bg-background-secondary transition-colors"
+                    className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
                   >
                     <td className="p-4">
                       <div

@@ -226,37 +226,37 @@ const CategoriesPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="card overflow-hidden"
+          className="card p-0 overflow-hidden"
         >
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-theme-tertiary">
+              <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Name</th>
-                  <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Description</th>
-                  <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Parts Count</th>
-                  <th className="text-right px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Actions</th>
+                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Name</th>
+                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Description</th>
+                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Parts Count</th>
+                  <th className="text-right px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-theme-elevated">
+              <tbody className="bg-theme-elevated/50">
                 {sortedCategories.map((category) => (
                   <tr
                     key={category.id}
-                    className="border-b border-theme-primary hover:bg-theme-secondary transition-colors"
+                    className="border-b border-purple-500/10 hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-primary/10 rounded">
-                          <Tag className="w-4 h-4 text-primary" />
+                        <div className="p-1.5 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded">
+                          <Tag className="w-4 h-4 text-purple-400" />
                         </div>
-                        <span className="font-medium text-primary">{category.name}</span>
+                        <span className="font-semibold text-primary">{category.name}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-secondary">{category.description || '-'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-primary" />
-                        <span className="font-semibold text-primary">{category.part_count || 0}</span>
+                        <Package className="w-4 h-4 text-blue-400" />
+                        <span className="font-bold text-primary">{category.part_count || 0}</span>
                         <span className="text-xs text-muted">parts</span>
                       </div>
                     </td>
@@ -264,14 +264,14 @@ const CategoriesPage = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleEdit(category)}
-                          className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                          className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-300 hover:from-purple-500/30 hover:to-blue-500/30 transition-all duration-200"
                           title="Edit category"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(category)}
-                          className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200"
                           title="Delete category"
                         >
                           <Trash2 className="w-4 h-4" />

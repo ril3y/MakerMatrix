@@ -201,21 +201,21 @@ const UsersPage = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-background-secondary">
+              <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                 <tr>
-                  <th className="text-left py-3 px-4 font-medium text-secondary">User</th>
-                  <th className="text-left py-3 px-4 font-medium text-secondary">Email</th>
-                  <th className="text-left py-3 px-4 font-medium text-secondary">Roles</th>
-                  <th className="text-left py-3 px-4 font-medium text-secondary">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-secondary">Created</th>
-                  <th className="text-center py-3 px-4 font-medium text-secondary">Actions</th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">User</th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Email</th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Roles</th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Status</th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Created</th>
+                  <th className="text-center py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
                 {filteredUsers.map((user) => (
                   <tr
                     key={user.id}
-                    className="border-b border-border hover:bg-background-secondary/50"
+                    className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">

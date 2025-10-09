@@ -539,20 +539,20 @@ const DashboardPage = () => {
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-theme-tertiary">
+                  <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                     <tr>
-                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Part Name</th>
-                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Quantity</th>
-                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Location</th>
+                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Part Name</th>
+                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Quantity</th>
+                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Location</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-theme-elevated">
+                  <tbody className="bg-theme-elevated/50">
                     {data.most_stocked_parts.length > 0 ? (
                       data.most_stocked_parts.map((part) => (
                         <tr
                           key={part.id}
                           onClick={() => navigate(`/parts/${part.id}`)}
-                          className="border-b border-theme-primary cursor-pointer hover:bg-theme-secondary transition-colors"
+                          className="border-b border-purple-500/10 cursor-pointer hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
                         >
                           <td className="px-4 py-3">
                             <div>
@@ -586,20 +586,20 @@ const DashboardPage = () => {
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-theme-tertiary">
+                  <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                     <tr>
-                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Part Name</th>
-                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Quantity</th>
-                      <th className="text-left px-4 py-3 font-semibold text-primary text-sm uppercase tracking-wider">Location</th>
+                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Part Name</th>
+                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Quantity</th>
+                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Location</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-theme-elevated">
+                  <tbody className="bg-theme-elevated/50">
                     {data.least_stocked_parts.length > 0 ? (
                       data.least_stocked_parts.map((part) => (
                         <tr
                           key={part.id}
                           onClick={() => navigate(`/parts/${part.id}`)}
-                          className="border-b border-theme-primary cursor-pointer hover:bg-theme-secondary transition-colors"
+                          className="border-b border-purple-500/10 cursor-pointer hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
                         >
                           <td className="px-4 py-3">
                             <div>
