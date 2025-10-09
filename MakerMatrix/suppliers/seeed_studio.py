@@ -515,7 +515,7 @@ class SeeedStudioSupplier(BaseSupplier):
         Extract specifications from various HTML formats.
 
         Handles:
-        1. HTML tables (most common)
+        1. HTML tables (most common) - including Seeed Studio's p_2981_table format
         2. Definition lists (<dl>)
         3. Div-based key-value pairs
 
@@ -525,8 +525,9 @@ class SeeedStudioSupplier(BaseSupplier):
 
         try:
             # Strategy 1: Look for specification tables
-            # Try various table class names
+            # Seeed Studio uses class="p_2981_table" specifically
             spec_table = (
+                soup.find('table', class_='p_2981_table') or  # Seeed Studio specific
                 soup.find('table', class_=re.compile(r'spec|technical|parameter', re.I)) or
                 soup.find('table', id=re.compile(r'spec|technical|parameter', re.I))
             )
@@ -537,8 +538,12 @@ class SeeedStudioSupplier(BaseSupplier):
                 for row in rows:
                     cells = row.find_all(['th', 'td'])
                     if len(cells) >= 2:
-                        key = cells[0].get_text().strip()
-                        value = cells[1].get_text().strip()
+                        # Extract text from paragraph tags if present (Seeed Studio format)
+                        key_elem = cells[0].find('p') or cells[0]
+                        value_elem = cells[1].find('p') or cells[1]
+
+                        key = key_elem.get_text().strip()
+                        value = value_elem.get_text().strip()
                         if key and value:
                             specifications[key] = value
 
