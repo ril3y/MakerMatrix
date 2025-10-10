@@ -1,6 +1,7 @@
 # Documentation files (except root README.md)
 *.md
-!README.md
+**/*.md
+!/README.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
