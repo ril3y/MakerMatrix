@@ -230,6 +230,9 @@ certs/
 *.key
 *.crt
 
+# API Tokens (sensitive credentials, should never be committed)
+digikey_tokens/
+
 # Downloaded datasheets and component images
 MakerMatrix/static/datasheets/
 MakerMatrix/static/images/
