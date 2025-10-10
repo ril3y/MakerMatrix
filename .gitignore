@@ -224,6 +224,12 @@ ai_config.json
 # Virtual environments
 venv_test/
 
+# HTTPS Certificates (generated locally, should not be committed)
+certs/
+*.pem
+*.key
+*.crt
+
 # Downloaded datasheets and component images
 MakerMatrix/static/datasheets/
 MakerMatrix/static/images/
