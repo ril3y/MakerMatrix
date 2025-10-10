@@ -452,7 +452,7 @@ class PartEnrichmentService(BaseService):
             
             # Create PartSearchResult
             return PartSearchResult(
-                supplier_part_number=part.part_number or part.lcsc_part_number,
+                supplier_part_number=part.part_number or "",
                 manufacturer=manufacturer,
                 manufacturer_part_number=manufacturer_part_number,
                 description=description,

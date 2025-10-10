@@ -483,15 +483,17 @@ class PartRepository:
         - desc:capacitor - Search in description only
         - pn:100k - Search part number only
         - name:resistor - Search part name only
+        - prop:package 0603 - Search additional_properties (supports prop:key value or prop:key=value)
         - resistor - Search all fields
 
         Returns a tuple of (results, total_count).
         """
         # Parse search query for field-specific search
         field_specific = None
+        prop_key = None
         search_query = query.strip()
 
-        # Check for field-specific search (desc:, pn:, name:)
+        # Check for field-specific search (desc:, pn:, name:, prop:)
         if ':' in search_query and not search_query.startswith('"'):
             parts = search_query.split(':', 1)
             if len(parts) == 2:
@@ -507,6 +509,18 @@ class PartRepository:
                 elif field_prefix in ['name', 'part_name', 'partname']:
                     field_specific = 'part_name'
                     search_query = search_value
+                elif field_prefix in ['prop', 'property', 'add', 'additional']:
+                    field_specific = 'additional_properties'
+                    # Handle both "prop:package 0603" and "prop:package=0603" syntax
+                    if '=' in search_value:
+                        key_value = search_value.split('=', 1)
+                        prop_key = key_value[0].strip()
+                        search_query = key_value[1].strip() if len(key_value) > 1 else ''
+                    else:
+                        # Split on first space to get key and value
+                        key_value = search_value.split(' ', 1)
+                        prop_key = key_value[0].strip()
+                        search_query = key_value[1].strip() if len(key_value) > 1 else ''
 
         # Check if query is wrapped in quotes for exact matching
         is_exact_match = search_query.startswith('"') and search_query.endswith('"') and len(search_query) > 2
@@ -535,11 +549,28 @@ class PartRepository:
         # Apply search filter based on field-specific or all fields
         if field_specific:
             # Field-specific search
-            field = getattr(PartModel, field_specific)
-            if is_exact_match:
-                search_filter = exact_filter(field)
+            if field_specific == 'additional_properties' and prop_key:
+                # Search within JSON field for specific key
+                # SQLite JSON syntax: json_extract(additional_properties, '$.key')
+                from sqlalchemy import cast, String, JSON
+
+                # Build JSON path
+                json_path = f'$.{prop_key}'
+
+                # Extract the value from JSON and search it
+                json_value = func.json_extract(PartModel.additional_properties, json_path)
+
+                if is_exact_match:
+                    # For exact match in JSON, cast to string and compare
+                    search_filter = cast(json_value, String).ilike(search_query)
+                else:
+                    search_filter = cast(json_value, String).ilike(search_term)
             else:
-                search_filter = field.ilike(search_term)
+                field = getattr(PartModel, field_specific)
+                if is_exact_match:
+                    search_filter = exact_filter(field)
+                else:
+                    search_filter = field.ilike(search_term)
         else:
             # Search across all fields
             if is_exact_match:
