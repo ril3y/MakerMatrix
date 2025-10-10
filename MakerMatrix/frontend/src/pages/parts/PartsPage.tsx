@@ -806,15 +806,17 @@ const PartsPage = () => {
                             </button>
                           </td>
                         )}
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          <PartImage
-                            imageUrl={part.image_url}
-                            partName={part.name}
-                            size="md"
-                            showFallback={true}
-                          />
+                        <td className="px-3 py-3 whitespace-nowrap w-20">
+                          <div className="flex items-center justify-center w-12 h-12">
+                            <PartImage
+                              imageUrl={part.image_url}
+                              partName={part.name}
+                              size="md"
+                              showFallback={true}
+                            />
+                          </div>
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap max-w-xs">
                           <div className="flex items-center gap-2">
                             <button
                               onMouseDown={(e) => {
@@ -836,12 +838,8 @@ const PartsPage = () => {
                                 }
                                 handlePartClick(part.id, e)
                               }}
-                              className="text-sm font-medium text-primary hover:text-primary-dark hover:underline transition-colors cursor-pointer"
-                              title={
-                                bulkEditMode
-                                  ? 'Click to select, Ctrl+click to toggle'
-                                  : 'Click to view part details, Ctrl+click to enter bulk edit'
-                              }
+                              className="text-sm font-medium text-primary hover:text-primary-dark hover:underline transition-colors cursor-pointer truncate max-w-[250px]"
+                              title={part.name}
                             >
                               {part.name}
                             </button>
@@ -850,7 +848,7 @@ const PartsPage = () => {
                                 e.stopPropagation()
                                 copyToClipboard(part.name, part.id, 'name')
                               }}
-                              className="text-muted hover:text-primary transition-colors"
+                              className="text-muted hover:text-primary transition-colors flex-shrink-0"
                               title="Copy part name"
                             >
                               {copiedItems[part.id] === 'name' ? (
@@ -889,12 +887,8 @@ const PartsPage = () => {
                                   }
                                   handlePartClick(part.id, e)
                                 }}
-                                className="text-sm text-secondary hover:text-primary hover:underline transition-colors cursor-pointer"
-                                title={
-                                  bulkEditMode
-                                    ? 'Click to select, Ctrl+click to toggle'
-                                    : 'Click to view part details, Ctrl+click to enter bulk edit'
-                                }
+                                className="text-sm text-secondary hover:text-primary hover:underline transition-colors cursor-pointer truncate max-w-[150px]"
+                                title={part.part_number}
                               >
                                 {part.part_number}
                               </button>
@@ -903,7 +897,7 @@ const PartsPage = () => {
                                   e.stopPropagation()
                                   copyToClipboard(part.part_number!, part.id, 'part_number')
                                 }}
-                                className="text-muted hover:text-primary transition-colors"
+                                className="text-muted hover:text-primary transition-colors flex-shrink-0"
                                 title="Copy part number"
                               >
                                 {copiedItems[part.id] === 'part_number' ? (

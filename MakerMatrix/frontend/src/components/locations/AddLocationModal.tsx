@@ -29,6 +29,7 @@ const AddLocationModal = ({
 
   const locationTypes = [
     { value: 'standard', label: 'Standard' },
+    { value: 'single_part', label: 'Single Part (e.g., SMD Cassette)' },
     { value: 'warehouse', label: 'Warehouse' },
     { value: 'toolbox', label: 'Toolbox' },
     { value: 'room', label: 'Room' },
@@ -68,6 +69,18 @@ const AddLocationModal = ({
     transformData: (data) => {
       // Transform form data to API format
       const { image_file, ...apiData } = data
+
+      // Only include container slot fields if location_type is 'container'
+      if (data.location_type !== 'container') {
+        const { slot_count, slot_naming_pattern, slot_layout_type, grid_rows, grid_columns, ...nonContainerData } = apiData
+        return {
+          ...nonContainerData,
+          name: data.name.trim(),
+          parent_id: data.parent_id || undefined,
+          location_type: data.location_type || 'standard',
+        }
+      }
+
       return {
         ...apiData,
         name: data.name.trim(),
