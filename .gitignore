@@ -178,6 +178,11 @@ makermatrix.db
 *.gif
 *.bmp
 
+# Exception: Allow documentation screenshots
+!docs/screenshots/*.png
+!docs/screenshots/*.jpg
+!docs/screenshots/*.jpeg
+
 # Backup files
 *.backup
 *.bak
