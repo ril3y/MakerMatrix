@@ -103,6 +103,9 @@ Hierarchical storage organization with visual identification and container slot 
 ### 🏷️ Label Printing
 Template-based label printing with QR codes for Brother QL printers.
 
+![Label Printer](docs/screenshots/labelprinter.png)
+*Template-based label printing with QR code support and real-time preview*
+
 **Features:**
 - **7 Pre-designed Templates**: Ready-to-use templates for common scenarios
 - **Custom Templates**: Create and save your own label layouts
