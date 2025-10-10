@@ -264,6 +264,24 @@ class PartAllocationService {
       throw error
     }
   }
+
+  /**
+   * Return all quantity from a non-primary allocation back to primary storage
+   */
+  async returnToPrimaryStorage(partId: string, allocationId: string): Promise<void> {
+    try {
+      const response = await apiClient.post<ApiResponse<void>>(
+        `/api/parts/${partId}/allocations/${allocationId}/return_to_primary`
+      )
+
+      if (response.status !== 'success') {
+        throw new Error(response.message || 'Failed to return to primary storage')
+      }
+    } catch (error: any) {
+      console.error('Error returning to primary storage:', error)
+      throw error
+    }
+  }
 }
 
 // Export singleton instance

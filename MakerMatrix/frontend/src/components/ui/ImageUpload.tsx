@@ -246,8 +246,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
               {/* Remove button - Higher z-index and pointer events enabled */}
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation()
+                  e.preventDefault()
                   handleRemoveImage()
                 }}
                 className="absolute top-2 right-2 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 transition-colors shadow-lg pointer-events-auto"

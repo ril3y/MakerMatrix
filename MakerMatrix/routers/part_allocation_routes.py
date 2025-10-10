@@ -135,6 +135,31 @@ async def delete_allocation(
 
 
 @router.post(
+    "/parts/{part_id}/allocations/{allocation_id}/return_to_primary",
+    response_model=ResponseSchema,
+    summary="Return allocation to primary storage"
+)
+async def return_to_primary_storage(
+    part_id: str,
+    allocation_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    service: PartAllocationService = Depends(get_allocation_service)
+):
+    """
+    Return all quantity from a non-primary allocation back to primary storage.
+
+    Deletes the allocation and adds the quantity back to the primary storage location.
+    """
+    result = service.return_to_primary_storage(part_id, allocation_id)
+
+    return ResponseSchema(
+        status="success" if result.success else "error",
+        message=result.message,
+        data=result.data
+    )
+
+
+@router.post(
     "/parts/{part_id}/transfer",
     response_model=ResponseSchema,
     summary="Transfer quantity between locations"

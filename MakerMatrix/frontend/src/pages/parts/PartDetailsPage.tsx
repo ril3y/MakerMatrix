@@ -32,9 +32,11 @@ import {
   Plus,
   ChevronDown,
   ArrowRightLeft,
+  Undo2,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { partsService } from '@/services/parts.service'
@@ -139,6 +141,7 @@ const PartDetailsPage = () => {
   const [editingSupplier, setEditingSupplier] = useState(false)
   const [tempSupplier, setTempSupplier] = useState<string>('')
   const [partAllocations, setPartAllocations] = useState<PartAllocation[]>([])
+  const [allocationTotalQuantity, setAllocationTotalQuantity] = useState<number | null>(null)
   const [loadingAllocations, setLoadingAllocations] = useState(false)
 
   // Category management state
@@ -282,9 +285,11 @@ const PartDetailsPage = () => {
       setLoadingAllocations(true)
       const data = await partAllocationService.getPartAllocations(partId)
       setPartAllocations(data.allocations || [])
+      setAllocationTotalQuantity(data.total_quantity)
     } catch (err) {
       console.error('Failed to load allocations:', err)
       setPartAllocations([])
+      setAllocationTotalQuantity(null)
     } finally {
       setLoadingAllocations(false)
     }
@@ -981,18 +986,18 @@ const PartDetailsPage = () => {
                     <div className="space-y-2">
                       <div
                         className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                          part.minimum_quantity && part.quantity <= part.minimum_quantity
+                          part.minimum_quantity && (allocationTotalQuantity ?? part.quantity) <= part.minimum_quantity
                             ? 'bg-error text-theme-inverse'
-                            : part.quantity > 0
+                            : (allocationTotalQuantity ?? part.quantity) > 0
                               ? 'bg-success text-theme-inverse'
                               : 'bg-warning text-theme-inverse'
                         }`}
                       >
                         <Box className="w-4 h-4" />
-                        {part.minimum_quantity && part.quantity <= part.minimum_quantity
-                          ? `Low Stock (${part.quantity} remaining)`
-                          : part.quantity > 0
-                            ? `In Stock (${part.quantity} available)`
+                        {part.minimum_quantity && (allocationTotalQuantity ?? part.quantity) <= part.minimum_quantity
+                          ? `Low Stock (${allocationTotalQuantity ?? part.quantity} remaining)`
+                          : (allocationTotalQuantity ?? part.quantity) > 0
+                            ? `In Stock (${allocationTotalQuantity ?? part.quantity} available)`
                             : 'Out of Stock (0 available)'}
                       </div>
 
@@ -1210,8 +1215,33 @@ const PartDetailsPage = () => {
                               </div>
                               <div className="flex items-center gap-3">
                                 <span className="font-semibold text-theme-primary">
-                                  {allocation.quantity}
+                                  {allocation.quantity_at_location}
                                 </span>
+                                {!allocation.is_primary_storage && (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await partAllocationService.returnToPrimaryStorage(
+                                          part.id,
+                                          allocation.id
+                                        )
+                                        toast.success(
+                                          `Returned ${allocation.quantity_at_location} units to primary storage`
+                                        )
+                                        if (id) {
+                                          loadPart(id)
+                                          loadAllocations(id)
+                                        }
+                                      } catch (error: any) {
+                                        toast.error(error.message || 'Failed to return to primary storage')
+                                      }
+                                    }}
+                                    className="text-orange-500 hover:text-orange-600 transition-colors"
+                                    title="Return all quantity to primary storage"
+                                  >
+                                    <Undo2 className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleTransferClick(allocation)}
                                   className="text-primary-accent hover:text-primary transition-colors"

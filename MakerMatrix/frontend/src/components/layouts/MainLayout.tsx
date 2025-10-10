@@ -312,10 +312,11 @@ const MainLayout: React.FC = () => {
                       <div className="font-semibold text-base mb-2 text-white">Search Syntax</div>
                       <div className="space-y-2 text-sm">
                         <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">"5mm"</code> <span className="text-gray-300">- Exact match (only "5mm", not "1.5mm")</span></div>
-                        <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">desc:capacitor</code> <span className="text-gray-300">- Search in description only</span></div>
+                        <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">desc:capacitor</code> <span className="text-gray-300">- Search description only</span></div>
                         <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">pn:100k</code> <span className="text-gray-300">- Search part number only</span></div>
                         <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">name:resistor</code> <span className="text-gray-300">- Search part name only</span></div>
-                        <div className="pt-2 border-t border-gray-600"><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">resistor</code> <span className="text-gray-300">- Search all fields</span></div>
+                        <div><code className="bg-gray-700 px-1.5 py-0.5 rounded text-green-400 font-mono">prop:package 0603</code> <span className="text-gray-300">- Search additional properties (also: add:)</span></div>
+                        <div className="pt-2 border-t border-gray-600"><code className="bg-gray-700 px-1.5 py-0.5 rounded text-blue-400 font-mono">resistor</code> <span className="text-gray-300">- Search all standard fields</span></div>
                         <div className="pt-2 border-t border-gray-600 text-xs text-gray-400">
                           Press <kbd className="px-1.5 py-0.5 bg-gray-700 border border-gray-600 rounded text-gray-300 font-mono">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</kbd> + <kbd className="px-1.5 py-0.5 bg-gray-700 border border-gray-600 rounded text-gray-300 font-mono">K</kbd> to focus search
                         </div>
@@ -325,8 +326,8 @@ const MainLayout: React.FC = () => {
                   position="bottom"
                   variant="help"
                   trigger="hover"
-                  maxWidth="400px"
-                  minWidth="360px"
+                  maxWidth="500px"
+                  minWidth="480px"
                 >
                   <HelpCircle className="w-4 h-4 text-theme-muted hover:text-primary cursor-help transition-colors" />
                 </Tooltip>

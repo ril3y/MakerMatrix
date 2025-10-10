@@ -53,7 +53,7 @@ class PartAllocationService(BaseService):
                 # Get part to verify it exists
                 part = session.get(PartModel, part_id)
                 if not part:
-                    raise ResourceNotFoundError(resource="Part", resource_id=part_id)
+                    raise ResourceNotFoundError(message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id)
 
                 # Get all allocations
                 allocations = PartAllocationRepository.get_all_allocations_for_part(
@@ -107,6 +107,29 @@ class PartAllocationService(BaseService):
             self.log_operation("create_allocation", "Part", part_id)
 
             with self.get_session() as session:
+                # Check if location is single_part type and already has a different part
+                location = session.get(LocationModel, allocation_data.location_id)
+                if location and location.location_type == "single_part":
+                    # Get existing allocations at this location
+                    existing_allocations = PartAllocationRepository.get_allocations_at_location(
+                        session, allocation_data.location_id
+                    )
+
+                    # Check if any allocation exists for a DIFFERENT part
+                    for existing in existing_allocations:
+                        if existing.part_id != part_id:
+                            raise InvalidReferenceError(
+                                status="error",
+                                message=f"Location '{location.name}' is a single-part location and already contains part '{existing.part.part_name}'. Please choose a different location or remove the existing part first.",
+                                data={
+                                    "location_id": location.id,
+                                    "location_name": location.name,
+                                    "location_type": "single_part",
+                                    "existing_part_id": existing.part_id,
+                                    "existing_part_name": existing.part.part_name
+                                }
+                            )
+
                 allocation = PartAllocationRepository.create_allocation(
                     session=session,
                     part_id=part_id,
@@ -165,6 +188,73 @@ class PartAllocationService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"delete allocation {allocation_id}")
 
+    def return_to_primary_storage(
+        self,
+        part_id: str,
+        allocation_id: str
+    ) -> ServiceResponse[Dict[str, Any]]:
+        """
+        Return all quantity from a non-primary allocation back to primary storage.
+
+        Deletes the allocation and adds the quantity back to the primary storage location.
+        """
+        try:
+            self.log_operation("return_to_primary_storage", "Allocation", allocation_id)
+
+            with self.get_session() as session:
+                from datetime import datetime
+
+                # Get the allocation to return
+                allocation = PartAllocationRepository.get_allocation_by_id(session, allocation_id)
+                if not allocation:
+                    raise InvalidReferenceError(
+                        status="error",
+                        message=f"Allocation not found",
+                        data={"allocation_id": allocation_id}
+                    )
+
+                # Verify it's not already primary storage
+                if allocation.is_primary_storage:
+                    raise InvalidReferenceError(
+                        status="error",
+                        message="Cannot return primary storage allocation to itself",
+                        data={"allocation_id": allocation_id}
+                    )
+
+                quantity_to_return = allocation.quantity_at_location
+
+                # Find the primary storage allocation
+                primary_alloc = PartAllocationRepository.get_primary_allocation(session, part_id)
+                if not primary_alloc:
+                    raise InvalidReferenceError(
+                        status="error",
+                        message="No primary storage location found for this part",
+                        data={"part_id": part_id}
+                    )
+
+                # Add quantity back to primary storage
+                primary_alloc.quantity_at_location += quantity_to_return
+                primary_alloc.last_updated = datetime.utcnow()
+                session.add(primary_alloc)
+
+                # Delete the non-primary allocation
+                PartAllocationRepository.delete_allocation(session, allocation_id)
+
+                session.commit()
+
+                return self.success_response(
+                    f"Returned {quantity_to_return} units to primary storage",
+                    {
+                        "allocation_id": allocation_id,
+                        "quantity_returned": quantity_to_return,
+                        "primary_location_id": primary_alloc.location_id,
+                        "deleted": True
+                    }
+                )
+
+        except Exception as e:
+            return self.handle_exception(e, f"return allocation {allocation_id} to primary storage")
+
     def transfer_quantity(
         self,
         part_id: str,
@@ -198,7 +288,7 @@ class PartAllocationService(BaseService):
                 # Verify part exists
                 part = session.get(PartModel, part_id)
                 if not part:
-                    raise ResourceNotFoundError(resource="Part", resource_id=part_id)
+                    raise ResourceNotFoundError(message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id)
 
                 # Get source allocation
                 from_alloc = PartAllocationRepository.get_allocation_by_part_and_location(
@@ -241,6 +331,26 @@ class PartAllocationService(BaseService):
                         to_alloc.notes = transfer_data.notes
                     session.add(to_alloc)
                 else:
+                    # Check if destination is single_part type and already has a different part
+                    to_location = session.get(LocationModel, transfer_data.to_location_id)
+                    if to_location and to_location.location_type == "single_part":
+                        existing_allocations = PartAllocationRepository.get_allocations_at_location(
+                            session, transfer_data.to_location_id
+                        )
+                        for existing in existing_allocations:
+                            if existing.part_id != part_id:
+                                raise InvalidReferenceError(
+                                    status="error",
+                                    message=f"Location '{to_location.name}' is a single-part location and already contains part '{existing.part.part_name}'. Please choose a different location or remove the existing part first.",
+                                    data={
+                                        "location_id": to_location.id,
+                                        "location_name": to_location.name,
+                                        "location_type": "single_part",
+                                        "existing_part_id": existing.part_id,
+                                        "existing_part_name": existing.part.part_name
+                                    }
+                                )
+
                     # Create new allocation
                     to_alloc = PartLocationAllocation(
                         part_id=part_id,
@@ -310,7 +420,7 @@ class PartAllocationService(BaseService):
                 # Verify part exists
                 part = session.get(PartModel, part_id)
                 if not part:
-                    raise ResourceNotFoundError(resource="Part", resource_id=part_id)
+                    raise ResourceNotFoundError(message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id)
 
                 cassette_id = split_data.cassette_id
                 cassette = None
@@ -347,7 +457,7 @@ class PartAllocationService(BaseService):
                         )
                     cassette = session.get(LocationModel, cassette_id)
                     if not cassette:
-                        raise ResourceNotFoundError(resource="Cassette", resource_id=cassette_id)
+                        raise ResourceNotFoundError(message=f"Cassette not found: {cassette_id}", resource_type="Cassette", resource_id=cassette_id)
 
                 # Perform transfer to cassette
                 transfer_request = TransferRequest(
