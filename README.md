@@ -148,48 +148,102 @@ Built-in analytics with charts and data visualization.
 ## 🚀 Quick Start
 
 ### Prerequisites
+
+**Required:**
 - **Python 3.12+** (with pip)
 - **Node.js 18+** (with npm)
-- **SQLite** (included) or PostgreSQL/MySQL
+- **Git** (for cloning the repository)
+
+**Optional:**
+- **OpenSSL** (for HTTPS certificates)
+- **mkcert** (for locally-trusted HTTPS certificates - recommended)
 
 ### Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ril3y/MakerMatrix.git
-   cd MakerMatrix
-   ```
+#### 1. Clone the Repository
+```bash
+git clone https://github.com/ril3y/MakerMatrix.git
+cd MakerMatrix
+```
 
-2. **Set up Python environment:**
-   ```bash
-   python3 -m venv venv_test
-   source venv_test/bin/activate  # Linux/macOS
-   # or: venv_test\Scripts\activate on Windows
-   pip install -r requirements.txt
-   ```
+#### 2. Set Up Python Environment
+```bash
+# Create virtual environment
+python3 -m venv venv_test
 
-3. **Set up frontend:**
-   ```bash
-   cd MakerMatrix/frontend
-   npm install
-   cd ../..
-   ```
+# Activate virtual environment
+source venv_test/bin/activate  # Linux/macOS
+# or on Windows: venv_test\Scripts\activate
 
-### Development with the Dev Manager
+# Install Python dependencies
+pip install -r requirements.txt
+```
 
-**The easiest way to run MakerMatrix is with the integrated development manager:**
+#### 3. Set Up Frontend Dependencies
+```bash
+cd MakerMatrix/frontend
+npm install
+cd ../..
+```
+
+#### 4. Configure Environment (Optional)
+
+Create a `.env` file in the root directory for custom configuration:
 
 ```bash
+# Copy the example file
+cp .env.example .env
+```
+
+**Minimal .env configuration** (optional - has sensible defaults):
+```bash
+# Database (defaults to sqlite:///./makermatrix.db)
+DATABASE_URL=sqlite:///./makermatrix.db
+
+# Security (will auto-generate if not provided)
+JWT_SECRET_KEY=your-secret-key-here
+
+# Debug mode (optional)
+DEBUG=False
+LOG_LEVEL=INFO
+```
+
+**⚠️ Important:** The application will work without a `.env` file - it uses sensible defaults.
+
+#### 5. Set Up HTTPS Certificates (Optional but Recommended)
+
+**Option A - Quick Setup (Self-Signed):**
+```bash
+python scripts/setup_https.py
+```
+
+**Option B - Better Setup (No Browser Warnings):**
+```bash
+# First install mkcert: https://github.com/FiloSottile/mkcert#installation
+# Then run:
+python scripts/setup_https.py --method mkcert
+```
+
+**⚠️ Note:** HTTPS is **required** for DigiKey OAuth integration. For basic usage without supplier APIs, you can skip this step.
+
+#### 6. Start the Application
+
+**Using the Development Manager (Recommended):**
+```bash
+# Activate Python environment if not already active
+source venv_test/bin/activate
+
+# Start both backend and frontend
 python dev_manager.py
 ```
 
-**Features:**
-- 🎨 Rich TUI interface for managing backend and frontend
+The dev manager provides:
+- 🎨 Rich terminal UI for managing services
 - 🔄 Auto-restart on file changes (5-second debounce)
 - 📊 Real-time log monitoring with color-coded output
-- 🔒 HTTPS/HTTP mode switching
-- 🔍 Process management and health monitoring
-- 🌐 REST API on port 8765 for programmatic control
+- 🔒 HTTPS/HTTP mode switching (press `h`)
+- 🔍 Process health monitoring
+- 🌐 REST API on port 8765 for automation
 
 **Keyboard Shortcuts:**
 - `r` - Restart backend
@@ -200,46 +254,105 @@ python dev_manager.py
 - `c` - Clear logs
 - `q` - Quit
 
-**Dev Manager API:**
+**Manual Development (Alternative):**
+
+If you prefer to run services separately:
+
 ```bash
-# Check status
-curl http://localhost:8765/status
-
-# Restart backend
-curl -X POST http://localhost:8765/backend/restart
-
-# Get logs
-curl "http://localhost:8765/logs?service=all&limit=100"
-```
-
-### Manual Development
-
-**Backend:**
-```bash
+# Terminal 1 - Backend
 source venv_test/bin/activate
 python -m MakerMatrix.main
-```
 
-**Frontend:**
-```bash
+# Terminal 2 - Frontend
 cd MakerMatrix/frontend
 npm run dev
 ```
 
+### First Run - What Happens Automatically
+
+On the first run, MakerMatrix automatically:
+
+✅ **Creates the SQLite database** (`makermatrix.db`)
+✅ **Initializes all database tables** with proper schema
+✅ **Creates default roles** (admin, manager, user)
+✅ **Creates default admin user** with credentials below
+✅ **Sets up rate limiting** configuration
+✅ **Initializes supplier integrations** (LCSC, DigiKey, Mouser, Seeed)
+✅ **Configures CSV import** settings
+✅ **Starts the task worker** for background jobs
+
+**No manual database setup required!**
+
 ### Access the Application
 
-- **Frontend UI**: https://localhost:5173
+After starting the development manager or manual services:
+
+- **Frontend UI**: http://localhost:5173 (or https://localhost:5173 if HTTPS enabled)
 - **Backend API**: http://localhost:8080
-- **API Docs**: http://localhost:8080/docs
-- **Dev Manager API**: http://localhost:8765/docs
+- **API Documentation**: http://localhost:8080/docs (Swagger UI)
+- **Dev Manager API**: http://localhost:8765/docs (if using dev_manager.py)
 
 ### Default Credentials
 
 **First-time login:**
 - **Username**: `admin`
 - **Password**: `Admin123!`
+- **Email**: `admin@makermatrix.local`
 
-**⚠️ Change this password immediately after first login!**
+**⚠️ IMPORTANT:** You will be prompted to change this password after first login!
+
+### Quick Troubleshooting
+
+**Port already in use:**
+```bash
+# Check what's using port 8080 (backend)
+lsof -ti:8080 | xargs kill -9
+
+# Check what's using port 5173 (frontend)
+lsof -ti:5173 | xargs kill -9
+```
+
+**Import errors:**
+```bash
+# Make sure virtual environment is activated
+source venv_test/bin/activate
+
+# Reinstall dependencies
+pip install -r requirements.txt --force-reinstall
+```
+
+**Frontend won't start:**
+```bash
+cd MakerMatrix/frontend
+rm -rf node_modules package-lock.json
+npm install
+npm run dev
+```
+
+**Database issues:**
+```bash
+# The database is auto-created, but if you need to reset:
+rm makermatrix.db
+python -m MakerMatrix.main  # Will recreate on startup
+```
+
+### Dev Manager API (Automation)
+
+The dev manager exposes a REST API for automation and CI/CD:
+
+```bash
+# Check service status
+curl http://localhost:8765/status
+
+# Restart backend
+curl -X POST http://localhost:8765/backend/restart
+
+# Get recent logs
+curl "http://localhost:8765/logs?service=all&limit=100"
+
+# Switch to HTTPS mode
+curl -X POST http://localhost:8765/mode -H "Content-Type: application/json" -d '{"https": true}'
+```
 
 ---
 
