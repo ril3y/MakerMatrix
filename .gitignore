@@ -3,6 +3,9 @@
 **/*.md
 !/README.md
 
+# Claude Code configuration (user-specific)
+.claude/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
