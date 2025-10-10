@@ -437,7 +437,6 @@ LCSC_API_KEY=your_api_key
 ```
 MakerMatrix/
 ├── dev_manager.py              # Development manager TUI
-├── CLAUDE.md                   # Claude Code development guide
 ├── api.md                      # Complete API documentation
 ├── MakerMatrix/
 │   ├── main.py                 # FastAPI application
@@ -472,7 +471,6 @@ MakerMatrix/
 ├── docs/                       # Documentation
 │   ├── guides/                # User guides
 │   └── screenshots/           # UI screenshots
-└── venv_test/                  # Python virtual env
 ```
 
 ---
@@ -629,7 +627,7 @@ We welcome contributions! Here's how to get started:
    - Use services for business logic
    - Use routers for API endpoints
 4. **Add tests** for new features
-5. **Update documentation** (CLAUDE.md, api.md)
+5. **Update documentation** (api.md when adding endpoints)
 6. **Commit changes**: `git commit -m 'Add amazing feature'`
 7. **Push to branch**: `git push origin feature/amazing-feature`
 8. **Open a Pull Request**
@@ -648,7 +646,6 @@ We welcome contributions! Here's how to get started:
 
 - **[Developer Guide](docs/guides/Developer.md)** - Technical insights and patterns
 - **[API Reference](api.md)** - Complete API documentation
-- **[CLAUDE.md](CLAUDE.md)** - Development guide for Claude Code
 - **[HTTPS Setup](scripts/HTTPS_SETUP.md)** - SSL/TLS configuration
 - **[Supplier Status](suppliers.md)** - Supplier integration details
 
