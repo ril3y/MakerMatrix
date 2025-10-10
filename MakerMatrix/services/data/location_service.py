@@ -290,10 +290,15 @@ class LocationService(BaseService):
 
     @staticmethod
     def delete_location(location_id: str) -> Dict:
+        from MakerMatrix.models.part_allocation_models import PartLocationAllocation
+        from MakerMatrix.repositories.part_allocation_repository import PartAllocationRepository
+        from sqlalchemy import select
+        from datetime import datetime
+
         session = next(get_session())
 
         logger.info(f"Attempting to delete location: {location_id}")
-        
+
         query_model = LocationQueryModel(id=location_id)
         location = LocationRepository.get_location(session, location_query=query_model)
 
@@ -310,7 +315,80 @@ class LocationService(BaseService):
         location_type = getattr(location, 'location_type', 'Unknown')
         logger.info(f"Deleting location: '{location_name}' (ID: {location_id}, type: {location_type})")
 
-        # Delete location and its children
+        # Handle allocations before deletion
+        # Find all allocations at this location
+        allocations_query = select(PartLocationAllocation).where(
+            PartLocationAllocation.location_id == location_id
+        )
+        allocations = session.exec(allocations_query).all()
+
+        returned_count = 0
+        deleted_count = 0
+
+        if allocations:
+            logger.info(f"Found {len(allocations)} allocation(s) at location '{location_name}'")
+
+            for allocation in allocations:
+                part_id = allocation.part_id
+                quantity = allocation.quantity_at_location
+                is_primary = allocation.is_primary_storage
+
+                logger.info(f"Processing allocation: Part {part_id}, Quantity: {quantity}, Primary: {is_primary}")
+
+                if is_primary:
+                    # If this is the primary storage, just delete the allocation
+                    # The CASCADE will handle it, but we log it explicitly
+                    logger.warning(
+                        f"Deleting primary storage allocation for part {part_id} at location '{location_name}'. "
+                        f"Part will have no primary storage location."
+                    )
+                    deleted_count += 1
+                else:
+                    # For non-primary allocations, return quantity to primary storage
+                    try:
+                        # Find the primary allocation for this part
+                        primary_alloc = PartAllocationRepository.get_primary_allocation(
+                            session, part_id
+                        )
+
+                        if not primary_alloc:
+                            # No primary allocation exists - find any allocation and promote it
+                            other_allocations_query = select(PartLocationAllocation).where(
+                                PartLocationAllocation.part_id == part_id,
+                                PartLocationAllocation.location_id != location_id
+                            )
+                            other_allocations = session.exec(other_allocations_query).all()
+
+                            if other_allocations:
+                                # Promote first allocation to primary
+                                primary_alloc = other_allocations[0]
+                                primary_alloc.is_primary_storage = True
+                                logger.info(f"Promoted allocation at {primary_alloc.location.name} to primary storage for part {part_id}")
+                            else:
+                                logger.warning(f"No other allocations found for part {part_id}. Quantity {quantity} will be lost.")
+                                deleted_count += 1
+                                continue
+
+                        # Add quantity back to primary storage
+                        primary_alloc.quantity_at_location += quantity
+                        primary_alloc.last_updated = datetime.utcnow()
+                        session.add(primary_alloc)
+
+                        logger.info(
+                            f"Returned {quantity} units of part {part_id} from '{location_name}' "
+                            f"to primary storage at '{primary_alloc.location.name}'"
+                        )
+                        returned_count += 1
+
+                    except Exception as e:
+                        logger.error(f"Error returning quantity to primary storage for part {part_id}: {e}")
+                        deleted_count += 1
+
+            # Commit the quantity returns before deleting the location
+            session.commit()
+            logger.info(f"Returned {returned_count} allocation(s) to primary storage, deleted {deleted_count} allocation(s)")
+
+        # Delete location and its children (CASCADE will handle remaining allocations)
         LocationRepository.delete_location(session, location)
 
         # Debug: Verify parts with NULL location_id using repository
@@ -321,10 +399,12 @@ class LocationService(BaseService):
         logger.info(f"Successfully deleted location: '{location_name}' (ID: {location_id})")
         return {
             "status": "success",
-            "message": f"Deleted location_id: {location_id} and its children",
+            "message": f"Deleted location '{location_name}' and returned {returned_count} allocation(s) to primary storage",
             "data": {
                 "deleted_location_name": location.name,
                 "deleted_location_id": location_id,
+                "allocations_returned": returned_count,
+                "allocations_deleted": deleted_count
             }
         }
 

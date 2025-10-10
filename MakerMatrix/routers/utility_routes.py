@@ -43,7 +43,11 @@ async def upload_image(
     """
     Upload an image file and return the image ID for later retrieval.
     Supports PNG, JPG, JPEG, GIF, WebP formats with max 5MB file size.
+    Images are automatically cropped to square aspect ratio (center crop).
     """
+    from PIL import Image
+    import io
+
     # Validate file type
     allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"]
     if file.content_type not in allowed_types:
@@ -51,7 +55,7 @@ async def upload_image(
             status_code=400,
             detail=f"Unsupported file type: {file.content_type}. Supported types: PNG, JPG, JPEG, GIF, WebP"
         )
-    
+
     # Validate file size (5MB max)
     MAX_SIZE = 5 * 1024 * 1024  # 5MB in bytes
     if file.size and file.size > MAX_SIZE:
@@ -59,27 +63,57 @@ async def upload_image(
             status_code=400,
             detail=f"File too large: {file.size} bytes. Maximum size: 5MB"
         )
-    
+
     # Ensure upload directory exists
     upload_dir = STATIC_BASE_PATH / "images"
     upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Generate unique filename with original extension
-    file_extension = os.path.splitext(file.filename)[1].lower()
-    if not file_extension:
-        # Default to .jpg if no extension
-        file_extension = ".jpg"
-    
+
+    # Generate unique filename - always save as PNG for consistency
     image_id = str(uuid.uuid4())
-    file_path = upload_dir / f"{image_id}{file_extension}"
-    
-    # Save file
-    with open(str(file_path), "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
+    file_path = upload_dir / f"{image_id}.png"
+
+    try:
+        # Read image data
+        image_data = await file.read()
+        image = Image.open(io.BytesIO(image_data))
+
+        # Convert to RGB if necessary (for PNG with transparency, GIF, etc.)
+        if image.mode in ('RGBA', 'LA', 'P'):
+            # Create white background
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+            image = background
+        elif image.mode != 'RGB':
+            image = image.convert('RGB')
+
+        # Crop to square (center crop)
+        width, height = image.size
+        if width != height:
+            # Determine the size of the square (use the smaller dimension)
+            size = min(width, height)
+
+            # Calculate crop box for center crop
+            left = (width - size) // 2
+            top = (height - size) // 2
+            right = left + size
+            bottom = top + size
+
+            image = image.crop((left, top, right, bottom))
+
+        # Save as PNG with optimization
+        image.save(str(file_path), 'PNG', optimize=True)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to process image: {str(e)}"
+        )
+
     return base_router.build_success_response(
         data={"image_id": image_id},
-        message="Image uploaded successfully"
+        message="Image uploaded and cropped to square successfully"
     )
 
 

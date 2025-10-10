@@ -75,8 +75,8 @@ const PartImage: React.FC<PartImageProps> = ({
     }
   }, [imageBlob])
 
-  const baseClasses = `${sizeClasses[size]} object-contain rounded border border-border`
-  const fallbackClasses = `${sizeClasses[size]} bg-background-secondary rounded border border-border flex items-center justify-center`
+  const baseClasses = `${sizeClasses[size]} object-contain rounded border border-border flex-shrink-0`
+  const fallbackClasses = `${sizeClasses[size]} bg-background-secondary rounded border border-border flex items-center justify-center flex-shrink-0`
 
   // Show fallback if no URL, normalization failed, or image failed to load
   if (!normalizedUrl || imageError) {

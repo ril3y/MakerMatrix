@@ -24,6 +24,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
 }) => {
   const locationTypes = [
     { value: 'standard', label: 'Standard' },
+    { value: 'single_part', label: 'Single Part (e.g., SMD Cassette)' },
     { value: 'warehouse', label: 'Warehouse' },
     { value: 'toolbox', label: 'Toolbox' },
     { value: 'room', label: 'Room' },
