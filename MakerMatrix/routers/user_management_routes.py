@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Body
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
+from pathlib import Path
+import logging
 from MakerMatrix.models.user_models import UserCreate, UserUpdate, PasswordUpdate
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.schemas.response import ResponseSchema
@@ -8,10 +10,57 @@ from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.auth.dependencies import get_current_user_flexible
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 user_repository = UserRepository()
 auth_service = AuthService()
 base_router = BaseRouter()
+
+
+def _remove_default_credentials_from_setup_script():
+    """
+    Remove default admin credentials from setup_admin.py after password change.
+    This is a security measure to prevent hardcoded default passwords.
+    """
+    try:
+        setup_file = Path(__file__).parent.parent / "scripts" / "setup_admin.py"
+
+        if not setup_file.exists():
+            logger.warning(f"setup_admin.py not found at {setup_file}")
+            return
+
+        # Read the file
+        content = setup_file.read_text()
+
+        # Check if default password is still in the file
+        if 'DEFAULT_ADMIN_PASSWORD = "Admin123!"' not in content:
+            logger.info("Default credentials already removed from setup_admin.py")
+            return
+
+        # Replace default credentials with secure comments
+        new_content = content.replace(
+            '# Default admin credentials\n'
+            'DEFAULT_ADMIN_USERNAME = "admin"\n'
+            'DEFAULT_ADMIN_EMAIL = "admin@makermatrix.local"\n'
+            'DEFAULT_ADMIN_PASSWORD = "Admin123!"  # This should be changed on first login',
+            '# Default admin credentials - REMOVED FOR SECURITY\n'
+            '# The admin user has changed their password from the default.\n'
+            '# Default credentials are no longer stored in this file.\n'
+            '# Note: This will prevent automatic admin user creation on fresh installs.\n'
+            '# To recreate: manually add credentials here or create via API.\n'
+            'DEFAULT_ADMIN_USERNAME = None\n'
+            'DEFAULT_ADMIN_EMAIL = None\n'
+            'DEFAULT_ADMIN_PASSWORD = None'
+        )
+
+        # Write back to file
+        setup_file.write_text(new_content)
+        logger.info("✅ Default admin credentials removed from setup_admin.py for security")
+
+    except Exception as e:
+        logger.error(f"Failed to remove default credentials from setup_admin.py: {e}")
+        # Don't raise - this is a non-critical security enhancement
 
 
 class RoleCreate(BaseModel):
@@ -156,6 +205,10 @@ async def update_password(user_id: str, password_data: PasswordUpdate):
     # Hash and update new password
     new_hashed_password = user_repository.get_password_hash(password_data.new_password)
     updated_user = user_repository.update_password(user_id, new_hashed_password)
+
+    # If this is the admin user changing from default password, remove credentials from setup_admin.py
+    if user.username == "admin" and password_data.current_password == "Admin123!":
+        _remove_default_credentials_from_setup_script()
 
     return base_router.build_success_response(
         message="Password updated successfully",

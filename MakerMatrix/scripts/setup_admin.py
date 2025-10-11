@@ -60,6 +60,13 @@ def setup_default_roles(user_repo: UserRepository):
 def setup_default_admin(user_repo: UserRepository):
     """Set up default admin user if it doesn't exist."""
     try:
+        # Check if default credentials have been removed for security
+        if DEFAULT_ADMIN_USERNAME is None or DEFAULT_ADMIN_PASSWORD is None:
+            print("⚠️  Default admin credentials have been removed for security.")
+            print("    This happens automatically after changing the admin password.")
+            print("    To create a new admin user, use the API or manually restore credentials.")
+            return
+
         # Check if admin user already exists
         try:
             existing_admin = user_repo.get_user_by_username(DEFAULT_ADMIN_USERNAME)
@@ -71,7 +78,7 @@ def setup_default_admin(user_repo: UserRepository):
 
         # Hash the default password
         hashed_password = user_repo.get_password_hash(DEFAULT_ADMIN_PASSWORD)
-        
+
         # Create admin user with password change required
         admin_user = user_repo.create_user(
             username=DEFAULT_ADMIN_USERNAME,
@@ -79,16 +86,16 @@ def setup_default_admin(user_repo: UserRepository):
             hashed_password=hashed_password,
             roles=["admin"]
         )
-        
+
         # Set password change required
         user_repo.update_user(
             user_id=admin_user.id,
             password_change_required=True
         )
-        
+
         print(f"Created default admin user: {DEFAULT_ADMIN_USERNAME}")
         print("Please change the password on first login!")
-        
+
     except Exception as e:
         print(f"Error creating admin user: {str(e)}")
 
