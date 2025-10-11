@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, User, Mail, Shield, Lock } from 'lucide-react'
+import { X, User, Mail, Shield, Lock, Eye, EyeOff, Key } from 'lucide-react'
 import type { User as UserType, UpdateUserRolesRequest } from '@/types/users'
 import toast from 'react-hot-toast'
+import { apiClient } from '@/services/api'
 
 interface EditUserModalProps {
   isOpen: boolean
@@ -20,10 +21,22 @@ const EditUserModal = ({
 }: EditUserModalProps) => {
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [showPasswordSection, setShowPasswordSection] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
     if (user) {
       setSelectedRoleIds(user.roles.map((r) => r.id))
+      // Reset password fields when modal opens
+      setShowPasswordSection(false)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
     }
   }, [user])
 
@@ -72,6 +85,53 @@ const EditUserModal = ({
     setSelectedRoleIds((prev) =>
       prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
     )
+  }
+
+  const handlePasswordChange = async () => {
+    if (!user) return
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters')
+      return
+    }
+
+    if (newPassword === currentPassword) {
+      toast.error('New password must be different from current password')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await apiClient.put(`/api/users/${user.id}/password`, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      })
+
+      if (response.status === 'success') {
+        toast.success('Password changed successfully!')
+        setShowPasswordSection(false)
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        toast.error(response.message || 'Failed to change password')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Failed to change password')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (!isOpen || !user) return null
@@ -138,19 +198,109 @@ const EditUserModal = ({
             </div>
           </div>
 
-          {/* Note about password */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <div className="flex gap-2">
-              <Lock className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs text-blue-800 dark:text-blue-200 font-medium">
-                  Password Changes
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                  To change password, use the "Reset Password" option in user settings.
-                </p>
+          {/* Password Change Section */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowPasswordSection(!showPasswordSection)}
+              className="w-full flex items-center justify-between p-3 bg-background-secondary hover:bg-background-tertiary transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-muted" />
+                <span className="text-sm font-medium text-primary">Change Password</span>
               </div>
-            </div>
+              <Lock className={`w-4 h-4 text-muted transition-transform ${showPasswordSection ? 'rotate-90' : ''}`} />
+            </button>
+
+            {showPasswordSection && (
+              <div className="p-4 space-y-3 border-t border-border">
+                {/* Current Password */}
+                <div>
+                  <label className="block text-xs font-medium text-secondary mb-1">
+                    Current Password *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="input-field w-full pr-10"
+                      placeholder="Enter current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                    >
+                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div>
+                  <label className="block text-xs font-medium text-secondary mb-1">
+                    New Password *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="input-field w-full pr-10"
+                      placeholder="Enter new password (min 8 chars)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-xs font-medium text-secondary mb-1">
+                    Confirm New Password *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="input-field w-full pr-10"
+                      placeholder="Confirm new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password Requirements */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    Password must be at least 8 characters and different from current password.
+                  </p>
+                </div>
+
+                {/* Change Password Button */}
+                <button
+                  type="button"
+                  onClick={handlePasswordChange}
+                  disabled={loading}
+                  className="btn btn-primary w-full"
+                >
+                  {loading ? 'Changing Password...' : 'Change Password'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
