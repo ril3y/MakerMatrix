@@ -271,7 +271,7 @@ const EditUserModal = ({
                         type={showCurrentPassword ? 'text' : 'password'}
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="input-field w-full pr-10"
+                        className="input w-full pr-10"
                         placeholder="Enter current password"
                       />
                       <button
@@ -295,7 +295,7 @@ const EditUserModal = ({
                       type={showNewPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="input-field w-full pr-10"
+                      className="input w-full pr-10"
                       placeholder="Enter new password (min 8 chars)"
                     />
                     <button
@@ -318,7 +318,7 @@ const EditUserModal = ({
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="input-field w-full pr-10"
+                      className="input w-full pr-10"
                       placeholder="Confirm new password"
                     />
                     <button
