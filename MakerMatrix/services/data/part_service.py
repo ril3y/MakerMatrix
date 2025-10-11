@@ -311,7 +311,7 @@ class PartService(BaseService):
                 categories = []
 
                 # Auto-assign "Hardware" category for Bolt Depot parts
-                supplier = part_data.get("supplier", "").lower()
+                supplier = (part_data.get("supplier") or "").lower()
                 self.logger.debug(f"Checking hardware category auto-assign: supplier='{supplier}', category_names={category_names}")
                 if supplier == "boltdepot" and "hardware" not in [cat.lower() for cat in category_names]:
                     category_names.append("hardware")
