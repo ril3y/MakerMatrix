@@ -36,6 +36,25 @@ const EditUserModal = ({
   // Check if editing own profile
   const isEditingSelf = currentUser?.id === user?.id
 
+  // Determine if current password is required
+  // Admin editing another user = NO current password needed
+  // Anyone editing themselves = YES current password needed
+  const requireCurrentPassword = !isAdmin || isEditingSelf
+
+  // Debug logging
+  useEffect(() => {
+    if (isOpen && user) {
+      console.log('=== EditUserModal Debug ===')
+      console.log('Current User ID:', currentUser?.id)
+      console.log('Editing User ID:', user?.id)
+      console.log('Current User Roles:', currentUser?.roles?.map(r => r.name))
+      console.log('isAdmin:', isAdmin)
+      console.log('isEditingSelf:', isEditingSelf)
+      console.log('requireCurrentPassword:', requireCurrentPassword)
+      console.log('=========================')
+    }
+  }, [isOpen, user, currentUser, isAdmin, isEditingSelf, requireCurrentPassword])
+
   useEffect(() => {
     if (user) {
       setSelectedRoleIds(user.roles.map((r) => r.id))
@@ -97,9 +116,7 @@ const EditUserModal = ({
   const handlePasswordChange = async () => {
     if (!user) return
 
-    // Validation - admins editing others don't need current password
-    const requireCurrentPassword = isEditingSelf || !isAdmin
-
+    // Validation - use the requireCurrentPassword from component state
     if (requireCurrentPassword && !currentPassword) {
       toast.error('Please enter your current password')
       return
@@ -234,8 +251,8 @@ const EditUserModal = ({
 
             {showPasswordSection && (
               <div className="p-4 space-y-3 border-t border-border">
-                {/* Admin Notice */}
-                {isAdmin && !isEditingSelf && (
+                {/* Admin Notice - show when admin is editing another user */}
+                {!requireCurrentPassword && (
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 mb-3">
                     <p className="text-xs text-blue-800 dark:text-blue-200">
                       ℹ️ As an admin, you can change this user's password without their current password.
@@ -243,8 +260,8 @@ const EditUserModal = ({
                   </div>
                 )}
 
-                {/* Current Password - only show if editing self or not admin */}
-                {(isEditingSelf || !isAdmin) && (
+                {/* Current Password - only show if required */}
+                {requireCurrentPassword && (
                   <div>
                     <label className="block text-xs font-medium text-secondary mb-1">
                       Current Password *
