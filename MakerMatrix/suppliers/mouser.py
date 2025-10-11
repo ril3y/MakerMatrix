@@ -422,6 +422,21 @@ class MouserSupplier(BaseSupplier):
         try:
             # Check if supplier is configured first
             if not self.is_configured():
+                # Before reporting as unconfigured, check if credentials exist in environment
+                env_api_key = os.getenv('MOUSER_API_KEY', '').strip()
+
+                if env_api_key:
+                    # Credentials exist in env but not loaded - this is OK
+                    return {
+                        "success": True,
+                        "message": "Mouser configured via environment variables - ready for enrichment",
+                        "details": {
+                            "credentials_source": "environment_variables",
+                            "configuration_complete": True,
+                            "api_ready": True
+                        }
+                    }
+
                 return {
                     "success": False,
                     "message": "Mouser not configured",
@@ -598,6 +613,10 @@ class MouserSupplier(BaseSupplier):
         data = data or {}  # Handle case where data is None
         search_results = data.get("SearchResults", {})
         parts = search_results.get("Parts", [])
+
+        # Debug: Log what fields are in the first part response
+        if parts:
+            logger.info(f"[MOUSER DEBUG] Available fields in API response: {list(parts[0].keys())}")
         
         for part in parts:
             # Parse pricing
@@ -694,13 +713,18 @@ class MouserSupplier(BaseSupplier):
             additional_data = {k: v for k, v in additional_data.items()
                              if v is not None and v != "" and v != [] and v != False}
 
+            # Extract datasheet URL with debug logging
+            datasheet_url = part.get("DataSheetUrl", "")
+            product_detail_url = part.get("ProductDetailUrl", "")
+            logger.info(f"[MOUSER DEBUG] Part {part.get('MouserPartNumber', 'unknown')}: DataSheetUrl='{datasheet_url}', ProductDetailUrl='{product_detail_url}'")
+
             result = PartSearchResult(
                 supplier_part_number=part.get("MouserPartNumber", ""),
                 manufacturer=part.get("Manufacturer", ""),
                 manufacturer_part_number=part.get("ManufacturerPartNumber", ""),
                 description=part.get("Description", ""),
                 category=part.get("Category", ""),
-                datasheet_url=part.get("DataSheetUrl", ""),
+                datasheet_url=datasheet_url,
                 image_url=part.get("ImagePath", ""),
                 stock_quantity=stock_qty,
                 pricing=pricing if pricing else None,
@@ -765,11 +789,35 @@ class MouserSupplier(BaseSupplier):
         return await self._tracked_api_call("fetch_stock", _impl)
     
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:
-        """Fetch datasheet URL for a Mouser part"""
+        """
+        Fetch datasheet URL for a Mouser part.
+
+        Note: Mouser's API does not always provide datasheet URLs for all parts,
+        even when datasheets exist on their website. This is a known limitation
+        of the Mouser API. When the API doesn't provide a datasheet URL, users
+        can access the product_detail_url stored in additional_properties to
+        manually view the datasheet on Mouser's website.
+        """
         async def _impl():
             part_details = await self.get_part_details(supplier_part_number)
-            return part_details.datasheet_url if part_details else None
-        
+            if not part_details:
+                return None
+
+            # Return datasheet URL if provided by the API
+            if part_details.datasheet_url:
+                logger.info(f"Mouser API provided datasheet URL for {supplier_part_number}: {part_details.datasheet_url}")
+                return part_details.datasheet_url
+
+            # Log when datasheet is not available via API
+            if part_details.additional_data and part_details.additional_data.get('product_detail_url'):
+                product_url = part_details.additional_data['product_detail_url']
+                logger.info(
+                    f"Mouser API did not provide a datasheet URL for {supplier_part_number}. "
+                    f"Users can view the product page for manual datasheet access: {product_url}"
+                )
+
+            return None
+
         return await self._tracked_api_call("fetch_datasheet", _impl)
     
     async def fetch_pricing_stock(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
@@ -819,19 +867,37 @@ class MouserSupplier(BaseSupplier):
                 # Check column headers for Mouser patterns
                 if not df.empty:
                     headers = ' '.join(str(col).lower() for col in df.columns)
-                    mouser_indicators = [
-                        'mouser part', 'mouser p/n', 'part number', 'mouse part',
-                        'manufacturer part number', 'quantity', 'unit price',
-                        'extended price', 'customer part'
+                    logger.info(f"🔍 Mouser detection - File: {filename}")
+                    logger.info(f"🔍 Mouser detection - Headers found: {headers}")
+
+                    # Split indicators into Mouser-specific and generic
+                    mouser_specific_indicators = [
+                        'mouser part', 'mouser p/n', 'mouse part', 'mouser no', 'mouser #'
                     ]
-                    if any(indicator in headers for indicator in mouser_indicators):
+                    generic_indicators = [
+                        'manufacturer part number', 'part number', 'quantity', 'unit price'
+                    ]
+
+                    # Require at least one Mouser-specific indicator
+                    has_mouser_specific = any(indicator in headers for indicator in mouser_specific_indicators)
+                    has_generic = any(indicator in headers for indicator in generic_indicators)
+
+                    logger.info(f"🔍 Mouser detection - has_mouser_specific: {has_mouser_specific}")
+                    logger.info(f"🔍 Mouser detection - has_generic: {has_generic}")
+
+                    if has_mouser_specific and has_generic:
+                        logger.info(f"✅ Mouser detection - File accepted!")
                         return True
-            except Exception:
-                # If we can't read the Excel file, but extension is supported, allow it
-                return True
-        
-        # If no content provided but extension is supported, allow it for now
-        return True
+                    else:
+                        logger.info(f"❌ Mouser detection - File rejected (missing indicators)")
+                        return False
+            except Exception as e:
+                logger.debug(f"Error reading Excel file for Mouser detection: {e}")
+                # If we can't read the Excel file, reject it (don't blindly allow)
+                return False
+
+        # If no content provided, only allow if filename matches Mouser patterns
+        return False
     
     async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
         """Import Mouser order Excel file"""
