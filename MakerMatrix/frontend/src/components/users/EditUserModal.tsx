@@ -137,6 +137,21 @@ const EditUserModal = ({
       return
     }
 
+    if (!/[A-Z]/.test(newPassword)) {
+      toast.error('Password must contain at least one uppercase letter')
+      return
+    }
+
+    if (!/[a-z]/.test(newPassword)) {
+      toast.error('Password must contain at least one lowercase letter')
+      return
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+      toast.error('Password must contain at least one number')
+      return
+    }
+
     if (requireCurrentPassword && newPassword === currentPassword) {
       toast.error('New password must be different from current password')
       return
@@ -334,7 +349,7 @@ const EditUserModal = ({
                 {/* Password Requirements */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
                   <p className="text-xs text-blue-800 dark:text-blue-200">
-                    Password must be at least 8 characters and different from current password.
+                    Must be at least 8 characters with uppercase, lowercase, and number
                   </p>
                 </div>
 
