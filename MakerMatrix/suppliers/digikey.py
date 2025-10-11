@@ -1318,17 +1318,20 @@ class DigiKeySupplier(BaseSupplier):
                 # For CSV files, check text content
                 else:
                     content_str = file_content.decode('utf-8', errors='ignore')[:2000]  # Check first 2KB
-                    # Split indicators into DigiKey-specific and generic (same as Excel logic)
+                    # Normalize content for case-insensitive and punctuation-insensitive matching
+                    content_normalized = content_str.lower().replace(':', '').replace('-', '').replace('_', ' ').strip()
+
+                    # Split indicators into DigiKey-specific and generic (normalized)
                     digikey_specific_indicators = [
-                        'Digi-Key Part Number', 'DigiKey Part', 'Customer Reference', 'dk_products'
+                        'digi key part number', 'digikey part', 'customer reference', 'dk_products', 'digi key p/n'
                     ]
                     generic_indicators = [
-                        'Manufacturer Part Number', 'Part Number', 'Quantity'
+                        'manufacturer part number', 'part number', 'quantity', 'mfr part'
                     ]
 
                     # Require at least one DigiKey-specific indicator
-                    has_digikey_specific = any(indicator in content_str for indicator in digikey_specific_indicators)
-                    has_generic = any(indicator in content_str for indicator in generic_indicators)
+                    has_digikey_specific = any(indicator in content_normalized for indicator in digikey_specific_indicators)
+                    has_generic = any(indicator in content_normalized for indicator in generic_indicators)
 
                     return has_digikey_specific and has_generic
             except Exception as e:
