@@ -23,10 +23,17 @@ from .supplier_config_models import *
 from .rate_limiting_models import *
 from .csv_import_config_model import *
 from .label_template_models import *
+from .tool_models import *
 
 # Create an engine for SQLite
-sqlite_file_name = "makermatrix.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Use DATABASE_URL from .env, fallback to absolute path
+sqlite_url = os.getenv("DATABASE_URL", "sqlite:////home/ril3y/MakerMatrix/makermatrix.db")
 
 engine = create_engine(
     sqlite_url, 

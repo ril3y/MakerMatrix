@@ -166,6 +166,12 @@ class LocationModel(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
+    # Tool allocations at this location
+    tool_allocations: List["ToolLocationAllocation"] = Relationship(
+        back_populates="location",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
     @classmethod
     def get_with_children(cls, session: Session, location_id: str) -> Optional["LocationModel"]:
         """Custom method to get a location with its children"""
@@ -316,3 +322,4 @@ class LocationUpdate(SQLModel):
 if False:  # Type checking only - prevents circular imports at runtime
     from .part_models import PartModel
     from .part_allocation_models import PartLocationAllocation
+    from .tool_models import ToolLocationAllocation
