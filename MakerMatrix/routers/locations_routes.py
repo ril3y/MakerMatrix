@@ -9,7 +9,7 @@ from MakerMatrix.models.models import LocationUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.location_service import LocationService
-from MakerMatrix.auth.dependencies import get_current_user, oauth2_scheme
+from MakerMatrix.auth.dependencies import get_current_user_flexible, oauth2_scheme
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
 
@@ -121,7 +121,7 @@ async def update_location(
     location_id: str, 
     location_data: LocationUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user_flexible)
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Update a location's fields. This endpoint can update any combination of name, description, parent_id, and location_type.
@@ -136,16 +136,8 @@ async def update_location(
         ResponseSchema: A response containing the updated location data
     """
     # Convert the Pydantic model to a dict
-    # Allow None for emoji and image_url (to clear them), but exclude None for other fields
-    all_data = location_data.model_dump(exclude_unset=False)  # Include all fields, even None
-    print(f"[DEBUG] All data from request: {all_data}")
-
-    update_data = {}
-    for k, v in all_data.items():
-        # Include field if it has a value, or if it's emoji/image_url being explicitly cleared
-        if v is not None or k in ['emoji', 'image_url']:
-            update_data[k] = v
-
+    # Only include fields that were explicitly set in the request
+    update_data = location_data.model_dump(exclude_unset=True)
     print(f"[DEBUG] Update data being sent to service: {update_data}")
 
     location_service = LocationService()
@@ -204,7 +196,7 @@ async def update_location(
 async def add_location(
     location_data: LocationCreateRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user_flexible)
 ) -> ResponseSchema[Dict[str, Any]]:
     location_service = LocationService()
 
@@ -347,7 +339,7 @@ async def preview_location_delete(location_id: str) -> ResponseSchema:
 async def delete_location(
     location_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user_flexible)
 ) -> ResponseSchema:
     response = LocationService.delete_location(location_id)
     
