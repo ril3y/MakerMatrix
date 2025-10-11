@@ -147,9 +147,9 @@ export const getPDFProxyUrl = (externalUrl: string): string => {
 
   if (isDevelopment) {
     // Use relative URL so it goes through Vite proxy
-    return `/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
+    return `/api/utility/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
   } else {
     // Production: use full API URL
-    return `${API_BASE_URL}/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
+    return `${API_BASE_URL}/api/utility/static/proxy-pdf?url=${encodeURIComponent(externalUrl)}`
   }
 }

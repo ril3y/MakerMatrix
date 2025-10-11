@@ -168,19 +168,19 @@ class SupplierDataMapper:
         return {k: v for k, v in core_data.items() if v is not None}
     
     def _map_additional_properties(
-        self, 
-        result: PartSearchResult, 
+        self,
+        result: PartSearchResult,
         supplier_name: str,
         enrichment_capabilities: List[str] = None
     ) -> StandardizedAdditionalProperties:
         """Map PartSearchResult to standardized additional_properties structure"""
-        
+
         props = StandardizedAdditionalProperties()
-        
+
         # NO LONGER mapping specifications - we want flat key-value pairs instead
         # All specification data should go directly into additional_data as flat keys
         # This prevents nested {"specifications": {...}} structure
-        
+
         # Map supplier data (keep nested structure for supplier_data)
         supplier_data = StandardizedSupplierData(
             supplier_name=supplier_name,
@@ -200,6 +200,21 @@ class SupplierDataMapper:
 
         # Extract meaningful fields as flat key-value pairs in custom_fields
         # This creates the readable additional_properties that users see
+
+        # IMPORTANT: Add datasheet_url directly to custom_fields so frontend can find it
+        # Check multiple possible sources for datasheet URL
+        datasheet_url = result.datasheet_url
+        if not datasheet_url and result.additional_data:
+            # Check alternative keys that suppliers might use
+            datasheet_keys = ['datasheet_url', 'lcsc_datasheet_url', 'DataSheetUrl', 'datasheet_link']
+            for key in datasheet_keys:
+                if key in result.additional_data and result.additional_data[key]:
+                    datasheet_url = result.additional_data[key]
+                    break
+
+        if datasheet_url:
+            props.custom_fields['datasheet_url'] = datasheet_url
+
         if result.additional_data:
             # Extract specific technical specifications that users care about
             interesting_fields = {

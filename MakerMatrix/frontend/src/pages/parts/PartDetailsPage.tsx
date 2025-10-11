@@ -912,21 +912,25 @@ const PartDetailsPage = () => {
               <div className="flex flex-wrap gap-3">
                 {/* Only show Enrich button if supplier is set and is not a simple supplier */}
                 {part.supplier && supplierConfig?.supplier_type !== 'simple' && (
-                  <button
-                    onClick={handleEnrich}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-theme-inverse rounded-lg hover:bg-primary-dark transition-colors font-medium"
-                  >
-                    <Zap className="w-4 h-4" />
-                    Enrich Data
-                  </button>
+                  <PermissionGuard permission="parts:update">
+                    <button
+                      onClick={handleEnrich}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-theme-inverse rounded-lg hover:bg-primary-dark transition-colors font-medium"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Enrich Data
+                    </button>
+                  </PermissionGuard>
                 )}
-                <button
-                  onClick={() => setPrinterModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-theme-tertiary border border-theme-primary text-theme-primary rounded-lg hover:bg-theme-secondary transition-colors font-medium"
-                >
-                  <Printer className="w-4 h-4" />
-                  Print Label
-                </button>
+                <PermissionGuard permission="parts:update">
+                  <button
+                    onClick={() => setPrinterModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-theme-tertiary border border-theme-primary text-theme-primary rounded-lg hover:bg-theme-secondary transition-colors font-medium"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print Label
+                  </button>
+                </PermissionGuard>
                 <PermissionGuard permission="parts:update">
                   <button
                     onClick={handleEdit}
@@ -1859,7 +1863,7 @@ const PartDetailsPage = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
-                              const url = `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
+                              const url = `/static/datasheets/${part.additional_properties.datasheet_filename}`
                               setPdfPreviewUrl(url)
                               setPdfPreviewOpen(true)
                             }}
@@ -1870,7 +1874,7 @@ const PartDetailsPage = () => {
                           </button>
                           <button
                             onClick={() => {
-                              const url = `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
+                              const url = `/static/datasheets/${part.additional_properties.datasheet_filename}`
                               const link = document.createElement('a')
                               link.href = url
                               link.download =

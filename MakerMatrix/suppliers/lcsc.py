@@ -510,7 +510,7 @@ class LCSCSupplier(BaseSupplier):
                 )
                 return None
 
-            return self._parse_product_page_html(response.raw_content, product_url)
+            return await self._parse_product_page_html(response.raw_content, product_url)
 
         except Exception as exc:
             logger.warning(
@@ -520,7 +520,7 @@ class LCSCSupplier(BaseSupplier):
             )
             return None
 
-    def _parse_product_page_html(self, html_text: str, page_url: str) -> Dict[str, Any]:
+    async def _parse_product_page_html(self, html_text: str, page_url: str) -> Dict[str, Any]:
         """Parse key metadata from the LCSC product detail page HTML."""
         page_details: Dict[str, Any] = {
             "attributes": {},
@@ -573,9 +573,48 @@ class LCSCSupplier(BaseSupplier):
             if link:
                 page_details.setdefault("attribute_links", {})[label] = urljoin(page_url, link)
 
+        # Extract actual PDF URL from LCSC's datasheet wrapper page
+        # LCSC's "Datasheet" link (e.g., https://www.lcsc.com/datasheet/C427380.pdf)
+        # returns an HTML page with an iframe containing the actual PDF
         datasheet_link = page_details.get("attribute_links", {}).get("Datasheet")
-        if datasheet_link:
-            page_details["datasheet_url"] = datasheet_link
+        actual_pdf_url = None
+
+        # Priority 1: Check for pdfUrl in JSON-LD data (most reliable)
+        if page_details.get("pdfUrl"):
+            actual_pdf_url = page_details["pdfUrl"]
+
+        # Priority 2: If we have the HTML wrapper link, fetch it and extract PDF from iframe
+        elif datasheet_link and "lcsc.com/datasheet/" in datasheet_link:
+            try:
+                http_client = self._get_http_client()
+                datasheet_response = await http_client.get(datasheet_link, endpoint_type="datasheet_page")
+
+                if datasheet_response.success and datasheet_response.raw_content:
+                    datasheet_html = datasheet_response.raw_content
+                    # Extract iframe src with the actual PDF URL
+                    # Note: [^>]* makes attributes before src optional
+                    iframe_match = re.search(r'<iframe[^>]*src="([^"]+\.pdf)"', datasheet_html)
+                    if iframe_match:
+                        actual_pdf_url = iframe_match.group(1)
+                        logger.debug(f"Extracted PDF URL from iframe: {actual_pdf_url}")
+                    else:
+                        # Fallback: Look for previewPdfUrl in window.__NUXT__ data
+                        preview_match = re.search(r'previewPdfUrl:"([^"]+\.pdf)"', datasheet_html)
+                        if preview_match:
+                            actual_pdf_url = preview_match.group(1).replace('\\u002F', '/')
+                            logger.debug(f"Extracted PDF URL from __NUXT__: {actual_pdf_url}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch datasheet page {datasheet_link}: {e}")
+
+        # Priority 3: Use the link as-is if it's already a direct PDF
+        elif datasheet_link and datasheet_link.endswith('.pdf') and ('datasheet.lcsc.com' in datasheet_link or 'wmsc.lcsc.com' in datasheet_link):
+            actual_pdf_url = datasheet_link
+
+        if actual_pdf_url:
+            page_details["datasheet_url"] = actual_pdf_url
+            logger.info(f"✅ Extracted LCSC PDF URL: {actual_pdf_url}")
+        else:
+            logger.warning(f"⚠️ Failed to extract PDF URL from LCSC datasheet page, keeping wrapper: {datasheet_link}")
 
         # Extract dynamic specification data embedded in __NUXT__ payload
         specs_from_nuxt = self._extract_nuxt_specifications(html_text, nuxt_value_map)
