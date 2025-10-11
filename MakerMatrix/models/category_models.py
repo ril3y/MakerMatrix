@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any
 from sqlmodel import SQLModel, Field, Relationship
 from pydantic import ConfigDict
 
-# Import PartCategoryLink from part_models to avoid circular dependency
+# Import link tables to avoid circular dependency
 from .part_models import PartCategoryLink
 
 
@@ -24,20 +24,27 @@ class CategoryUpdate(SQLModel):
 
 class CategoryModel(SQLModel, table=True):
     """
-    Model for organizing parts into categories.
-    
-    Provides hierarchical categorization system for parts inventory
-    (e.g., Electronics > Resistors > Surface Mount Resistors).
+    Model for organizing parts and tools into categories.
+
+    Provides hierarchical categorization system for parts and tools
+    (e.g., Electronics > Resistors > Surface Mount Resistors, or Tools > Hand Tools > Screwdrivers).
     """
-    
+
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str = Field(index=True, unique=True)
     description: Optional[str] = None
-    
+
     # Many-to-many relationship with parts through PartCategoryLink
     parts: List["PartModel"] = Relationship(
-        back_populates="categories", 
+        back_populates="categories",
         link_model=PartCategoryLink,
+        sa_relationship_kwargs={"lazy": "selectin"}
+    )
+
+    # Many-to-many relationship with tools through ToolCategoryLink
+    tools: List["ToolModel"] = Relationship(
+        back_populates="categories",
+        link_model="ToolCategoryLink",
         sa_relationship_kwargs={"lazy": "selectin"}
     )
 
@@ -45,9 +52,10 @@ class CategoryModel(SQLModel, table=True):
 
     def to_dict(self) -> Dict[str, Any]:
         """Custom serialization method for CategoryModel"""
-        return self.model_dump(exclude={"parts"})
+        return self.model_dump(exclude={"parts", "tools"})
 
 
 # Forward reference updates (resolved when all model files are imported)
 if False:  # Type checking only - prevents circular imports at runtime
     from .part_models import PartModel, PartCategoryLink
+    from .tool_models import ToolModel, ToolCategoryLink
