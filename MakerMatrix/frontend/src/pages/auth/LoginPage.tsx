@@ -130,12 +130,6 @@ const LoginPage = () => {
           )}
         </button>
       </form>
-
-      <div className="mt-8 text-center">
-        <p className="text-sm text-muted">
-          Default credentials: <span className="text-secondary font-mono">admin / Admin123!</span>
-        </p>
-      </div>
     </motion.div>
   )
 }
