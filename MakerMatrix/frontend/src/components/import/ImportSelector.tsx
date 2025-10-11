@@ -267,9 +267,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
 
       if (enableAutoEnrichment && defaultCapabilities.length > 0) {
         setSelectedEnrichmentCapabilities(defaultCapabilities)
-        toast.success(
-          `Auto-selected ${defaultCapabilities.length} enrichment capabilities for ${selectedParserInfo.name}`
-        )
+        // Toast removed - consolidated into file detection toast
       }
     }
   }, [selectedParser, selectedParserInfo, enableAutoEnrichment])

@@ -731,15 +731,15 @@ const PartsPage = () => {
                     {bulkEditMode && (
                       <th className="px-2 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider w-10">
                         <button
-                          onClick={selectAllInSearch}
+                          onClick={toggleAllOnPage}
                           className="flex items-center justify-center w-5 h-5 text-primary hover:text-primary-dark transition-colors"
                           title={
-                            isAllMatchingSelected
-                              ? `Deselect all ${totalParts} parts`
-                              : `Select all ${totalParts} matching parts`
+                            isAllOnPageSelected
+                              ? `Deselect all ${parts.length} parts on this page`
+                              : `Select all ${parts.length} parts on this page`
                           }
                         >
-                          {isAllMatchingSelected ? (
+                          {isAllOnPageSelected ? (
                             <CheckSquare className="w-5 h-5 text-blue-600" />
                           ) : (
                             <Square className="w-5 h-5" />

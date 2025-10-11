@@ -332,6 +332,17 @@ def create_database_backup_endpoint():
     )
 
 
+def create_datasheet_download_endpoint():
+    """Generate datasheet download endpoint"""
+    return TaskRouteFactory.create_quick_task_endpoint(
+        task_type=TaskType.DATASHEET_DOWNLOAD,
+        task_name_template="Download datasheet for part {part_id}",
+        description_template="Download datasheet from {supplier} for part",
+        required_fields=["part_id", "datasheet_url", "supplier"],
+        default_priority=TaskPriority.NORMAL
+    )
+
+
 
 
 def create_file_import_enrichment_endpoint():

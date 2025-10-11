@@ -712,9 +712,10 @@ async def initialize_default_suppliers(
     try:
         service = SupplierConfigService()
         configs = service.initialize_default_suppliers()
-        
-        supplier_names = [config.supplier_name for config in configs]
-        
+
+        # configs is a list of dicts, extract supplier_name from each
+        supplier_names = [config['supplier_name'] for config in configs]
+
         return ResponseSchema(
             status="success",
             message=f"Initialized {len(configs)} default supplier configurations",

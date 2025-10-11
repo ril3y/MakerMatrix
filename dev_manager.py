@@ -158,7 +158,8 @@ class EnhancedServerManager:
         self.https_port = 8443
 
         self.api_enabled = os.getenv("DEV_MANAGER_API_ENABLED", "true").lower() == "true"
-        self.api_host = os.getenv("DEV_MANAGER_API_HOST", "0.0.0.0")
+        # Always listen on 0.0.0.0 to allow access from other computers on the network
+        self.api_host = "0.0.0.0"
         self.api_port = int(os.getenv("DEV_MANAGER_API_PORT", "8765"))
         self.api_log_requests = os.getenv("DEV_MANAGER_API_LOG_REQUESTS", "true").lower() == "true"
         self.api_server: Optional[ThreadingHTTPServer] = None

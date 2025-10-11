@@ -18,6 +18,7 @@ import {
   Search,
   Command,
   HelpCircle,
+  Wrench,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -68,6 +69,11 @@ const MainLayout: React.FC = () => {
       label: 'Projects',
       path: '/projects',
       icon: <Hash className="w-5 h-5" />,
+    },
+    {
+      label: 'Tools',
+      path: '/tools',
+      icon: <Wrench className="w-5 h-5" />,
     },
     {
       label: 'Tasks',
@@ -258,7 +264,7 @@ const MainLayout: React.FC = () => {
               {isSidebarOpen && (
                 <div>
                   <p className="text-sm font-medium">{user?.username}</p>
-                  <p className="text-xs text-theme-muted">{user?.roles?.[0]?.name || 'No Role'}</p>
+                  <p className="text-xs text-theme-muted">{user?.roles?.[0]?.name || 'User'}</p>
                 </div>
               )}
             </div>

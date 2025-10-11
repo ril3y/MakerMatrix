@@ -482,7 +482,10 @@ class PartEnrichmentService(BaseService):
             logger.debug(f"Standardized data keys: {list(standardized_data.keys())}")
             if 'additional_properties' in standardized_data:
                 logger.debug(f"Additional properties keys: {list(standardized_data['additional_properties'].keys())}")
-            
+
+            logger.info(f"[APPLY DEBUG] Before applying: part.supplier_part_number = '{part.supplier_part_number}'")
+            logger.info(f"[APPLY DEBUG] Standardized data has supplier_part_number = '{standardized_data.get('supplier_part_number')}'")
+
             # Update only fields that exist on PartModel
             model_fields = [
                 'manufacturer', 'manufacturer_part_number', 'component_type',
@@ -498,17 +501,20 @@ class PartEnrichmentService(BaseService):
             ]
             
             updated_fields = []
-            
+
             # Update direct model fields
             for field in model_fields:
                 if field in standardized_data:
                     old_value = getattr(part, field, None)
                     new_value = standardized_data[field]
-                    
+
                     # Only update if the new value is different and not None
                     if new_value is not None and old_value != new_value:
                         setattr(part, field, new_value)
                         updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
+                        logger.info(f"[APPLY DEBUG] Set part.{field} = '{new_value}'")
+
+            logger.info(f"[APPLY DEBUG] After field updates: part.supplier_part_number = '{part.supplier_part_number}'")
             
             # Update additional_properties with fields that don't exist on the model
             if not part.additional_properties:
@@ -664,31 +670,40 @@ class PartEnrichmentService(BaseService):
 
     async def _save_part_to_database(self, part: PartModel) -> None:
         """Save updated part to database with proper session handling."""
+        logger.info(f"[SAVE DEBUG] _save_part_to_database called for part {part.part_name}")
+        logger.info(f"[SAVE DEBUG] In-memory part.supplier_part_number = '{part.supplier_part_number}'")
+
         with self.get_session() as session:
             try:
                 # Get fresh part instance in this session
                 fresh_part = PartRepository.get_part_by_id(session, part.id)
                 if fresh_part:
+                    logger.info(f"[SAVE DEBUG] Fresh part from DB: supplier_part_number = '{fresh_part.supplier_part_number}'")
+
                     # Update main part fields that were enriched
                     if part.manufacturer and part.manufacturer != fresh_part.manufacturer:
                         logger.info(f"Updating part manufacturer: '{fresh_part.manufacturer}' -> '{part.manufacturer}'")
                         fresh_part.manufacturer = part.manufacturer
-                        
+
                     if part.manufacturer_part_number and part.manufacturer_part_number != fresh_part.manufacturer_part_number:
                         logger.info(f"Updating part manufacturer_part_number: '{fresh_part.manufacturer_part_number}' -> '{part.manufacturer_part_number}'")
                         fresh_part.manufacturer_part_number = part.manufacturer_part_number
-                    
+
                     if part.description and part.description != fresh_part.description:
                         logger.info(f"Updating part description: '{fresh_part.description}' -> '{part.description}'")
                         fresh_part.description = part.description
-                    
+
                     if part.image_url and part.image_url != fresh_part.image_url:
                         logger.info(f"Updating part image URL: '{fresh_part.image_url}' -> '{part.image_url}'")
                         fresh_part.image_url = part.image_url
 
-                    if part.supplier_part_number and part.supplier_part_number != fresh_part.supplier_part_number:
-                        logger.info(f"Updating part supplier_part_number: '{fresh_part.supplier_part_number}' -> '{part.supplier_part_number}'")
+                    # ALWAYS update supplier_part_number if it exists on the in-memory part, even if it's the same
+                    # This ensures the value persists through the enrichment process
+                    if part.supplier_part_number is not None:
+                        logger.info(f"[SAVE DEBUG] Updating part supplier_part_number: '{fresh_part.supplier_part_number}' -> '{part.supplier_part_number}'")
                         fresh_part.supplier_part_number = part.supplier_part_number
+                    else:
+                        logger.info(f"[SAVE DEBUG] part.supplier_part_number is None, not updating")
 
                     # Update additional_properties
                     if not fresh_part.additional_properties:
