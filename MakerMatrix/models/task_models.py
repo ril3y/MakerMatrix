@@ -51,7 +51,10 @@ class TaskType(str, Enum):
     # Other enrichment-related tasks
     PART_VALIDATION_ENRICHMENT = "part_validation_enrichment"
     SUPPLIER_DATA_SYNC = "supplier_data_sync"
-    
+
+    # Datasheet download task
+    DATASHEET_DOWNLOAD = "datasheet_download"
+
     # Printer management task types
     PRINTER_DISCOVERY = "printer_discovery"
 

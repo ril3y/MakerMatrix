@@ -16,6 +16,7 @@ from MakerMatrix.services.system.supplier_integration_service import SupplierInt
 from MakerMatrix.services.base_service import BaseService
 from MakerMatrix.suppliers.base import SupplierCapability, PartSearchResult
 from MakerMatrix.services.activity_service import get_activity_service
+from MakerMatrix.services.system.file_download_service import file_download_service
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,7 @@ class PartEnrichmentService(BaseService):
 
             # Apply enrichment results to part
             if enrichment_results:
-                await self._apply_enrichment_to_part(part, enrichment_results, supplier)
+                await self._apply_enrichment_to_part(part, enrichment_results, supplier, task)
 
             if progress_callback:
                 await progress_callback(100, "Enrichment completed")
@@ -377,31 +378,31 @@ class PartEnrichmentService(BaseService):
         
         return failed_enrichments
 
-    async def _apply_enrichment_to_part(self, part: PartModel, enrichment_results: Dict[str, Any], supplier: str) -> None:
+    async def _apply_enrichment_to_part(self, part: PartModel, enrichment_results: Dict[str, Any], supplier: str, task: TaskModel) -> None:
         """Apply enrichment results to part using standardized data mapping."""
         logger.info(f"Processing enrichment results using standardized data mapping for part {part.part_name}")
-        
+
         # Convert enrichment results to PartSearchResult for standardized mapping
         part_search_result = self._convert_enrichment_to_part_search_result(
             part, enrichment_results, supplier
         )
-        
+
         if part_search_result:
             # Use SupplierDataMapper to get standardized part data
             standardized_data = self.data_mapper.supplier_data_mapper.map_supplier_result_to_part_data(
-                part_search_result, 
+                part_search_result,
                 supplier,
                 list(enrichment_results.keys())
             )
-            
+
             # Update part with standardized data
-            await self._apply_standardized_data_to_part(part, standardized_data)
+            await self._apply_standardized_data_to_part(part, standardized_data, supplier, task)
             logger.info(f"✅ Applied standardized data mapping for part {part.part_name}")
         else:
             # Fallback to legacy enrichment result processing
             logger.warning(f"Could not convert to PartSearchResult, using legacy processing for part {part.part_name}")
             await self._apply_legacy_enrichment_to_part(part, enrichment_results)
-        
+
         # Save updated part to database
         await self._save_part_to_database(part)
 
@@ -469,7 +470,7 @@ class PartEnrichmentService(BaseService):
             logger.error(f"Error converting enrichment to PartSearchResult: {e}")
             return None
 
-    async def _apply_standardized_data_to_part(self, part: PartModel, standardized_data: Dict[str, Any]) -> None:
+    async def _apply_standardized_data_to_part(self, part: PartModel, standardized_data: Dict[str, Any], supplier: str, task: TaskModel) -> None:
         """Apply standardized data mapping to part using the EnrichmentDataMapper results."""
         try:
             logger.info(f"Applying standardized data to part {part.part_name}")
@@ -530,12 +531,18 @@ class PartEnrichmentService(BaseService):
                 )
                 updated_fields.extend(payload_updates)
 
+            # Create a background task for datasheet download if URL is present
+            datasheet_url = standardized_data.get('additional_properties', {}).get('datasheet_url')
+            if datasheet_url and not part.additional_properties.get('datasheet_downloaded'):
+                # Create a datasheet download task instead of downloading synchronously
+                await self._create_datasheet_download_task(part, datasheet_url, supplier, task)
+
             # Update last enrichment timestamp
             part.additional_properties['last_enrichment'] = datetime.utcnow().isoformat()
 
             if updated_fields:
                 logger.info(f"Updated fields for part {part.part_name}: {updated_fields}")
-            
+
         except Exception as e:
             logger.error(f"Error applying standardized data to part: {e}")
             raise
@@ -686,6 +693,60 @@ class PartEnrichmentService(BaseService):
             except Exception as e:
                 logger.error(f"Failed to save enrichment results to database: {e}")
                 raise
+
+    async def _create_datasheet_download_task(self, part: PartModel, datasheet_url: str, supplier: str, parent_task: TaskModel) -> None:
+        """
+        Create a background task to download datasheet file for a part.
+
+        Args:
+            part: The part model with datasheet URL
+            datasheet_url: URL of the datasheet to download
+            supplier: Supplier name
+            parent_task: The parent enrichment task for user tracking
+        """
+        try:
+            logger.info(f"Creating datasheet download task for part {part.part_name}")
+
+            # Get part number for filename
+            part_number = part.supplier_part_number or part.part_number or part.id
+
+            # Import here to avoid circular dependency
+            from MakerMatrix.models.task_models import TaskType, CreateTaskRequest, TaskPriority
+            from MakerMatrix.services.system.task_service import task_service
+
+            # Create task request for datasheet download
+            task_request = CreateTaskRequest(
+                task_type=TaskType.DATASHEET_DOWNLOAD,
+                name=f"Download datasheet for {part.part_name}",
+                description=f"Download datasheet from {supplier} for part {part.part_name}",
+                priority=TaskPriority.NORMAL,
+                input_data={
+                    'part_id': part.id,
+                    'datasheet_url': datasheet_url,
+                    'supplier': supplier,
+                    'part_number': part_number
+                },
+                related_entity_type='part',
+                related_entity_id=part.id,
+                parent_task_id=parent_task.id if parent_task else None
+            )
+
+            # Create the task using the same user as the parent task
+            user_id = parent_task.created_by_user_id if parent_task else None
+            task_response = await task_service.create_task(task_request, user_id=user_id)
+
+            if task_response.success:
+                logger.info(f"✅ Created datasheet download task {task_response.data['id']} for {part.part_name}")
+                # Mark that download is pending
+                part.additional_properties['datasheet_download_pending'] = True
+            else:
+                logger.error(f"Failed to create datasheet download task: {task_response.message}")
+                part.additional_properties['datasheet_downloaded'] = False
+
+        except Exception as e:
+            logger.error(f"Error creating datasheet download task for part {part.part_name}: {e}")
+            part.additional_properties['datasheet_downloaded'] = False
+            part.additional_properties['datasheet_download_error'] = str(e)
 
     def _get_user_from_task(self, task: TaskModel) -> Optional[Any]:
         """Get user object from task's created_by_user_id."""
