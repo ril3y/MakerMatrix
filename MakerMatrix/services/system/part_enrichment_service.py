@@ -434,6 +434,7 @@ class PartEnrichmentService(BaseService):
                 if isinstance(part_data_result, dict) and part_data_result.get('success'):
                     # Extract data directly from the unified part data
                     datasheet_url = part_data_result.get('datasheet_url')
+                    logger.info(f"[DATASHEET DEBUG] Extracted datasheet_url from part_data: {datasheet_url}")
                     image_url = part_data_result.get('image_url')
                     pricing = part_data_result.get('pricing')
                     stock_quantity = part_data_result.get('stock_quantity')
@@ -452,8 +453,10 @@ class PartEnrichmentService(BaseService):
                     category = part_data_result.get('category')
             
             # Create PartSearchResult
-            return PartSearchResult(
-                supplier_part_number=part.part_number or "",
+            # Use the supplier part number from the part (which was provided in the enrichment modal)
+            # or fall back to the enriched supplier part number from additional_data
+            result = PartSearchResult(
+                supplier_part_number=part.supplier_part_number or additional_data.get(f'{supplier_name.lower()}_part_number', '') or part.part_number or "",
                 manufacturer=manufacturer,
                 manufacturer_part_number=manufacturer_part_number,
                 description=description,
@@ -465,6 +468,8 @@ class PartEnrichmentService(BaseService):
                 specifications={},  # No longer using nested specifications - all data in additional_data
                 additional_data=additional_data
             )
+            logger.info(f"[DATASHEET DEBUG] Created PartSearchResult with datasheet_url: {result.datasheet_url}")
+            return result
             
         except Exception as e:
             logger.error(f"Error converting enrichment to PartSearchResult: {e}")
@@ -474,6 +479,9 @@ class PartEnrichmentService(BaseService):
         """Apply standardized data mapping to part using the EnrichmentDataMapper results."""
         try:
             logger.info(f"Applying standardized data to part {part.part_name}")
+            logger.debug(f"Standardized data keys: {list(standardized_data.keys())}")
+            if 'additional_properties' in standardized_data:
+                logger.debug(f"Additional properties keys: {list(standardized_data['additional_properties'].keys())}")
             
             # Update only fields that exist on PartModel
             model_fields = [
@@ -677,7 +685,11 @@ class PartEnrichmentService(BaseService):
                     if part.image_url and part.image_url != fresh_part.image_url:
                         logger.info(f"Updating part image URL: '{fresh_part.image_url}' -> '{part.image_url}'")
                         fresh_part.image_url = part.image_url
-                    
+
+                    if part.supplier_part_number and part.supplier_part_number != fresh_part.supplier_part_number:
+                        logger.info(f"Updating part supplier_part_number: '{fresh_part.supplier_part_number}' -> '{part.supplier_part_number}'")
+                        fresh_part.supplier_part_number = part.supplier_part_number
+
                     # Update additional_properties
                     if not fresh_part.additional_properties:
                         fresh_part.additional_properties = {}
@@ -695,7 +707,9 @@ class PartEnrichmentService(BaseService):
                         flag_modified(fresh_part, 'description')
                     if part.image_url:
                         flag_modified(fresh_part, 'image_url')
-                    
+                    if part.supplier_part_number:
+                        flag_modified(fresh_part, 'supplier_part_number')
+
                     PartRepository.update_part(session, fresh_part)
                     logger.info(f"Successfully updated part {part.part_name} with enrichment data")
                 else:

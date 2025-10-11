@@ -460,20 +460,30 @@ class SupplierDataMapper:
     
     def _map_mouser_data(self, result: PartSearchResult) -> Dict[str, Any]:
         """Mouser-specific data mapping"""
-        
+
         custom_fields = {}
-        
+        core_fields = {}
+
         if result.additional_data:
+            # Map the Mouser part number to supplier_part_number if available
+            mouser_part_number = result.additional_data.get('mouser_part_number')
+            # Only override supplier_part_number if we don't already have one
+            # This preserves the user-entered value from the enrichment modal
+            if mouser_part_number and not result.supplier_part_number:
+                # The enrichment returned a Mouser part number and we don't have one, use it
+                core_fields['supplier_part_number'] = mouser_part_number
+
             custom_fields.update({
                 'mouser_url': result.additional_data.get('product_detail_url'),
+                'mouser_part_number': mouser_part_number,  # Also store in additional_properties for reference
                 'lead_time': result.additional_data.get('lead_time'),
                 'min_order_qty': result.additional_data.get('min_order_qty'),
                 'mouser_category': result.category,
                 'packaging': result.additional_data.get('packaging')
             })
-        
+
         return {
-            'core_fields': {},
+            'core_fields': core_fields,
             'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
         }
     
@@ -481,6 +491,20 @@ class SupplierDataMapper:
         """DigiKey-specific data mapping - maps specifications to additional_properties"""
 
         custom_fields = {}
+        core_fields = {}
+
+        # Map the DigiKey part number to supplier_part_number if available in additional_data
+        if result.additional_data:
+            digikey_part_number = result.additional_data.get('digikey_part_number')
+            # Only override supplier_part_number if we don't already have one
+            # This preserves the user-entered value from the enrichment modal
+            if digikey_part_number and not result.supplier_part_number:
+                # The enrichment returned a DigiKey part number and we don't have one, use it
+                core_fields['supplier_part_number'] = digikey_part_number
+
+            # Also store in additional_properties for reference
+            if digikey_part_number:
+                custom_fields['digikey_part_number'] = digikey_part_number
 
         # Map all specifications as flat key-value pairs to additional_properties
         # This includes all DigiKey Parameters (Core Processor, Speed, Package, etc.)
@@ -491,7 +515,7 @@ class SupplierDataMapper:
                     custom_fields[key] = value
 
         return {
-            'core_fields': {},
+            'core_fields': core_fields,
             'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
         }
     
