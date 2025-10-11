@@ -866,16 +866,19 @@ class MouserSupplier(BaseSupplier):
                 
                 # Check column headers for Mouser patterns
                 if not df.empty:
-                    headers = ' '.join(str(col).lower() for col in df.columns)
+                    # Normalize headers: remove colons, extra spaces, and convert to lowercase
+                    headers = ' '.join(str(col).lower().replace(':', '').strip() for col in df.columns)
                     logger.info(f"🔍 Mouser detection - File: {filename}")
                     logger.info(f"🔍 Mouser detection - Headers found: {headers}")
 
                     # Split indicators into Mouser-specific and generic
                     mouser_specific_indicators = [
-                        'mouser part', 'mouser p/n', 'mouse part', 'mouser no', 'mouser #'
+                        'mouser part', 'mouser p/n', 'mouse part', 'mouser no', 'mouser #',
+                        'mouser', 'mfr. #', 'mfr #'  # Added more flexible patterns
                     ]
                     generic_indicators = [
-                        'manufacturer part number', 'part number', 'quantity', 'unit price'
+                        'manufacturer part number', 'part number', 'quantity', 'unit price',
+                        'order qty', 'qty', 'desc'  # Added more flexible patterns
                     ]
 
                     # Require at least one Mouser-specific indicator

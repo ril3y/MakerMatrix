@@ -1,3 +1,12 @@
+We need all of these tasks completed.  We shold do one task at a time.  Each task needs to have tests front end and back end created for it and it needs
+to pas before going to the next task.  At the start of each task start a new full stack developer agent to do the actual work.  ALso look for the 
+> @.github/workflows/  that need to pass as well.  Once a task is test and it works git commit and move on to the next task.  Remember its important
+to init a new full stack developer before every task.
+
+Break up the following notes into the individual tasks and create a tasks.md file that you will update as each task has been completed.
+Once all tasks are finished let the user know!
+
+
 When we have an allocation to a location, and we rename that locations name it loses its reference to that allocation.
 
 
@@ -48,3 +57,8 @@ AI:
 Enabling the AI for ollama is not really working its janky and errors lets take a closer look at this.  Also the ai prompt was teaching it sql to 
 do lookups etc.  But i think this is not right we should just tell it about the api for the server OR we should setup a mcp server for thisproject
 but I am not sure which is the best way to go since we are using 7b models by default to do things for us.
+
+projects
+On the projects page we see the parts that are used in the project details view when clicked.  I want a button  that we can remove the part from the 
+project from that view. like a X or something or the trashcan logo etc something we have used already in the site for consistency.
+

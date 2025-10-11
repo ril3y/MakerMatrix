@@ -265,6 +265,20 @@ export class PartsService {
   }
 
   /**
+   * Bulk delete multiple parts with associated file cleanup
+   */
+  async bulkDeleteParts(request: BulkDeleteRequest): Promise<BulkDeleteResponse> {
+    const response = await apiClient.post<ApiResponse<BulkDeleteResponse>>(
+      '/api/parts/bulk_delete',
+      request
+    )
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to bulk delete parts')
+  }
+
+  /**
    * Enrich part data from supplier using unified backend endpoint
    * This uses SupplierDataMapper on the backend to ensure consistent data mapping
    */
@@ -298,6 +312,21 @@ export interface BulkUpdateRequest {
 
 export interface BulkUpdateResponse {
   updated_count: number
+  failed_count: number
+  errors: Array<{
+    part_id: string
+    error: string
+  }>
+}
+
+// Bulk delete types
+export interface BulkDeleteRequest {
+  part_ids: string[]
+}
+
+export interface BulkDeleteResponse {
+  deleted_count: number
+  files_deleted: number
   failed_count: number
   errors: Array<{
     part_id: string

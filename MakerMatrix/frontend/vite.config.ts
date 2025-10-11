@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      host: true,
+      host: '0.0.0.0',
       https: {
         key: path.resolve(__dirname, '../../certs/key.pem'),
         cert: path.resolve(__dirname, '../../certs/cert.pem'),

@@ -578,11 +578,39 @@ async def proxy_pdf(url: str = Query(..., description="URL of the PDF to proxy")
         raise HTTPException(status_code=400, detail="Invalid URL provided")
     
     # Security check - only allow certain domains for safety
+    # Includes major suppliers and common manufacturer datasheet hosts
     allowed_domains = [
-        'lcsc.com', 'www.lcsc.com', 
+        # Suppliers
+        'lcsc.com', 'www.lcsc.com',
         'digikey.com', 'www.digikey.com',
         'mouser.com', 'www.mouser.com',
-        'easyeda.com', 'datasheet.lcsc.com'
+        'easyeda.com', 'datasheet.lcsc.com',
+        # Common manufacturer domains (where DigiKey/Mouser often link to)
+        'st.com', 'www.st.com',  # STMicroelectronics
+        'ti.com', 'www.ti.com',  # Texas Instruments
+        'infineon.com', 'www.infineon.com',  # Infineon
+        'nxp.com', 'www.nxp.com',  # NXP Semiconductors
+        'analog.com', 'www.analog.com',  # Analog Devices
+        'microchip.com', 'www.microchip.com',  # Microchip
+        'onsemi.com', 'www.onsemi.com',  # ON Semiconductor
+        'renesas.com', 'www.renesas.com',  # Renesas
+        'maxlinear.com', 'www.maxlinear.com',  # MaxLinear (formerly Maxim)
+        'cypress.com', 'www.cypress.com',  # Cypress (now part of Infineon)
+        'rohm.com', 'www.rohm.com',  # ROHM Semiconductor
+        'toshiba.com', 'www.toshiba.com',  # Toshiba
+        'vishay.com', 'www.vishay.com',  # Vishay
+        'samsung.com', 'www.samsung.com',  # Samsung
+        'murata.com', 'www.murata.com',  # Murata
+        'yageo.com', 'www.yageo.com',  # Yageo
+        'kemet.com', 'www.kemet.com',  # KEMET
+        'bourns.com', 'www.bourns.com',  # Bourns
+        'coilcraft.com', 'www.coilcraft.com',  # Coilcraft
+        'te.com', 'www.te.com',  # TE Connectivity
+        'molex.com', 'www.molex.com',  # Molex
+        'amphenol.com', 'www.amphenol.com',  # Amphenol
+        'ftdichip.com', 'www.ftdichip.com',  # FTDI
+        'silabs.com', 'www.silabs.com',  # Silicon Labs
+        'espressif.com', 'www.espressif.com',  # Espressif (ESP32)
     ]
     
     if not any(domain in parsed_url.netloc.lower() for domain in allowed_domains):

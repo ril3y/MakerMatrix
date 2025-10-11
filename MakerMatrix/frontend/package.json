@@ -51,6 +51,7 @@
     "react-syntax-highlighter": "^15.6.6",
     "socket.io-client": "^4.7.0",
     "tailwind-merge": "^2.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.22.0",
     "zustand": "^4.4.0"
   },

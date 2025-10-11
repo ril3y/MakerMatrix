@@ -10,8 +10,13 @@ describe('filePreview', () => {
 
       const result = await previewFile(file)
 
+      console.log('DigiKey test result:', JSON.stringify(result, null, 2))
+
       expect(result.detected_parser).toBe('digikey')
       expect(result.file_type).toBe('CSV')
+      if (!result.is_supported) {
+        console.error('Validation errors:', result.validation_errors)
+      }
       expect(result.is_supported).toBe(true)
       expect(result.validation_errors).toHaveLength(0)
     })

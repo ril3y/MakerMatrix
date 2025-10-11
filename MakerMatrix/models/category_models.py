@@ -12,6 +12,7 @@ from pydantic import ConfigDict
 
 # Import link tables to avoid circular dependency
 from .part_models import PartCategoryLink
+from .tool_models import ToolCategoryLink
 
 
 class CategoryUpdate(SQLModel):
@@ -44,7 +45,7 @@ class CategoryModel(SQLModel, table=True):
     # Many-to-many relationship with tools through ToolCategoryLink
     tools: List["ToolModel"] = Relationship(
         back_populates="categories",
-        link_model="ToolCategoryLink",
+        link_model=ToolCategoryLink,
         sa_relationship_kwargs={"lazy": "selectin"}
     )
 
