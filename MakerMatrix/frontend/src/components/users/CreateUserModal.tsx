@@ -34,6 +34,21 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
       return
     }
 
+    if (!/[A-Z]/.test(formData.password)) {
+      toast.error('Password must contain at least one uppercase letter')
+      return
+    }
+
+    if (!/[a-z]/.test(formData.password)) {
+      toast.error('Password must contain at least one lowercase letter')
+      return
+    }
+
+    if (!/[0-9]/.test(formData.password)) {
+      toast.error('Password must contain at least one number')
+      return
+    }
+
     if (formData.password !== confirmPassword) {
       toast.error('Passwords do not match')
       return
@@ -139,7 +154,9 @@ const CreateUserModal = ({ isOpen, onClose, onSubmit, availableRoles }: CreateUs
                 minLength={8}
               />
             </div>
-            <p className="text-xs text-secondary mt-1">Must be at least 8 characters long</p>
+            <p className="text-xs text-secondary mt-1">
+              Must be at least 8 characters with uppercase, lowercase, and number
+            </p>
           </div>
 
           {/* Confirm Password */}

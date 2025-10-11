@@ -3,6 +3,7 @@ import { X, User, Mail, Shield, Lock, Eye, EyeOff, Key } from 'lucide-react'
 import type { User as UserType, UpdateUserRolesRequest } from '@/types/users'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/services/api'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface EditUserModalProps {
   isOpen: boolean
@@ -19,6 +20,7 @@ const EditUserModal = ({
   onUpdateRoles,
   availableRoles,
 }: EditUserModalProps) => {
+  const { user: currentUser } = useAuth()
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [showPasswordSection, setShowPasswordSection] = useState(false)
@@ -28,6 +30,11 @@ const EditUserModal = ({
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  // Check if current user is admin
+  const isAdmin = currentUser?.roles?.some(role => role.name === 'admin') || false
+  // Check if editing own profile
+  const isEditingSelf = currentUser?.id === user?.id
 
   useEffect(() => {
     if (user) {
@@ -90,8 +97,15 @@ const EditUserModal = ({
   const handlePasswordChange = async () => {
     if (!user) return
 
-    // Validation
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    // Validation - admins editing others don't need current password
+    const requireCurrentPassword = isEditingSelf || !isAdmin
+
+    if (requireCurrentPassword && !currentPassword) {
+      toast.error('Please enter your current password')
+      return
+    }
+
+    if (!newPassword || !confirmPassword) {
       toast.error('Please fill in all password fields')
       return
     }
@@ -106,17 +120,23 @@ const EditUserModal = ({
       return
     }
 
-    if (newPassword === currentPassword) {
+    if (requireCurrentPassword && newPassword === currentPassword) {
       toast.error('New password must be different from current password')
       return
     }
 
     try {
       setLoading(true)
-      const response = await apiClient.put(`/api/users/${user.id}/password`, {
-        current_password: currentPassword,
+      const payload: any = {
         new_password: newPassword,
-      })
+      }
+
+      // Only include current_password if required
+      if (requireCurrentPassword) {
+        payload.current_password = currentPassword
+      }
+
+      const response = await apiClient.put(`/api/users/${user.id}/password`, payload)
 
       if (response.status === 'success') {
         toast.success('Password changed successfully!')
@@ -214,28 +234,39 @@ const EditUserModal = ({
 
             {showPasswordSection && (
               <div className="p-4 space-y-3 border-t border-border">
-                {/* Current Password */}
-                <div>
-                  <label className="block text-xs font-medium text-secondary mb-1">
-                    Current Password *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="input-field w-full pr-10"
-                      placeholder="Enter current password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
-                    >
-                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                {/* Admin Notice */}
+                {isAdmin && !isEditingSelf && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 mb-3">
+                    <p className="text-xs text-blue-800 dark:text-blue-200">
+                      ℹ️ As an admin, you can change this user's password without their current password.
+                    </p>
                   </div>
-                </div>
+                )}
+
+                {/* Current Password - only show if editing self or not admin */}
+                {(isEditingSelf || !isAdmin) && (
+                  <div>
+                    <label className="block text-xs font-medium text-secondary mb-1">
+                      Current Password *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="input-field w-full pr-10"
+                        placeholder="Enter current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* New Password */}
                 <div>

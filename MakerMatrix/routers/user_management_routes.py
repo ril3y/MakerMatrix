@@ -187,7 +187,11 @@ async def update_user(user_id: str, user_data: UserUpdate):
 
 @router.put("/{user_id}/password", response_model=ResponseSchema)
 @standard_error_handling
-async def update_password(user_id: str, password_data: PasswordUpdate):
+async def update_password(
+    user_id: str,
+    password_data: PasswordUpdate,
+    current_user: dict = Depends(get_current_user_flexible)
+):
     user = user_repository.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
@@ -195,12 +199,25 @@ async def update_password(user_id: str, password_data: PasswordUpdate):
             detail="User not found"
         )
 
-    # Verify current password
-    if not user_repository.verify_password(password_data.current_password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
-        )
+    # Check if current user is admin
+    is_admin = any(role.name == "admin" for role in current_user.roles)
+    is_editing_self = current_user.id == user_id
+
+    # Admins editing other users don't need current password
+    # Users editing themselves must provide current password
+    if is_editing_self or not is_admin:
+        if not password_data.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required"
+            )
+
+        # Verify current password
+        if not user_repository.verify_password(password_data.current_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
 
     # Hash and update new password
     new_hashed_password = user_repository.get_password_hash(password_data.new_password)

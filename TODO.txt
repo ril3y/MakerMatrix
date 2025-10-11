@@ -1,0 +1,50 @@
+When we have an allocation to a location, and we rename that locations name it loses its reference to that allocation.
+
+
+Features:
+Tool support, just like parts but we need to track tools. The part setup does not work well for tools.  Since you usually have on
+of the tool not like 5000 resistors.  So we should ultrathink about a new model setup to where we can support tools, they will still use 
+everthing else like categories, locations etc.  Perhaps not analytics like "low stock" etc.  I do think we want support the ability to put tools 
+and parts in the same container perhaps,  IE a small toolbox might have some parts and tools together.  
+
+Tags,
+We want to be able to tag a part or a tool.  These are light lightweight projects if you will but just a tag (string) is all it attaches to.
+I had a issue where I added a part but was not read to print the label yet I needed to update the suppiler code but wanted to remember to do this
+so if we had a tag we could #todo or #testing etc.
+
+Part models support favorites, I would like to be able to star parts to add them to my favorites too.  If i have a particular part I use alot lets
+have a way to favoite it.
+
+Locations, when adding the SMT containers (single space) I quickly realized its very tedious.  We need to expand the location builder. Perhaps we 
+can support cloning (which would clone the location but give it a random name) or you can set the name? This would copy everthing (even the
+parent location),  
+Loactions, when creating a location name for my smt cassets I just used a number like 1  2 3 4 this was ok but kind of lame I think perhap we could 
+support in the location builder setting how many loactions (cassets in this case) we wanted to build and it would auto name these based off of 
+a templating idea.  Say the first one we build it SMT Casset - {rand:4} this way the 10 (if we set to create 10 of these) would have random location
+names.  SMT Casset - AV4D etc..  Or perhaps we could support something like {seq:01-10}  or comnination something like {seq:01-10}-{rand:2} ultrathink
+the best way to do this.  We already have a templating setup for the printer labels perhaps we should rip this out to it so source code file
+(use your best judgement on where to put it) and then use it in both places (maybe elsewhere too)
+
+Bugs
+When updating a location after its been make and it has a image, it loses it's image when it gets updated.  Lets fix this.
+
+When adding a part the emoji does not save even when we set one on the inital save.  If we edit that part and add one then it does save. Lets fix
+this bug.
+
+Feature Database:
+Out database code on settings we need to check out and make sure its complete and working.  Specifically we are saving suppliers, images, favicons
+for suppliers, credentials for suppliers (I think we put this in the env file right now but we might want to put this in the db) we want 
+this to be completely simple to restore from a file backup.  Which means I think we are going to need some code that will bundle the db fileand
+all of the images, datasheets, etc that get downloaded.
+
+Enrichment:
+Our datasheets for digikey, mouser, lcsc are not working, in fact I am not sure that we all use the same additional property for this.  We should 
+standardize where datasheet goes for additional properties this way the ui does not have to learn each place to look for each supplier it supports.
+In the backend supplier code this can be dealt with by moving datasheet url to whatever we decide on for the additional property.  This will not be
+on every part as an additional property it will be when the supplier supports it we will just set the right key value. We also need to check
+and see how the frontend works for displaying the datasheet it should have the code for this but I know its not working.
+
+AI:
+Enabling the AI for ollama is not really working its janky and errors lets take a closer look at this.  Also the ai prompt was teaching it sql to 
+do lookups etc.  But i think this is not right we should just tell it about the api for the server OR we should setup a mcp server for thisproject
+but I am not sure which is the best way to go since we are using 7b models by default to do things for us.

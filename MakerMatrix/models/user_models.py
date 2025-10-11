@@ -104,7 +104,7 @@ class UserUpdate(SQLModel):
 
 
 class PasswordUpdate(SQLModel):
-    current_password: str
+    current_password: Optional[str] = None  # Optional - admins can change without current password
     new_password: str
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
