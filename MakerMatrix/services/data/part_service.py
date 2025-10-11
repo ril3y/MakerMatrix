@@ -356,7 +356,7 @@ class PartService(BaseService):
                 # Filter out only valid PartModel fields (removed 'quantity', 'location_id', and 'pricing_data')
                 valid_part_fields = {
                     'part_number', 'part_name', 'description',
-                    'supplier', 'supplier_part_number', 'supplier_url', 'product_url', 'image_url', 'additional_properties',
+                    'supplier', 'supplier_part_number', 'supplier_url', 'product_url', 'image_url', 'emoji', 'additional_properties',
                     # Pricing fields (removed pricing_data - goes to PartPricingHistory instead)
                     'unit_price', 'currency',
                     # Enhanced fields from PartModel
@@ -453,6 +453,7 @@ class PartService(BaseService):
                     "quantity": part_obj.total_quantity,  # Computed from allocations
                     "supplier": part_obj.supplier,
                     "image_url": part_obj.image_url,
+                    "emoji": part_obj.emoji,
                     "categories": [{"id": cat.id, "name": cat.name} for cat in categories] if categories else []
                 }
 
