@@ -15,6 +15,9 @@ from .base import (
     PartSearchResult, SupplierInfo, ConfigurationOption,
     CapabilityRequirement, ImportResult, EnrichmentFieldMapping
 )
+from MakerMatrix.models.enrichment_requirement_models import (
+    EnrichmentRequirements, FieldRequirement, RequirementSeverity
+)
 from .registry import register_supplier
 from .exceptions import (
     SupplierError, SupplierConfigurationError, SupplierAuthenticationError,
@@ -98,6 +101,63 @@ class MouserSupplier(BaseSupplier):
                 required_for_enrichment=True
             )
         ]
+
+    def get_enrichment_requirements(self) -> EnrichmentRequirements:
+        """
+        Define what part data is required for enrichment from Mouser.
+
+        Mouser can search by either supplier_part_number (Mouser part number)
+        or manufacturer_part_number. Having both provides the best results.
+
+        Returns:
+            EnrichmentRequirements with required, recommended, and optional fields
+        """
+        return EnrichmentRequirements(
+            supplier_name="mouser",
+            display_name="Mouser Electronics",
+            description="Mouser can enrich parts with detailed specifications, images, datasheets, pricing, and real-time stock levels using their comprehensive API",
+            required_fields=[
+                FieldRequirement(
+                    field_name="supplier_part_number",
+                    display_name="Mouser Part Number",
+                    severity=RequirementSeverity.REQUIRED,
+                    description="The Mouser part number (e.g., 595-TPS54331DR) is the most reliable way to look up parts in the Mouser API. Either this OR manufacturer_part_number is required.",
+                    example="595-TPS54331DR"
+                )
+            ],
+            recommended_fields=[
+                FieldRequirement(
+                    field_name="manufacturer_part_number",
+                    display_name="Manufacturer Part Number",
+                    severity=RequirementSeverity.RECOMMENDED,
+                    description="Mouser can also search by manufacturer part number. This is recommended if you don't have the Mouser part number, or as validation.",
+                    example="TPS54331DR"
+                ),
+                FieldRequirement(
+                    field_name="manufacturer",
+                    display_name="Manufacturer Name",
+                    severity=RequirementSeverity.RECOMMENDED,
+                    description="Manufacturer name helps narrow down search results when using manufacturer part numbers",
+                    example="Texas Instruments"
+                )
+            ],
+            optional_fields=[
+                FieldRequirement(
+                    field_name="description",
+                    display_name="Part Description",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Existing description can help verify the enriched data matches your intended part",
+                    example="3.5V to 28V 3A Step-Down Converter"
+                ),
+                FieldRequirement(
+                    field_name="component_type",
+                    display_name="Component Type",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Component type helps organize enriched specifications and validate results",
+                    example="Power Management IC"
+                )
+            ]
+        )
 
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """

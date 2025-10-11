@@ -532,10 +532,20 @@ class PartEnrichmentService(BaseService):
                 updated_fields.extend(payload_updates)
 
             # Create a background task for datasheet download if URL is present
-            datasheet_url = standardized_data.get('additional_properties', {}).get('datasheet_url')
-            if datasheet_url and not part.additional_properties.get('datasheet_downloaded'):
-                # Create a datasheet download task instead of downloading synchronously
-                await self._create_datasheet_download_task(part, datasheet_url, supplier, task)
+            # Check both top-level and additional_properties for datasheet_url
+            datasheet_url = (
+                standardized_data.get('additional_properties', {}).get('datasheet_url') or
+                part.additional_properties.get('datasheet_url')
+            )
+
+            if datasheet_url:
+                logger.info(f"Found datasheet URL for {part.part_name}: {datasheet_url}")
+                if not part.additional_properties.get('datasheet_downloaded'):
+                    # Create a datasheet download task instead of downloading synchronously
+                    logger.info(f"Creating datasheet download task for {part.part_name}")
+                    await self._create_datasheet_download_task(part, datasheet_url, supplier, task)
+                else:
+                    logger.info(f"Datasheet already downloaded for {part.part_name}, skipping")
 
             # Update last enrichment timestamp
             part.additional_properties['last_enrichment'] = datetime.utcnow().isoformat()
