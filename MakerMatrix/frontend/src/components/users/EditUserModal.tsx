@@ -3,7 +3,7 @@ import { X, User, Mail, Shield, Lock, Eye, EyeOff, Key } from 'lucide-react'
 import type { User as UserType, UpdateUserRolesRequest } from '@/types/users'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/services/api'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 
 interface EditUserModalProps {
   isOpen: boolean
@@ -20,7 +20,7 @@ const EditUserModal = ({
   onUpdateRoles,
   availableRoles,
 }: EditUserModalProps) => {
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, hasRole } = useAuth(false)
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [showPasswordSection, setShowPasswordSection] = useState(false)
@@ -32,7 +32,7 @@ const EditUserModal = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // Check if current user is admin
-  const isAdmin = currentUser?.roles?.some(role => role.name === 'admin') || false
+  const isAdmin = hasRole('admin')
   // Check if editing own profile
   const isEditingSelf = currentUser?.id === user?.id
 
