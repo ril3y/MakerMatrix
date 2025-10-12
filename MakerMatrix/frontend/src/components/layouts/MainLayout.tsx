@@ -289,14 +289,15 @@ const MainLayout: React.FC = () => {
       >
         {/* Top Bar */}
         <header className="h-20 bg-theme-primary/50 backdrop-blur-lg border-b border-theme-primary px-8 flex items-center justify-between gap-6">
-          {/* Full Width Search Bar */}
-          <div className="flex-1 max-w-2xl">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-theme-muted pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search parts by name, part number, description..."
+          {/* Full Width Search Bar - Hidden on pages with their own search */}
+          {!location.pathname.startsWith('/parts') && (
+            <div className="flex-1 max-w-2xl">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-theme-muted pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search parts by name, part number, description..."
                 value={searchValue}
                 onChange={(e) => {
                   setSearchValue(e.target.value)
@@ -340,6 +341,7 @@ const MainLayout: React.FC = () => {
               </div>
             </div>
           </div>
+          )}
           <div className="flex items-center space-x-4">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span className="text-sm text-theme-muted">{new Date().toLocaleString()}</span>

@@ -348,14 +348,23 @@ class PartRepository:
 
         # Apply search term filter
         if search_params.search_term:
-            search_term = f"%{search_params.search_term}%"
-            search_filter = or_(
-                PartModel.part_name.ilike(search_term),
-                PartModel.part_number.ilike(search_term),
-                PartModel.description.ilike(search_term)
-            )
-            query = query.where(search_filter)
-            count_query = count_query.where(search_filter)
+            # Check for tag:missing special syntax
+            if search_params.search_term.strip().lower() == 'tag:missing':
+                from MakerMatrix.models.tag_models import PartTagLink
+                # Subquery to find part IDs that have tags
+                tagged_part_ids = select(PartTagLink.part_id).distinct()
+                # Filter for parts NOT in tagged_part_ids
+                query = query.where(~PartModel.id.in_(tagged_part_ids))
+                count_query = count_query.where(~PartModel.id.in_(tagged_part_ids))
+            else:
+                search_term = f"%{search_params.search_term}%"
+                search_filter = or_(
+                    PartModel.part_name.ilike(search_term),
+                    PartModel.part_number.ilike(search_term),
+                    PartModel.description.ilike(search_term)
+                )
+                query = query.where(search_filter)
+                count_query = count_query.where(search_filter)
 
         # Apply quantity range filter - TEMPORARILY DISABLED
         # Quantity is now computed from allocations, filtering requires aggregation
@@ -484,6 +493,7 @@ class PartRepository:
         - pn:100k - Search part number only
         - name:resistor - Search part name only
         - prop:package 0603 - Search additional_properties (supports prop:key value or prop:key=value)
+        - tag:missing - Find parts with no tags
         - resistor - Search all fields
 
         Returns a tuple of (results, total_count).
@@ -492,6 +502,35 @@ class PartRepository:
         field_specific = None
         prop_key = None
         search_query = query.strip()
+
+        # Check for tag:missing special syntax
+        if search_query.lower() == 'tag:missing':
+            # Query for parts with no tags
+            from MakerMatrix.models.tag_models import PartTagLink
+
+            # Subquery to find part IDs that have tags
+            tagged_part_ids = select(PartTagLink.part_id).distinct()
+
+            # Query for parts NOT in tagged_part_ids
+            base_query = select(PartModel).options(
+                joinedload(PartModel.categories),
+                selectinload(PartModel.allocations)
+            ).where(~PartModel.id.in_(tagged_part_ids))
+
+            count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel).where(~PartModel.id.in_(tagged_part_ids))
+
+            # Order by part name
+            query_with_filter = base_query.order_by(PartModel.part_name)
+
+            # Apply pagination
+            offset = (page - 1) * page_size
+            query_with_filter = query_with_filter.offset(offset).limit(page_size)
+
+            # Execute queries
+            results = session.exec(query_with_filter).unique().all()
+            total_count = session.exec(count_query).one()
+
+            return results, total_count
 
         # Check for field-specific search (desc:, pn:, name:, prop:)
         if ':' in search_query and not search_query.startswith('"'):
