@@ -40,6 +40,7 @@ class ToolCreateRequest(BaseModel):
         "good",
         description="Tool condition: excellent, good, fair, poor, needs_repair, out_of_service"
     )
+    is_checkable: Optional[bool] = Field(True, description="Can be checked out (False for large/stationary equipment)")
     is_calibrated_tool: Optional[bool] = Field(False, description="Requires regular calibration")
     is_consumable: Optional[bool] = Field(False, description="Consumable item (bits, blades, etc.)")
 
@@ -85,6 +86,7 @@ class ToolUpdateRequest(BaseModel):
     last_maintenance_date: Optional[datetime] = None
     next_maintenance_date: Optional[datetime] = None
 
+    is_checkable: Optional[bool] = None
     is_calibrated_tool: Optional[bool] = None
     is_consumable: Optional[bool] = None
 
@@ -135,7 +137,7 @@ class ToolMaintenanceRequest(BaseModel):
         ...,
         description="Type of maintenance: calibration, repair, inspection, cleaning"
     )
-    performed_by: str = Field(..., description="User ID who performed maintenance")
+    performed_by: Optional[str] = Field(None, description="User ID who performed maintenance (auto-set by backend if not provided)")
     notes: Optional[str] = Field(None, description="Maintenance notes and details")
     next_maintenance_date: Optional[datetime] = Field(None, description="Next scheduled maintenance")
     cost: Optional[float] = Field(None, ge=0, description="Maintenance cost")
@@ -234,6 +236,7 @@ class ToolResponse(BaseModel):
     purchase_price: Optional[float]
     current_value: Optional[float]
 
+    is_checkable: bool
     is_calibrated_tool: bool
     is_consumable: bool
     exclude_from_analytics: bool
