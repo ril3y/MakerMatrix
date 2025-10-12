@@ -93,3 +93,20 @@ export interface LocationCleanupResponse {
   removed_locations: Location[]
   removed_count: number
 }
+
+// Container slot occupancy information
+export interface SlotOccupancy {
+  is_occupied: boolean
+  part_count: number
+  total_quantity: number
+  parts: Array<{
+    part_id: string
+    quantity: number
+    is_primary: boolean
+  }>
+}
+
+// Slot with occupancy data
+export interface SlotWithOccupancy extends Location {
+  occupancy?: SlotOccupancy
+}

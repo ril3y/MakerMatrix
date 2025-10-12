@@ -9,6 +9,7 @@ import type {
   LocationDeletePreview,
   LocationDeleteResponse,
   LocationCleanupResponse,
+  SlotWithOccupancy,
 } from '@/types/locations'
 
 export class LocationsService {
@@ -96,6 +97,26 @@ export class LocationsService {
       '/api/locations/cleanup-locations'
     )
     return response.data!
+  }
+
+  async getContainerSlots(
+    containerId: string,
+    params?: { include_occupancy?: boolean }
+  ): Promise<SlotWithOccupancy[]> {
+    const queryParams = new URLSearchParams()
+    if (params?.include_occupancy !== undefined) {
+      queryParams.append('include_occupancy', String(params.include_occupancy))
+    }
+
+    const url = queryParams.toString()
+      ? `/api/locations/get_container_slots/${containerId}?${queryParams}`
+      : `/api/locations/get_container_slots/${containerId}`
+
+    const response = await apiClient.get<any>(url)
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    return []
   }
 
   async getAll(): Promise<Location[]> {
