@@ -271,7 +271,7 @@ describe('BackupService', () => {
   describe('downloadBackup', () => {
     it('should download backup file', async () => {
       const mockBlob = new Blob(['test data'], { type: 'application/zip' })
-      const mockFetch = global.fetch as ReturnType<typeof vi.fn>
+      const mockFetch = vi.mocked(global.fetch)
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -311,7 +311,7 @@ describe('BackupService', () => {
     })
 
     it('should handle download failure', async () => {
-      const mockFetch = global.fetch as ReturnType<typeof vi.fn>
+      const mockFetch = vi.mocked(global.fetch)
 
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -347,18 +347,16 @@ describe('BackupService', () => {
     })
   })
 
-  describe('BackupService class instantiation', () => {
-    it('should create a new BackupService instance', () => {
-      const newBackupService = new BackupService()
-
-      expect(newBackupService).toBeInstanceOf(BackupService)
-      expect(newBackupService.getBackupConfig).toBeDefined()
-      expect(newBackupService.isPasswordSet).toBeDefined()
-      expect(newBackupService.createBackup).toBeDefined()
-    })
-
-    it('should export a singleton instance', () => {
-      expect(backupService).toBeInstanceOf(BackupService)
+  describe('BackupService singleton export', () => {
+    it('should export a singleton instance with all methods', () => {
+      expect(backupService).toBeDefined()
+      expect(backupService.getBackupConfig).toBeDefined()
+      expect(backupService.isPasswordSet).toBeDefined()
+      expect(backupService.createBackup).toBeDefined()
+      expect(backupService.updateBackupConfig).toBeDefined()
+      expect(backupService.listBackups).toBeDefined()
+      expect(backupService.downloadBackup).toBeDefined()
+      expect(backupService.deleteBackup).toBeDefined()
     })
   })
 })
