@@ -702,6 +702,92 @@ class LocationService(BaseService):
 
         return slots
 
+    def get_container_slots(
+        self,
+        container_id: str,
+        include_occupancy: bool = True
+    ) -> ServiceResponse[List[Dict[str, Any]]]:
+        """
+        Get all slots for a container with optional occupancy information.
+
+        This method is used by the hierarchical location picker to show slots
+        when a container is selected, along with which slots are occupied.
+
+        Args:
+            container_id: ID of the parent container location
+            include_occupancy: Whether to include part allocation/occupancy data
+
+        Returns:
+            ServiceResponse containing list of slots with occupancy data
+        """
+        try:
+            self.log_operation("get_container_slots", self.entity_name, container_id)
+
+            with self.get_session() as session:
+                from MakerMatrix.models.part_allocation_models import PartLocationAllocation
+
+                # Query slots for this container
+                query = select(LocationModel).where(
+                    LocationModel.parent_id == container_id,
+                    LocationModel.is_auto_generated_slot == True
+                ).order_by(LocationModel.slot_number)
+
+                slots = session.exec(query).all()
+
+                if not slots:
+                    self.logger.debug(f"No slots found for container {container_id}")
+                    return self.success_response(
+                        f"No slots found for container",
+                        []
+                    )
+
+                # Convert slots to dictionaries
+                slots_data = []
+                for slot in slots:
+                    slot_dict = slot.model_dump()
+
+                    # Add occupancy information if requested
+                    if include_occupancy:
+                        # Query allocations for this slot
+                        alloc_query = select(PartLocationAllocation).where(
+                            PartLocationAllocation.location_id == slot.id
+                        )
+                        allocations = session.exec(alloc_query).all()
+
+                        # Calculate occupancy
+                        total_parts = len(allocations)
+                        total_quantity = sum(alloc.quantity_at_location for alloc in allocations)
+
+                        slot_dict['occupancy'] = {
+                            'is_occupied': total_parts > 0,
+                            'part_count': total_parts,
+                            'total_quantity': total_quantity,
+                            'parts': [
+                                {
+                                    'part_id': alloc.part_id,
+                                    'quantity': alloc.quantity_at_location,
+                                    'is_primary': alloc.is_primary_storage
+                                }
+                                for alloc in allocations
+                            ] if total_parts > 0 else []
+                        }
+                    else:
+                        slot_dict['occupancy'] = None
+
+                    slots_data.append(slot_dict)
+
+                self.logger.info(
+                    f"Retrieved {len(slots_data)} slots for container {container_id}"
+                )
+
+                return self.success_response(
+                    f"Retrieved {len(slots_data)} slots",
+                    slots_data
+                )
+
+        except Exception as e:
+            return self.handle_exception(e, f"retrieve container slots")
+
     @staticmethod
     def cleanup_locations() -> dict:
         """

@@ -461,7 +461,7 @@ auth_exclude_paths = [
 
 # Secure routers with authentication
 secure_all_routes(parts_routes.router, permissions=parts_permissions)
-secure_all_routes(locations_routes.router, permissions=locations_permissions, exclude_paths=["/get_all_locations"])
+secure_all_routes(locations_routes.router, permissions=locations_permissions, exclude_paths=["/get_all_locations", "/get_container_slots/{container_id}"])
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
 secure_all_routes(tool_routes.router, permissions=tool_permissions)
 secure_all_routes(tag_routes.router, permissions=tag_permissions)

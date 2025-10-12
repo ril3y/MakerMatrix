@@ -293,18 +293,54 @@ async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any
 @standard_error_handling
 async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get the full path from a location to its root.
-    
+
     Args:
         location_id: The ID of the location to get the path for
-        
+
     Returns:
         A ResponseSchema containing the location path with parent references
     """
     location_service = LocationService()
     service_response = location_service.get_location_path(location_id)
-    
+
     validate_service_response(service_response)
-    
+
+    return base_router.build_success_response(
+        message=service_response.message,
+        data=service_response.data
+    )
+
+
+@router.get("/get_container_slots/{container_id}")
+@standard_error_handling
+async def get_container_slots(
+    container_id: str,
+    include_occupancy: bool = Query(True, description="Include occupancy information for each slot")
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """
+    Get all slots for a container with optional occupancy information.
+
+    This endpoint is used by the hierarchical location picker to show slots
+    when a container is selected, along with which slots are occupied by parts.
+
+    Args:
+        container_id: The ID of the container location
+        include_occupancy: Whether to include occupancy data (part counts, quantities)
+
+    Returns:
+        A ResponseSchema containing a list of slot dictionaries with:
+        - All slot fields (id, name, slot_number, slot_metadata, etc.)
+        - occupancy object (if include_occupancy=True):
+            - is_occupied: bool
+            - part_count: int (number of different parts)
+            - total_quantity: int (sum of all quantities)
+            - parts: list of {part_id, quantity, is_primary}
+    """
+    location_service = LocationService()
+    service_response = location_service.get_container_slots(container_id, include_occupancy)
+
+    validate_service_response(service_response)
+
     return base_router.build_success_response(
         message=service_response.message,
         data=service_response.data
