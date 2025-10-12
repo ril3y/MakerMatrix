@@ -63,9 +63,17 @@ class DatabaseRestoreTask(BaseTask):
         self.log_info(f"Starting restore from backup: {backup_path.name} (password protected: {is_password_protected})", task)
         await self.update_progress(task, 5, "Initializing restore process")
 
-        # Define paths
-        base_path = Path(__file__).parent.parent
-        static_path = base_path / "services" / "static"
+        # Define paths - use environment variable for static files path if set
+        static_files_path = os.getenv('STATIC_FILES_PATH')
+        if static_files_path:
+            # Using environment-configured path (e.g., Docker: /data/static)
+            static_path = Path(static_files_path)
+            base_path = Path(__file__).parent.parent  # Still need base_path for .env
+        else:
+            # Using default relative path (development mode)
+            base_path = Path(__file__).parent.parent
+            static_path = base_path / "services" / "static"
+
         datasheets_path = static_path / "datasheets"
         images_path = static_path / "images"
 

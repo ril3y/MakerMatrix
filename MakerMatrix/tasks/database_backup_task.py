@@ -68,9 +68,18 @@ class DatabaseBackupTask(BaseTask):
         self.log_info(f"Starting comprehensive backup: {backup_name} (password protected: {bool(password)})", task)
         await self.update_progress(task, 5, "Initializing backup process")
         
-        # Define paths
-        base_path = Path(__file__).parent.parent
-        static_path = base_path / "services" / "static"
+        # Define paths - use environment variable for static files path if set
+        static_files_path_env = os.getenv('STATIC_FILES_PATH')
+        backups_path_env = os.getenv('BACKUPS_PATH')
+        base_path = Path(__file__).parent.parent  # Always need this for .env
+
+        if static_files_path_env:
+            # Using environment-configured path (e.g., Docker: /data/static)
+            static_path = Path(static_files_path_env)
+        else:
+            # Using default relative path (development mode)
+            static_path = base_path / "services" / "static"
+
         datasheets_path = static_path / "datasheets"
         images_path = static_path / "images"
         
@@ -216,8 +225,13 @@ class DatabaseBackupTask(BaseTask):
             # Step 6: Create password-protected zip file
             await self.update_progress(task, 93, "Creating zip archive")
             await asyncio.sleep(0.5)  # Small delay to show progress
-            final_backup_dir = base_path / "backups"
-            final_backup_dir.mkdir(exist_ok=True)
+
+            # Use environment-configured backups path if set
+            if backups_path_env:
+                final_backup_dir = Path(backups_path_env)
+            else:
+                final_backup_dir = base_path / "backups"
+            final_backup_dir.mkdir(exist_ok=True, parents=True)
 
             if password:
                 final_zip_path = final_backup_dir / f"{backup_name}_encrypted.zip"

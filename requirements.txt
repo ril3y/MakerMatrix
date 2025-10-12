@@ -30,6 +30,7 @@ python-jose[cryptography]>=3.3.0
 cryptography>=41.0.0
 APScheduler>=3.10.4
 pyminizip>=0.2.6
+emoji>=2.8.0
 
 # Removed bcrypt, now using pbkdf2_sha256 via passlib only
 
