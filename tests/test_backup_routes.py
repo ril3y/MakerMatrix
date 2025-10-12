@@ -48,13 +48,13 @@ class TestBackupConfigRoutes:
             response = await get_backup_config(current_user=mock_user)
 
             # Verify password is NOT in response
-            assert response['data']['encryption_password'] is None
+            assert response.data['encryption_password'] is None
             assert 'SecretPassword123' not in str(response)
 
             # Verify other fields are present
-            assert response['data']['schedule_enabled'] is True
-            assert response['data']['schedule_type'] == 'nightly'
-            assert response['data']['encryption_required'] is True
+            assert response.data['schedule_enabled'] is True
+            assert response.data['schedule_type'] == 'nightly'
+            assert response.data['encryption_required'] is True
 
     @pytest.mark.asyncio
     async def test_password_set_endpoint_returns_boolean(self):
@@ -76,9 +76,9 @@ class TestBackupConfigRoutes:
             response = await check_password_set(current_user=mock_user)
 
             # Verify only boolean is returned
-            assert response['data']['password_set'] is True
+            assert response.data['password_set'] is True
             assert 'SomePassword' not in str(response)
-            assert len(response['data']) == 1  # Only password_set field
+            assert len(response.data) == 1  # Only password_set field
 
     @pytest.mark.asyncio
     async def test_password_set_endpoint_false_when_no_password(self):
@@ -98,7 +98,7 @@ class TestBackupConfigRoutes:
             mock_user = Mock(spec=UserModel)
             response = await check_password_set(current_user=mock_user)
 
-            assert response['data']['password_set'] is False
+            assert response.data['password_set'] is False
 
     @pytest.mark.asyncio
     async def test_password_set_endpoint_false_when_empty_password(self):
@@ -118,7 +118,7 @@ class TestBackupConfigRoutes:
             mock_user = Mock(spec=UserModel)
             response = await check_password_set(current_user=mock_user)
 
-            assert response['data']['password_set'] is False
+            assert response.data['password_set'] is False
 
     @pytest.mark.asyncio
     async def test_update_config_accepts_password(self):
@@ -136,7 +136,7 @@ class TestBackupConfigRoutes:
             mock_session.exec.return_value.first.return_value = mock_config
 
             # Mock the scheduler reload
-            with patch('MakerMatrix.routers.backup_routes.backup_scheduler') as mock_scheduler:
+            with patch('MakerMatrix.services.system.backup_scheduler.backup_scheduler') as mock_scheduler:
                 mock_scheduler.reload_schedule = AsyncMock()
 
                 from MakerMatrix.routers.backup_routes import update_backup_config
@@ -194,7 +194,7 @@ class TestBackupCreation:
             )
 
             # Verify task was created with password
-            assert response['data']['encrypted'] is True
+            assert response.data['encrypted'] is True
             assert mock_task_service.create_task.called
             call_args = mock_task_service.create_task.call_args[0][0]
             assert 'password' in call_args.input_data
@@ -236,7 +236,7 @@ class TestBackupCreation:
             )
 
             # Verify task was created without password
-            assert response['data']['encrypted'] is False
+            assert response.data['encrypted'] is False
             call_args = mock_task_service.create_task.call_args[0][0]
             assert 'password' not in call_args.input_data
 
@@ -247,46 +247,55 @@ class TestBackupList:
     @pytest.mark.asyncio
     async def test_list_backups_identifies_encrypted(self):
         """Test that list endpoint correctly identifies encrypted backups"""
-        mock_backup_dir = Path("/fake/backups")
+        # Mock backup files
+        encrypted_file = Mock()
+        encrypted_file.name = "makermatrix_backup_20250101_120000_encrypted.zip"
+        encrypted_file.is_file.return_value = True
+        encrypted_file.stat.return_value.st_size = 1024 * 1024  # 1MB
+        encrypted_file.stat.return_value.st_mtime = datetime(2025, 1, 1, 12, 0, 0).timestamp()
 
+        unencrypted_file = Mock()
+        unencrypted_file.name = "makermatrix_backup_20250101_100000.zip"
+        unencrypted_file.is_file.return_value = True
+        unencrypted_file.stat.return_value.st_size = 2 * 1024 * 1024  # 2MB
+        unencrypted_file.stat.return_value.st_mtime = datetime(2025, 1, 1, 10, 0, 0).timestamp()
+
+        mock_backups_dir = Mock()
+        mock_backups_dir.exists.return_value = True
+        mock_backups_dir.glob.return_value = [encrypted_file, unencrypted_file]
+
+        # Mock the Path class to return proper mocks
         with patch('MakerMatrix.routers.backup_routes.Path') as mock_path_class:
-            mock_path = Mock()
-            mock_path_class.return_value = mock_path
-            mock_path.__truediv__ = lambda self, other: mock_backup_dir / other
+            mock_file = Mock()
+            mock_base_path = Mock()
 
-            # Mock backup files
-            encrypted_file = Mock()
-            encrypted_file.name = "makermatrix_backup_20250101_120000_encrypted.zip"
-            encrypted_file.is_file.return_value = True
-            encrypted_file.stat.return_value.st_size = 1024 * 1024  # 1MB
-            encrypted_file.stat.return_value.st_mtime = datetime(2025, 1, 1, 12, 0, 0).timestamp()
+            # Path(__file__) returns mock_file
+            mock_path_class.return_value = mock_file
 
-            unencrypted_file = Mock()
-            unencrypted_file.name = "makermatrix_backup_20250101_100000.zip"
-            unencrypted_file.is_file.return_value = True
-            unencrypted_file.stat.return_value.st_size = 2 * 1024 * 1024  # 2MB
-            unencrypted_file.stat.return_value.st_mtime = datetime(2025, 1, 1, 10, 0, 0).timestamp()
+            # mock_file.parent returns mock for first parent
+            mock_file.parent = Mock()
 
-            mock_backups_dir = Mock()
-            mock_backups_dir.exists.return_value = True
-            mock_backups_dir.glob.return_value = [encrypted_file, unencrypted_file]
+            # mock_file.parent.parent returns the base_path
+            mock_file.parent.parent = mock_base_path
 
-            with patch.object(Path, '__truediv__', return_value=mock_backups_dir):
-                from MakerMatrix.routers.backup_routes import list_backups
+            # base_path / "backups" returns mock_backups_dir
+            mock_base_path.__truediv__ = Mock(return_value=mock_backups_dir)
 
-                mock_user = Mock(spec=UserModel)
-                response = await list_backups(current_user=mock_user)
+            from MakerMatrix.routers.backup_routes import list_backups
 
-                backups = response['data']['backups']
-                assert len(backups) == 2
+            mock_user = Mock(spec=UserModel)
+            response = await list_backups(current_user=mock_user)
 
-                # Find encrypted backup
-                encrypted = next(b for b in backups if '_encrypted' in b['filename'])
-                assert encrypted['encrypted'] is True
+            backups = response.data['backups']
+            assert len(backups) == 2
 
-                # Find unencrypted backup
-                unencrypted = next(b for b in backups if '_encrypted' not in b['filename'])
-                assert unencrypted['encrypted'] is False
+            # Find encrypted backup
+            encrypted = next(b for b in backups if '_encrypted' in b['filename'])
+            assert encrypted['encrypted'] is True
+
+            # Find unencrypted backup
+            unencrypted = next(b for b in backups if '_encrypted' not in b['filename'])
+            assert unencrypted['encrypted'] is False
 
 
 if __name__ == "__main__":
