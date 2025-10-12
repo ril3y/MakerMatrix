@@ -12,8 +12,8 @@ services:
     volumes:
       # Persistent data
       - makermatrix-data:/data
-      # Optional: Mount backups directory for testing
-      - ./backups:/backups:ro
+      # Optional: Mount backups directory for testing/restore
+      - ./MakerMatrix/backups:/backups:ro
     environment:
       # Database
       - DATABASE_URL=sqlite:////data/database/makermatrix.db

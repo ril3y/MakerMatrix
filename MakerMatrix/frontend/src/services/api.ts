@@ -3,11 +3,11 @@ import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
 // In development, use relative URLs to benefit from Vite proxy
-// In production, use the full API URL
+// In production, use relative URLs (served from same origin) or explicit VITE_API_URL
 const isDevelopment = (import.meta as any).env?.DEV
 const API_BASE_URL = isDevelopment
   ? ''
-  : (import.meta as any).env?.VITE_API_URL || 'https://localhost:8443'
+  : (import.meta as any).env?.VITE_API_URL || ''
 
 export interface ApiResponse<T = any> {
   status: 'success' | 'error' | 'warning'
