@@ -69,7 +69,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import TransferQuantityModal from '@/components/parts/TransferQuantityModal'
 import type { PartAllocation } from '@/services/part-allocation.service'
 import { partAllocationService } from '@/services/part-allocation.service'
-import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
+import { HierarchicalLocationPicker } from '@/components/locations/HierarchicalLocationPicker'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import ContainerSlotPickerModal from '@/components/locations/ContainerSlotPickerModal'
 import Modal from '@/components/ui/Modal'
@@ -842,21 +842,12 @@ const PartDetailsPage = () => {
   const handleLocationSelect = async (locationId: string | undefined) => {
     if (!locationId || !part) return
 
-    // Check if selected location is a container
-    const selectedLocation = allLocations.find((loc) => loc.id === locationId)
-
-    if (selectedLocation?.location_type === 'container' && selectedLocation.slot_count) {
-      // Show slot picker modal for containers
-      setSelectedContainer(selectedLocation)
-      setLocationPickerModalOpen(false)
-      setShowSlotPickerModal(true)
-      return
-    }
-
-    // Non-container location - directly update
+    // HierarchicalLocationPicker already handles container → slot flow internally
+    // So we just need to update the part location directly
     try {
       setSaving(true)
       await partsService.updatePart({ id: part.id, location_id: locationId })
+      toast.success('Primary location updated successfully')
       // Reload part to get updated location data
       if (id) {
         await loadPart(id)
@@ -864,7 +855,7 @@ const PartDetailsPage = () => {
       setLocationPickerModalOpen(false)
     } catch (error: any) {
       console.error('Failed to update location:', error)
-      alert('Failed to update location: ' + (error.message || 'Unknown error'))
+      toast.error('Failed to update location: ' + (error.message || 'Unknown error'))
     } finally {
       setSaving(false)
     }
@@ -2665,20 +2656,19 @@ const PartDetailsPage = () => {
           <Modal
             isOpen={locationPickerModalOpen}
             onClose={() => setLocationPickerModalOpen(false)}
-            title="Select Location"
-            size="lg"
+            title="Select Primary Location"
+            size="md"
           >
             <div className="space-y-4">
               <p className="text-sm text-theme-secondary">
-                Choose a location for this part or create a new one
+                Choose a new primary storage location for this part
               </p>
 
-              <LocationTreeSelector
-                selectedLocationId={selectedLocationForPicker}
-                onLocationSelect={handleLocationSelect}
-                onAddNewLocation={handleAddNewLocationFromPicker}
-                showAddButton={true}
-                compact={true}
+              <HierarchicalLocationPicker
+                value={selectedLocationForPicker}
+                onChange={handleLocationSelect}
+                label="Location"
+                required={false}
               />
 
               <div className="flex justify-end gap-3 pt-4 border-t border-theme-primary">
