@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react'
 import { MapPin, ChevronRight, Box, X, Search, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { SlotSelector } from './SlotSelector'
 import { locationsService } from '@/services/locations.service'
 import type { Location, SlotWithOccupancy } from '@/types/locations'
-import { cn } from '@/lib/utils'
 
 interface HierarchicalLocationPickerProps {
   value?: string // Selected location/slot ID
@@ -71,9 +67,7 @@ export function HierarchicalLocationPicker({
       setSelectedSlot(null)
     } else {
       // It might be a slot - we need to load all slots to find it
-      // Try to find which container it belongs to
       try {
-        // Get all locations including slots
         const allLocations = await locationsService.getAllLocations({ hide_auto_slots: false })
         const slotLocation = allLocations.find((loc) => loc.id === locationId)
 
@@ -139,44 +133,38 @@ export function HierarchicalLocationPicker({
     const children = childLocationsByParent.get(location.id) || []
     const isContainer = location.slot_count && location.slot_count > 0
     const hasChildren = children.length > 0
-    const indentClass = depth > 0 ? `ml-${depth * 4}` : ''
 
     return (
       <div key={location.id}>
         <button
           onClick={() => handleLocationClick(location)}
           disabled={disabled}
-          className={cn(
-            'w-full flex items-center gap-2 p-3 rounded-lg border transition-colors',
-            'hover:bg-gray-50 dark:hover:bg-gray-800',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500',
-            disabled && 'opacity-50 cursor-not-allowed',
-            indentClass
-          )}
+          className={`
+            w-full flex items-center gap-2 p-3 rounded-lg border transition-colors text-left
+            hover:bg-background-secondary focus:outline-none focus:ring-2 focus:ring-primary
+            ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+            ${depth > 0 ? `ml-${depth * 4}` : ''}
+          `}
         >
           {location.emoji ? (
             <span className="text-xl">{location.emoji}</span>
           ) : isContainer ? (
-            <Box className="w-5 h-5 text-blue-600" />
+            <Box className="w-5 h-5 text-primary" />
           ) : (
-            <MapPin className="w-5 h-5 text-gray-600" />
+            <MapPin className="w-5 h-5 text-secondary" />
           )}
 
-          <div className="flex-1 text-left">
+          <div className="flex-1">
             <div className="font-medium text-sm">{location.name}</div>
             {location.description && (
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {location.description}
-              </div>
+              <div className="text-xs text-secondary">{location.description}</div>
             )}
           </div>
 
           {isContainer && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">
-                {location.slot_count} slots
-              </span>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
+              <span className="text-xs text-secondary">{location.slot_count} slots</span>
+              <ChevronRight className="w-4 h-4 text-secondary" />
             </div>
           )}
         </button>
@@ -192,14 +180,14 @@ export function HierarchicalLocationPicker({
 
   return (
     <div className={className}>
-      <Label>
+      <label className="text-sm font-medium text-primary">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
-      </Label>
+      </label>
 
       {/* Selected Location Display */}
       {(selectedLocation || selectedSlot) && (
-        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="mt-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {selectedLocation?.emoji && (
@@ -216,21 +204,20 @@ export function HierarchicalLocationPicker({
                   )}
                 </div>
                 {selectedSlot?.slot_metadata && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <div className="text-xs text-secondary">
                     {selectedSlot.slot_metadata.row !== undefined && `Row ${selectedSlot.slot_metadata.row}`}
                     {selectedSlot.slot_metadata.column !== undefined && `, Col ${selectedSlot.slot_metadata.column}`}
                   </div>
                 )}
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={handleClear}
               disabled={disabled}
+              className="btn btn-ghost btn-sm"
             >
               <X className="w-4 h-4" />
-            </Button>
+            </button>
           </div>
         </div>
       )}
@@ -240,13 +227,14 @@ export function HierarchicalLocationPicker({
         <div className="mt-2 space-y-3">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
+            <input
+              type="text"
               placeholder="Search locations..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               disabled={disabled}
-              className="pl-9"
+              className="input w-full pl-9"
             />
           </div>
 
@@ -254,10 +242,10 @@ export function HierarchicalLocationPicker({
           <div className="border rounded-lg p-2 max-h-64 overflow-y-auto space-y-1">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                <Loader2 className="w-6 h-6 animate-spin text-secondary" />
               </div>
             ) : rootLocations.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-8 text-secondary">
                 {searchTerm ? 'No locations found' : 'No locations available'}
               </div>
             ) : (
@@ -267,9 +255,7 @@ export function HierarchicalLocationPicker({
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>}
 
       {/* Slot Selector Modal */}
       {containerForSlotSelection && (

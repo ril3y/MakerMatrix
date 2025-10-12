@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Check, Loader2, Box, Grid3x3, List, AlertCircle } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import Modal from '@/components/ui/Modal'
 import { locationsService } from '@/services/locations.service'
 import type { Location, SlotWithOccupancy } from '@/types/locations'
-import { cn } from '@/lib/utils'
 
 interface SlotSelectorProps {
   container: Location
@@ -70,44 +67,43 @@ export function SlotSelector({
       <button
         key={slot.id}
         onClick={() => handleSlotClick(slot)}
-        className={cn(
-          'relative p-4 border-2 rounded-lg transition-all hover:shadow-md',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-          isSelected && 'border-blue-500 bg-blue-50 dark:bg-blue-950',
-          !isSelected && isOccupied && 'border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20',
-          !isSelected && !isOccupied && 'border-green-300 bg-green-50 dark:bg-green-950/20',
-          'text-left'
-        )}
+        className={`
+          relative p-3 border-2 rounded-lg transition-all hover:shadow-md
+          focus:outline-none focus:ring-2 focus:ring-primary text-left
+          ${isSelected ? 'border-primary bg-primary/10' : ''}
+          ${!isSelected && isOccupied ? 'border-yellow-500/50 bg-yellow-500/10' : ''}
+          ${!isSelected && !isOccupied ? 'border-green-500/50 bg-green-500/10' : ''}
+        `}
       >
         {isSelected && (
           <div className="absolute top-2 right-2">
-            <Check className="w-5 h-5 text-blue-600" />
+            <Check className="w-4 h-4 text-primary" />
           </div>
         )}
 
         <div className="font-medium text-sm mb-1">{slot.name}</div>
 
         {slot.slot_metadata && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+          <div className="text-xs text-secondary mb-2">
             {slot.slot_metadata.row !== undefined && `Row ${slot.slot_metadata.row}`}
             {slot.slot_metadata.column !== undefined && `, Col ${slot.slot_metadata.column}`}
           </div>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={isOccupied ? 'secondary' : 'default'} className="text-xs">
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <span className={`px-2 py-0.5 rounded ${isOccupied ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' : 'bg-green-500/20 text-green-700 dark:text-green-300'}`}>
             {isOccupied ? 'Occupied' : 'Available'}
-          </Badge>
+          </span>
 
           {isOccupied && partCount > 0 && (
             <>
-              <Badge variant="outline" className="text-xs">
+              <span className="px-2 py-0.5 rounded bg-secondary/20 text-secondary">
                 {partCount} part{partCount !== 1 ? 's' : ''}
-              </Badge>
+              </span>
               {totalQuantity > 0 && (
-                <Badge variant="outline" className="text-xs">
+                <span className="px-2 py-0.5 rounded bg-secondary/20 text-secondary">
                   Qty: {totalQuantity}
-                </Badge>
+                </span>
               )}
             </>
           )}
@@ -117,93 +113,86 @@ export function SlotSelector({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Box className="w-5 h-5" />
-            Select Slot in {container.name}
-          </DialogTitle>
-          <DialogDescription>
-            Choose a slot for this part. {isGridLayout ? 'Grid layout.' : 'List layout.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isGridLayout ? (
-                <Grid3x3 className="w-4 h-4 text-gray-500" />
-              ) : (
-                <List className="w-4 h-4 text-gray-500" />
-              )}
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {filteredSlots.length} of {slots.length} slots
-              </span>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAvailableOnly(!showAvailableOnly)}
-            >
-              {showAvailableOnly ? 'Show All' : 'Available Only'}
-            </Button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Select Slot in ${container.name}`}
+      size="xl"
+    >
+      <div className="space-y-4">
+        {/* Header Info */}
+        <div className="flex items-center justify-between pb-3 border-b border-border">
+          <div className="flex items-center gap-2 text-sm text-secondary">
+            {isGridLayout ? (
+              <Grid3x3 className="w-4 h-4" />
+            ) : (
+              <List className="w-4 h-4" />
+            )}
+            <span>
+              {filteredSlots.length} of {slots.length} slots
+            </span>
           </div>
 
-          {/* Loading State */}
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && (
-            <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-              <span className="text-sm text-red-700 dark:text-red-300">{error}</span>
-            </div>
-          )}
-
-          {/* Grid View for Grid Layout */}
-          {!loading && !error && isGridLayout && (
-            <div
-              className="grid gap-3"
-              style={{
-                gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
-                gridTemplateRows: `repeat(${gridRows}, auto)`,
-              }}
-            >
-              {filteredSlots.map((slot) => renderSlotCard(slot))}
-            </div>
-          )}
-
-          {/* List View for Simple Layout */}
-          {!loading && !error && !isGridLayout && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredSlots.map((slot) => renderSlotCard(slot))}
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!loading && !error && filteredSlots.length === 0 && (
-            <div className="text-center py-12">
-              <Box className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
-                {showAvailableOnly ? 'No available slots found' : 'No slots found'}
-              </p>
-            </div>
-          )}
+          <button
+            onClick={() => setShowAvailableOnly(!showAvailableOnly)}
+            className="btn btn-secondary btn-sm"
+          >
+            {showAvailableOnly ? 'Show All' : 'Available Only'}
+          </button>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-secondary" />
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+          </div>
+        )}
+
+        {/* Grid View for Grid Layout */}
+        {!loading && !error && isGridLayout && (
+          <div
+            className="grid gap-3"
+            style={{
+              gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+              gridTemplateRows: `repeat(${gridRows}, auto)`,
+            }}
+          >
+            {filteredSlots.map((slot) => renderSlotCard(slot))}
+          </div>
+        )}
+
+        {/* List View for Simple Layout */}
+        {!loading && !error && !isGridLayout && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredSlots.map((slot) => renderSlotCard(slot))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && filteredSlots.length === 0 && (
+          <div className="text-center py-12">
+            <Box className="w-12 h-12 text-secondary/30 mx-auto mb-4" />
+            <p className="text-secondary">
+              {showAvailableOnly ? 'No available slots found' : 'No slots found'}
+            </p>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex justify-end pt-4 border-t border-border">
+          <button onClick={onClose} className="btn btn-secondary">
             Cancel
-          </Button>
+          </button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Modal>
   )
 }
