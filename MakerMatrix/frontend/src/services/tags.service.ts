@@ -89,7 +89,7 @@ export class TagsService {
   }
 
   async getPartTags(partId: string): Promise<Tag[]> {
-    const response = await apiClient.get<ApiResponse<Tag[]>>(`/api/parts/${partId}/tags`)
+    const response = await apiClient.get<ApiResponse<Tag[]>>(`/api/tags/parts/${partId}/tags`)
     if (response.status === 'success' && response.data) {
       return response.data
     }
@@ -135,7 +135,7 @@ export class TagsService {
   }
 
   async getToolTags(toolId: string): Promise<Tag[]> {
-    const response = await apiClient.get<ApiResponse<Tag[]>>(`/api/tools/${toolId}/tags`)
+    const response = await apiClient.get<ApiResponse<Tag[]>>(`/api/tags/tools/${toolId}/tags`)
     if (response.status === 'success' && response.data) {
       return response.data
     }
