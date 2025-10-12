@@ -604,6 +604,7 @@ class PrinterManagerService:
             font_size = max(target_height, 20)  # Start larger
             font = None
             final_wrapped_lines = text_lines
+            all_lines_fit = False  # Initialize before loop
 
             # First pass: Find largest font where user's lines DON'T need wrapping
             while font_size > 8:
