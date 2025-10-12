@@ -74,6 +74,10 @@ import ContainerSlotPickerModal from '@/components/locations/ContainerSlotPicker
 import Modal from '@/components/ui/Modal'
 import type { Location } from '@/types/locations'
 import { locationsService } from '@/services/locations.service'
+import TagInput from '@/components/tags/TagInput'
+import TagBadge from '@/components/tags/TagBadge'
+import type { Tag as TagType } from '@/types/tags'
+import { tagsService } from '@/services/tags.service'
 
 // Icon mapping for property explorer
 const getIconForProperty = (propertyKey: string) => {
@@ -161,6 +165,10 @@ const PartDetailsPage = () => {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
   const [loadingProjects, setLoadingProjects] = useState(false)
 
+  // Tag management state
+  const [partTags, setPartTags] = useState<TagType[]>([])
+  const [loadingTags, setLoadingTags] = useState(false)
+
   // Inline editing states
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
@@ -204,6 +212,13 @@ const PartDetailsPage = () => {
   useEffect(() => {
     loadAllProjects()
   }, [])
+
+  // Load tags when part is loaded
+  useEffect(() => {
+    if (part?.id) {
+      loadPartTags(part.id)
+    }
+  }, [part?.id])
 
   // Load all locations on mount (for container detection)
   useEffect(() => {
@@ -552,6 +567,56 @@ const PartDetailsPage = () => {
       setError('Failed to load projects')
     } finally {
       setLoadingProjects(false)
+    }
+  }
+
+  // Tag management functions
+  const loadPartTags = async (partId: string) => {
+    try {
+      setLoadingTags(true)
+      const tags = await tagsService.getPartTags(partId)
+      setPartTags(tags || [])
+    } catch (error) {
+      console.error('Failed to load part tags:', error)
+      // Don't show error toast, tags are optional
+    } finally {
+      setLoadingTags(false)
+    }
+  }
+
+  const handleTagsChange = async (newTags: TagType[]) => {
+    if (!part?.id) return
+
+    try {
+      // Get current tag IDs and new tag IDs
+      const currentTagIds = partTags.map(t => t.id)
+      const newTagIds = newTags.map(t => t.id)
+
+      // Find tags to add and remove
+      const tagsToAdd = newTagIds.filter(id => !currentTagIds.includes(id))
+      const tagsToRemove = currentTagIds.filter(id => !newTagIds.includes(id))
+
+      // Add new tags
+      for (const tagId of tagsToAdd) {
+        await tagsService.assignTagToPart(tagId, part.id)
+      }
+
+      // Remove old tags
+      for (const tagId of tagsToRemove) {
+        await tagsService.removeTagFromPart(tagId, part.id)
+      }
+
+      // Update local state
+      setPartTags(newTags)
+
+      if (tagsToAdd.length > 0 || tagsToRemove.length > 0) {
+        toast.success('Tags updated successfully')
+      }
+    } catch (error) {
+      console.error('Failed to update tags:', error)
+      toast.error('Failed to update tags')
+      // Reload tags to revert to server state
+      loadPartTags(part.id)
     }
   }
 
@@ -1610,6 +1675,79 @@ const PartDetailsPage = () => {
                       Create New Category
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Enhanced Tags Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.23 }}
+            className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
+          >
+            <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
+                  <div className="p-2 bg-blue-600/10 rounded-lg">
+                    <Tag className="w-5 h-5 text-blue-400" />
+                  </div>
+                  Tags
+                  <span className="text-sm bg-blue-600/10 text-blue-400 px-3 py-1 rounded-full font-medium">
+                    {partTags.length}
+                  </span>
+                </h2>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {loadingTags ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+                  <p className="text-theme-muted mt-3">Loading tags...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Display current tags */}
+                  {partTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {partTags.map((tag) => (
+                        <TagBadge
+                          key={tag.id}
+                          tag={tag}
+                          size="md"
+                          onRemove={() => {
+                            const updatedTags = partTags.filter(t => t.id !== tag.id)
+                            handleTagsChange(updatedTags)
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tag input for adding/removing tags */}
+                  <div>
+                    <label className="block text-sm font-medium text-theme-secondary mb-2">
+                      Add or remove tags
+                    </label>
+                    <TagInput
+                      selectedTags={partTags}
+                      onTagsChange={handleTagsChange}
+                      entityType="part"
+                      placeholder="Add tags (e.g., #urgent, #needs-restock, #project-name)..."
+                      disabled={loadingTags}
+                    />
+                  </div>
+
+                  {partTags.length === 0 && (
+                    <div className="text-center py-4">
+                      <Tag className="w-12 h-12 text-theme-muted mx-auto mb-3 opacity-50" />
+                      <p className="text-theme-muted text-sm">
+                        No tags assigned yet. Use the input above to add tags for better organization.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
