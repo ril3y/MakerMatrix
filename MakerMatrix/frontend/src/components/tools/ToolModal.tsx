@@ -29,9 +29,11 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
     description: '',
     manufacturer: '',
     model_number: '',
+    product_url: '',
     purchase_date: '',
     purchase_price: undefined,
     condition: 'good',
+    is_checkable: true,
     location_id: '',
     category_ids: [],
     image_url: '',
@@ -73,9 +75,11 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           description: editingTool.description || '',
           manufacturer: editingTool.manufacturer || '',
           model_number: editingTool.model_number || '',
+          product_url: editingTool.product_url || '',
           purchase_date: editingTool.purchase_date || '',
           purchase_price: editingTool.purchase_price,
           condition: editingTool.condition,
+          is_checkable: editingTool.is_checkable,
           location_id: editingTool.location_id || '',
           category_ids: editingTool.categories && editingTool.categories.length > 0 ? editingTool.categories.map(c => c.id) : [],
           image_url: editingTool.image_url || '',
@@ -170,6 +174,7 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         description: formData.description || undefined,
         manufacturer: formData.manufacturer || undefined,
         model_number: formData.model_number || undefined,
+        product_url: formData.product_url || undefined,
         location_id: formData.location_id || undefined,
         category_ids: formData.category_ids && formData.category_ids.length > 0 ? formData.category_ids : undefined,
       }
@@ -215,9 +220,11 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       description: '',
       manufacturer: '',
       model_number: '',
+      product_url: '',
       purchase_date: '',
       purchase_price: undefined,
       condition: 'good',
+      is_checkable: true,
       location_id: '',
       category_ids: [],
       image_url: '',
@@ -253,7 +260,11 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
         )
         const newestCategory = sortedCategories[0]
-        setFormData({ ...formData, category_ids: [newestCategory.id] })
+        // Add the newly created category to existing selections
+        const currentCategories = formData.category_ids || []
+        if (!currentCategories.includes(newestCategory.id)) {
+          setFormData({ ...formData, category_ids: [...currentCategories, newestCategory.id] })
+        }
       }
     } catch (error) {
       console.error('Failed to reload categories:', error)
@@ -353,6 +364,19 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
             </FormField>
           </div>
 
+          {/* Row 2.5: Product URL */}
+          <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+            <FormField label="Product URL" tooltip="Link to product page or documentation">
+              <input
+                type="url"
+                className="input w-full"
+                value={formData.product_url}
+                onChange={(e) => setFormData({ ...formData, product_url: e.target.value })}
+                placeholder="https://example.com/product"
+              />
+            </FormField>
+          </div>
+
           {/* Row 3: Purchase Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
             <FormField label="Purchase Date">
@@ -412,15 +436,18 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-primary">Category</label>
+              <label className="text-sm font-medium text-primary">Categories</label>
               <CustomSelect
-                value={formData.category_ids?.[0] || ''}
-                onChange={(value) => setFormData({ ...formData, category_ids: value ? [value] : [] })}
+                value=""
+                onChange={() => {}}
+                multiSelect={true}
+                selectedValues={formData.category_ids || []}
+                onMultiSelectChange={(values) => setFormData({ ...formData, category_ids: values })}
                 options={categories.map((cat) => ({
                   value: cat.id,
                   label: cat.name,
                 }))}
-                placeholder="Select category..."
+                placeholder="Select categories..."
                 searchable={true}
                 searchPlaceholder="Search..."
                 error={errors.category_ids}
@@ -441,6 +468,26 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
                 rows={3}
               />
             </FormField>
+          </div>
+
+          {/* Row 6.5: Tool Settings */}
+          <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+            <label className="text-sm font-medium text-primary mb-3 block">Tool Settings</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_checkable"
+                checked={formData.is_checkable}
+                onChange={(e) => setFormData({ ...formData, is_checkable: e.target.checked })}
+                className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-0"
+              />
+              <label htmlFor="is_checkable" className="text-sm text-primary cursor-pointer">
+                Tool can be checked out
+                <span className="text-xs text-muted block">
+                  Uncheck for large or stationary equipment that cannot be borrowed
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Row 7: Image */}

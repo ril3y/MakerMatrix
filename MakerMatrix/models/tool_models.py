@@ -138,6 +138,10 @@ class ToolModel(SQLModel, table=True):
     )
 
     # === FLAGS ===
+    is_checkable: bool = Field(
+        default=True,
+        description="True if tool can be checked out (False for large/stationary equipment)"
+    )
     is_calibrated_tool: bool = Field(
         default=False,
         description="True if tool requires regular calibration (e.g., measuring instruments)"
@@ -164,6 +168,12 @@ class ToolModel(SQLModel, table=True):
 
     # === MULTI-LOCATION ALLOCATIONS ===
     allocations: List["ToolLocationAllocation"] = Relationship(
+        back_populates="tool",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+    )
+
+    # === MAINTENANCE RECORDS ===
+    maintenance_records: List["ToolMaintenanceRecord"] = Relationship(
         back_populates="tool",
         sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
@@ -415,6 +425,7 @@ class ToolCreate(SQLModel):
     additional_properties: Optional[Dict[str, Any]] = None
 
     condition: Optional[str] = "good"
+    is_checkable: Optional[bool] = True
     is_calibrated_tool: Optional[bool] = False
     is_consumable: Optional[bool] = False
 
@@ -452,6 +463,7 @@ class ToolUpdate(SQLModel):
     last_maintenance_date: Optional[datetime] = None
     next_maintenance_date: Optional[datetime] = None
 
+    is_checkable: Optional[bool] = None
     is_calibrated_tool: Optional[bool] = None
     is_consumable: Optional[bool] = None
 
@@ -475,14 +487,60 @@ class ToolReturn(SQLModel):
     notes: Optional[str] = None
 
 
-class ToolMaintenanceRecord(SQLModel):
-    """Request model for recording tool maintenance"""
-    maintenance_date: datetime
-    maintenance_type: str  # calibration, repair, inspection, cleaning
-    performed_by: str
-    notes: Optional[str] = None
-    next_maintenance_date: Optional[datetime] = None
-    cost: Optional[float] = None
+class ToolMaintenanceRecord(SQLModel, table=True):
+    """
+    Tool maintenance and service record tracking.
+
+    Tracks all maintenance, repairs, calibrations, and inspections performed on tools.
+    Each record includes who performed the work, when, what was done, and any associated costs.
+    """
+    __tablename__ = "tool_maintenance_records"
+
+    # === IDENTITY ===
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    tool_id: str = Field(
+        sa_column=Column(String, ForeignKey("toolmodel.id", ondelete="CASCADE"), index=True),
+        description="Tool that was maintained"
+    )
+
+    # === MAINTENANCE DETAILS ===
+    maintenance_date: datetime = Field(..., description="Date maintenance was performed")
+    maintenance_type: str = Field(
+        ...,
+        description="Type of maintenance: calibration, repair, inspection, cleaning, other"
+    )
+    performed_by: str = Field(..., description="Username of user who performed maintenance")
+    notes: Optional[str] = Field(default=None, description="Maintenance notes and details")
+    next_maintenance_date: Optional[datetime] = Field(
+        default=None,
+        description="Next scheduled maintenance date"
+    )
+    cost: Optional[float] = Field(default=None, ge=0, description="Maintenance cost")
+
+    # === TIMESTAMPS ===
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # === RELATIONSHIPS ===
+    tool: Optional["ToolModel"] = Relationship(
+        back_populates="maintenance_records",
+        sa_relationship_kwargs={"lazy": "selectin"}
+    )
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Custom serialization method for API responses"""
+        return {
+            "id": self.id,
+            "tool_id": self.tool_id,
+            "maintenance_date": self.maintenance_date.isoformat() if self.maintenance_date else None,
+            "maintenance_type": self.maintenance_type,
+            "performed_by": self.performed_by,
+            "notes": self.notes,
+            "next_maintenance_date": self.next_maintenance_date.isoformat() if self.next_maintenance_date else None,
+            "cost": self.cost,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
 
 
 # Forward reference updates (resolved when all model files are imported)

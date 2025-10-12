@@ -21,7 +21,8 @@ def setup_default_roles(user_repo: UserRepository):
                 "categories:read", "categories:create", "categories:update", "categories:delete",
                 "users:read", "users:create", "users:update", "users:delete",
                 "api_keys:read", "api_keys:create", "api_keys:update", "api_keys:delete", "api_keys:admin",
-                "tasks:read", "tasks:create", "tasks:update", "tasks:admin"
+                "tasks:read", "tasks:create", "tasks:update", "tasks:admin",
+                "tools:read", "tools:create", "tools:update", "tools:delete", "tools:use"
             ]
         },
         {
@@ -31,14 +32,16 @@ def setup_default_roles(user_repo: UserRepository):
                 "parts:read", "parts:create", "parts:update", "parts:delete",
                 "locations:read", "locations:create", "locations:update", "locations:delete",
                 "categories:read", "categories:create", "categories:update", "categories:delete",
-                "tasks:read", "tasks:create", "tasks:update"
+                "tasks:read", "tasks:create", "tasks:update",
+                "tools:read", "tools:create", "tools:update", "tools:delete", "tools:use"
             ]
         },
         {
             "name": "user",
             "description": "Regular user with read access",
             "permissions": [
-                "parts:read", "locations:read", "categories:read", "tasks:read"
+                "parts:read", "locations:read", "categories:read", "tasks:read",
+                "tools:read", "tools:use"
             ]
         }
     ]

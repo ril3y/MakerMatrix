@@ -73,8 +73,8 @@ export class ToolsService {
 
   async checkoutTool(id: string, userId: string, notes?: string): Promise<Tool> {
     const response = await apiClient.post<ApiResponse<Tool>>(`/api/tools/${id}/checkout`, {
-      checked_out_by: userId,
-      notes,
+      user_id: userId,
+      notes: notes || undefined,
     })
 
     if (response.status === 'success' && response.data) {
@@ -84,7 +84,7 @@ export class ToolsService {
   }
 
   async checkinTool(id: string, notes?: string): Promise<Tool> {
-    const response = await apiClient.post<ApiResponse<Tool>>(`/api/tools/${id}/checkin`, {
+    const response = await apiClient.post<ApiResponse<Tool>>(`/api/tools/${id}/return`, {
       notes,
     })
 
@@ -121,6 +121,51 @@ export class ToolsService {
       return (response.status === 'success' && response.data) || false
     } catch {
       return false
+    }
+  }
+
+  // === MAINTENANCE RECORD OPERATIONS ===
+
+  async createMaintenanceRecord(toolId: string, data: {
+    maintenance_date: string
+    maintenance_type: string
+    notes?: string
+    next_maintenance_date?: string
+    cost?: number
+  }): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>(`/api/tools/${toolId}/maintenance`, data)
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to create maintenance record')
+  }
+
+  async getMaintenanceRecords(toolId: string): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>(`/api/tools/${toolId}/maintenance`)
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to get maintenance records')
+  }
+
+  async updateMaintenanceRecord(toolId: string, recordId: string, data: {
+    maintenance_date?: string
+    maintenance_type?: string
+    notes?: string
+    next_maintenance_date?: string
+    cost?: number
+  }): Promise<any> {
+    const response = await apiClient.put<ApiResponse<any>>(`/api/tools/${toolId}/maintenance/${recordId}`, data)
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to update maintenance record')
+  }
+
+  async deleteMaintenanceRecord(toolId: string, recordId: string): Promise<void> {
+    const response = await apiClient.delete<ApiResponse>(`/api/tools/${toolId}/maintenance/${recordId}`)
+    if (response.status !== 'success') {
+      throw new Error(response.message || 'Failed to delete maintenance record')
     }
   }
 }
