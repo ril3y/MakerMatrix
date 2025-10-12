@@ -422,6 +422,218 @@ curl -X POST http://localhost:8765/mode -H "Content-Type: application/json" -d '
 
 ---
 
+## 🐳 Docker Deployment
+
+MakerMatrix supports Docker for easy deployment and consistent environments across different systems.
+
+### Quick Start with Docker
+
+#### Using Docker Compose (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/ril3y/MakerMatrix.git
+cd MakerMatrix
+
+# Copy and configure environment file
+cp .env.docker.example .env
+
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+#### Using Docker CLI
+
+```bash
+# Build the image
+docker build -t makermatrix:latest .
+
+# Run the container
+docker run -d \
+  -p 8443:8443 \
+  -p 5173:5173 \
+  -v $(pwd)/data:/data \
+  --name makermatrix \
+  makermatrix:latest
+
+# View logs
+docker logs -f makermatrix
+
+# Stop the container
+docker stop makermatrix
+```
+
+### Docker Configuration
+
+#### Environment Variables
+
+The Docker image uses environment variables for configuration:
+
+```bash
+# Docker-specific environment variables
+STATIC_FILES_PATH=/data/static      # Path for static files (datasheets, images)
+BACKUPS_PATH=/data/backups          # Path for backup files
+DATABASE_URL=sqlite:////data/makers_matrix.db  # Database location
+
+# Application settings
+JWT_SECRET_KEY=your-secret-key      # Will auto-generate if not provided
+PORT=8443                           # Backend port
+VITE_API_URL=https://localhost:8443 # API URL for frontend
+
+# Supplier API keys (optional)
+DIGIKEY_CLIENT_ID=
+DIGIKEY_CLIENT_SECRET=
+MOUSER_API_KEY=
+LCSC_API_KEY=
+```
+
+#### Volume Mounts
+
+Mount the `/data` volume to persist data across container restarts:
+
+```bash
+docker run -d \
+  -v $(pwd)/data:/data \  # Database, backups, datasheets, images
+  -p 8443:8443 \
+  makermatrix:latest
+```
+
+The `/data` directory contains:
+- `makers_matrix.db` - SQLite database
+- `static/datasheets/` - Downloaded datasheets
+- `static/images/` - Part and tool images
+- `backups/` - Database backup files
+
+#### SSL/TLS Certificates
+
+The Docker image automatically generates self-signed certificates at startup if they don't exist.
+
+For custom certificates:
+
+```bash
+docker run -d \
+  -v $(pwd)/certs:/app/certs \  # Mount custom certificates
+  -p 8443:8443 \
+  makermatrix:latest
+```
+
+Place your `key.pem` and `cert.pem` files in the `certs` directory.
+
+### Docker Image Tags
+
+Images are automatically built and pushed to GitHub Container Registry:
+
+```bash
+# Latest stable release
+docker pull ghcr.io/ril3y/makermatrix:latest
+
+# Specific version
+docker pull ghcr.io/ril3y/makermatrix:v1.0.0
+
+# Development branch
+docker pull ghcr.io/ril3y/makermatrix:main
+```
+
+### Access the Application
+
+After starting the Docker container:
+
+- **Frontend UI**: https://localhost:5173
+- **Backend API**: https://localhost:8443
+- **API Documentation**: https://localhost:8443/docs
+
+**Note:** Use HTTPS (not HTTP) when accessing the Dockerized application.
+
+### Docker Compose Example
+
+Full `docker-compose.yml` example with all options:
+
+```yaml
+version: '3.8'
+
+services:
+  makermatrix:
+    image: ghcr.io/ril3y/makermatrix:latest
+    # OR build locally:
+    # build: .
+    container_name: makermatrix
+    ports:
+      - "8443:8443"  # Backend API
+      - "5173:5173"  # Frontend
+    volumes:
+      - ./data:/data              # Persistent data
+      - ./certs:/app/certs       # Optional: Custom certificates
+    environment:
+      - JWT_SECRET_KEY=change-this-secret-key
+      - VITE_API_URL=https://localhost:8443
+      # Optional: Supplier API keys
+      - DIGIKEY_CLIENT_ID=${DIGIKEY_CLIENT_ID}
+      - DIGIKEY_CLIENT_SECRET=${DIGIKEY_CLIENT_SECRET}
+      - MOUSER_API_KEY=${MOUSER_API_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost:8443/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+### Updating the Docker Container
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/ril3y/makermatrix:latest
+
+# Stop and remove old container
+docker-compose down
+
+# Start with new image
+docker-compose up -d
+
+# Or with Docker CLI
+docker stop makermatrix
+docker rm makermatrix
+docker run -d --name makermatrix ...
+```
+
+### Troubleshooting Docker
+
+**Container won't start:**
+```bash
+# Check logs
+docker logs makermatrix
+
+# Check container status
+docker ps -a
+```
+
+**Permission issues with volumes:**
+```bash
+# Fix permissions on data directory
+sudo chown -R 1000:1000 ./data
+```
+
+**Port conflicts:**
+```bash
+# Use different ports
+docker run -d -p 9443:8443 -p 6173:5173 makermatrix:latest
+```
+
+**Database locked:**
+```bash
+# Stop all containers accessing the database
+docker-compose down
+docker-compose up -d
+```
+
+---
+
 ## 🛠️ Technology Stack
 
 ### Backend
