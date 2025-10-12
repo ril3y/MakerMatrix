@@ -43,7 +43,7 @@ async def upload_image(
     """
     Upload an image file and return the image ID for later retrieval.
     Supports PNG, JPG, JPEG, GIF, WebP formats with max 5MB file size.
-    Images are automatically cropped to square aspect ratio (center crop).
+    Images are automatically padded to square aspect ratio (letterboxed with white borders).
     """
     from PIL import Image
     import io
@@ -88,19 +88,22 @@ async def upload_image(
         elif image.mode != 'RGB':
             image = image.convert('RGB')
 
-        # Crop to square (center crop)
+        # Make square by adding padding (letterbox) instead of cropping
         width, height = image.size
         if width != height:
-            # Determine the size of the square (use the smaller dimension)
-            size = min(width, height)
+            # Use the larger dimension as the square size
+            size = max(width, height)
 
-            # Calculate crop box for center crop
-            left = (width - size) // 2
-            top = (height - size) // 2
-            right = left + size
-            bottom = top + size
+            # Create a new white square image
+            square_image = Image.new('RGB', (size, size), (255, 255, 255))
 
-            image = image.crop((left, top, right, bottom))
+            # Calculate position to paste the original image (centered)
+            x_offset = (size - width) // 2
+            y_offset = (size - height) // 2
+
+            # Paste the original image onto the square canvas
+            square_image.paste(image, (x_offset, y_offset))
+            image = square_image
 
         # Save as PNG with optimization
         image.save(str(file_path), 'PNG', optimize=True)
@@ -113,7 +116,7 @@ async def upload_image(
 
     return base_router.build_success_response(
         data={"image_id": image_id},
-        message="Image uploaded and cropped to square successfully"
+        message="Image uploaded and resized to square successfully"
     )
 
 

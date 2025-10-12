@@ -36,15 +36,39 @@ export class ToolsService {
   }
 
   async getAllTools(page = 1, pageSize = 20): Promise<PaginatedResponse<Tool>> {
-    const response = await apiClient.get<PaginatedResponse<Tool>>('/api/tools/', {
+    const response = await apiClient.get<ApiResponse<any>>('/api/tools/', {
       params: { page, page_size: pageSize },
     })
-    return response
+
+    if (response.status === 'success' && response.data) {
+      // Backend returns data.tools, frontend expects items
+      return {
+        items: response.data.tools || [],
+        total: response.data.total || 0,
+        page: response.data.page || 1,
+        page_size: response.data.page_size || 20,
+        total_pages: response.data.total_pages || 1,
+      }
+    }
+
+    throw new Error(response.message || 'Failed to get tools')
   }
 
   async searchTools(params: SearchToolsRequest): Promise<PaginatedResponse<Tool>> {
-    const response = await apiClient.post<PaginatedResponse<Tool>>('/api/tools/search', params)
-    return response
+    const response = await apiClient.post<ApiResponse<any>>('/api/tools/search', params)
+
+    if (response.status === 'success' && response.data) {
+      // Backend returns data.tools, frontend expects items
+      return {
+        items: response.data.tools || [],
+        total: response.data.total || 0,
+        page: response.data.page || 1,
+        page_size: response.data.page_size || 20,
+        total_pages: response.data.total_pages || 1,
+      }
+    }
+
+    throw new Error(response.message || 'Failed to search tools')
   }
 
   async checkoutTool(id: string, userId: string, notes?: string): Promise<Tool> {
