@@ -62,13 +62,16 @@ async def test_execute_successful_download(datasheet_task, mock_task):
                 mock_part.supplier_part_number = 'C12345'
                 mock_part.additional_properties = {}
 
-                mock_repo = Mock()
-                mock_repo.get_part_by_id.return_value = mock_part
-                mock_repo.update_part.return_value = mock_part
-                MockPartRepo.return_value = mock_repo
-
                 mock_session = MagicMock()
-                mock_get_session.return_value.__enter__.return_value = mock_session
+                mock_session.close = Mock()
+
+                # Mock get_session to return a generator that yields the mock session
+                # Use side_effect to return a fresh iterator each time get_session() is called
+                mock_get_session.side_effect = lambda: iter([mock_session])
+
+                # Mock PartRepository static methods
+                MockPartRepo.get_part_by_id.return_value = mock_part
+                MockPartRepo.update_part.return_value = mock_part
 
                 # Execute task
                 result = await datasheet_task.execute(mock_task)
@@ -87,6 +90,9 @@ async def test_execute_successful_download(datasheet_task, mock_task):
                     supplier='LCSC'
                 )
 
+                # Verify session was closed
+                assert mock_session.close.call_count >= 1
+
 
 @pytest.mark.asyncio
 async def test_execute_failed_download(datasheet_task, mock_task):
@@ -102,12 +108,16 @@ async def test_execute_failed_download(datasheet_task, mock_task):
                 mock_part.part_name = 'Test Part'
                 mock_part.additional_properties = {}
 
-                mock_repo = Mock()
-                mock_repo.get_part_by_id.return_value = mock_part
-                MockPartRepo.return_value = mock_repo
-
                 mock_session = MagicMock()
-                mock_get_session.return_value.__enter__.return_value = mock_session
+                mock_session.close = Mock()
+
+                # Mock get_session to return a generator that yields the mock session
+                # Use side_effect to return a fresh iterator each time get_session() is called
+                mock_get_session.side_effect = lambda: iter([mock_session])
+
+                # Mock PartRepository static methods
+                MockPartRepo.get_part_by_id.return_value = mock_part
+                MockPartRepo.update_part.return_value = mock_part
 
                 # Execute task
                 result = await datasheet_task.execute(mock_task)
@@ -144,12 +154,16 @@ async def test_update_part_download_status_success(datasheet_task):
             mock_part = Mock()
             mock_part.additional_properties = {}
 
-            mock_repo = Mock()
-            mock_repo.get_part_by_id.return_value = mock_part
-            MockPartRepo.return_value = mock_repo
-
             mock_session = MagicMock()
-            mock_get_session.return_value.__enter__.return_value = mock_session
+            mock_session.close = Mock()
+
+            # Mock get_session to return a generator that yields the mock session
+            # Use side_effect to return a fresh iterator each time get_session() is called
+            mock_get_session.side_effect = lambda: iter([mock_session])
+
+            # Mock PartRepository static methods
+            MockPartRepo.get_part_by_id.return_value = mock_part
+            MockPartRepo.update_part.return_value = mock_part
 
             # Update with success
             download_info = {
@@ -168,6 +182,9 @@ async def test_update_part_download_status_success(datasheet_task):
             assert mock_part.additional_properties['datasheet_size'] == 1024
             assert 'datasheet_download_error' not in mock_part.additional_properties
 
+            # Verify session was closed
+            mock_session.close.assert_called()
+
 
 @pytest.mark.asyncio
 async def test_update_part_download_status_failure(datasheet_task):
@@ -177,12 +194,16 @@ async def test_update_part_download_status_failure(datasheet_task):
             mock_part = Mock()
             mock_part.additional_properties = {'datasheet_filename': 'old.pdf'}
 
-            mock_repo = Mock()
-            mock_repo.get_part_by_id.return_value = mock_part
-            MockPartRepo.return_value = mock_repo
-
             mock_session = MagicMock()
-            mock_get_session.return_value.__enter__.return_value = mock_session
+            mock_session.close = Mock()
+
+            # Mock get_session to return a generator that yields the mock session
+            # Use side_effect to return a fresh iterator each time get_session() is called
+            mock_get_session.side_effect = lambda: iter([mock_session])
+
+            # Mock PartRepository static methods
+            MockPartRepo.get_part_by_id.return_value = mock_part
+            MockPartRepo.update_part.return_value = mock_part
 
             # Update with failure
             await datasheet_task._update_part_download_status(
@@ -194,6 +215,9 @@ async def test_update_part_download_status_failure(datasheet_task):
             # Verify part properties were updated
             assert mock_part.additional_properties['datasheet_downloaded'] is False
             assert mock_part.additional_properties['datasheet_download_error'] == 'Download failed: 404'
+
+            # Verify session was closed
+            mock_session.close.assert_called()
 
 
 if __name__ == "__main__":
