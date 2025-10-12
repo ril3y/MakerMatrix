@@ -122,6 +122,13 @@ class PartModel(SQLModel, table=True):
         sa_relationship_kwargs={"lazy": "selectin"}
     )
 
+    # Tags (many-to-many relationship through link table)
+    # Note: link_model is imported later to avoid circular imports
+    tags: List["TagModel"] = Relationship(
+        back_populates="parts",
+        sa_relationship_kwargs={"lazy": "selectin", "secondary": "part_tag_links"}
+    )
+
     # Datasheet files (one-to-many relationship)
     datasheets: List["DatasheetModel"] = Relationship(
         back_populates="part",
@@ -308,6 +315,12 @@ class PartModel(SQLModel, table=True):
             {"id": category.id, "name": category.name, "description": category.description}
             for category in self.categories
         ] if self.categories else []
+
+        # Always include tags (core part data)
+        base_dict["tags"] = [
+            {"id": tag.id, "name": tag.name, "color": tag.color, "icon": tag.icon}
+            for tag in self.tags
+        ] if hasattr(self, 'tags') and self.tags else []
 
         # Always include projects (core part data)
         base_dict["projects"] = [
@@ -673,3 +686,4 @@ if False:  # Type checking only - prevents circular imports at runtime
     from .order_models import OrderItemModel
     from .part_metadata_models import PartSystemMetadata
     from .part_allocation_models import PartLocationAllocation
+    from .tag_models import TagModel, PartTagLink

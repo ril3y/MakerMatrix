@@ -166,6 +166,13 @@ class ToolModel(SQLModel, table=True):
         sa_relationship_kwargs={"lazy": "selectin"}
     )
 
+    # Tags (many-to-many relationship through link table)
+    # Note: link_model is imported later to avoid circular imports
+    tags: List["TagModel"] = Relationship(
+        back_populates="tools",
+        sa_relationship_kwargs={"lazy": "selectin", "secondary": "tool_tag_links"}
+    )
+
     # === MULTI-LOCATION ALLOCATIONS ===
     allocations: List["ToolLocationAllocation"] = Relationship(
         back_populates="tool",
@@ -259,6 +266,12 @@ class ToolModel(SQLModel, table=True):
             {"id": category.id, "name": category.name, "description": category.description}
             for category in self.categories
         ] if self.categories else []
+
+        # Always include tags (core tool data)
+        base_dict["tags"] = [
+            {"id": tag.id, "name": tag.name, "color": tag.color, "icon": tag.icon}
+            for tag in self.tags
+        ] if hasattr(self, 'tags') and self.tags else []
 
         # Always include primary location from allocations
         primary_loc = self.primary_location
@@ -547,3 +560,4 @@ class ToolMaintenanceRecord(SQLModel, table=True):
 if False:  # Type checking only - prevents circular imports at runtime
     from .location_models import LocationModel
     from .category_models import CategoryModel
+    from .tag_models import TagModel, ToolTagLink

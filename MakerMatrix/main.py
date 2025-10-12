@@ -19,7 +19,7 @@ from MakerMatrix.routers import (
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
     rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes, font_routes,
-    tool_routes, backup_routes
+    tool_routes, tag_routes, backup_routes
 )
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
@@ -412,6 +412,35 @@ tool_permissions = {
     "/check_name_exists": "tools:read"
 }
 
+tag_permissions = {
+    "/": {
+        "POST": "tags:create",
+        "GET": "tags:read"
+    },
+    "/{tag_id}": {
+        "GET": "tags:read",
+        "PUT": "tags:update",
+        "DELETE": "tags:delete"
+    },
+    "/name/{tag_name}": "tags:read",
+    "/{tag_id}/parts/{part_id}": {
+        "POST": "tags:assign",
+        "DELETE": "tags:assign"
+    },
+    "/{tag_id}/tools/{tool_id}": {
+        "POST": "tags:assign",
+        "DELETE": "tags:assign"
+    },
+    "/parts/{part_id}/tags": "tags:read",
+    "/tools/{tool_id}/tags": "tags:read",
+    "/{tag_id}/parts": "tags:read",
+    "/{tag_id}/tools": "tags:read",
+    "/bulk": "tags:assign",
+    "/merge": "tags:admin",
+    "/cleanup": "tags:admin",
+    "/statistics": "tags:read"
+}
+
 backup_permissions = {
     "/create": "admin",
     "/restore": "admin",
@@ -435,6 +464,7 @@ secure_all_routes(parts_routes.router, permissions=parts_permissions)
 secure_all_routes(locations_routes.router, permissions=locations_permissions, exclude_paths=["/get_all_locations"])
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
 secure_all_routes(tool_routes.router, permissions=tool_permissions)
+secure_all_routes(tag_routes.router, permissions=tag_permissions)
 secure_all_routes(printer_routes.router, permissions=printer_permissions, exclude_paths=["/preview/template"])
 secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/get_image/{image_id}", "/static/datasheets/{filename}", "/supplier_icon/{supplier_name}"])
@@ -463,6 +493,7 @@ public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
 app.include_router(parts_routes.router, prefix="/api/parts", tags=["parts"])
 app.include_router(part_allocation_routes.router, prefix="/api", tags=["Part Allocations"])
 app.include_router(tool_routes.router, prefix="/api/tools", tags=["tools"])
+app.include_router(tag_routes.router, prefix="/api/tags", tags=["tags"])
 app.include_router(locations_routes.router, prefix="/api/locations", tags=["locations"])
 app.include_router(categories_routes.router, prefix="/api/categories", tags=["categories"])
 app.include_router(project_routes.router, prefix="/api/projects", tags=["projects"])

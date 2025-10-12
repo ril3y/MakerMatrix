@@ -4,6 +4,8 @@ from .models import *
 
 # Domain-specific models
 from .part_models import *
+from .tool_models import *
+from .tag_models import *
 from .location_models import *
 from .category_models import *
 from .system_models import *
