@@ -748,10 +748,10 @@ class LocationService(BaseService):
 
                     # Add occupancy information if requested
                     if include_occupancy:
-                        # Query allocations for this slot
+                        # Query allocations for this slot with part details
                         alloc_query = select(PartLocationAllocation).where(
                             PartLocationAllocation.location_id == slot.id
-                        )
+                        ).options(selectinload(PartLocationAllocation.part))
                         allocations = session.exec(alloc_query).all()
 
                         # Calculate occupancy
@@ -765,8 +765,13 @@ class LocationService(BaseService):
                             'parts': [
                                 {
                                     'part_id': alloc.part_id,
+                                    'part_name': alloc.part.name if alloc.part else 'Unknown',
+                                    'part_number': alloc.part.part_number if alloc.part else None,
                                     'quantity': alloc.quantity_at_location,
-                                    'is_primary': alloc.is_primary_storage
+                                    'is_primary': alloc.is_primary_storage,
+                                    'description': alloc.part.description if alloc.part else None,
+                                    'image_url': alloc.part.image_url if alloc.part else None,
+                                    'category': alloc.part.categories[0].name if alloc.part and alloc.part.categories else None
                                 }
                                 for alloc in allocations
                             ] if total_parts > 0 else []

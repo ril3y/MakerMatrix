@@ -101,8 +101,13 @@ export interface SlotOccupancy {
   total_quantity: number
   parts: Array<{
     part_id: string
+    part_name: string
+    part_number?: string
     quantity: number
     is_primary: boolean
+    description?: string
+    image_url?: string
+    category?: string
   }>
 }
 

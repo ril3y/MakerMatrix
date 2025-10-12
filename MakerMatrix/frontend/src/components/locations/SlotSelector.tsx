@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
-import { Check, Loader2, Box, Grid3x3, List, AlertCircle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Check, Loader2, Box, Grid3x3, List, AlertCircle, Package } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { locationsService } from '@/services/locations.service'
 import type { Location, SlotWithOccupancy } from '@/types/locations'
+import type { Part } from '@/types/parts'
+import PartPreviewCard from '@/components/parts/PartPreviewCard'
 
 interface SlotSelectorProps {
   container: Location
@@ -23,6 +25,11 @@ export function SlotSelector({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAvailableOnly, setShowAvailableOnly] = useState(false)
+
+  // Part hover tooltip state
+  const [hoveredPart, setHoveredPart] = useState<Part | null>(null)
+  const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null)
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (isOpen && container.id) {
@@ -57,11 +64,49 @@ export function SlotSelector({
     onClose()
   }
 
+  const handlePartHover = (part: Part, event: React.MouseEvent) => {
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+
+    // Set position slightly offset from cursor
+    const rect = event.currentTarget.getBoundingClientRect()
+    setHoverPosition({
+      x: rect.right + 10,
+      y: rect.top,
+    })
+
+    // Show preview after short delay
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredPart(part)
+    }, 300)
+  }
+
+  const handlePartLeave = () => {
+    // Clear timeout if user leaves before delay
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    setHoveredPart(null)
+    setHoverPosition(null)
+  }
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const renderSlotCard = (slot: SlotWithOccupancy) => {
     const isSelected = selectedSlotId === slot.id
     const isOccupied = slot.occupancy?.is_occupied || false
     const partCount = slot.occupancy?.part_count || 0
     const totalQuantity = slot.occupancy?.total_quantity || 0
+    const parts = slot.occupancy?.parts || []
 
     return (
       <button
@@ -69,7 +114,7 @@ export function SlotSelector({
         onClick={() => handleSlotClick(slot)}
         className={`
           relative p-3 border-2 rounded-lg transition-all hover:shadow-md
-          focus:outline-none focus:ring-2 focus:ring-primary text-left
+          focus:outline-none focus:ring-2 focus:ring-primary text-left flex flex-col min-h-[100px]
           ${isSelected ? 'border-primary bg-primary/10' : ''}
           ${!isSelected && isOccupied ? 'border-yellow-500/50 bg-yellow-500/10' : ''}
           ${!isSelected && !isOccupied ? 'border-green-500/50 bg-green-500/10' : ''}
@@ -81,7 +126,16 @@ export function SlotSelector({
           </div>
         )}
 
-        <div className="font-medium text-sm mb-1">{slot.name}</div>
+        {/* Slot Header */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-medium text-sm">{slot.name}</div>
+          {isOccupied && partCount > 0 && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/20 rounded text-primary text-xs font-semibold">
+              <Package className="w-3 h-3" />
+              <span>{partCount}</span>
+            </div>
+          )}
+        </div>
 
         {slot.slot_metadata && (
           <div className="text-xs text-secondary mb-2">
@@ -90,24 +144,45 @@ export function SlotSelector({
           </div>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap text-xs">
-          <span className={`px-2 py-0.5 rounded ${isOccupied ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' : 'bg-green-500/20 text-green-700 dark:text-green-300'}`}>
-            {isOccupied ? 'Occupied' : 'Available'}
-          </span>
+        {/* Part List or Empty State */}
+        {isOccupied && parts.length > 0 ? (
+          <div className="text-xs text-secondary space-y-0.5 flex-1 overflow-y-auto max-h-24">
+            {parts.map((part, idx) => (
+              <div
+                key={idx}
+                className="truncate hover:text-primary cursor-help"
+                onMouseEnter={(e) => {
+                  // Convert occupancy part to full Part type for preview
+                  const partForPreview: Part = {
+                    id: part.part_id,
+                    part_name: part.part_name || 'Unknown Part',
+                    part_number: part.part_number,
+                    quantity: part.quantity,
+                    description: part.description,
+                    image_url: part.image_url,
+                    categories: part.category ? [{ id: '', name: part.category }] : [],
+                  } as Part
+                  handlePartHover(partForPreview, e)
+                }}
+                onMouseLeave={handlePartLeave}
+                title={`${part.part_name} (Qty: ${part.quantity})`}
+              >
+                • {part.part_name}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-secondary/50 italic flex-1 flex items-center">
+            Empty slot
+          </div>
+        )}
 
-          {isOccupied && partCount > 0 && (
-            <>
-              <span className="px-2 py-0.5 rounded bg-secondary/20 text-secondary">
-                {partCount} part{partCount !== 1 ? 's' : ''}
-              </span>
-              {totalQuantity > 0 && (
-                <span className="px-2 py-0.5 rounded bg-secondary/20 text-secondary">
-                  Qty: {totalQuantity}
-                </span>
-              )}
-            </>
-          )}
-        </div>
+        {/* Footer with total quantity */}
+        {isOccupied && totalQuantity > 0 && (
+          <div className="text-xs text-primary font-medium mt-2 pt-2 border-t border-border">
+            Total: {totalQuantity} units
+          </div>
+        )}
       </button>
     )
   }
@@ -193,6 +268,19 @@ export function SlotSelector({
           </button>
         </div>
       </div>
+
+      {/* Hover Preview Tooltip */}
+      {hoveredPart && hoverPosition && (
+        <div
+          className="fixed z-[60] pointer-events-none"
+          style={{
+            left: `${hoverPosition.x}px`,
+            top: `${hoverPosition.y}px`,
+          }}
+        >
+          <PartPreviewCard part={hoveredPart} />
+        </div>
+      )}
     </Modal>
   )
 }
