@@ -19,6 +19,7 @@ from MakerMatrix.models.printer_config_model import *
 from MakerMatrix.models.csv_import_config_model import *
 from MakerMatrix.models.label_template_models import *
 from MakerMatrix.models.part_metadata_models import *
+from MakerMatrix.models.backup_models import *
 from sqlalchemy import inspect, event
 
 # Database URL for backup and utility operations

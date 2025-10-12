@@ -23,6 +23,7 @@ from . import (
     label_template_routes,
     font_routes,
     tool_routes,
+    backup_routes,
 
 )
 
@@ -49,5 +50,6 @@ __all__ = [
     "rate_limit_routes",
     "label_template_routes",
     "font_routes",
-    "tool_routes"
+    "tool_routes",
+    "backup_routes"
 ]

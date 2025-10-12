@@ -25,7 +25,7 @@ class TaskPriority(str, Enum):
 class TaskType(str, Enum):
     # Import and processing tasks
     FILE_IMPORT_ENRICHMENT = "file_import_enrichment"  # Handles CSV, XLS, etc.
-    
+
     # General maintenance tasks
     PRICE_UPDATE = "price_update"
     DATABASE_CLEANUP = "database_cleanup"
@@ -33,7 +33,14 @@ class TaskType(str, Enum):
     DATA_SYNC = "data_sync"
     INVENTORY_AUDIT = "inventory_audit"
     PART_VALIDATION = "part_validation"
+
+    # Backup and restore tasks
     BACKUP_CREATION = "backup_creation"
+    BACKUP_RESTORE = "backup_restore"
+    BACKUP_SCHEDULED = "backup_scheduled"
+    BACKUP_RETENTION = "backup_retention"
+
+    # Notification and reporting
     EMAIL_NOTIFICATION = "email_notification"
     REPORT_GENERATION = "report_generation"
     

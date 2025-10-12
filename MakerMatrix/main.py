@@ -19,7 +19,7 @@ from MakerMatrix.routers import (
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
     rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes, font_routes,
-    tool_routes
+    tool_routes, backup_routes
 )
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
@@ -172,7 +172,17 @@ async def lifespan(app: FastAPI):
     print("Starting WebSocket ping task...")
     asyncio.create_task(start_ping_task())
     print("WebSocket service started!")
-    
+
+    # Start backup scheduler
+    print("Starting backup scheduler...")
+    try:
+        from MakerMatrix.services.system.backup_scheduler import backup_scheduler
+        await backup_scheduler.start()
+        print("Backup scheduler started successfully!")
+    except Exception as e:
+        print(f"Failed to start backup scheduler: {e}")
+        # Don't fail startup if backup scheduler fails
+
     # Restore printers from database
     print("Restoring printers from database...")
     try:
@@ -185,8 +195,17 @@ async def lifespan(app: FastAPI):
         # Don't fail startup if printer restoration fails
     
     yield  # App continues running
-    
+
     print("Shutting down...")
+
+    # Stop backup scheduler on shutdown
+    try:
+        from MakerMatrix.services.system.backup_scheduler import backup_scheduler
+        await backup_scheduler.stop()
+        print("Backup scheduler stopped!")
+    except Exception as e:
+        print(f"Failed to stop backup scheduler: {e}")
+
     # Stop the task worker on shutdown
     await task_service.stop_worker()
     print("Task worker stopped!")
@@ -393,6 +412,17 @@ tool_permissions = {
     "/check_name_exists": "tools:read"
 }
 
+backup_permissions = {
+    "/create": "admin",
+    "/restore": "admin",
+    "/list": "admin",
+    "/download/{backup_filename}": "admin",
+    "/delete/{backup_filename}": "admin",
+    "/retention/run": "admin",
+    "/config": "admin",
+    "/status": "admin"
+}
+
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
     "/login",
@@ -424,6 +454,7 @@ secure_all_routes(
 secure_all_routes(rate_limit_routes.router, permissions=rate_limit_permissions)
 secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
+secure_all_routes(backup_routes.router, permissions=backup_permissions)
 
 # Public routes that don't need authentication
 public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
@@ -451,6 +482,7 @@ app.include_router(supplier_routes.router, prefix="/api/suppliers", tags=["Suppl
 app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
 app.include_router(analytics_routes.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
+app.include_router(backup_routes.router, tags=["Backup Management"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])
 
 # Include user management router also at /users for backward compatibility

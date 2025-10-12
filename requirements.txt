@@ -27,6 +27,9 @@ sqlmodel==0.0.22
 SQLAlchemy==2.0.36
 passlib>=1.7.4
 python-jose[cryptography]>=3.3.0
+cryptography>=41.0.0
+APScheduler>=3.10.4
+pyminizip>=0.2.6
 
 # Removed bcrypt, now using pbkdf2_sha256 via passlib only
 

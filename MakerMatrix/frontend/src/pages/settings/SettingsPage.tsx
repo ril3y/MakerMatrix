@@ -32,6 +32,7 @@ import { SupplierConfigPage } from '@/pages/suppliers/SupplierConfigPage'
 import DynamicPrinterModal from '@/components/printer/DynamicPrinterModal'
 import Templates from '@/pages/Templates'
 import ApiKeyManagement from '@/components/settings/ApiKeyManagement'
+import BackupManagement from '@/components/settings/BackupManagement'
 import { usePermissions } from '@/hooks/usePermissions'
 
 const SettingsPage = () => {
@@ -547,125 +548,7 @@ const SettingsPage = () => {
 
         {activeTab === 'suppliers' && <SupplierConfigPage />}
 
-        {activeTab === 'database' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              Database Management
-            </h3>
-
-            {backupStatus && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-background-secondary rounded-lg">
-                  <p className="text-2xl font-bold text-primary">{backupStatus.total_records}</p>
-                  <p className="text-sm text-secondary">Total Records</p>
-                </div>
-                <div className="text-center p-4 bg-background-secondary rounded-lg">
-                  <p className="text-2xl font-bold text-primary">
-                    {(backupStatus.database_size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                  <p className="text-sm text-secondary">Database Size</p>
-                </div>
-                <div className="text-center p-4 bg-background-secondary rounded-lg">
-                  <p className="text-2xl font-bold text-primary">
-                    {new Date(backupStatus.last_modified).toLocaleDateString()}
-                  </p>
-                  <p className="text-sm text-secondary">Last Modified</p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-4 flex-wrap">
-              <button
-                onClick={() => settingsService.downloadDatabaseBackup()}
-                className="btn btn-primary"
-              >
-                Download Backup
-              </button>
-              <button
-                onClick={() => settingsService.exportDataJSON()}
-                className="btn btn-secondary"
-              >
-                Export JSON
-              </button>
-            </div>
-
-            <div className="border-t pt-6">
-              <h4 className="text-md font-medium text-red-600 mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                Dangerous Operations
-              </h4>
-              <p className="text-sm text-secondary mb-4">
-                These operations will permanently delete data. Use with extreme caution.
-              </p>
-              <div className="flex gap-4 flex-wrap">
-                <button
-                  onClick={async () => {
-                    if (
-                      window.confirm(
-                        'Are you sure you want to clear ALL PARTS? This action cannot be undone!'
-                      )
-                    ) {
-                      try {
-                        await settingsService.clearAllParts()
-                        await loadBackupStatus()
-                        alert('All parts have been cleared successfully')
-                      } catch (error) {
-                        console.error('Error clearing parts:', error)
-                        alert('Failed to clear parts: ' + (error as Error).message)
-                      }
-                    }
-                  }}
-                  className="btn bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
-                >
-                  Clear All Parts
-                </button>
-                <button
-                  onClick={async () => {
-                    if (
-                      window.confirm(
-                        'Are you sure you want to clear ALL SUPPLIERS data? This action cannot be undone!'
-                      )
-                    ) {
-                      try {
-                        await settingsService.clearAllSuppliers()
-                        await loadBackupStatus()
-                        alert('All supplier data has been cleared successfully')
-                      } catch (error) {
-                        console.error('Error clearing suppliers:', error)
-                        alert('Failed to clear suppliers: ' + (error as Error).message)
-                      }
-                    }
-                  }}
-                  className="btn bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
-                >
-                  Clear All Suppliers
-                </button>
-                <button
-                  onClick={async () => {
-                    if (
-                      window.confirm(
-                        'Are you sure you want to clear ALL CATEGORIES? This action cannot be undone!'
-                      )
-                    ) {
-                      try {
-                        await settingsService.clearAllCategories()
-                        await loadBackupStatus()
-                        alert('All categories have been cleared successfully')
-                      } catch (error) {
-                        console.error('Error clearing categories:', error)
-                        alert('Failed to clear categories: ' + (error as Error).message)
-                      }
-                    }
-                  }}
-                  className="btn bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
-                >
-                  Clear All Categories
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'database' && <BackupManagement />}
 
         {activeTab === 'printer' && (
           <div className="space-y-6">
