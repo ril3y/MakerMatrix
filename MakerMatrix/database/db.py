@@ -9,6 +9,7 @@ from MakerMatrix.models.supplier_config_models import *
 from MakerMatrix.models.part_models import *
 from MakerMatrix.models.location_models import *
 from MakerMatrix.models.category_models import *
+from MakerMatrix.models.tool_models import *
 from MakerMatrix.models.system_models import *
 from MakerMatrix.models.user_models import *
 from MakerMatrix.models.order_models import *
