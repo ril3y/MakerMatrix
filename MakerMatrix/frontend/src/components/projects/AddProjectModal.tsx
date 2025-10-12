@@ -6,7 +6,7 @@ import ImageUpload from '@/components/ui/ImageUpload'
 import { projectsService } from '@/services/projects.service'
 import type { ProjectCreate } from '@/types/projects'
 import toast from 'react-hot-toast'
-import { parseUrl, getFaviconUrl } from '@/utils/url.utils'
+import { parseUrl, normalizeUrl, getFaviconUrl } from '@/utils/url.utils'
 
 interface AddProjectModalProps {
   isOpen: boolean
