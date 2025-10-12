@@ -10,8 +10,6 @@ import {
   User,
   FileText,
   AlertCircle,
-  CircleCheck,
-  CircleX,
   Package,
   CheckCircle,
   XCircle,
@@ -132,9 +130,9 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'available':
-        return <CircleCheck className="w-5 h-5 text-green-500" />
+        return <CheckCircle className="w-5 h-5 text-green-500" />
       case 'checked_out':
-        return <CircleX className="w-5 h-5 text-red-500" />
+        return <XCircle className="w-5 h-5 text-red-500" />
       case 'maintenance':
         return <AlertCircle className="w-5 h-5 text-yellow-500" />
       case 'retired':
