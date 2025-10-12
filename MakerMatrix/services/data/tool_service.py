@@ -403,7 +403,10 @@ class ToolService(BaseService):
     # === MAINTENANCE OPERATIONS ===
 
     def record_maintenance(self, tool_id: str, maintenance_data: Dict[str, Any]) -> ServiceResponse[Dict[str, Any]]:
-        """Record maintenance performed on a tool"""
+        """
+        Legacy method: Record maintenance on tool directly.
+        Consider using create_maintenance_record instead for better tracking.
+        """
         try:
             self.log_operation("maintenance", self.entity_name, tool_id)
 
@@ -428,6 +431,130 @@ class ToolService(BaseService):
 
         except Exception as e:
             return self.handle_exception(e, f"record maintenance for {self.entity_name}")
+
+    def create_maintenance_record(self, tool_id: str, maintenance_data: Dict[str, Any]) -> ServiceResponse[Dict[str, Any]]:
+        """Create a new maintenance record for a tool"""
+        try:
+            self.log_operation("create_maintenance_record", self.entity_name, tool_id)
+
+            with self.get_session() as session:
+                # Verify tool exists
+                tool = session.get(ToolModel, tool_id)
+                if not tool:
+                    return self.error_response(f"{self.entity_name} with ID '{tool_id}' not found")
+
+                # Create maintenance record
+                record = ToolMaintenanceRecord(
+                    tool_id=tool_id,
+                    **maintenance_data
+                )
+
+                session.add(record)
+
+                # Update tool's maintenance dates if provided
+                if maintenance_data.get("maintenance_date"):
+                    tool.last_maintenance_date = maintenance_data["maintenance_date"]
+                if maintenance_data.get("next_maintenance_date"):
+                    tool.next_maintenance_date = maintenance_data["next_maintenance_date"]
+
+                session.commit()
+                session.refresh(record)
+
+                self.logger.info(f"Created maintenance record for tool '{tool.tool_name}' (ID: {tool_id})")
+                return self.success_response("Maintenance record created successfully", record.to_dict())
+
+        except Exception as e:
+            return self.handle_exception(e, f"create maintenance record for {self.entity_name}")
+
+    def get_maintenance_records(self, tool_id: str) -> ServiceResponse[List[Dict[str, Any]]]:
+        """Get all maintenance records for a tool"""
+        try:
+            self.log_operation("get_maintenance_records", self.entity_name, tool_id)
+
+            with self.get_session() as session:
+                # Verify tool exists
+                tool = session.get(ToolModel, tool_id)
+                if not tool:
+                    return self.error_response(f"{self.entity_name} with ID '{tool_id}' not found")
+
+                # Get all maintenance records for this tool
+                records = session.exec(
+                    select(ToolMaintenanceRecord)
+                    .where(ToolMaintenanceRecord.tool_id == tool_id)
+                    .order_by(ToolMaintenanceRecord.maintenance_date.desc())
+                ).all()
+
+                records_data = [record.to_dict() for record in records]
+
+                self.logger.info(f"Retrieved {len(records)} maintenance records for tool ID: {tool_id}")
+                return self.success_response(f"Found {len(records)} maintenance records", records_data)
+
+        except Exception as e:
+            return self.handle_exception(e, f"get maintenance records for {self.entity_name}")
+
+    def update_maintenance_record(self, tool_id: str, record_id: str, update_data: Dict[str, Any]) -> ServiceResponse[Dict[str, Any]]:
+        """Update an existing maintenance record"""
+        try:
+            self.log_operation("update_maintenance_record", self.entity_name, f"{tool_id}/{record_id}")
+
+            with self.get_session() as session:
+                # Verify tool exists
+                tool = session.get(ToolModel, tool_id)
+                if not tool:
+                    return self.error_response(f"{self.entity_name} with ID '{tool_id}' not found")
+
+                # Get the maintenance record
+                record = session.get(ToolMaintenanceRecord, record_id)
+                if not record:
+                    return self.error_response(f"Maintenance record with ID '{record_id}' not found")
+
+                # Verify record belongs to this tool
+                if record.tool_id != tool_id:
+                    return self.error_response(f"Maintenance record '{record_id}' does not belong to tool '{tool_id}'")
+
+                # Update record fields
+                for key, value in update_data.items():
+                    if hasattr(record, key) and value is not None:
+                        setattr(record, key, value)
+
+                session.add(record)
+                session.commit()
+                session.refresh(record)
+
+                self.logger.info(f"Updated maintenance record {record_id} for tool ID: {tool_id}")
+                return self.success_response("Maintenance record updated successfully", record.to_dict())
+
+        except Exception as e:
+            return self.handle_exception(e, f"update maintenance record for {self.entity_name}")
+
+    def delete_maintenance_record(self, tool_id: str, record_id: str) -> ServiceResponse[Dict[str, str]]:
+        """Delete a maintenance record"""
+        try:
+            self.log_operation("delete_maintenance_record", self.entity_name, f"{tool_id}/{record_id}")
+
+            with self.get_session() as session:
+                # Verify tool exists
+                tool = session.get(ToolModel, tool_id)
+                if not tool:
+                    return self.error_response(f"{self.entity_name} with ID '{tool_id}' not found")
+
+                # Get the maintenance record
+                record = session.get(ToolMaintenanceRecord, record_id)
+                if not record:
+                    return self.error_response(f"Maintenance record with ID '{record_id}' not found")
+
+                # Verify record belongs to this tool
+                if record.tool_id != tool_id:
+                    return self.error_response(f"Maintenance record '{record_id}' does not belong to tool '{tool_id}'")
+
+                session.delete(record)
+                session.commit()
+
+                self.logger.info(f"Deleted maintenance record {record_id} for tool ID: {tool_id}")
+                return self.success_response("Maintenance record deleted successfully", {"id": record_id})
+
+        except Exception as e:
+            return self.handle_exception(e, f"delete maintenance record for {self.entity_name}")
 
     # === STATISTICS ===
 

@@ -208,23 +208,81 @@ async def return_tool(
 
 # === MAINTENANCE OPERATIONS ===
 
-@router.post("/{tool_id}/maintenance", response_model=ResponseSchema[ToolResponse])
+@router.post("/{tool_id}/maintenance", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
-async def record_maintenance(
+async def create_maintenance_record(
     tool_id: str,
     maintenance_data: ToolMaintenanceRequest,
     request: Request,
     current_user: UserModel = Depends(get_current_user_flexible),
     tool_service: ToolService = Depends(get_tool_service)
-) -> ResponseSchema[ToolResponse]:
-    """Record maintenance performed on a tool"""
+) -> ResponseSchema[Dict[str, Any]]:
+    """Create a new maintenance record for a tool"""
     maintenance_dict = maintenance_data.model_dump()
-    service_response = tool_service.record_maintenance(tool_id, maintenance_dict)
-    tool_data = validate_service_response(service_response)
+    maintenance_dict['performed_by'] = current_user.username
+
+    service_response = tool_service.create_maintenance_record(tool_id, maintenance_dict)
+    record = validate_service_response(service_response)
 
     return BaseRouter.build_success_response(
-        data=ToolResponse.model_validate(tool_data),
+        data=record,
+        message=service_response.message or "Maintenance record created successfully"
+    )
+
+
+@router.get("/{tool_id}/maintenance", response_model=ResponseSchema[List[Dict[str, Any]]])
+@standard_error_handling
+async def get_maintenance_records(
+    tool_id: str,
+    tool_service: ToolService = Depends(get_tool_service)
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """Get all maintenance records for a tool"""
+    service_response = tool_service.get_maintenance_records(tool_id)
+    records = validate_service_response(service_response)
+
+    return BaseRouter.build_success_response(
+        data=records,
         message=service_response.message
+    )
+
+
+@router.put("/{tool_id}/maintenance/{record_id}", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
+async def update_maintenance_record(
+    tool_id: str,
+    record_id: str,
+    maintenance_data: ToolMaintenanceRequest,
+    request: Request,
+    current_user: UserModel = Depends(get_current_user_flexible),
+    tool_service: ToolService = Depends(get_tool_service)
+) -> ResponseSchema[Dict[str, Any]]:
+    """Update an existing maintenance record"""
+    update_dict = maintenance_data.model_dump(exclude_unset=True)
+    service_response = tool_service.update_maintenance_record(tool_id, record_id, update_dict)
+    record = validate_service_response(service_response)
+
+    return BaseRouter.build_success_response(
+        data=record,
+        message=service_response.message or "Maintenance record updated successfully"
+    )
+
+
+@router.delete("/{tool_id}/maintenance/{record_id}", response_model=ResponseSchema[Dict[str, str]])
+@standard_error_handling
+async def delete_maintenance_record(
+    tool_id: str,
+    record_id: str,
+    request: Request,
+    current_user: UserModel = Depends(get_current_user_flexible),
+    tool_service: ToolService = Depends(get_tool_service)
+) -> ResponseSchema[Dict[str, str]]:
+    """Delete a maintenance record"""
+    service_response = tool_service.delete_maintenance_record(tool_id, record_id)
+    result = validate_service_response(service_response)
+
+    return BaseRouter.build_success_response(
+        data=result,
+        message=service_response.message or "Maintenance record deleted successfully"
     )
 
 

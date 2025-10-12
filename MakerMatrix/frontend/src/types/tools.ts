@@ -38,6 +38,7 @@ export interface Tool {
   purchase_price?: number
   current_value?: number
 
+  is_checkable: boolean
   is_calibrated_tool: boolean
   is_consumable: boolean
   exclude_from_analytics: boolean
@@ -74,6 +75,7 @@ export interface CreateToolRequest {
   emoji?: string
   additional_properties?: Record<string, any>
   condition?: ToolCondition
+  is_checkable?: boolean
   is_calibrated_tool?: boolean
   is_consumable?: boolean
   purchase_date?: string

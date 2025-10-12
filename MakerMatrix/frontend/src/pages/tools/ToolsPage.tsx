@@ -30,6 +30,7 @@ import ToolModal from '@/components/tools/ToolModal'
 import ToolDetailModal from '@/components/tools/ToolDetailModal'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
+import PartImage from '@/components/parts/PartImage'
 import toast from 'react-hot-toast'
 
 const ToolsPage = () => {
@@ -180,6 +181,12 @@ const ToolsPage = () => {
     }
   }
 
+  // Initial load
+  useEffect(() => {
+    loadTools(1, '')
+  }, [])
+
+  // Reload when filters change
   useEffect(() => {
     loadTools(1, searchTerm)
   }, [statusFilter, conditionFilter, sortBy, sortOrder])
@@ -616,7 +623,19 @@ const ToolsPage = () => {
                       onClick={() => handleToolClick(tool)}
                     >
                       <td className="px-3 py-3 whitespace-nowrap">
-                        {getStatusIcon(tool)}
+                        {tool.image_url ? (
+                          <div className="w-10 h-10 flex items-center justify-center">
+                            <PartImage
+                              imageUrl={tool.image_url}
+                              partName={tool.tool_name}
+                              size="sm"
+                              showFallback={false}
+                              className="w-10 h-10 rounded object-contain"
+                            />
+                          </div>
+                        ) : (
+                          getStatusIcon(tool)
+                        )}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap max-w-xs">
                         <div className="flex items-center gap-2">
@@ -836,6 +855,7 @@ const ToolsPage = () => {
             setShowDetailModal(false)
             handleDeleteTool(toolId)
           }}
+          onStatusChange={handleToolAdded}
         />
       )}
     </div>

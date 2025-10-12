@@ -373,6 +373,26 @@ api_key_permissions = {
     "/admin/all": "api_keys:admin"
 }
 
+tool_permissions = {
+    "/": {
+        "POST": "tools:create",
+        "GET": "tools:read"
+    },
+    "/{tool_id}": {
+        "GET": "tools:read",
+        "PUT": "tools:update",
+        "DELETE": "tools:delete"
+    },
+    "/search": "tools:read",
+    "/{tool_id}/checkout": "tools:use",
+    "/{tool_id}/return": "tools:use",
+    "/{tool_id}/checkin": "tools:use",
+    "/{tool_id}/maintenance": "tools:update",
+    "/statistics": "tools:read",
+    "/suggestions": "tools:read",
+    "/check_name_exists": "tools:read"
+}
+
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
     "/login",
@@ -384,6 +404,7 @@ auth_exclude_paths = [
 secure_all_routes(parts_routes.router, permissions=parts_permissions)
 secure_all_routes(locations_routes.router, permissions=locations_permissions, exclude_paths=["/get_all_locations"])
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
+secure_all_routes(tool_routes.router, permissions=tool_permissions)
 secure_all_routes(printer_routes.router, permissions=printer_permissions, exclude_paths=["/preview/template"])
 secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/get_image/{image_id}", "/static/datasheets/{filename}", "/supplier_icon/{supplier_name}"])
@@ -396,7 +417,7 @@ secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
 secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
 secure_all_routes(
-    supplier_routes.router, 
+    supplier_routes.router,
     permissions=supplier_permissions,
     exclude_paths=["/{supplier_name}/oauth/callback"]  # OAuth callbacks must be public
 )
