@@ -606,16 +606,15 @@ const PartDetailsPage = () => {
         await tagsService.removeTagFromPart(tagId, part.id)
       }
 
-      // Update local state
+      // Update local state immediately (optimistic update)
       setPartTags(newTags)
 
-      if (tagsToAdd.length > 0 || tagsToRemove.length > 0) {
-        toast.success('Tags updated successfully')
-      }
+      // No success toast - tag appearing/disappearing is feedback enough
+      // This keeps the UI fast and non-disruptive
     } catch (error) {
       console.error('Failed to update tags:', error)
       toast.error('Failed to update tags')
-      // Reload tags to revert to server state
+      // Reload tags to revert to server state on error
       loadPartTags(part.id)
     }
   }
