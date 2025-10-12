@@ -264,7 +264,8 @@ from MakerMatrix.routers.task_route_factory import (
     create_bulk_enrichment_endpoint,
     create_price_update_endpoint,
     create_database_backup_endpoint,
-    create_file_import_enrichment_endpoint
+    create_file_import_enrichment_endpoint,
+    create_datasheet_download_endpoint
 )
 
 @router.post("/quick/part_enrichment", response_model=Dict[str, Any])
@@ -338,6 +339,15 @@ async def quick_create_file_import_enrichment_task(
 ):
     """Quick create file import enrichment task"""
     return await create_file_import_enrichment_endpoint()(request, current_user)
+
+
+@router.post("/quick/datasheet_download", response_model=Dict[str, Any])
+async def quick_create_datasheet_download_task(
+    request: Dict[str, Any],
+    current_user: UserModel = Depends(require_permission("tasks:create"))
+):
+    """Quick create datasheet download task"""
+    return await create_datasheet_download_endpoint()(request, current_user)
 
 
 # Task capabilities endpoints

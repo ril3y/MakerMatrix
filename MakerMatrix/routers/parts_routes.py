@@ -8,9 +8,10 @@ from MakerMatrix.schemas.part_create import PartCreate, PartUpdate
 from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.schemas.bulk_update import BulkUpdateRequest, BulkUpdateResponse
+from MakerMatrix.schemas.bulk_delete import BulkDeleteRequest, BulkDeleteResponse
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user_flexible
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.suppliers.registry import get_available_suppliers
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 async def add_part(
     part: PartCreate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_flexible),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     # Convert PartCreate to dict and include category_names
@@ -113,7 +114,7 @@ async def get_part_counts() -> ResponseSchema[int]:
 @standard_error_handling
 async def delete_part(
         request: Request,
-        current_user: UserModel = Depends(get_current_user),
+        current_user: UserModel = Depends(get_current_user_flexible),
         part_id: Optional[str] = Query(None, description="Part ID"),
         part_name: Optional[str] = Query(None, description="Part Name"),
         part_number: Optional[str] = Query(None, description="Part Number")
@@ -233,7 +234,7 @@ async def update_part(
     part_id: str,
     part_data: PartUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_flexible),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     # Capture original data for change tracking
@@ -505,7 +506,7 @@ async def transfer_part_quantity(
     to_location_id: str = Query(..., description="Destination location ID"),
     quantity: int = Query(..., gt=0, description="Quantity to transfer"),
     notes: Optional[str] = Query(None, description="Transfer notes"),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_flexible),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     """
@@ -547,7 +548,7 @@ async def transfer_part_quantity(
 async def check_enrichment_requirements(
     part_id: str,
     supplier: str,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_flexible),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[EnrichmentRequirementCheckResponse]:
     """
@@ -652,7 +653,7 @@ async def check_enrichment_requirements(
 @router.get("/enrichment-requirements/{supplier}", response_model=ResponseSchema[Dict[str, Any]])
 async def get_supplier_enrichment_requirements(
     supplier: str,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user_flexible)
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Get enrichment requirements for a specific supplier.
@@ -744,7 +745,7 @@ async def get_supplier_enrichment_requirements(
 async def enrich_part_from_supplier(
     supplier_name: str,
     part_identifier: str,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user_flexible)
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Unified endpoint for enriching part data from a supplier.
@@ -908,7 +909,7 @@ async def enrich_part_from_supplier(
 @standard_error_handling
 async def bulk_update_parts(
     request: BulkUpdateRequest,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_flexible),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[BulkUpdateResponse]:
     """
@@ -991,4 +992,65 @@ async def bulk_update_parts(
         raise HTTPException(
             status_code=500,
             detail=f"Bulk update failed: {str(e)}"
+        )
+
+
+@router.post("/bulk_delete", response_model=ResponseSchema[BulkDeleteResponse])
+@standard_error_handling
+async def bulk_delete_parts(
+    request: BulkDeleteRequest,
+    current_user: UserModel = Depends(get_current_user_flexible),
+    part_service: PartService = Depends(get_part_service)
+) -> ResponseSchema[BulkDeleteResponse]:
+    """
+    Bulk delete multiple parts with associated file cleanup.
+
+    This endpoint will:
+    - Delete all specified parts from the database
+    - Clean up associated image files
+    - Clean up associated datasheet files
+    - Return a summary of the operation
+    """
+    try:
+        if not request.part_ids or len(request.part_ids) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Part IDs list cannot be empty"
+            )
+
+        # Call service layer for bulk delete
+        service_response = part_service.bulk_delete_parts(request.part_ids)
+        result = validate_service_response(service_response)
+
+        # Broadcast bulk delete via websocket
+        try:
+            await websocket_manager.broadcast_crud_event(
+                action="bulk_deleted",
+                entity_type="part",
+                entity_id="bulk",  # Special ID for bulk operations
+                entity_name=f"{result['deleted_count']} parts",
+                user_id=current_user.id,
+                username=current_user.username,
+                details={
+                    "part_ids": request.part_ids,
+                    "deleted_count": result['deleted_count'],
+                    "files_deleted": result['files_deleted'],
+                    "failed_count": result['failed_count']
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to broadcast bulk delete: {e}")
+
+        return BaseRouter.build_success_response(
+            data=result,
+            message=f"Successfully deleted {result['deleted_count']} part(s) and {result['files_deleted']} file(s)"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk delete: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Bulk delete failed: {str(e)}"
         )

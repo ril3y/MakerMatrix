@@ -61,6 +61,8 @@ const PartEnrichmentModal = ({
   const [requirementCheck, setRequirementCheck] =
     useState<EnrichmentRequirementCheckResponse | null>(null)
   const [isCheckingRequirements, setIsCheckingRequirements] = useState(false)
+  const [missingFieldValues, setMissingFieldValues] = useState<Record<string, string>>({})
+  const [isSavingFields, setIsSavingFields] = useState(false)
 
   // Capability definitions with icons and descriptions
   const capabilityDefinitions = {
@@ -237,11 +239,77 @@ const PartEnrichmentModal = ({
       const check = await partsService.checkEnrichmentRequirements(part.id, selectedSupplier)
       setRequirementCheck(check)
       console.log('Enrichment requirement check:', check)
+
+      // Initialize missing field values object
+      const initialValues: Record<string, string> = {}
+      check.required_checks.forEach(reqCheck => {
+        if (!reqCheck.is_present) {
+          initialValues[reqCheck.field_name] = ''
+        }
+      })
+      setMissingFieldValues(initialValues)
     } catch (error) {
       console.error('Failed to check enrichment requirements:', error)
       setRequirementCheck(null)
     } finally {
       setIsCheckingRequirements(false)
+    }
+  }
+
+  // Check if all required fields are filled
+  const areAllRequiredFieldsFilled = (): boolean => {
+    if (!requirementCheck || requirementCheck.can_enrich) {
+      return true // No missing required fields
+    }
+
+    // Check if all missing required fields have been filled in
+    const missingRequiredFields = requirementCheck.required_checks.filter(
+      (check) => !check.is_present
+    )
+
+    return missingRequiredFields.every((check) => {
+      const value = missingFieldValues[check.field_name]
+      return value && value.trim().length > 0
+    })
+  }
+
+  // Save missing field values to the part (used before starting enrichment)
+  const saveMissingFieldsIfNeeded = async (): Promise<boolean> => {
+    if (!part.id || areAllRequiredFieldsFilled()) {
+      return true // Nothing to save or already valid
+    }
+
+    try {
+      setIsSavingFields(true)
+
+      // Build update payload
+      const updateData: any = {}
+      Object.entries(missingFieldValues).forEach(([fieldName, value]) => {
+        if (value && value.trim()) {
+          updateData[fieldName] = value.trim()
+        }
+      })
+
+      if (Object.keys(updateData).length === 0) {
+        return false
+      }
+
+      // Update the part
+      await partsService.updatePart({
+        id: part.id,
+        ...updateData
+      })
+
+      // Notify parent of updated part
+      onPartUpdated({ ...part, ...updateData })
+
+      return true
+    } catch (error) {
+      console.error('Failed to save missing fields:', error)
+      alert('Failed to save field values. Please try again.')
+      return false
+    } finally {
+      setIsSavingFields(false)
     }
   }
 
@@ -271,6 +339,15 @@ const PartEnrichmentModal = ({
     if (selectedCapabilities.length === 0) {
       alert('Please select at least one enrichment capability')
       return
+    }
+
+    // Save missing fields first if needed
+    if (!areAllRequiredFieldsFilled()) {
+      const saved = await saveMissingFieldsIfNeeded()
+      if (!saved) {
+        alert('Please fill in all required fields')
+        return
+      }
     }
 
     setIsEnriching(true)
@@ -490,49 +567,69 @@ const PartEnrichmentModal = ({
 
                 {/* Enrichment Requirements Warning */}
                 {requirementCheck && !requirementCheck.can_enrich && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <Info className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <h3 className="font-semibold text-red-800 dark:text-red-300 mb-2">
-                          Missing Required Fields
+                        <h3 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">
+                          Required Fields
                         </h3>
-                        <p className="text-sm text-red-700 dark:text-red-400 mb-3">
-                          This part is missing required information for enrichment from{' '}
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-3">
+                          Please fill in the required information to enrich from{' '}
                           {requirementCheck.supplier_name}:
                         </p>
-                        <ul className="space-y-2">
-                          {requirementCheck.required_checks.map((check) => (
-                            <li key={check.field_name} className="text-sm">
-                              <span
-                                className={
-                                  check.is_present
-                                    ? 'text-green-600 dark:text-green-400'
-                                    : 'text-red-600 dark:text-red-400'
-                                }
-                              >
-                                {check.is_present ? '✓' : '✗'}
-                              </span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {check.display_name}
-                              </span>
-                              {!check.is_present && check.validation_message && (
-                                <span className="ml-2 text-gray-700 dark:text-gray-300">
-                                  - {check.validation_message}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+
+                        {/* Input fields for missing required data */}
+                        <div className="space-y-3">
+                          {requirementCheck.required_checks
+                            .filter((check) => !check.is_present)
+                            .map((check) => {
+                              const isFilled = missingFieldValues[check.field_name]?.trim().length > 0
+                              return (
+                                <div key={check.field_name}>
+                                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+                                    {check.display_name} <span className="text-red-500">*</span>
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={missingFieldValues[check.field_name] || ''}
+                                      onChange={(e) =>
+                                        setMissingFieldValues({
+                                          ...missingFieldValues,
+                                          [check.field_name]: e.target.value,
+                                        })
+                                      }
+                                      placeholder={`Enter ${check.display_name.toLowerCase()}`}
+                                      className={`w-full px-3 py-2 pr-10 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                                        isFilled
+                                          ? 'border-green-500 dark:border-green-600'
+                                          : 'border-gray-300 dark:border-gray-600'
+                                      }`}
+                                    />
+                                    {isFilled && (
+                                      <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />
+                                    )}
+                                  </div>
+                                  {check.validation_message && (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                      {check.validation_message}
+                                    </p>
+                                  )}
+                                </div>
+                              )
+                            })}
+                        </div>
+
                         {requirementCheck.suggestions &&
                           requirementCheck.suggestions.length > 0 && (
-                            <div className="mt-4 pt-3 border-t border-red-200 dark:border-red-800">
-                              <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-2">
+                            <div className="mt-4 pt-3 border-t border-yellow-200 dark:border-yellow-800">
+                              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-2">
                                 Suggestions:
                               </p>
                               <ul className="space-y-1">
                                 {requirementCheck.suggestions.map((suggestion, idx) => (
-                                  <li key={idx} className="text-sm text-red-700 dark:text-red-400">
+                                  <li key={idx} className="text-sm text-yellow-700 dark:text-yellow-400">
                                     • {suggestion}
                                   </li>
                                 ))}
@@ -649,7 +746,8 @@ const PartEnrichmentModal = ({
                       selectedCapabilities.length === 0 ||
                       !selectedSupplier ||
                       isCheckingRequirements ||
-                      (requirementCheck && !requirementCheck.can_enrich)
+                      isSavingFields ||
+                      !areAllRequiredFieldsFilled()
                     }
                     className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
                     title={
@@ -657,19 +755,25 @@ const PartEnrichmentModal = ({
                         ? 'Select a supplier to start enrichment'
                         : isCheckingRequirements
                           ? 'Checking enrichment requirements...'
-                          : requirementCheck && !requirementCheck.can_enrich
-                            ? `Cannot enrich: Missing required fields (${requirementCheck.missing_required.join(', ')})`
-                            : selectedCapabilities.length === 0
-                              ? 'Select at least one capability to enrich (e.g., fetch datasheet, fetch image)'
-                              : `Start enriching ${part.name} using ${selectedSupplier} with ${selectedCapabilities.length} selected capabilities`
+                          : isSavingFields
+                            ? 'Saving field values...'
+                            : !areAllRequiredFieldsFilled()
+                              ? 'Fill in all required fields to continue'
+                              : selectedCapabilities.length === 0
+                                ? 'Select at least one capability to enrich (e.g., fetch datasheet, fetch image)'
+                                : `Start enriching ${part.name} using ${selectedSupplier} with ${selectedCapabilities.length} selected capabilities`
                     }
                   >
-                    {isCheckingRequirements ? (
+                    {isCheckingRequirements || isSavingFields ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Zap className="w-4 h-4" />
                     )}
-                    {isCheckingRequirements ? 'Checking...' : 'Start Enrichment'}
+                    {isCheckingRequirements
+                      ? 'Checking...'
+                      : isSavingFields
+                        ? 'Saving...'
+                        : 'Start Enrichment'}
                   </button>
                 </div>
               </div>

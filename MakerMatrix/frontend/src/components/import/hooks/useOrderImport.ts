@@ -107,7 +107,7 @@ export const useOrderImport = ({
             order_date: extractedInfo.order_date || prev.order_date,
             order_number: extractedInfo.order_number || prev.order_number,
           }))
-          toast.success(`Auto-detected ${parserName} order information`)
+          // Toast removed - already shown in ImportSelector
         }
       }
     }
@@ -148,7 +148,7 @@ export const useOrderImport = ({
             console.log('[useOrderImport] New order info:', newOrderInfo)
             return newOrderInfo
           })
-          toast.success(`Auto-detected ${parserName} order information`)
+          // Toast removed - will be shown once after all auto-detection is complete
         } else {
           console.log('[useOrderImport] No extracted info returned')
         }

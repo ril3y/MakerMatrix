@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Edit3, AlertCircle, X } from 'lucide-react'
+import { Edit3, AlertCircle, X, Trash2 } from 'lucide-react'
 import CrudModal from '@/components/ui/CrudModal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { SupplierSelector } from '@/components/ui/SupplierSelector'
@@ -31,6 +31,7 @@ interface BulkEditFormData {
   updateMinimumQuantity: boolean
   addCategories: boolean
   removeCategories: boolean
+  deleteParts: boolean
 
   // Field values
   supplier?: string
@@ -57,6 +58,7 @@ const BulkEditModal = ({
     updateMinimumQuantity: false,
     addCategories: false,
     removeCategories: false,
+    deleteParts: false,
     supplier: '',
     location_id: '',
     minimum_quantity: undefined,
@@ -93,6 +95,50 @@ const BulkEditModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Handle bulk delete operation
+    if (formData.deleteParts) {
+      // Show confirmation dialog
+      const confirmed = window.confirm(
+        `Are you sure you want to delete ${selectedCount} part${selectedCount > 1 ? 's' : ''}? This action cannot be undone and will also delete associated images and datasheets.`
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      setLoading(true)
+
+      try {
+        const result = await partsService.bulkDeleteParts({
+          part_ids: selectedPartIds,
+        })
+
+        // Show success/error messages
+        if (result.deleted_count > 0) {
+          toast.success(
+            `Successfully deleted ${result.deleted_count} part${result.deleted_count > 1 ? 's' : ''} and ${result.files_deleted} file${result.files_deleted !== 1 ? 's' : ''}`
+          )
+        }
+
+        if (result.failed_count > 0) {
+          toast.error(
+            `Failed to delete ${result.failed_count} part${result.failed_count > 1 ? 's' : ''}`
+          )
+          console.error('Bulk delete errors:', result.errors)
+        }
+
+        // Wait for onSuccess to complete before closing (handles async callbacks)
+        await Promise.resolve(onSuccess())
+        onClose()
+      } catch (error) {
+        console.error('Bulk delete failed:', error)
+        toast.error(error instanceof Error ? error.message : 'Failed to delete parts')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
 
     // Validate that at least one field is being updated
     if (
@@ -174,6 +220,7 @@ const BulkEditModal = ({
         updateMinimumQuantity: false,
         addCategories: false,
         removeCategories: false,
+        deleteParts: false,
         supplier: '',
         location_id: '',
         minimum_quantity: undefined,
@@ -431,6 +478,40 @@ const BulkEditModal = ({
                 searchable
                 searchPlaceholder="Search categories..."
               />
+            </div>
+          )}
+        </div>
+
+        {/* Delete Parts */}
+        <div className="space-y-2 pt-4 border-t border-theme-divider">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="deleteParts"
+              checked={formData.deleteParts}
+              onChange={(e) => setFormData({ ...formData, deleteParts: e.target.checked })}
+              className="w-4 h-4 rounded border-red-500"
+            />
+            <label
+              htmlFor="deleteParts"
+              className="text-sm font-medium text-red-600 dark:text-red-400 cursor-pointer"
+            >
+              Delete Selected Parts
+            </label>
+          </div>
+          {formData.deleteParts && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Warning: This will permanently delete all selected parts
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                    This action cannot be undone. Associated images and datasheets will also be deleted.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>

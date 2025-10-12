@@ -472,14 +472,47 @@ async def get_import_suppliers(
                 info = supplier.get_supplier_info()
                 
                 # Check if supplier is actually configured (has working credentials)
+                # First check if supplier has a config record in the database
+                supplier_in_db = supplier_name.lower() in configured_suppliers
+
+                # Debug logging for DigiKey
+                if supplier_name.lower() == 'digikey':
+                    logger.info(f"🔍 DigiKey DB check:")
+                    logger.info(f"  supplier_name={supplier_name}")
+                    logger.info(f"  supplier_name.lower()={supplier_name.lower()}")
+                    logger.info(f"  supplier_in_db={supplier_in_db}")
+                    logger.info(f"  configured_suppliers keys={list(configured_suppliers.keys())}")
+
                 # Test connection to determine if supplier is properly configured
+                # But don't fail completely if connection test fails - some suppliers need OAuth
+                connection_result = {}
+                connection_success = False
                 try:
                     connection_result = await supplier.test_connection()
-                    is_configured = connection_result.get('success', False)
-                    config_status = "configured" if is_configured else "not_configured"
-                except Exception:
-                    is_configured = False
-                    config_status = "not_configured"
+                    connection_success = connection_result.get('success', False)
+
+                    # A supplier is "configured" if:
+                    # 1. It exists in the database configuration AND
+                    # 2. Either connection succeeds OR it requires OAuth (connection test returns oauth details)
+                    is_configured = supplier_in_db and (
+                        connection_success or
+                        connection_result.get('details', {}).get('oauth_required', False)
+                    )
+
+                    if is_configured:
+                        config_status = "configured"
+                    elif supplier_in_db:
+                        # Config exists but connection failed (might need credentials)
+                        config_status = "partial"
+                    else:
+                        config_status = "not_configured"
+
+                except Exception as e:
+                    logger.debug(f"Connection test failed for {supplier_name}: {e}")
+                    # If config exists in DB, consider it at least partially configured
+                    is_configured = supplier_in_db
+                    config_status = "partial" if supplier_in_db else "not_configured"
+                    connection_result = {}  # Ensure it's defined for later use
                 
                 # Check basic import capability (file parsing)
                 import_capable = supplier.is_capability_available(SupplierCapability.IMPORT_ORDERS)
@@ -498,25 +531,53 @@ async def get_import_suppliers(
                 enrichment_capabilities = []
                 enrichment_available = False
                 enrichment_missing_credentials = []
-                
+
                 # Get all enrichment-related capabilities
                 enrichment_capability_types = [
                     SupplierCapability.GET_PART_DETAILS,
                     SupplierCapability.FETCH_DATASHEET,
                     SupplierCapability.FETCH_PRICING_STOCK
                 ]
-                
-                for cap in enrichment_capability_types:
-                    if cap in supplier.get_capabilities():
-                        cap_available = supplier.is_capability_available(cap)
-                        if cap_available:
+
+                # Debug logging for DigiKey
+                if supplier_name.lower() == 'digikey':
+                    logger.info(f"🔍 DigiKey enrichment check:")
+                    logger.info(f"  is_configured={is_configured}")
+                    logger.info(f"  connection_success={connection_success}")
+                    logger.info(f"  connection_result={connection_result}")
+                    logger.info(f"  oauth_required={connection_result.get('details', {}).get('oauth_required', False)}")
+
+                # If supplier is configured and connection test indicated OAuth is required but working,
+                # consider enrichment capabilities as available (they'll work after OAuth flow)
+                if is_configured and connection_success:
+                    # Connection test passed, enrichment should work
+                    logger.info(f"✅ {supplier_name}: Connection test passed, enrichment available")
+                    for cap in enrichment_capability_types:
+                        if cap in supplier.get_capabilities():
                             enrichment_capabilities.append(cap.value)
                             enrichment_available = True
-                        else:
-                            # Get missing credentials for this capability
-                            missing_for_cap = supplier.get_missing_credentials_for_capability(cap)
-                            enrichment_missing_credentials.extend(missing_for_cap)
-                
+                elif is_configured and connection_result.get('details', {}).get('oauth_required', False):
+                    # OAuth required but not yet completed - still show capabilities as available
+                    # since the supplier IS configured, just needs OAuth flow
+                    logger.info(f"✅ {supplier_name}: OAuth configured, enrichment available")
+                    for cap in enrichment_capability_types:
+                        if cap in supplier.get_capabilities():
+                            enrichment_capabilities.append(cap.value)
+                            enrichment_available = True
+                else:
+                    # Not configured or connection failed - check actual availability
+                    logger.info(f"⚠️ {supplier_name}: Not configured or connection failed, checking credentials")
+                    for cap in enrichment_capability_types:
+                        if cap in supplier.get_capabilities():
+                            cap_available = supplier.is_capability_available(cap)
+                            if cap_available:
+                                enrichment_capabilities.append(cap.value)
+                                enrichment_available = True
+                            else:
+                                # Get missing credentials for this capability
+                                missing_for_cap = supplier.get_missing_credentials_for_capability(cap)
+                                enrichment_missing_credentials.extend(missing_for_cap)
+
                 # Remove duplicates from missing credentials
                 enrichment_missing_credentials = list(set(enrichment_missing_credentials))
                 

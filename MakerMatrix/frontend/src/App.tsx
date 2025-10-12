@@ -18,6 +18,7 @@ import EditPartPage from '@/pages/parts/EditPartPage'
 import LocationsPage from '@/pages/locations/LocationsPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
 import ProjectsPage from '@/pages/projects/ProjectsPage'
+import ToolsPage from '@/pages/tools/ToolsPage'
 import UsersPage from '@/pages/users/UsersPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 import TasksPage from '@/pages/tasks/TasksPage'
@@ -71,6 +72,9 @@ function AppContent() {
 
               {/* Project Management */}
               <Route path="/projects" element={<ProjectsPage />} />
+
+              {/* Tools Management */}
+              <Route path="/tools" element={<ToolsPage />} />
 
               {/* Template Management - Redirect to Settings */}
               <Route

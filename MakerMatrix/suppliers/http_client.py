@@ -32,6 +32,11 @@ class HTTPResponse:
     success: bool = True
     error_message: Optional[str] = None
     raw_content: Optional[str] = None  # For HTML/text content
+
+    @property
+    def raw_text(self) -> Optional[str]:
+        """Alias for raw_content for convenience"""
+        return self.raw_content
     
     @classmethod
     def from_aiohttp_response(cls, response: aiohttp.ClientResponse, data: Dict[str, Any], duration_ms: int, raw_content: Optional[str] = None):

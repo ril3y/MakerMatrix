@@ -176,13 +176,14 @@ class PartService(BaseService):
     def delete_part(self, part_id: str) -> ServiceResponse[Dict[str, Any]]:
         """
         Delete a part by its ID using the repository.
-        
+        Also cleans up associated files (images and datasheets).
+
         CONSOLIDATED SESSION MANAGEMENT: This method previously included 30+ lines
         of manual session, error handling, and logging. Now uses BaseService patterns.
         """
         try:
             self.log_operation("delete", self.entity_name, part_id)
-            
+
             with self.get_session() as session:
                 # Ensure the part exists before deletion
                 part = self.part_repo.get_part_by_id(session, part_id)
@@ -195,6 +196,11 @@ class PartService(BaseService):
                 part_categories = [getattr(cat, 'name', str(cat)) for cat in part.categories] if part.categories else []
                 self.logger.info(f"Deleting part: '{part_name}' (ID: {part_id}) with categories: {part_categories}")
 
+                # Clean up associated files before deleting the part record
+                files_deleted = self._cleanup_part_files(part)
+                if files_deleted:
+                    self.logger.info(f"Deleted {files_deleted} file(s) for part '{part_name}' (ID: {part_id})")
+
                 # Perform deletion
                 deleted_part = self.part_repo.delete_part(session, part_id)
 
@@ -205,6 +211,56 @@ class PartService(BaseService):
 
         except Exception as e:
             return self.handle_exception(e, f"delete {self.entity_name}")
+
+    def _cleanup_part_files(self, part: 'PartModel') -> int:
+        """
+        Clean up image and datasheet files associated with a part.
+
+        Args:
+            part: The part model to clean up files for
+
+        Returns:
+            Number of files deleted
+        """
+        import os
+        from pathlib import Path
+
+        deleted_count = 0
+        static_dir = Path(__file__).parent.parent / "static"
+
+        # Clean up image file
+        if part.image_url:
+            try:
+                # Extract filename from URL (handle both full URLs and relative paths)
+                if '/static/images/' in part.image_url:
+                    filename = part.image_url.split('/static/images/')[-1]
+                    image_path = static_dir / "images" / filename
+
+                    if image_path.exists() and image_path.is_file():
+                        os.remove(image_path)
+                        deleted_count += 1
+                        self.logger.debug(f"Deleted image file: {image_path}")
+            except Exception as e:
+                self.logger.warning(f"Failed to delete image file for part {part.part_name}: {e}")
+
+        # Clean up datasheet files from PartDatasheet records
+        if hasattr(part, 'datasheets') and part.datasheets:
+            for datasheet in part.datasheets:
+                try:
+                    if hasattr(datasheet, 'file_url') and datasheet.file_url:
+                        # Extract filename from URL
+                        if '/static/datasheets/' in datasheet.file_url:
+                            filename = datasheet.file_url.split('/static/datasheets/')[-1]
+                            datasheet_path = static_dir / "datasheets" / filename
+
+                            if datasheet_path.exists() and datasheet_path.is_file():
+                                os.remove(datasheet_path)
+                                deleted_count += 1
+                                self.logger.debug(f"Deleted datasheet file: {datasheet_path}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete datasheet file for part {part.part_name}: {e}")
+
+        return deleted_count
 
     def dynamic_search(self, search_term: str) -> ServiceResponse[Any]:
         """
@@ -1257,5 +1313,75 @@ class PartService(BaseService):
 
         except Exception as e:
             return self.handle_exception(e, "bulk update parts")
+
+    def bulk_delete_parts(self, part_ids: list[str]) -> ServiceResponse[Dict[str, Any]]:
+        """
+        Bulk delete multiple parts with associated file cleanup.
+
+        Args:
+            part_ids: List of part IDs to delete
+
+        Returns:
+            ServiceResponse with deletion summary
+        """
+        try:
+            if not part_ids:
+                return self.error_response("No part IDs provided for deletion")
+
+            deleted_count = 0
+            failed_count = 0
+            errors = []
+            total_files_deleted = 0
+
+            with self.get_session() as session:
+                for part_id in part_ids:
+                    try:
+                        # Get the part
+                        part = self.part_repo.get_part_by_id(session, part_id)
+                        if not part:
+                            failed_count += 1
+                            errors.append({
+                                'part_id': part_id,
+                                'error': 'Part not found'
+                            })
+                            continue
+
+                        part_name = part.part_name
+
+                        # Clean up associated files
+                        files_deleted = self._cleanup_part_files(part)
+                        total_files_deleted += files_deleted
+
+                        # Delete the part
+                        self.part_repo.delete_part(session, part_id)
+                        deleted_count += 1
+
+                        self.logger.info(f"Deleted part '{part_name}' (ID: {part_id}) and {files_deleted} associated file(s)")
+
+                    except Exception as e:
+                        failed_count += 1
+                        errors.append({
+                            'part_id': part_id,
+                            'error': str(e)
+                        })
+                        self.logger.error(f"Failed to delete part {part_id}: {e}")
+
+                # Commit all deletions
+                session.commit()
+
+            result = {
+                'deleted_count': deleted_count,
+                'failed_count': failed_count,
+                'files_deleted': total_files_deleted,
+                'errors': errors
+            }
+
+            return self.success_response(
+                f"Bulk delete completed: {deleted_count} part(s) deleted, {total_files_deleted} file(s) removed, {failed_count} failed",
+                result
+            )
+
+        except Exception as e:
+            return self.handle_exception(e, "bulk delete parts")
 
     #

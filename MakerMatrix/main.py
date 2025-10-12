@@ -18,7 +18,8 @@ from MakerMatrix.routers import (
     parts_routes, locations_routes, categories_routes, project_routes, printer_routes, preview_routes,
     utility_routes, auth_routes, user_management_routes, ai_routes, import_routes, task_routes,
     websocket_routes, analytics_routes, activity_routes, supplier_config_routes, supplier_routes,
-    rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes, font_routes
+    rate_limit_routes, label_template_routes, api_key_routes, part_allocation_routes, font_routes,
+    tool_routes
 )
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
@@ -224,7 +225,26 @@ app.add_middleware(
 parts_permissions = {
     "/add_part": "parts:create",
     "/update_part/{part_id}": "parts:update",
-    "/delete_part": "parts:delete"
+    "/delete_part": "parts:delete",
+    "/enrich-from-supplier": "parts:update",  # Enrichment requires update permission
+    "/parts/{part_id}/enrichment-requirements/{supplier}": "parts:read",  # Read-only check
+    "/enrichment-requirements/{supplier}": "parts:read"  # Read-only check
+}
+
+printer_permissions = {
+    "/print/text": "parts:update",  # Printing requires update permission
+    "/print/qr": "parts:update",
+    "/print/image": "parts:update",
+    "/print/template": "parts:update",
+    "/print/advanced": "parts:update",
+    "/printers": "parts:read",  # Reading printer list is read-only
+    "/printers/{printer_id}": {
+        "GET": "parts:read",
+        "PUT": "printer:admin",
+        "DELETE": "printer:admin"
+    },
+    "/printers/{printer_id}/status": "parts:read",
+    "/printers/{printer_id}/test": "printer:admin"
 }
 
 locations_permissions = {
@@ -276,16 +296,18 @@ task_permissions = {
 
 supplier_config_permissions = {
     "/suppliers": {
-        "GET": "supplier_config:read",
+        # GET is public - only returns metadata (names, images, display info) needed for UI
         "POST": "supplier_config:create"
     },
     "/suppliers/{supplier_name}": {
-        "GET": "supplier_config:read",
+        # GET is public - only returns configuration metadata without credentials
         "PUT": "supplier_config:update",
         "DELETE": "supplier_config:delete"
     },
     "/suppliers/{supplier_name}/test": "supplier_config:read",
     "/suppliers/{supplier_name}/capabilities": "supplier_config:read",
+    "/suppliers/{supplier_name}/credential-fields": None,  # Public - no sensitive data
+    "/suppliers/{supplier_name}/config-fields": None,  # Public - just field schemas
     "/credentials": "supplier_config:credentials",
     "/credentials/{supplier_name}": "supplier_config:credentials",
     "/import": "supplier_config:import",
@@ -351,6 +373,26 @@ api_key_permissions = {
     "/admin/all": "api_keys:admin"
 }
 
+tool_permissions = {
+    "/": {
+        "POST": "tools:create",
+        "GET": "tools:read"
+    },
+    "/{tool_id}": {
+        "GET": "tools:read",
+        "PUT": "tools:update",
+        "DELETE": "tools:delete"
+    },
+    "/search": "tools:read",
+    "/{tool_id}/checkout": "tools:use",
+    "/{tool_id}/return": "tools:use",
+    "/{tool_id}/checkin": "tools:use",
+    "/{tool_id}/maintenance": "tools:update",
+    "/statistics": "tools:read",
+    "/suggestions": "tools:read",
+    "/check_name_exists": "tools:read"
+}
+
 # Define paths that should be excluded from authentication
 auth_exclude_paths = [
     "/login",
@@ -362,7 +404,8 @@ auth_exclude_paths = [
 secure_all_routes(parts_routes.router, permissions=parts_permissions)
 secure_all_routes(locations_routes.router, permissions=locations_permissions, exclude_paths=["/get_all_locations"])
 secure_all_routes(categories_routes.router, permissions=categories_permissions)
-secure_all_routes(printer_routes.router, exclude_paths=["/preview/template"])
+secure_all_routes(tool_routes.router, permissions=tool_permissions)
+secure_all_routes(printer_routes.router, permissions=printer_permissions, exclude_paths=["/preview/template"])
 secure_all_routes(preview_routes.router)
 secure_all_routes(utility_routes.router, exclude_paths=["/get_counts", "/get_image/{image_id}", "/static/datasheets/{filename}", "/supplier_icon/{supplier_name}"])
 # Don't secure auth routes - they need to be accessible without authentication
@@ -374,7 +417,7 @@ secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
 secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
 secure_all_routes(
-    supplier_routes.router, 
+    supplier_routes.router,
     permissions=supplier_permissions,
     exclude_paths=["/{supplier_name}/oauth/callback"]  # OAuth callbacks must be public
 )
@@ -388,6 +431,7 @@ public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
 # Include routers
 app.include_router(parts_routes.router, prefix="/api/parts", tags=["parts"])
 app.include_router(part_allocation_routes.router, prefix="/api", tags=["Part Allocations"])
+app.include_router(tool_routes.router, prefix="/api/tools", tags=["tools"])
 app.include_router(locations_routes.router, prefix="/api/locations", tags=["locations"])
 app.include_router(categories_routes.router, prefix="/api/categories", tags=["categories"])
 app.include_router(project_routes.router, prefix="/api/projects", tags=["projects"])
