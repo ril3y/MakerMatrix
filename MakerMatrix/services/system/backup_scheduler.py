@@ -75,13 +75,20 @@ class BackupScheduler:
                             replace_existing=True
                         )
 
-                        # Update next backup time
-                        next_run = self.scheduler.get_job(self.backup_job_id).next_run_time
-                        config.next_backup_at = next_run
-                        session.add(config)
-                        session.commit()
-
-                        logger.info(f"Scheduled backup configured: {trigger}, next run: {next_run}")
+                        # Update next backup time (try to get next_run_time if available)
+                        try:
+                            job = self.scheduler.get_job(self.backup_job_id)
+                            # APScheduler 3.x uses next_run_time, 4.x may use different API
+                            next_run = getattr(job, 'next_run_time', None)
+                            if next_run:
+                                config.next_backup_at = next_run
+                                session.add(config)
+                                session.commit()
+                                logger.info(f"Scheduled backup configured: {trigger}, next run: {next_run}")
+                            else:
+                                logger.info(f"Scheduled backup configured: {trigger} (next run time unavailable)")
+                        except AttributeError:
+                            logger.info(f"Scheduled backup configured: {trigger} (next_run_time not available in this APScheduler version)")
                     else:
                         logger.warning("Invalid backup schedule configuration")
 
@@ -184,9 +191,14 @@ class BackupScheduler:
                 # Update last backup time
                 config.last_backup_at = datetime.utcnow()
 
-                # Calculate next backup time
-                next_run = self.scheduler.get_job(self.backup_job_id).next_run_time
-                config.next_backup_at = next_run
+                # Calculate next backup time (if available)
+                try:
+                    job = self.scheduler.get_job(self.backup_job_id)
+                    next_run = getattr(job, 'next_run_time', None)
+                    if next_run:
+                        config.next_backup_at = next_run
+                except (AttributeError, Exception) as e:
+                    logger.debug(f"Could not get next run time: {e}")
 
                 session.add(config)
                 session.commit()

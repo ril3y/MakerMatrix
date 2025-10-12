@@ -16,6 +16,7 @@ from MakerMatrix.models.supplier_config_models import (
     EnrichmentProfileModel
 )
 from MakerMatrix.repositories.supplier_config_repository import SupplierConfigRepository
+from MakerMatrix.repositories.supplier_credentials_repository import SupplierCredentialsRepository
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError,
     SupplierConfigAlreadyExistsError,
@@ -40,7 +41,8 @@ class SupplierConfigService(BaseService):
         super().__init__()
         self.logger = logging.getLogger(f"{__name__}.SupplierConfigService")
         self.supplier_config_repo = SupplierConfigRepository()
-        
+        self.credentials_repo = SupplierCredentialsRepository()
+
         # Load default supplier configurations from config files
         self.default_suppliers = self._load_default_supplier_configs()
     
@@ -250,12 +252,12 @@ class SupplierConfigService(BaseService):
     def set_supplier_credentials(self, supplier_name: str, credentials: Dict[str, str],
                                user_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Save credentials for a supplier by writing them to the .env file.
+        Save credentials for a supplier in the database.
 
         Args:
             supplier_name: Name of the supplier
             credentials: Dictionary of credential fields
-            user_id: User ID (for logging)
+            user_id: User ID (for audit trail)
 
         Returns:
             Dictionary with credential storage info
@@ -268,118 +270,71 @@ class SupplierConfigService(BaseService):
                 self.logger.warning(f"No valid credentials provided for {supplier_name}")
                 return {"status": "no_credentials", "message": "No valid credentials provided"}
 
-            # Map credentials to environment variable names
-            env_vars = {}
-            supplier_upper = supplier_name.upper()
+            with self.get_session() as session:
+                # Get supplier configuration
+                config = self.supplier_config_repo.get_by_supplier_name_required(session, supplier_name)
 
-            if supplier_upper == 'DIGIKEY':
-                if 'client_id' in filtered_creds:
-                    env_vars['DIGIKEY_CLIENT_ID'] = filtered_creds['client_id']
-                if 'client_secret' in filtered_creds:
-                    env_vars['DIGIKEY_CLIENT_SECRET'] = filtered_creds['client_secret']
-            elif supplier_upper == 'MOUSER':
-                if 'api_key' in filtered_creds:
-                    env_vars['MOUSER_API_KEY'] = filtered_creds['api_key']
-            else:
-                # Generic mapping for other suppliers
-                for key, value in filtered_creds.items():
-                    env_var_name = f"{supplier_upper}_{key.upper()}"
-                    env_vars[env_var_name] = value
+                # Store credentials in database
+                credentials_model = self.credentials_repo.update_credentials(
+                    session, config.id, filtered_creds, user_id
+                )
 
-            if not env_vars:
-                self.logger.warning(f"No mappable credentials for {supplier_name}")
-                return {"status": "no_mapping", "message": f"No environment variable mapping for {supplier_name} credentials"}
+                self.logger.info(f"Saved credentials for {supplier_name} to database")
 
-            # Write to .env file
-            env_file_path = ".env"
-            self._update_env_file(env_file_path, env_vars)
-
-            self.logger.info(f"Saved credentials for {supplier_name} to .env file (variables: {list(env_vars.keys())})")
-
-            return {
-                "id": f"{supplier_name}_env_credentials",
-                "status": "env_stored",
-                "message": f"Credentials saved to .env file for {supplier_name}",
-                "fields": list(filtered_creds.keys()),
-                "env_vars": list(env_vars.keys())
-            }
+                return {
+                    "id": credentials_model.id,
+                    "status": "database_stored",
+                    "message": f"Credentials stored in database for {supplier_name}",
+                    "fields": list(filtered_creds.keys()),
+                    "created_at": credentials_model.created_at.isoformat()
+                }
 
         except Exception as e:
-            self.logger.error(f"Error setting credentials for {supplier_name}: {e}")
+            self.logger.error(f"Error setting credentials for {supplier_name}: {e}", exc_info=True)
             raise
-
-    def _update_env_file(self, env_file_path: str, env_vars: Dict[str, str]):
-        """
-        Update .env file with new environment variables.
-
-        Args:
-            env_file_path: Path to .env file
-            env_vars: Dictionary of environment variables to set
-        """
-        import os
-        from pathlib import Path
-
-        env_path = Path(env_file_path)
-
-        # Read existing .env content
-        existing_content = []
-        existing_vars = {}
-
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line_num, line in enumerate(f, 1):
-                    line = line.rstrip('\n\r')
-                    if '=' in line and not line.strip().startswith('#'):
-                        key, value = line.split('=', 1)
-                        existing_vars[key.strip()] = (value, line_num)
-                    existing_content.append(line)
-
-        # Update or add environment variables
-        updated_content = existing_content[:]
-
-        for var_name, var_value in env_vars.items():
-            if var_name in existing_vars:
-                # Update existing variable
-                old_value, line_num = existing_vars[var_name]
-                updated_content[line_num - 1] = f"{var_name}={var_value}"
-                self.logger.info(f"Updated {var_name} in .env file")
-            else:
-                # Add new variable
-                updated_content.append(f"{var_name}={var_value}")
-                self.logger.info(f"Added {var_name} to .env file")
-
-        # Write back to .env file
-        with open(env_path, 'w') as f:
-            for line in updated_content:
-                f.write(line + '\n')
-
-        # Update current process environment
-        for var_name, var_value in env_vars.items():
-            os.environ[var_name] = var_value
     
     def get_supplier_credentials(self, supplier_name: str) -> Optional[Dict[str, str]]:
         """
-        Get credentials for a supplier from environment variables
+        Get credentials for a supplier from database first, with fallback to environment variables
 
         Args:
             supplier_name: Name of the supplier
-            decrypt: Ignored (kept for compatibility)
 
         Returns:
             Dictionary of credentials or None if not found
         """
-        # Ensure .env file is loaded (fallback for standalone scripts and edge cases)
-        from dotenv import load_dotenv
-        load_dotenv()
+        try:
+            with self.get_session() as session:
+                # Try to get from database first
+                credentials_model = self.credentials_repo.get_credentials_by_supplier_name(
+                    session, supplier_name
+                )
 
-        from MakerMatrix.utils.env_credentials import get_supplier_credentials_from_env
+                if credentials_model:
+                    # Convert to dictionary and return
+                    creds = self.credentials_repo.get_credentials_as_dict(credentials_model)
+                    self.logger.info(f"Using database credentials for {supplier_name}")
+                    return creds
 
-        env_creds = get_supplier_credentials_from_env(supplier_name)
-        if env_creds:
-            self.logger.info(f"Using environment credentials for {supplier_name}")
-            return env_creds
-        
-        self.logger.warning(f"No environment credentials found for {supplier_name}")
+        except Exception as e:
+            self.logger.warning(f"Error reading database credentials for {supplier_name}: {e}")
+
+        # Fallback to environment variables for backward compatibility
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+
+            from MakerMatrix.utils.env_credentials import get_supplier_credentials_from_env
+
+            env_creds = get_supplier_credentials_from_env(supplier_name)
+            if env_creds:
+                self.logger.info(f"Using environment credentials for {supplier_name} (fallback)")
+                return env_creds
+
+        except Exception as e:
+            self.logger.warning(f"Error reading environment credentials for {supplier_name}: {e}")
+
+        self.logger.warning(f"No credentials found for {supplier_name} (checked database and environment)")
         return None
     
     async def test_supplier_connection(self, supplier_name: str) -> Dict[str, Any]:

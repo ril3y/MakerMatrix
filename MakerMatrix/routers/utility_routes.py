@@ -319,10 +319,15 @@ async def download_completed_backup(
     # Validate filename (security check)
     if not backup_filename.endswith('.zip') or '..' in backup_filename or '/' in backup_filename:
         raise HTTPException(status_code=400, detail="Invalid backup filename")
-    
-    # Define backup directory
-    base_path = Path(__file__).parent.parent.parent
-    backups_dir = base_path / "backups"
+
+    # Define backup directory - use environment variable if set (Docker)
+    backups_path = os.getenv('BACKUPS_PATH')
+    if backups_path:
+        backups_dir = Path(backups_path)
+    else:
+        base_path = Path(__file__).parent.parent.parent
+        backups_dir = base_path / "backups"
+
     backup_file_path = backups_dir / backup_filename
     
     if not backup_file_path.exists():
@@ -342,9 +347,14 @@ async def list_available_backups(
     current_user: UserModel = Depends(require_permission("admin"))
 ):
     """List all available backup files"""
-    base_path = Path(__file__).parent.parent.parent
-    backups_dir = base_path / "backups"
-    
+    # Use environment variable for backups path if set (Docker), otherwise use default
+    backups_path = os.getenv('BACKUPS_PATH')
+    if backups_path:
+        backups_dir = Path(backups_path)
+    else:
+        base_path = Path(__file__).parent.parent.parent
+        backups_dir = base_path / "backups"
+
     if not backups_dir.exists():
         return base_router.build_success_response(
             message="No backups directory found",

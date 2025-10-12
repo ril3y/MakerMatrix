@@ -105,6 +105,8 @@ class DatabaseBackupTask(BaseTask):
 
                 # Security
                 'password_protected': bool(password),
+                'credential_storage': 'plain_text_in_database',
+                'credential_protection': 'password_protected_backup_zip' if password else 'os_file_permissions',
 
                 # Contents
                 'database_included': True,

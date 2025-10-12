@@ -44,6 +44,8 @@ const BackupManagement = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [taskProgress, setTaskProgress] = useState<number>(0)
   const [taskStatus, setTaskStatus] = useState<string>('')
+  const [isRestoreCompleted, setIsRestoreCompleted] = useState(false)
+  const [isWaitingForRestart, setIsWaitingForRestart] = useState(false)
 
   // Backup creation state
   const [backupPassword, setBackupPassword] = useState('')
@@ -71,6 +73,8 @@ const BackupManagement = () => {
   useEffect(() => {
     if (!activeTaskId) return
 
+    console.log('[BackupManagement] Starting to monitor task:', activeTaskId)
+
     const interval = setInterval(async () => {
       try {
         const token = localStorage.getItem('auth_token')
@@ -84,31 +88,115 @@ const BackupManagement = () => {
           const data = await response.json()
           const task = data.data
 
+          console.log('[BackupManagement] Task status:', task.status, 'Progress:', task.progress_percentage)
+
           setTaskProgress(task.progress_percentage || 0)
           setTaskStatus(task.current_step || task.status)
 
           // If task is completed or failed, stop monitoring
           if (task.status === 'completed' || task.status === 'failed') {
-            setActiveTaskId(null)
-            setTaskProgress(0)
-            setTaskStatus('')
+            console.log('[BackupManagement] Task finished with status:', task.status)
 
             if (task.status === 'completed') {
-              toast.success('Backup completed successfully!')
-            } else {
-              toast.error('Backup task failed')
-            }
+              // Check if this was a restore task
+              const isRestoreTask = task.name?.includes('Restore') || task.task_type === 'backup_restore'
 
-            // Reload backup list
-            setTimeout(loadBackupData, 1000)
+              if (isRestoreTask) {
+                console.log('[BackupManagement] Restore completed - waiting for application restart')
+                setIsRestoreCompleted(true)
+                setIsWaitingForRestart(true)
+                setActiveTaskId(null)
+
+                // Start polling for application to come back online
+                const checkInterval = setInterval(async () => {
+                  try {
+                    const response = await fetch('/api/utility/get_counts')
+                    if (response.ok) {
+                      console.log('[BackupManagement] Application is back online - redirecting to dashboard')
+                      clearInterval(checkInterval)
+                      toast.success('Restore completed! Redirecting to dashboard...')
+                      setTimeout(() => {
+                        window.location.href = '/'
+                      }, 1000)
+                    }
+                  } catch (error) {
+                    console.log('[BackupManagement] Still waiting for application restart...')
+                  }
+                }, 2000) // Check every 2 seconds
+
+                // Timeout after 60 seconds
+                setTimeout(() => {
+                  clearInterval(checkInterval)
+                  if (isWaitingForRestart) {
+                    console.error('[BackupManagement] Restart timeout - application did not come back online')
+                    toast.error('Application restart timeout. Please refresh the page manually.')
+                    setIsWaitingForRestart(false)
+                  }
+                }, 60000)
+              } else {
+                // Backup task completed - clear task ID FIRST to prevent duplicate toasts
+                const taskId = activeTaskId
+                setActiveTaskId(null)
+                setTaskProgress(0)
+                setTaskStatus('')
+
+                // Only show toast if we haven't already cleared this task
+                if (taskId) {
+                  toast.success('Backup completed successfully!')
+                  setTimeout(loadBackupData, 1000)
+                }
+              }
+            } else {
+              // Task failed
+              setActiveTaskId(null)
+              setTaskProgress(0)
+              setTaskStatus('')
+
+              // Show error message from task
+              const errorMsg = task.error_message || 'Task failed'
+              toast.error(errorMsg, { duration: 8000 }) // Show longer for errors
+              console.error('[BackupManagement] Task failed:', errorMsg)
+
+              // Reload backup list
+              setTimeout(loadBackupData, 1000)
+            }
           }
+        } else if (response.status === 404) {
+          // Task not found - likely means database was restored and task is gone
+          // If we're monitoring a restore task, assume it completed and switch to restart mode
+          console.log('[BackupManagement] Task not found (404) - assuming restore completed and database was replaced')
+          setIsRestoreCompleted(true)
+          setIsWaitingForRestart(true)
+          setActiveTaskId(null)
+
+          // Start polling for application to come back online
+          const checkInterval = setInterval(async () => {
+            try {
+              const response = await fetch('/api/utility/get_counts')
+              if (response.ok) {
+                console.log('[BackupManagement] Application is back online - redirecting to dashboard')
+                clearInterval(checkInterval)
+                toast.success('Restore completed! Redirecting to dashboard...')
+                setTimeout(() => {
+                  window.location.href = '/'
+                }, 1000)
+              }
+            } catch (error) {
+              console.log('[BackupManagement] Still waiting for application restart...')
+            }
+          }, 2000) // Check every 2 seconds
+        } else {
+          console.error('[BackupManagement] Failed to fetch task status:', response.status)
         }
       } catch (error) {
-        console.error('Failed to fetch task progress:', error)
+        console.error('[BackupManagement] Error fetching task progress:', error)
       }
     }, 1000) // Poll every second
 
-    return () => clearInterval(interval)
+    return () => {
+      console.log('[BackupManagement] Stopping monitor for task:', activeTaskId)
+      clearInterval(interval)
+    }
   }, [activeTaskId])
 
   const loadBackupData = async () => {
@@ -171,13 +259,18 @@ const BackupManagement = () => {
         create_safety_backup: createSafetyBackup
       })
 
-      toast.success('Restore task created successfully')
-      toast('Application will restart after restore completes', { icon: '⚠️' })
+      console.log('[BackupManagement] Restore task created:', task.task_id)
+      toast.success('Restore task created - monitoring progress...')
 
-      // Clear state
-      setRestoreFile(null)
+      // Start monitoring task progress
+      setActiveTaskId(task.task_id)
+      setTaskProgress(0)
+      setTaskStatus('Starting restore...')
+
+      // Clear password for security
       setRestorePassword('')
     } catch (error) {
+      console.error('[BackupManagement] Failed to create restore task:', error)
       toast.error('Failed to create restore task')
     }
   }
@@ -550,7 +643,8 @@ const BackupManagement = () => {
                       <li>• A safety backup will be created before restore begins</li>
                       <li>• Application services will restart after restore completes</li>
                       <li>• All current data will be replaced with backup data</li>
-                      <li>• API keys in .env may need to be regenerated for security</li>
+                      <li>• Docker: Configure supplier API keys in docker-compose.yml environment section</li>
+                      <li>• Development: API keys from .env will be restored automatically</li>
                     </ul>
                   </div>
                 </div>
@@ -823,6 +917,67 @@ const BackupManagement = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Restore Progress and Restart Modal */}
+      {(activeTaskId || isWaitingForRestart) && activeTab === 'restore' && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-background card p-8 max-w-md w-full mx-4 shadow-2xl"
+          >
+            <div className="text-center space-y-4">
+              {activeTaskId && (
+                <>
+                  <div className="flex items-center justify-center">
+                    <div className="relative w-20 h-20">
+                      <Database className="w-20 h-20 text-primary animate-pulse" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-primary">Restoring Backup</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-secondary">Progress</span>
+                      <span className="text-primary font-medium">{taskProgress}%</span>
+                    </div>
+                    <div className="w-full bg-background-tertiary rounded-full h-3">
+                      <div
+                        className="bg-primary h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${taskProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-sm text-secondary mt-2">{taskStatus}</p>
+                  </div>
+                </>
+              )}
+
+              {isWaitingForRestart && !activeTaskId && (
+                <>
+                  <div className="flex items-center justify-center">
+                    <div className="relative w-20 h-20">
+                      <RefreshCw className="w-20 h-20 text-primary animate-spin" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-primary">Restarting Application</h3>
+                  <div className="space-y-2">
+                    <p className="text-secondary">
+                      The restore completed successfully. The application is now restarting to load the restored data.
+                    </p>
+                    <p className="text-sm text-secondary">
+                      You will be redirected to the dashboard automatically...
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

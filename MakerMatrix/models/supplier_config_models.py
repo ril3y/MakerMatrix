@@ -194,95 +194,65 @@ class SupplierConfigModel(SQLModel, table=True):
 
 class SupplierCredentialsModel(SQLModel, table=True):
     """
-    Encrypted supplier credentials model
-    
-    Stores sensitive authentication data with AES-256 encryption.
-    Credentials are encrypted at rest and only decrypted when needed.
+    Supplier credentials model
+
+    Stores supplier API authentication credentials in plain text.
+    Protected by password-encrypted backup ZIPs and OS file permissions.
     """
     __tablename__ = "supplier_credentials"
-    
+
     # Primary key
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    
+
     # Foreign key to supplier config
     supplier_config_id: str = Field(foreign_key="supplier_configs.id", unique=True)
-    
-    # Encrypted credential fields (all stored as encrypted strings)
-    api_key_encrypted: Optional[str] = Field(default=None)
-    secret_key_encrypted: Optional[str] = Field(default=None)
-    username_encrypted: Optional[str] = Field(default=None)
-    password_encrypted: Optional[str] = Field(default=None)
-    oauth_token_encrypted: Optional[str] = Field(default=None)
-    refresh_token_encrypted: Optional[str] = Field(default=None)
-    
-    # Additional encrypted fields stored as JSON
-    additional_data_encrypted: Optional[str] = Field(default=None)
-    
-    # Encryption metadata
-    encryption_key_id: str = Field(max_length=100)  # ID of the encryption key used
-    encryption_algorithm: str = Field(default="AES-256-GCM", max_length=50)
-    salt: str = Field(max_length=200)  # Salt used for key derivation
-    
+
+    # Credential fields (plain text)
+    api_key: Optional[str] = Field(default=None, max_length=500)
+    secret_key: Optional[str] = Field(default=None, max_length=500)
+    username: Optional[str] = Field(default=None, max_length=200)
+    password: Optional[str] = Field(default=None, max_length=500)
+    oauth_token: Optional[str] = Field(default=None, max_length=1000)
+    refresh_token: Optional[str] = Field(default=None, max_length=1000)
+
+    # Additional custom credentials stored as JSON
+    additional_data: Optional[str] = Field(default=None)
+
     # Credential metadata
     created_by_user_id: Optional[str] = Field(foreign_key="usermodel.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: Optional[datetime] = Field(default=None)
-    last_rotated_at: Optional[datetime] = Field(default=None)
-    
+
     # Relationship
     config: "SupplierConfigModel" = Relationship(back_populates="credentials")
-    
-    def needs_rotation(self, rotation_days: int = 90) -> bool:
-        """Check if credentials need rotation based on age"""
-        if not self.last_rotated_at:
-            # If never rotated, check creation date
-            age = datetime.utcnow() - self.created_at
-        else:
-            age = datetime.utcnow() - self.last_rotated_at
-        
-        return age.days >= rotation_days
-    
-    def is_expired(self) -> bool:
-        """Check if credentials are expired"""
-        if not self.expires_at:
-            return False
-        return datetime.utcnow() > self.expires_at
-    
-    def to_dict(self, include_encrypted: bool = False) -> Dict[str, Any]:
+
+    def to_dict(self, include_secrets: bool = False) -> Dict[str, Any]:
         """Convert to dictionary for API responses"""
         data = {
             "id": self.id,
             "supplier_config_id": self.supplier_config_id,
-            "encryption_algorithm": self.encryption_algorithm,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "last_rotated_at": self.last_rotated_at.isoformat() if self.last_rotated_at else None,
-            "needs_rotation": self.needs_rotation(),
-            "is_expired": self.is_expired(),
-            "has_api_key": self.api_key_encrypted is not None,
-            "has_secret_key": self.secret_key_encrypted is not None,
-            "has_username": self.username_encrypted is not None,
-            "has_password": self.password_encrypted is not None,
-            "has_oauth_token": self.oauth_token_encrypted is not None,
-            "has_refresh_token": self.refresh_token_encrypted is not None
+            "has_api_key": self.api_key is not None,
+            "has_secret_key": self.secret_key is not None,
+            "has_username": self.username is not None,
+            "has_password": self.password is not None,
+            "has_oauth_token": self.oauth_token is not None,
+            "has_refresh_token": self.refresh_token is not None
         }
-        
-        # Only include encrypted data if explicitly requested (for debugging/admin)
-        if include_encrypted:
+
+        # Only include actual credentials if explicitly requested (for internal use)
+        if include_secrets:
             data.update({
-                "api_key_encrypted": self.api_key_encrypted,
-                "secret_key_encrypted": self.secret_key_encrypted,
-                "username_encrypted": self.username_encrypted,
-                "password_encrypted": self.password_encrypted,
-                "oauth_token_encrypted": self.oauth_token_encrypted,
-                "refresh_token_encrypted": self.refresh_token_encrypted,
-                "additional_data_encrypted": self.additional_data_encrypted,
-                "encryption_key_id": self.encryption_key_id,
-                "salt": self.salt
+                "api_key": self.api_key,
+                "secret_key": self.secret_key,
+                "username": self.username,
+                "password": self.password,
+                "oauth_token": self.oauth_token,
+                "refresh_token": self.refresh_token,
+                "additional_data": self.additional_data
             })
-        
+
         return data
 
 

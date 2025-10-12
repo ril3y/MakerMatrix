@@ -3,6 +3,8 @@ Printer manager service for managing multiple printers and routing print jobs.
 """
 import uuid
 import asyncio
+import os
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,6 +28,38 @@ from MakerMatrix.services.printer.template_processor import TemplateProcessor
 from MakerMatrix.lib.print_settings import PrintSettings
 from MakerMatrix.models.label_template_models import LabelTemplateModel
 from MakerMatrix.repositories.label_template_repository import LabelTemplateRepository
+
+
+def get_bundled_font_path() -> str:
+    """
+    Get path to bundled DejaVu Sans Bold font.
+    Falls back to system paths if bundled font not found.
+    Returns path that works cross-platform (Windows, Linux, Docker).
+    """
+    # Try bundled font first (platform-independent)
+    bundled_font = Path(__file__).parent.parent.parent / "fonts" / "DejaVuSans-Bold.ttf"
+    if bundled_font.exists():
+        return str(bundled_font)
+
+    # Fall back to Arial on Windows (more common than DejaVu)
+    bundled_arial = Path(__file__).parent.parent.parent / "fonts" / "arial.ttf"
+    if bundled_arial.exists():
+        return str(bundled_arial)
+
+    # Fall back to common system paths (Linux/Docker)
+    system_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # Debian/Ubuntu
+        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",  # Some Linux distros
+        "C:\\Windows\\Fonts\\arial.ttf",  # Windows
+        "C:\\Windows\\Fonts\\arialbd.ttf",  # Windows Bold
+    ]
+
+    for path in system_paths:
+        if Path(path).exists():
+            return path
+
+    # If nothing found, return bundled path anyway - will fail gracefully
+    return str(bundled_font)
 
 
 @dataclass
@@ -609,7 +643,7 @@ class PrinterManagerService:
             # First pass: Find largest font where user's lines DON'T need wrapping
             while font_size > 8:
                 try:
-                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                    font = ImageFont.truetype(get_bundled_font_path(), font_size)
                 except:
                     font = ImageFont.load_default()
                     break
@@ -647,7 +681,7 @@ class PrinterManagerService:
                 print(f"[DEBUG] Lines too long, wrapping at minimum font_size={max(font_size, 12)}px")
                 font_size = max(font_size, 12)
                 try:
-                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                    font = ImageFont.truetype(get_bundled_font_path(), font_size)
                 except:
                     font = ImageFont.load_default()
 
@@ -713,7 +747,7 @@ class PrinterManagerService:
             font = None
             while font_size > 8:
                 try:
-                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                    font = ImageFont.truetype(get_bundled_font_path(), font_size)
                 except:
                     font = ImageFont.load_default()
                     break
@@ -881,7 +915,7 @@ class PrinterManagerService:
         while font_size > 8:
             try:
                 # Try to use a proper font
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                font = ImageFont.truetype(get_bundled_font_path(), font_size)
             except:
                 # Fall back to default font - note: default font size cannot be changed
                 font = ImageFont.load_default()

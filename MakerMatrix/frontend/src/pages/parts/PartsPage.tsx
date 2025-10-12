@@ -707,13 +707,17 @@ const PartsPage = () => {
           {parts.length === 0 && !loading ? (
             <div className="text-center py-12">
               <Package className="w-16 h-16 text-muted mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-primary mb-2">No Parts Found</h3>
+              <h3 className="text-lg font-semibold text-primary mb-2">
+                {error ? 'Unable to Load Parts' : 'No Parts Found'}
+              </h3>
               <p className="text-secondary mb-6">
-                {searchTerm
-                  ? 'No parts match your search criteria.'
-                  : 'Start by adding your first part to the inventory.'}
+                {error
+                  ? 'There was a problem connecting to the server. Please check that the backend is running.'
+                  : searchTerm
+                    ? 'No parts match your search criteria.'
+                    : 'Start by adding your first part to the inventory.'}
               </p>
-              {!searchTerm && (
+              {!searchTerm && !error && (
                 <button
                   onClick={() => setShowAddModal(true)}
                   className="btn btn-primary flex items-center gap-2 mx-auto"

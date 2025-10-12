@@ -564,6 +564,11 @@ frontend_dist_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 if os.path.exists(frontend_dist_path):
     # Mount the static assets (CSS, JS, etc.)
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist_path, "assets")), name="assets")
+
+    # Mount JS directory for PDF.js worker and other JS files
+    js_path = os.path.join(frontend_dist_path, "js")
+    if os.path.exists(js_path):
+        app.mount("/js", StaticFiles(directory=js_path), name="js")
     
     @app.get("/")
     async def serve_frontend():

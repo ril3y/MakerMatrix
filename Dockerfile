@@ -27,12 +27,13 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies (including build tools for pyminizip)
+# Install system dependencies (including build tools for pyminizip and fonts for label printing)
 RUN apt-get update && apt-get install -y \
     curl \
     gcc \
     g++ \
     zlib1g-dev \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
