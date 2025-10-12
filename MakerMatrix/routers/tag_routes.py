@@ -40,7 +40,7 @@ def get_tag_service() -> TagService:
 
 # === CREATE OPERATIONS ===
 
-@router.post("/", response_model=ResponseSchema[TagResponse])
+@router.post("", response_model=ResponseSchema[TagResponse])
 @standard_error_handling
 async def create_tag(
     tag: TagCreate,
@@ -115,7 +115,7 @@ async def get_tag_by_name(
     )
 
 
-@router.get("/", response_model=ResponseSchema[Dict[str, Any]])
+@router.get("", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
 async def get_all_tags(
     search: Optional[str] = Query(None, description="Search term for tag name or description"),
