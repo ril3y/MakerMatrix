@@ -20,9 +20,11 @@ import {
 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import PartImage from '@/components/parts/PartImage'
+import TagBadge from '@/components/tags/TagBadge'
 import { toolsService } from '@/services/tools.service'
 import { useAuthStore } from '@/store/authStore'
 import type { Tool } from '@/types/tools'
+import type { Tag } from '@/types/tags'
 import toast from 'react-hot-toast'
 
 interface ToolDetailModalProps {
@@ -353,6 +355,21 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                         <Tag className="w-3 h-3" />
                         {category.name}
                       </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(tool as any).tags && (tool as any).tags.length > 0 && (
+                <div>
+                  <p className="text-xs text-theme-muted mb-1">Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(tool as any).tags.map((tag: Tag) => (
+                      <TagBadge
+                        key={tag.id}
+                        tag={tag}
+                        size="sm"
+                      />
                     ))}
                   </div>
                 </div>

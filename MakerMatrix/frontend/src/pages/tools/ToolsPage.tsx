@@ -21,16 +21,21 @@ import {
   XCircle,
   AlertCircle,
   Package,
+  Tag as TagIcon,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toolsService } from '@/services/tools.service'
 import type { Tool } from '@/types/tools'
+import type { Tag } from '@/types/tags'
 import ToolModal from '@/components/tools/ToolModal'
 import ToolDetailModal from '@/components/tools/ToolDetailModal'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import PartImage from '@/components/parts/PartImage'
+import TagBadge from '@/components/tags/TagBadge'
+import TagFilter from '@/components/tags/TagFilter'
+import TagManagementModal from '@/components/tags/TagManagementModal'
 import toast from 'react-hot-toast'
 
 const ToolsPage = () => {
@@ -63,6 +68,11 @@ const ToolsPage = () => {
 
   // Clipboard state
   const [copiedItems, setCopiedItems] = useState<Record<string, 'name' | 'tool_number'>>({})
+
+  // Tag filtering state
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
+  const [tagFilterMode, setTagFilterMode] = useState<'AND' | 'OR'>('OR')
+  const [showTagManagement, setShowTagManagement] = useState(false)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -168,8 +178,24 @@ const ToolsPage = () => {
 
       const response = await toolsService.searchTools(searchParams)
 
-      setTools(response.items || [])
-      setTotalTools(response.total || 0)
+      // Apply client-side tag filtering
+      let filteredTools = response.items || []
+      if (selectedTags.length > 0) {
+        filteredTools = filteredTools.filter((tool: any) => {
+          const toolTagIds = tool.tags?.map((t: Tag) => t.id) || []
+          if (tagFilterMode === 'AND') {
+            // All selected tags must be present
+            return selectedTags.every(tag => toolTagIds.includes(tag.id))
+          } else {
+            // At least one selected tag must be present
+            return selectedTags.some(tag => toolTagIds.includes(tag.id))
+          }
+        })
+        console.log(`Filtered ${response.items?.length || 0} tools to ${filteredTools.length} based on tags`)
+      }
+
+      setTools(filteredTools)
+      setTotalTools(selectedTags.length > 0 ? filteredTools.length : (response.total || 0))
       setCurrentPage(page)
     } catch (err: any) {
       console.error('Error loading tools:', err)
@@ -186,10 +212,10 @@ const ToolsPage = () => {
     loadTools(1, '')
   }, [])
 
-  // Reload when filters change
+  // Reload when filters or tags change
   useEffect(() => {
     loadTools(1, searchTerm)
-  }, [statusFilter, conditionFilter, sortBy, sortOrder])
+  }, [statusFilter, conditionFilter, sortBy, sortOrder, selectedTags, tagFilterMode])
 
   const handleToolAdded = () => {
     loadTools(currentPage, searchTerm)
@@ -376,6 +402,14 @@ const ToolsPage = () => {
           <p className="text-secondary mt-1">Manage your tools and equipment</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowTagManagement(true)}
+            className="btn btn-secondary flex items-center gap-2"
+            title="Manage tags"
+          >
+            <TagIcon className="w-4 h-4" />
+            Manage Tags
+          </button>
           <PermissionGuard permission="tools:create">
             <button
               onClick={() => {
@@ -485,6 +519,15 @@ const ToolsPage = () => {
                 Clear
               </button>
             )}
+
+            <TagFilter
+              selectedTags={selectedTags}
+              onFilterChange={(tags, mode) => {
+                setSelectedTags(tags)
+                setTagFilterMode(mode)
+              }}
+              entityType="tools"
+            />
           </div>
         </form>
 
@@ -601,6 +644,9 @@ const ToolsPage = () => {
                     </th>
                     <SortableHeader field="condition">Condition</SortableHeader>
                     <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                      Tags
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
                       Location
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
@@ -711,6 +757,27 @@ const ToolsPage = () => {
                         <span className={`text-sm font-medium ${getConditionColor(tool.condition)}`}>
                           {tool.condition.charAt(0).toUpperCase() + tool.condition.slice(1)}
                         </span>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
+                        {(tool as any).tags && (tool as any).tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {(tool as any).tags.map((tag: Tag) => (
+                              <TagBadge
+                                key={tag.id}
+                                tag={tag}
+                                size="sm"
+                                onClick={() => {
+                                  // Add tag to filter when clicked
+                                  if (!selectedTags.find(t => t.id === tag.id)) {
+                                    setSelectedTags([...selectedTags, tag])
+                                  }
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                         <div className="flex items-center gap-1">
@@ -858,6 +925,12 @@ const ToolsPage = () => {
           onStatusChange={handleToolAdded}
         />
       )}
+
+      {/* Tag Management Modal */}
+      <TagManagementModal
+        isOpen={showTagManagement}
+        onClose={() => setShowTagManagement(false)}
+      />
     </div>
   )
 }

@@ -17,17 +17,22 @@ import {
   CheckSquare,
   Square,
   Hash,
+  Tag as TagIcon,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { partsService } from '@/services/parts.service'
 import { supplierService } from '@/services/supplier.service'
 import type { Part } from '@/types/parts'
+import type { Tag } from '@/types/tags'
 import AddPartModal from '@/components/parts/AddPartModal'
 import BulkEditModal from '@/components/parts/BulkEditModal'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartImage from '@/components/parts/PartImage'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
+import TagBadge from '@/components/tags/TagBadge'
+import TagFilter from '@/components/tags/TagFilter'
+import TagManagementModal from '@/components/tags/TagManagementModal'
 
 const PartsPage = () => {
   const [searchParams] = useSearchParams()
@@ -66,6 +71,11 @@ const PartsPage = () => {
   const [bulkEditMode, setBulkEditMode] = useState(false)
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set())
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
+
+  // Tag filtering state
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
+  const [tagFilterMode, setTagFilterMode] = useState<'AND' | 'OR'>('OR')
+  const [showTagManagement, setShowTagManagement] = useState(false)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -189,8 +199,24 @@ const PartsPage = () => {
 
       console.log('Final mapped parts:', mappedParts, 'Total:', totalCount)
 
-      setParts(mappedParts)
-      setTotalParts(totalCount)
+      // Apply client-side tag filtering
+      let filteredParts = mappedParts
+      if (selectedTags.length > 0) {
+        filteredParts = mappedParts.filter((part: any) => {
+          const partTagIds = part.tags?.map((t: Tag) => t.id) || []
+          if (tagFilterMode === 'AND') {
+            // All selected tags must be present
+            return selectedTags.every(tag => partTagIds.includes(tag.id))
+          } else {
+            // At least one selected tag must be present
+            return selectedTags.some(tag => partTagIds.includes(tag.id))
+          }
+        })
+        console.log(`Filtered ${mappedParts.length} parts to ${filteredParts.length} based on tags`)
+      }
+
+      setParts(filteredParts)
+      setTotalParts(selectedTags.length > 0 ? filteredParts.length : totalCount)
       setCurrentPage(page)
     } catch (err) {
       const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
@@ -247,13 +273,13 @@ const PartsPage = () => {
     }
   }
 
-  // Reload parts when sorting changes
+  // Reload parts when sorting or tag filter changes
   useEffect(() => {
-    if (parts.length > 0) {
-      // Only reload if parts are already loaded
+    if (parts.length > 0 || selectedTags.length > 0) {
+      // Only reload if parts are already loaded or tags are selected
       loadParts(currentPage, searchTerm)
     }
-  }, [sortBy, sortOrder]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder, selectedTags, tagFilterMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePartAdded = () => {
     loadParts(currentPage)
@@ -540,6 +566,14 @@ const PartsPage = () => {
           {!bulkEditMode ? (
             <>
               <button
+                onClick={() => setShowTagManagement(true)}
+                className="btn btn-secondary flex items-center gap-2"
+                title="Manage tags"
+              >
+                <TagIcon className="w-4 h-4" />
+                Manage Tags
+              </button>
+              <button
                 onClick={() => setBulkEditMode(true)}
                 className="btn btn-secondary flex items-center gap-2"
                 title="Enter bulk edit mode (or Ctrl+click rows)"
@@ -633,10 +667,14 @@ const PartsPage = () => {
             </button>
           )}
 
-          <button type="button" className="btn btn-secondary flex items-center gap-2">
-            <Filter className="w-4 h-4" />
-            Filters
-          </button>
+          <TagFilter
+            selectedTags={selectedTags}
+            onFilterChange={(tags, mode) => {
+              setSelectedTags(tags)
+              setTagFilterMode(mode)
+            }}
+            entityType="parts"
+          />
         </form>
 
         {/* Active filters display */}
@@ -760,6 +798,9 @@ const PartsPage = () => {
                     <SortableHeader field="location">Location</SortableHeader>
                     <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
                       Categories
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                      Tags
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
                       Projects
@@ -972,6 +1013,27 @@ const PartsPage = () => {
                           )}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
+                          {(part as any).tags && (part as any).tags.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {(part as any).tags.map((tag: Tag) => (
+                                <TagBadge
+                                  key={tag.id}
+                                  tag={tag}
+                                  size="sm"
+                                  onClick={() => {
+                                    // Add tag to filter when clicked
+                                    if (!selectedTags.find(t => t.id === tag.id)) {
+                                      setSelectedTags([...selectedTags, tag])
+                                    }
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {part.projects && part.projects.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {part.projects.map((project, index) => (
@@ -1138,6 +1200,12 @@ const PartsPage = () => {
         }}
         selectedPartIds={Array.from(selectedPartIds)}
         selectedCount={selectedPartIds.size}
+      />
+
+      {/* Tag Management Modal */}
+      <TagManagementModal
+        isOpen={showTagManagement}
+        onClose={() => setShowTagManagement(false)}
       />
     </div>
   )

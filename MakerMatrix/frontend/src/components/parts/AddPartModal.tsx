@@ -11,16 +11,19 @@ import { TooltipIcon } from '@/components/ui/Tooltip'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import AddProjectModal from '@/components/projects/AddProjectModal'
+import TagInput from '@/components/tags/TagInput'
 import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
 import { projectsService } from '@/services/projects.service'
 import { tasksService } from '@/services/tasks.service'
+import { tagsService } from '@/services/tags.service'
 import supplierService from '@/services/supplier.service'
 import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 import type { CreatePartRequest } from '@/types/parts'
 import type { Location, Category } from '@/types/parts'
 import type { Project } from '@/types/projects'
+import type { Tag } from '@/types/tags'
 import toast from 'react-hot-toast'
 
 interface AddPartModalProps {
@@ -50,6 +53,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjects, setSelectedProjects] = useState<string[]>([])
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
   const [customProperties, setCustomProperties] = useState<Array<{ key: string; value: string }>>(
     []
   )
@@ -92,6 +96,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           setFormData(parsed.formData || formData)
           setSelectedCategories(parsed.selectedCategories || [])
           setSelectedProjects(parsed.selectedProjects || [])
+          setSelectedTags(parsed.selectedTags || [])
           setCustomProperties(parsed.customProperties || [])
           setImageUrl(parsed.imageUrl || '')
           setEmoji(parsed.emoji || null)
@@ -350,6 +355,21 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         }
       }
 
+      // Assign selected tags to the created part
+      if (selectedTags.length > 0) {
+        try {
+          await Promise.all(
+            selectedTags.map((tag) =>
+              tagsService.assignTagToPart(tag.id, createdPart.id)
+            )
+          )
+          console.log(`✅ Part tagged with ${selectedTags.length} tag(s)`)
+        } catch (error) {
+          console.error('Failed to assign tags to part:', error)
+          toast.error('Part created but failed to assign tags')
+        }
+      }
+
       // Auto-enrich only if supplier supports enrichment
       if (formData.supplier && formData.supplier.trim()) {
         // Check if supplier has enrichment capabilities
@@ -408,13 +428,14 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         formData,
         selectedCategories,
         selectedProjects,
+        selectedTags,
         customProperties,
         imageUrl,
         emoji,
       }
       localStorage.setItem('addPartFormData', JSON.stringify(cacheData))
     }
-  }, [isOpen, formData, selectedCategories, selectedProjects, customProperties, imageUrl, emoji])
+  }, [isOpen, formData, selectedCategories, selectedProjects, selectedTags, customProperties, imageUrl, emoji])
 
   const handleClose = () => {
     // Don't clear form data on close - keep it cached for next time
@@ -446,6 +467,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     })
     setSelectedCategories([])
     setSelectedProjects([])
+    setSelectedTags([])
     setCustomProperties([])
     setErrors({})
     setImageUrl('')
@@ -1096,6 +1118,20 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                   addNewLabel="Add Project"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Tags Section */}
+          <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Tags</label>
+              <TagInput
+                selectedTags={selectedTags}
+                onTagsChange={setSelectedTags}
+                entityType="part"
+                placeholder="Add tags (e.g., #todo, #testing, #urgent)..."
+                disabled={loading}
+              />
             </div>
           </div>
 

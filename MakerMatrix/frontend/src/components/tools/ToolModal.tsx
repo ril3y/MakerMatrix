@@ -8,11 +8,14 @@ import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
 import { TooltipIcon } from '@/components/ui/Tooltip'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import AddLocationModal from '@/components/locations/AddLocationModal'
+import TagInput from '@/components/tags/TagInput'
 import { toolsService } from '@/services/tools.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
+import { tagsService } from '@/services/tags.service'
 import type { Tool, CreateToolRequest, UpdateToolRequest, ToolCondition } from '@/types/tools'
 import type { Location, Category } from '@/types/parts'
+import type { Tag } from '@/types/tags'
 import toast from 'react-hot-toast'
 
 interface ToolModalProps {
@@ -42,6 +45,7 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
 
   const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
   const [customProperties, setCustomProperties] = useState<Array<{ key: string; value: string }>>(
     []
   )
@@ -95,6 +99,9 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           }))
           setCustomProperties(props)
         }
+
+        // Load existing tags
+        loadToolTags(editingTool.id)
       } else {
         // Clear form for new tool
         clearFormData()
@@ -118,6 +125,16 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       setCategories([])
     } finally {
       setLoadingData(false)
+    }
+  }
+
+  const loadToolTags = async (toolId: string) => {
+    try {
+      const tags = await tagsService.getToolTags(toolId)
+      setSelectedTags(tags)
+    } catch (error) {
+      console.error('Failed to load tool tags:', error)
+      // Don't show error toast, tags are optional
     }
   }
 
@@ -179,14 +196,54 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         category_ids: formData.category_ids && formData.category_ids.length > 0 ? formData.category_ids : undefined,
       }
 
+      let toolId: string
       if (editingTool) {
         // Update existing tool
         await toolsService.updateTool(editingTool.id, submitData as UpdateToolRequest)
+        toolId = editingTool.id
         toast.success('Tool updated successfully')
       } else {
         // Create new tool
-        await toolsService.createTool(submitData)
+        const createdTool = await toolsService.createTool(submitData)
+        toolId = createdTool.id
         toast.success('Tool created successfully')
+      }
+
+      // Assign selected tags to the tool
+      if (selectedTags.length > 0) {
+        try {
+          // First get existing tags to compare
+          const existingTags = editingTool ? await tagsService.getToolTags(toolId) : []
+          const existingTagIds = existingTags.map(t => t.id)
+          const selectedTagIds = selectedTags.map(t => t.id)
+
+          // Remove tags that were deselected
+          const tagsToRemove = existingTagIds.filter(id => !selectedTagIds.includes(id))
+          for (const tagId of tagsToRemove) {
+            await tagsService.removeTagFromTool(tagId, toolId)
+          }
+
+          // Add new tags
+          const tagsToAdd = selectedTagIds.filter(id => !existingTagIds.includes(id))
+          for (const tagId of tagsToAdd) {
+            await tagsService.assignTagToTool(tagId, toolId)
+          }
+
+          console.log(`✅ Tool tagged with ${selectedTags.length} tag(s)`)
+        } catch (error) {
+          console.error('Failed to assign tags to tool:', error)
+          toast.error('Tool saved but failed to assign tags')
+        }
+      } else if (editingTool) {
+        // Clear all tags if none selected and editing
+        try {
+          const existingTags = await tagsService.getToolTags(toolId)
+          for (const tag of existingTags) {
+            await tagsService.removeTagFromTool(tag.id, toolId)
+          }
+        } catch (error) {
+          console.error('Failed to clear tool tags:', error)
+        }
       }
 
       clearFormData()
@@ -230,6 +287,7 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       image_url: '',
       additional_properties: {},
     })
+    setSelectedTags([])
     setCustomProperties([])
     setErrors({})
     setImageUrl('')
@@ -453,6 +511,20 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
                 error={errors.category_ids}
                 onAddNew={() => setShowAddCategoryModal(true)}
                 addNewLabel="Add Category"
+              />
+            </div>
+          </div>
+
+          {/* Row 5.5: Tags */}
+          <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Tags</label>
+              <TagInput
+                selectedTags={selectedTags}
+                onTagsChange={setSelectedTags}
+                entityType="tool"
+                placeholder="Add tags (e.g., #power-tools, #testing, #needs-calibration)..."
+                disabled={loading}
               />
             </div>
           </div>
