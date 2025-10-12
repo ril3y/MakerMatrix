@@ -23,7 +23,7 @@ import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 import type { CreatePartRequest } from '@/types/parts'
 import type { Location, Category } from '@/types/parts'
 import type { Project } from '@/types/projects'
-import type { Tag } from '@/types/tags'
+import type { Tag as TagType } from '@/types/tags'
 import toast from 'react-hot-toast'
 
 interface AddPartModalProps {
@@ -53,7 +53,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjects, setSelectedProjects] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
+  const [selectedTags, setSelectedTags] = useState<TagType[]>([])
   const [customProperties, setCustomProperties] = useState<Array<{ key: string; value: string }>>(
     []
   )

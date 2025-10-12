@@ -24,7 +24,7 @@ import TagBadge from '@/components/tags/TagBadge'
 import { toolsService } from '@/services/tools.service'
 import { useAuthStore } from '@/store/authStore'
 import type { Tool } from '@/types/tools'
-import type { Tag } from '@/types/tags'
+import type { Tag as TagType } from '@/types/tags'
 import toast from 'react-hot-toast'
 
 interface ToolDetailModalProps {

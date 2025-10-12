@@ -15,7 +15,7 @@ import { categoriesService } from '@/services/categories.service'
 import { tagsService } from '@/services/tags.service'
 import type { Tool, CreateToolRequest, UpdateToolRequest, ToolCondition } from '@/types/tools'
 import type { Location, Category } from '@/types/parts'
-import type { Tag } from '@/types/tags'
+import type { Tag as TagType } from '@/types/tags'
 import toast from 'react-hot-toast'
 
 interface ToolModalProps {
@@ -45,7 +45,7 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
 
   const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
+  const [selectedTags, setSelectedTags] = useState<TagType[]>([])
   const [customProperties, setCustomProperties] = useState<Array<{ key: string; value: string }>>(
     []
   )
