@@ -893,6 +893,9 @@ const PartDetailsPage = () => {
                       className="group hover:bg-primary-10 rounded-lg px-3 py-2 transition-all duration-200 flex items-center gap-2 min-w-0"
                       title="Click to copy part name"
                     >
+                      {part.emoji && (
+                        <span className="text-2xl">{part.emoji}</span>
+                      )}
                       <h1 className="text-2xl font-theme-display font-bold text-theme-primary truncate">
                         {part.name}
                       </h1>
