@@ -35,7 +35,7 @@ import ContainerSlotPickerModal from '../../components/locations/ContainerSlotPi
 import CategorySelector from '../../components/ui/CategorySelector'
 import ProjectSelector from '../../components/ui/ProjectSelector'
 import AddProjectModal from '../../components/projects/AddProjectModal'
-import LocationTreeSelector from '../../components/ui/LocationTreeSelector'
+import { HierarchicalLocationPicker } from '../../components/locations/HierarchicalLocationPicker'
 import SupplierSelector from '../../components/ui/SupplierSelector'
 import { CustomSelect } from '../../components/ui/CustomSelect'
 import toast from 'react-hot-toast'
@@ -574,45 +574,17 @@ const EditPartPage: React.FC = () => {
             </div>
 
             {/* Location - Full Width */}
-            <LocationTreeSelector
-              selectedLocationId={watch('location_id')}
-              onLocationSelect={(locationId) => {
-                console.log('=== Location Selection Debug ===')
-                console.log('Selected locationId:', locationId)
+            <HierarchicalLocationPicker
+              value={watch('location_id')}
+              onChange={(locationId) => {
                 if (!locationId) {
                   setValue('location_id', '')
-                  return
-                }
-                // Check if selected location is a container
-                const selectedLocation = locations.find((loc) => loc.id === locationId)
-                console.log('Found location:', selectedLocation)
-                console.log('All location keys:', selectedLocation ? Object.keys(selectedLocation) : 'none')
-                console.log('Location type:', selectedLocation?.location_type)
-                console.log('Slot count:', selectedLocation?.slot_count)
-                console.log('Slot layout type:', selectedLocation?.slot_layout_type)
-                console.log('Grid rows:', selectedLocation?.grid_rows)
-                console.log('Grid columns:', selectedLocation?.grid_columns)
-                console.log('Is container check:', selectedLocation?.location_type === 'container')
-                console.log('Has slots check:', !!selectedLocation?.slot_count)
-                console.log('Should show modal:', selectedLocation?.location_type === 'container' && selectedLocation.slot_count)
-
-                if (selectedLocation?.location_type === 'container' && selectedLocation.slot_count) {
-                  // Show slot picker modal for containers
-                  console.log('✅ Opening slot picker modal for:', selectedLocation.name)
-                  setSelectedContainer(selectedLocation)
-                  setShowSlotPickerModal(true)
                 } else {
-                  // Directly set location for non-containers
-                  console.log('⏩ Setting location directly (not a container)')
                   setValue('location_id', locationId)
                 }
               }}
-              onAddNewLocation={() => setShowAddLocationModal(true)}
               label="Location"
-              description="Select where this part is stored"
               error={errors.location_id?.message}
-              showAddButton={true}
-              compact={false}
             />
           </div>
         </div>
