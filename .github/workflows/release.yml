@@ -1,0 +1,130 @@
+name: Release and Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep -oP '__version__\s*=\s*"\K[^"]+' MakerMatrix/__init__.py)
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Current version: $CURRENT_VERSION"
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          python scripts/bump_version.py ${{ inputs.bump_type }}
+          NEW_VERSION=$(grep -oP '__version__\s*=\s*"\K[^"]+' MakerMatrix/__init__.py)
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "✨ New version: $NEW_VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "## What's Changed" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          git log --pretty=format:"- %s (%h)" v${{ steps.current_version.outputs.version }}..HEAD >> CHANGELOG.md || git log --pretty=format:"- %s (%h)" --max-count=20 >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.current_version.outputs.version }}...v${{ steps.bump_version.outputs.new_version }}" >> CHANGELOG.md
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit version bump
+        run: |
+          git add MakerMatrix/__init__.py MakerMatrix/frontend/package.json
+          git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }}
+
+          Automated version bump from ${{ steps.current_version.outputs.version }} to ${{ steps.bump_version.outputs.new_version }}
+
+          Bump type: ${{ inputs.bump_type }}"
+
+      - name: Create Git tag
+        run: |
+          git tag -a "v${{ steps.bump_version.outputs.new_version }}" -m "Release v${{ steps.bump_version.outputs.new_version }}"
+
+      - name: Push changes
+        run: |
+          git push origin main
+          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'v${{ steps.bump_version.outputs.new_version }}',
+              name: 'v${{ steps.bump_version.outputs.new_version }}',
+              body: changelog,
+              draft: false,
+              prerelease: false
+            });
+
+            console.log(`✅ Release created: ${release.data.html_url}`);
+
+      - name: Comment on related PRs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Find PRs merged since last release
+            const commits = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: 'v${{ steps.current_version.outputs.version }}',
+              head: 'main'
+            });
+
+            const prNumbers = new Set();
+            commits.data.commits.forEach(commit => {
+              const match = commit.commit.message.match(/#(\d+)/);
+              if (match) prNumbers.add(match[1]);
+            });
+
+            for (const prNumber of prNumbers) {
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(prNumber),
+                  body: `🎉 This was included in release [v${{ steps.bump_version.outputs.new_version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.bump_version.outputs.new_version }})`
+                });
+              } catch (error) {
+                console.log(`Could not comment on PR #${prNumber}: ${error.message}`);
+              }
+            }
