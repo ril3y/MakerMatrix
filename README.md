@@ -120,6 +120,39 @@ Comprehensive tool and equipment tracking with check-out/check-in, maintenance r
 - **Cleaning**: Deep cleaning and preventive maintenance
 - **Other**: Custom maintenance types
 
+### 🏷️ Lightweight Tags System
+Fast, flexible tagging for parts and tools with instant feedback and consistent color coding.
+
+**Features:**
+- **Instant Tagging**: Type `#tagname` and press Enter - tag saves immediately without page refresh
+- **Consistent Colors**: Same tag always displays with the same color across the entire app (hash-based color generation)
+- **10-Color Palette**: Beautiful, distinct colors for visual organization (red, orange, amber, green, cyan, blue, indigo, violet, pink, rose)
+- **Hidden-by-Default Input**: Click + to show input, keeping UI clean and compact
+- **Optimistic Updates**: Tags appear instantly while saving in background
+- **Error Handling**: Silent success (tag appearing is feedback), toast only on failure
+- **No Duplicates**: Smart duplicate detection prevents adding the same tag twice
+- **Autocomplete**: Search existing tags as you type
+- **Create Inline**: New tags created automatically if they don't exist
+- **Remove Inline**: Click X on any tag badge to remove it
+- **Multi-Entity Support**: Tag both parts and tools with the same system
+- **Integrated UI**: Tags embedded in Basic Information section alongside other metadata
+
+**Use Cases:**
+- **Project Organization**: Tag parts with project names (`#golfcart-harness`)
+- **Status Tracking**: Mark parts needing attention (`#needs-restock`, `#testing`, `#obsolete`)
+- **Priority Levels**: Visual priority indicators (`#urgent`, `#high-priority`)
+- **Custom Categories**: Create ad-hoc categories beyond the main category system
+- **Workflow States**: Track part workflow status (`#ordered`, `#received`, `#installed`)
+- **Search & Filter**: Quickly find all parts/tools with specific tags
+
+**Technical Details:**
+- **Fast Input**: Simple text input, no complex UI - just type and press Enter
+- **API Endpoints**: RESTful tag CRUD with assignment operations
+- **Database**: Many-to-many relationships with parts and tools
+- **Case-Insensitive**: Tags stored with case preservation but matched without case sensitivity
+- **Backend**: 31 comprehensive tests (100% passing)
+- **Frontend**: 69 component tests (100% passing)
+
 ### 🔍 Advanced Search
 
 ![Advanced Search](docs/screenshots/advsearch.png)
