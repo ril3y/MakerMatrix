@@ -33,6 +33,7 @@ import {
   ChevronDown,
   ArrowRightLeft,
   Undo2,
+  X,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -168,6 +169,8 @@ const PartDetailsPage = () => {
   // Tag management state
   const [partTags, setPartTags] = useState<TagType[]>([])
   const [loadingTags, setLoadingTags] = useState(false)
+  const [tagInputValue, setTagInputValue] = useState('')
+  const [showTagInput, setShowTagInput] = useState(false)
 
   // Inline editing states
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -308,6 +311,32 @@ const PartDetailsPage = () => {
     } finally {
       setLoadingAllocations(false)
     }
+  }
+
+  // Generate consistent color from tag name (same tag always gets same color)
+  const generateTagColor = (tagName: string): string => {
+    const colors = [
+      '#EF4444', // red
+      '#F97316', // orange
+      '#F59E0B', // amber
+      '#10B981', // green
+      '#06B6D4', // cyan
+      '#3B82F6', // blue
+      '#6366F1', // indigo
+      '#8B5CF6', // violet
+      '#EC4899', // pink
+      '#F43F5E', // rose
+    ]
+
+    // Generate hash from tag name for consistent color assignment
+    let hash = 0
+    for (let i = 0; i < tagName.length; i++) {
+      hash = tagName.charCodeAt(i) + ((hash << 5) - hash)
+      hash = hash & hash // Convert to 32-bit integer
+    }
+
+    const index = Math.abs(hash) % colors.length
+    return colors[index]
   }
 
   const handleEdit = () => {
@@ -616,6 +645,46 @@ const PartDetailsPage = () => {
       toast.error('Failed to update tags')
       // Reload tags to revert to server state on error
       loadPartTags(part.id)
+    }
+  }
+
+  const handleTagInputKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || !tagInputValue.trim() || !part?.id) return
+
+    try {
+      // Strip # prefix if present
+      const tagName = tagInputValue.trim().replace(/^#/, '')
+
+      // Search for existing tag
+      const existingTags = await tagsService.searchTags(tagName)
+
+      let tagToAdd: TagType
+
+      if (existingTags && existingTags.length > 0) {
+        // Use existing tag (exact match or first result)
+        const exactMatch = existingTags.find(t => t.name.toLowerCase() === tagName.toLowerCase())
+        tagToAdd = exactMatch || existingTags[0]
+      } else {
+        // Create new tag
+        tagToAdd = await tagsService.createTag({
+          name: tagName,
+          color: generateTagColor(tagName) // Consistent color based on tag name
+        })
+      }
+
+      // Check if tag is already assigned
+      if (!partTags.find(t => t.id === tagToAdd.id)) {
+        // Add tag to part
+        const updatedTags = [...partTags, tagToAdd]
+        await handleTagsChange(updatedTags)
+      }
+
+      // Clear input and hide it
+      setTagInputValue('')
+      setShowTagInput(false)
+    } catch (error) {
+      console.error('Failed to add tag:', error)
+      // Silently fail or show minimal toast
     }
   }
 
@@ -1562,6 +1631,76 @@ const PartDetailsPage = () => {
                       </div>
                     </div>
 
+                    {/* Tags Field */}
+                    <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-primary-10 rounded-lg shrink-0">
+                          <Tag className="w-4 h-4 text-primary-accent" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm font-medium text-theme-secondary">
+                              Tags
+                            </p>
+                            <button
+                              onClick={() => setShowTagInput(!showTagInput)}
+                              className="p-1 hover:bg-primary-10 rounded transition-colors"
+                              title={showTagInput ? "Hide tag input" : "Add tag"}
+                            >
+                              {showTagInput ? (
+                                <X className="w-4 h-4 text-theme-secondary" />
+                              ) : (
+                                <Plus className="w-4 h-4 text-primary-accent" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Display existing tags */}
+                          {partTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {partTags.map((tag) => (
+                                <TagBadge
+                                  key={tag.id}
+                                  tag={tag}
+                                  size="sm"
+                                  onRemove={() => {
+                                    const updatedTags = partTags.filter(t => t.id !== tag.id)
+                                    handleTagsChange(updatedTags)
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Show input only when + is clicked */}
+                          {showTagInput && (
+                            <input
+                              type="text"
+                              value={tagInputValue}
+                              onChange={(e) => setTagInputValue(e.target.value)}
+                              onKeyDown={handleTagInputKeyDown}
+                              onBlur={() => {
+                                // Hide input when user clicks away, but only if empty
+                                if (!tagInputValue.trim()) {
+                                  setShowTagInput(false)
+                                }
+                              }}
+                              placeholder="Type #tag and press Enter"
+                              disabled={loadingTags}
+                              autoFocus
+                              className="w-full px-3 py-1.5 text-sm bg-theme-primary text-theme-primary border border-theme-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          )}
+
+                          {partTags.length === 0 && !showTagInput && (
+                            <p className="text-sm text-theme-muted">
+                              No tags yet
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Created Date Field */}
                     <div className="bg-theme-secondary border border-theme-primary rounded-lg p-4 hover:bg-theme-tertiary transition-colors">
                       <div className="flex items-start gap-3">
@@ -1674,79 +1813,6 @@ const PartDetailsPage = () => {
                       Create New Category
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-
-          {/* Enhanced Tags Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.23 }}
-            className="bg-theme-elevated border border-theme-primary rounded-xl overflow-hidden shadow-sm"
-          >
-            <div className="bg-theme-tertiary border-b border-theme-primary px-6 py-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-theme-display font-semibold text-theme-primary flex items-center gap-3">
-                  <div className="p-2 bg-blue-600/10 rounded-lg">
-                    <Tag className="w-5 h-5 text-blue-400" />
-                  </div>
-                  Tags
-                  <span className="text-sm bg-blue-600/10 text-blue-400 px-3 py-1 rounded-full font-medium">
-                    {partTags.length}
-                  </span>
-                </h2>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {loadingTags ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
-                  <p className="text-theme-muted mt-3">Loading tags...</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Display current tags */}
-                  {partTags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {partTags.map((tag) => (
-                        <TagBadge
-                          key={tag.id}
-                          tag={tag}
-                          size="md"
-                          onRemove={() => {
-                            const updatedTags = partTags.filter(t => t.id !== tag.id)
-                            handleTagsChange(updatedTags)
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Tag input for adding/removing tags */}
-                  <div>
-                    <label className="block text-sm font-medium text-theme-secondary mb-2">
-                      Add or remove tags
-                    </label>
-                    <TagInput
-                      selectedTags={partTags}
-                      onTagsChange={handleTagsChange}
-                      entityType="part"
-                      placeholder="Add tags (e.g., #urgent, #needs-restock, #project-name)..."
-                      disabled={loadingTags}
-                    />
-                  </div>
-
-                  {partTags.length === 0 && (
-                    <div className="text-center py-4">
-                      <Tag className="w-12 h-12 text-theme-muted mx-auto mb-3 opacity-50" />
-                      <p className="text-theme-muted text-sm">
-                        No tags assigned yet. Use the input above to add tags for better organization.
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
