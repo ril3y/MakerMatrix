@@ -5,7 +5,7 @@ import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
 import EmojiPicker from '@/components/ui/EmojiPicker'
 import { CustomSelect } from '@/components/ui/CustomSelect'
-import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
+import { HierarchicalLocationPicker } from '@/components/locations/HierarchicalLocationPicker'
 import SupplierSelector from '@/components/ui/SupplierSelector'
 import { TooltipIcon } from '@/components/ui/Tooltip'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
@@ -990,30 +990,16 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               />
             </FormField>
 
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium text-primary">Location</label>
-              <div className="relative">
-                <LocationTreeSelector
-                  selectedLocationId={formData.location_id}
-                  onLocationSelect={(locationId) =>
-                    setFormData({ ...formData, location_id: locationId || '' })
-                  }
-                  description="Storage location"
-                  error={errors.location_id}
-                  showAddButton={false}
-                  compact={true}
-                  showLabel={false}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowAddLocationModal(true)}
-                  className="absolute top-2 right-2 p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/30"
-                  disabled={loading}
-                  title="Add new location"
-                >
-                  <Plus className="w-4 h-4 text-primary" />
-                </button>
-              </div>
+            <div className="md:col-span-2">
+              <HierarchicalLocationPicker
+                value={formData.location_id}
+                onChange={(locationId) =>
+                  setFormData({ ...formData, location_id: locationId || '' })
+                }
+                label="Location"
+                error={errors.location_id}
+                disabled={loading}
+              />
             </div>
           </div>
 
