@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import CrudModal from '@/components/ui/CrudModal'
 import { FormInput, FormField, LocationTreeSelector } from '@/components/forms'
 import { CustomSelect } from '@/components/ui/CustomSelect'
@@ -9,12 +9,23 @@ import { locationFormSchema, type LocationFormData } from '@/schemas/locations'
 import { locationsService } from '@/services/locations.service'
 import type { Location } from '@/types/locations'
 import toast from 'react-hot-toast'
+import { AlertCircle, X } from 'lucide-react'
 
 interface AddLocationModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
   defaultParentId?: string
+}
+
+// Draft persistence constants
+const LOCATION_DRAFT_KEY = 'makermatrix_location_draft'
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+
+interface LocationDraft {
+  formData: Partial<LocationFormData>
+  imageUrl: string
+  timestamp: number
 }
 
 const AddLocationModal = ({
@@ -26,6 +37,8 @@ const AddLocationModal = ({
   const [parentLocations, setParentLocations] = useState<Location[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>('')
+  const [hasDraft, setHasDraft] = useState(false)
+  const [showDraftBanner, setShowDraftBanner] = useState(false)
 
   const locationTypes = [
     { value: 'standard', label: 'Standard' },
@@ -62,6 +75,7 @@ const AddLocationModal = ({
     },
     onSubmit: handleFormSubmit,
     onSuccess: () => {
+      clearDraft() // Clear draft on successful creation
       onSuccess()
       handleClose()
     },
@@ -100,15 +114,102 @@ const AddLocationModal = ({
   // Check if current location type is container
   const isContainer = (form.watch('location_type') as unknown as string) === 'container'
 
+  // Draft Management Functions
+  const saveDraft = useCallback(() => {
+    const formValues = form.getValues()
+    const draft: LocationDraft = {
+      formData: formValues,
+      imageUrl,
+      timestamp: Date.now()
+    }
+    localStorage.setItem(LOCATION_DRAFT_KEY, JSON.stringify(draft))
+  }, [form, imageUrl])
+
+  const loadDraft = useCallback(() => {
+    try {
+      const stored = localStorage.getItem(LOCATION_DRAFT_KEY)
+      if (!stored) return null
+
+      const draft: LocationDraft = JSON.parse(stored)
+
+      // Check if draft is too old
+      if (Date.now() - draft.timestamp > DRAFT_MAX_AGE_MS) {
+        localStorage.removeItem(LOCATION_DRAFT_KEY)
+        return null
+      }
+
+      return draft
+    } catch (error) {
+      console.error('Error loading draft:', error)
+      return null
+    }
+  }, [])
+
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(LOCATION_DRAFT_KEY)
+    setHasDraft(false)
+    setShowDraftBanner(false)
+  }, [])
+
+  const restoreDraft = useCallback(() => {
+    const draft = loadDraft()
+    if (draft) {
+      // Restore form values
+      Object.entries(draft.formData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          form.setValue(key as any, value as any)
+        }
+      })
+
+      // Restore image URL
+      if (draft.imageUrl) {
+        setImageUrl(draft.imageUrl)
+      }
+
+      toast.success('Draft restored')
+      setShowDraftBanner(false)
+    }
+  }, [form, loadDraft])
+
+  const discardDraft = useCallback(() => {
+    clearDraft()
+    toast.success('Draft discarded')
+  }, [clearDraft])
+
+  // Check for draft when modal opens
   useEffect(() => {
     if (isOpen) {
       loadParentLocations()
+
       // Set the default parent if provided
       if (defaultParentId) {
         form.setValue('parent_id', defaultParentId)
       }
+
+      // Check for existing draft
+      const draft = loadDraft()
+      if (draft && draft.formData.name) {
+        setHasDraft(true)
+        setShowDraftBanner(true)
+      }
     }
-  }, [isOpen, defaultParentId])
+  }, [isOpen, defaultParentId, loadDraft])
+
+  // Auto-save draft when form changes (debounced)
+  useEffect(() => {
+    if (!isOpen) return
+
+    const formValues = form.getValues()
+
+    // Only save if there's meaningful content
+    if (formValues.name && formValues.name.trim()) {
+      const timeoutId = setTimeout(() => {
+        saveDraft()
+      }, 500) // 500ms debounce
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isOpen, form.watch(), saveDraft])
 
   const loadParentLocations = async () => {
     try {
@@ -195,9 +296,17 @@ const AddLocationModal = ({
   }
 
   const handleClose = () => {
+    // Don't clear draft on close - it will be available for restore
     setImageUrl('')
     form.reset()
+    setShowDraftBanner(false)
     onClose()
+  }
+
+  // Wrap the original onSuccess to clear draft on successful creation
+  const handleSuccessWithDraftClear = () => {
+    clearDraft()
+    onSuccess()
   }
 
   // Build hierarchical display for parent locations
@@ -254,9 +363,48 @@ const AddLocationModal = ({
           <p className="text-theme-secondary mt-2">Loading...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-4">
-          {/* Left Column - Main Fields (2/3 width) */}
-          <div className="lg:col-span-2 space-y-6">
+        <>
+          {/* Draft Banner */}
+          {showDraftBanner && hasDraft && (
+            <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  You have unsaved work from a previous session
+                </p>
+                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                  Would you like to restore your draft or start fresh?
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={restoreDraft}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded transition-colors"
+                  >
+                    Restore Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={discardDraft}
+                    className="px-3 py-1.5 text-xs font-medium text-yellow-800 dark:text-yellow-200 bg-yellow-100 dark:bg-yellow-900/40 hover:bg-yellow-200 dark:hover:bg-yellow-900/60 rounded transition-colors"
+                  >
+                    Discard Draft
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDraftBanner(false)}
+                className="p-1 text-yellow-600 dark:text-yellow-500 hover:text-yellow-800 dark:hover:text-yellow-300 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-4">
+            {/* Left Column - Main Fields (2/3 width) */}
+            <div className="lg:col-span-2 space-y-6">
             {/* Name and Type */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormInput
@@ -512,6 +660,7 @@ const AddLocationModal = ({
             </FormField>
           </div>
         </div>
+        </>
       )}
     </CrudModal>
   )
