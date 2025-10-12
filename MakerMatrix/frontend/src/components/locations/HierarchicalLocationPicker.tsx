@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { MapPin, ChevronRight, Box, X, Search, Loader2 } from 'lucide-react'
+import { ChevronRight, Box, MapPin } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import { SlotSelector } from './SlotSelector'
 import { locationsService } from '@/services/locations.service'
 import type { Location, SlotWithOccupancy } from '@/types/locations'
@@ -25,7 +26,6 @@ export function HierarchicalLocationPicker({
 }: HierarchicalLocationPickerProps) {
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<SlotWithOccupancy | null>(null)
   const [slotSelectorOpen, setSlotSelectorOpen] = useState(false)
@@ -84,7 +84,10 @@ export function HierarchicalLocationPicker({
     }
   }
 
-  const handleLocationClick = (location: Location) => {
+  const handleLocationSelect = (locationId: string) => {
+    const location = locations.find((loc) => loc.id === locationId)
+    if (!location) return
+
     // If it's a container with slots, open slot selector
     if (location.slot_count && location.slot_count > 0) {
       setContainerForSlotSelection(location)
@@ -104,158 +107,75 @@ export function HierarchicalLocationPicker({
     setSlotSelectorOpen(false)
   }
 
-  const handleClear = () => {
-    setSelectedLocation(null)
-    setSelectedSlot(null)
-    onChange(undefined)
-  }
+  // Build location options for CustomSelect
+  const locationOptions = locations.map((loc) => {
+    const isContainer = loc.slot_count && loc.slot_count > 0
+    let label = loc.name
+    if (isContainer) {
+      label = `${loc.name} (${loc.slot_count} slots)`
+    }
 
-  const filteredLocations = searchTerm
-    ? locations.filter((loc) =>
-        loc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        loc.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : locations
-
-  // Organize locations into tree structure
-  const rootLocations = filteredLocations.filter((loc) => !loc.parent_id)
-  const childLocationsByParent = new Map<string, Location[]>()
-
-  filteredLocations.forEach((loc) => {
-    if (loc.parent_id) {
-      const children = childLocationsByParent.get(loc.parent_id) || []
-      children.push(loc)
-      childLocationsByParent.set(loc.parent_id, children)
+    return {
+      value: loc.id,
+      label: label,
+      image_url: loc.emoji ? undefined : (loc.image_url || undefined),
     }
   })
 
-  const renderLocationItem = (location: Location, depth: number = 0): JSX.Element => {
-    const children = childLocationsByParent.get(location.id) || []
-    const isContainer = location.slot_count && location.slot_count > 0
-    const hasChildren = children.length > 0
+  // Get current display value for CustomSelect
+  const currentValue = selectedSlot?.id || selectedLocation?.id || ''
 
-    return (
-      <div key={location.id}>
-        <button
-          onClick={() => handleLocationClick(location)}
-          disabled={disabled}
-          className={`
-            w-full flex items-center gap-2 p-3 rounded-lg border transition-colors text-left
-            hover:bg-background-secondary focus:outline-none focus:ring-2 focus:ring-primary
-            ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-            ${depth > 0 ? `ml-${depth * 4}` : ''}
-          `}
-        >
-          {location.emoji ? (
-            <span className="text-xl">{location.emoji}</span>
-          ) : isContainer ? (
-            <Box className="w-5 h-5 text-primary" />
-          ) : (
-            <MapPin className="w-5 h-5 text-secondary" />
-          )}
-
-          <div className="flex-1">
-            <div className="font-medium text-sm">{location.name}</div>
-            {location.description && (
-              <div className="text-xs text-secondary">{location.description}</div>
-            )}
-          </div>
-
-          {isContainer && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-secondary">{location.slot_count} slots</span>
-              <ChevronRight className="w-4 h-4 text-secondary" />
-            </div>
-          )}
-        </button>
-
-        {hasChildren && (
-          <div className="ml-4 mt-1 space-y-1">
-            {children.map((child) => renderLocationItem(child, depth + 1))}
-          </div>
-        )}
-      </div>
-    )
-  }
+  // Display label showing selected location/slot
+  const displayLabel = (() => {
+    if (selectedSlot && selectedLocation) {
+      return `${selectedLocation.name} → ${selectedSlot.name}`
+    }
+    if (selectedLocation) {
+      return selectedLocation.name
+    }
+    return ''
+  })()
 
   return (
     <div className={className}>
-      <label className="text-sm font-medium text-primary">
+      <label className="text-sm font-medium text-primary block mb-2">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
 
-      {/* Selected Location Display */}
-      {(selectedLocation || selectedSlot) && (
-        <div className="mt-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {selectedLocation?.emoji && (
-                <span className="text-xl">{selectedLocation.emoji}</span>
-              )}
-              <div>
-                <div className="font-medium text-sm">
-                  {selectedLocation?.name}
-                  {selectedSlot && (
-                    <>
-                      <ChevronRight className="inline w-4 h-4 mx-1" />
-                      {selectedSlot.name}
-                    </>
-                  )}
-                </div>
-                {selectedSlot?.slot_metadata && (
-                  <div className="text-xs text-secondary">
-                    {selectedSlot.slot_metadata.row !== undefined && `Row ${selectedSlot.slot_metadata.row}`}
-                    {selectedSlot.slot_metadata.column !== undefined && `, Col ${selectedSlot.slot_metadata.column}`}
-                  </div>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={handleClear}
-              disabled={disabled}
-              className="btn btn-ghost btn-sm"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Location Selection UI */}
-      {!selectedLocation && !selectedSlot && (
-        <div className="mt-2 space-y-3">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
-            <input
-              type="text"
-              placeholder="Search locations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              disabled={disabled}
-              className="input w-full pl-9"
-            />
-          </div>
-
-          {/* Location List */}
-          <div className="border rounded-lg p-2 max-h-64 overflow-y-auto space-y-1">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-secondary" />
-              </div>
-            ) : rootLocations.length === 0 ? (
-              <div className="text-center py-8 text-secondary">
-                {searchTerm ? 'No locations found' : 'No locations available'}
-              </div>
-            ) : (
-              rootLocations.map((location) => renderLocationItem(location))
+      {/* Show selected path if slot is selected */}
+      {selectedSlot && selectedLocation && (
+        <div className="mb-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+          <div className="flex items-center gap-2 text-sm">
+            {selectedLocation.emoji && (
+              <span className="text-xl">{selectedLocation.emoji}</span>
+            )}
+            <Box className="w-4 h-4 text-primary" />
+            <span className="font-medium">{selectedLocation.name}</span>
+            <ChevronRight className="w-4 h-4 text-secondary" />
+            <MapPin className="w-4 h-4 text-primary" />
+            <span className="font-medium">{selectedSlot.name}</span>
+            {selectedSlot.slot_metadata && (
+              <span className="text-xs text-secondary">
+                {selectedSlot.slot_metadata.row !== undefined && `Row ${selectedSlot.slot_metadata.row}`}
+                {selectedSlot.slot_metadata.column !== undefined && `, Col ${selectedSlot.slot_metadata.column}`}
+              </span>
             )}
           </div>
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>}
+      {/* CustomSelect for location picker */}
+      <CustomSelect
+        value={currentValue}
+        onChange={handleLocationSelect}
+        options={locationOptions}
+        placeholder="Select location..."
+        searchable={true}
+        searchPlaceholder="Search locations..."
+        disabled={disabled || loading}
+        error={error}
+      />
 
       {/* Slot Selector Modal */}
       {containerForSlotSelection && (
