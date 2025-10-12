@@ -2,7 +2,7 @@
 
 **A powerful, modern electronic parts inventory management system designed for makers, engineers, and electronics enthusiasts.**
 
-MakerMatrix helps you organize your electronic components, track inventory across multiple storage locations, manage projects, and automate part data enrichment from supplier APIs. Built with a modern tech stack (FastAPI + React + TypeScript), it provides a beautiful, responsive interface with real-time updates and powerful search capabilities.
+MakerMatrix helps you organize your electronic components, track tools and equipment, manage inventory across multiple storage locations, track projects, and automate part data enrichment from supplier APIs. Built with a modern tech stack (FastAPI + React + TypeScript), it provides a beautiful, responsive interface with real-time updates and powerful search capabilities.
 
 <div align="center">
 
@@ -74,6 +74,51 @@ Hierarchical storage organization with visual identification and container slot 
 - **Visual Cards**: Project cards with images, descriptions, and custom links
 - **Part Tracking**: See all parts associated with each project
 - **Inline Assignment**: Add/remove project associations directly from part details
+
+### 🔧 Tools Management
+Comprehensive tool and equipment tracking with check-out/check-in, maintenance records, and multi-location support.
+
+<div align="center">
+
+![Tools List](docs/screenshots/tools.png)
+*Tool inventory with status indicators and quick search*
+
+![Tool Details](docs/screenshots/tooldetails.png)
+*Detailed tool view with specifications, condition tracking, and location management*
+
+![Tool Maintenance](docs/screenshots/toolmaintenance.png)
+*Complete maintenance history with service records and calibration tracking*
+
+</div>
+
+**Features:**
+- **Tool Inventory**: Track hand tools, power tools, measuring instruments, and consumables
+- **Check-Out System**: Check tools in/out with user tracking and expected return dates
+- **Condition Tracking**: Monitor tool condition (excellent, good, fair, poor, needs repair, out of service)
+- **Maintenance Records**: Complete maintenance history with service dates, types, costs, and notes
+- **Calibration Management**: Track calibration-required tools with next calibration dates
+- **Multi-Location Support**: Allocate tools across multiple storage locations
+- **Tool-Specific Properties**: Custom properties for voltage, size, capacity, accuracy, etc.
+- **Usage Tracking**: Monitor who has tools, when they were checked out, and expected return
+- **Manufacturer Data**: Track manufacturer, model numbers, and supplier information
+- **Visual Identification**: Tool images and emoji support for quick recognition
+- **Value Tracking**: Purchase price, purchase date, and current value tracking
+- **Consumable Support**: Special handling for consumable tools like drill bits and blades
+- **Search & Filter**: Advanced search by tool name, manufacturer, model, or properties
+- **Category Organization**: Assign tools to multiple categories for flexible organization
+
+**Tool Types:**
+- **Hand Tools**: Screwdrivers, pliers, wrenches, hammers
+- **Power Tools**: Drills, saws, soldering stations, heat guns
+- **Measuring Instruments**: Multimeters, calipers, oscilloscopes, scales
+- **Consumables**: Drill bits, saw blades, sandpaper, tips
+
+**Maintenance Types:**
+- **Calibration**: Regular calibration for precision instruments
+- **Repair**: Repair work and part replacements
+- **Inspection**: Regular safety and operational inspections
+- **Cleaning**: Deep cleaning and preventive maintenance
+- **Other**: Custom maintenance types
 
 ### 🔍 Advanced Search
 
@@ -444,6 +489,7 @@ MakerMatrix/
 │   │   ├── part_models.py
 │   │   ├── location_models.py
 │   │   ├── user_models.py
+│   │   ├── tool_models.py
 │   │   └── task_models.py
 │   ├── repositories/           # Data access layer
 │   ├── services/               # Business logic
@@ -556,6 +602,37 @@ GET    /api/parts/{id}/allocations
 POST   /api/parts/{id}/allocations
 POST   /api/parts/{id}/transfer
 POST   /api/parts/{id}/allocations/{id}/return_to_primary
+```
+
+### Tools
+```bash
+# CRUD operations
+GET    /api/tools/
+POST   /api/tools/
+PUT    /api/tools/{id}
+DELETE /api/tools/{id}
+GET    /api/tools/{id}
+
+# Search & filter
+GET    /api/tools/search?query=drill
+GET    /api/tools/available    # Get available tools
+GET    /api/tools/checked_out  # Get checked out tools
+
+# Check-out management
+POST   /api/tools/{id}/checkout
+POST   /api/tools/{id}/return
+
+# Allocations
+GET    /api/tools/{id}/allocations
+POST   /api/tools/{id}/allocations
+PUT    /api/tools/{id}/allocations/{allocation_id}
+DELETE /api/tools/{id}/allocations/{allocation_id}
+
+# Maintenance records
+GET    /api/tools/{id}/maintenance
+POST   /api/tools/{id}/maintenance
+PUT    /api/tools/{id}/maintenance/{record_id}
+DELETE /api/tools/{id}/maintenance/{record_id}
 ```
 
 ### Tasks
