@@ -179,6 +179,27 @@ Background processing for long-running operations with progress tracking.
 - **Database Backup**: Comprehensive backup with datasheets and images
 - **Price Updates**: Refresh pricing data from suppliers
 
+### 💾 Database Backup & Restore
+Comprehensive backup system with encryption support for data protection.
+
+<div align="center">
+
+![Backup Management](docs/screenshots/encrypted_backup.png)
+*Encrypted backup management with password protection and scheduled backups*
+
+</div>
+
+**Features:**
+- **Encrypted Backups**: Windows-compatible password-protected ZIP files (ZipCrypto)
+- **Comprehensive Backup**: Includes database, datasheets, images, and environment configuration
+- **Scheduled Backups**: Automatic nightly, weekly, or custom cron schedule backups
+- **Retention Policy**: Automatic cleanup of old backups based on retention count
+- **Progress Tracking**: Real-time progress updates during backup creation
+- **Secure Password Handling**: Backend never sends passwords to frontend (boolean status only)
+- **Quick Restore**: Easy restoration from encrypted or unencrypted backups
+- **Backup Identification**: Visual indicators for encrypted vs unencrypted backups
+- **Task-Based Architecture**: Background processing with WebSocket progress updates
+
 ### 📊 Analytics & Reporting
 Built-in analytics with charts and data visualization.
 
