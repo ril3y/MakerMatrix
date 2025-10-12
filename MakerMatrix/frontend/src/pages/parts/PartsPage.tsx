@@ -18,6 +18,7 @@ import {
   Square,
   Hash,
   Tag as TagIcon,
+  HelpCircle,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -620,7 +621,7 @@ const PartsPage = () => {
               value={searchTerm}
               onChange={handleSearchInputChange}
               onKeyDown={handleKeyDown}
-              className="input pl-10 pr-10 w-full"
+              className="input pl-10 pr-16 w-full"
               autoComplete="off"
             />
 
@@ -629,11 +630,35 @@ const PartsPage = () => {
               <button
                 type="button"
                 onClick={clearSearch}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted hover:text-primary transition-colors"
+                className="absolute right-10 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted hover:text-primary transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
+
+            {/* Advanced search help icon */}
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 group">
+              <HelpCircle className="w-4 h-4 text-muted hover:text-primary transition-colors cursor-help" />
+
+              {/* Tooltip */}
+              <div className="invisible group-hover:visible absolute right-0 top-full mt-2 w-80 bg-background-primary border border-border rounded-lg shadow-2xl p-4 z-[9999]">
+                <div className="text-sm space-y-2">
+                  <div className="font-semibold text-primary mb-2">Advanced Search Syntax:</div>
+
+                  <div className="space-y-1.5 text-secondary">
+                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">desc:capacitor</code> - Search in description only</div>
+                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">pn:STM32</code> - Search in part number only</div>
+                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">name:resistor</code> - Search in name only</div>
+                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">prop:package 0603</code> - Search in properties</div>
+                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">tag:missing</code> - Find parts with no tags</div>
+                    <div className="pt-1 border-t border-border mt-2"><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">"exact match"</code> - Search for exact phrase</div>
+                  </div>
+                </div>
+
+                {/* Arrow pointer */}
+                <div className="absolute -top-2 right-2 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-8 border-b-border"></div>
+              </div>
+            </div>
 
             {/* Autocomplete suggestions dropdown */}
             {showSuggestions && suggestions.length > 0 && (
