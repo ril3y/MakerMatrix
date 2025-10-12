@@ -24,23 +24,17 @@ interface ToolModalProps {
 
 const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) => {
   const [formData, setFormData] = useState<CreateToolRequest>({
-    name: '',
+    tool_name: '',
     tool_number: '',
     description: '',
     manufacturer: '',
-    model: '',
-    serial_number: '',
+    model_number: '',
     purchase_date: '',
     purchase_price: undefined,
     condition: 'good',
     location_id: '',
-    category_id: '',
-    last_maintenance: '',
-    next_maintenance: '',
-    maintenance_notes: '',
+    category_ids: [],
     image_url: '',
-    manual_url: '',
-    notes: '',
     additional_properties: {},
   })
 
@@ -60,11 +54,12 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
   const [isAdditionalPropsOpen, setIsAdditionalPropsOpen] = useState(false)
 
   const conditionOptions = [
-    { value: 'new', label: 'New' },
+    { value: 'excellent', label: 'Excellent' },
     { value: 'good', label: 'Good' },
     { value: 'fair', label: 'Fair' },
     { value: 'poor', label: 'Poor' },
-    { value: 'broken', label: 'Broken' },
+    { value: 'needs_repair', label: 'Needs Repair' },
+    { value: 'out_of_service', label: 'Out of Service' },
   ]
 
   useEffect(() => {
@@ -73,23 +68,17 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       if (editingTool) {
         // Load existing tool data for editing
         setFormData({
-          name: editingTool.name,
+          tool_name: editingTool.tool_name,
           tool_number: editingTool.tool_number || '',
           description: editingTool.description || '',
           manufacturer: editingTool.manufacturer || '',
-          model: editingTool.model || '',
-          serial_number: editingTool.serial_number || '',
+          model_number: editingTool.model_number || '',
           purchase_date: editingTool.purchase_date || '',
           purchase_price: editingTool.purchase_price,
           condition: editingTool.condition,
           location_id: editingTool.location_id || '',
-          category_id: editingTool.category_id || '',
-          last_maintenance: editingTool.last_maintenance || '',
-          next_maintenance: editingTool.next_maintenance || '',
-          maintenance_notes: editingTool.maintenance_notes || '',
+          category_ids: editingTool.categories && editingTool.categories.length > 0 ? editingTool.categories.map(c => c.id) : [],
           image_url: editingTool.image_url || '',
-          manual_url: editingTool.manual_url || '',
-          notes: editingTool.notes || '',
           additional_properties: editingTool.additional_properties || {},
         })
         setImageUrl(editingTool.image_url || '')
@@ -131,29 +120,12 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Tool name is required'
+    if (!formData.tool_name.trim()) {
+      newErrors.tool_name = 'Tool name is required'
     }
 
     if (formData.purchase_price !== undefined && formData.purchase_price < 0) {
       newErrors.purchase_price = 'Purchase price cannot be negative'
-    }
-
-    if (formData.manual_url && !isValidUrl(formData.manual_url)) {
-      newErrors.manual_url = 'Please enter a valid URL'
-    }
-
-    // Date validation
-    if (formData.purchase_date && formData.last_maintenance) {
-      if (new Date(formData.last_maintenance) < new Date(formData.purchase_date)) {
-        newErrors.last_maintenance = 'Last maintenance cannot be before purchase date'
-      }
-    }
-
-    if (formData.last_maintenance && formData.next_maintenance) {
-      if (new Date(formData.next_maintenance) < new Date(formData.last_maintenance)) {
-        newErrors.next_maintenance = 'Next maintenance cannot be before last maintenance'
-      }
     }
 
     setErrors(newErrors)
@@ -191,6 +163,15 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         ...formData,
         image_url: imageUrl || undefined,
         additional_properties: Object.keys(properties).length > 0 ? properties : undefined,
+        // Ensure empty strings for dates are sent as undefined
+        purchase_date: formData.purchase_date || undefined,
+        // Ensure empty strings are sent as undefined for optional fields
+        tool_number: formData.tool_number || undefined,
+        description: formData.description || undefined,
+        manufacturer: formData.manufacturer || undefined,
+        model_number: formData.model_number || undefined,
+        location_id: formData.location_id || undefined,
+        category_ids: formData.category_ids && formData.category_ids.length > 0 ? formData.category_ids : undefined,
       }
 
       if (editingTool) {
@@ -208,6 +189,8 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       handleClose()
     } catch (error: any) {
       console.error('Failed to save tool:', error)
+      console.error('Full error response:', error.response?.data)
+      console.error('Submit data:', submitData)
       const errorMessage =
         error.response?.data?.detail ||
         error.response?.data?.message ||
@@ -227,23 +210,17 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
 
   const clearFormData = () => {
     setFormData({
-      name: '',
+      tool_name: '',
       tool_number: '',
       description: '',
       manufacturer: '',
-      model: '',
-      serial_number: '',
+      model_number: '',
       purchase_date: '',
       purchase_price: undefined,
       condition: 'good',
       location_id: '',
-      category_id: '',
-      last_maintenance: '',
-      next_maintenance: '',
-      maintenance_notes: '',
+      category_ids: [],
       image_url: '',
-      manual_url: '',
-      notes: '',
       additional_properties: {},
     })
     setCustomProperties([])
@@ -276,7 +253,7 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
         )
         const newestCategory = sortedCategories[0]
-        setFormData({ ...formData, category_id: newestCategory.id })
+        setFormData({ ...formData, category_ids: [newestCategory.id] })
       }
     } catch (error) {
       console.error('Failed to reload categories:', error)
@@ -318,12 +295,12 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Row 1: Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
-            <FormField label="Tool Name" required error={errors.name}>
+            <FormField label="Tool Name" required error={errors.tool_name}>
               <input
                 type="text"
                 className="input w-full"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={formData.tool_name}
+                onChange={(e) => setFormData({ ...formData, tool_name: e.target.value })}
                 placeholder="Enter tool name"
               />
             </FormField>
@@ -354,7 +331,7 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           </div>
 
           {/* Row 2: Manufacturer and Model */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
             <FormField label="Manufacturer">
               <input
                 type="text"
@@ -365,23 +342,13 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
               />
             </FormField>
 
-            <FormField label="Model">
+            <FormField label="Model Number">
               <input
                 type="text"
                 className="input w-full"
-                value={formData.model}
-                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                placeholder="Enter model"
-              />
-            </FormField>
-
-            <FormField label="Serial Number">
-              <input
-                type="text"
-                className="input w-full"
-                value={formData.serial_number}
-                onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-                placeholder="Enter serial number"
+                value={formData.model_number}
+                onChange={(e) => setFormData({ ...formData, model_number: e.target.value })}
+                placeholder="Enter model number"
               />
             </FormField>
           </div>
@@ -416,53 +383,7 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
             </FormField>
           </div>
 
-          {/* Row 4: Maintenance Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
-            <FormField
-              label="Last Maintenance"
-              error={errors.last_maintenance}
-            >
-              <input
-                type="date"
-                className="input w-full"
-                value={formData.last_maintenance}
-                onChange={(e) => setFormData({ ...formData, last_maintenance: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={
-                <div className="flex items-center gap-1">
-                  <span>Next Maintenance</span>
-                  <TooltipIcon
-                    variant="help"
-                    position="top"
-                    tooltip="Schedule the next maintenance date for this tool"
-                  />
-                </div>
-              }
-              error={errors.next_maintenance}
-            >
-              <input
-                type="date"
-                className="input w-full"
-                value={formData.next_maintenance}
-                onChange={(e) => setFormData({ ...formData, next_maintenance: e.target.value })}
-              />
-            </FormField>
-
-            <FormField label="Maintenance Notes">
-              <input
-                type="text"
-                className="input w-full"
-                value={formData.maintenance_notes}
-                onChange={(e) => setFormData({ ...formData, maintenance_notes: e.target.value })}
-                placeholder="Maintenance details"
-              />
-            </FormField>
-          </div>
-
-          {/* Row 5: Location and Category */}
+          {/* Row 4: Location and Category */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
             <div className="space-y-2">
               <label className="text-sm font-medium text-primary">Location</label>
@@ -493,8 +414,8 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
             <div className="space-y-2">
               <label className="text-sm font-medium text-primary">Category</label>
               <CustomSelect
-                value={formData.category_id}
-                onChange={(value) => setFormData({ ...formData, category_id: value })}
+                value={formData.category_ids?.[0] || ''}
+                onChange={(value) => setFormData({ ...formData, category_ids: value ? [value] : [] })}
                 options={categories.map((cat) => ({
                   value: cat.id,
                   label: cat.name,
@@ -502,15 +423,15 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
                 placeholder="Select category..."
                 searchable={true}
                 searchPlaceholder="Search..."
-                error={errors.category_id}
+                error={errors.category_ids}
                 onAddNew={() => setShowAddCategoryModal(true)}
                 addNewLabel="Add Category"
               />
             </div>
           </div>
 
-          {/* Row 6: Description and Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+          {/* Row 6: Description */}
+          <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
             <FormField label="Description">
               <textarea
                 className="input w-full min-h-[80px] resize-y"
@@ -520,36 +441,16 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
                 rows={3}
               />
             </FormField>
-
-            <FormField label="Notes">
-              <textarea
-                className="input w-full min-h-[80px] resize-y"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes"
-                rows={3}
-              />
-            </FormField>
           </div>
 
-          {/* Row 7: Image and Manual */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+          {/* Row 7: Image */}
+          <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
             <FormField label="Tool Image">
               <ImageUpload
                 onImageUploaded={setImageUrl}
                 currentImageUrl={imageUrl}
                 placeholder="Upload image"
                 className="w-full"
-              />
-            </FormField>
-
-            <FormField label="Manual URL" error={errors.manual_url}>
-              <input
-                type="url"
-                className="input w-full"
-                value={formData.manual_url}
-                onChange={(e) => setFormData({ ...formData, manual_url: e.target.value })}
-                placeholder="https://example.com/manual.pdf"
               />
             </FormField>
           </div>

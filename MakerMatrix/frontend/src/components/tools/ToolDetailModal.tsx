@@ -15,6 +15,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import PartImage from '@/components/parts/PartImage'
 import { toolsService } from '@/services/tools.service'
 import { useAuthStore } from '@/store/authStore'
 import type { Tool } from '@/types/tools'
@@ -112,7 +113,7 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
-      case 'new':
+      case 'excellent':
         return 'text-green-500'
       case 'good':
         return 'text-blue-500'
@@ -120,26 +121,24 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
         return 'text-yellow-500'
       case 'poor':
         return 'text-orange-500'
-      case 'broken':
+      case 'needs_repair':
         return 'text-red-500'
+      case 'out_of_service':
+        return 'text-gray-500'
       default:
         return 'text-gray-500'
     }
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'available':
-        return <CheckCircle className="w-5 h-5 text-green-500" />
-      case 'checked_out':
-        return <XCircle className="w-5 h-5 text-red-500" />
-      case 'maintenance':
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />
-      case 'retired':
-        return <Package className="w-5 h-5 text-gray-500" />
-      default:
-        return null
+  const getStatusIcon = (isCheckedOut: boolean) => {
+    if (isCheckedOut) {
+      return <XCircle className="w-5 h-5 text-red-500" />
     }
+    return <CheckCircle className="w-5 h-5 text-green-500" />
+  }
+
+  const getStatusText = (isCheckedOut: boolean) => {
+    return isCheckedOut ? 'Checked Out' : 'Available'
   }
 
   if (!tool && !loading) {
@@ -160,31 +159,35 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
             <div className="flex items-center gap-3">
               <Wrench className="w-8 h-8 text-primary" />
               <div>
-                <h2 className="text-xl font-semibold text-primary">{tool.name}</h2>
+                <h2 className="text-xl font-semibold text-primary">{tool.tool_name}</h2>
                 {tool.tool_number && (
                   <p className="text-sm text-muted">Tool #{tool.tool_number}</p>
                 )}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {getStatusIcon(tool.status)}
-              <span className="text-sm font-medium capitalize">{tool.status.replace('_', ' ')}</span>
+              {getStatusIcon(tool.is_checked_out)}
+              <span className="text-sm font-medium">{getStatusText(tool.is_checked_out)}</span>
             </div>
           </div>
 
           {/* Tool Image */}
           {tool.image_url && (
-            <div className="flex justify-center">
-              <img
-                src={tool.image_url}
-                alt={tool.name}
-                className="max-w-full max-h-64 rounded-lg object-contain"
-              />
+            <div className="aspect-square w-full max-w-64 mx-auto">
+              <div className="w-full h-full bg-theme-secondary border-2 border-theme-primary rounded-xl p-4 shadow-inner">
+                <PartImage
+                  imageUrl={tool.image_url}
+                  partName={tool.tool_name}
+                  size="xl"
+                  showFallback={true}
+                  className="w-full h-full object-contain"
+                />
+              </div>
             </div>
           )}
 
           {/* Checkout/Checkin Section */}
-          {tool.status === 'available' && !isCheckoutMode && (
+          {!tool.is_checked_out && !isCheckoutMode && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -203,7 +206,7 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
             </div>
           )}
 
-          {tool.status === 'checked_out' && tool.checked_out_by === user?.username && !isCheckinMode && (
+          {tool.is_checked_out && tool.checked_out_by === user?.username && !isCheckinMode && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -213,9 +216,9 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
                       You have this tool checked out
                     </span>
                   </div>
-                  {tool.checkout_date && (
+                  {tool.checked_out_at && (
                     <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                      Since {formatDate(tool.checkout_date)}
+                      Since {formatDate(tool.checked_out_at)}
                     </p>
                   )}
                 </div>
@@ -229,16 +232,16 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
             </div>
           )}
 
-          {tool.status === 'checked_out' && tool.checked_out_by !== user?.username && (
+          {tool.is_checked_out && tool.checked_out_by !== user?.username && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <User className="w-5 h-5 text-red-600" />
                 <span className="font-medium text-red-900 dark:text-red-100">
                   Checked out by: {tool.checked_out_by}
                 </span>
-                {tool.checkout_date && (
+                {tool.checked_out_at && (
                   <span className="text-sm text-red-700 dark:text-red-300">
-                    (Since {formatDate(tool.checkout_date)})
+                    (Since {formatDate(tool.checked_out_at)})
                   </span>
                 )}
               </div>
@@ -331,17 +334,10 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
                 </div>
               )}
 
-              {tool.model && (
+              {tool.model_number && (
                 <div>
                   <p className="text-xs text-muted">Model</p>
-                  <p className="text-sm font-medium text-primary">{tool.model}</p>
-                </div>
-              )}
-
-              {tool.serial_number && (
-                <div>
-                  <p className="text-xs text-muted">Serial Number</p>
-                  <p className="text-sm font-medium text-primary">{tool.serial_number}</p>
+                  <p className="text-sm font-medium text-primary">{tool.model_number}</p>
                 </div>
               )}
 
@@ -362,10 +358,12 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
                 </div>
               )}
 
-              {tool.category && (
+              {tool.categories && tool.categories.length > 0 && (
                 <div>
-                  <p className="text-xs text-muted">Category</p>
-                  <p className="text-sm font-medium text-primary">{tool.category.name}</p>
+                  <p className="text-xs text-muted">Categories</p>
+                  <p className="text-sm font-medium text-primary">
+                    {tool.categories.map(c => c.name).join(', ')}
+                  </p>
                 </div>
               )}
             </div>
@@ -396,18 +394,18 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
                 </div>
               )}
 
-              {tool.last_maintenance && (
+              {tool.last_maintenance_date && (
                 <div>
                   <p className="text-xs text-muted">Last Maintenance</p>
-                  <p className="text-sm font-medium text-primary">{formatDate(tool.last_maintenance)}</p>
+                  <p className="text-sm font-medium text-primary">{formatDate(tool.last_maintenance_date)}</p>
                 </div>
               )}
 
-              {tool.next_maintenance && (
+              {tool.next_maintenance_date && (
                 <div>
                   <p className="text-xs text-muted">Next Maintenance</p>
                   <p className="text-sm font-medium text-orange-500">
-                    {formatDate(tool.next_maintenance)}
+                    {formatDate(tool.next_maintenance_date)}
                   </p>
                 </div>
               )}
@@ -431,33 +429,6 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete }: ToolDeta
             </div>
           )}
 
-          {/* Notes */}
-          {tool.notes && (
-            <div>
-              <h3 className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">
-                Notes
-              </h3>
-              <p className="text-sm text-secondary">{tool.notes}</p>
-            </div>
-          )}
-
-          {/* Manual Link */}
-          {tool.manual_url && (
-            <div>
-              <h3 className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">
-                Manual
-              </h3>
-              <a
-                href={tool.manual_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
-              >
-                <FileText className="w-4 h-4" />
-                View Manual
-              </a>
-            </div>
-          )}
 
           {/* Additional Properties */}
           {tool.additional_properties && Object.keys(tool.additional_properties).length > 0 && (

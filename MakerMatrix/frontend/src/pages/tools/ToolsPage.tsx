@@ -17,8 +17,8 @@ import {
   CheckSquare,
   Square,
   Calendar,
-  CircleCheck,
-  CircleX,
+  CheckCircle,
+  XCircle,
   AlertCircle,
   Package,
 } from 'lucide-react'
@@ -71,7 +71,7 @@ const ToolsPage = () => {
   // Condition color mapping
   const getConditionColor = (condition: string) => {
     switch (condition) {
-      case 'new':
+      case 'excellent':
         return 'text-green-500'
       case 'good':
         return 'text-blue-500'
@@ -79,27 +79,21 @@ const ToolsPage = () => {
         return 'text-yellow-500'
       case 'poor':
         return 'text-orange-500'
-      case 'broken':
+      case 'needs_repair':
         return 'text-red-500'
+      case 'out_of_service':
+        return 'text-gray-500'
       default:
         return 'text-gray-500'
     }
   }
 
-  // Status icon mapping
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'available':
-        return <CircleCheck className="w-4 h-4 text-green-500" />
-      case 'checked_out':
-        return <CircleX className="w-4 h-4 text-red-500" />
-      case 'maintenance':
-        return <AlertCircle className="w-4 h-4 text-yellow-500" />
-      case 'retired':
-        return <Package className="w-4 h-4 text-gray-500" />
-      default:
-        return null
+  // Status icon mapping (based on is_checked_out boolean)
+  const getStatusIcon = (tool: Tool) => {
+    if (tool.is_checked_out) {
+      return <XCircle className="w-4 h-4 text-red-500" />
     }
+    return <CheckCircle className="w-4 h-4 text-green-500" />
   }
 
   const getSortIcon = (field: string) => {
@@ -397,8 +391,9 @@ const ToolsPage = () => {
         transition={{ delay: 0.1 }}
         className="card p-4"
       >
-        <form onSubmit={handleSearch} className="flex gap-4">
-          <div className="relative flex-1">
+        <form onSubmit={handleSearch} className="space-y-3">
+          {/* Search bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
             <input
               ref={searchInputRef}
@@ -444,42 +439,46 @@ const ToolsPage = () => {
             )}
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="input"
-          >
-            <option value="">All Status</option>
-            <option value="available">Available</option>
-            <option value="checked_out">Checked Out</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="retired">Retired</option>
-          </select>
+          {/* Filters row */}
+          <div className="flex gap-3">
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input w-40"
+            >
+              <option value="">All Status</option>
+              <option value="available">Available</option>
+              <option value="checked_out">Checked Out</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="retired">Retired</option>
+            </select>
 
-          {/* Condition Filter */}
-          <select
-            value={conditionFilter}
-            onChange={(e) => setConditionFilter(e.target.value)}
-            className="input"
-          >
-            <option value="">All Conditions</option>
-            <option value="new">New</option>
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-            <option value="poor">Poor</option>
-            <option value="broken">Broken</option>
-          </select>
+            {/* Condition Filter */}
+            <select
+              value={conditionFilter}
+              onChange={(e) => setConditionFilter(e.target.value)}
+              className="input w-40"
+            >
+              <option value="">All Conditions</option>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+              <option value="poor">Poor</option>
+              <option value="needs_repair">Needs Repair</option>
+              <option value="out_of_service">Out of Service</option>
+            </select>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Searching...' : 'Search'}
-          </button>
-
-          {searchTerm && (
-            <button type="button" onClick={clearSearch} className="btn btn-secondary">
-              Clear
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Searching...' : 'Search'}
             </button>
-          )}
+
+            {searchTerm && (
+              <button type="button" onClick={clearSearch} className="btn btn-secondary">
+                Clear
+              </button>
+            )}
+          </div>
         </form>
 
         {/* Active filters display */}
@@ -617,7 +616,7 @@ const ToolsPage = () => {
                       onClick={() => handleToolClick(tool)}
                     >
                       <td className="px-3 py-3 whitespace-nowrap">
-                        {getStatusIcon(tool.status)}
+                        {getStatusIcon(tool)}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap max-w-xs">
                         <div className="flex items-center gap-2">
@@ -627,14 +626,14 @@ const ToolsPage = () => {
                               handleToolClick(tool)
                             }}
                             className="text-sm font-medium text-primary hover:text-primary-dark hover:underline transition-colors cursor-pointer truncate max-w-[250px]"
-                            title={tool.name}
+                            title={tool.tool_name}
                           >
-                            {tool.name}
+                            {tool.tool_name}
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              copyToClipboard(tool.name, tool.id, 'name')
+                              copyToClipboard(tool.tool_name, tool.id, 'name')
                             }}
                             className="text-muted hover:text-primary transition-colors flex-shrink-0"
                             title="Copy tool name"
@@ -681,8 +680,8 @@ const ToolsPage = () => {
                         {tool.manufacturer ? (
                           <div>
                             <div>{tool.manufacturer}</div>
-                            {tool.model && (
-                              <div className="text-xs text-muted">{tool.model}</div>
+                            {tool.model_number && (
+                              <div className="text-xs text-muted">{tool.model_number}</div>
                             )}
                           </div>
                         ) : (
@@ -703,9 +702,9 @@ const ToolsPage = () => {
                         {tool.checked_out_by ? (
                           <div>
                             <div className="text-red-500">{tool.checked_out_by}</div>
-                            {tool.checkout_date && (
+                            {tool.checked_out_at && (
                               <div className="text-xs text-muted">
-                                Since {formatDate(tool.checkout_date)}
+                                Since {formatDate(tool.checked_out_at)}
                               </div>
                             )}
                           </div>
@@ -714,10 +713,10 @@ const ToolsPage = () => {
                         )}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
-                        {tool.next_maintenance ? (
+                        {tool.next_maintenance_date ? (
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {formatDate(tool.next_maintenance)}
+                            {formatDate(tool.next_maintenance_date)}
                           </div>
                         ) : (
                           '-'

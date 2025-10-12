@@ -1,67 +1,86 @@
-// Tool condition enum
-export type ToolCondition = 'new' | 'good' | 'fair' | 'poor' | 'broken'
+// Tool condition enum (matches backend validation)
+export type ToolCondition = 'excellent' | 'good' | 'fair' | 'poor' | 'needs_repair' | 'out_of_service'
 
 // Tool status enum
 export type ToolStatus = 'available' | 'checked_out' | 'maintenance' | 'retired'
 
-// Base Tool interface
+// Base Tool interface (matches backend ToolResponse)
 export interface Tool {
   id: string
-  name: string
+  tool_name: string
   tool_number?: string
   description?: string
   manufacturer?: string
-  model?: string
-  serial_number?: string
+  model_number?: string
+  tool_type?: string
+
+  supplier?: string
+  supplier_part_number?: string
+  supplier_url?: string
+  product_url?: string
+
+  image_url?: string
+  emoji?: string
+
+  additional_properties?: Record<string, any>
+
+  condition: ToolCondition
+  last_maintenance_date?: string
+  next_maintenance_date?: string
+  maintenance_notes?: string
+
+  is_checked_out: boolean
+  checked_out_by?: string
+  checked_out_at?: string
+  expected_return_date?: string
+
   purchase_date?: string
   purchase_price?: number
-  condition: ToolCondition
-  status: ToolStatus
-  location_id?: string
+  current_value?: number
+
+  is_calibrated_tool: boolean
+  is_consumable: boolean
+  exclude_from_analytics: boolean
+
+  quantity: number
   location?: {
     id: string
     name: string
     path?: string
   }
-  category_id?: string
-  category?: {
+  location_id?: string
+  categories?: Array<{
     id: string
     name: string
-  }
-  checked_out_by?: string
-  checkout_date?: string
-  expected_return_date?: string
-  last_maintenance?: string
-  next_maintenance?: string
-  maintenance_notes?: string
-  image_url?: string
-  manual_url?: string
-  notes?: string
-  additional_properties?: Record<string, any>
+  }>
+
   created_at: string
   updated_at: string
 }
 
-// Create tool request
+// Create tool request (matches backend ToolCreateRequest)
 export interface CreateToolRequest {
-  name: string
+  tool_name: string
   tool_number?: string
   description?: string
   manufacturer?: string
-  model?: string
-  serial_number?: string
+  model_number?: string
+  tool_type?: string
+  supplier?: string
+  supplier_part_number?: string
+  supplier_url?: string
+  product_url?: string
+  image_url?: string
+  emoji?: string
+  additional_properties?: Record<string, any>
+  condition?: ToolCondition
+  is_calibrated_tool?: boolean
+  is_consumable?: boolean
   purchase_date?: string
   purchase_price?: number
-  condition?: ToolCondition
   location_id?: string
-  category_id?: string
-  last_maintenance?: string
-  next_maintenance?: string
-  maintenance_notes?: string
-  image_url?: string
-  manual_url?: string
-  notes?: string
-  additional_properties?: Record<string, any>
+  quantity?: number
+  category_ids?: string[]
 }
 
 // Update tool request
