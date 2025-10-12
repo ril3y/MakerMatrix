@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from sqlmodel import SQLModel, Field, Relationship, Session, select, Column, JSON
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, Index
 from sqlalchemy.orm import selectinload
 from pydantic import ConfigDict
 
@@ -144,8 +144,18 @@ class LocationModel(SQLModel, table=True):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # Add SQLAlchemy table constraints
+    # NOTE: We use a partial unique index instead of a unique constraint to allow
+    # duplicate slot names under different containers. Regular locations still have
+    # unique names within the same parent.
     __table_args__ = (
-        UniqueConstraint('name', 'parent_id', name='uix_location_name_parent'),
+        Index(
+            'idx_location_name_parent_unique',
+            'name', 'parent_id',
+            unique=True,
+            sqlite_where=Column('is_auto_generated_slot') == False
+        ),
+        # For slots, uniqueness is enforced by (parent_id, slot_number) which is
+        # implicit since parent_id must exist and slot_number is sequential per container
     )
 
     # === RELATIONSHIPS ===

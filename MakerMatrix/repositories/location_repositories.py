@@ -95,16 +95,26 @@ class LocationRepository:
 
     @staticmethod
     def add_location(session: Session, location_data: Dict[str, Any]) -> LocationModel:
-        # Check for duplicate location name
-        existing_location = session.exec(
-            select(LocationModel).where(LocationModel.name == location_data.get("name"))
-        ).first()
-        if existing_location:
-            raise LocationAlreadyExistsError(
-                status="error",
-                message=f"Location with name '{location_data.get('name')}' already exists",
-                data={"existing_location_id": existing_location.id}
+        # Check for duplicate location name - ONLY for non-slot locations
+        # Slots can have duplicate names across different containers (e.g., R1-C1 in multiple bins)
+        is_slot = location_data.get("is_auto_generated_slot", False)
+
+        if not is_slot:
+            # For regular locations, check uniqueness within the same parent
+            parent_id = location_data.get("parent_id")
+            query = select(LocationModel).where(
+                LocationModel.name == location_data.get("name"),
+                LocationModel.parent_id == parent_id,
+                (LocationModel.is_auto_generated_slot == False) | (LocationModel.is_auto_generated_slot == None)
             )
+            existing_location = session.exec(query).first()
+
+            if existing_location:
+                raise LocationAlreadyExistsError(
+                    status="error",
+                    message=f"Location with name '{location_data.get('name')}' already exists at this level",
+                    data={"existing_location_id": existing_location.id}
+                )
         
         # Validate parent_id if provided
         if location_data.get("parent_id"):
