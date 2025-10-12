@@ -120,7 +120,7 @@ jobs:
         BASE_URL: http://localhost:4173
 
     - name: Upload E2E test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: playwright-report
@@ -156,7 +156,7 @@ jobs:
       run: npm run test:visual
 
     - name: Upload visual test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: visual-test-results
@@ -217,7 +217,7 @@ jobs:
         npx playwright test --grep "accessibility" --reporter=html
 
     - name: Upload accessibility test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: accessibility-report
@@ -342,7 +342,7 @@ jobs:
         LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
     - name: Upload Lighthouse results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: lighthouse-report

@@ -62,7 +62,7 @@ jobs:
         fi
 
     - name: Upload vulture report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: vulture-report
@@ -134,7 +134,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload lint reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: lint-reports
