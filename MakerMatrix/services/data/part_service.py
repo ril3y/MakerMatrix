@@ -260,6 +260,19 @@ class PartService(BaseService):
                 except Exception as e:
                     self.logger.warning(f"Failed to delete datasheet file for part {part.part_name}: {e}")
 
+        # Clean up enriched datasheet file from additional_properties
+        if part.additional_properties and part.additional_properties.get('datasheet_filename'):
+            try:
+                filename = part.additional_properties['datasheet_filename']
+                datasheet_path = static_dir / "datasheets" / filename
+
+                if datasheet_path.exists() and datasheet_path.is_file():
+                    os.remove(datasheet_path)
+                    deleted_count += 1
+                    self.logger.debug(f"Deleted enriched datasheet file: {datasheet_path}")
+            except Exception as e:
+                self.logger.warning(f"Failed to delete enriched datasheet file for part {part.part_name}: {e}")
+
         return deleted_count
 
     def dynamic_search(self, search_term: str) -> ServiceResponse[Any]:

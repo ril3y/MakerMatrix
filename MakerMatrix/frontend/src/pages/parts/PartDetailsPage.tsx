@@ -45,7 +45,7 @@ import type { SupplierConfig } from '@/services/supplier.service'
 import { supplierService } from '@/services/supplier.service'
 import type { Part, Datasheet } from '@/types/parts'
 import type { Category } from '@/types/categories'
-import { getPDFProxyUrl } from '@/services/api'
+import { getPDFProxyUrl, apiClient } from '@/services/api'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
 import PDFViewer from '@/components/ui/PDFViewer'
@@ -395,17 +395,28 @@ const PartDetailsPage = () => {
     }
   }
 
-  const getDatasheetUrl = (datasheet: Datasheet) => {
-    // In development, use the vite proxy. In production, use the configured API URL
-    const isDevelopment = (import.meta as any).env?.DEV
-    if (isDevelopment) {
-      // Use relative URL so it goes through Vite proxy
-      return `/static/datasheets/${datasheet.filename}`
-    } else {
-      // Production: use full API URL
-      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
-      return `${API_BASE_URL}/static/datasheets/${datasheet.filename}`
+  /**
+   * Get the correct datasheet URL based on context
+   * Handles both enriched datasheets (from suppliers) and uploaded datasheets
+   */
+  const getDatasheetUrl = (datasheet?: Datasheet) => {
+    // If a specific datasheet object is provided (uploaded datasheet)
+    if (datasheet?.filename) {
+      return `/api/utility/static/datasheets/${datasheet.filename}`
     }
+
+    // Check for enriched datasheet (downloaded from supplier)
+    if (part?.additional_properties?.datasheet_filename &&
+        part?.additional_properties?.datasheet_downloaded) {
+      return `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
+    }
+
+    // Fall back to external URL with proxy
+    if (part?.additional_properties?.datasheet_url) {
+      return getPDFProxyUrl(part.additional_properties.datasheet_url)
+    }
+
+    return null
   }
 
   const downloadDatasheet = (datasheet: Datasheet) => {
@@ -423,11 +434,34 @@ const PartDetailsPage = () => {
     setPdfViewerOpen(true)
   }
 
-  const openPDFPreview = (url: string) => {
-    // Use the backend PDF proxy to avoid CORS issues
-    const proxyUrl = getPDFProxyUrl(url)
-    setPdfPreviewUrl(proxyUrl)
-    setPdfPreviewOpen(true)
+  const openPDFPreview = () => {
+    const url = getDatasheetUrl()
+    if (url) {
+      setPdfPreviewUrl(url)
+      setPdfPreviewOpen(true)
+    }
+  }
+
+  const downloadDatasheetLocally = async () => {
+    if (!part?.additional_properties?.datasheet_url || !id) return
+
+    try {
+      // Create a datasheet download task
+      await apiClient.post(`/api/tasks/quick/datasheet_download`, {
+        part_id: id,
+        datasheet_url: part.additional_properties.datasheet_url,
+        supplier: part.supplier || 'Unknown',
+        part_number: part.part_number || id,
+      })
+
+      toast.success('Datasheet download started! It will be available locally soon.')
+
+      // Reload part after a short delay to show the download status
+      setTimeout(() => loadPart(id), 2000)
+    } catch (error) {
+      console.error('Failed to start datasheet download:', error)
+      toast.error('Failed to start datasheet download')
+    }
   }
 
   const formatFileSize = (bytes?: number) => {
@@ -1828,19 +1862,19 @@ const PartDetailsPage = () => {
                   {part.additional_properties?.datasheet_downloaded &&
                     part.additional_properties?.datasheet_filename && (
                       <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <h3 className="font-medium text-primary truncate">
                                 Downloaded Datasheet
                               </h3>
-                              <p className="text-xs text-secondary">
+                              <p className="text-xs text-secondary truncate">
                                 {part.supplier || 'Unknown Supplier'}
                               </p>
                             </div>
                           </div>
-                          <div className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-400">
+                          <div className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-400 whitespace-nowrap flex-shrink-0">
                             Local
                           </div>
                         </div>
@@ -1865,11 +1899,7 @@ const PartDetailsPage = () => {
 
                         <div className="flex gap-2">
                           <button
-                            onClick={() => {
-                              const url = `/static/datasheets/${part.additional_properties.datasheet_filename}`
-                              setPdfPreviewUrl(url)
-                              setPdfPreviewOpen(true)
-                            }}
+                            onClick={openPDFPreview}
                             className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
                           >
                             <Eye className="w-4 h-4" />
@@ -1877,14 +1907,16 @@ const PartDetailsPage = () => {
                           </button>
                           <button
                             onClick={() => {
-                              const url = `/static/datasheets/${part.additional_properties.datasheet_filename}`
-                              const link = document.createElement('a')
-                              link.href = url
-                              link.download =
-                                part.additional_properties.datasheet_filename || 'datasheet.pdf'
-                              document.body.appendChild(link)
-                              link.click()
-                              document.body.removeChild(link)
+                              const url = getDatasheetUrl()
+                              if (url) {
+                                const link = document.createElement('a')
+                                link.href = url
+                                link.download =
+                                  part.additional_properties.datasheet_filename || 'datasheet.pdf'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                              }
                             }}
                             className="btn btn-secondary text-sm flex items-center justify-center"
                             title="Download"
@@ -1895,8 +1927,9 @@ const PartDetailsPage = () => {
                       </div>
                     )}
 
-                  {/* Enriched datasheet URL from additional_properties */}
-                  {part.additional_properties?.datasheet_url && (
+                  {/* Enriched datasheet URL from additional_properties - only show if NOT downloaded locally */}
+                  {part.additional_properties?.datasheet_url &&
+                    !part.additional_properties?.datasheet_downloaded && (
                     <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -1932,14 +1965,22 @@ const PartDetailsPage = () => {
 
                       <div className="flex gap-2">
                         <button
-                          onClick={() => openPDFPreview(part.additional_properties.datasheet_url)}
+                          onClick={openPDFPreview}
                           className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
                         >
                           <Eye className="w-4 h-4" />
-                          Preview PDF
+                          Preview
+                        </button>
+                        <button
+                          onClick={downloadDatasheetLocally}
+                          className="btn btn-success text-sm flex items-center justify-center gap-2"
+                          title="Download and save locally"
+                        >
+                          <Download className="w-4 h-4" />
+                          Save
                         </button>
                         <a
-                          href={part.additional_properties.datasheet_url}
+                          href={getDatasheetUrl() || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn btn-secondary text-sm flex items-center justify-center"

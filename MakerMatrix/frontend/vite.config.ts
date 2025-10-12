@@ -29,18 +29,6 @@ export default defineConfig(({ mode }) => {
           secure: false, // Allow self-signed certificates
           // Don't rewrite /api paths - pass them through as-is
         },
-        '/static': {
-          target: env.VITE_API_URL || 'https://192.168.1.58:8443',
-          changeOrigin: true,
-          secure: false, // Allow self-signed certificates
-          // Don't rewrite static paths - pass them through as-is
-        },
-        '/utility': {
-          target: env.VITE_API_URL || 'https://192.168.1.58:8443',
-          changeOrigin: true,
-          secure: false, // Allow self-signed certificates
-          // Don't rewrite utility paths - pass them through as-is
-        },
       },
     },
   }

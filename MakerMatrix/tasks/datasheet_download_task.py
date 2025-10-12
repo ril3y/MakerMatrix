@@ -65,13 +65,15 @@ class DatasheetDownloadTask(BaseTask):
 
             # Get part details for logging
             part_name = None
-            with get_session() as session:
-                part_repo = PartRepository()
-                part = part_repo.get_part_by_id(session, part_id)
+            session = next(get_session())
+            try:
+                part = PartRepository.get_part_by_id(session, part_id)
                 if part:
                     part_name = part.part_name
                     if not part_number:
                         part_number = part.supplier_part_number or part.part_number or part_id
+            finally:
+                session.close()
 
             # Update progress - Starting download
             await self.update_progress(task, 10, f"Starting datasheet download for {part_name or part_id}")
@@ -149,42 +151,43 @@ class DatasheetDownloadTask(BaseTask):
             download_info: Download result information (if successful)
             error: Error message (if failed)
         """
+        session = next(get_session())
         try:
-            with get_session() as session:
-                part_repo = PartRepository()
-                part = part_repo.get_part_by_id(session, part_id)
+            part = PartRepository.get_part_by_id(session, part_id)
 
-                if part:
-                    if not part.additional_properties:
-                        part.additional_properties = {}
+            if part:
+                if not part.additional_properties:
+                    part.additional_properties = {}
 
-                    if success and download_info:
-                        # Update with successful download information
-                        part.additional_properties['datasheet_filename'] = download_info['filename']
-                        part.additional_properties['datasheet_local_path'] = f"/static/datasheets/{download_info['filename']}"
-                        part.additional_properties['datasheet_downloaded'] = True
-                        part.additional_properties['datasheet_size'] = download_info['size']
+                if success and download_info:
+                    # Update with successful download information
+                    # Store just the filename - frontend will construct the full path
+                    part.additional_properties['datasheet_filename'] = download_info['filename']
+                    part.additional_properties['datasheet_downloaded'] = True
+                    part.additional_properties['datasheet_size'] = download_info['size']
 
-                        # Remove any previous error
-                        if 'datasheet_download_error' in part.additional_properties:
-                            del part.additional_properties['datasheet_download_error']
+                    # Remove any previous error
+                    if 'datasheet_download_error' in part.additional_properties:
+                        del part.additional_properties['datasheet_download_error']
 
-                        logger.info(f"Updated part {part_id} with successful datasheet download")
-                    else:
-                        # Update with failure information
-                        part.additional_properties['datasheet_downloaded'] = False
-                        if error:
-                            part.additional_properties['datasheet_download_error'] = error
+                    logger.info(f"Updated part {part_id} with successful datasheet download")
+                else:
+                    # Update with failure information
+                    part.additional_properties['datasheet_downloaded'] = False
+                    if error:
+                        part.additional_properties['datasheet_download_error'] = error
 
-                        logger.warning(f"Updated part {part_id} with failed datasheet download: {error}")
+                    logger.warning(f"Updated part {part_id} with failed datasheet download: {error}")
 
-                    # Force SQLAlchemy to recognize the changes
-                    from sqlalchemy.orm.attributes import flag_modified
-                    flag_modified(part, 'additional_properties')
+                # Force SQLAlchemy to recognize the changes
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(part, 'additional_properties')
 
-                    # Save changes
-                    part_repo.update_part(session, part)
+                # Save changes
+                PartRepository.update_part(session, part)
 
         except Exception as e:
             logger.error(f"Failed to update part {part_id} with datasheet download status: {e}")
             # Don't raise - this is a non-critical update
+        finally:
+            session.close()
