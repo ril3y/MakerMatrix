@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  makermatrix:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: makermatrix
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persistent data
+      - makermatrix-data:/data
+      # Optional: Mount backups directory for testing
+      - ./backups:/backups:ro
+    environment:
+      # Database
+      - DATABASE_URL=sqlite:////data/database/makermatrix.db
+
+      # Server
+      - HOST=0.0.0.0
+      - PORT=8080
+
+      # Security (CHANGE THESE IN PRODUCTION!)
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-secret-key-in-production}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+
+      # Application
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Paths
+      - STATIC_FILES_PATH=/data/static
+      - BACKUPS_PATH=/data/backups
+      - CERTS_PATH=/data/certs
+
+      # Optional: Supplier API Keys (uncomment and set in .env file)
+      # - DIGIKEY_CLIENT_ID=${DIGIKEY_CLIENT_ID:-}
+      # - DIGIKEY_CLIENT_SECRET=${DIGIKEY_CLIENT_SECRET:-}
+      # - DIGIKEY_CLIENT_SANDBOX=${DIGIKEY_CLIENT_SANDBOX:-false}
+      # - MOUSER_API_KEY=${MOUSER_API_KEY:-}
+      # - LCSC_API_KEY=${LCSC_API_KEY:-}
+
+      # Optional: AI Configuration
+      # - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/utility/get_counts"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - makermatrix-network
+
+volumes:
+  makermatrix-data:
+    driver: local
+
+networks:
+  makermatrix-network:
+    driver: bridge
