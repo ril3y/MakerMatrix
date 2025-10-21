@@ -16,6 +16,7 @@ from MakerMatrix.schemas.part_data_standards import (
     StandardizedMetadata, StandardizedSpecifications,
     determine_component_type, determine_mounting_type
 )
+from MakerMatrix.services.system.file_download_service import file_download_service
 
 logger = logging.getLogger(__name__)
 
@@ -161,10 +162,31 @@ class SupplierDataMapper:
                 'last_stock_update': datetime.utcnow()
             })
         
-        # Add image URL if available
+        # Download and store image locally if available
         if result.image_url:
-            core_data['image_url'] = result.image_url
-        
+            try:
+                # Download the image and store it locally
+                image_info = file_download_service.download_image(
+                    url=result.image_url,
+                    part_number=result.supplier_part_number or result.manufacturer_part_number or "unknown",
+                    supplier=supplier_name
+                )
+
+                if image_info:
+                    # Use the local image URL instead of the remote one
+                    # The frontend will access this via /api/utility/get_image/{uuid}
+                    local_image_url = f"/api/utility/get_image/{image_info['image_uuid']}"
+                    core_data['image_url'] = local_image_url
+                    logger.info(f"Downloaded and stored image locally: {image_info['filename']}")
+                else:
+                    # If download failed, still store the remote URL as fallback
+                    core_data['image_url'] = result.image_url
+                    logger.warning(f"Failed to download image, using remote URL: {result.image_url}")
+            except Exception as e:
+                logger.error(f"Error downloading image: {e}")
+                # On error, store the remote URL as fallback
+                core_data['image_url'] = result.image_url
+
         return {k: v for k, v in core_data.items() if v is not None}
     
     def _map_additional_properties(
@@ -520,18 +542,40 @@ class SupplierDataMapper:
         }
     
     def _map_mcmaster_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """McMaster-Carr specific data mapping"""
-        
+        """McMaster-Carr specific data mapping - maps ALL specifications to additional_properties"""
+
         custom_fields = {}
-        
+
+        # Map ALL specifications as flat key-value pairs to additional_properties
+        # McMaster-Carr can have ANY type of specification depending on the product
+        # (screws have thread_size, o-rings have durometer, bearings have bore_diameter, etc.)
+        if result.specifications:
+            for key, value in result.specifications.items():
+                if value is not None and value != "":
+                    # Use the specification key as-is (already snake_case from scraper)
+                    custom_fields[key] = str(value)
+
+        # Only add truly universal McMaster metadata (not product-specific fields)
         if result.additional_data:
-            custom_fields.update({
-                'mcmaster_url': result.additional_data.get('product_detail_url'),
-                'mcmaster_category': result.category,
-                'unit_of_measure': result.additional_data.get('unit_of_measure'),
-                'minimum_order_qty': result.additional_data.get('minimum_order_quantity')
-            })
-        
+            # Only include fields that apply to ALL McMaster products
+            universal_fields = {
+                'mcmaster_url': result.additional_data.get('url', result.additional_data.get('product_detail_url')),
+                'delivery_info': result.additional_data.get('delivery_info'),
+            }
+
+            # Add universal fields
+            for key, value in universal_fields.items():
+                if value is not None:
+                    custom_fields[key] = value
+
+            # Add ALL other additional_data fields dynamically (no hardcoding)
+            # Skip the universal fields we already added
+            for key, value in result.additional_data.items():
+                if key not in ['url', 'product_detail_url', 'delivery_info', 'source', 'scraped_at', 'warning']:
+                    if value is not None and value != "":
+                        # Preserve the key as-is from the scraper
+                        custom_fields[key] = str(value)
+
         return {
             'core_fields': {},
             'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}

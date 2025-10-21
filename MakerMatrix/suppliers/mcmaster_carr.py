@@ -1,16 +1,19 @@
 """
-McMaster-Carr Official API Supplier Implementation
+McMaster-Carr Supplier Implementation
 
-This supplier connects to McMaster-Carr's official API using client certificate authentication.
-Contact eCommerce@mcmaster.com for API approval and client certificates.
+This supplier supports both:
+1. Official API using client certificate authentication (contact eCommerce@mcmaster.com)
+2. Web scraping fallback when API credentials are not available
 
-NO WEB SCRAPING - API ONLY
+The web scraping fallback is provided for convenience but may break if McMaster-Carr
+changes their website structure. API access is recommended for production use.
 """
 
 from typing import List, Dict, Any, Optional
 import ssl
 import aiohttp
 import json
+import re
 from datetime import datetime, timedelta
 import logging
 
@@ -26,21 +29,21 @@ from .exceptions import (
 logger = logging.getLogger(__name__)
 
 class McMasterCarrSupplier(BaseSupplier):
-    """McMaster-Carr Official API Implementation
-    
-    Requires:
-    - Approved API account from McMaster-Carr
-    - Client certificate (.p12 or .pfx)
-    - API credentials
-    
-    Contact eCommerce@mcmaster.com for API approval.
+    """McMaster-Carr Supplier Implementation
+
+    Supports:
+    1. Official API (requires approved account and certificates)
+    2. Web scraping fallback (no credentials required)
+
+    For API access, contact eCommerce@mcmaster.com for approval.
     """
-    
+
     def __init__(self):
         super().__init__()
         self._auth_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
         self._ssl_context: Optional[ssl.SSLContext] = None
+        self._scraper = None  # Lazy-loaded web scraper
     
     def get_supplier_info(self) -> SupplierInfo:
         return SupplierInfo(
@@ -52,7 +55,41 @@ class McMasterCarrSupplier(BaseSupplier):
             supports_oauth=False,
             rate_limit_info="API rate limits apply - contact McMaster for details"
         )
-    
+
+    def get_url_patterns(self) -> List[str]:
+        """Return URL patterns that identify McMaster-Carr product links"""
+        return [
+            r'mcmaster\.com',  # Base domain
+            r'www\.mcmaster\.com',  # With www
+            r'mcmaster-carr\.com',  # Alternative domain
+            r'mcmaster\.com/[0-9A-Za-z]+',  # Product pages
+            r'mcmaster\.com/.+/[0-9A-Za-z]+/?$',  # Product pages with category path
+        ]
+
+    def get_enrichment_field_mappings(self) -> List:
+        """
+        Get URL patterns and field mappings for auto-enrichment from McMaster-Carr product URLs.
+
+        Returns patterns to extract the part number from McMaster-Carr URLs like:
+        - https://www.mcmaster.com/91253A194/
+        - https://mcmaster.com/screws/91253A194
+        """
+        from .base import EnrichmentFieldMapping
+
+        return [
+            EnrichmentFieldMapping(
+                field_name="supplier_part_number",
+                display_name="McMaster-Carr Part Number",
+                url_patterns=[
+                    r'/([A-Za-z0-9]+)/?$',  # Extract part number from end of URL
+                    r'/([A-Za-z0-9]+)/?(?:\?|#|$)',  # Handle query strings and fragments
+                ],
+                example="91253A194",
+                description="The part number from the McMaster-Carr product page URL",
+                required_for_enrichment=True
+            )
+        ]
+
     def get_capabilities(self) -> List[SupplierCapability]:
         # McMaster-Carr API implementation - requires approved account and certificates
         return [
@@ -367,16 +404,23 @@ class McMasterCarrSupplier(BaseSupplier):
             return []
     
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
-        """Get detailed part information from McMaster-Carr API"""
+        """Get detailed part information from McMaster-Carr API or scraping"""
         try:
             credentials = self._credentials or {}
+
+            # If no credentials, try scraping fallback
             if not credentials:
-                logger.error("No credentials configured for part details")
-                return None
-            
+                if self.supports_scraping():
+                    logger.info(f"No credentials configured - using web scraping fallback for McMaster-Carr part: {supplier_part_number}")
+                    return await self.scrape_part_details(supplier_part_number)
+                else:
+                    logger.error("No credentials configured for part details and scraping not supported")
+                    return None
+
+            # Try API first if credentials are available
             endpoint = f"/parts/{supplier_part_number}"
             response = await self._make_api_request(endpoint, credentials)
-            
+
             result = self._parse_part_data(response)
             if result:
                 logger.info(f"✅ Retrieved details for part: {supplier_part_number}")
@@ -384,9 +428,19 @@ class McMasterCarrSupplier(BaseSupplier):
             else:
                 logger.warning(f"⚠️  No details found for part: {supplier_part_number}")
                 return None
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to get details for part '{supplier_part_number}': {str(e)}")
+
+            # If API fails and scraping is supported, try that as fallback
+            if self.supports_scraping():
+                logger.info(f"API failed, trying web scraping fallback for part: {supplier_part_number}")
+                try:
+                    return await self.scrape_part_details(supplier_part_number)
+                except Exception as scrape_error:
+                    logger.error(f"Scraping also failed: {str(scrape_error)}")
+                    return None
+
             return None
     
     def _parse_part_data(self, part_data: Dict[str, Any]) -> Optional[PartSearchResult]:
@@ -485,23 +539,228 @@ class McMasterCarrSupplier(BaseSupplier):
             if not credentials:
                 logger.error("No credentials configured for image fetch")
                 return None
-            
+
             endpoint = f"/parts/{supplier_part_number}/image"
             response = await self._make_api_request(endpoint, credentials)
-            
+
             image_url = response.get("imageUrl")
             if image_url:
                 if not image_url.startswith("http"):
                     image_url = f"https://www.mcmaster.com{image_url}"
-                
+
                 logger.info(f"✅ Found image for part: {supplier_part_number}")
                 return image_url
-            
+
             logger.warning(f"⚠️  No image available for part: {supplier_part_number}")
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to fetch image for part '{supplier_part_number}': {str(e)}")
+            return None
+
+    # ========== Web Scraping Fallback Methods ==========
+
+    def supports_scraping(self) -> bool:
+        """McMaster-Carr supports web scraping as a fallback."""
+        return True
+
+    def get_scraping_config(self) -> Dict[str, Any]:
+        """Get McMaster-Carr specific scraping configuration."""
+        return {
+            'selectors': {
+                # Use simple selectors that actually work based on our testing
+                'spec_table': 'tbody tr',  # All table rows in tbody - most reliable
+                'price': '[class*="price"], [class*="Price"]',  # Generic price selector
+                # Don't scrape part_number from page - we already have it from the URL
+                'heading': 'h1',  # Primary heading - generic product type
+                'subtitle': 'h3',  # Secondary heading - specific details (size, material, etc.)
+                'delivery': '[class*="Delivery"], [class*="delivery"]',
+                'image': 'img[alt*="Product"], img[alt*="orientation"], img[class*="_img_"]',  # Product images
+            },
+            'requires_js': True,  # McMaster uses React, needs JS rendering
+            'rate_limit_seconds': 2.0,  # Be respectful
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'wait_for_selector': 'tbody tr'  # Wait for table rows to load
+        }
+
+    async def scrape_part_details(self, url_or_part_number: str, force_refresh: bool = False) -> Optional[PartSearchResult]:
+        """
+        Scrape McMaster-Carr product page for part details.
+
+        Args:
+            url_or_part_number: Either a full McMaster URL or just the part number
+
+        Returns:
+            PartSearchResult with scraped data, or None if scraping fails
+        """
+        scraper_created = False
+        try:
+            # Initialize scraper if needed
+            if not self._scraper:
+                from .scrapers.web_scraper import WebScraper
+                self._scraper = WebScraper()
+                scraper_created = True
+
+            # Build URL if only part number provided
+            if not url_or_part_number.startswith('http'):
+                url = f"https://www.mcmaster.com/{url_or_part_number}/"
+                part_number = url_or_part_number
+            else:
+                url = url_or_part_number
+                # Extract part number from URL (e.g., /91253A194/)
+                match = re.search(r'/(\w+)/?$', url)
+                part_number = match.group(1) if match else ""
+
+            logger.info(f"🌐 Scraping McMaster-Carr page: {url}")
+
+            # Get scraping configuration
+            config = self.get_scraping_config()
+
+            # Scrape the page (using Playwright for JS-rendered content)
+            logger.info(f"Attempting to scrape McMaster-Carr URL: {url} (force_refresh={force_refresh})")
+            scraped_data = await self._scraper.scrape_with_playwright(
+                url,
+                config['selectors'],
+                wait_for_selector=config.get('wait_for_selector'),
+                force_refresh=force_refresh
+            )
+
+            logger.info(f"Scraped data: {scraped_data}")
+            if not scraped_data:
+                logger.error("No data scraped from McMaster-Carr page - scraper returned empty dict")
+                # Try to return minimal data just to test
+                logger.info("Returning minimal test data for part")
+                return PartSearchResult(
+                    supplier_part_number=part_number,
+                    manufacturer="McMaster-Carr",
+                    manufacturer_part_number=part_number,
+                    description=f"McMaster-Carr Part {part_number} (scraped data unavailable)",
+                    category="Industrial Supply",
+                    datasheet_url=None,
+                    image_url=None,
+                    stock_quantity=None,
+                    pricing=None,
+                    specifications={"note": "Scraping failed - returning minimal data"},
+                    additional_data={
+                        'source': 'web_scraping_minimal',
+                        'scraped_at': datetime.now().isoformat(),
+                        'url': url,
+                        'warning': 'Scraping failed - only part number available'
+                    }
+                )
+
+            # Parse the scraped data
+            result = await self._parse_scraped_data(scraped_data, part_number, url)
+
+            if result:
+                logger.info(f"✅ Successfully scraped McMaster-Carr part: {part_number}")
+            else:
+                logger.warning(f"⚠️  Could not parse scraped data for: {part_number}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Error scraping McMaster-Carr: {str(e)}")
+            return None
+        finally:
+            # Clean up the scraper session if we created it
+            if scraper_created and self._scraper:
+                try:
+                    await self._scraper.close()
+                    self._scraper = None
+                except Exception as e:
+                    logger.debug(f"Error closing scraper: {e}")
+
+    async def _parse_scraped_data(self, scraped_data: Dict[str, Any], part_number: str, url: str) -> Optional[PartSearchResult]:
+        """Parse scraped data into PartSearchResult format."""
+        try:
+            # Extract specifications from table
+            specifications = {}
+            if 'spec_table' in scraped_data:
+                spec_data = scraped_data['spec_table']
+
+                # The scraper should return a dict, but just use whatever we get
+                if isinstance(spec_data, dict):
+                    specifications = spec_data
+                else:
+                    # If it's not a dict (shouldn't happen with current scraper), log it
+                    logger.warning(f"spec_table is not a dict, it's a {type(spec_data)}: {spec_data[:100] if isinstance(spec_data, str) else spec_data}")
+
+            # Parse price information
+            pricing = []
+            if 'price' in scraped_data:
+                price_info = self._scraper.parse_price(scraped_data['price']) if self._scraper else None
+                if price_info:
+                    pricing = [{
+                        'quantity': price_info.get('quantity', 1),
+                        'price': price_info.get('unit_price', price_info.get('price', 0)),
+                        'currency': price_info.get('currency', 'USD'),
+                        'original_text': scraped_data['price']
+                    }]
+
+            # Build complete description from H1 (generic) and H3 (specific details)
+            description_parts = []
+            heading = scraped_data.get('heading', '')  # H1 - generic product type
+            subtitle = scraped_data.get('subtitle', '')  # H3 - specific details
+
+            # Combine H1 and H3 for a complete, unique description
+            if heading:
+                description_parts.append(heading.strip())
+            if subtitle:
+                description_parts.append(subtitle.strip())
+
+            # If we have both, join with a separator for clarity
+            if len(description_parts) == 2:
+                description = f"{description_parts[0]} - {description_parts[1]}"
+            elif description_parts:
+                description = description_parts[0]
+            else:
+                description = f"McMaster-Carr Part {part_number}"
+
+            # Extract key specifications
+            material = specifications.get('material', '')
+            thread_size = specifications.get('thread_size', '')
+
+            # Create category from specifications
+            category_parts = []
+            if 'fastener_head_type' in specifications:
+                category_parts.append(specifications['fastener_head_type'])
+            if 'drive_style' in specifications:
+                category_parts.append(specifications['drive_style'] + " Drive")
+            if material:
+                category_parts.append(material)
+
+            category = " ".join(category_parts) if category_parts else "Industrial Supply"
+
+            # Extract image URL if available
+            image_url = scraped_data.get('image')
+            if image_url:
+                logger.info(f"Scraped image URL: {image_url}")
+
+            return PartSearchResult(
+                supplier_part_number=part_number,  # The actual McMaster part number like 92210A203
+                manufacturer="McMaster-Carr",
+                manufacturer_part_number=part_number,  # Same as supplier part number
+                description=description,  # The product description like "18-8 Stainless Steel..."
+                category=category,
+                datasheet_url=None,  # McMaster doesn't typically provide datasheets
+                image_url=image_url,  # Now extracted from scraping
+                stock_quantity=None,  # Stock info not easily scraped
+                pricing=pricing if pricing else None,
+                specifications=specifications,
+                additional_data={
+                    'source': 'web_scraping',
+                    'scraped_at': datetime.now().isoformat(),
+                    'url': url,
+                    'delivery_info': scraped_data.get('delivery', ''),
+                    'material': material,
+                    'thread_size': thread_size,
+                    'warning': 'Data obtained via web scraping - may be incomplete or outdated'
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error parsing scraped McMaster-Carr data: {str(e)}")
             return None
     
 
