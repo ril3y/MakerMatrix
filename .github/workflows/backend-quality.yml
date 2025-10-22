@@ -17,6 +17,37 @@ on:
       - 'requirements.txt'
 
 jobs:
+  # Code Formatting Check
+  black-formatting:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Black
+      run: |
+        python -m pip install --upgrade pip
+        pip install black
+
+    - name: Check code formatting with Black
+      run: |
+        black --check --diff --color MakerMatrix/
+      continue-on-error: true  # WARN but don't fail (for gradual adoption)
+
+    - name: Show formatting diff
+      if: failure()
+      run: |
+        echo "❌ Code formatting issues found!"
+        echo "Run 'black MakerMatrix/' locally to fix formatting"
+        black --diff MakerMatrix/
+
   # Dead Code Analysis
   dead-code-analysis:
     runs-on: ubuntu-latest

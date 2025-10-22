@@ -20,9 +20,34 @@ keywords = ["inventory", "electronics", "parts", "management", "maker"]
 [tool.pytest.ini_options]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "critical: marks tests as critical security tests",
 ]
 testpaths = ["MakerMatrix/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --strict-markers" 
+addopts = "-v --strict-markers"
+
+[tool.black]
+line-length = 120
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | venv
+  | venv_test
+  | _build
+  | buck-out
+  | build
+  | dist
+  | node_modules
+  | MakerMatrix/frontend
+)/
+''' 

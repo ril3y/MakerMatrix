@@ -37,9 +37,7 @@ class TestAdminRateLimitExemption:
         assert policy.rate_limit_per_hour == 2  # Backup has strict limits
 
         # Call rate limit check directly
-        rate_limit_ok, rate_limit_msg = await service._check_rate_limits(
-            admin_user, policy, TaskType.BACKUP_CREATION
-        )
+        rate_limit_ok, rate_limit_msg = await service._check_rate_limits(admin_user, policy, TaskType.BACKUP_CREATION)
 
         # Admin should pass rate limit check
         assert rate_limit_ok is True
@@ -64,7 +62,7 @@ class TestAdminRateLimitExemption:
         policy = get_task_security_policy(TaskType.BACKUP_CREATION)
 
         # Mock the task repository to simulate that user has exceeded rate limit
-        with patch.object(service.task_repo, 'count_tasks_by_user_and_timeframe') as mock_count:
+        with patch.object(service.task_repo, "count_tasks_by_user_and_timeframe") as mock_count:
             mock_count.return_value = 10  # Exceeds the hourly limit of 2
 
             # Call rate limit check
@@ -95,15 +93,15 @@ class TestAdminRateLimitExemption:
             name="Test Backup",
             description="Test backup task",
             priority=TaskPriority.HIGH,
-            input_data={"backup_name": "test_backup"}
+            input_data={"backup_name": "test_backup"},
         )
 
         # Create task security service
         service = TaskSecurityService()
 
         # Mock task repository to simulate exceeding rate limits (but not concurrent limits)
-        with patch.object(service.task_repo, 'count_tasks_by_user_and_timeframe') as mock_count:
-            with patch.object(service.task_repo, 'count_concurrent_tasks_by_user_and_type') as mock_concurrent:
+        with patch.object(service.task_repo, "count_tasks_by_user_and_timeframe") as mock_count:
+            with patch.object(service.task_repo, "count_concurrent_tasks_by_user_and_type") as mock_concurrent:
                 # Simulate that admin has many tasks (would exceed rate limits for regular users)
                 mock_count.return_value = 100  # Way over hourly rate limit
                 mock_concurrent.return_value = 0  # No concurrent tasks (within limit)
@@ -133,15 +131,15 @@ class TestAdminRateLimitExemption:
             name="Test Enrichment",
             description="Test part enrichment task",
             priority=TaskPriority.NORMAL,
-            input_data={"part_id": "test-part-123", "capabilities": ["GET_PART_DETAILS"]}
+            input_data={"part_id": "test-part-123", "capabilities": ["GET_PART_DETAILS"]},
         )
 
         # Create task security service
         service = TaskSecurityService()
 
         # Mock task repository to simulate exceeding limits
-        with patch.object(service.task_repo, 'count_tasks_by_user_and_timeframe') as mock_count:
-            with patch.object(service.task_repo, 'count_concurrent_tasks_by_user_and_type') as mock_concurrent:
+        with patch.object(service.task_repo, "count_tasks_by_user_and_timeframe") as mock_count:
+            with patch.object(service.task_repo, "count_concurrent_tasks_by_user_and_type") as mock_concurrent:
                 # Simulate that user has exceeded hourly rate limit (30 is the limit)
                 mock_count.return_value = 50  # Over the limit of 30
                 mock_concurrent.return_value = 0  # No concurrent tasks
