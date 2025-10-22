@@ -269,3 +269,80 @@ jobs:
             repo: context.repo.repo,
             body: comment
           });
+
+  # Integration Tests - Backup/Restore
+  integration-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+
+    - name: Install dependencies
+      run: |
+        source venv_test/bin/activate
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio
+
+    - name: Run backup/restore integration tests
+      run: |
+        source venv_test/bin/activate
+        pytest tests/test_backup_restore_integration.py -v --tb=short --junit-xml=integration-test-results.xml
+      timeout-minutes: 10
+      continue-on-error: false
+
+    - name: Upload test databases on failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: failed-test-databases
+        path: /tmp/makermatrix_test_dbs/
+        retention-days: 7
+
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: integration-test-results
+        path: integration-test-results.xml
+        retention-days: 30
+
+    - name: Comment on PR with integration test results
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request' && failure()
+      with:
+        script: |
+          const comment = `## 🔧 Integration Tests Failed
+
+          Backup/restore integration tests have failed. These tests verify:
+          - Database backup creation
+          - Backup file integrity
+          - Restore operations
+          - Data integrity after restore
+
+          **Action Required:**
+          - Review the test failures in the artifacts
+          - Check for database schema changes
+          - Verify backup/restore logic
+          - Re-run the tests
+
+          See the full report in the workflow artifacts.`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
