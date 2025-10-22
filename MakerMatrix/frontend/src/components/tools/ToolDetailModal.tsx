@@ -26,6 +26,7 @@ import { useAuthStore } from '@/store/authStore'
 import type { Tool } from '@/types/tools'
 import type { Tag as TagType } from '@/types/tags'
 import toast from 'react-hot-toast'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 interface ToolDetailModalProps {
   isOpen: boolean
@@ -609,13 +610,15 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                 <Settings className="w-4 h-4" />
                 Maintenance Records ({maintenanceRecords.length})
               </h3>
-              <button
-                onClick={() => setShowAddMaintenance(!showAddMaintenance)}
-                className="btn btn-primary btn-sm flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Maintenance
-              </button>
+              <PermissionGuard permission="tools:update">
+                <button
+                  onClick={() => setShowAddMaintenance(!showAddMaintenance)}
+                  className="btn btn-primary btn-sm flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Maintenance
+                </button>
+              </PermissionGuard>
             </div>
 
             {/* Add Maintenance Form */}
@@ -743,13 +746,15 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteMaintenance(record.id)}
-                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                        title="Delete maintenance record"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <PermissionGuard permission="tools:update">
+                        <button
+                          onClick={() => handleDeleteMaintenance(record.id)}
+                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          title="Delete maintenance record"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </PermissionGuard>
                     </div>
                   </div>
                 ))}
@@ -761,30 +766,34 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
           <div className="flex justify-between pt-4 border-t border-border">
             <div className="flex gap-2">
               {onEdit && (
-                <button
-                  onClick={() => {
-                    onEdit(tool)
-                    onClose()
-                  }}
-                  className="btn btn-secondary flex items-center gap-2"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  Edit
-                </button>
+                <PermissionGuard permission="tools:update">
+                  <button
+                    onClick={() => {
+                      onEdit(tool)
+                      onClose()
+                    }}
+                    className="btn btn-secondary flex items-center gap-2"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Edit
+                  </button>
+                </PermissionGuard>
               )}
               {onDelete && (
-                <button
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete this tool?')) {
-                      onDelete(tool.id)
-                      onClose()
-                    }
-                  }}
-                  className="btn btn-danger flex items-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </button>
+                <PermissionGuard permission="tools:delete">
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this tool?')) {
+                        onDelete(tool.id)
+                        onClose()
+                      }
+                    }}
+                    className="btn btn-danger flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </PermissionGuard>
               )}
             </div>
             <button onClick={onClose} className="btn btn-primary">

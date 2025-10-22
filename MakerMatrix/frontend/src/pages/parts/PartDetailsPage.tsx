@@ -79,6 +79,7 @@ import TagInput from '@/components/tags/TagInput'
 import TagBadge from '@/components/tags/TagBadge'
 import type { Tag as TagType } from '@/types/tags'
 import { tagsService } from '@/services/tags.service'
+import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 
 // Icon mapping for property explorer
 const getIconForProperty = (propertyKey: string) => {
@@ -145,6 +146,8 @@ const PartDetailsPage = () => {
   const [supplierConfig, setSupplierConfig] = useState<SupplierConfig | null>(null)
   const [editingSupplier, setEditingSupplier] = useState(false)
   const [tempSupplier, setTempSupplier] = useState<string>('')
+  const [supplierSupportsScraping, setSupplierSupportsScraping] = useState(false)
+  const [availableSuppliers, setAvailableSuppliers] = useState<string[]>([])
   const [partAllocations, setPartAllocations] = useState<PartAllocation[]>([])
   const [allocationTotalQuantity, setAllocationTotalQuantity] = useState<number | null>(null)
   const [loadingAllocations, setLoadingAllocations] = useState(false)
@@ -272,6 +275,11 @@ const PartDetailsPage = () => {
       // Load supplier config if part has a supplier
       if (response.supplier) {
         try {
+          // Get available suppliers from registry
+          const availableSuppliersData = await dynamicSupplierService.getAvailableSuppliers()
+          setAvailableSuppliers(availableSuppliersData.map(s => s.toLowerCase()))
+
+          // Get configured suppliers
           const suppliers = await supplierService.getSuppliers()
           const config = suppliers.find(
             (s) =>
@@ -279,12 +287,33 @@ const PartDetailsPage = () => {
               s.display_name.toLowerCase() === response.supplier?.toLowerCase()
           )
           setSupplierConfig(config || null)
+
+          // Check if supplier supports scraping (for unconfigured suppliers)
+          const supplierLower = response.supplier.toLowerCase()
+          const isInRegistry = availableSuppliersData.map(s => s.toLowerCase()).includes(supplierLower)
+          const isConfigured = config !== undefined && config !== null
+
+          // If supplier is in registry but not configured, check scraping support
+          if (isInRegistry && !isConfigured) {
+            try {
+              const scrapingInfo = await dynamicSupplierService.checkScrapingSupport(supplierLower)
+              setSupplierSupportsScraping(scrapingInfo.supports_scraping)
+              console.log(`Supplier ${response.supplier} scraping support:`, scrapingInfo)
+            } catch (error) {
+              console.error('Failed to check scraping support:', error)
+              setSupplierSupportsScraping(false)
+            }
+          } else {
+            setSupplierSupportsScraping(false)
+          }
         } catch (err) {
           console.error('Failed to load supplier config:', err)
           setSupplierConfig(null)
+          setSupplierSupportsScraping(false)
         }
       } else {
         setSupplierConfig(null)
+        setSupplierSupportsScraping(false)
       }
 
       // Load price history and allocations after part is loaded
@@ -1071,15 +1100,26 @@ const PartDetailsPage = () => {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                {/* Only show Enrich button if supplier is set and is not a simple supplier */}
-                {part.supplier && supplierConfig?.supplier_type !== 'simple' && (
+                {/* Show Enrich button if supplier supports enrichment via API OR scraping */}
+                {part.supplier && (
+                  // Show if: 1) Configured supplier (not simple type) OR 2) Unconfigured but supports scraping
+                  (supplierConfig?.supplier_type !== 'simple' || supplierSupportsScraping)
+                ) && (
                   <PermissionGuard permission="parts:update">
                     <button
                       onClick={handleEnrich}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-theme-inverse rounded-lg hover:bg-primary-dark transition-colors font-medium"
+                      title={
+                        !supplierConfig && supplierSupportsScraping
+                          ? 'Enrich using web scraping (API not configured)'
+                          : 'Enrich from supplier API'
+                      }
                     >
                       <Zap className="w-4 h-4" />
                       Enrich Data
+                      {!supplierConfig && supplierSupportsScraping && (
+                        <span className="text-xs opacity-80">(Scraping)</span>
+                      )}
                     </button>
                   </PermissionGuard>
                 )}
@@ -1748,15 +1788,7 @@ const PartDetailsPage = () => {
                   </span>
                 </h2>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleAddCategoryDirect}
-                    className="btn btn-secondary btn-sm flex items-center gap-2"
-                    title="Create new category"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Category
-                  </button>
+                <PermissionGuard permission="categories:update">
                   <button
                     onClick={() => setCategoryManagementOpen(true)}
                     className="btn btn-primary btn-sm flex items-center gap-2"
@@ -1765,7 +1797,7 @@ const PartDetailsPage = () => {
                     <Tag className="w-4 h-4" />
                     Manage Categories
                   </button>
-                </div>
+                </PermissionGuard>
               </div>
             </div>
 
@@ -1788,22 +1820,15 @@ const PartDetailsPage = () => {
                   <p className="text-theme-muted text-sm mb-4">
                     No categories assigned to this part yet.
                   </p>
-                  <div className="flex items-center justify-center gap-2">
+                  <PermissionGuard permission="categories:update">
                     <button
                       onClick={() => setCategoryManagementOpen(true)}
                       className="btn btn-primary btn-sm flex items-center gap-2"
                     >
                       <Tag className="w-4 h-4" />
-                      Assign Existing Category
+                      Manage Categories
                     </button>
-                    <button
-                      onClick={handleAddCategoryDirect}
-                      className="btn btn-secondary btn-sm flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create New Category
-                    </button>
-                  </div>
+                  </PermissionGuard>
                 </div>
               )}
             </div>
@@ -2893,8 +2918,38 @@ function formatSpecValue(value: any): string | JSX.Element {
   // Handle arrays
   if (Array.isArray(value)) {
     if (value.length === 0) return '—'
-    if (value.length === 1) return formatSpecValue(value[0]) as string
-    return value.map((item) => formatSpecValue(item)).join(', ')
+    if (value.length === 1) return formatSpecValue(value[0])
+
+    // Check if array contains complex objects
+    const hasComplexItems = value.some(
+      item => typeof item === 'object' && item !== null && !Array.isArray(item)
+    )
+
+    if (hasComplexItems) {
+      // Return JSX for complex arrays instead of joining
+      return (
+        <div className="space-y-1">
+          {value.map((item, idx) => (
+            <div key={idx}>{formatSpecValue(item)}</div>
+          ))}
+        </div>
+      )
+    }
+
+    // Simple array - can safely join strings
+    const formatted = value.map((item) => formatSpecValue(item))
+    // Only join if all items are strings
+    if (formatted.every(item => typeof item === 'string')) {
+      return formatted.join(', ')
+    }
+    // Otherwise return as JSX
+    return (
+      <div className="space-y-1">
+        {formatted.map((item, idx) => (
+          <div key={idx}>{item}</div>
+        ))}
+      </div>
+    )
   }
 
   // Handle objects - show actual key-value pairs as separate lines
@@ -2914,7 +2969,17 @@ function formatSpecValue(value: any): string | JSX.Element {
     if (keys.length === 1) {
       const key = keys[0]
       const val = formatSpecValue(value[key])
-      return `${key}: ${val}`
+      // Check if val is JSX or string
+      if (typeof val === 'string') {
+        return `${key}: ${val}`
+      }
+      // If it's JSX, return proper JSX structure
+      return (
+        <div>
+          <span className="text-theme-secondary font-medium">{key}:</span>{' '}
+          <span className="text-theme-primary">{val}</span>
+        </div>
+      )
     }
 
     // For objects with multiple keys, return JSX with clean line breaks
