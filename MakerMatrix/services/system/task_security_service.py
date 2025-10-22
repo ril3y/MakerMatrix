@@ -50,13 +50,24 @@ class TaskSecurityService(BaseService):
             # Get security policy for task type
             policy = get_task_security_policy(task_request.task_type)
             if not policy:
-                return False, f"No security policy defined for task type: {task_request.task_type}"
+                return False, (
+                    f"Security policy not configured for task type: {task_request.task_type.value}. "
+                    f"This task type may not be available or requires system configuration. "
+                    f"Please contact your system administrator."
+                )
 
             # Check user permissions
             user_permissions = await self._get_user_permissions(user)
             if not is_task_allowed_for_user(task_request.task_type, user_permissions):
                 missing_perms = [p for p in policy.required_permissions if p not in user_permissions]
-                return False, f"Insufficient permissions. Missing: {', '.join(missing_perms)}"
+                # Enhanced error message with actionable information
+                error_msg = (
+                    f"Insufficient permissions to create {task_request.task_type.value} task. "
+                    f"Missing: {', '.join(missing_perms)}. "
+                    f"Current role(s): {', '.join([r.name for r in user.roles]) if user.roles else 'None'}. "
+                    f"Contact your administrator to request the necessary permissions."
+                )
+                return False, error_msg
 
             # Check rate limits (admin users are exempt)
             rate_limit_ok, rate_limit_msg = await self._check_rate_limits(user, policy, task_request.task_type)
@@ -161,7 +172,9 @@ class TaskSecurityService(BaseService):
                 if hourly_count >= policy.rate_limit_per_hour:
                     return (
                         False,
-                        f"Hourly rate limit exceeded ({hourly_count}/{policy.rate_limit_per_hour}). Try again in {60 - now.minute} minutes.",
+                        f"Hourly rate limit exceeded for {task_type.value} tasks. "
+                        f"You've created {hourly_count} of {policy.rate_limit_per_hour} allowed tasks this hour. "
+                        f"Try again in approximately {60 - now.minute} minutes, or wait for existing tasks to complete.",
                     )
 
             # Check daily rate limit
@@ -170,9 +183,12 @@ class TaskSecurityService(BaseService):
                 daily_count = self.task_repo.count_tasks_by_user_and_timeframe(session, user.id, task_type, day_ago)
 
                 if daily_count >= policy.rate_limit_per_day:
+                    hours_until_reset = 24 - now.hour
                     return (
                         False,
-                        f"Daily rate limit exceeded ({daily_count}/{policy.rate_limit_per_day}). Try again tomorrow.",
+                        f"Daily rate limit exceeded for {task_type.value} tasks. "
+                        f"You've created {daily_count} of {policy.rate_limit_per_day} allowed tasks today. "
+                        f"Limit will reset in approximately {hours_until_reset} hours.",
                     )
 
             return True, None
@@ -187,7 +203,9 @@ class TaskSecurityService(BaseService):
             if running_count >= policy.max_concurrent_per_user:
                 return (
                     False,
-                    f"Too many concurrent {task_type.value} tasks ({running_count}/{policy.max_concurrent_per_user}). Wait for existing tasks to complete.",
+                    f"Concurrent task limit reached for {task_type.value} tasks. "
+                    f"You currently have {running_count} active task(s), maximum allowed is {policy.max_concurrent_per_user}. "
+                    f"Please wait for your existing tasks to complete before creating new ones, or check /api/tasks to monitor progress.",
                 )
 
             return True, None
@@ -213,7 +231,10 @@ class TaskSecurityService(BaseService):
                 part_count = 1
 
             if part_count > max_parts:
-                return False, f"Too many parts requested ({part_count}). Maximum allowed: {max_parts}"
+                return False, (
+                    f"Resource limit exceeded: You requested {part_count} part(s), but the maximum allowed is {max_parts}. "
+                    f"Please reduce the number of parts in your request or split into multiple smaller tasks."
+                )
 
         # Check batch_size limit
         if "batch_size" in policy.resource_limits:
@@ -221,7 +242,10 @@ class TaskSecurityService(BaseService):
             batch_size = input_data.get("batch_size", 1)
 
             if batch_size > max_batch:
-                return False, f"Batch size too large ({batch_size}). Maximum allowed: {max_batch}"
+                return False, (
+                    f"Batch size limit exceeded: You requested batch size of {batch_size}, but the maximum allowed is {max_batch}. "
+                    f"Please reduce your batch size parameter."
+                )
 
         # Check max_capabilities limit
         if "max_capabilities" in policy.resource_limits:
@@ -229,7 +253,10 @@ class TaskSecurityService(BaseService):
             capabilities = input_data.get("capabilities", [])
 
             if len(capabilities) > max_caps:
-                return False, f"Too many capabilities requested ({len(capabilities)}). Maximum allowed: {max_caps}"
+                return False, (
+                    f"Capabilities limit exceeded: You requested {len(capabilities)} capabilities, but the maximum allowed is {max_caps}. "
+                    f"Please reduce the number of enrichment capabilities in your request."
+                )
 
         return True, None
 
