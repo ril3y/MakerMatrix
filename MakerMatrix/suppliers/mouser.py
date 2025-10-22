@@ -86,6 +86,16 @@ class MouserSupplier(BaseSupplier):
             )
         ]
 
+    def get_url_patterns(self) -> List[str]:
+        """Return URL patterns that identify Mouser product links"""
+        return [
+            r'mouser\.com',  # Base domain
+            r'www\.mouser\.com',  # With www
+            r'mouser\.[a-z]{2,}',  # International domains
+            r'mouser\.com/ProductDetail/',  # Product detail pages
+            r'mouser\.com/.*/_/',  # Alternative product URL format
+        ]
+
     def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
         """Define how to extract part fields from Mouser product URLs"""
         return [
@@ -93,11 +103,12 @@ class MouserSupplier(BaseSupplier):
                 field_name="supplier_part_number",
                 display_name="Mouser Part Number",
                 url_patterns=[
-                    r'/ProductDetail/([^/?]+)',  # Extract Mouser part number from /ProductDetail/{part}
+                    r'/ProductDetail/[^/]+/([^/?]+)',  # Extract part number from /ProductDetail/{manufacturer}/{part}
+                    r'/ProductDetail/([^/?]+)',  # Fallback: /ProductDetail/{part}
                     r'/ProductDetail/\?qs=([^&]+)'  # Alternative format with query string
                 ],
-                example="538-10-01-1054",
-                description="The Mouser part number extracted from the product page URL",
+                example="2425486-1",
+                description="The Mouser part number (or manufacturer part number) extracted from the product page URL",
                 required_for_enrichment=True
             )
         ]
@@ -1046,23 +1057,120 @@ class MouserSupplier(BaseSupplier):
             'order_info': {},
             'technical_specs': {}
         }
-        
+
         # Add customer reference if available
         if extracted_data.get('customer_reference'):
             additional_properties['order_info']['customer_reference'] = extracted_data['customer_reference']
-        
+
         # Add pricing information
         if unit_price is not None:
             additional_properties['order_info']['unit_price'] = unit_price
             additional_properties['order_info']['currency'] = 'USD'  # Mouser pricing is typically in USD
         if order_price is not None:
             additional_properties['order_info']['extended_price'] = order_price
-        
+
         # Add package information to technical specs if available
         if extracted_data.get('package'):
             additional_properties['technical_specs']['package'] = str(extracted_data['package']).strip()
-        
+
         # Clean up empty sections
         additional_properties = {k: v for k, v in additional_properties.items() if v}
-        
+
         return additional_properties
+
+    def map_to_standard_format(self, supplier_data: Any) -> Dict[str, Any]:
+        """
+        Map supplier data to standard format.
+
+        This method flattens the PartSearchResult into simple key-value pairs for clean display.
+        All specifications and additional_data are expanded into flat fields.
+
+        Args:
+            supplier_data: PartSearchResult from this supplier
+
+        Returns:
+            Flat dictionary with all data as simple key-value pairs
+        """
+        if not isinstance(supplier_data, PartSearchResult):
+            return {}
+
+        # Start with core fields
+        mapped = {
+            'supplier_part_number': supplier_data.supplier_part_number,
+            'part_name': supplier_data.description or supplier_data.part_name or supplier_data.supplier_part_number,
+            'manufacturer': supplier_data.manufacturer,
+            'manufacturer_part_number': supplier_data.manufacturer_part_number,
+            'description': supplier_data.description,
+            'category': supplier_data.category,
+        }
+
+        # Add image and datasheet URLs if available
+        if supplier_data.image_url:
+            mapped['image_url'] = supplier_data.image_url
+        if supplier_data.datasheet_url:
+            mapped['datasheet_url'] = supplier_data.datasheet_url
+
+        # Extract unit price from pricing array (first tier)
+        if supplier_data.pricing and len(supplier_data.pricing) > 0:
+            first_price = supplier_data.pricing[0]
+            mapped['unit_price'] = first_price.get('price')
+            mapped['currency'] = first_price.get('currency', 'USD')
+
+        # Extract Mouser Category for auto-category assignment (stored separately, not in additional_properties)
+        mouser_category = None
+        if supplier_data.additional_data and 'mouser_category' in supplier_data.additional_data:
+            mouser_category = supplier_data.additional_data['mouser_category']
+            # Store it for category auto-assignment logic
+            mapped['mouser_category'] = mouser_category
+
+        # Define fields to skip (compliance, ordering, and internal tracking)
+        skip_fields = {
+            # Internal tracking fields
+            'source', 'scraped_at', 'api_version', 'last_updated', 'warning', 'data_source',
+            # Compliance and trade fields
+            'ushts',
+            'taric',
+            'eccn',
+            # Ordering/packaging fields (already covered in main fields or not needed)
+            'lead_time',
+            'mult_order_qty',
+            'order_qty',
+            'mult',
+            'min_order_qty',
+            # Stock/availability fields (redundant with main stock fields)
+            'factory_stock',
+            'availability_in_stock',
+            'availability',
+            # Mouser category (handled separately above)
+            'mouser_category',
+        }
+
+        # Flatten specifications into custom fields
+        if supplier_data.specifications:
+            for spec_key, spec_value in supplier_data.specifications.items():
+                # Skip fields in blacklist (case-insensitive)
+                if spec_key.lower() in skip_fields:
+                    continue
+                # Skip empty or whitespace-only keys
+                if not spec_key or not spec_key.strip():
+                    continue
+                # Create readable field names
+                field_name = spec_key.replace('_', ' ').title()
+                if spec_value is not None:
+                    mapped[field_name] = str(spec_value)
+
+        # Flatten additional_data into custom fields
+        if supplier_data.additional_data:
+            for key, value in supplier_data.additional_data.items():
+                # Skip fields in blacklist (case-insensitive)
+                if key.lower() in skip_fields:
+                    continue
+                # Skip empty or whitespace-only keys
+                if not key or not key.strip():
+                    continue
+                # Create readable field names
+                field_name = key.replace('_', ' ').title()
+                if value is not None:
+                    mapped[field_name] = str(value)
+
+        return mapped

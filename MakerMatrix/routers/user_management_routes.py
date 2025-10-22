@@ -8,6 +8,7 @@ from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.auth.dependencies import get_current_user_flexible
+from MakerMatrix.auth.guards import require_permission, require_admin
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,10 @@ class RoleUpdate(BaseModel):
 
 @router.post("/register", response_model=ResponseSchema)
 @standard_error_handling
-async def register_user(user_data: UserCreate):
+async def register_user(
+    user_data: UserCreate,
+    current_user: dict = Depends(require_admin)
+):
     # Hash the password
     hashed_password = user_repository.get_password_hash(user_data.password)
     
@@ -167,7 +171,11 @@ async def get_user_by_username(username: str):
 
 @router.put("/{user_id}", response_model=ResponseSchema)
 @standard_error_handling
-async def update_user(user_id: str, user_data: UserUpdate):
+async def update_user(
+    user_id: str,
+    user_data: UserUpdate,
+    current_user: dict = Depends(require_permission("users:update"))
+):
     user = user_repository.update_user(
         user_id=user_id,
         email=user_data.email,
@@ -235,7 +243,10 @@ async def update_password(
 
 @router.delete("/{user_id}", response_model=ResponseSchema)
 @standard_error_handling
-async def delete_user(user_id: str):
+async def delete_user(
+    user_id: str,
+    current_user: dict = Depends(require_permission("users:delete"))
+):
     if user_repository.delete_user(user_id):
         return base_router.build_success_response(
             message="User deleted successfully",
@@ -251,7 +262,8 @@ async def delete_user(user_id: str):
 @standard_error_handling
 async def update_user_roles(
     user_id: str,
-    role_ids: List[str] = Body(..., embed=True)
+    role_ids: List[str] = Body(..., embed=True),
+    current_user: dict = Depends(require_admin)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Update user's roles - will revoke API keys if permissions are downgraded"""
     user = user_repository.get_user_by_id(user_id)
@@ -320,7 +332,8 @@ async def update_user_roles(
 @standard_error_handling
 async def update_user_status(
     user_id: str,
-    is_active: bool = Body(..., embed=True)
+    is_active: bool = Body(..., embed=True),
+    current_user: dict = Depends(require_admin)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Toggle user active status"""
     user = user_repository.get_user_by_id(user_id)
@@ -340,7 +353,10 @@ async def update_user_status(
 
 @router.post("/roles/add_role", response_model=ResponseSchema)
 @standard_error_handling
-async def create_role(role_data: RoleCreate) -> ResponseSchema[Dict[str, Any]]:
+async def create_role(
+    role_data: RoleCreate,
+    current_user: dict = Depends(require_admin)
+) -> ResponseSchema[Dict[str, Any]]:
     role = user_repository.create_role(
         name=role_data.name,
         description=role_data.description,
@@ -384,7 +400,11 @@ async def get_role(role_id: str) -> ResponseSchema[Dict[str, Any]]:
 
 @router.put("/roles/{role_id}", response_model=ResponseSchema)
 @standard_error_handling
-async def update_role(role_id: str, role_data: RoleUpdate) -> ResponseSchema[Dict[str, Any]]:
+async def update_role(
+    role_id: str,
+    role_data: RoleUpdate,
+    current_user: dict = Depends(require_admin)
+) -> ResponseSchema[Dict[str, Any]]:
     role = user_repository.update_role(
         role_id=role_id,
         description=role_data.description,
@@ -403,7 +423,10 @@ async def update_role(role_id: str, role_data: RoleUpdate) -> ResponseSchema[Dic
 
 @router.delete("/roles/{role_id}", response_model=ResponseSchema)
 @standard_error_handling
-async def delete_role(role_id: str) -> ResponseSchema[Optional[Dict[str, Any]]]:
+async def delete_role(
+    role_id: str,
+    current_user: dict = Depends(require_admin)
+) -> ResponseSchema[Optional[Dict[str, Any]]]:
     if user_repository.delete_role(role_id):
         return base_router.build_success_response(
             message="Role deleted successfully",

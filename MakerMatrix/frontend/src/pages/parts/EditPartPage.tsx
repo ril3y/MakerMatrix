@@ -409,11 +409,19 @@ const EditPartPage: React.FC = () => {
     }
   }
 
-  const handleProjectAdded = async () => {
+  const handleProjectAdded = async (createdProjectId?: string) => {
     try {
       const projectsData = await projectsService.getAllProjects()
       setProjects(projectsData)
       setShowAddProjectModal(false)
+
+      // Auto-select the newly created project
+      if (createdProjectId) {
+        const newSelected = [...selectedProjects, createdProjectId]
+        console.log('Auto-selecting newly created project:', { createdProjectId, newSelected })
+        setSelectedProjects(newSelected)
+        toast.success('Project added and automatically selected')
+      }
     } catch (error) {
       console.error('Error reloading projects:', error)
       toast.error('Failed to reload projects')

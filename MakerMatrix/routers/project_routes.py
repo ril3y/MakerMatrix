@@ -52,7 +52,7 @@ async def get_all_projects() -> ResponseSchema[ProjectsListResponse]:
 async def create_project(
     project_data: ProjectCreate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("projects:create"))
 ) -> ResponseSchema[ProjectResponse]:
     """
     Create a new project.
@@ -143,7 +143,7 @@ async def update_project(
     project_id: str,
     project_data: ProjectUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("projects:update"))
 ) -> ResponseSchema[ProjectResponse]:
     """
     Update a project's fields.
@@ -211,7 +211,7 @@ async def update_project(
 async def delete_project(
     project_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("projects:delete"))
 ) -> ResponseSchema[ProjectResponse]:
     """
     Delete a project by ID.
@@ -292,7 +292,7 @@ async def add_part_to_project(
     part_id: str,
     request: Request,
     notes: Optional[str] = None,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("projects:update"))
 ) -> ResponseSchema[dict]:
     """
     Add a part to a project.
@@ -337,7 +337,7 @@ async def remove_part_from_project(
     project_id: str,
     part_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("projects:update"))
 ) -> ResponseSchema[dict]:
     """
     Remove a part from a project.

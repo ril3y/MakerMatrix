@@ -1,0 +1,225 @@
+{
+  "critical": [
+    {
+      "title": "Authorization Bypass - Admin Task Creation",
+      "description": "Non-admin user can create admin-only database backup tasks",
+      "details": {
+        "status_code": 200,
+        "response": {
+          "status": "success",
+          "message": "Backup Creation task created successfully",
+          "data": {
+            "id": "070962a9-250b-4df0-af7d-0f08704b1ece",
+            "task_type": "backup_creation",
+            "name": "Database Backup: security_test_backup",
+            "description": "Create comprehensive backup including database, datasheets: True, images: True",
+            "status": "pending",
+            "priority": "high",
+            "progress_percentage": 0,
+            "current_step": null,
+            "input_data": {
+              "backup_name": "security_test_backup",
+              "include_datasheets": true,
+              "include_images": true
+            },
+            "result_data": {},
+            "error_message": null,
+            "max_retries": 3,
+            "retry_count": 0,
+            "timeout_seconds": 300,
+            "created_at": "2025-10-22T17:10:14.621525",
+            "scheduled_at": null,
+            "started_at": null,
+            "completed_at": null,
+            "created_by_user_id": "202fd1b2-d7d1-4b4b-bd26-7165a012c93d",
+            "related_entity_type": "system",
+            "related_entity_id": "database",
+            "parent_task_id": null,
+            "depends_on_task_ids": []
+          }
+        }
+      }
+    },
+    {
+      "title": "Command Injection in Backup Name",
+      "description": "Malicious backup name accepted: ; whoami",
+      "details": {
+        "payload": "; whoami",
+        "response": {
+          "status": "success",
+          "message": "Backup Creation task created successfully",
+          "data": {
+            "id": "551a352d-0788-45bd-93a5-6c9dbbdb0a4e",
+            "task_type": "backup_creation",
+            "name": "Database Backup: backup; whoami",
+            "description": "Create comprehensive backup including database, datasheets: False, images: False",
+            "status": "pending",
+            "priority": "high",
+            "progress_percentage": 0,
+            "current_step": null,
+            "input_data": {
+              "backup_name": "backup; whoami",
+              "include_datasheets": false,
+              "include_images": false
+            },
+            "result_data": {},
+            "error_message": null,
+            "max_retries": 3,
+            "retry_count": 0,
+            "timeout_seconds": 300,
+            "created_at": "2025-10-22T17:10:14.681816",
+            "scheduled_at": null,
+            "started_at": null,
+            "completed_at": null,
+            "created_by_user_id": "202fd1b2-d7d1-4b4b-bd26-7165a012c93d",
+            "related_entity_type": "system",
+            "related_entity_id": "database",
+            "parent_task_id": null,
+            "depends_on_task_ids": []
+          }
+        }
+      }
+    },
+    {
+      "title": "SSRF in Datasheet Download",
+      "description": "SSRF-prone URL accepted: http://169.254.169.254/latest/meta-data/",
+      "details": {
+        "url": "http://169.254.169.254/latest/meta-data/"
+      }
+    }
+  ],
+  "high": [
+    {
+      "title": "Path Traversal in Part ID",
+      "description": "Path traversal payload accepted: ../../../etc/passwd",
+      "details": {
+        "payload": "../../../etc/passwd",
+        "response": {
+          "status": "success",
+          "message": "Part Enrichment task created successfully",
+          "data": {
+            "id": "0b385561-c8c0-470e-91c3-720f9b6a1132",
+            "task_type": "part_enrichment",
+            "name": "Enrich part ../../../etc/passwd",
+            "description": "Enrich part using digikey with capabilities: ['fetch_datasheet']",
+            "status": "pending",
+            "priority": "normal",
+            "progress_percentage": 0,
+            "current_step": null,
+            "input_data": {
+              "part_id": "../../../etc/passwd",
+              "supplier": "digikey",
+              "capabilities": [
+                "fetch_datasheet"
+              ]
+            },
+            "result_data": {},
+            "error_message": null,
+            "max_retries": 3,
+            "retry_count": 0,
+            "timeout_seconds": 300,
+            "created_at": "2025-10-22T17:10:14.716856",
+            "scheduled_at": null,
+            "started_at": null,
+            "completed_at": null,
+            "created_by_user_id": "202fd1b2-d7d1-4b4b-bd26-7165a012c93d",
+            "related_entity_type": "part",
+            "related_entity_id": "../../../etc/passwd",
+            "parent_task_id": null,
+            "depends_on_task_ids": []
+          }
+        }
+      }
+    },
+    {
+      "title": "Dangerous Backup Filename Accepted",
+      "description": "Backup created with dangerous filename: backup`whoami`.zip",
+      "details": {
+        "filename": "backup`whoami`.zip"
+      }
+    },
+    {
+      "title": "Path Traversal in File Import",
+      "description": "Path traversal in file_name parameter accepted",
+      "details": {
+        "file_name": "../../../../etc/passwd"
+      }
+    },
+    {
+      "title": "Malicious Capabilities Accepted",
+      "description": "Malicious code in capabilities array was accepted",
+      "details": {
+        "capabilities": [
+          "__import__('os').system('id')",
+          "'; DROP TABLE parts; --",
+          "../../../etc/passwd"
+        ]
+      }
+    }
+  ],
+  "medium": [
+    {
+      "title": "Parameter Injection in Task Creation",
+      "description": "Extra parameters can be injected into task creation",
+      "details": {
+        "response": {
+          "id": "c40f45bf-4a1f-4807-a1f5-bc878b884d15",
+          "task_type": "part_enrichment",
+          "name": "Enrich part test-part-123",
+          "description": "Enrich part using digikey with capabilities: ['fetch_datasheet']",
+          "status": "pending",
+          "priority": "urgent",
+          "progress_percentage": 0,
+          "current_step": null,
+          "input_data": {
+            "part_id": "test-part-123",
+            "supplier": "digikey",
+            "capabilities": [
+              "fetch_datasheet"
+            ],
+            "__proto__": {
+              "isAdmin": true
+            },
+            "created_by_user_id": "admin-user-id"
+          },
+          "result_data": {},
+          "error_message": null,
+          "max_retries": 3,
+          "retry_count": 0,
+          "timeout_seconds": 300,
+          "created_at": "2025-10-22T17:10:14.752223",
+          "scheduled_at": null,
+          "started_at": null,
+          "completed_at": null,
+          "created_by_user_id": "202fd1b2-d7d1-4b4b-bd26-7165a012c93d",
+          "related_entity_type": "part",
+          "related_entity_id": "test-part-123",
+          "parent_task_id": null,
+          "depends_on_task_ids": []
+        }
+      }
+    },
+    {
+      "title": "Insufficient Rate Limiting",
+      "description": "Created 15 tasks without hitting rate limit",
+      "details": {
+        "tasks_created": 15
+      }
+    }
+  ],
+  "low": [],
+  "passed": [
+    "Tasks endpoint requires authentication",
+    "Invalid token is rejected",
+    "Manipulated token is rejected",
+    "Task listing properly filtered by user",
+    "Task IDs use UUID format (not predictable)",
+    "Task ownership properly enforced",
+    "Worker status accessible",
+    "Bulk operation limits enforced",
+    "WebSocket security requires manual testing with websocket-client",
+    "Code injection payloads rejected in supplier parameter",
+    "Task cancellation successful",
+    "Task deletion successful"
+  ]
+}

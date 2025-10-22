@@ -28,7 +28,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl || null)
-  const [pasteListening, setPasteListening] = useState(true)
+  const [isHovered, setIsHovered] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
@@ -95,10 +96,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     [currentImageUrl, onImageUploaded]
   )
 
-  // Handle paste events
+  // Handle paste events - only when component is hovered or focused
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
-      if (!pasteListening || disabled) return
+      // Only listen if this component is hovered/focused and not disabled
+      if ((!isHovered && !isFocused) || disabled) return
 
       // Don't interfere with text inputs, textareas, or contenteditable elements
       const target = e.target as HTMLElement
@@ -133,7 +135,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [pasteListening, disabled, handleFileUpload])
+  }, [isHovered, isFocused, disabled, handleFileUpload])
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -189,11 +191,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       {/* Main Upload Area */}
       <div
         ref={dropZoneRef}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={handleClick}
+        tabIndex={0}
         className={`
           relative border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer
           ${dragActive ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'}

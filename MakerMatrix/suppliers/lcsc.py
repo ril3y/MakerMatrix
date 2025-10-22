@@ -20,7 +20,7 @@ from typing import List, Dict, Any, Optional
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
     PartSearchResult, SupplierInfo, ConfigurationOption,
-    CapabilityRequirement, ImportResult
+    CapabilityRequirement, ImportResult, EnrichmentFieldMapping
 )
 from MakerMatrix.models.enrichment_requirement_models import (
     EnrichmentRequirements, FieldRequirement, RequirementSeverity
@@ -238,7 +238,14 @@ class LCSCSupplier(BaseSupplier):
             SupplierCapability.FETCH_PRICING_STOCK,
             SupplierCapability.IMPORT_ORDERS
         ]
-    
+
+    def is_configured(self) -> bool:
+        """
+        LCSC uses the public EasyEDA API which doesn't require credentials.
+        Always return True since the API is publicly accessible.
+        """
+        return True
+
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """LCSC uses public API, so no credentials required"""
         return {
@@ -300,6 +307,38 @@ class LCSCSupplier(BaseSupplier):
                 )
             ]
         )
+
+    def get_url_patterns(self) -> List[str]:
+        """Return URL patterns that identify LCSC product links"""
+        return [
+            r'lcsc\.com',  # Base domain
+            r'www\.lcsc\.com',  # With www
+            r'lcsc\.com/product-detail/',  # Product pages
+            r'lcsc\.com/.*C\d+',  # URLs containing LCSC part numbers (C followed by digits)
+        ]
+
+    def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
+        """
+        Get URL patterns and field mappings for auto-enrichment from LCSC product URLs.
+
+        LCSC part numbers are in the format C123456 and appear in URLs like:
+        - https://www.lcsc.com/product-detail/C25804.html
+        - https://www.lcsc.com/product-detail/Resistors_C25804.html
+        """
+        return [
+            EnrichmentFieldMapping(
+                field_name="supplier_part_number",
+                display_name="LCSC Part Number",
+                url_patterns=[
+                    r'/(C\d+)\.html',  # Extract C123456 from /C123456.html
+                    r'_(C\d+)\.html',  # Extract C123456 from _C123456.html
+                    r'/(C\d+)/?$',  # Extract C123456 from /C123456 or /C123456/
+                ],
+                example="C25804",
+                description="The LCSC part number (C followed by digits) from the product page URL",
+                required_for_enrichment=True
+            )
+        ]
 
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for LCSC public API
@@ -1281,9 +1320,89 @@ class LCSCSupplier(BaseSupplier):
                 additional_properties['rohs_compliant'] = False
 
         return additional_properties
-    
+
+    def map_to_standard_format(self, supplier_data: Any) -> Dict[str, Any]:
+        """
+        Map LCSC supplier data to standard format.
+
+        This method flattens the PartSearchResult into simple key-value pairs for clean display.
+        All specifications and additional_data are expanded into flat fields.
+
+        Args:
+            supplier_data: PartSearchResult from LCSC (EasyEDA API or product page)
+
+        Returns:
+            Flat dictionary with all data as simple key-value pairs
+        """
+        if not isinstance(supplier_data, PartSearchResult):
+            return {}
+
+        # Extract LCSC Product Name from additional_data if available
+        lcsc_product_name = None
+        if supplier_data.additional_data:
+            lcsc_product_name = supplier_data.additional_data.get('lcsc_product_name')
+
+        # Start with core fields
+        # Prioritize LCSC Product Name (e.g., "BHFUSE BSMD1206C-1200T") over generic description
+        mapped = {
+            'supplier_part_number': supplier_data.supplier_part_number,
+            'part_name': lcsc_product_name or supplier_data.description or supplier_data.supplier_part_number,
+            'manufacturer': supplier_data.manufacturer,
+            'manufacturer_part_number': supplier_data.manufacturer_part_number,
+            'description': supplier_data.description,
+            'category': supplier_data.category,
+        }
+
+        # Add image and datasheet URLs if available
+        if supplier_data.image_url:
+            mapped['image_url'] = supplier_data.image_url
+        if supplier_data.datasheet_url:
+            mapped['datasheet_url'] = supplier_data.datasheet_url
+
+        # Define fields to skip (tariff codes, ordering info, pricing tiers, duplicates, empty fields)
+        skip_fields = {
+            # Internal tracking fields
+            'data_source', 'easyeda_data_available', 'prefix', 'product_url',
+            # Tariff/customs codes
+            'eccn', 'cnhts', 'ushts', 'taric', 'cahts', 'brhts', 'inhts', 'mxhts',
+            # Ordering/packaging info
+            'minimum', 'multiple', 'standard_packaging', 'sales_unit',
+            # Pricing tiers (individual tiers)
+            '10+', '100+', '300+', '1,000+', '3,000+', '6,000+', '9,000+', '30,000+',
+            # Duplicate pricing/stock fields (we keep formatted versions in SupplierDataMapper)
+            'lcsc_price', 'lcsc_price_currency', 'lcsc_inventory_level',
+            # Fields already used in core part data
+            'lcsc_product_name',  # Used as part_name
+            # Empty/useless fields
+            'part_type', 'customer_#', 'customer_number',
+            # Datasheet field (text value, not URL - we keep datasheet_url)
+            'datasheet'
+        }
+
+        # Flatten additional_data into custom fields
+        # LCSC already stores everything as flat key-value pairs in additional_data
+        if supplier_data.additional_data:
+            for key, value in supplier_data.additional_data.items():
+                # Skip fields in blacklist (case-insensitive)
+                if key.lower() in skip_fields:
+                    continue
+
+                # Skip empty or whitespace-only values
+                if not value or (isinstance(value, str) and not value.strip()):
+                    continue
+
+                # Skip zero-width space and similar unicode characters
+                if isinstance(value, str) and all(ord(c) < 32 or c in '\u200b\ufeff' for c in value):
+                    continue
+
+                # Create readable field names
+                field_name = key.replace('_', ' ').title()
+                mapped[field_name] = str(value)
+
+        return mapped
+
     # ========== Cleanup ==========
-    
+
     async def close(self):
         """Clean up resources"""
         await super().close()

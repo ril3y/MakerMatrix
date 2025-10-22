@@ -14,6 +14,17 @@ export class AuthService {
     return response
   }
 
+  async guestLogin(): Promise<LoginResponse> {
+    const response = await apiClient.post<LoginResponse>('/api/auth/guest-login')
+
+    if (response.access_token) {
+      apiClient.setAuthToken(response.access_token)
+      localStorage.setItem('user', JSON.stringify(response.user))
+    }
+
+    return response
+  }
+
   async logout(): Promise<void> {
     try {
       await apiClient.post('/api/auth/logout')

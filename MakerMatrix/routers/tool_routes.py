@@ -24,6 +24,7 @@ from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.tool_service import ToolService
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.auth.dependencies import get_current_user_flexible
+from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, validate_service_response
 
 import logging
@@ -44,7 +45,7 @@ def get_tool_service() -> ToolService:
 async def create_tool(
     tool: ToolCreateRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:create")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[ToolResponse]:
     """Create a new tool"""
@@ -130,7 +131,7 @@ async def update_tool(
     tool_id: str,
     tool_data: ToolUpdateRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:update")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[ToolResponse]:
     """Update a tool"""
@@ -151,7 +152,7 @@ async def update_tool(
 async def delete_tool(
     tool_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:delete")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[Dict[str, str]]:
     """Delete a tool"""
@@ -172,7 +173,7 @@ async def checkout_tool(
     tool_id: str,
     checkout_data: ToolCheckoutRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:use")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[ToolResponse]:
     """Check out a tool to a user"""
@@ -192,7 +193,7 @@ async def return_tool(
     tool_id: str,
     return_data: ToolReturnRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:use")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[ToolResponse]:
     """Return a checked-out tool"""
@@ -214,7 +215,7 @@ async def create_maintenance_record(
     tool_id: str,
     maintenance_data: ToolMaintenanceRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:update")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Create a new maintenance record for a tool"""
@@ -253,7 +254,7 @@ async def update_maintenance_record(
     record_id: str,
     maintenance_data: ToolMaintenanceRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:update")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Update an existing maintenance record"""
@@ -273,7 +274,7 @@ async def delete_maintenance_record(
     tool_id: str,
     record_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tools:delete")),
     tool_service: ToolService = Depends(get_tool_service)
 ) -> ResponseSchema[Dict[str, str]]:
     """Delete a maintenance record"""

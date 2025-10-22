@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user, get_current_user_flexible
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.suppliers import SupplierRegistry
 from MakerMatrix.suppliers.exceptions import (
@@ -493,6 +493,35 @@ async def get_supplier_capabilities(
         raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get capabilities: {str(e)}")
+
+@router.get("/{supplier_name}/supports-scraping", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
+async def check_scraping_support(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user_flexible)
+):
+    """Check if a supplier supports web scraping fallback"""
+    try:
+        supplier = SupplierRegistry.get_supplier(supplier_name)
+        supports_scraping = supplier.supports_scraping()
+        scraping_config = supplier.get_scraping_config() if supports_scraping else {}
+
+        response_data = {
+            "supports_scraping": supports_scraping,
+            "requires_js": scraping_config.get("requires_js", False),
+            "warning": "Web scraping may be less reliable and could break if the website changes" if supports_scraping else None,
+            "rate_limit_seconds": scraping_config.get("rate_limit_seconds", 1.0) if supports_scraping else None
+        }
+
+        return ResponseSchema(
+            status="success",
+            message=f"Scraping support check for {supplier_name}",
+            data=response_data
+        )
+    except SupplierNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Supplier '{supplier_name}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check scraping support: {str(e)}")
 
 @router.get("/{supplier_name}/enrichment-field-mappings", response_model=ResponseSchema[List[Dict[str, Any]]])
 @standard_error_handling
@@ -1121,3 +1150,91 @@ async def handle_oauth_callback(
             content=content
         )
     )
+
+
+# ========== Supplier Detection from URL ==========
+
+@router.post("/detect-from-url", response_model=ResponseSchema[Dict[str, Any]])
+@standard_error_handling
+async def detect_supplier_from_url(
+    request: Dict[str, str],
+    current_user: UserModel = Depends(get_current_user_flexible)
+):
+    """
+    Detect supplier from a URL by matching against known supplier URL patterns.
+
+    Each supplier can define URL patterns that match their product pages.
+    Returns the best matching supplier with confidence score.
+    """
+    url = request.get("url", "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="URL is required")
+
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url if url.startswith("http") else f"https://{url}")
+        hostname = parsed.hostname or ""
+
+        # Check each available supplier for URL pattern match
+        best_match = None
+        highest_confidence = 0
+
+        for supplier_name in SupplierRegistry.get_available_suppliers():
+            try:
+                supplier = SupplierRegistry.get_supplier(supplier_name)
+                info = supplier.get_supplier_info()
+
+                # Check if supplier has URL detection patterns
+                if hasattr(supplier, 'get_url_patterns'):
+                    patterns = supplier.get_url_patterns()
+                    for pattern in patterns:
+                        import re
+                        if re.search(pattern, url, re.IGNORECASE):
+                            # Found a match with URL pattern
+                            confidence = 1.0
+                            if best_match is None or confidence > highest_confidence:
+                                best_match = {
+                                    "supplier_name": supplier_name,
+                                    "display_name": info.display_name,
+                                    "confidence": confidence
+                                }
+                                highest_confidence = confidence
+                                break
+
+                # Fallback to domain matching if no pattern match
+                if not best_match and info.website_url:
+                    supplier_domain = urlparse(info.website_url).hostname
+                    if supplier_domain and supplier_domain in hostname:
+                        confidence = 0.8
+                        if best_match is None or confidence > highest_confidence:
+                            best_match = {
+                                "supplier_name": supplier_name,
+                                "display_name": info.display_name,
+                                "confidence": confidence
+                            }
+                            highest_confidence = confidence
+
+            except Exception as e:
+                logger.debug(f"Error checking supplier {supplier_name}: {e}")
+                continue
+
+        if best_match:
+            return ResponseSchema(
+                status="success",
+                message=f"Detected supplier: {best_match['display_name']}",
+                data=best_match
+            )
+        else:
+            # No match found
+            return ResponseSchema(
+                status="success",
+                message="No known supplier detected from URL",
+                data=None
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to detect supplier from URL: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to detect supplier: {str(e)}"
+        )

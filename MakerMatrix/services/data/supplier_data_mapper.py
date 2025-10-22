@@ -10,6 +10,7 @@ from datetime import datetime
 import logging
 
 from MakerMatrix.suppliers.base import PartSearchResult, SupplierCapability
+from MakerMatrix.suppliers.registry import get_supplier
 from MakerMatrix.schemas.part_data_standards import (
     ComponentType, MountingType, RoHSStatus, LifecycleStatus,
     StandardizedAdditionalProperties, StandardizedSupplierData,
@@ -22,53 +23,60 @@ logger = logging.getLogger(__name__)
 
 
 class SupplierDataMapper:
-    """Maps supplier-specific data to standardized database format"""
-    
+    """
+    Maps supplier-specific data to standardized database format.
+
+    This service is now completely supplier-agnostic. All supplier-specific
+    mapping logic is delegated to the suppliers themselves via their
+    map_to_standard_format() method.
+    """
+
     def __init__(self):
-        self.supplier_specific_mappers = {
-            'lcsc': self._map_lcsc_data,
-            'mouser': self._map_mouser_data,
-            'digikey': self._map_digikey_data,
-            'mcmaster-carr': self._map_mcmaster_data,
-            'boltdepot': self._map_bolt_depot_data,
-            'seeedstudio': self._map_seeedstudio_data,
-        }
+        # No more hardcoded supplier mappings!
+        # Each supplier handles its own mapping via map_to_standard_format()
+        pass
     
     def map_supplier_result_to_part_data(
-        self, 
-        supplier_result: PartSearchResult, 
+        self,
+        supplier_result: PartSearchResult,
         supplier_name: str,
         enrichment_capabilities: List[str] = None
     ) -> Dict[str, Any]:
         """
-        Map PartSearchResult to standardized part data format
-        
+        Map PartSearchResult to standardized part data format.
+
+        This method is now completely supplier-agnostic. It delegates supplier-specific
+        mapping to the supplier's own map_to_standard_format() method.
+
         Args:
             supplier_result: Result from supplier API
             supplier_name: Name of the supplier
             enrichment_capabilities: List of capabilities used for enrichment
-            
+
         Returns:
             Dictionary with standardized part data for database storage
         """
-        
-        # Start with core field mapping
+
+        # Start with core field mapping (supplier-agnostic)
         core_data = self._map_core_fields(supplier_result, supplier_name)
-        
-        # Create standardized additional_properties
+
+        # Create standardized additional_properties (supplier-agnostic)
         additional_props = self._map_additional_properties(
             supplier_result, supplier_name, enrichment_capabilities
         )
-        
-        # Apply supplier-specific mapping if available
-        if supplier_name.lower() in self.supplier_specific_mappers:
-            supplier_mapper = self.supplier_specific_mappers[supplier_name.lower()]
-            supplier_data = supplier_mapper(supplier_result)
-            
-            # Merge supplier-specific data
-            core_data.update(supplier_data.get('core_fields', {}))
-            additional_props.custom_fields.update(supplier_data.get('custom_fields', {}))
-        
+
+        # Get supplier-specific mapping from the supplier itself
+        supplier_specific_data = self._get_supplier_specific_mapping(
+            supplier_result, supplier_name
+        )
+
+        if supplier_specific_data:
+            # Merge supplier-specific core fields
+            core_data.update(supplier_specific_data.get('core_fields', {}))
+
+            # Merge supplier-specific custom fields into additional_properties
+            additional_props.custom_fields.update(supplier_specific_data.get('custom_fields', {}))
+
         # Build FLAT additional_properties (simple key-value pairs only)
         # Extract only the meaningful custom_fields for clean display
         flat_additional_properties = {}
@@ -103,6 +111,64 @@ class SupplierDataMapper:
 
         logger.info(f"Mapped {supplier_name} data for part {supplier_result.supplier_part_number}")
         return result
+
+    def _get_supplier_specific_mapping(
+        self,
+        supplier_result: PartSearchResult,
+        supplier_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get supplier-specific mapping by calling the supplier's map_to_standard_format() method.
+
+        This is the ONLY place where we interact with supplier instances for mapping,
+        and we do it generically without any hardcoded supplier names.
+
+        Args:
+            supplier_result: Result from supplier API
+            supplier_name: Name of the supplier
+
+        Returns:
+            Dictionary with 'core_fields' and 'custom_fields', or None if supplier not found
+        """
+        try:
+            # Get the supplier instance from the registry
+            supplier = get_supplier(supplier_name)
+
+            if not supplier:
+                logger.warning(f"Supplier '{supplier_name}' not found in registry for mapping")
+                return None
+
+            # Call the supplier's map_to_standard_format() method
+            mapped_data = supplier.map_to_standard_format(supplier_result)
+
+            if not mapped_data:
+                return None
+
+            # The supplier returns a flat dict - we need to separate core fields from custom fields
+            core_field_names = {
+                'supplier_part_number', 'part_name', 'manufacturer', 'manufacturer_part_number',
+                'description', 'component_type', 'rohs_status', 'lifecycle_status',
+                'unit_price', 'currency', 'stock_quantity', 'image_url', 'datasheet_url',
+                'category', 'quantity', 'price'
+            }
+
+            core_fields = {}
+            custom_fields = {}
+
+            for key, value in mapped_data.items():
+                if key in core_field_names:
+                    core_fields[key] = value
+                else:
+                    custom_fields[key] = value
+
+            return {
+                'core_fields': core_fields,
+                'custom_fields': custom_fields
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting supplier-specific mapping for '{supplier_name}': {e}")
+            return None
     
     def _map_core_fields(self, result: PartSearchResult, supplier_name: str) -> Dict[str, Any]:
         """Map PartSearchResult to core database fields"""
@@ -431,7 +497,7 @@ class SupplierDataMapper:
     
     def _calculate_quality_score(self, part_data: Dict[str, Any]) -> float:
         """Calculate data quality score (0.0-1.0) based on field completeness"""
-        
+
         # Define important fields and their weights
         weighted_fields = {
             'manufacturer': 0.2,
@@ -444,186 +510,19 @@ class SupplierDataMapper:
             'stock_quantity': 0.05,
             'rohs_status': 0.05
         }
-        
+
         score = 0.0
         for field, weight in weighted_fields.items():
             if part_data.get(field) is not None:
                 score += weight
-        
+
         # Bonus for specifications
         additional_props = part_data.get('additional_properties', {})
         specs = additional_props.get('specifications', {})
         if specs and len(specs) > 2:  # Has some specifications
             score += 0.1
-        
+
         return min(score, 1.0)
-    
-    # === SUPPLIER-SPECIFIC MAPPERS ===
-    
-    def _map_lcsc_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """LCSC-specific data mapping"""
-        
-        custom_fields = {}
-        
-        if result.additional_data:
-            # Map LCSC-specific fields
-            custom_fields.update({
-                'lcsc_url': result.additional_data.get('product_url'),
-                'easyeda_available': result.additional_data.get('easyeda_data_available', False),
-                'lcsc_category': result.category,
-                'is_smt': result.additional_data.get('is_smt'),
-                'component_prefix': result.additional_data.get('prefix')
-            })
-        
-        return {
-            'core_fields': {},
-            'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
-        }
-    
-    def _map_mouser_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """Mouser-specific data mapping"""
-
-        custom_fields = {}
-        core_fields = {}
-
-        if result.additional_data:
-            # Map the Mouser part number to supplier_part_number if available
-            mouser_part_number = result.additional_data.get('mouser_part_number')
-            # Only override supplier_part_number if we don't already have one
-            # This preserves the user-entered value from the enrichment modal
-            if mouser_part_number and not result.supplier_part_number:
-                # The enrichment returned a Mouser part number and we don't have one, use it
-                core_fields['supplier_part_number'] = mouser_part_number
-
-            custom_fields.update({
-                'mouser_url': result.additional_data.get('product_detail_url'),
-                'mouser_part_number': mouser_part_number,  # Also store in additional_properties for reference
-                'lead_time': result.additional_data.get('lead_time'),
-                'min_order_qty': result.additional_data.get('min_order_qty'),
-                'mouser_category': result.category,
-                'packaging': result.additional_data.get('packaging')
-            })
-
-        return {
-            'core_fields': core_fields,
-            'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
-        }
-    
-    def _map_digikey_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """DigiKey-specific data mapping - maps specifications to additional_properties"""
-
-        custom_fields = {}
-        core_fields = {}
-
-        # Map the DigiKey part number to supplier_part_number if available in additional_data
-        if result.additional_data:
-            digikey_part_number = result.additional_data.get('digikey_part_number')
-            # Only override supplier_part_number if we don't already have one
-            # This preserves the user-entered value from the enrichment modal
-            if digikey_part_number and not result.supplier_part_number:
-                # The enrichment returned a DigiKey part number and we don't have one, use it
-                core_fields['supplier_part_number'] = digikey_part_number
-
-            # Also store in additional_properties for reference
-            if digikey_part_number:
-                custom_fields['digikey_part_number'] = digikey_part_number
-
-        # Map all specifications as flat key-value pairs to additional_properties
-        # This includes all DigiKey Parameters (Core Processor, Speed, Package, etc.)
-        if result.specifications:
-            for key, value in result.specifications.items():
-                # Exclude "DigiKey Programmable" parameter
-                if key != "DigiKey Programmable" and value is not None and value != "":
-                    custom_fields[key] = value
-
-        return {
-            'core_fields': core_fields,
-            'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
-        }
-    
-    def _map_mcmaster_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """McMaster-Carr specific data mapping - maps ALL specifications to additional_properties"""
-
-        custom_fields = {}
-
-        # Map ALL specifications as flat key-value pairs to additional_properties
-        # McMaster-Carr can have ANY type of specification depending on the product
-        # (screws have thread_size, o-rings have durometer, bearings have bore_diameter, etc.)
-        if result.specifications:
-            for key, value in result.specifications.items():
-                if value is not None and value != "":
-                    # Use the specification key as-is (already snake_case from scraper)
-                    custom_fields[key] = str(value)
-
-        # Only add truly universal McMaster metadata (not product-specific fields)
-        if result.additional_data:
-            # Only include fields that apply to ALL McMaster products
-            universal_fields = {
-                'mcmaster_url': result.additional_data.get('url', result.additional_data.get('product_detail_url')),
-                'delivery_info': result.additional_data.get('delivery_info'),
-            }
-
-            # Add universal fields
-            for key, value in universal_fields.items():
-                if value is not None:
-                    custom_fields[key] = value
-
-            # Add ALL other additional_data fields dynamically (no hardcoding)
-            # Skip the universal fields we already added
-            for key, value in result.additional_data.items():
-                if key not in ['url', 'product_detail_url', 'delivery_info', 'source', 'scraped_at', 'warning']:
-                    if value is not None and value != "":
-                        # Preserve the key as-is from the scraper
-                        custom_fields[key] = str(value)
-
-        return {
-            'core_fields': {},
-            'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
-        }
-    
-    def _map_bolt_depot_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """Bolt Depot specific data mapping"""
-
-        custom_fields = {}
-
-        if result.additional_data:
-            # Note: Bolt Depot scraper provides capitalized keys like "Material", "Length", etc.
-            custom_fields.update({
-                'material': result.additional_data.get('Material'),
-                'grade': result.additional_data.get('Grade'),
-                'thread_density': result.additional_data.get('Thread density'),
-                'diameter': result.additional_data.get('Diameter'),
-                'thread_pitch': result.additional_data.get('Thread pitch'),
-                'length': result.additional_data.get('Length'),
-                'head_style': result.additional_data.get('Head style'),
-                'drive_type': result.additional_data.get('Drive type'),
-                'drive_size': result.additional_data.get('Drive size'),
-                'units': result.additional_data.get('Units'),
-            })
-
-        return {
-            'core_fields': {},
-            'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
-        }
-
-    def _map_seeedstudio_data(self, result: PartSearchResult) -> Dict[str, Any]:
-        """Seeed Studio specific data mapping - maps all specifications to additional_properties"""
-
-        custom_fields = {}
-
-        # Map all specifications from additional_data as flat key-value pairs
-        # Seeed Studio provides specifications like Operating Voltage, Interface, etc.
-        if result.additional_data:
-            # All fields from additional_data go directly to custom_fields
-            for key, value in result.additional_data.items():
-                # Convert to snake_case for consistency
-                field_name = key.lower().replace(' ', '_').replace('(', '').replace(')', '').replace('.', '')
-                custom_fields[field_name] = str(value) if value is not None else None
-
-        return {
-            'core_fields': {},
-            'custom_fields': {k: v for k, v in custom_fields.items() if v is not None}
-        }
 
 
 # Utility functions for enrichment integration

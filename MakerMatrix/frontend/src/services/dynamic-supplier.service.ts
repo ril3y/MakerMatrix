@@ -480,6 +480,61 @@ export class DynamicSupplierService {
     )
     return response.data.data
   }
+
+  /**
+   * Check if a supplier supports web scraping fallback
+   */
+  async checkScrapingSupport(supplierName: string): Promise<{
+    supports_scraping: boolean
+    requires_js: boolean
+    warning: string | null
+    rate_limit_seconds: number | null
+  }> {
+    try {
+      const response = await apiClient.get(`/api/suppliers/${supplierName}/supports-scraping`)
+
+      if (response && response.data) {
+        return response.data
+      }
+
+      return {
+        supports_scraping: false,
+        requires_js: false,
+        warning: null,
+        rate_limit_seconds: null,
+      }
+    } catch (error) {
+      console.error(`Failed to check scraping support for ${supplierName}:`, error)
+      return {
+        supports_scraping: false,
+        requires_js: false,
+        warning: null,
+        rate_limit_seconds: null,
+      }
+    }
+  }
+
+  /**
+   * Detect supplier from URL by checking against known supplier patterns
+   */
+  async detectSupplierFromUrl(url: string): Promise<{
+    supplier_name: string
+    display_name: string
+    confidence: number
+  } | null> {
+    try {
+      const response = await apiClient.post(`/api/suppliers/detect-from-url`, { url })
+
+      if (response && response.data) {
+        return response.data
+      }
+
+      return null
+    } catch (error) {
+      console.error('Failed to detect supplier from URL:', error)
+      return null
+    }
+  }
 }
 
 // Export singleton instance

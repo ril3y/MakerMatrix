@@ -1,64 +1,411 @@
-We need all of these tasks completed.  We shold do one task at a time.  Each task needs to have tests front end and back end created for it and it needs
-to pas before going to the next task.  At the start of each task start a new full stack developer agent to do the actual work.  ALso look for the 
-> @.github/workflows/  that need to pass as well.  Once a task is test and it works git commit and move on to the next task.  Remember its important
-to init a new full stack developer before every task.
+=============================================================================
+MAKERMATRIX TODO - UPDATED October 22, 2025
+=============================================================================
 
-Break up the following notes into the individual tasks and create a tasks.md file that you will update as each task has been completed.
-Once all tasks are finished let the user know!
+IMPORTANT: Complete security testing BEFORE starting new features!
+
+=============================================================================
+🔐 IMMEDIATE PRIORITY: SECURITY TESTING (DO THIS FIRST!)
+=============================================================================
+
+The October 2025 security audit identified 9 critical vulnerabilities (CVEs).
+ALL 9 HAVE BEEN FIXED. You MUST verify the fixes work before proceeding.
+
+## How to Test Security Fixes:
+
+### 1. Run the Security Test Suite (5 minutes)
+
+```bash
+cd /home/ril3y/MakerMatrix
+
+# Run all critical security tests (fast - 30 seconds)
+./venv_test/bin/pytest tests/test_security_fixes.py -v -m critical
+
+# Run all security tests (comprehensive - 2-3 minutes)
+./venv_test/bin/pytest tests/test_security_fixes.py -v
+
+# Expected Result: All 51 tests should PASS ✅
+```
+
+### 2. Test Specific Security Fixes:
+
+```bash
+# Test CVE-001: Authorization bypass fix (admin role enforcement)
+./venv_test/bin/pytest tests/test_security_fixes.py::TestCVE001_AuthorizationBypass -v
+
+# Test CVE-002: Command injection fix (backup names)
+./venv_test/bin/pytest tests/test_security_fixes.py::TestCVE002_CommandInjection -v
+
+# Test CVE-003: SSRF protection fix (datasheet URLs)
+./venv_test/bin/pytest tests/test_security_fixes.py::TestCVE003_SSRF -v
+
+# Test CVE-009: Rate limiting fix
+./venv_test/bin/pytest tests/test_security_fixes.py::TestCVE009_RateLimiting -v
+```
+
+### 3. Manual API Key Testing:
+
+The test API key is: REDACTED_API_KEY
+
+Test that this key CANNOT create admin-only backups:
+
+```bash
+# This should return 403 Forbidden (not 200 OK)
+curl -X POST https://10.2.0.2:8443/api/tasks/quick/database_backup \
+  -H "X-API-Key: REDACTED_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "backup_name": "test_backup",
+    "include_datasheets": false,
+    "include_images": false
+  }' \
+  -k
+
+# Expected: {"detail":"Admin access required..."}
+```
+
+Test that command injection is blocked:
+
+```bash
+# This should return 400 Bad Request (validation error)
+curl -X POST https://10.2.0.2:8443/api/tasks/quick/database_backup \
+  -H "X-API-Key: YOUR_ADMIN_KEY_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "backup_name": "backup; whoami",
+    "include_datasheets": false,
+    "include_images": false
+  }' \
+  -k
+
+# Expected: {"detail":"backup_name can only contain..."}
+```
+
+### 4. Check Security Documentation:
+
+Read the security remediation summary:
+```bash
+cat tests/SECURITY_REMEDIATION_COMPLETE.md
+cat tests/SECURITY_TESTING.md
+```
+
+### 5. Verify All CVEs are Fixed:
+
+✅ CVE-001: Authorization Bypass - FIXED (admin role enforcement)
+✅ CVE-002: Command Injection - FIXED (strict validation)
+✅ CVE-003: SSRF - FIXED (URL/IP validation)
+✅ CVE-004: Path Traversal (part_id) - FIXED (path checks)
+✅ CVE-005: Alt Command Injection - FIXED (covered by CVE-002)
+✅ CVE-006: Path Traversal (file imports) - FIXED (path checks)
+✅ CVE-007: Malicious Capabilities - FIXED (whitelist)
+✅ CVE-008: Parameter Injection - FIXED (input filtering)
+✅ CVE-009: Rate Limiting - FIXED (enforcement integrated)
+
+Risk Reduction: 85% (CRITICAL → LOW)
+
+=============================================================================
+📋 FEATURE TASKS (Do these AFTER security testing passes)
+=============================================================================
+
+Work on ONE task at a time. Each task needs:
+1. Start a new full-stack developer agent for the task
+2. Create tests (frontend & backend)
+3. Tests must pass
+4. Git commit when complete
+5. Move to next task
+
+=============================================================================
+🐛 PRIORITY BUGS (Fix These First)
+=============================================================================
+
+BUG-001: Location Rename Loses Allocation Reference
+-------------------------------------------------------
+When we rename a location that has allocations, it loses the reference to
+those allocations.
+
+Test:
+1. Create location with parts allocated
+2. Rename the location
+3. Check if allocations still reference the location
+
+Fix Location:
+- Backend: Check location update logic in location_service.py
+- Database: Verify foreign key relationships
+- Frontend: Ensure UI updates allocation references
 
 
-When we have an allocation to a location, and we rename that locations name it loses its reference to that allocation.
+BUG-002: Location Image Lost on Update
+-------------------------------------------------------
+When updating a location after it has an image, it loses the image on update.
 
+Test:
+1. Create location with image
+2. Update location name
+3. Verify image is still there
+
+Fix Location:
+- Backend: services/data/location_service.py
+- Check image handling in update logic
+
+
+BUG-003: Part Emoji Not Saved on Initial Creation
+-------------------------------------------------------
+When adding a part, the emoji does not save on initial creation. If we edit
+the part and add emoji, then it saves.
+
+Test:
+1. Create new part with emoji selected
+2. Save part
+3. Reload part and check if emoji persists
+
+Fix Location:
+- Frontend: components/parts/AddPartModal.tsx
+- Backend: routers/parts_routes.py or services/data/part_service.py
+- Check if emoji field is included in initial create request
+
+
+=============================================================================
+🆕 NEW FEATURES (Implement After Bugs Fixed)
+=============================================================================
+
+FEATURE-001: Tool Management System
+-------------------------------------------------------
+Tools are different from parts (usually 1 tool, not 5000 resistors).
+Need new model that:
+- Uses categories, locations like parts
+- NOT analytics like "low stock"
+- Supports tools AND parts in same container (toolbox with parts & tools)
+
+Ultrathink Requirements:
+- Should we extend Part model or create new Tool model?
+- Shared containers need polymorphic relationship
+- UI needs tool-specific views (no quantity tracking?)
+
+Test Requirements:
+- CRUD operations for tools
+- Tool allocation to containers
+- Mixed part/tool containers
+- Search and filtering
+
+
+FEATURE-002: Tagging System
+-------------------------------------------------------
+Lightweight tags for parts and tools (like #todo, #testing, #needs-label).
+
+Requirements:
+- String-based tags
+- Apply to parts AND tools
+- Multiple tags per item
+- Filter/search by tags
+
+Implementation:
+- Database: tags table + junction tables (part_tags, tool_tags)
+- Backend: Tag CRUD endpoints
+- Frontend: Tag selector component, tag filtering
+
+Test Requirements:
+- Add/remove tags
+- Filter by tags
+- Tag persistence
+
+
+FEATURE-003: Favorites for Parts
+-------------------------------------------------------
+Star frequently-used parts to add to favorites.
+
+Requirements:
+- Per-user favorites
+- Quick access to favorite parts
+- Persist across sessions
+
+Implementation:
+- Database: user_favorites table or JSON column
+- Backend: Favorite endpoints (add, remove, list)
+- Frontend: Star icon, favorites view
+
+Test Requirements:
+- Add to favorites
+- Remove from favorites
+- View favorites list
+- Favorites persist
+
+
+FEATURE-004: Enhanced Location Builder
+-------------------------------------------------------
+Currently tedious to add SMT containers one-by-one.
+
+Requirements:
+1. Clone location (copy everything including parent, with new name or random)
+2. Bulk create with templating:
+   - SMT Casset - {rand:4} → SMT Casset - AV4D, SMT Casset - B3K2, etc.
+   - SMT Casset - {seq:01-10} → SMT Casset - 01, SMT Casset - 02, ..., SMT Casset - 10
+   - Combination: {seq:01-10}-{rand:2} → 01-AB, 02-CD, etc.
+
+Implementation:
+- Reuse printer label templating system (extract to shared module)
+- Backend: Bulk location creation endpoint
+- Frontend: Template builder UI
+
+Test Requirements:
+- Clone single location
+- Bulk create with {rand:X}
+- Bulk create with {seq:XX-YY}
+- Bulk create with combination templates
+- Verify all locations created correctly
+
+
+=============================================================================
+🗂️ DATABASE & BACKUP SYSTEM
+=============================================================================
+
+FEATURE-005: Complete Database Backup System
+-------------------------------------------------------
+Ensure database backup on Settings page is complete and working.
+
+Current State:
+- Suppliers saved ✓
+- Images saved ✓
+- Favicons saved ✓
+- Credentials in env file (might want in DB?)
+
+Requirements:
+- Bundle DB file + all images + datasheets + favicons in single backup
+- Simple restore from file backup
+- Test backup/restore cycle
+
+Implementation:
+- Check backup_scheduler.py and backup routes
+- Verify all static files included
+- Create restore endpoint
+
+Test Requirements:
+- Create backup
+- Verify all files included
+- Restore from backup
+- Verify data integrity
+
+
+=============================================================================
+🔍 ENRICHMENT FIXES
+=============================================================================
+
+FEATURE-006: Standardize Datasheet Storage
+-------------------------------------------------------
+Datasheets for digikey, mouser, lcsc not working correctly.
+
+Issues:
+- Different additional_properties keys per supplier
+- Frontend doesn't know where to look for datasheets
+
+Solution:
+- Standardize datasheet location in additional_properties
+- Backend supplier code maps to standard key
+- Frontend always looks in same place
+
+Implementation:
+- Check suppliers/*.py files
+- Update map_to_standard_format() in each supplier
+- Verify frontend datasheet display logic
+
+Test Requirements:
+- Enrich part from each supplier
+- Verify datasheet URL in standard location
+- Test frontend datasheet display
+
+
+=============================================================================
+🤖 AI INTEGRATION
+=============================================================================
+
+FEATURE-007: Fix Ollama AI Integration
+-------------------------------------------------------
+Enabling AI for Ollama is janky and errors.
+
+Issues:
+- Current prompt teaches SQL lookups (not right for 7b models)
+- Should use API or setup MCP server?
+
+Ultrathink:
+- 7b models better with API descriptions than SQL
+- MCP server might be overkill
+- Update prompt to use REST API instead of SQL
+
+Implementation:
+- Update AI prompt in ai_config
+- Test with Ollama 7b model
+- Document which models work well
+
+Test Requirements:
+- Enable Ollama AI
+- Test common queries
+- Verify no errors
+
+
+=============================================================================
+🎨 UI IMPROVEMENTS
+=============================================================================
+
+FEATURE-008: Remove Part from Project (UI Button)
+-------------------------------------------------------
+On project details page, add button to remove part from project.
+
+Requirements:
+- X or trash icon on each part in project view
+- Confirmation dialog
+- Update project after removal
+
+Implementation:
+- Frontend: projects/ProjectDetailsPage.tsx
+- Backend: Endpoint already exists?
+- Use existing icon style for consistency
+
+Test Requirements:
+- Remove part from project
+- Verify part removed
+- Verify other parts unaffected
+
+
+=============================================================================
+📝 TASK WORKFLOW
+=============================================================================
+
+For EACH task above:
+
+1. READ the relevant files first
+2. START new fullstack-developer agent
+3. IMPLEMENT the feature/fix
+4. WRITE tests (backend pytest + frontend if needed)
+5. RUN tests until they PASS
+6. GIT COMMIT with descriptive message
+7. MOVE to next task
+
+Check GitHub workflows in .github/workflows/ - tests must pass there too!
+
+=============================================================================
+✅ COMPLETION CRITERIA
+=============================================================================
+
+Security Testing:
+- [ ] All 51 security tests passing
+- [ ] Manual API key test confirms 403 for admin endpoints
+- [ ] Manual command injection test confirms 400 validation error
+- [ ] Security documentation reviewed
+
+Bug Fixes:
+- [ ] BUG-001: Location rename preserves allocations
+- [ ] BUG-002: Location image persists on update
+- [ ] BUG-003: Part emoji saves on initial creation
 
 Features:
-Tool support, just like parts but we need to track tools. The part setup does not work well for tools.  Since you usually have on
-of the tool not like 5000 resistors.  So we should ultrathink about a new model setup to where we can support tools, they will still use 
-everthing else like categories, locations etc.  Perhaps not analytics like "low stock" etc.  I do think we want support the ability to put tools 
-and parts in the same container perhaps,  IE a small toolbox might have some parts and tools together.  
+- [ ] FEATURE-001: Tool management system
+- [ ] FEATURE-002: Tagging system
+- [ ] FEATURE-003: Favorites for parts
+- [ ] FEATURE-004: Enhanced location builder
+- [ ] FEATURE-005: Complete backup system
+- [ ] FEATURE-006: Standardized datasheets
+- [ ] FEATURE-007: Fixed Ollama AI
+- [ ] FEATURE-008: Remove part from project UI
 
-Tags,
-We want to be able to tag a part or a tool.  These are light lightweight projects if you will but just a tag (string) is all it attaches to.
-I had a issue where I added a part but was not read to print the label yet I needed to update the suppiler code but wanted to remember to do this
-so if we had a tag we could #todo or #testing etc.
+Once ALL tasks completed - NOTIFY USER!
 
-Part models support favorites, I would like to be able to star parts to add them to my favorites too.  If i have a particular part I use alot lets
-have a way to favoite it.
-
-Locations, when adding the SMT containers (single space) I quickly realized its very tedious.  We need to expand the location builder. Perhaps we 
-can support cloning (which would clone the location but give it a random name) or you can set the name? This would copy everthing (even the
-parent location),  
-Loactions, when creating a location name for my smt cassets I just used a number like 1  2 3 4 this was ok but kind of lame I think perhap we could 
-support in the location builder setting how many loactions (cassets in this case) we wanted to build and it would auto name these based off of 
-a templating idea.  Say the first one we build it SMT Casset - {rand:4} this way the 10 (if we set to create 10 of these) would have random location
-names.  SMT Casset - AV4D etc..  Or perhaps we could support something like {seq:01-10}  or comnination something like {seq:01-10}-{rand:2} ultrathink
-the best way to do this.  We already have a templating setup for the printer labels perhaps we should rip this out to it so source code file
-(use your best judgement on where to put it) and then use it in both places (maybe elsewhere too)
-
-Bugs
-When updating a location after its been make and it has a image, it loses it's image when it gets updated.  Lets fix this.
-
-When adding a part the emoji does not save even when we set one on the inital save.  If we edit that part and add one then it does save. Lets fix
-this bug.
-
-Feature Database:
-Out database code on settings we need to check out and make sure its complete and working.  Specifically we are saving suppliers, images, favicons
-for suppliers, credentials for suppliers (I think we put this in the env file right now but we might want to put this in the db) we want 
-this to be completely simple to restore from a file backup.  Which means I think we are going to need some code that will bundle the db fileand
-all of the images, datasheets, etc that get downloaded.
-
-Enrichment:
-Our datasheets for digikey, mouser, lcsc are not working, in fact I am not sure that we all use the same additional property for this.  We should 
-standardize where datasheet goes for additional properties this way the ui does not have to learn each place to look for each supplier it supports.
-In the backend supplier code this can be dealt with by moving datasheet url to whatever we decide on for the additional property.  This will not be
-on every part as an additional property it will be when the supplier supports it we will just set the right key value. We also need to check
-and see how the frontend works for displaying the datasheet it should have the code for this but I know its not working.
-
-AI:
-Enabling the AI for ollama is not really working its janky and errors lets take a closer look at this.  Also the ai prompt was teaching it sql to 
-do lookups etc.  But i think this is not right we should just tell it about the api for the server OR we should setup a mcp server for thisproject
-but I am not sure which is the best way to go since we are using 7b models by default to do things for us.
-
-projects
-On the projects page we see the parts that are used in the project details view when clicked.  I want a button  that we can remove the part from the 
-project from that view. like a X or something or the trashcan logo etc something we have used already in the site for consistency.
-
+=============================================================================

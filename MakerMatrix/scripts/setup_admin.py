@@ -48,6 +48,9 @@ def setup_default_roles(user_repo: UserRepository):
                 "tools:update",
                 "tools:delete",
                 "tools:use",
+                "backup:create",
+                "backup:restore",
+                "backup:manage",
             ],
         },
         {

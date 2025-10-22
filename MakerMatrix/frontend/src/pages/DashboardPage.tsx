@@ -12,8 +12,11 @@ import {
   ChevronUp,
   ChevronDown,
   BarChart3,
+  Activity,
+  Clock,
 } from 'lucide-react'
 import { analyticsService } from '@/services/analytics.service'
+import { activityService, type Activity as ActivityType } from '@/services/activity.service'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -91,14 +94,18 @@ const DashboardPage = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
+  const [activities, setActivities] = useState<ActivityType[]>([])
+  const [loadingActivities, setLoadingActivities] = useState(true)
   const [expandedSections, setExpandedSections] = useState({
     distribution: true,
     topParts: true,
     alerts: true,
+    activity: true,
   })
 
   useEffect(() => {
     loadDashboardData()
+    loadRecentActivities()
   }, [])
 
   const loadDashboardData = async () => {
@@ -111,6 +118,22 @@ const DashboardPage = () => {
       console.error('Dashboard error:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadRecentActivities = async () => {
+    try {
+      setLoadingActivities(true)
+      const recentActivities = await activityService.getRecentActivities({
+        limit: 10,
+        hours: 24,
+      })
+      setActivities(recentActivities)
+    } catch (error) {
+      console.error('Failed to load recent activities:', error)
+      // Don't show error toast for activities - it's not critical
+    } finally {
+      setLoadingActivities(false)
     }
   }
 
@@ -629,12 +652,87 @@ const DashboardPage = () => {
         )}
       </motion.div>
 
+      {/* Recent Activity Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="card"
+      >
+        <div
+          className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
+          onClick={() => toggleSection('activity')}
+        >
+          <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+            <Activity className="w-5 h-5" />
+            Recent Activity
+          </h2>
+          {expandedSections.activity ? <ChevronUp /> : <ChevronDown />}
+        </div>
+
+        {expandedSections.activity && (
+          <div className="p-6">
+            {loadingActivities ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : activities.length === 0 ? (
+              <div className="text-center py-8 text-muted">
+                <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No recent activity</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {activities.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="flex items-start gap-3 p-3 bg-background-secondary rounded-lg border border-border hover:border-primary/50 transition-colors"
+                  >
+                    <div className="text-2xl flex-shrink-0">
+                      {activityService.getActivityIcon(activity)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-primary font-medium">
+                            {activityService.formatActivityDescription(activity)}
+                          </p>
+                          {activity.username && (
+                            <p className="text-xs text-muted mt-0.5">by {activity.username}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted flex-shrink-0">
+                          <Clock className="w-3 h-3" />
+                          {activityService.formatRelativeTime(activity.timestamp)}
+                        </div>
+                      </div>
+                      {activity.details && Object.keys(activity.details).length > 0 && (
+                        <div className="mt-1 text-xs text-secondary">
+                          {Object.entries(activity.details)
+                            .filter(([key]) => !['id', 'timestamp'].includes(key))
+                            .slice(0, 2)
+                            .map(([key, value]) => (
+                              <span key={key} className="mr-3">
+                                {key}: {typeof value === 'object' ? JSON.stringify(value) : value}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </motion.div>
+
       {/* Low Stock Alerts Section */}
       {data.low_stock_parts.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.45 }}
           className="card"
         >
           <div

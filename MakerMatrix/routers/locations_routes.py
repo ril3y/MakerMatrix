@@ -10,6 +10,7 @@ from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.auth.dependencies import get_current_user_flexible, oauth2_scheme
+from MakerMatrix.auth.guards import require_permission, require_admin
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
 
@@ -118,10 +119,10 @@ async def get_location(
 @standard_error_handling
 @log_activity("location_updated", "User {username} updated location")
 async def update_location(
-    location_id: str, 
+    location_id: str,
     location_data: LocationUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(require_permission("locations:update"))
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Update a location's fields. This endpoint can update any combination of name, description, parent_id, and location_type.
@@ -196,7 +197,7 @@ async def update_location(
 async def add_location(
     location_data: LocationCreateRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(require_permission("locations:create"))
 ) -> ResponseSchema[Dict[str, Any]]:
     location_service = LocationService()
 
@@ -375,7 +376,7 @@ async def preview_location_delete(location_id: str) -> ResponseSchema:
 async def delete_location(
     location_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(require_permission("locations:delete"))
 ) -> ResponseSchema:
     response = LocationService.delete_location(location_id)
     
@@ -416,7 +417,9 @@ async def delete_location(
 
 @router.delete("/cleanup-locations")
 @standard_error_handling
-async def cleanup_locations() -> ResponseSchema[Dict[str, Any]]:
+async def cleanup_locations(
+    current_user: UserModel = Depends(require_admin)
+) -> ResponseSchema[Dict[str, Any]]:
     """
     Clean up locations by removing those with invalid parent IDs and their descendants.
     

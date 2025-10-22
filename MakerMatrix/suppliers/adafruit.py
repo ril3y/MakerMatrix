@@ -10,6 +10,7 @@ Uses JSON-LD structured data for reliable product information extraction.
 from typing import List, Dict, Any, Optional
 import re
 import json
+import html
 from bs4 import BeautifulSoup
 from decimal import Decimal
 import logging
@@ -55,6 +56,13 @@ class AdafruitSupplier(BaseSupplier):
             SupplierCapability.IMPORT_ORDERS,          # Import from invoice HTML
         ]
 
+    def is_configured(self) -> bool:
+        """
+        Adafruit uses public web scraping which doesn't require credentials.
+        Always return True since the website is publicly accessible.
+        """
+        return True
+
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """Adafruit uses web scraping, so no credentials required for any capability"""
         return {
@@ -64,6 +72,15 @@ class AdafruitSupplier(BaseSupplier):
             )
             for capability in self.get_capabilities()
         }
+
+    def get_url_patterns(self) -> List[str]:
+        """Return URL patterns that identify Adafruit product links"""
+        return [
+            r'adafruit\.com',  # Base domain
+            r'www\.adafruit\.com',  # With www
+            r'adafruit\.com/product/\d+',  # Product pages with numeric ID
+            r'adafruit\.com/products/\d+',  # Alternative product URL format
+        ]
 
     def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
         """Define how to extract part fields from Adafruit product URLs"""
@@ -80,6 +97,61 @@ class AdafruitSupplier(BaseSupplier):
                 required_for_enrichment=True
             )
         ]
+
+    def get_enrichment_requirements(self):
+        """
+        Define what part data is required for enrichment from Adafruit.
+
+        Adafruit requires the supplier_part_number (numeric product ID)
+        to look up parts via web scraping.
+
+        Returns:
+            EnrichmentRequirements with required, recommended, and optional fields
+        """
+        from MakerMatrix.models.enrichment_requirement_models import (
+            EnrichmentRequirements, FieldRequirement, RequirementSeverity
+        )
+
+        return EnrichmentRequirements(
+            supplier_name="adafruit",
+            display_name="Adafruit Industries",
+            description="Adafruit can enrich parts with detailed descriptions, images, pricing, and stock levels using web scraping from product pages",
+            required_fields=[
+                FieldRequirement(
+                    field_name="supplier_part_number",
+                    display_name="Adafruit Product ID",
+                    severity=RequirementSeverity.REQUIRED,
+                    description="The numeric product ID (e.g., 3571) is required to look up part details from the Adafruit website. This is the primary identifier for Adafruit products.",
+                    example="3571",
+                    validation_pattern="^\\d+$"
+                )
+            ],
+            recommended_fields=[
+                FieldRequirement(
+                    field_name="description",
+                    display_name="Part Description",
+                    severity=RequirementSeverity.RECOMMENDED,
+                    description="Having a description helps validate that the enriched data matches your intended product",
+                    example="ARM Cortex-M0+ JTAG/SWD Debugger"
+                )
+            ],
+            optional_fields=[
+                FieldRequirement(
+                    field_name="manufacturer_part_number",
+                    display_name="Manufacturer Part Number",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Manufacturer part number can help verify the enriched data",
+                    example="ATSAMD21G18"
+                ),
+                FieldRequirement(
+                    field_name="component_type",
+                    display_name="Component Type",
+                    severity=RequirementSeverity.OPTIONAL,
+                    description="Component type helps organize enriched specifications",
+                    example="Development Board"
+                )
+            ]
+        )
 
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for public web scraping
@@ -349,9 +421,9 @@ class AdafruitSupplier(BaseSupplier):
     def _parse_from_json_ld(self, json_ld: Dict[str, Any], product_id: str, url: str) -> Optional[PartSearchResult]:
         """Parse product information from JSON-LD structured data"""
         try:
-            # Extract basic product info
-            name = json_ld.get('name', '')
-            description = json_ld.get('description', '')
+            # Extract basic product info and decode HTML entities
+            name = html.unescape(json_ld.get('name', ''))
+            description = html.unescape(json_ld.get('description', ''))
             sku = str(json_ld.get('sku', product_id))
 
             # Extract image - fix double slashes
@@ -473,11 +545,11 @@ class AdafruitSupplier(BaseSupplier):
             title_tag = soup.find('h1')
             name = title_tag.get_text().strip() if title_tag else f"Adafruit Product {product_id}"
 
-            # Extract description from meta tags
+            # Extract description from meta tags and decode HTML entities
             description = ""
             desc_meta = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
             if desc_meta:
-                description = desc_meta.get('content', '')
+                description = html.unescape(desc_meta.get('content', ''))
 
             # Extract image from meta tags
             image_url = None
@@ -717,3 +789,62 @@ class AdafruitSupplier(BaseSupplier):
             logger.error(f"Error parsing invoice products: {e}")
 
         return parts
+
+    def map_to_standard_format(self, supplier_data: Any) -> Dict[str, Any]:
+        """
+        Map supplier data to standard format.
+
+        This method flattens the PartSearchResult into simple key-value pairs for clean display.
+        All specifications and additional_data are expanded into flat fields.
+
+        Args:
+            supplier_data: PartSearchResult from this supplier
+
+        Returns:
+            Flat dictionary with all data as simple key-value pairs
+        """
+        if not isinstance(supplier_data, PartSearchResult):
+            return {}
+
+        # Start with core fields
+        mapped = {
+            'supplier_part_number': supplier_data.supplier_part_number,
+            'part_name': supplier_data.part_name or supplier_data.description or supplier_data.supplier_part_number,
+            'manufacturer': supplier_data.manufacturer,
+            'manufacturer_part_number': supplier_data.manufacturer_part_number,
+            'description': supplier_data.description,
+            'category': supplier_data.category,
+        }
+
+        # Add image and datasheet URLs if available
+        if supplier_data.image_url:
+            mapped['image_url'] = supplier_data.image_url
+        if supplier_data.datasheet_url:
+            mapped['datasheet_url'] = supplier_data.datasheet_url
+
+        # Extract unit price from pricing array (first tier)
+        if supplier_data.pricing and len(supplier_data.pricing) > 0:
+            first_price = supplier_data.pricing[0]
+            mapped['unit_price'] = first_price.get('price')
+            mapped['currency'] = first_price.get('currency', 'USD')
+
+        # Flatten specifications into custom fields
+        if supplier_data.specifications:
+            for spec_key, spec_value in supplier_data.specifications.items():
+                # Create readable field names
+                field_name = spec_key.replace('_', ' ').title()
+                if spec_value is not None:
+                    mapped[field_name] = str(spec_value)
+
+        # Flatten additional_data into custom fields
+        if supplier_data.additional_data:
+            for key, value in supplier_data.additional_data.items():
+                # Skip internal tracking fields
+                if key in ['source', 'scraped_at', 'api_version', 'last_updated', 'warning', 'data_source']:
+                    continue
+                # Create readable field names
+                field_name = key.replace('_', ' ').title()
+                if value is not None:
+                    mapped[field_name] = str(value)
+
+        return mapped

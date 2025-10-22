@@ -31,11 +31,14 @@ class BackupScheduler:
     async def start(self):
         """Start the backup scheduler"""
         try:
+            # Start the scheduler first
+            self.scheduler.start()
+            logger.info("Backup scheduler instance started")
+
             # Load configuration and schedule backups
+            # This must be done after starting the scheduler so next_run_time is available
             await self.reload_schedule()
 
-            # Start the scheduler
-            self.scheduler.start()
             logger.info("Backup scheduler started successfully")
         except Exception as e:
             logger.error(f"Failed to start backup scheduler: {e}", exc_info=True)

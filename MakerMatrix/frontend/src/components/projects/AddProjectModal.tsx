@@ -11,7 +11,7 @@ import { parseUrl, normalizeUrl, getFaviconUrl } from '@/utils/url.utils'
 interface AddProjectModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (createdProjectId?: string) => void
   existingProjects?: string[]
 }
 
@@ -72,10 +72,10 @@ const AddProjectModal = ({
         links: Object.keys(linksObject).length > 0 ? linksObject : undefined,
       }
 
-      await projectsService.createProject(submitData)
+      const createdProject = await projectsService.createProject(submitData)
       toast.success('Project created successfully')
       handleClose()
-      onSuccess()
+      onSuccess(createdProject.id)
     } catch (error) {
       console.error('Failed to create project:', error)
       const err = error as {

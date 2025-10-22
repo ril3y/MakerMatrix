@@ -92,11 +92,12 @@ class McMasterCarrSupplier(BaseSupplier):
 
     def get_capabilities(self) -> List[SupplierCapability]:
         # McMaster-Carr API implementation - requires approved account and certificates
+        # NOTE: McMaster does NOT support datasheets - removed FETCH_DATASHEET capability
         return [
             SupplierCapability.GET_PART_DETAILS,
-            SupplierCapability.FETCH_DATASHEET,
-            SupplierCapability.IMPORT_ORDERS
+            # SupplierCapability.IMPORT_ORDERS
             # Note: FETCH_PRICING_STOCK not implemented yet
+            # Note: FETCH_DATASHEET removed - McMaster doesn't provide datasheets
         ]
 
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
@@ -557,6 +558,75 @@ class McMasterCarrSupplier(BaseSupplier):
         except Exception as e:
             logger.error(f"❌ Failed to fetch image for part '{supplier_part_number}': {str(e)}")
             return None
+
+    def map_to_standard_format(self, supplier_data: Any) -> Dict[str, Any]:
+        """
+        Map McMaster-Carr supplier data to standard format.
+
+        This method flattens the PartSearchResult into simple key-value pairs for clean display.
+        All specifications and additional_data are expanded into flat fields.
+
+        Args:
+            supplier_data: PartSearchResult from McMaster-Carr (scraping or API)
+
+        Returns:
+            Flat dictionary with all data as simple key-value pairs
+        """
+        if not isinstance(supplier_data, PartSearchResult):
+            return {}
+
+        # Start with core fields
+        mapped = {
+            'supplier_part_number': supplier_data.supplier_part_number,
+            'part_name': supplier_data.description or supplier_data.supplier_part_number,
+            'manufacturer': supplier_data.manufacturer,
+            'manufacturer_part_number': supplier_data.manufacturer_part_number,
+            'description': supplier_data.description,
+            'category': supplier_data.category,
+        }
+
+        # Add image and datasheet URLs if available
+        if supplier_data.image_url:
+            mapped['image_url'] = supplier_data.image_url
+        if supplier_data.datasheet_url:
+            mapped['datasheet_url'] = supplier_data.datasheet_url
+
+        # Define fields to skip for both specifications and additional_data
+        skip_fields = {
+            # Internal tracking fields
+            'source', 'scraped_at', 'api_version', 'last_updated', 'warning',
+            # Compliance and trade regulation fields
+            'u_s_mexico_canada_agreement_usmca_qualifying',
+            'delivery_info',
+            'dfars_compliance',
+            'export_control_classification_number_eccn',
+            'reach_compliance',
+            'schedule_b_number',  # Trade compliance field
+            'url',  # Already have product_url in main fields
+        }
+
+        # Flatten specifications into custom fields (these become top-level additional_properties)
+        if supplier_data.specifications:
+            for spec_key, spec_value in supplier_data.specifications.items():
+                # Skip fields in blacklist (case-insensitive)
+                if spec_key.lower() in skip_fields:
+                    continue
+                # Create readable field names
+                field_name = spec_key.replace('_', ' ').title()
+                mapped[field_name] = str(spec_value) if spec_value is not None else ''
+
+        # Flatten additional_data into custom fields
+        if supplier_data.additional_data:
+            for key, value in supplier_data.additional_data.items():
+                # Skip fields in blacklist (case-insensitive)
+                if key.lower() in skip_fields:
+                    continue
+                # Create readable field names
+                field_name = key.replace('_', ' ').title()
+                if value is not None:
+                    mapped[field_name] = str(value)
+
+        return mapped
 
     # ========== Web Scraping Fallback Methods ==========
 

@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 async def add_part(
     part: PartCreate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("parts:create")),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     # Convert PartCreate to dict and include category_names
@@ -114,7 +114,7 @@ async def get_part_counts() -> ResponseSchema[int]:
 @standard_error_handling
 async def delete_part(
         request: Request,
-        current_user: UserModel = Depends(get_current_user_flexible),
+        current_user: UserModel = Depends(require_permission("parts:delete")),
         part_id: Optional[str] = Query(None, description="Part ID"),
         part_name: Optional[str] = Query(None, description="Part Name"),
         part_number: Optional[str] = Query(None, description="Part Number")
@@ -234,7 +234,7 @@ async def update_part(
     part_id: str,
     part_data: PartUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("parts:update")),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     # Capture original data for change tracking
@@ -506,7 +506,7 @@ async def transfer_part_quantity(
     to_location_id: str = Query(..., description="Destination location ID"),
     quantity: int = Query(..., gt=0, description="Quantity to transfer"),
     notes: Optional[str] = Query(None, description="Transfer notes"),
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("parts:update")),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[PartResponse]:
     """
@@ -745,23 +745,24 @@ async def get_supplier_enrichment_requirements(
 async def enrich_part_from_supplier(
     supplier_name: str,
     part_identifier: str,
-    current_user: UserModel = Depends(get_current_user_flexible)
+    force_refresh: bool = False,
+    current_user: UserModel = Depends(require_permission("parts:update"))
 ) -> ResponseSchema[Dict[str, Any]]:
     """
-    Unified endpoint for enriching part data from a supplier.
+    Instant Enrichment endpoint - enrich part data immediately from supplier.
 
     This endpoint handles URL-based and part number-based enrichment by:
     1. Detecting if the identifier is a URL and extracting the part identifier
-    2. Fetching part details from the supplier API
-    3. Using SupplierDataMapper to standardize the data
-    4. Returning enriched data ready for form population
+    2. Using the unified EnrichmentEngine to fetch and standardize data
+    3. Returning enriched data ready for form population
 
-    This ensures all enrichment paths (URL, import, manual) use the same
-    data mapping logic via SupplierDataMapper.
+    This endpoint uses the SAME enrichment logic as the background enrichment
+    task (Enrich button), ensuring maximum code reuse and consistency.
 
     Args:
-        supplier_name: Supplier name (e.g., 'digikey', 'mouser', 'adafruit')
+        supplier_name: Supplier name (e.g., 'digikey', 'mouser', 'mcmaster-carr')
         part_identifier: URL or part number/MPN
+        force_refresh: Force refresh of cached data
         current_user: Current authenticated user
 
     Returns:
@@ -790,10 +791,10 @@ async def enrich_part_from_supplier(
     """
     try:
         from MakerMatrix.suppliers.registry import get_supplier
-        from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
+        from MakerMatrix.services.system.enrichment_engine import enrichment_engine
         import re
 
-        # Get supplier instance
+        # Get supplier instance to check URL patterns and configure credentials
         try:
             supplier = get_supplier(supplier_name)
         except Exception as e:
@@ -829,9 +830,9 @@ async def enrich_part_from_supplier(
 
         except Exception as e:
             logger.warning(f"Could not load credentials for {supplier_name}: {e}")
-            # Continue anyway - some suppliers may work without credentials or have fallback auth
+            # Continue anyway - some suppliers may work without credentials via scraping
 
-        # Check if part_identifier is a URL and extract data if needed
+        # Check if part_identifier is a URL and extract part identifier if needed
         extracted_identifier = part_identifier
         if part_identifier.startswith('http'):
             # Try to extract part identifier from URL using enrichment field mappings
@@ -849,50 +850,33 @@ async def enrich_part_from_supplier(
 
             if extracted_identifier == part_identifier:
                 logger.warning(f"Could not extract part identifier from URL: {part_identifier}")
-                # Continue anyway - supplier might handle URLs directly
+                # Continue anyway - supplier might handle URLs directly (like McMaster-Carr)
+                extracted_identifier = part_identifier
 
-        # Fetch part details from supplier
-        try:
-            part_details = await supplier.get_part_details(extracted_identifier)
-        except Exception as e:
-            logger.error(f"Failed to fetch part details from {supplier_name}: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to fetch part details: {str(e)}"
-            )
-
-        if not part_details:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Part not found with identifier '{extracted_identifier}'"
-            )
-
-        # Log raw supplier response for debugging
-        import json
-        logger.info(f"🔍 Raw {supplier_name} response for {extracted_identifier}:")
-        logger.info(f"  supplier_part_number: {part_details.supplier_part_number}")
-        logger.info(f"  manufacturer: {part_details.manufacturer}")
-        logger.info(f"  manufacturer_part_number: {part_details.manufacturer_part_number}")
-        logger.info(f"  description: {part_details.description}")
-        logger.info(f"  image_url: {part_details.image_url}")
-        logger.info(f"  datasheet_url: {part_details.datasheet_url}")
-        logger.info(f"  pricing: {part_details.pricing}")
-        logger.info(f"  specifications: {json.dumps(part_details.specifications, indent=2) if part_details.specifications else 'None'}")
-        logger.info(f"  additional_data: {json.dumps(part_details.additional_data, indent=2) if part_details.additional_data else 'None'}")
-
-        # Use SupplierDataMapper to standardize the result
-        mapper = SupplierDataMapper()
-        standardized_data = mapper.map_supplier_result_to_part_data(
-            supplier_result=part_details,
+        # Use EnrichmentEngine for unified enrichment logic
+        # This is the SAME code path used by background enrichment
+        enrichment_result = await enrichment_engine.enrich_part(
             supplier_name=supplier_name,
-            enrichment_capabilities=['get_part_details']
+            part_identifier=extracted_identifier,
+            force_refresh=force_refresh
         )
 
-        logger.info(f"Successfully enriched part from {supplier_name}: {standardized_data.get('part_name', 'Unknown')}")
+        if not enrichment_result['success']:
+            error_msg = enrichment_result.get('error', 'Unknown error')
+            logger.error(f"Enrichment failed: {error_msg}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to enrich part: {error_msg}"
+            )
+
+        standardized_data = enrichment_result['data']
+        enrichment_method = enrichment_result.get('enrichment_method', 'unknown')
+
+        logger.info(f"✓ Instant enrichment successful via {enrichment_method}: {standardized_data.get('part_name', 'Unknown')}")
 
         return BaseRouter.build_success_response(
             data=standardized_data,
-            message=f"Part data enriched from {supplier_name}"
+            message=f"Part data enriched from {supplier_name} via {enrichment_method}"
         )
 
     except HTTPException:
@@ -909,7 +893,7 @@ async def enrich_part_from_supplier(
 @standard_error_handling
 async def bulk_update_parts(
     request: BulkUpdateRequest,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("parts:update")),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[BulkUpdateResponse]:
     """
@@ -999,7 +983,7 @@ async def bulk_update_parts(
 @standard_error_handling
 async def bulk_delete_parts(
     request: BulkDeleteRequest,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("parts:delete")),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[BulkDeleteResponse]:
     """

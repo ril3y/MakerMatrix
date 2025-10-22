@@ -279,6 +279,7 @@ class ProjectService(BaseService):
                     f"Part added to project '{project.name}' successfully",
                     {
                         "project_id": project_id,
+                        "project_name": project.name,
                         "part_id": part_id,
                         "notes": notes,
                         "parts_count": project.parts_count
@@ -318,6 +319,7 @@ class ProjectService(BaseService):
                     f"Part removed from project '{project.name}' successfully",
                     {
                         "project_id": project_id,
+                        "project_name": project.name,
                         "part_id": part_id,
                         "parts_count": project.parts_count
                     }

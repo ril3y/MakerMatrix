@@ -1,6 +1,11 @@
 # MakerMatrix Dockerfile
 # Multi-stage build for production deployment
 
+# Build arguments for metadata
+ARG VERSION=1.0.0
+ARG BUILD_DATE
+ARG VCS_REF
+
 # Stage 1: Frontend Build
 FROM node:18-alpine AS frontend-builder
 
@@ -21,11 +26,30 @@ RUN npx vite build
 # Stage 2: Backend Runtime
 FROM python:3.12-slim
 
+# Re-declare build arguments for this stage
+ARG VERSION=1.0.0
+ARG BUILD_DATE
+ARG VCS_REF
+
+# Add OCI labels for metadata
+LABEL org.opencontainers.image.title="MakerMatrix" \
+      org.opencontainers.image.description="Comprehensive parts and inventory management system for makers and engineers" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.vendor="MakerMatrix Contributors" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.url="https://github.com/ril3y/MakerMatrix" \
+      org.opencontainers.image.documentation="https://github.com/ril3y/MakerMatrix/blob/main/README.md" \
+      org.opencontainers.image.source="https://github.com/ril3y/MakerMatrix" \
+      maintainer="MakerMatrix Contributors"
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    MAKERMATRIX_VERSION=${VERSION}
 
 # Install system dependencies (including build tools for pyminizip and fonts for label printing)
 RUN apt-get update && apt-get install -y \

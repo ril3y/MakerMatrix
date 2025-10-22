@@ -26,6 +26,7 @@ from MakerMatrix.exceptions import ResourceNotFoundError, ResourceAlreadyExistsE
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
+from MakerMatrix.auth.guards import require_permission
 
 # BaseRouter infrastructure
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity, validate_service_response
@@ -66,7 +67,7 @@ async def get_all_templates(
     search: Optional[str] = Query(None, description="Search term"),
     is_system: Optional[bool] = Query(None, description="Filter by system templates (true) or user templates (false)"),
     include_public: bool = Query(True, description="Include public templates"),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[TemplateListResponse]:
     """
     Get all label templates with optional filtering.
@@ -121,7 +122,7 @@ async def get_all_templates(
 async def create_template(
     template_data: LabelTemplateCreate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[LabelTemplateResponse]:
     logger.info(f"[DEBUG] Received template creation request: {template_data.model_dump()}")
     """
@@ -163,7 +164,7 @@ async def create_template(
 @standard_error_handling
 async def get_template(
     template_id: str,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[LabelTemplateResponse]:
     """
     Get a specific template by ID.
@@ -199,9 +200,9 @@ async def get_template(
 @log_activity("template_updated", "User {username} updated template {template_name}")
 async def update_template(
     template_id: str,
-    template_updates: LabelTemplateUpdate,
+    template_data: LabelTemplateUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:update"))
 ) -> ResponseSchema[LabelTemplateResponse]:
     """
     Update an existing template.
@@ -250,7 +251,7 @@ async def update_template(
 async def delete_template(
     template_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:delete"))
 ) -> ResponseSchema[Dict[str, str]]:
     """
     Delete a template.
@@ -298,7 +299,7 @@ async def duplicate_template(
     template_id: str,
     request: Request,
     new_name: str = Query(..., description="Name for the duplicated template"),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[LabelTemplateResponse]:
     """
     Duplicate an existing template with a new name.
@@ -352,7 +353,7 @@ async def search_templates(
     label_height_min: Optional[float] = Query(None, description="Minimum label height in mm"),
     label_height_max: Optional[float] = Query(None, description="Maximum label height in mm"),
     include_public: bool = Query(True, description="Include public templates"),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[TemplateListResponse]:
     """
     Search templates with advanced filtering options.
@@ -397,7 +398,7 @@ async def search_templates(
 async def get_compatible_templates(
     label_height_mm: float,
     label_width_mm: Optional[float] = Query(None, description="Label width in mm"),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[TemplateListResponse]:
     """
     Get templates compatible with specific label dimensions.
@@ -447,7 +448,7 @@ async def get_template_categories() -> ResponseSchema[List[str]]:
 @router.get("/stats/summary", response_model=ResponseSchema[TemplateStatsResponse])
 @standard_error_handling
 async def get_template_statistics(
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[TemplateStatsResponse]:
     """
     Get template system statistics.
@@ -473,7 +474,7 @@ async def get_template_statistics(
 @standard_error_handling
 async def validate_template(
     template_data: LabelTemplateCreate,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:read"))
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Validate template configuration without saving.
@@ -510,7 +511,7 @@ async def validate_template(
 @standard_error_handling
 async def preview_template(
     preview_request: TemplatePreviewRequest,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Generate a preview of a template with sample data.

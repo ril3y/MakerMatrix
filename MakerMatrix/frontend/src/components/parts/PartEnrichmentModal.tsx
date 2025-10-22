@@ -572,11 +572,24 @@ const PartEnrichmentModal = ({
                       <Info className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <h3 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">
-                          Required Fields
+                          Required Information Missing
                         </h3>
                         <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-3">
-                          Please fill in the required information to enrich from{' '}
-                          {requirementCheck.supplier_name}:
+                          {requirementCheck.supplier_name === 'mcmaster-carr' ? (
+                            <>
+                              McMaster-Carr requires either a <strong>product URL</strong> or <strong>part number</strong> to fetch part details.
+                              Please edit the part to add one of these:
+                              <ul className="mt-2 ml-4 list-disc">
+                                <li>Product URL (e.g., https://www.mcmaster.com/92095A212/)</li>
+                                <li>McMaster Part Number (e.g., 92095A212)</li>
+                              </ul>
+                            </>
+                          ) : (
+                            <>
+                              Please fill in the required information to enrich from{' '}
+                              {requirementCheck.supplier_name}:
+                            </>
+                          )}
                         </p>
 
                         {/* Input fields for missing required data */}

@@ -7,11 +7,14 @@ from MakerMatrix.models.user_models import UserModel
 
 # Configuration - can be overridden with environment variables
 import os
+
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise ValueError("JWT_SECRET_KEY environment variable is required for security. Please set a secure secret key.")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "480"))  # 8 hours default (mobile-friendly)
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "480")
+)  # 8 hours default (mobile-friendly)
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
@@ -37,11 +40,8 @@ class AuthService:
             expire = datetime.utcnow() + expires_delta
         else:
             expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        
-        to_encode.update({
-            "exp": expire,
-            "password_change_required": data.get("password_change_required", False)
-        })
+
+        to_encode.update({"exp": expire, "password_change_required": data.get("password_change_required", False)})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
         return encoded_jwt
 
@@ -72,12 +72,45 @@ class AuthService:
                 detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
+        # Handle guest users - they don't exist in database
+        if payload.get("is_guest"):
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.info(f"Authenticating guest user: {username}")
+
+            # Get viewer role for guest
+            try:
+                viewer_role = self.user_repository.get_role_by_name("viewer")
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Guest authentication failed: viewer role not found",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Create mock guest user object
+            guest_user = UserModel(
+                id=username.replace("guest_", ""),
+                username=username,
+                email=f"{username}@temporary",
+                hashed_password="",  # No password for guests
+                is_active=True,
+                roles=[viewer_role],
+                password_change_required=False,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            return guest_user
+
+        # Regular user authentication
         try:
             user = self.user_repository.get_user_by_username(username)
         except Exception as e:
             # Log the database error and raise a proper authentication error
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"Database error during user authentication: {e}")
             raise HTTPException(
@@ -85,28 +118,28 @@ class AuthService:
                 detail="Authentication database error",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Inactive user",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         return user
 
     def has_permission(self, user: UserModel, required_permission: str) -> bool:
         if not user.roles:
             return False
-        
+
         for role in user.roles:
             if "all" in role.permissions or required_permission in role.permissions:
                 return True
-        return False 
+        return False

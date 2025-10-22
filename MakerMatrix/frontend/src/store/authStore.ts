@@ -12,6 +12,7 @@ interface AuthState {
 
   // Actions
   login: (credentials: LoginRequest) => Promise<void>
+  guestLogin: () => Promise<void>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>
@@ -43,6 +44,25 @@ export const useAuthStore = create<AuthState>()(
             set({
               isLoading: false,
               error: error.response?.data?.detail || 'Login failed',
+            })
+            throw error
+          }
+        },
+
+        guestLogin: async () => {
+          set({ isLoading: true, error: null })
+          try {
+            const response = await authService.guestLogin()
+            set({
+              user: response.user,
+              isAuthenticated: true,
+              isLoading: false,
+            })
+            toast.success('Viewing as guest - read-only access')
+          } catch (error: any) {
+            set({
+              isLoading: false,
+              error: error.response?.data?.detail || 'Guest login failed',
             })
             throw error
           }

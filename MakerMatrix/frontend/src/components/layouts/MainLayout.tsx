@@ -42,59 +42,75 @@ const MainLayout: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, hasRole } = useAuthStore()
+  const { user, logout, hasRole, hasPermission } = useAuthStore()
 
-  const navItems: NavItem[] = [
+  // Define all possible nav items with their required permissions
+  const allNavItems: (NavItem & { requiredPermission?: string })[] = [
     {
       label: 'Dashboard',
       path: '/',
       icon: <Home className="w-5 h-5" />,
+      requiredPermission: 'dashboard:view',
     },
     {
       label: 'Parts',
       path: '/parts',
       icon: <CircuitBoard className="w-5 h-5" />,
+      requiredPermission: 'parts:read',
     },
     {
       label: 'Locations',
       path: '/locations',
       icon: <MapPin className="w-5 h-5" />,
+      requiredPermission: 'locations:read',
     },
     {
       label: 'Categories',
       path: '/categories',
       icon: <Tags className="w-5 h-5" />,
+      requiredPermission: 'categories:read',
     },
     {
       label: 'Projects',
       path: '/projects',
       icon: <Hash className="w-5 h-5" />,
+      requiredPermission: 'projects:read',
     },
     {
       label: 'Tools',
       path: '/tools',
       icon: <Wrench className="w-5 h-5" />,
+      requiredPermission: 'tools:read',
     },
     {
       label: 'Tasks',
       path: '/tasks',
       icon: <Activity className="w-5 h-5" />,
+      requiredPermission: 'tasks:read',
     },
     {
       label: 'Settings',
       path: '/settings',
       icon: <Settings className="w-5 h-5" />,
+      requiredPermission: 'all', // Settings require admin/all permission
     },
   ]
 
-  // Admin-only nav items
+  // Admin-only Users nav item
   if (hasRole('admin')) {
-    navItems.push({
+    allNavItems.push({
       label: 'Users',
       path: '/users',
       icon: <Users className="w-5 h-5" />,
+      requiredPermission: 'users:read',
     })
   }
+
+  // Filter nav items based on user permissions
+  const navItems = allNavItems.filter((item) => {
+    if (!item.requiredPermission) return true
+    return hasPermission(item.requiredPermission)
+  })
 
   // Clear search when navigating to a different page
   useEffect(() => {

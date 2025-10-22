@@ -13,6 +13,8 @@ import { toolsService } from '@/services/tools.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
 import { tagsService } from '@/services/tags.service'
+import { partsService } from '@/services/parts.service'
+import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 import type { Tool, CreateToolRequest, UpdateToolRequest, ToolCondition } from '@/types/tools'
 import type { Location, Category } from '@/types/parts'
 import type { Tag as TagType } from '@/types/tags'
@@ -135,6 +137,88 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
     } catch (error) {
       console.error('Failed to load tool tags:', error)
       // Don't show error toast, tags are optional
+    }
+  }
+
+  /**
+   * Handle product URL changes with auto-enrichment.
+   * Detects supplier from URL and auto-populates tool fields.
+   */
+  const handleProductUrlChange = async (url: string) => {
+    setFormData({ ...formData, product_url: url })
+
+    // Only try to auto-enrich if URL is not empty
+    if (!url || !url.trim()) {
+      return
+    }
+
+    try {
+      // Detect supplier from URL
+      const detectedSupplier = await dynamicSupplierService.detectSupplierFromUrl(url)
+
+      if (detectedSupplier && detectedSupplier.supplier_name) {
+        const supplierLower = detectedSupplier.supplier_name.toLowerCase()
+        const formattedName = detectedSupplier.display_name || detectedSupplier.supplier_name
+
+        console.log(`🔍 Detected supplier for tool: ${formattedName}`)
+        toast.loading(`Fetching tool details from ${formattedName}...`, { duration: 2000 })
+
+        // Use the SAME enrichment endpoint as parts
+        // The data is generic - we just map fields differently
+        const enrichedData = await partsService.enrichFromSupplier(
+          supplierLower,
+          url  // Pass full URL for enrichment
+        )
+
+        if (enrichedData) {
+          // Map part fields to tool fields
+          setFormData(prev => ({
+            ...prev,
+            tool_name: enrichedData.part_name || prev.tool_name,
+            description: enrichedData.description || prev.description,
+            manufacturer: enrichedData.manufacturer || prev.manufacturer,
+            model_number: enrichedData.manufacturer_part_number || prev.model_number,
+            supplier_part_number: enrichedData.supplier_part_number || prev.supplier_part_number,
+            product_url: url,  // Keep the full URL
+            // Auto-populate purchase price from unit_price if available
+            purchase_price: enrichedData.unit_price !== undefined ? enrichedData.unit_price : prev.purchase_price,
+          }))
+
+          // Set image if available
+          if (enrichedData.image_url) {
+            setImageUrl(enrichedData.image_url)
+          }
+
+          // Set custom properties from enriched specifications
+          if (enrichedData.additional_properties && Object.keys(enrichedData.additional_properties).length > 0) {
+            const customProps = Object.entries(enrichedData.additional_properties)
+              .filter(([key]) => !['last_enrichment_date', 'enrichment_source'].includes(key))
+              .slice(0, 10)  // Limit to first 10 specs
+              .map(([key, value]) => ({
+                key,
+                value: String(value),
+              }))
+            setCustomProperties(customProps)
+            // Auto-expand the additional properties section
+            if (customProps.length > 0) {
+              setIsAdditionalPropsOpen(true)
+            }
+          }
+
+          toast.success(`Auto-populated tool details from ${formattedName}!`)
+          console.log('✅ Tool enriched successfully:', enrichedData)
+        } else {
+          console.warn('No enriched data returned')
+        }
+      }
+    } catch (error) {
+      console.error('Tool enrichment error:', error)
+      // Silent failure - user can still enter details manually
+      // Only show toast if it's a clear error, not just "supplier not found"
+      const err = error as { response?: { status?: number }; message?: string }
+      if (err.response?.status && err.response.status !== 404) {
+        toast.error('Could not auto-populate tool details')
+      }
     }
   }
 
@@ -424,13 +508,17 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
 
           {/* Row 2.5: Product URL */}
           <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
-            <FormField label="Product URL" tooltip="Link to product page or documentation">
+            <FormField
+              label="Product URL"
+              tooltip="Paste product URL for auto-detection and enrichment"
+              description="Paste supplier URL to auto-fill tool details"
+            >
               <input
                 type="url"
                 className="input w-full"
                 value={formData.product_url}
-                onChange={(e) => setFormData({ ...formData, product_url: e.target.value })}
-                placeholder="https://example.com/product"
+                onChange={(e) => handleProductUrlChange(e.target.value)}
+                placeholder="https://www.adafruit.com/product/3571"
               />
             </FormField>
           </div>

@@ -46,7 +46,7 @@ async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
 async def add_category(
     category_data: CategoryModel,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("categories:create"))
 ) -> ResponseSchema[CategoryResponse]:
     """
     Add a new category to the system.
@@ -100,10 +100,10 @@ async def add_category(
 @router.put("/update_category/{category_id}", response_model=ResponseSchema[CategoryResponse])
 @standard_error_handling
 async def update_category(
-    category_id: str, 
+    category_id: str,
     category_data: CategoryUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("categories:update"))
 ) -> ResponseSchema[CategoryResponse]:
     """
     Update a category's fields.
@@ -194,7 +194,7 @@ async def get_category(category_id: Optional[str] = None, name: Optional[str] = 
 @standard_error_handling
 async def remove_category(
     request: Request,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_permission("categories:delete")),
     cat_id: Optional[str] = None,
     name: Optional[str] = None
 ) -> ResponseSchema[CategoryResponse]:

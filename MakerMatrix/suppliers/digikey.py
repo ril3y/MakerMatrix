@@ -194,6 +194,16 @@ class DigiKeySupplier(BaseSupplier):
             ]
         )
 
+    def get_url_patterns(self) -> List[str]:
+        """Return URL patterns that identify DigiKey product links"""
+        return [
+            r'digikey\.com',  # Base domain
+            r'www\.digikey\.com',  # With www
+            r'digikey\.[a-z]{2,}',  # International domains (digikey.ca, digikey.de, etc.)
+            r'digikey\.com/.*product-detail',  # Product detail pages
+            r'digikey\.com/.*products/',  # Product pages
+        ]
+
     def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
         """Define how to extract part fields from DigiKey product URLs"""
         return [
@@ -1693,11 +1703,94 @@ class DigiKeySupplier(BaseSupplier):
         """Extract subcategory name from DigiKey category hierarchy"""
         if not category_data:
             return ""
-        
+
         child_categories = category_data.get("ChildCategories", [])
         if child_categories:
             # Return the first subcategory name if available
             return child_categories[0].get("Name", "")
-        
+
         return ""
-    
+
+    def map_to_standard_format(self, supplier_data: Any) -> Dict[str, Any]:
+        """
+        Map supplier data to standard format.
+
+        This method flattens the PartSearchResult into simple key-value pairs for clean display.
+        All specifications and additional_data are expanded into flat fields.
+
+        Args:
+            supplier_data: PartSearchResult from this supplier
+
+        Returns:
+            Flat dictionary with all data as simple key-value pairs
+        """
+        if not isinstance(supplier_data, PartSearchResult):
+            return {}
+
+        # Start with core fields
+        mapped = {
+            'supplier_part_number': supplier_data.supplier_part_number,
+            'part_name': supplier_data.description or supplier_data.part_name or supplier_data.supplier_part_number,
+            'manufacturer': supplier_data.manufacturer,
+            'manufacturer_part_number': supplier_data.manufacturer_part_number,
+            'description': supplier_data.description,
+            'category': supplier_data.category,
+        }
+
+        # Add image and datasheet URLs if available
+        if supplier_data.image_url:
+            mapped['image_url'] = supplier_data.image_url
+        if supplier_data.datasheet_url:
+            mapped['datasheet_url'] = supplier_data.datasheet_url
+
+        # Extract unit price from pricing array (first tier)
+        if supplier_data.pricing and len(supplier_data.pricing) > 0:
+            first_price = supplier_data.pricing[0]
+            mapped['unit_price'] = first_price.get('price')
+            mapped['currency'] = first_price.get('currency', 'USD')
+
+        # Define fields to skip (compliance, trade, internal tracking, and video content)
+        skip_fields = {
+            # Internal tracking fields
+            'source', 'scraped_at', 'api_version', 'last_updated', 'warning', 'data_source',
+            # Compliance and trade regulation fields
+            'moisture_sensitivity_level',
+            'export_control_class_number',
+            'htsus_code',
+            # Video and alternative naming
+            'primary_video_url',
+            'other_names',
+            # Stock tracking (covered by main fields)
+            'factory_stock_availability',
+        }
+
+        # Flatten specifications into custom fields
+        if supplier_data.specifications:
+            for spec_key, spec_value in supplier_data.specifications.items():
+                # Skip fields in blacklist (case-insensitive)
+                if spec_key.lower() in skip_fields:
+                    continue
+                # Skip empty or whitespace-only keys
+                if not spec_key or not spec_key.strip():
+                    continue
+                # Create readable field names
+                field_name = spec_key.replace('_', ' ').title()
+                if spec_value is not None:
+                    mapped[field_name] = str(spec_value)
+
+        # Flatten additional_data into custom fields
+        if supplier_data.additional_data:
+            for key, value in supplier_data.additional_data.items():
+                # Skip fields in blacklist (case-insensitive)
+                if key.lower() in skip_fields:
+                    continue
+                # Skip empty or whitespace-only keys
+                if not key or not key.strip():
+                    continue
+                # Create readable field names
+                field_name = key.replace('_', ' ').title()
+                if value is not None:
+                    mapped[field_name] = str(value)
+
+        return mapped
+

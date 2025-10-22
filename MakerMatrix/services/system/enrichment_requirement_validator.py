@@ -89,7 +89,42 @@ class EnrichmentRequirementValidator:
         requirements = self.get_supplier_requirements(supplier_name)
 
         if not requirements:
-            # If supplier doesn't have requirements, assume it can't enrich
+            # Check if supplier supports scraping (like McMaster-Carr)
+            try:
+                supplier = get_supplier(supplier_name)
+                if supplier and hasattr(supplier, 'supports_scraping') and supplier.supports_scraping():
+                    # For scraping suppliers, check if we have a URL or part number
+                    has_url = False
+                    has_part_number = False
+
+                    if isinstance(part, dict):
+                        has_url = bool(part.get('product_url') or part.get('supplier_url'))
+                        has_part_number = bool(part.get('supplier_part_number'))
+                    else:
+                        has_url = bool(getattr(part, 'product_url', None) or getattr(part, 'supplier_url', None))
+                        has_part_number = bool(getattr(part, 'supplier_part_number', None))
+
+                    can_enrich_via_scraping = has_url or has_part_number
+
+                    warnings = []
+                    suggestions = []
+
+                    if not can_enrich_via_scraping:
+                        warnings.append(f"Supplier '{supplier_name}' requires a product URL or part number for enrichment")
+                        suggestions.append(f"Add a product URL from {supplier_name} website")
+                        suggestions.append(f"Or add the {supplier_name} part number")
+
+                    return EnrichmentRequirementCheck(
+                        supplier_name=supplier_name,
+                        part_id=part_id,
+                        can_enrich=can_enrich_via_scraping,
+                        warnings=warnings,
+                        suggestions=suggestions
+                    )
+            except Exception as e:
+                self.logger.error(f"Error checking scraping support for '{supplier_name}': {e}")
+
+            # If supplier doesn't have requirements and doesn't support scraping, assume it can't enrich
             return EnrichmentRequirementCheck(
                 supplier_name=supplier_name,
                 part_id=part_id,

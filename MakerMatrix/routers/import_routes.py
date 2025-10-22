@@ -12,7 +12,8 @@ import logging
 import uuid
 from datetime import datetime
 
-from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.auth.dependencies import get_current_user, get_current_user_flexible
+from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
@@ -64,7 +65,7 @@ async def import_file(
     notes: Optional[str] = Form(None, description="Order notes (optional)"),
     enable_enrichment: Optional[bool] = Form(False, description="Enable automatic enrichment after import"),
     enrichment_capabilities: Optional[str] = Form(None, description="Comma-separated list of enrichment capabilities (e.g., 'get_part_details,fetch_datasheet')"),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_permission("parts:create"))
 ):
     """
     Import parts from a supplier file.
@@ -435,7 +436,7 @@ async def import_file(
 
 @router.get("/suppliers", response_model=ResponseSchema[List[SupplierImportInfo]])
 async def get_import_suppliers(
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user_flexible)
 ):
     """
     Get list of suppliers that support file imports.

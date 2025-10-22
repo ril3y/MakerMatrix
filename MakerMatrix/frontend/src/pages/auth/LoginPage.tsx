@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
-import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { LogIn, Eye, EyeOff, AlertCircle, UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import type { LoginRequest } from '@/types/auth'
 
@@ -15,9 +15,10 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 const LoginPage = () => {
-  const { login, error, clearError } = useAuthStore()
+  const { login, guestLogin, error, clearError } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGuestLoading, setIsGuestLoading] = useState(false)
 
   const {
     register,
@@ -37,6 +38,20 @@ const LoginPage = () => {
       window.location.href = '/dashboard'
     } catch (error) {
       setIsLoading(false)
+      // Error is handled in the store
+    }
+  }
+
+  const handleGuestLogin = async () => {
+    setIsGuestLoading(true)
+    clearError()
+
+    try {
+      await guestLogin()
+      // Force a page reload to ensure proper state initialization
+      window.location.href = '/dashboard'
+    } catch (error) {
+      setIsGuestLoading(false)
       // Error is handled in the store
     }
   }
@@ -110,7 +125,7 @@ const LoginPage = () => {
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isGuestLoading}
           className="btn btn-primary w-full flex items-center justify-center gap-2"
         >
           {isLoading ? (
@@ -126,6 +141,38 @@ const LoginPage = () => {
             <>
               <LogIn className="w-5 h-5" />
               Sign In
+            </>
+          )}
+        </button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-bg-primary px-2 text-muted">Or</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGuestLogin}
+          disabled={isLoading || isGuestLoading}
+          className="btn btn-secondary w-full flex items-center justify-center gap-2"
+        >
+          {isGuestLoading ? (
+            <>
+              <motion.div
+                className="w-5 h-5 border-2 border-secondary/30 border-t-secondary rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              />
+              Loading guest access...
+            </>
+          ) : (
+            <>
+              <UserRound className="w-5 h-5" />
+              View as Guest
             </>
           )}
         </button>

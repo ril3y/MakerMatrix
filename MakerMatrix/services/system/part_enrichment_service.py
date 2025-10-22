@@ -86,6 +86,8 @@ class PartEnrichmentService(BaseService):
             part_vendor = getattr(part, 'part_vendor', None)
             part_number = part.part_number
             supplier_part_number_field = getattr(part, 'supplier_part_number', None)
+            product_url = getattr(part, 'product_url', None)
+            supplier_url = getattr(part, 'supplier_url', None)
 
             # Determine which supplier to use
             supplier = self._determine_supplier_from_cached_data(part_supplier, part_vendor, preferred_supplier)
@@ -107,20 +109,103 @@ class PartEnrichmentService(BaseService):
             # Convert capabilities to supplier capability enums
             supplier_capabilities = self._convert_capabilities_to_enums(capabilities)
 
-            # Get appropriate part number for the supplier using cached data
-            supplier_part_number = self._get_supplier_part_number_from_cached_data(part_number, supplier_part_number_field)
+            # Get appropriate part identifier for the supplier
+            # For McMaster-Carr and suppliers that support scraping, we need the URL
+            part_identifier = None
+
+            # Check if this supplier supports scraping and we have a URL
+            if hasattr(client, 'supports_scraping') and client.supports_scraping():
+                # For scraping suppliers, prefer product_url over part number
+                # Use cached values to avoid DetachedInstanceError
+                if product_url or supplier_url:
+                    part_identifier = product_url or supplier_url
+                    logger.info(f"Using URL for scraping: {part_identifier}")
+                else:
+                    # Fall back to part number if no URL
+                    part_identifier = self._get_supplier_part_number_from_cached_data(part_number, supplier_part_number_field)
+                    if not part_identifier:
+                        raise ValueError(f"No URL or part number available for {supplier} enrichment")
+            else:
+                # For API-based suppliers, use part number
+                part_identifier = self._get_supplier_part_number_from_cached_data(part_number, supplier_part_number_field)
+                if not part_identifier:
+                    raise ValueError(f"No part number available for {supplier} enrichment")
 
             # Progress callback wrapper
             async def enrichment_progress(message):
                 if progress_callback:
                     await progress_callback(50, message)
 
-            # Perform enrichment
-            logger.info(f"Starting unified enrichment for part {part_name} using {supplier}")
+            # Perform enrichment using unified EnrichmentEngine
+            # This is the SAME code path used by instant enrichment (URL pasting)
+            logger.info(f"Starting unified enrichment for part {part_name} using {supplier} with identifier: {part_identifier}")
             if progress_callback:
                 await progress_callback(20, f"Enriching part from {supplier}...")
 
-            enrichment_result = await client.enrich_part(supplier_part_number, supplier_capabilities)
+            # Use EnrichmentEngine for unified enrichment logic
+            from MakerMatrix.services.system.enrichment_engine import enrichment_engine
+
+            engine_result = await enrichment_engine.enrich_part(
+                supplier_name=supplier,
+                part_identifier=part_identifier,
+                force_refresh=force_refresh,
+                enrichment_capabilities=supplier_capabilities
+            )
+
+            if not engine_result['success']:
+                # Enrichment failed - create failed EnrichmentResult
+                from MakerMatrix.suppliers.base import EnrichmentResult
+                error_msg = engine_result.get('error', 'Unknown error')
+                logger.error(f"EnrichmentEngine failed: {error_msg}")
+                enrichment_result = EnrichmentResult(
+                    success=False,
+                    supplier_part_number=part_identifier,
+                    failed_fields=['part_details'],
+                    errors={'part_details': error_msg}
+                )
+            else:
+                # Enrichment succeeded - extract the standardized data
+                standardized_data = engine_result['data']
+                enrichment_method = engine_result.get('enrichment_method', 'unknown')
+
+                logger.info(f"✓ Background enrichment successful via {enrichment_method}")
+
+                # Convert standardized data back to PartSearchResult for the existing flow
+                # This allows the rest of the code to work without changes
+                from MakerMatrix.suppliers.base import PartSearchResult
+                part_search_result = PartSearchResult(
+                    supplier_part_number=standardized_data.get('supplier_part_number', ''),
+                    part_name=standardized_data.get('part_name'),
+                    manufacturer=standardized_data.get('manufacturer'),
+                    manufacturer_part_number=standardized_data.get('manufacturer_part_number'),
+                    description=standardized_data.get('description'),
+                    category=standardized_data.get('category'),
+                    datasheet_url=standardized_data.get('additional_properties', {}).get('datasheet_url'),
+                    image_url=standardized_data.get('image_url'),
+                    stock_quantity=standardized_data.get('additional_properties', {}).get('stock_quantity'),
+                    pricing=standardized_data.get('additional_properties', {}).get('pricing_tiers_for_history', {}).get('tiers'),
+                    specifications={},  # Specifications are already flattened in additional_properties
+                    additional_data=standardized_data.get('additional_properties', {})
+                )
+
+                # Convert to EnrichmentResult format for compatibility
+                from MakerMatrix.suppliers.base import EnrichmentResult
+                enrichment_result = EnrichmentResult(
+                    success=True,
+                    supplier_part_number=part_search_result.supplier_part_number,
+                    enriched_fields=['part_details'],
+                    data=part_search_result
+                )
+
+                # Add specific enriched fields based on what was actually enriched
+                if part_search_result.image_url:
+                    enrichment_result.enriched_fields.append('image_url')
+                if part_search_result.pricing:
+                    enrichment_result.enriched_fields.append('pricing')
+                if part_search_result.additional_data:
+                    enrichment_result.enriched_fields.append('specifications')
+                if part_search_result.datasheet_url:
+                    enrichment_result.enriched_fields.append('datasheet_url')
 
             # Process enrichment results
             enrichment_results = self._process_enrichment_result(enrichment_result)
@@ -272,16 +357,23 @@ class PartEnrichmentService(BaseService):
     def _get_supplier_client(self, supplier: str, supplier_config: Any) -> Any:
         """Get and configure supplier client."""
         from MakerMatrix.suppliers.registry import get_supplier
-        
+
         client = get_supplier(supplier.lower())
         if not client:
             raise ValueError(f"Supplier implementation not found for: {supplier}")
-        
+
         # Configure the supplier with credentials and config
         credentials = self.supplier_config_service.get_supplier_credentials(supplier.upper())
         config = supplier_config.get('custom_parameters', {})
+
+        # Check if we should use scraping fallback
+        if not credentials and client.supports_scraping():
+            logger.warning(f"No API credentials for {supplier}, will use web scraping fallback if available")
+            # Configure for scraping mode
+            config['scraping_mode'] = True
+
         client.configure(credentials or {}, config)
-        
+
         return client
 
     def _convert_capabilities_to_enums(self, capabilities: List[str]) -> List[SupplierCapability]:
