@@ -54,10 +54,22 @@ class BoltDepotSupplier(BaseSupplier):
             )
             for capability in self.get_capabilities()
         }
-    
+
+    def supports_scraping(self) -> bool:
+        """Bolt Depot supports web scraping as a fallback."""
+        return True
+
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for public web scraping
         return []
+
+    def get_url_patterns(self) -> List[str]:
+        """Return URL patterns that identify Bolt Depot product links"""
+        return [
+            r'boltdepot\.com',  # Base domain
+            r'www\.boltdepot\.com',  # With www
+            r'boltdepot\.com/Product-Details\.aspx',  # Product pages
+        ]
 
     def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
         """
@@ -283,24 +295,182 @@ class BoltDepotSupplier(BaseSupplier):
             if not supplier_part_number.isdigit():
                 logger.warning(f"Bolt Depot part number should be numeric: {supplier_part_number}")
                 return None
-            
+
             http_client = self._get_http_client()
-            
+
             # Construct product URL
             base_url = self._get_base_url()
             url = f"{base_url}/Product-Details?product={supplier_part_number}"
-            
+
             response = await http_client.get(url, endpoint_type="get_part_details")
-            
+
             if not response.success:
                 logger.warning(f"Failed to fetch product {supplier_part_number}: HTTP {response.status}")
                 return None
-            
+
             soup = BeautifulSoup(response.raw_content, 'html.parser')
             return self._parse_product_page(soup, supplier_part_number, url)
-        
+
         except Exception as e:
             logger.error(f"Error fetching part details for {supplier_part_number}: {e}")
+            return None
+
+    async def scrape_part_details(self, url_or_part_number: str, force_refresh: bool = False) -> Optional[PartSearchResult]:
+        """
+        Scrape Bolt Depot product page for part details using Playwright.
+
+        Args:
+            url_or_part_number: Either a full Bolt Depot URL or just the product number
+            force_refresh: If True, bypass cache and fetch fresh data
+
+        Returns:
+            PartSearchResult with scraped data, or None if scraping fails
+        """
+        scraper_created = False
+        try:
+            # Initialize scraper if needed
+            if not hasattr(self, '_scraper') or not self._scraper:
+                from .scrapers.web_scraper import WebScraper
+                self._scraper = WebScraper()
+                scraper_created = True
+
+            # Build URL if only part number provided
+            if not url_or_part_number.startswith('http'):
+                base_url = self._get_base_url()
+                url = f"{base_url}/Product-Details?product={url_or_part_number}"
+                part_number = url_or_part_number
+            else:
+                url = url_or_part_number
+                # Extract part number from URL
+                part_number = self.extract_part_number_from_url(url) or url_or_part_number
+
+            logger.info(f"Scraping Bolt Depot page: {url}")
+
+            # Define CSS selectors for data extraction
+            selectors = {
+                'product_table': f'tr#p{part_number}',  # Product row in table
+                'details_table': 'table.product-details-table tr',  # Product details
+                'price': f'tr#p{part_number} td.cell-price span.price-break, tr#p{part_number} td.cell-price-single span.price-break',  # Pricing
+                'image': 'img[src*="images/catalog/"]',  # Product image
+            }
+
+            # Scrape with Playwright (handles JavaScript-rendered content)
+            logger.info(f"Scraping Bolt Depot URL: {url} (force_refresh={force_refresh})")
+            scraped_data = await self._scraper.scrape_with_playwright(
+                url,
+                selectors,
+                wait_for_selector='table.product-details-table',  # Wait for details table to load
+                force_refresh=force_refresh
+            )
+
+            logger.info(f"Scraped data: {scraped_data}")
+            if not scraped_data:
+                logger.error("No data scraped from Bolt Depot page")
+                return None
+
+            # Parse the scraped data
+            result = await self._parse_scraped_data_from_scraper(scraped_data, part_number, url)
+
+            if result:
+                logger.info(f"Successfully scraped Bolt Depot part: {part_number}")
+            else:
+                logger.warning(f"Could not parse scraped data for: {part_number}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error scraping Bolt Depot: {str(e)}")
+            return None
+        finally:
+            # Clean up the scraper session if we created it
+            if scraper_created and hasattr(self, '_scraper') and self._scraper:
+                try:
+                    await self._scraper.close()
+                    self._scraper = None
+                except Exception as e:
+                    logger.debug(f"Error closing scraper: {e}")
+
+    async def _parse_scraped_data_from_scraper(self, scraped_data: Dict[str, Any], part_number: str, url: str) -> Optional[PartSearchResult]:
+        """Parse scraped data from WebScraper into PartSearchResult format."""
+        try:
+            from datetime import datetime
+
+            # Extract product details from the details_table
+            details = {}
+            if 'details_table' in scraped_data and isinstance(scraped_data['details_table'], dict):
+                details = scraped_data['details_table']
+
+            # Build description from details
+            description = self._build_description(details)
+
+            # Extract category
+            category = details.get("Category", "")
+
+            # Extract image URL
+            image_url = scraped_data.get('image')
+            if image_url:
+                # Convert relative URL to absolute
+                if image_url.startswith('/'):
+                    image_url = self._get_base_url() + image_url
+                elif image_url.startswith('images/'):
+                    image_url = self._get_base_url() + '/' + image_url
+                elif not image_url.startswith('http'):
+                    image_url = self._get_base_url() + '/' + image_url
+
+            # Parse pricing from scraped data
+            pricing = []
+            if 'price' in scraped_data:
+                price_text = scraped_data['price']
+                # Parse multiple price breaks if available (format: "$0.25 / ea" or "$19.13 / 100")
+                price_breaks = price_text.split('\n') if isinstance(price_text, str) else [price_text]
+                for price_break in price_breaks:
+                    match = re.search(r'\$(\d+(?:\.\d{2})?)\s*/\s*(\d+(?:,\d+)*|ea)', price_break.strip())
+                    if match:
+                        price_str = match.group(1)
+                        qty_str = match.group(2)
+                        try:
+                            price = float(price_str)
+                            quantity = 1 if qty_str == "ea" else int(qty_str.replace(',', ''))
+                            pricing.append({
+                                "quantity": quantity,
+                                "price": price,
+                                "currency": "USD"
+                            })
+                        except ValueError:
+                            continue
+
+            # Remove duplicates and sort by quantity
+            unique_pricing = []
+            seen_quantities = set()
+            for price_info in pricing:
+                qty = price_info["quantity"]
+                if qty not in seen_quantities:
+                    unique_pricing.append(price_info)
+                    seen_quantities.add(qty)
+            unique_pricing.sort(key=lambda x: x["quantity"])
+
+            # Remove category from additional_data since it's redundant
+            additional_data = {k: v for k, v in details.items() if k.lower() != "category"}
+            additional_data['source'] = 'web_scraping'
+            additional_data['scraped_at'] = datetime.now().isoformat()
+            additional_data['url'] = url
+
+            return PartSearchResult(
+                supplier_part_number=part_number,
+                manufacturer="Bolt Depot",
+                manufacturer_part_number=part_number,
+                description=description,
+                category=category,
+                datasheet_url=None,
+                image_url=image_url,
+                stock_quantity=None,
+                pricing=unique_pricing if unique_pricing else None,
+                specifications=None,
+                additional_data=additional_data
+            )
+
+        except Exception as e:
+            logger.error(f"Error parsing scraped Bolt Depot data: {str(e)}")
             return None
     
     def _parse_product_page(self, soup: BeautifulSoup, part_number: str, url: str) -> Optional[PartSearchResult]:
@@ -521,7 +691,66 @@ class BoltDepotSupplier(BaseSupplier):
         part_details = await self.get_part_details(supplier_part_number)
         return part_details.image_url if part_details else None
     
-    
+
     def get_rate_limit_delay(self) -> float:
         """Get configured delay between requests"""
         return self._config.get("request_delay_seconds", 2.0)
+
+    def map_to_standard_format(self, supplier_data: Any) -> Dict[str, Any]:
+        """
+        Map supplier data to standard format.
+
+        This method flattens the PartSearchResult into simple key-value pairs for clean display.
+        All specifications and additional_data are expanded into flat fields.
+
+        Args:
+            supplier_data: PartSearchResult from this supplier
+
+        Returns:
+            Flat dictionary with all data as simple key-value pairs
+        """
+        if not isinstance(supplier_data, PartSearchResult):
+            return {}
+
+        # Start with core fields
+        mapped = {
+            'supplier_part_number': supplier_data.supplier_part_number,
+            'part_name': supplier_data.description or supplier_data.part_name or supplier_data.supplier_part_number,
+            'manufacturer': supplier_data.manufacturer,
+            'manufacturer_part_number': supplier_data.manufacturer_part_number,
+            'description': supplier_data.description,
+            'category': supplier_data.category,
+        }
+
+        # Add image and datasheet URLs if available
+        if supplier_data.image_url:
+            mapped['image_url'] = supplier_data.image_url
+        if supplier_data.datasheet_url:
+            mapped['datasheet_url'] = supplier_data.datasheet_url
+
+        # Extract unit price from pricing array (first tier)
+        if supplier_data.pricing and len(supplier_data.pricing) > 0:
+            first_price = supplier_data.pricing[0]
+            mapped['unit_price'] = first_price.get('price')
+            mapped['currency'] = first_price.get('currency', 'USD')
+
+        # Flatten specifications into custom fields
+        if supplier_data.specifications:
+            for spec_key, spec_value in supplier_data.specifications.items():
+                # Create readable field names
+                field_name = spec_key.replace('_', ' ').title()
+                if spec_value is not None:
+                    mapped[field_name] = str(spec_value)
+
+        # Flatten additional_data into custom fields
+        if supplier_data.additional_data:
+            for key, value in supplier_data.additional_data.items():
+                # Skip internal tracking fields
+                if key in ['source', 'scraped_at', 'api_version', 'last_updated', 'warning', 'data_source']:
+                    continue
+                # Create readable field names
+                field_name = key.replace('_', ' ').title()
+                if value is not None:
+                    mapped[field_name] = str(value)
+
+        return mapped

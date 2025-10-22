@@ -20,6 +20,7 @@ import { tasksService } from '@/services/tasks.service'
 import { tagsService } from '@/services/tags.service'
 import supplierService from '@/services/supplier.service'
 import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
+import { apiClient } from '@/services/api'
 import type { CreatePartRequest } from '@/types/parts'
 import type { Location, Category } from '@/types/parts'
 import type { Project } from '@/types/projects'
@@ -37,7 +38,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     name: '',
     part_number: '',
     description: '',
-    quantity: 0,
+    quantity: 1,
     minimum_quantity: 0,
     supplier: '',
     supplier_url: '',
@@ -77,6 +78,8 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const [detectedSupplierInfo, setDetectedSupplierInfo] = useState<{
     name: string
     url: string
+    supportsScraping?: boolean
+    scrapingWarning?: string
   } | null>(null)
 
   // Inline modal states
@@ -115,22 +118,23 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     if (formData.supplier && formData.supplier.trim() && formData.supplier !== '__custom__') {
       const supplierLower = formData.supplier.toLowerCase()
 
-      // Check if this is an API supplier (in registry) AND configured
+      // Check if this is an API supplier (in registry) AND configured AND has traditional enrichment
       const isInRegistry = availableSuppliers.includes(supplierLower)
       const isConfigured = configuredSuppliers.includes(supplierLower)
+      const hasTraditionalEnrichment = suppliersWithEnrichment.includes(supplierLower)
 
-      // Only try to load enrichment requirements for configured suppliers
-      // The endpoint will return 404 for new-style suppliers, which is fine
-      if (isInRegistry && isConfigured) {
+      // Only try to load enrichment requirements for suppliers that actually have them
+      // Suppliers like McMaster-Carr use dynamic field mappings instead
+      if (isInRegistry && isConfigured && hasTraditionalEnrichment) {
         loadSupplierRequiredFields(formData.supplier)
       } else {
-        // Either not an API supplier, or not configured yet - no enrichment requirements
+        // Either not an API supplier, not configured, or uses dynamic patterns - no enrichment requirements
         setSupplierRequiredFields([])
       }
     } else {
       setSupplierRequiredFields([])
     }
-  }, [formData.supplier, configuredSuppliers, availableSuppliers])
+  }, [formData.supplier, configuredSuppliers, availableSuppliers, suppliersWithEnrichment])
 
   const loadData = async () => {
     try {
@@ -148,8 +152,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         projectsService.getAllProjects(),
         supplierService.getSuppliers(true), // Get only enabled/configured suppliers
         dynamicSupplierService.getAvailableSuppliers(), // Get all available suppliers from registry
-        fetch('/api/import/suppliers')
-          .then((res) => res.json())
+        apiClient.get('/api/import/suppliers')
           .catch(() => ({ data: [] })), // Get enrichment capabilities
       ])
       setLocations(locationsData || [])
@@ -201,11 +204,14 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       // Get enrichment requirements for the supplier (404 is expected for new-style suppliers)
       const response = await partsService.getSupplierEnrichmentRequirements(supplierName)
 
-      console.log('Enrichment requirements response:', response)
+      // Only log if we actually got requirements (not the empty fallback)
+      if (response.required_fields && response.required_fields.length > 0) {
+        console.log('Enrichment requirements response:', response)
+      }
 
       // Check if response and required_fields exist
-      if (!response || !response.required_fields) {
-        console.warn('No required fields in response:', response)
+      if (!response || !response.required_fields || response.required_fields.length === 0) {
+        // No requirements for this supplier (uses dynamic patterns)
         setSupplierRequiredFields([])
         return
       }
@@ -231,7 +237,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         validation: field.validation_pattern ? { pattern: field.validation_pattern } : undefined,
       }))
 
-      console.log('Converted required fields:', requiredFields)
+      if (requiredFields.length > 0) {
+        console.log('Converted required fields:', requiredFields)
+      }
       setSupplierRequiredFields(requiredFields)
     } catch (error) {
       // 404 errors are expected for new-style suppliers using dynamic patterns
@@ -456,7 +464,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       name: '',
       part_number: '',
       description: '',
-      quantity: 0,
+      quantity: 1,
       minimum_quantity: 0,
       supplier: '',
       supplier_url: '',
@@ -541,15 +549,128 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
     // If supplier field is empty and URL contains a domain, auto-populate supplier
     if (!formData.supplier && url.trim()) {
+      // Try to detect supplier from URL using backend endpoint
+      try {
+        const detectedSupplier = await dynamicSupplierService.detectSupplierFromUrl(url)
+        if (detectedSupplier && detectedSupplier.supplier_name) {
+          const supplierLower = detectedSupplier.supplier_name.toLowerCase()
+          const formattedName = detectedSupplier.display_name || detectedSupplier.supplier_name
+
+          // Set supplier field with both base URL and full product URL
+          // Use the actual supplier name (lowercase) not the formatted display name
+          setFormData({ ...formData, supplier_url: baseUrl, product_url: fullUrl, supplier: supplierLower })
+          toast.success(`Auto-detected supplier: ${formattedName} from ${baseUrl}`)
+
+          // Continue with the existing logic for checking registry and configuration
+          const isInRegistry = availableSuppliers.includes(supplierLower)
+          const isConfigured = configuredSuppliers.includes(supplierLower)
+
+          console.log('🔍 Smart Supplier Detection Check:')
+          console.log('  Detected supplier:', supplierLower)
+          console.log('  Is in registry (REST supplier)?', isInRegistry)
+          console.log('  Is configured?', isConfigured)
+          console.log('  Available suppliers:', availableSuppliers)
+          console.log('  Configured suppliers:', configuredSuppliers)
+
+          // Path 1: REST supplier in registry
+          if (isInRegistry) {
+            // Path 1a: REST supplier but NOT configured
+            if (!isConfigured) {
+              // Check if supplier supports scraping
+              const scrapingInfo = await dynamicSupplierService.checkScrapingSupport(supplierLower)
+              console.log('✨ REST supplier not configured - checking scraping support:', scrapingInfo)
+
+              // If scraping is supported, auto-enrich with scraping (no modal needed)
+              if (scrapingInfo.supports_scraping) {
+                console.log('🌐 Using web scraping for unconfigured supplier:', formattedName)
+                toast.info(`${formattedName} detected - using web scraping to fetch part details (API not configured)`)
+
+                // Attempt enrichment with scraping
+                try {
+                  const enrichedData = await partsService.enrichFromSupplier(
+                    supplierLower,
+                    fullUrl  // Pass the full product URL for scraping
+                  )
+
+                  if (enrichedData) {
+                    // Auto-populate fields with scraped data
+                    setFormData(prev => ({
+                      ...prev,
+                      name: enrichedData.part_name || prev.name,
+                      part_number: enrichedData.supplier_part_number || enrichedData.part_number || prev.part_number,
+                      description: enrichedData.description || prev.description,
+                      manufacturer: enrichedData.manufacturer || prev.manufacturer,
+                      manufacturer_part_number: enrichedData.manufacturer_part_number || prev.manufacturer_part_number,
+                      supplier_part_number: enrichedData.supplier_part_number || prev.supplier_part_number,
+                      unit_price: enrichedData.unit_price || prev.unit_price,
+                      currency: enrichedData.currency || prev.currency,
+                      // Keep the full product URL
+                      product_url: fullUrl,
+                    }))
+
+                    // Set image if available
+                    if (enrichedData.image_url) {
+                      setImageUrl(enrichedData.image_url)
+                    }
+
+                    // Set custom properties from scraped specifications
+                    if (enrichedData.additional_properties && Object.keys(enrichedData.additional_properties).length > 0) {
+                      const customProps = Object.entries(enrichedData.additional_properties)
+                        .filter(([key]) => !['last_enrichment_date', 'enrichment_source'].includes(key))
+                        .slice(0, 10)  // Limit to first 10 specs
+                        .map(([key, value]) => ({
+                          key,
+                          value: String(value),
+                        }))
+                      setCustomProperties(customProps)
+                      // Auto-expand the additional properties section to show the populated data
+                      if (customProps.length > 0) {
+                        setIsAdditionalPropsOpen(true)
+                      }
+                    }
+
+                    toast.success(`Auto-populated from ${formattedName} using web scraping!`)
+                  } else {
+                    toast.warning('Could not scrape data from the page')
+                  }
+                } catch (error) {
+                  console.error('Scraping error:', error)
+                  // Silent failure - user can still enter details manually
+                }
+                return
+              }
+
+              // Only show modal if scraping is NOT supported
+              setDetectedSupplierInfo({
+                name: formattedName,
+                url,
+                supportsScraping: scrapingInfo.supports_scraping,
+                scrapingWarning: scrapingInfo.warning
+              })
+              setShowConfigureSupplierPrompt(true)
+              return // Wait for user to choose configuration or simple supplier
+            }
+
+            // Path 1b: REST supplier AND configured - auto-enrich with dynamic patterns
+            console.log('✅ REST supplier is configured - attempting dynamic auto-enrichment')
+            await attemptDynamicEnrichment(url, supplierLower, formattedName)
+          } else {
+            // Path 2: NOT a REST supplier - create as simple supplier
+            console.log('📎 Not a REST supplier - creating simple supplier')
+            await createSimpleSupplier(supplierLower, formattedName, url)
+          }
+          return
+        }
+      } catch (error) {
+        console.warn('Could not detect supplier from URL via backend, falling back to domain extraction:', error)
+      }
+
+      // Fallback to simple domain extraction if backend detection fails
       const supplierName = extractDomainFromUrl(url)
       if (supplierName) {
         // Capitalize first letter
         const formattedName = supplierName.charAt(0).toUpperCase() + supplierName.slice(1)
         const supplierLower = supplierName.toLowerCase()
-
-        // Set supplier field with both base URL and full product URL
-        setFormData({ ...formData, supplier_url: baseUrl, product_url: fullUrl, supplier: formattedName })
-        toast.success(`Auto-detected supplier: ${formattedName} from ${baseUrl}`)
 
         // Check supplier type
         const isInRegistry = availableSuppliers.includes(supplierLower)
@@ -566,8 +687,77 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         if (isInRegistry) {
           // Path 1a: REST supplier but NOT configured
           if (!isConfigured) {
-            console.log('✨ REST supplier not configured - showing configuration prompt')
-            setDetectedSupplierInfo({ name: formattedName, url })
+            // Check if supplier supports scraping
+            const scrapingInfo = await dynamicSupplierService.checkScrapingSupport(supplierLower)
+            console.log('✨ REST supplier not configured - checking scraping support:', scrapingInfo)
+
+            // If scraping is supported, auto-enrich with scraping (no modal needed)
+            if (scrapingInfo.supports_scraping) {
+              console.log('🌐 Using web scraping for unconfigured supplier:', formattedName)
+              toast.info(`${formattedName} detected - using web scraping to fetch part details (API not configured)`)
+
+              // Attempt enrichment with scraping
+              try {
+                const enrichedData = await partsService.enrichFromSupplier(
+                  supplierLower,
+                  url  // Pass the full URL for scraping
+                )
+
+                if (enrichedData) {
+                  // Auto-populate fields with scraped data
+                  setFormData(prev => ({
+                    ...prev,
+                    name: enrichedData.part_name || prev.name,
+                    part_number: enrichedData.supplier_part_number || enrichedData.part_number || prev.part_number,
+                    description: enrichedData.description || prev.description,
+                    manufacturer: enrichedData.manufacturer || prev.manufacturer,
+                    manufacturer_part_number: enrichedData.manufacturer_part_number || prev.manufacturer_part_number,
+                    supplier_part_number: enrichedData.supplier_part_number || prev.supplier_part_number,
+                    unit_price: enrichedData.unit_price || prev.unit_price,
+                    currency: enrichedData.currency || prev.currency,
+                    // Keep the full product URL
+                    product_url: url,
+                  }))
+
+                  // Set image if available
+                  if (enrichedData.image_url) {
+                    setImageUrl(enrichedData.image_url)
+                  }
+
+                  // Set custom properties from scraped specifications
+                  if (enrichedData.additional_properties && Object.keys(enrichedData.additional_properties).length > 0) {
+                    const customProps = Object.entries(enrichedData.additional_properties)
+                      .filter(([key]) => !['last_enrichment_date', 'enrichment_source'].includes(key))
+                      .slice(0, 10)  // Limit to first 10 specs
+                      .map(([key, value]) => ({
+                        key,
+                        value: String(value),
+                      }))
+                    setCustomProperties(customProps)
+                    // Auto-expand the additional properties section to show the populated data
+                    if (customProps.length > 0) {
+                      setIsAdditionalPropsOpen(true)
+                    }
+                  }
+
+                  toast.success(`Auto-populated from ${formattedName} using web scraping!`)
+                } else {
+                  toast.warning('Could not scrape data from the page')
+                }
+              } catch (error) {
+                console.error('Scraping error:', error)
+                // Silent failure - user can still enter details manually
+              }
+              return
+            }
+
+            // Only show modal if scraping is NOT supported
+            setDetectedSupplierInfo({
+              name: formattedName,
+              url,
+              supportsScraping: scrapingInfo.supports_scraping,
+              scrapingWarning: scrapingInfo.warning
+            })
             setShowConfigureSupplierPrompt(true)
             return // Wait for user to choose configuration or simple supplier
           }
@@ -711,6 +901,10 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           }))
         setCustomProperties(customProps)
         console.log('✅ Populated custom properties from backend:', customProps)
+        // Auto-expand the additional properties section to show the populated data
+        if (customProps.length > 0) {
+          setIsAdditionalPropsOpen(true)
+        }
       }
 
       // Auto-select "Hardware" category for Bolt Depot parts
@@ -795,6 +989,67 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     }
   }
 
+  const handleUseScrapingFallback = async () => {
+    if (detectedSupplierInfo) {
+      const supplierLower = detectedSupplierInfo.name.toLowerCase()
+
+      // Use scraping to get part details
+      toast.info('Using web scraping to fetch part details (this may take a moment)...')
+
+      // Attempt enrichment with scraping mode enabled
+      try {
+        // Use enrichFromSupplier with URL as part identifier
+        // The backend will detect it's a URL and handle scraping
+        const enrichedData = await partsService.enrichFromSupplier(
+          supplierLower,
+          detectedSupplierInfo.url
+        )
+
+        if (enrichedData) {
+          // Auto-populate fields with scraped data
+          setFormData(prev => ({
+            ...prev,
+            name: enrichedData.part_name || prev.name,
+            part_number: enrichedData.supplier_part_number || enrichedData.part_number || prev.part_number,
+            description: enrichedData.description || prev.description,
+            manufacturer: enrichedData.manufacturer || prev.manufacturer,
+            manufacturer_part_number: enrichedData.manufacturer_part_number || prev.manufacturer_part_number,
+          }))
+
+          // Set image if available
+          if (enrichedData.image_url) {
+            setImageUrl(enrichedData.image_url)
+          }
+
+          // Set custom properties from scraped specifications
+          if (enrichedData.specifications && Object.keys(enrichedData.specifications).length > 0) {
+            const customProps = Object.entries(enrichedData.specifications)
+              .slice(0, 10)  // Limit to first 10 specs
+              .map(([key, value]) => ({
+                key,
+                value: String(value),
+              }))
+            setCustomProperties(customProps)
+            // Auto-expand the additional properties section to show the populated data
+            if (customProps.length > 0) {
+              setIsAdditionalPropsOpen(true)
+            }
+          }
+
+          toast.success(`Scraped data from ${detectedSupplierInfo.name}!`)
+        } else {
+          toast.warning('Could not scrape data from the page')
+        }
+      } catch (error) {
+        console.error('Scraping error:', error)
+        toast.error('Failed to scrape data from the supplier page')
+      } finally {
+        setShowConfigureSupplierPrompt(false)
+        setDetectedSupplierInfo(null)
+      }
+    }
+  }
+
   const handleCategoryCreated = async () => {
     // Reload categories and auto-select the new one
     try {
@@ -837,21 +1092,16 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setShowAddLocationModal(false)
   }
 
-  const handleProjectCreated = async () => {
+  const handleProjectCreated = async (createdProjectId?: string) => {
     // Reload projects and auto-select the new one
     try {
       const projectsData = await projectsService.getAllProjects()
       setProjects(projectsData || [])
 
-      // Find the newest project
-      if (projectsData && projectsData.length > 0) {
-        const sortedProjects = projectsData.sort(
-          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        )
-        const newestProject = sortedProjects[0]
-        if (!selectedProjects.includes(newestProject.id)) {
-          setSelectedProjects([...selectedProjects, newestProject.id])
-        }
+      // Auto-select the newly created project
+      if (createdProjectId && !selectedProjects.includes(createdProjectId)) {
+        setSelectedProjects([...selectedProjects, createdProjectId])
+        toast.success('Project added and automatically selected')
       }
     } catch (error) {
       console.error('Failed to reload projects:', error)
@@ -928,6 +1178,17 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 onChange={(e) => handleSupplierUrlChange(e.target.value)}
                 placeholder="https://ebay.com/itm/12345..."
               />
+              {/* Show inline message for detected supplier without API */}
+              {formData.supplier &&
+               availableSuppliers.includes(formData.supplier.toLowerCase()) &&
+               !configuredSuppliers.includes(formData.supplier.toLowerCase()) && (
+                <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400 flex items-start gap-1">
+                  <span className="mt-0.5">ℹ️</span>
+                  <span>
+                    {formData.supplier.charAt(0).toUpperCase() + formData.supplier.slice(1)} detected - will use web scraping to fetch part details (API not configured)
+                  </span>
+                </div>
+              )}
             </FormField>
           </div>
 
@@ -1287,7 +1548,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           </div>
 
           <div className="space-y-3">
-            <p className="text-sm text-primary">You have two options:</p>
+            <p className="text-sm text-primary">
+              {detectedSupplierInfo?.supportsScraping
+                ? 'You have three options:'
+                : 'You have two options:'}
+            </p>
 
             <div className="space-y-2">
               <div className="border border-theme-primary rounded-lg p-3 bg-theme-secondary">
@@ -1299,6 +1564,17 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                   specifications, pricing, and stock levels.
                 </p>
               </div>
+
+              {detectedSupplierInfo?.supportsScraping && (
+                <div className="border border-yellow-500 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-900/20">
+                  <p className="font-medium text-sm text-yellow-800 dark:text-yellow-200 mb-1">
+                    🌐 Use Web Scraping (No API Key Required)
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    Extract data directly from the website without needing API credentials. {detectedSupplierInfo.scrapingWarning || 'This method may be slower and less reliable than API access.'}
+                  </p>
+                </div>
+              )}
 
               <div className="border border-theme-primary rounded-lg p-3 bg-theme-secondary">
                 <p className="font-medium text-sm text-primary mb-1">📎 Add as Simple Supplier</p>
@@ -1313,8 +1589,13 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             <button type="button" onClick={handleAddAsSimpleSupplier} className="btn btn-secondary">
               Add as Simple Supplier
             </button>
+            {detectedSupplierInfo?.supportsScraping && (
+              <button type="button" onClick={handleUseScrapingFallback} className="btn btn-warning">
+                Use Web Scraping
+              </button>
+            )}
             <button type="button" onClick={handleConfigureSupplier} className="btn btn-primary">
-              Configure for Enrichment
+              Configure API
             </button>
           </div>
         </div>

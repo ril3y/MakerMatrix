@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from decimal import Decimal
 import logging
 from urllib.parse import urlparse
+from datetime import datetime
 
 from .base import (
     BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
@@ -52,6 +53,7 @@ class SeeedStudioSupplier(BaseSupplier):
         return [
             SupplierCapability.GET_PART_DETAILS,       # Scrape individual product pages
             SupplierCapability.FETCH_PRICING_STOCK,    # Extract pricing and stock data
+            SupplierCapability.FETCH_DATASHEET,        # Extract datasheet PDFs from product pages
         ]
 
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
@@ -63,6 +65,18 @@ class SeeedStudioSupplier(BaseSupplier):
             )
             for capability in self.get_capabilities()
         }
+
+    def supports_scraping(self) -> bool:
+        """Seeed Studio supports web scraping as a fallback."""
+        return True
+
+    def get_url_patterns(self) -> List[str]:
+        """Return URL patterns that identify Seeed Studio product links"""
+        return [
+            r'seeedstudio\.com',  # Base domain
+            r'www\.seeedstudio\.com',  # With www
+            r'seeedstudio\.com/.*\.html',  # Product pages ending in .html
+        ]
 
     def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
         """
@@ -329,6 +343,185 @@ class SeeedStudioSupplier(BaseSupplier):
 
         except Exception as e:
             logger.error(f"Error fetching part details for {supplier_part_number}: {e}")
+            return None
+
+    async def scrape_part_details(self, url_or_part_number: str, force_refresh: bool = False) -> Optional[PartSearchResult]:
+        """
+        Scrape Seeed Studio product page for part details using Playwright.
+
+        Args:
+            url_or_part_number: Either a full Seeed Studio URL or just the product slug
+            force_refresh: If True, bypass cache and fetch fresh data
+
+        Returns:
+            PartSearchResult with scraped data, or None if scraping fails
+        """
+        scraper_created = False
+        try:
+            # Initialize scraper if needed
+            if not hasattr(self, '_scraper') or not self._scraper:
+                from .scrapers.web_scraper import WebScraper
+                self._scraper = WebScraper()
+                scraper_created = True
+
+            # Build URL if only part slug provided
+            if not url_or_part_number.startswith('http'):
+                base_url = self._get_base_url()
+                url = f"{base_url}/{url_or_part_number}.html"
+                part_slug = url_or_part_number
+            else:
+                url = url_or_part_number
+                # Extract part slug from URL
+                part_slug = self.extract_part_number_from_url(url) or url_or_part_number
+
+            logger.info(f"Scraping Seeed Studio page: {url}")
+
+            # Define CSS selectors for data extraction
+            selectors = {
+                'title': 'h1',  # Product title
+                'price': 'span.ais_p_price, span[class*="price"]',  # Price
+                'description': 'div.product.attribute.short_description div.value, div[class*="desc"]',  # Description
+                'image': 'div#main-slider img, img[class*="product"]',  # Main product image
+                'sku': 'span[class*="sku"], div[class*="sku"]',  # SKU if available
+                'spec_table': 'table tr',  # Specification table rows
+                'datasheet': 'a[href*="datasheet"]',  # Datasheet link (prioritize links with "datasheet" in URL)
+            }
+
+            # Scrape with Playwright (handles JavaScript-rendered content)
+            logger.info(f"Scraping Seeed Studio URL: {url} (force_refresh={force_refresh})")
+            scraped_data = await self._scraper.scrape_with_playwright(
+                url,
+                selectors,
+                wait_for_selector='h1',  # Wait for title to load
+                force_refresh=force_refresh
+            )
+
+            logger.info(f"Scraped data: {scraped_data}")
+            if not scraped_data:
+                logger.error("No data scraped from Seeed Studio page")
+                return None
+
+            # Parse the scraped data
+            result = await self._parse_scraped_data_from_scraper(scraped_data, part_slug, url)
+
+            if result:
+                logger.info(f"Successfully scraped Seeed Studio part: {part_slug}")
+            else:
+                logger.warning(f"Could not parse scraped data for: {part_slug}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error scraping Seeed Studio: {str(e)}")
+            return None
+        finally:
+            # Clean up the scraper session if we created it
+            if scraper_created and hasattr(self, '_scraper') and self._scraper:
+                try:
+                    await self._scraper.close()
+                    self._scraper = None
+                except Exception as e:
+                    logger.debug(f"Error closing scraper: {e}")
+
+    async def _parse_scraped_data_from_scraper(self, scraped_data: Dict[str, Any], part_slug: str, url: str) -> Optional[PartSearchResult]:
+        """Parse scraped data from WebScraper into PartSearchResult format."""
+        try:
+            from datetime import datetime
+
+            # Extract title
+            title = scraped_data.get('title', '').strip()
+            if not title:
+                title = part_slug
+            else:
+                # Truncate title at first comma to avoid overly long names
+                # (Seeed Studio titles often include full specifications)
+                if ',' in title:
+                    title = title.split(',')[0].strip()
+
+            # Extract description
+            description = scraped_data.get('description', '').strip()
+
+            # Extract image URL
+            image_url = scraped_data.get('image')
+            if image_url:
+                # Handle protocol-relative URLs
+                if image_url.startswith('//'):
+                    image_url = 'https:' + image_url
+                elif not image_url.startswith('http'):
+                    image_url = self._get_base_url() + image_url
+
+            # Extract SKU
+            sku = None
+            sku_text = scraped_data.get('sku', '').strip()
+            if sku_text:
+                # Extract SKU from text like "SKU: 123456"
+                sku_match = re.search(r'SKU[:\s]*([A-Z0-9-]+)', sku_text, re.I)
+                if sku_match:
+                    sku = sku_match.group(1)
+                elif re.match(r'^[A-Z0-9-]+$', sku_text):
+                    sku = sku_text
+
+            # Extract datasheet URL
+            datasheet_url = None
+            datasheet_link = scraped_data.get('datasheet')
+            if datasheet_link:
+                # Handle protocol-relative URLs
+                if datasheet_link.startswith('//'):
+                    datasheet_url = 'https:' + datasheet_link
+                elif datasheet_link.startswith('http'):
+                    datasheet_url = datasheet_link
+                elif datasheet_link.startswith('/'):
+                    datasheet_url = self._get_base_url() + datasheet_link
+                else:
+                    # Relative path without leading slash
+                    datasheet_url = self._get_base_url() + '/' + datasheet_link
+
+            # Extract specifications from table
+            specifications = {}
+            if 'spec_table' in scraped_data and isinstance(scraped_data['spec_table'], dict):
+                specifications = scraped_data['spec_table']
+
+            # Parse pricing
+            pricing = []
+            if 'price' in scraped_data:
+                price_text = scraped_data['price']
+                if self._scraper:
+                    price_info = self._scraper.parse_price(price_text)
+                    if price_info and 'price' in price_info:
+                        pricing = [{
+                            'quantity': price_info.get('quantity', 1),
+                            'price': price_info.get('unit_price', price_info.get('price', 0)),
+                            'currency': price_info.get('currency', 'USD'),
+                        }]
+
+            # Build additional_data from specifications
+            additional_data = dict(specifications) if specifications else {}
+            additional_data['source'] = 'web_scraping'
+            additional_data['scraped_at'] = datetime.now().isoformat()
+            additional_data['url'] = url
+
+            # Add price to additional_data if available
+            if pricing and pricing:
+                additional_data['price'] = f"${pricing[0]['price']:.2f}"
+                additional_data['currency'] = pricing[0].get('currency', 'USD')
+
+            return PartSearchResult(
+                supplier_part_number=part_slug,
+                part_name=title,
+                manufacturer="Seeed Studio",
+                manufacturer_part_number=sku or part_slug,
+                description=description or title,
+                category=None,
+                datasheet_url=datasheet_url,
+                image_url=image_url,
+                stock_quantity=None,
+                pricing=pricing if pricing else None,
+                specifications=specifications,
+                additional_data=additional_data
+            )
+
+        except Exception as e:
+            logger.error(f"Error parsing scraped Seeed Studio data: {str(e)}")
             return None
 
     def _parse_product_page(self, soup: BeautifulSoup, part_slug: str, url: str) -> Optional[PartSearchResult]:
@@ -708,3 +901,62 @@ class SeeedStudioSupplier(BaseSupplier):
         except Exception as e:
             logger.warning(f"Error extracting specifications: {e}")
             return None
+
+    def map_to_standard_format(self, supplier_data: Any) -> Dict[str, Any]:
+        """
+        Map supplier data to standard format.
+
+        This method flattens the PartSearchResult into simple key-value pairs for clean display.
+        All specifications and additional_data are expanded into flat fields.
+
+        Args:
+            supplier_data: PartSearchResult from this supplier
+
+        Returns:
+            Flat dictionary with all data as simple key-value pairs
+        """
+        if not isinstance(supplier_data, PartSearchResult):
+            return {}
+
+        # Start with core fields
+        mapped = {
+            'supplier_part_number': supplier_data.supplier_part_number,
+            'part_name': supplier_data.part_name or supplier_data.description or supplier_data.supplier_part_number,
+            'manufacturer': supplier_data.manufacturer,
+            'manufacturer_part_number': supplier_data.manufacturer_part_number,
+            'description': supplier_data.description,
+            'category': supplier_data.category,
+        }
+
+        # Add image and datasheet URLs if available
+        if supplier_data.image_url:
+            mapped['image_url'] = supplier_data.image_url
+        if supplier_data.datasheet_url:
+            mapped['datasheet_url'] = supplier_data.datasheet_url
+
+        # Extract unit price from pricing array (first tier)
+        if supplier_data.pricing and len(supplier_data.pricing) > 0:
+            first_price = supplier_data.pricing[0]
+            mapped['unit_price'] = first_price.get('price')
+            mapped['currency'] = first_price.get('currency', 'USD')
+
+        # Flatten specifications into custom fields
+        if supplier_data.specifications:
+            for spec_key, spec_value in supplier_data.specifications.items():
+                # Create readable field names
+                field_name = spec_key.replace('_', ' ').title()
+                if spec_value is not None:
+                    mapped[field_name] = str(spec_value)
+
+        # Flatten additional_data into custom fields
+        if supplier_data.additional_data:
+            for key, value in supplier_data.additional_data.items():
+                # Skip internal tracking fields
+                if key in ['source', 'scraped_at', 'api_version', 'last_updated', 'warning', 'data_source']:
+                    continue
+                # Create readable field names
+                field_name = key.replace('_', ' ').title()
+                if value is not None:
+                    mapped[field_name] = str(value)
+
+        return mapped

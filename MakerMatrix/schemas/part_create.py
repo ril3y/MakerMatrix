@@ -1,11 +1,11 @@
 from typing import Optional, List
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class PartCreate(BaseModel):
     part_number: Optional[str] = None
-    part_name: Optional[str] = None
+    part_name: Optional[str] = Field(default=None, max_length=255)
     quantity: Optional[int] = None  # Fixed: field is now optional, not just type
     description: Optional[str] = None
     supplier: Optional[str] = None
@@ -36,7 +36,7 @@ class PartCreate(BaseModel):
 
 class PartUpdate(BaseModel):
     part_number: Optional[str] = None
-    part_name: Optional[str] = None
+    part_name: Optional[str] = Field(default=None, max_length=255)
     quantity: Optional[int] = None
     description: Optional[str] = None
     supplier: Optional[str] = None

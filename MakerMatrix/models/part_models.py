@@ -78,7 +78,7 @@ class PartModel(SQLModel, table=True):
     
     # === CORE IDENTIFICATION ===
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    part_name: str = Field(index=True, unique=True)
+    part_name: str = Field(index=True, unique=True, max_length=255, description="Part name (max 255 characters)")
     part_number: Optional[str] = Field(index=True)
     
     # === PART DESCRIPTION ===

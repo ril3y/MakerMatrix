@@ -35,6 +35,7 @@ class SupplierCapability(Enum):
     FETCH_DATASHEET = "fetch_datasheet"    # Datasheet URL retrieval
     FETCH_PRICING_STOCK = "fetch_pricing_stock"  # Combined pricing and stock information
     IMPORT_ORDERS = "import_orders"        # Import order files (CSV, XLS, etc.)
+    SCRAPE_PART_DETAILS = "scrape_part_details"  # Web scraping fallback when API unavailable
 
 @dataclass
 class FieldDefinition:
@@ -309,6 +310,49 @@ class BaseSupplier(ABC):
         # Default: no URL pattern extraction supported
         return []
 
+    def supports_scraping(self) -> bool:
+        """
+        Check if this supplier supports web scraping as a fallback when API is unavailable.
+
+        Returns:
+            True if scraping is supported, False otherwise
+        """
+        return False  # Default: no scraping support
+
+    async def scrape_part_details(self, url_or_part_number: str, force_refresh: bool = False) -> Optional[PartSearchResult]:
+        """
+        Scrape part details from supplier website when API is unavailable.
+
+        Args:
+            url_or_part_number: Either a full product URL or a part number
+            force_refresh: Whether to force refresh cached data (optional, for future use)
+
+        Returns:
+            PartSearchResult with scraped data, or None if scraping fails
+
+        Raises:
+            NotImplementedError: If supplier doesn't implement scraping
+        """
+        raise NotImplementedError(f"Web scraping not implemented for {self.get_supplier_info().name}")
+
+    def get_scraping_config(self) -> Dict[str, Any]:
+        """
+        Get configuration for web scraping this supplier's website.
+
+        Returns:
+            Dictionary with scraping configuration including:
+            - selectors: CSS/XPath selectors for different fields
+            - requires_js: Whether JavaScript execution is needed
+            - rate_limit_seconds: Delay between requests
+            - user_agent: Custom user agent string if needed
+        """
+        return {
+            'selectors': {},
+            'requires_js': False,
+            'rate_limit_seconds': 1.0,
+            'user_agent': None
+        }
+
     # ========== Schema Definitions ==========
     
     @abstractmethod
@@ -527,11 +571,115 @@ class BaseSupplier(ABC):
                 pass
     
     # ========== Core Functionality ==========
-    
+
     @abstractmethod
     async def search_parts(self, query: str, limit: int = 50) -> List[PartSearchResult]:
         """Search for parts using a text query"""
         pass
+
+    def map_to_standard_format(self, supplier_data: Union[PartSearchResult, EnrichmentResult, Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Map supplier-specific data to standardized part format.
+
+        This method allows each supplier to define how its data maps to the standard
+        MakerMatrix part schema. Suppliers should override this to handle their
+        specific data structures and field mappings.
+
+        Args:
+            supplier_data: Data from the supplier (can be PartSearchResult, EnrichmentResult, or dict)
+
+        Returns:
+            Dictionary with standardized part fields ready for database storage
+
+        Example implementation for a supplier:
+            def map_to_standard_format(self, supplier_data):
+                # Convert to dict if needed
+                if isinstance(supplier_data, PartSearchResult):
+                    data = {
+                        'supplier_part_number': supplier_data.supplier_part_number,
+                        'part_name': supplier_data.part_name,
+                        'description': supplier_data.description,
+                        # ... etc
+                    }
+                elif isinstance(supplier_data, dict):
+                    data = supplier_data
+                else:
+                    data = {}
+
+                # Map supplier-specific fields to standard fields
+                mapped = {
+                    'supplier_part_number': data.get('supplier_part_number'),
+                    'part_name': data.get('part_name') or data.get('product_name'),
+                    'manufacturer': data.get('manufacturer') or data.get('brand'),
+                    # Handle supplier-specific field names
+                    'quantity': data.get('stock_quantity') or data.get('inventory', 0),
+                    # ... more mappings
+                }
+
+                # Handle nested structures (e.g., specifications)
+                if 'specifications' in data:
+                    mapped['additional_properties'] = self._map_specifications(data['specifications'])
+
+                return mapped
+        """
+        # Default implementation - basic mapping
+        mapped_data = {}
+
+        # Handle different input types
+        if isinstance(supplier_data, PartSearchResult):
+            # Map from PartSearchResult
+            mapped_data = {
+                'supplier_part_number': supplier_data.supplier_part_number,
+                'part_name': supplier_data.part_name,
+                'manufacturer': supplier_data.manufacturer,
+                'manufacturer_part_number': supplier_data.manufacturer_part_number,
+                'description': supplier_data.description,
+                'category': supplier_data.category,
+                'datasheet_url': supplier_data.datasheet_url,
+                'image_url': supplier_data.image_url,
+                'quantity': supplier_data.stock_quantity if supplier_data.stock_quantity is not None else 0,
+                'additional_properties': supplier_data.specifications or {}
+            }
+
+            # Add pricing if available
+            if supplier_data.pricing:
+                mapped_data['price'] = self._extract_unit_price(supplier_data.pricing)
+
+        elif isinstance(supplier_data, EnrichmentResult):
+            # Map from EnrichmentResult
+            if supplier_data.data:
+                mapped_data = self.map_to_standard_format(supplier_data.data)
+
+        elif isinstance(supplier_data, dict):
+            # Direct dictionary mapping - suppliers should override for custom logic
+            mapped_data = supplier_data.copy()
+
+        # Clean up None values
+        return {k: v for k, v in mapped_data.items() if v is not None}
+
+    def _extract_unit_price(self, pricing: List[Dict[str, Any]]) -> Optional[float]:
+        """
+        Extract the unit price from pricing data.
+
+        Args:
+            pricing: List of pricing tiers
+
+        Returns:
+            Unit price as float, or None if not available
+        """
+        if not pricing:
+            return None
+
+        # Look for quantity 1 pricing
+        for price_tier in pricing:
+            if price_tier.get('quantity') == 1:
+                return price_tier.get('price')
+
+        # Fall back to first tier if no unit pricing
+        if pricing and 'price' in pricing[0]:
+            return pricing[0]['price']
+
+        return None
     
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
         """Get detailed information about a specific part"""

@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CategoryResponse(BaseModel):
@@ -22,7 +22,7 @@ class PartResponse(BaseModel):
     # === CORE PART DATA (always included) ===
     # Core identification
     id: Optional[str] = None
-    part_name: Optional[str] = None
+    part_name: Optional[str] = Field(default=None, max_length=255)
     part_number: Optional[str] = None
     
     # Part description  
