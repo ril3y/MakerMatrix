@@ -4,13 +4,14 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import PartDetailsPage from '../PartDetailsPage'
 import { partsService } from '@/services/parts.service'
-import { analyticsService } from '@/services/analytics.service'
+// Analytics service removed - price trends tests disabled
+// import { analyticsService } from '@/services/analytics.service'
 
 // Mock services
 vi.mock('@/services/parts.service')
-vi.mock('@/services/analytics.service')
+// vi.mock('@/services/analytics.service')
 const mockPartsService = partsService as any
-const mockAnalyticsService = analyticsService as any
+// const mockAnalyticsService = analyticsService as any
 
 // Mock react-router-dom navigation
 const mockNavigate = vi.fn()
@@ -140,7 +141,8 @@ describe('PartDetailsPage', () => {
     vi.clearAllMocks()
     mockPartsService.getPart.mockResolvedValue(mockPart)
     mockPartsService.deletePart.mockResolvedValue({ status: 'success' })
-    mockAnalyticsService.getPriceTrends.mockResolvedValue(mockPriceTrends)
+    // Analytics service removed - price trends disabled
+    // mockAnalyticsService.getPriceTrends.mockResolvedValue(mockPriceTrends)
 
     // Mock window.confirm
     global.confirm = vi.fn(() => true)
@@ -168,7 +170,8 @@ describe('PartDetailsPage', () => {
       })
 
       expect(mockPartsService.getPart).toHaveBeenCalledWith('1')
-      expect(mockAnalyticsService.getPriceTrends).toHaveBeenCalledWith({ part_id: '1', limit: 20 })
+      // Analytics service removed - price trends disabled
+      // expect(mockAnalyticsService.getPriceTrends).toHaveBeenCalledWith({ part_id: '1', limit: 20 })
     })
 
     it('displays part image correctly', async () => {
@@ -381,39 +384,41 @@ describe('PartDetailsPage', () => {
       })
     })
 
-    it('handles missing price history gracefully', async () => {
-      mockAnalyticsService.getPriceTrends.mockResolvedValue([])
+    // Analytics service removed - price trends tests disabled
+    // it('handles missing price history gracefully', async () => {
+    //   mockAnalyticsService.getPriceTrends.mockResolvedValue([])
 
-      render(<PartDetailsPage />, { wrapper: TestWrapper })
+    //   render(<PartDetailsPage />, { wrapper: TestWrapper })
 
-      await waitFor(() => {
-        expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
-      })
+    //   await waitFor(() => {
+    //     expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
+    //   })
 
-      // Should not crash when no price data is available
-      expect(screen.queryByTestId('price-chart')).toBeInTheDocument()
-    })
+    //   // Should not crash when no price data is available
+    //   expect(screen.queryByTestId('price-chart')).toBeInTheDocument()
+    // })
 
-    it('shows loading state for price history', async () => {
-      // Delay the price trends response
-      mockAnalyticsService.getPriceTrends.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve(mockPriceTrends), 100))
-      )
+    // Analytics service removed - price trends tests disabled
+    // it('shows loading state for price history', async () => {
+    //   // Delay the price trends response
+    //   mockAnalyticsService.getPriceTrends.mockImplementation(
+    //     () => new Promise((resolve) => setTimeout(() => resolve(mockPriceTrends), 100))
+    //   )
 
-      render(<PartDetailsPage />, { wrapper: TestWrapper })
+    //   render(<PartDetailsPage />, { wrapper: TestWrapper })
 
-      await waitFor(() => {
-        expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
-      })
+    //   await waitFor(() => {
+    //     expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
+    //   })
 
-      // Check that price chart is eventually loaded
-      await waitFor(
-        () => {
-          expect(screen.getByTestId('price-chart')).toBeInTheDocument()
-        },
-        { timeout: 200 }
-      )
-    })
+    //   // Check that price chart is eventually loaded
+    //   await waitFor(
+    //     () => {
+    //       expect(screen.getByTestId('price-chart')).toBeInTheDocument()
+    //     },
+    //     { timeout: 200 }
+    //   )
+    // })
   })
 
   describe('Part Properties Display', () => {
@@ -514,24 +519,25 @@ describe('PartDetailsPage', () => {
       })
     })
 
-    it('handles price history loading errors gracefully', async () => {
-      mockAnalyticsService.getPriceTrends.mockRejectedValue(
-        new Error('Failed to load price history')
-      )
+    // Analytics service removed - price trends tests disabled
+    // it('handles price history loading errors gracefully', async () => {
+    //   mockAnalyticsService.getPriceTrends.mockRejectedValue(
+    //     new Error('Failed to load price history')
+    //   )
 
-      // Mock console.error to verify error handling
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    //   // Mock console.error to verify error handling
+    //   const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      render(<PartDetailsPage />, { wrapper: TestWrapper })
+    //   render(<PartDetailsPage />, { wrapper: TestWrapper })
 
-      await waitFor(() => {
-        expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
-      })
+    //   await waitFor(() => {
+    //     expect(screen.getByText('Arduino Uno R3')).toBeInTheDocument()
+    //   })
 
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to load price history:', expect.any(Error))
+    //   expect(consoleSpy).toHaveBeenCalledWith('Failed to load price history:', expect.any(Error))
 
-      consoleSpy.mockRestore()
-    })
+    //   consoleSpy.mockRestore()
+    // })
   })
 
   describe('URL Parameters', () => {

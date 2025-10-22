@@ -21,7 +21,18 @@ def get_guest_identifier(request: Request) -> str:
     For guests: use IP address
     For authenticated users: use username (exempt from guest limits)
     """
-    # Try to get token from Authorization header
+    # Check for API key authentication (X-API-Key header or Authorization: ApiKey)
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("ApiKey "):
+            api_key = auth_header[7:]  # Remove "ApiKey " prefix
+
+    # If API key is present, user is authenticated and exempt from guest limits
+    if api_key:
+        return f"apikey:{api_key[:12]}"  # Use key prefix as identifier
+
+    # Try to get JWT token from Authorization header
     auth_header = request.headers.get("Authorization")
 
     if auth_header and auth_header.startswith("Bearer "):

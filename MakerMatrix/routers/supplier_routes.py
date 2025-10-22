@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from MakerMatrix.auth.dependencies import get_current_user, get_current_user_flexible
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.suppliers import SupplierRegistry
 from MakerMatrix.suppliers.exceptions import (
@@ -498,7 +498,7 @@ async def get_supplier_capabilities(
 @standard_error_handling
 async def check_scraping_support(
     supplier_name: str,
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(get_current_user)
 ):
     """Check if a supplier supports web scraping fallback"""
     try:
@@ -1158,7 +1158,7 @@ async def handle_oauth_callback(
 @standard_error_handling
 async def detect_supplier_from_url(
     request: Dict[str, str],
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(get_current_user)
 ):
     """
     Detect supplier from a URL by matching against known supplier URL patterns.

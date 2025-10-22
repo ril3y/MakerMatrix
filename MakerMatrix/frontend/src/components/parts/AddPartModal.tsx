@@ -441,7 +441,14 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         imageUrl,
         emoji,
       }
-      localStorage.setItem('addPartFormData', JSON.stringify(cacheData))
+      // Only save if there's actual data to cache (not an empty form)
+      const hasData = formData.name || formData.part_number || formData.supplier ||
+                      selectedCategories.length > 0 || selectedProjects.length > 0 ||
+                      selectedTags.length > 0 || customProperties.length > 0
+
+      if (hasData) {
+        localStorage.setItem('addPartFormData', JSON.stringify(cacheData))
+      }
     }
   }, [isOpen, formData, selectedCategories, selectedProjects, selectedTags, customProperties, imageUrl, emoji])
 

@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ModalProps {
   isOpen: boolean
@@ -47,10 +48,10 @@ const Modal = ({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, loading, onClose])
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] overflow-y-auto">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -103,6 +104,9 @@ const Modal = ({
       )}
     </AnimatePresence>
   )
+
+  // Render modal at document.body level using portal to escape any parent stacking contexts
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null
 }
 
 export default Modal

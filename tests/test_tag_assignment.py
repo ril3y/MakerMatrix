@@ -103,7 +103,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "part-tag", "color": "#FF5733"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -135,7 +135,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "dup-part-tag"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -163,7 +163,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create and assign a tag
             tag_data = {"name": "remove-part-tag"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -190,7 +190,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "tool-tag", "color": "#33FF57"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -222,7 +222,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create and assign a tag
             tag_data = {"name": "remove-tool-tag"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -249,7 +249,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "parts-filter", "color": "#5733FF"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -279,7 +279,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "tools-filter", "color": "#FF3357"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -311,7 +311,7 @@ class TestTagAssignment:
             tag_ids = []
             for i in range(2):
                 tag_data = {"name": f"bulk-tag-{i}"}
-                tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+                tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
                 assert tag_response.status_code == 200
                 tag_ids.append(tag_response.json()["data"]["id"])
 
@@ -347,7 +347,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "bulk-remove-tag"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -401,7 +401,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "orphan-tag"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -415,7 +415,7 @@ class TestTagAssignment:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "delete-assoc-tag", "color": "#ABCDEF"}
-            tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert tag_response.status_code == 200
             tag_id = tag_response.json()["data"]["id"]
 
@@ -460,7 +460,7 @@ class TestTagAssignment:
             tag_ids = []
             for name in tag_names:
                 tag_data = {"name": name, "color": "#FF0000"}
-                tag_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+                tag_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
                 assert tag_response.status_code == 200
                 tag_ids.append(tag_response.json()["data"]["id"])
 

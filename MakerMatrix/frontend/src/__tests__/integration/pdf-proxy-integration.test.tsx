@@ -61,12 +61,12 @@ vi.mock('../../services/parts.service', () => ({
   },
 }))
 
-// Mock analytics service
-vi.mock('../../services/analytics.service', () => ({
-  analyticsService: {
-    getPriceTrends: vi.fn(() => Promise.resolve([])),
-  },
-}))
+// Analytics service removed - price trends disabled
+// vi.mock('../../services/analytics.service', () => ({
+//   analyticsService: {
+//     getPriceTrends: vi.fn(() => Promise.resolve([])),
+//   },
+// }))
 
 // Mock react-pdf
 vi.mock('react-pdf', () => ({

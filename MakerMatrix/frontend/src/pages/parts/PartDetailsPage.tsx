@@ -62,7 +62,8 @@ import AddProjectModal from '@/components/projects/AddProjectModal'
 import ProjectDetailsModal from '@/components/projects/ProjectDetailsModal'
 import { projectsService } from '@/services/projects.service'
 import type { Project } from '@/types/projects'
-import { analyticsService } from '@/services/analytics.service'
+// Analytics service removed - price trends disabled
+// import { analyticsService } from '@/services/analytics.service'
 import { Line } from 'react-chartjs-2'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -317,7 +318,8 @@ const PartDetailsPage = () => {
       }
 
       // Load price history and allocations after part is loaded
-      loadPriceHistory(partId)
+      // Price history disabled - analytics service removed
+      // loadPriceHistory(partId)
       loadAllocations(partId)
     } catch (err) {
       const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
@@ -386,17 +388,18 @@ const PartDetailsPage = () => {
     }
   }
 
-  const loadPriceHistory = async (partId: string) => {
-    try {
-      setLoadingPriceHistory(true)
-      const trends = await analyticsService.getPriceTrends({ part_id: partId, limit: 20 })
-      setPriceTrends(trends)
-    } catch (err) {
-      console.error('Failed to load price history:', err)
-    } finally {
-      setLoadingPriceHistory(false)
-    }
-  }
+  // Price trends feature disabled - analytics service removed
+  // const loadPriceHistory = async (partId: string) => {
+  //   try {
+  //     setLoadingPriceHistory(true)
+  //     const trends = await analyticsService.getPriceTrends({ part_id: partId, limit: 20 })
+  //     setPriceTrends(trends)
+  //   } catch (err) {
+  //     console.error('Failed to load price history:', err)
+  //   } finally {
+  //     setLoadingPriceHistory(false)
+  //   }
+  // }
 
   const handleDelete = async () => {
     if (part && confirm(`Are you sure you want to delete "${part.name}"?`)) {

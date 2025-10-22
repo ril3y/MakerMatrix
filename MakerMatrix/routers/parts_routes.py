@@ -11,7 +11,7 @@ from MakerMatrix.schemas.bulk_update import BulkUpdateRequest, BulkUpdateRespons
 from MakerMatrix.schemas.bulk_delete import BulkDeleteRequest, BulkDeleteResponse
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.auth.dependencies import get_current_user_flexible
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.suppliers.registry import get_available_suppliers
@@ -548,7 +548,7 @@ async def transfer_part_quantity(
 async def check_enrichment_requirements(
     part_id: str,
     supplier: str,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(get_current_user),
     part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[EnrichmentRequirementCheckResponse]:
     """
@@ -653,7 +653,7 @@ async def check_enrichment_requirements(
 @router.get("/enrichment-requirements/{supplier}", response_model=ResponseSchema[Dict[str, Any]])
 async def get_supplier_enrichment_requirements(
     supplier: str,
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Get enrichment requirements for a specific supplier.

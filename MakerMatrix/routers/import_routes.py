@@ -12,7 +12,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from MakerMatrix.auth.dependencies import get_current_user, get_current_user_flexible
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.schemas.response import ResponseSchema
@@ -436,7 +436,7 @@ async def import_file(
 
 @router.get("/suppliers", response_model=ResponseSchema[List[SupplierImportInfo]])
 async def get_import_suppliers(
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(get_current_user)
 ):
     """
     Get list of suppliers that support file imports.

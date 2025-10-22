@@ -69,7 +69,7 @@ class TestTagCRUD:
                 "is_system": False
             }
 
-            response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert response.status_code == 200
 
             data = response.json()
@@ -90,7 +90,7 @@ class TestTagCRUD:
                 "description": "Test tag with hash prefix"
             }
 
-            response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert response.status_code == 200
 
             data = response.json()
@@ -105,11 +105,11 @@ class TestTagCRUD:
             }
 
             # Create first tag
-            response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert response.status_code == 200
 
             # Try to create duplicate
-            response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert response.status_code == 409  # Conflict status for duplicates
             assert "already exists" in response.json()["message"].lower()
 
@@ -118,12 +118,12 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create first tag
             tag_data1 = {"name": "CaseTest", "color": "#123456"}
-            response = client.post("/api/tags/", json=tag_data1, headers=auth_headers)
+            response = client.post("/api/tags", json=tag_data1, headers=auth_headers)
             assert response.status_code == 200
 
             # Try to create with different case
             tag_data2 = {"name": "casetest", "color": "#654321"}
-            response = client.post("/api/tags/", json=tag_data2, headers=auth_headers)
+            response = client.post("/api/tags", json=tag_data2, headers=auth_headers)
             assert response.status_code == 409  # Conflict status for duplicates
             assert "already exists" in response.json()["message"].lower()
 
@@ -132,7 +132,7 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "get-test", "color": "#AABBCC"}
-            create_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            create_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert create_response.status_code == 200
             tag_id = create_response.json()["data"]["id"]
 
@@ -151,7 +151,7 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "name-test", "description": "Test by name"}
-            create_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            create_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert create_response.status_code == 200
 
             # Get by name
@@ -168,7 +168,7 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "hash-test"}
-            create_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            create_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert create_response.status_code == 200
 
             # Get by name with hash
@@ -189,11 +189,11 @@ class TestTagCRUD:
             # Create multiple tags
             for i in range(5):
                 tag_data = {"name": f"list-test-{i}", "color": f"#00{i}{i}{i}{i}"}
-                response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+                response = client.post("/api/tags", json=tag_data, headers=auth_headers)
                 assert response.status_code == 200
 
             # Get all tags
-            response = client.get("/api/tags/", headers=auth_headers)
+            response = client.get("/api/tags", headers=auth_headers)
             assert response.status_code == 200
 
             data = response.json()
@@ -214,11 +214,11 @@ class TestTagCRUD:
             ]
 
             for tag_data in tags:
-                response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+                response = client.post("/api/tags", json=tag_data, headers=auth_headers)
                 assert response.status_code == 200
 
             # Search for "end"
-            response = client.get("/api/tags/?search=end", headers=auth_headers)
+            response = client.get("/api/tags?search=end", headers=auth_headers)
             assert response.status_code == 200
 
             data = response.json()
@@ -229,13 +229,13 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create active and inactive tags
             active_tag = {"name": "active-tag", "color": "#112233"}
-            response = client.post("/api/tags/", json=active_tag, headers=auth_headers)
+            response = client.post("/api/tags", json=active_tag, headers=auth_headers)
             assert response.status_code == 200
             active_id = response.json()["data"]["id"]
 
             # Create a tag and then deactivate it
             inactive_tag = {"name": "inactive-tag", "color": "#445566"}
-            response = client.post("/api/tags/", json=inactive_tag, headers=auth_headers)
+            response = client.post("/api/tags", json=inactive_tag, headers=auth_headers)
             assert response.status_code == 200
             inactive_id = response.json()["data"]["id"]
 
@@ -245,7 +245,7 @@ class TestTagCRUD:
             assert response.status_code == 200
 
             # Filter active only
-            response = client.get("/api/tags/?is_active=true", headers=auth_headers)
+            response = client.get("/api/tags?is_active=true", headers=auth_headers)
             assert response.status_code == 200
 
             active_tags = response.json()["data"]["tags"]
@@ -258,7 +258,7 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "update-test", "color": "#000000"}
-            create_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            create_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert create_response.status_code == 200
             tag_id = create_response.json()["data"]["id"]
 
@@ -283,7 +283,7 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "old-name", "color": "#123123"}
-            create_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            create_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert create_response.status_code == 200
             tag_id = create_response.json()["data"]["id"]
 
@@ -302,8 +302,8 @@ class TestTagCRUD:
             tag1_data = {"name": "tag1"}
             tag2_data = {"name": "tag2"}
 
-            response1 = client.post("/api/tags/", json=tag1_data, headers=auth_headers)
-            response2 = client.post("/api/tags/", json=tag2_data, headers=auth_headers)
+            response1 = client.post("/api/tags", json=tag1_data, headers=auth_headers)
+            response2 = client.post("/api/tags", json=tag2_data, headers=auth_headers)
             assert response1.status_code == 200
             assert response2.status_code == 200
 
@@ -320,7 +320,7 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create a tag
             tag_data = {"name": "delete-test"}
-            create_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            create_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert create_response.status_code == 200
             tag_id = create_response.json()["data"]["id"]
 
@@ -338,7 +338,7 @@ class TestTagCRUD:
         with TestClient(app) as client:
             # Create a system tag
             tag_data = {"name": "system-tag", "is_system": True}
-            create_response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+            create_response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert create_response.status_code == 200
             tag_id = create_response.json()["data"]["id"]
 
@@ -360,7 +360,7 @@ class TestTagCRUD:
             # Create some tags
             for i in range(3):
                 tag_data = {"name": f"stat-test-{i}", "is_system": i == 0}
-                response = client.post("/api/tags/", json=tag_data, headers=auth_headers)
+                response = client.post("/api/tags", json=tag_data, headers=auth_headers)
                 assert response.status_code == 200
 
             # Get statistics

@@ -23,7 +23,7 @@ from MakerMatrix.schemas.tool_schemas import (
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.tool_service import ToolService
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.auth.dependencies import get_current_user_flexible
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, validate_service_response
 

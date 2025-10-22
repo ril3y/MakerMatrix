@@ -24,7 +24,7 @@ from MakerMatrix.schemas.tag_schemas import (
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.tag_service import TagService
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.auth.dependencies import get_current_user_flexible, get_current_user
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, validate_service_response
 
@@ -213,7 +213,7 @@ async def assign_tag_to_part(
     tag_id: str,
     part_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, str]]:
     """Assign a tag to a part"""
@@ -233,7 +233,7 @@ async def remove_tag_from_part(
     tag_id: str,
     part_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, str]]:
     """Remove a tag from a part"""
@@ -254,7 +254,7 @@ async def assign_tag_to_tool(
     tag_id: str,
     tool_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, str]]:
     """Assign a tag to a tool"""
@@ -274,7 +274,7 @@ async def remove_tag_from_tool(
     tag_id: str,
     tool_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, str]]:
     """Remove a tag from a tool"""
@@ -370,7 +370,7 @@ async def get_tools_by_tag(
 async def bulk_tag_operation(
     operation: TagBulkOperation,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Perform bulk tag operations on multiple items"""
@@ -408,7 +408,7 @@ async def merge_tags(
 async def cleanup_tags(
     cleanup_request: Optional[TagCleanupRequest] = None,
     request: Request = None,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Clean up unused or duplicate tags"""

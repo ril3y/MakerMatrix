@@ -28,7 +28,6 @@ from MakerMatrix.routers import (
     import_routes,
     task_routes,
     websocket_routes,
-    analytics_routes,
     activity_routes,
     supplier_config_routes,
     supplier_routes,
@@ -493,7 +492,6 @@ secure_all_routes(
     exclude_paths=["/{supplier_name}/oauth/callback"],  # OAuth callbacks must be public
 )
 secure_all_routes(rate_limit_routes.router, permissions=rate_limit_permissions)
-secure_all_routes(analytics_routes.router)
 secure_all_routes(activity_routes.router)
 secure_all_routes(backup_routes.router, permissions=backup_permissions)
 
@@ -522,7 +520,6 @@ app.include_router(task_routes.router, prefix="/api/tasks")
 app.include_router(supplier_config_routes.router, prefix="/api/suppliers/config", tags=["Supplier Configuration"])
 app.include_router(supplier_routes.router, prefix="/api/suppliers", tags=["Suppliers"])
 app.include_router(rate_limit_routes.router, prefix="/api/rate-limits", tags=["Rate Limiting"])
-app.include_router(analytics_routes.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(activity_routes.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(backup_routes.router, tags=["Backup Management"])
 app.include_router(websocket_routes.router, tags=["WebSocket"])

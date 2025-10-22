@@ -7,7 +7,7 @@ from MakerMatrix.models.user_models import UserCreate, UserUpdate, PasswordUpdat
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.system.auth_service import AuthService
-from MakerMatrix.auth.dependencies import get_current_user_flexible
+from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission, require_admin
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity
 
@@ -101,7 +101,7 @@ async def register_user(
 
 @router.get("/me", response_model=ResponseSchema)
 @standard_error_handling
-async def get_current_user_info(current_user=Depends(get_current_user_flexible)):
+async def get_current_user_info(current_user=Depends(get_current_user)):
     """Get current authenticated user information"""
     return base_router.build_success_response(
         message="Current user retrieved successfully",
@@ -111,7 +111,7 @@ async def get_current_user_info(current_user=Depends(get_current_user_flexible))
 
 @router.get("/all", response_model=ResponseSchema)
 @standard_error_handling
-async def get_all_users(current_user=Depends(get_current_user_flexible)):
+async def get_all_users(current_user=Depends(get_current_user)):
     # Only admin users can access this route
     if not any(role.name == "admin" for role in getattr(current_user, "roles", [])):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
@@ -198,7 +198,7 @@ async def update_user(
 async def update_password(
     user_id: str,
     password_data: PasswordUpdate,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(get_current_user)
 ):
     user = user_repository.get_user_by_id(user_id)
     if not user:

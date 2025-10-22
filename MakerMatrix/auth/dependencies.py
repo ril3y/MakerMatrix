@@ -12,16 +12,6 @@ auth_service = AuthService()
 api_key_service = APIKeyService()
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserModel:
-    """Dependency to get the current authenticated user."""
-    return auth_service.get_current_user(token)
-
-
-async def get_current_user_from_token(token: str) -> UserModel:
-    """Get current user from token (for WebSocket authentication)."""
-    return auth_service.get_current_user(token)
-
-
 async def get_current_user_optional(request: Request) -> Optional[UserModel]:
     """Get current user optionally from request (returns None if not authenticated)."""
     try:
@@ -29,22 +19,15 @@ async def get_current_user_optional(request: Request) -> Optional[UserModel]:
         authorization = request.headers.get("authorization")
         if not authorization:
             return None
-        
+
         # Extract token from "Bearer <token>"
         if not authorization.startswith("Bearer "):
             return None
-        
+
         token = authorization[7:]  # Remove "Bearer " prefix
         return auth_service.get_current_user(token)
     except:
         return None
-
-
-async def get_current_active_user(current_user: UserModel = Depends(get_current_user)) -> UserModel:
-    """Dependency to get the current active user."""
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
 
 
 async def get_user_from_api_key(
@@ -100,14 +83,18 @@ async def get_user_from_api_key(
     return user
 
 
-async def get_current_user_flexible(
+async def get_current_user(
     request: Request,
     jwt_user: Optional[UserModel] = Depends(get_current_user_optional),
     api_key_user: Optional[UserModel] = Depends(get_user_from_api_key)
 ) -> UserModel:
     """
-    Flexible authentication that accepts either JWT token or API key.
+    Unified authentication that accepts either JWT token or API key.
     Tries API key first, then JWT token.
+
+    Supports:
+    - JWT: Authorization header with "Bearer <token>"
+    - API Key: X-API-Key header or Authorization header with "ApiKey <key>"
     """
     # Try API key first
     if api_key_user:
@@ -122,3 +109,20 @@ async def get_current_user_flexible(
         status_code=401,
         detail="Not authenticated. Provide either a valid JWT token (Authorization: Bearer <token>) or API key (X-API-Key: <key> or Authorization: ApiKey <key>)"
     )
+
+
+async def get_current_user_from_token(token: str) -> UserModel:
+    """Get current user from token (for WebSocket authentication)."""
+    return auth_service.get_current_user(token)
+
+
+async def get_current_active_user(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Dependency to get the current active user."""
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+
+# Backward compatibility alias - get_current_user_flexible is now just an alias to get_current_user
+# which handles both JWT and API keys
+get_current_user_flexible = get_current_user

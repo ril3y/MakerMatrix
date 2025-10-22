@@ -15,7 +15,8 @@ import {
   Activity,
   Clock,
 } from 'lucide-react'
-import { analyticsService } from '@/services/analytics.service'
+// Analytics service removed - dashboard analytics disabled
+// import { analyticsService } from '@/services/analytics.service'
 import { activityService, type Activity as ActivityType } from '@/services/activity.service'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import {
@@ -111,8 +112,13 @@ const DashboardPage = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
-      const response = await analyticsService.getDashboardSummary()
-      setData(response)
+      // TODO: Analytics service removed - need alternative data source for dashboard
+      // const response = await analyticsService.getDashboardSummary()
+      // setData(response)
+
+      // For now, set loading to false without data
+      // This will show "No dashboard data available" message
+      setData(null)
     } catch (error) {
       toast.error('Failed to load dashboard data')
       console.error('Dashboard error:', error)

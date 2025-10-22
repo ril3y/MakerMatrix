@@ -805,6 +805,9 @@ class McMasterCarrSupplier(BaseSupplier):
             # Extract image URL if available
             image_url = scraped_data.get('image')
             if image_url:
+                # Convert relative URLs to absolute URLs
+                if not image_url.startswith("http"):
+                    image_url = f"https://www.mcmaster.com{image_url}"
                 logger.info(f"Scraped image URL: {image_url}")
 
             return PartSearchResult(

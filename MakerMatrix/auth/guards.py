@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from fastapi import Depends, HTTPException, status, APIRouter
 from MakerMatrix.services.system.auth_service import AuthService
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.auth.dependencies import get_current_user_flexible
+from MakerMatrix.auth.dependencies import get_current_user
 
 auth_service = AuthService()
 
@@ -12,7 +12,7 @@ def require_permission(required_permission: str):
 
     SECURITY FIX (CVE-001): Special handling for "admin" permission to check role name.
     """
-    async def permission_dependency(current_user: UserModel = Depends(get_current_user_flexible)) -> UserModel:
+    async def permission_dependency(current_user: UserModel = Depends(get_current_user)) -> UserModel:
         # CRITICAL SECURITY FIX (CVE-001): Admin permission requires admin role
         # Check BOTH role name and permissions for proper admin validation
         if required_permission == "admin":
@@ -40,7 +40,7 @@ def require_permission(required_permission: str):
     return permission_dependency
 
 
-def require_admin(current_user: UserModel = Depends(get_current_user_flexible)) -> UserModel:
+def require_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
     """Dependency to check if the current user is an admin."""
     for role in current_user.roles:
         if role.name == "admin" or "all" in role.permissions:
@@ -105,13 +105,13 @@ def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permis
                     route.dependencies.append(Depends(require_permission(permission[method])))
                 else:
                     # Add general authentication dependency if method not specified
-                    route.dependencies.append(Depends(get_current_user_flexible))
+                    route.dependencies.append(Depends(get_current_user))
             else:
                 # Add permission-specific dependency
                 route.dependencies.append(Depends(require_permission(permission)))
         else:
             # Add general authentication dependency
-            route.dependencies.append(Depends(get_current_user_flexible))
+            route.dependencies.append(Depends(get_current_user))
         
         router.routes.append(route)
     
