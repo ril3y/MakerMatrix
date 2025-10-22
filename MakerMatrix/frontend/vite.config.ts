@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'https://192.168.1.58:8443',
+          target: env.VITE_API_URL || 'https://10.2.0.2:8443',
           changeOrigin: true,
           secure: false, // Allow self-signed certificates
           // Don't rewrite /api paths - pass them through as-is
