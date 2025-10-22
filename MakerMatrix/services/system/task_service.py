@@ -68,12 +68,39 @@ class TaskService(BaseService):
     async def create_task(self, task_request: CreateTaskRequest, user_id: str = None) -> ServiceResponse[Dict[str, Any]]:
         """
         Create a new task using repository pattern.
-        
+
         ✅ REPOSITORY PATTERN: All database operations delegated to TaskRepository.
+        ✅ SECURITY FIX (CVE-009): Rate limiting and security validation enforced.
         """
         try:
+            # CRITICAL SECURITY FIX (CVE-009): Validate task creation with rate limiting
+            if user_id:
+                from MakerMatrix.services.system.task_security_service import task_security_service
+                from MakerMatrix.repositories.user_repository import UserRepository
+
+                user_repo = UserRepository()
+                # UserRepository manages its own session internally
+                user = user_repo.get_user_by_id(user_id)
+
+                if user:
+                    # Validate security policies including rate limits
+                    is_allowed, error_message = await task_security_service.validate_task_creation(
+                        task_request,
+                        user
+                    )
+
+                    if not is_allowed:
+                        # Return 429 status code for rate limit errors, 403 for permission errors
+                        status_code = 429 if "rate limit" in error_message.lower() else 403
+                        return ServiceResponse(
+                            success=False,
+                            message=error_message,
+                            data=None,
+                            status_code=status_code
+                        )
+
             self.log_operation("create", self.entity_name, task_request.name)
-            
+
             async with self.get_async_session() as session:
                 task = TaskModel(
                     task_type=task_request.task_type,

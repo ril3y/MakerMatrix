@@ -7,13 +7,35 @@ from MakerMatrix.auth.dependencies import get_current_user_flexible
 auth_service = AuthService()
 
 def require_permission(required_permission: str):
-    """Dependency factory to check if the current user has the required permission."""
+    """
+    Dependency factory to check if the current user has the required permission.
+
+    SECURITY FIX (CVE-001): Special handling for "admin" permission to check role name.
+    """
     async def permission_dependency(current_user: UserModel = Depends(get_current_user_flexible)) -> UserModel:
-        if not auth_service.has_permission(current_user, required_permission):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: {required_permission} required"
-            )
+        # CRITICAL SECURITY FIX (CVE-001): Admin permission requires admin role
+        # Check BOTH role name and permissions for proper admin validation
+        if required_permission == "admin":
+            # For admin permission, check if user has admin ROLE (not just permission)
+            has_admin_role = False
+            for role in current_user.roles:
+                if role.name == "admin" or "all" in role.permissions:
+                    has_admin_role = True
+                    break
+
+            if not has_admin_role:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin access required. Only users with admin role can perform this action."
+                )
+        else:
+            # For non-admin permissions, use standard permission check
+            if not auth_service.has_permission(current_user, required_permission):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Permission denied: {required_permission} required"
+                )
+
         return current_user
     return permission_dependency
 
