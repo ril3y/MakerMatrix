@@ -31,6 +31,12 @@ export interface APIKeyWithKey extends APIKey {
   api_key: string // Only present when creating a new key
 }
 
+export interface AvailablePermission {
+  value: string
+  label: string
+  category: string
+}
+
 class APIKeyService {
   /**
    * Get all API keys for the current user
@@ -85,6 +91,15 @@ class APIKeyService {
    */
   async getAllApiKeys(): Promise<APIKey[]> {
     const response = await apiClient.get('/api/api-keys/admin/all')
+    return response.data || []
+  }
+
+  /**
+   * Get all available permissions in the system
+   * Dynamically fetched from backend based on role definitions
+   */
+  async getAvailablePermissions(): Promise<AvailablePermission[]> {
+    const response = await apiClient.get('/api/api-keys/permissions/available')
     return response.data || []
   }
 }

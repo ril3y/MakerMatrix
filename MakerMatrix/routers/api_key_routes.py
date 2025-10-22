@@ -6,12 +6,14 @@ Provides endpoints for creating, managing, and validating API keys.
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List, Dict, Any
+from sqlmodel import Session, select
 from MakerMatrix.models.api_key_models import APIKeyCreate, APIKeyUpdate
 from MakerMatrix.services.system.api_key_service import APIKeyService
 from MakerMatrix.auth.dependencies import get_current_user
-from MakerMatrix.models.user_models import UserModel
+from MakerMatrix.models.user_models import UserModel, RoleModel
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
+from MakerMatrix.database.db import engine
 
 router = APIRouter()
 api_key_service = APIKeyService()
@@ -215,3 +217,77 @@ async def get_all_api_keys(
         message=f"Found {len(all_keys)} API keys",
         data=all_keys
     )
+
+
+@router.get("/permissions/available", response_model=ResponseSchema)
+@standard_error_handling
+async def get_available_permissions(
+    current_user: UserModel = Depends(get_current_user)
+) -> ResponseSchema[List[Dict[str, Any]]]:
+    """
+    Get all available permissions in the system.
+
+    Returns permissions organized by category, automatically discovered from role definitions.
+    This ensures the UI always shows current permissions without hardcoding.
+    """
+    with Session(engine) as session:
+        # Get all roles and collect unique permissions
+        roles = session.exec(select(RoleModel)).all()
+
+        all_permissions = set()
+        for role in roles:
+            if role.permissions:
+                all_permissions.update(role.permissions)
+
+        # Define permission categories and their patterns
+        permission_categories = {
+            "Parts": ["parts:"],
+            "Locations": ["locations:"],
+            "Categories": ["categories:"],
+            "Projects": ["projects:"],
+            "Tools": ["tools:"],
+            "Tasks": ["tasks:"],
+            "Users": ["users:"],
+            "API Keys": ["api_keys:"],
+            "Backup": ["backup:"],
+            "Tags": ["tags:"],
+            "Suppliers": ["suppliers:"],
+            "Reports": ["reports:"],
+            "Database": ["database:"],
+            "Dashboard": ["dashboard:"],
+            "Admin": ["admin", "all"],
+            "System": ["system", "inventory:", "data:", "pricing:", "csv:"]
+        }
+
+        # Categorize permissions
+        categorized_permissions = []
+
+        for category, patterns in permission_categories.items():
+            category_perms = []
+
+            for perm in sorted(all_permissions):
+                # Check if permission matches any pattern for this category
+                for pattern in patterns:
+                    if perm.startswith(pattern) or perm == pattern:
+                        # Format the label nicely
+                        if ":" in perm:
+                            resource, action = perm.split(":", 1)
+                            label = f"{resource.title()}: {action.replace('_', ' ').title()}"
+                        else:
+                            label = perm.replace("_", " ").title()
+
+                        category_perms.append({
+                            "value": perm,
+                            "label": label,
+                            "category": category
+                        })
+                        break
+
+            # Only add category if it has permissions
+            if category_perms:
+                categorized_permissions.extend(category_perms)
+
+        return base_router.build_success_response(
+            message=f"Found {len(categorized_permissions)} available permissions across {len(set(p['category'] for p in categorized_permissions))} categories",
+            data=categorized_permissions
+        )

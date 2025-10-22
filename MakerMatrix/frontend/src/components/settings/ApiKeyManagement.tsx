@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Key, Plus, Trash2, Copy, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { apiKeyService } from '@/services/apiKey.service'
+import { apiKeyService, AvailablePermission } from '@/services/apiKey.service'
 import { useAuthStore } from '@/store/authStore'
 
 interface APIKey {
@@ -30,22 +30,6 @@ interface NewKeyData {
   allowed_ips: string[]
 }
 
-const AVAILABLE_PERMISSIONS = [
-  { value: 'parts:read', label: 'Parts: Read', category: 'Parts' },
-  { value: 'parts:write', label: 'Parts: Write/Update', category: 'Parts' },
-  { value: 'parts:delete', label: 'Parts: Delete', category: 'Parts' },
-  { value: 'locations:read', label: 'Locations: Read', category: 'Locations' },
-  { value: 'locations:write', label: 'Locations: Write/Update', category: 'Locations' },
-  { value: 'locations:delete', label: 'Locations: Delete', category: 'Locations' },
-  { value: 'categories:read', label: 'Categories: Read', category: 'Categories' },
-  { value: 'categories:write', label: 'Categories: Write/Update', category: 'Categories' },
-  { value: 'categories:delete', label: 'Categories: Delete', category: 'Categories' },
-  { value: 'tasks:read', label: 'Tasks: Read', category: 'Tasks' },
-  { value: 'tasks:create', label: 'Tasks: Create', category: 'Tasks' },
-  { value: 'tasks:update', label: 'Tasks: Update', category: 'Tasks' },
-  { value: 'all', label: 'Full Access (All Permissions)', category: 'Admin' },
-]
-
 const ApiKeyManagement = () => {
   const { hasRole, user } = useAuthStore()
   const isAdmin = hasRole('admin')
@@ -65,10 +49,29 @@ const ApiKeyManagement = () => {
   })
   const [createdKey, setCreatedKey] = useState<string | null>(null)
   const [showKey, setShowKey] = useState<string | null>(null)
+  const [availablePermissions, setAvailablePermissions] = useState<AvailablePermission[]>([])
+  const [loadingPermissions, setLoadingPermissions] = useState(false)
 
   useEffect(() => {
     loadApiKeys()
   }, [showAllKeys])
+
+  useEffect(() => {
+    loadAvailablePermissions()
+  }, [])
+
+  const loadAvailablePermissions = async () => {
+    try {
+      setLoadingPermissions(true)
+      const permissions = await apiKeyService.getAvailablePermissions()
+      setAvailablePermissions(permissions)
+    } catch (error) {
+      console.error('Failed to load available permissions:', error)
+      toast.error('Failed to load available permissions')
+    } finally {
+      setLoadingPermissions(false)
+    }
+  }
 
   const loadApiKeys = async () => {
     try {
@@ -288,50 +291,58 @@ const ApiKeyManagement = () => {
 
           <div>
             <label className="block text-sm font-medium text-primary mb-2">Permissions *</label>
-            <div className="border border-border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto">
-              {['Parts', 'Locations', 'Categories', 'Tasks', 'Admin'].map((category) => {
-                const categoryPerms = AVAILABLE_PERMISSIONS.filter((p) => p.category === category)
-                if (categoryPerms.length === 0) return null
+            {loadingPermissions ? (
+              <div className="border border-border rounded-lg p-4 text-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                <p className="text-sm text-secondary mt-2">Loading permissions...</p>
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto">
+                {/* Get unique categories from available permissions */}
+                {Array.from(new Set(availablePermissions.map((p) => p.category))).map((category) => {
+                  const categoryPerms = availablePermissions.filter((p) => p.category === category)
+                  if (categoryPerms.length === 0) return null
 
-                return (
-                  <div key={category}>
-                    <div className="text-xs font-semibold text-secondary uppercase mb-2">
-                      {category}
+                  return (
+                    <div key={category}>
+                      <div className="text-xs font-semibold text-secondary uppercase mb-2">
+                        {category}
+                      </div>
+                      <div className="space-y-1.5">
+                        {categoryPerms.map((perm) => (
+                          <label
+                            key={perm.value}
+                            className="flex items-center gap-2 cursor-pointer hover:bg-background-secondary p-1.5 rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={newKeyData.permissions.includes(perm.value)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewKeyData({
+                                    ...newKeyData,
+                                    permissions: [...newKeyData.permissions, perm.value],
+                                  })
+                                } else {
+                                  setNewKeyData({
+                                    ...newKeyData,
+                                    permissions: newKeyData.permissions.filter(
+                                      (p) => p !== perm.value
+                                    ),
+                                  })
+                                }
+                              }}
+                              className="rounded border-border"
+                            />
+                            <span className="text-sm text-primary">{perm.label}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-1.5">
-                      {categoryPerms.map((perm) => (
-                        <label
-                          key={perm.value}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-background-secondary p-1.5 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={newKeyData.permissions.includes(perm.value)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setNewKeyData({
-                                  ...newKeyData,
-                                  permissions: [...newKeyData.permissions, perm.value],
-                                })
-                              } else {
-                                setNewKeyData({
-                                  ...newKeyData,
-                                  permissions: newKeyData.permissions.filter(
-                                    (p) => p !== perm.value
-                                  ),
-                                })
-                              }
-                            }}
-                            className="rounded border-border"
-                          />
-                          <span className="text-sm text-primary">{perm.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
             <p className="text-xs text-secondary mt-1">
               {newKeyData.permissions.length === 0
                 ? 'Select at least one permission'
