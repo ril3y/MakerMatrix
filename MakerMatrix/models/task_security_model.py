@@ -51,9 +51,9 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         security_level=TaskSecurityLevel.USER,
         risk_level=TaskRiskLevel.MEDIUM,
         required_permissions=["parts:write", "tasks:user"],
-        max_concurrent_per_user=2,
-        rate_limit_per_hour=10,   # Max 10 enrichments per hour
-        rate_limit_per_day=50,    # Max 50 enrichments per day
+        max_concurrent_per_user=3,    # Allow 3 concurrent enrichments
+        rate_limit_per_hour=30,       # Up to 30 single enrichments per hour
+        rate_limit_per_day=150,       # Up to 150 single enrichments per day
         audit_level="detailed",
         resource_limits={"max_parts": 1, "max_capabilities": 5}
     ),
@@ -85,22 +85,22 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         security_level=TaskSecurityLevel.POWER_USER,
         risk_level=TaskRiskLevel.HIGH,
         required_permissions=["parts:write", "tasks:power_user"],
-        max_concurrent_per_user=1,
-        rate_limit_per_hour=2,    # Very limited bulk operations
-        rate_limit_per_day=5,
+        max_concurrent_per_user=2,    # Allow 2 concurrent bulk operations
+        rate_limit_per_hour=50,       # Up to 50 bulk operations per hour
+        rate_limit_per_day=200,       # Up to 200 bulk operations per day
         audit_level="detailed",
-        resource_limits={"max_parts": 100, "batch_size": 10}
+        resource_limits={"max_parts": 50, "batch_size": 10}  # 50 parts per operation
     ),
     
     TaskType.FILE_IMPORT_ENRICHMENT: TaskSecurityPolicy(
         security_level=TaskSecurityLevel.POWER_USER,
         risk_level=TaskRiskLevel.HIGH,
         required_permissions=["parts:write", "csv:import", "tasks:power_user"],
-        max_concurrent_per_user=1,
-        rate_limit_per_hour=3,
-        rate_limit_per_day=10,
+        max_concurrent_per_user=2,    # Allow 2 concurrent imports
+        rate_limit_per_hour=20,       # Up to 20 file imports per hour
+        rate_limit_per_day=100,       # Up to 100 file imports per day
         audit_level="detailed",
-        resource_limits={"max_parts": 500}
+        resource_limits={"max_parts": 1000}  # Support larger imports
     ),
     
     TaskType.PRICE_UPDATE: TaskSecurityPolicy(

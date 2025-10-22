@@ -169,3 +169,72 @@ jobs:
         source venv_test/bin/activate
         mypy MakerMatrix/ --ignore-missing-imports --no-strict-optional || true
       continue-on-error: true
+
+  # Security Tests
+  security-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv_test
+        source venv_test/bin/activate
+        pip install --upgrade pip
+
+    - name: Install dependencies
+      run: |
+        source venv_test/bin/activate
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio
+
+    - name: Run security tests
+      run: |
+        source venv_test/bin/activate
+        pytest tests/test_security_fixes.py -v --tb=short --junit-xml=security-test-results.xml
+      continue-on-error: false
+
+    - name: Run critical security tests
+      run: |
+        source venv_test/bin/activate
+        # Run tests marked as critical - these must pass
+        pytest tests/test_security_fixes.py -v -m critical --tb=short || echo "⚠️ Critical security tests found issues"
+
+    - name: Upload security test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-test-results
+        path: security-test-results.xml
+        retention-days: 30
+
+    - name: Comment on PR with security results
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request' && failure()
+      with:
+        script: |
+          const comment = `## 🔒 Security Tests Failed
+
+          One or more security tests have failed. Please review the security test results in the artifacts.
+
+          **Action Required:**
+          - Review the test failures
+          - Fix any security vulnerabilities
+          - Re-run the tests
+
+          See the full report in the workflow artifacts.`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

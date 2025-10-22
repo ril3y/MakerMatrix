@@ -52,8 +52,8 @@ class TaskSecurityService(BaseService):
                 missing_perms = [p for p in policy.required_permissions if p not in user_permissions]
                 return False, f"Insufficient permissions. Missing: {', '.join(missing_perms)}"
             
-            # Check rate limits
-            rate_limit_ok, rate_limit_msg = await self._check_rate_limits(user.id, policy, task_request.task_type)
+            # Check rate limits (admin users are exempt)
+            rate_limit_ok, rate_limit_msg = await self._check_rate_limits(user, policy, task_request.task_type)
             if not rate_limit_ok:
                 return False, rate_limit_msg
             
@@ -101,21 +101,28 @@ class TaskSecurityService(BaseService):
                     permissions.extend([
                         "tasks:user", "parts:write", "parts:read", "reports:generate"
                     ])
-                elif role.name == "viewer":
-                    permissions.extend([
-                        "parts:read"
-                    ])
         
         # Add any specific user permissions here
         # You could extend this to check a user_permissions table
         
         return list(set(permissions))  # Remove duplicates
     
-    async def _check_rate_limits(self, user_id: str, policy: TaskSecurityPolicy, task_type: TaskType) -> Tuple[bool, Optional[str]]:
-        """Check if user has exceeded rate limits"""
+    async def _check_rate_limits(self, user: UserModel, policy: TaskSecurityPolicy, task_type: TaskType) -> Tuple[bool, Optional[str]]:
+        """
+        Check if user has exceeded rate limits.
+
+        Admin users are exempt from rate limits.
+        """
+        # Admin users are exempt from rate limits
+        if user.roles:
+            for role in user.roles:
+                if role.name == "admin":
+                    logger.info(f"Admin user {user.username} exempt from rate limits for {task_type.value}")
+                    return True, None
+
         if not policy.rate_limit_per_hour and not policy.rate_limit_per_day:
             return True, None
-        
+
         with self.get_session() as session:
             now = datetime.utcnow()
             
@@ -123,22 +130,22 @@ class TaskSecurityService(BaseService):
             if policy.rate_limit_per_hour:
                 hour_ago = now - timedelta(hours=1)
                 hourly_count = self.task_repo.count_tasks_by_user_and_timeframe(
-                    session, user_id, task_type, hour_ago
+                    session, user.id, task_type, hour_ago
                 )
-                
+
                 if hourly_count >= policy.rate_limit_per_hour:
                     return False, f"Hourly rate limit exceeded ({hourly_count}/{policy.rate_limit_per_hour}). Try again in {60 - now.minute} minutes."
-            
+
             # Check daily rate limit
             if policy.rate_limit_per_day:
                 day_ago = now - timedelta(days=1)
                 daily_count = self.task_repo.count_tasks_by_user_and_timeframe(
-                    session, user_id, task_type, day_ago
+                    session, user.id, task_type, day_ago
                 )
-                
+
                 if daily_count >= policy.rate_limit_per_day:
                     return False, f"Daily rate limit exceeded ({daily_count}/{policy.rate_limit_per_day}). Try again tomorrow."
-            
+
             return True, None
     
     async def _check_concurrent_limits(self, user_id: str, task_type: TaskType, policy: TaskSecurityPolicy) -> Tuple[bool, Optional[str]]:
