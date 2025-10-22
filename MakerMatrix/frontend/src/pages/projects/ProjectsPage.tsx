@@ -8,6 +8,7 @@ import { projectsService } from '@/services/projects.service'
 import type { Project } from '@/types/projects'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { getFaviconUrl, extractDisplayName, extractDomain } from '@/utils/url.utils'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 const ProjectsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
@@ -123,13 +124,15 @@ const ProjectsPage = () => {
           </h1>
           <p className="text-secondary mt-1">Manage and track your projects</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Project
-        </button>
+        <PermissionGuard permission="projects:create">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Project
+          </button>
+        </PermissionGuard>
       </motion.div>
 
       {/* Stats Cards */}
@@ -239,11 +242,11 @@ const ProjectsPage = () => {
                 <div onClick={() => handleViewDetails(project)} className="cursor-pointer">
                   {/* Project Image */}
                   {project.image_url && (
-                    <div className="mb-3 rounded-lg overflow-hidden bg-theme-secondary">
+                    <div className="mb-3 rounded-lg overflow-hidden bg-theme-secondary aspect-square w-4/5 mx-auto">
                       <img
                         src={project.image_url}
                         alt={project.name}
-                        className="w-full h-32 object-cover"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                   )}

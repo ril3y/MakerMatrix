@@ -23,6 +23,7 @@ import AuthenticatedImage from '@/components/ui/AuthenticatedImage'
 import { locationsService } from '@/services/locations.service'
 import type { Location } from '@/types/locations'
 import LoadingScreen from '@/components/ui/LoadingScreen'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 const LocationsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
@@ -156,13 +157,15 @@ const LocationsPage = () => {
           </h1>
           <p className="text-secondary mt-1">Manage storage locations and hierarchies</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Location
-        </button>
+        <PermissionGuard permission="locations:create">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Location
+          </button>
+        </PermissionGuard>
       </motion.div>
 
       {/* Search and Filters */}

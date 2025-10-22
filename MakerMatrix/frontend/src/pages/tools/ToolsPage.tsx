@@ -402,14 +402,16 @@ const ToolsPage = () => {
           <p className="text-secondary mt-1">Manage your tools and equipment</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowTagManagement(true)}
-            className="btn btn-secondary flex items-center gap-2"
-            title="Manage tags"
-          >
-            <TagIcon className="w-4 h-4" />
-            Manage Tags
-          </button>
+          <PermissionGuard permission="tags:update">
+            <button
+              onClick={() => setShowTagManagement(true)}
+              className="btn btn-secondary flex items-center gap-2"
+              title="Manage tags"
+            >
+              <TagIcon className="w-4 h-4" />
+              Manage Tags
+            </button>
+          </PermissionGuard>
           <PermissionGuard permission="tools:create">
             <button
               onClick={() => {

@@ -566,22 +566,26 @@ const PartsPage = () => {
         <div className="flex items-center gap-3">
           {!bulkEditMode ? (
             <>
-              <button
-                onClick={() => setShowTagManagement(true)}
-                className="btn btn-secondary flex items-center gap-2"
-                title="Manage tags"
-              >
-                <TagIcon className="w-4 h-4" />
-                Manage Tags
-              </button>
-              <button
-                onClick={() => setBulkEditMode(true)}
-                className="btn btn-secondary flex items-center gap-2"
-                title="Enter bulk edit mode (or Ctrl+click rows)"
-              >
-                <Edit3 className="w-4 h-4" />
-                Bulk Edit
-              </button>
+              <PermissionGuard permission="tags:update">
+                <button
+                  onClick={() => setShowTagManagement(true)}
+                  className="btn btn-secondary flex items-center gap-2"
+                  title="Manage tags"
+                >
+                  <TagIcon className="w-4 h-4" />
+                  Manage Tags
+                </button>
+              </PermissionGuard>
+              <PermissionGuard permission="parts:update">
+                <button
+                  onClick={() => setBulkEditMode(true)}
+                  className="btn btn-secondary flex items-center gap-2"
+                  title="Enter bulk edit mode (or Ctrl+click rows)"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Bulk Edit
+                </button>
+              </PermissionGuard>
               <PermissionGuard permission="parts:create">
                 <button
                   onClick={() => setShowAddModal(true)}
