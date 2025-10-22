@@ -276,10 +276,9 @@ const PartsPage = () => {
 
   // Reload parts when sorting or tag filter changes
   useEffect(() => {
-    if (parts.length > 0 || selectedTags.length > 0) {
-      // Only reload if parts are already loaded or tags are selected
-      loadParts(currentPage, searchTerm)
-    }
+    // Always reload when sort or tags change, even if current results are empty
+    // This fixes the issue where clearing tags from an empty state doesn't reload
+    loadParts(currentPage, searchTerm)
   }, [sortBy, sortOrder, selectedTags, tagFilterMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePartAdded = () => {
@@ -780,18 +779,20 @@ const PartsPage = () => {
               <p className="text-secondary mb-6">
                 {error
                   ? 'There was a problem connecting to the server. Please check that the backend is running.'
-                  : searchTerm
-                    ? 'No parts match your search criteria.'
+                  : searchTerm || selectedTags.length > 0
+                    ? 'No parts match your filters. Try adjusting your search or tag filters.'
                     : 'Start by adding your first part to the inventory.'}
               </p>
-              {!searchTerm && !error && (
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="btn btn-primary flex items-center gap-2 mx-auto"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Your First Part
-                </button>
+              {!searchTerm && selectedTags.length === 0 && !error && (
+                <PermissionGuard permission="parts:create">
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    className="btn btn-primary flex items-center gap-2 mx-auto"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Your First Part
+                  </button>
+                </PermissionGuard>
               )}
             </div>
           ) : (
