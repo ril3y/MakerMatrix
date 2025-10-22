@@ -139,6 +139,33 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         rate_limit_per_day=5,
         audit_level="detailed",
     ),
+    TaskType.BACKUP_RESTORE: TaskSecurityPolicy(
+        security_level=TaskSecurityLevel.ADMIN,
+        risk_level=TaskRiskLevel.CRITICAL,  # Restore can overwrite data
+        required_permissions=["admin", "backup:restore", "tasks:admin"],
+        max_concurrent_per_user=1,
+        rate_limit_per_hour=1,
+        rate_limit_per_day=3,
+        audit_level="detailed",
+    ),
+    TaskType.BACKUP_SCHEDULED: TaskSecurityPolicy(
+        security_level=TaskSecurityLevel.ADMIN,
+        risk_level=TaskRiskLevel.HIGH,
+        required_permissions=["admin", "backup:create", "tasks:admin"],
+        max_concurrent_per_user=1,
+        rate_limit_per_hour=5,  # Scheduled can run more frequently
+        rate_limit_per_day=10,
+        audit_level="detailed",
+    ),
+    TaskType.BACKUP_RETENTION: TaskSecurityPolicy(
+        security_level=TaskSecurityLevel.ADMIN,
+        risk_level=TaskRiskLevel.MEDIUM,  # Deletes old backups
+        required_permissions=["admin", "backup:manage", "tasks:admin"],
+        max_concurrent_per_user=1,
+        rate_limit_per_hour=2,
+        rate_limit_per_day=5,
+        audit_level="detailed",
+    ),
     # =============== SYSTEM TASKS ===============
     TaskType.INVENTORY_AUDIT: TaskSecurityPolicy(
         security_level=TaskSecurityLevel.SYSTEM,
