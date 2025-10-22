@@ -4,7 +4,7 @@
  * Comprehensive backup, restore, and scheduling UI for MakerMatrix
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   Database,
@@ -47,6 +47,9 @@ const BackupManagement = () => {
   const [isRestoreCompleted, setIsRestoreCompleted] = useState(false)
   const [isWaitingForRestart, setIsWaitingForRestart] = useState(false)
 
+  // Ref to prevent duplicate completion processing (race condition fix)
+  const completionProcessedRef = useRef(false)
+
   // Backup creation state
   const [backupPassword, setBackupPassword] = useState('')
   const [showBackupPassword, setShowBackupPassword] = useState(false)
@@ -73,6 +76,8 @@ const BackupManagement = () => {
   useEffect(() => {
     if (!activeTaskId) return
 
+    // Reset completion flag when starting to monitor a new task
+    completionProcessedRef.current = false
     console.log('[BackupManagement] Starting to monitor task:', activeTaskId)
 
     const interval = setInterval(async () => {
@@ -93,9 +98,17 @@ const BackupManagement = () => {
           setTaskProgress(task.progress_percentage || 0)
           setTaskStatus(task.current_step || task.status)
 
-          // If task is completed or failed, stop monitoring
+          // If task is completed or failed, stop monitoring IMMEDIATELY to prevent race condition
           if (task.status === 'completed' || task.status === 'failed') {
+            // Check if we've already processed completion (prevents duplicate toasts from race condition)
+            if (completionProcessedRef.current) {
+              console.log('[BackupManagement] Completion already processed, ignoring duplicate')
+              return
+            }
+            completionProcessedRef.current = true
+
             console.log('[BackupManagement] Task finished with status:', task.status)
+            clearInterval(interval) // Clear interval immediately to prevent duplicate toast notifications
 
             if (task.status === 'completed') {
               // Check if this was a restore task
@@ -163,8 +176,16 @@ const BackupManagement = () => {
           }
         } else if (response.status === 404) {
           // Task not found - likely means database was restored and task is gone
+          // Check if we've already processed completion (prevents duplicate processing from race condition)
+          if (completionProcessedRef.current) {
+            console.log('[BackupManagement] Completion already processed (404), ignoring duplicate')
+            return
+          }
+          completionProcessedRef.current = true
+
           // If we're monitoring a restore task, assume it completed and switch to restart mode
           console.log('[BackupManagement] Task not found (404) - assuming restore completed and database was replaced')
+          clearInterval(interval) // Clear interval immediately to prevent duplicate processing
           setIsRestoreCompleted(true)
           setIsWaitingForRestart(true)
           setActiveTaskId(null)
