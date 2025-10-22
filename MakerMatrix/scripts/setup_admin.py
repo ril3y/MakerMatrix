@@ -74,6 +74,15 @@ def setup_default_roles(user_repo: UserRepository):
                 "tools:update",
                 "tools:delete",
                 "tools:use",
+                "tags:read",
+                "tags:update",
+                "tags:create",
+                "tags:delete",
+                "suppliers:read",
+                "projects:read",
+                "projects:create",
+                "projects:update",
+                "projects:delete",
             ],
         },
         {
@@ -81,7 +90,20 @@ def setup_default_roles(user_repo: UserRepository):
             "description": "Regular user with read access",
             "permissions": ["parts:read", "locations:read", "categories:read", "tasks:read", "tools:read", "tools:use"],
         },
-        {"name": "viewer", "description": "Read-only viewer with minimal access", "permissions": ["parts:read"]},
+        {
+            "name": "viewer",
+            "description": "Read-only viewer with comprehensive read access",
+            "permissions": [
+                "parts:read",
+                "tools:read",
+                "dashboard:view",
+                "tags:read",
+                "projects:read",
+                "suppliers:read",
+                "locations:read",
+                "categories:read",
+            ],
+        },
     ]
 
     for role_data in roles:
