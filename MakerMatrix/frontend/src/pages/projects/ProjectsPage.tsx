@@ -321,20 +321,24 @@ const ProjectsPage = () => {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-3 border-t border-border">
-                  <button
-                    onClick={() => handleEdit(project)}
-                    className="btn btn-secondary btn-sm flex-1 flex items-center justify-center gap-1"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(project)}
-                    className="btn btn-danger btn-sm flex-1 flex items-center justify-center gap-1"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Delete
-                  </button>
+                  <PermissionGuard permission="projects:update">
+                    <button
+                      onClick={() => handleEdit(project)}
+                      className="btn btn-secondary btn-sm flex-1 flex items-center justify-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      Edit
+                    </button>
+                  </PermissionGuard>
+                  <PermissionGuard permission="projects:delete">
+                    <button
+                      onClick={() => handleDelete(project)}
+                      className="btn btn-danger btn-sm flex-1 flex items-center justify-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Delete
+                    </button>
+                  </PermissionGuard>
                 </div>
               </motion.div>
             ))}

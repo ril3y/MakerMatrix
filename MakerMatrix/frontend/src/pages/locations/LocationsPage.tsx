@@ -341,20 +341,24 @@ const LocationsPage = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleEdit(location)}
-                          className="btn btn-icon btn-secondary"
-                          title="Edit location"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(location)}
-                          className="btn btn-icon btn-secondary text-red-400 hover:text-red-300"
-                          title="Delete location"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <PermissionGuard permission="locations:update">
+                          <button
+                            onClick={() => handleEdit(location)}
+                            className="btn btn-icon btn-secondary"
+                            title="Edit location"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </PermissionGuard>
+                        <PermissionGuard permission="locations:delete">
+                          <button
+                            onClick={() => handleDelete(location)}
+                            className="btn btn-icon btn-secondary text-red-400 hover:text-red-300"
+                            title="Delete location"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </PermissionGuard>
                       </div>
                     </td>
                   </tr>
@@ -562,20 +566,24 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => onEdit(location)}
-                  className="btn btn-icon btn-secondary"
-                  title="Edit location"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onDelete(location)}
-                  className="btn btn-icon btn-secondary text-red-400 hover:text-red-300"
-                  title="Delete location"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <PermissionGuard permission="locations:update">
+                  <button
+                    onClick={() => onEdit(location)}
+                    className="btn btn-icon btn-secondary"
+                    title="Edit location"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </PermissionGuard>
+                <PermissionGuard permission="locations:delete">
+                  <button
+                    onClick={() => onDelete(location)}
+                    className="btn btn-icon btn-secondary text-red-400 hover:text-red-300"
+                    title="Delete location"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </PermissionGuard>
               </div>
             </div>
             {hasChildren && isExpanded && (

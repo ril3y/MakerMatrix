@@ -6,6 +6,7 @@ import EditCategoryModal from '@/components/categories/EditCategoryModal'
 import { categoriesService } from '@/services/categories.service'
 import type { Category } from '@/types/categories'
 import LoadingScreen from '@/components/ui/LoadingScreen'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 const CategoriesPage = () => {
   const [showAddModal, setShowAddModal] = useState(false)
@@ -93,13 +94,15 @@ const CategoriesPage = () => {
           </h1>
           <p className="text-secondary mt-1">Organize parts with categories and tags</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Category
-        </button>
+        <PermissionGuard permission="categories:create">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Category
+          </button>
+        </PermissionGuard>
       </motion.div>
 
       {/* Search and Filters */}
@@ -262,20 +265,24 @@ const CategoriesPage = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(category)}
-                          className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-300 hover:from-purple-500/30 hover:to-blue-500/30 transition-all duration-200"
-                          title="Edit category"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(category)}
-                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200"
-                          title="Delete category"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <PermissionGuard permission="categories:update">
+                          <button
+                            onClick={() => handleEdit(category)}
+                            className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-300 hover:from-purple-500/30 hover:to-blue-500/30 transition-all duration-200"
+                            title="Edit category"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </PermissionGuard>
+                        <PermissionGuard permission="categories:delete">
+                          <button
+                            onClick={() => handleDelete(category)}
+                            className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200"
+                            title="Delete category"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </PermissionGuard>
                       </div>
                     </td>
                   </tr>
