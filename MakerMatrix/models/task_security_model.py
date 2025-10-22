@@ -69,6 +69,16 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         audit_level="standard",
         resource_limits={"max_parts": 1},
     ),
+    TaskType.DATASHEET_DOWNLOAD: TaskSecurityPolicy(
+        security_level=TaskSecurityLevel.USER,
+        risk_level=TaskRiskLevel.MEDIUM,  # Medium risk due to external URL fetching
+        required_permissions=["parts:write", "tasks:user"],
+        max_concurrent_per_user=3,
+        rate_limit_per_hour=20,
+        rate_limit_per_day=100,
+        audit_level="detailed",  # Detailed audit due to SSRF risk
+        resource_limits={"max_parts": 1},
+    ),
     TaskType.IMAGE_FETCH: TaskSecurityPolicy(
         security_level=TaskSecurityLevel.USER,
         risk_level=TaskRiskLevel.LOW,
