@@ -24,7 +24,8 @@ from MakerMatrix.schemas.tag_schemas import (
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.tag_service import TagService
 from MakerMatrix.models.user_models import UserModel
-from MakerMatrix.auth.dependencies import get_current_user_flexible
+from MakerMatrix.auth.dependencies import get_current_user_flexible, get_current_user
+from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, validate_service_response
 
 import logging
@@ -45,7 +46,7 @@ def get_tag_service() -> TagService:
 async def create_tag(
     tag: TagCreate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tags:create")),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[TagResponse]:
     """Create a new tag"""
@@ -67,6 +68,7 @@ async def create_tag(
 @router.get("/statistics", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
 async def get_tag_statistics(
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Get tag system statistics and summary"""
@@ -84,6 +86,7 @@ async def get_tag_statistics(
 async def get_tag(
     tag_id: str,
     include_items: bool = Query(default=False, description="Include tagged parts and tools"),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[TagResponse]:
     """Get a tag by ID"""
@@ -102,6 +105,7 @@ async def get_tag(
 async def get_tag_by_name(
     tag_name: str,
     include_items: bool = Query(default=False, description="Include tagged parts and tools"),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[TagResponse]:
     """Get a tag by name (case-insensitive)"""
@@ -128,6 +132,7 @@ async def get_all_tags(
     sort_order: str = Query("asc", description="Sort order: asc or desc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Get all tags with filtering and pagination"""
@@ -167,7 +172,7 @@ async def update_tag(
     tag_id: str,
     tag_data: TagUpdate,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tags:update")),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[TagResponse]:
     """Update a tag"""
@@ -187,7 +192,7 @@ async def update_tag(
 async def delete_tag(
     tag_id: str,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tags:delete")),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, str]]:
     """Delete a tag (removes all associations but not the items)"""
@@ -288,7 +293,8 @@ async def remove_tag_from_tool(
 @standard_error_handling
 async def get_tags_for_part(
     part_id: str,
-    tag_service: TagService = Depends(get_tag_service)
+    tag_service: TagService = Depends(get_tag_service),
+    current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[List[TagResponse]]:
     """Get all tags for a specific part"""
     service_response = tag_service.get_tags_for_part(part_id)
@@ -304,6 +310,7 @@ async def get_tags_for_part(
 @standard_error_handling
 async def get_tags_for_tool(
     tool_id: str,
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[List[TagResponse]]:
     """Get all tags for a specific tool"""
@@ -324,6 +331,7 @@ async def get_parts_by_tag(
     tag_id: str,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Get all parts with a specific tag"""
@@ -342,6 +350,7 @@ async def get_tools_by_tag(
     tag_id: str,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Get all tools with a specific tag"""
@@ -381,7 +390,7 @@ async def bulk_tag_operation(
 async def merge_tags(
     merge_request: TagMergeRequest,
     request: Request,
-    current_user: UserModel = Depends(get_current_user_flexible),
+    current_user: UserModel = Depends(require_permission("tags:update")),
     tag_service: TagService = Depends(get_tag_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """Merge multiple tags into one target tag"""
