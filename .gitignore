@@ -239,6 +239,8 @@ digikey_tokens/
 # Downloaded datasheets and component images
 MakerMatrix/static/datasheets/
 MakerMatrix/static/images/
+MakerMatrix/services/static/datasheets/
+MakerMatrix/services/static/images/
 
 # Backup files (system backups, not individual file backups)
 MakerMatrix/backups/
