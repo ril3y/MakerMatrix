@@ -122,6 +122,8 @@ class TaskSecurityService(BaseService):
                     )
                 elif role.name == "user":
                     permissions.extend(["tasks:user", "parts:write", "parts:read", "reports:generate"])
+                elif role.name == "viewer":
+                    permissions.extend(["parts:read"])
 
         # Add any specific user permissions here
         # You could extend this to check a user_permissions table

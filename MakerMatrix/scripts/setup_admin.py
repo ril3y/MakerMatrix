@@ -9,6 +9,7 @@ DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_EMAIL = "admin@makermatrix.local"
 DEFAULT_ADMIN_PASSWORD = "Admin123!"  # This should be changed on first login
 
+
 def setup_default_roles(user_repo: UserRepository):
     """Set up default roles if they don't exist."""
     roles = [
@@ -16,34 +17,71 @@ def setup_default_roles(user_repo: UserRepository):
             "name": "admin",
             "description": "Administrator with full access",
             "permissions": [
-                "all", "parts:read", "parts:create", "parts:update", "parts:delete",
-                "locations:read", "locations:create", "locations:update", "locations:delete",
-                "categories:read", "categories:create", "categories:update", "categories:delete",
-                "users:read", "users:create", "users:update", "users:delete",
-                "api_keys:read", "api_keys:create", "api_keys:update", "api_keys:delete", "api_keys:admin",
-                "tasks:read", "tasks:create", "tasks:update", "tasks:admin",
-                "tools:read", "tools:create", "tools:update", "tools:delete", "tools:use"
-            ]
+                "all",
+                "parts:read",
+                "parts:create",
+                "parts:update",
+                "parts:delete",
+                "locations:read",
+                "locations:create",
+                "locations:update",
+                "locations:delete",
+                "categories:read",
+                "categories:create",
+                "categories:update",
+                "categories:delete",
+                "users:read",
+                "users:create",
+                "users:update",
+                "users:delete",
+                "api_keys:read",
+                "api_keys:create",
+                "api_keys:update",
+                "api_keys:delete",
+                "api_keys:admin",
+                "tasks:read",
+                "tasks:create",
+                "tasks:update",
+                "tasks:admin",
+                "tools:read",
+                "tools:create",
+                "tools:update",
+                "tools:delete",
+                "tools:use",
+            ],
         },
         {
             "name": "manager",
             "description": "Manager with write access",
             "permissions": [
-                "parts:read", "parts:create", "parts:update", "parts:delete",
-                "locations:read", "locations:create", "locations:update", "locations:delete",
-                "categories:read", "categories:create", "categories:update", "categories:delete",
-                "tasks:read", "tasks:create", "tasks:update",
-                "tools:read", "tools:create", "tools:update", "tools:delete", "tools:use"
-            ]
+                "parts:read",
+                "parts:create",
+                "parts:update",
+                "parts:delete",
+                "locations:read",
+                "locations:create",
+                "locations:update",
+                "locations:delete",
+                "categories:read",
+                "categories:create",
+                "categories:update",
+                "categories:delete",
+                "tasks:read",
+                "tasks:create",
+                "tasks:update",
+                "tools:read",
+                "tools:create",
+                "tools:update",
+                "tools:delete",
+                "tools:use",
+            ],
         },
         {
             "name": "user",
             "description": "Regular user with read access",
-            "permissions": [
-                "parts:read", "locations:read", "categories:read", "tasks:read",
-                "tools:read", "tools:use"
-            ]
-        }
+            "permissions": ["parts:read", "locations:read", "categories:read", "tasks:read", "tools:read", "tools:use"],
+        },
+        {"name": "viewer", "description": "Read-only viewer with minimal access", "permissions": ["parts:read"]},
     ]
 
     for role_data in roles:
@@ -84,17 +122,11 @@ def setup_default_admin(user_repo: UserRepository):
 
         # Create admin user with password change required
         admin_user = user_repo.create_user(
-            username=DEFAULT_ADMIN_USERNAME,
-            email=DEFAULT_ADMIN_EMAIL,
-            hashed_password=hashed_password,
-            roles=["admin"]
+            username=DEFAULT_ADMIN_USERNAME, email=DEFAULT_ADMIN_EMAIL, hashed_password=hashed_password, roles=["admin"]
         )
 
         # Set password change required
-        user_repo.update_user(
-            user_id=admin_user.id,
-            password_change_required=True
-        )
+        user_repo.update_user(user_id=admin_user.id, password_change_required=True)
 
         print(f"Created default admin user: {DEFAULT_ADMIN_USERNAME}")
         print("Please change the password on first login!")
@@ -106,24 +138,24 @@ def setup_default_admin(user_repo: UserRepository):
 def main():
     """Main setup function."""
     print("Setting up MakerMatrix admin user and roles...")
-    
+
     # Create tables if they don't exist
     print("Ensuring database tables exist...")
     SQLModel.metadata.create_all(engine)
     create_db_and_tables()
-    
+
     # Initialize repository
     user_repo = UserRepository()
-    
+
     # Set up roles and admin user
     print("\nSetting up default roles...")
     setup_default_roles(user_repo)
-    
+
     print("\nSetting up default admin user...")
     setup_default_admin(user_repo)
-    
+
     print("\nSetup complete!")
 
 
 if __name__ == "__main__":
-    main() 
+    main()
