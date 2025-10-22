@@ -17,6 +17,7 @@ import json
 import hashlib
 from pathlib import Path
 from sqlmodel import Session, select
+from unittest.mock import AsyncMock, patch
 
 # Import test fixtures
 from tests.fixtures import (
@@ -42,6 +43,33 @@ from MakerMatrix.models.task_models import TaskModel
 from MakerMatrix.services.system.task_service import task_service
 
 
+@pytest.fixture
+def mock_task_progress():
+    """
+    Mock task progress updates to avoid database access.
+
+    The backup/restore tasks try to update progress in the tasks table,
+    but we're testing backup/restore functionality, not task management.
+    This fixture mocks the update_progress method to prevent database errors.
+    """
+    with patch('MakerMatrix.tasks.base_task.BaseTask.update_progress', new_callable=AsyncMock) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_database_url(test_db_path):
+    """
+    Mock DATABASE_URL to point to test database.
+
+    The backup/restore tasks import DATABASE_URL as a constant,
+    so setting os.environ isn't enough. We need to patch the imported constant.
+    """
+    test_db_url = f"sqlite:///{test_db_path}"
+    with patch('MakerMatrix.tasks.database_backup_task.DATABASE_URL', test_db_url), \
+         patch('MakerMatrix.tasks.database_restore_task.DATABASE_URL', test_db_url):
+        yield test_db_url
+
+
 class TestBackupCreation:
     """Test backup creation with real database operations"""
 
@@ -49,7 +77,9 @@ class TestBackupCreation:
     async def test_create_backup_from_populated_database(
         self,
         test_db_with_schema,
-        test_static_files_dir
+        test_static_files_dir,
+        mock_task_progress,
+        mock_database_url
     ):
         """
         Test creating a backup from a database populated with test data.
@@ -131,7 +161,9 @@ class TestBackupCreation:
     async def test_backup_includes_datasheets(
         self,
         test_db_with_schema,
-        test_static_files_dir
+        test_static_files_dir,
+        mock_task_progress,
+        mock_database_url
     ):
         """
         Test that backup includes datasheet files when requested.
@@ -208,7 +240,9 @@ class TestBackupCreation:
     async def test_backup_includes_images(
         self,
         test_db_with_schema,
-        test_static_files_dir
+        test_static_files_dir,
+        mock_task_progress,
+        mock_database_url
     ):
         """
         Test that backup includes image files when requested.
@@ -286,7 +320,9 @@ class TestRestoreOperations:
     async def test_restore_database_from_backup(
         self,
         test_db_with_schema,
-        test_static_files_dir
+        test_static_files_dir,
+        mock_task_progress,
+        mock_database_url
     ):
         """
         Test restoring database from a backup file.
@@ -400,7 +436,9 @@ class TestDataIntegrity:
     async def test_part_data_matches_after_restore(
         self,
         test_db_with_schema,
-        test_static_files_dir
+        test_static_files_dir,
+        mock_task_progress,
+        mock_database_url
     ):
         """
         Test that specific part data matches exactly after restore.
@@ -494,7 +532,9 @@ class TestDataIntegrity:
     async def test_allocation_relationships_preserved(
         self,
         test_db_with_schema,
-        test_static_files_dir
+        test_static_files_dir,
+        mock_task_progress,
+        mock_database_url
     ):
         """
         Test that part allocations and relationships are preserved after restore.
@@ -591,7 +631,7 @@ class TestErrorHandling:
     """Test error handling and edge cases"""
 
     @pytest.mark.asyncio
-    async def test_restore_from_nonexistent_backup(self):
+    async def test_restore_from_nonexistent_backup(self, test_db_path, mock_task_progress, mock_database_url):
         """
         Test that restore fails gracefully when backup file doesn't exist.
 
