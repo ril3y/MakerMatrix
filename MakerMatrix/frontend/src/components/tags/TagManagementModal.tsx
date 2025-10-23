@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { X, Plus, Edit3, Trash2, Search, TrendingUp, Clock, Hash } from 'lucide-react'
 import { tagsService } from '@/services/tags.service'
 import type { Tag, CreateTagRequest, UpdateTagRequest, TagStats } from '@/types/tags'
@@ -43,7 +43,7 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
   ]
 
   // Load tags and stats
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       const [tagsResponse, statsResponse] = await Promise.all([
@@ -63,13 +63,13 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchQuery, sortBy, sortOrder])
 
   useEffect(() => {
     if (isOpen) {
       loadData()
     }
-  }, [isOpen, searchQuery, sortBy, sortOrder])
+  }, [isOpen, loadData])
 
   // Handle create tag
   const handleCreate = async () => {

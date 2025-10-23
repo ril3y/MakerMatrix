@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ChevronRight, Box, MapPin } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { SlotSelector } from './SlotSelector'
@@ -43,7 +43,7 @@ export function HierarchicalLocationPicker({
       setSelectedLocation(null)
       setSelectedSlot(null)
     }
-  }, [value, locations])
+  }, [value, locations, loadSelectedLocationDetails])
 
   const loadLocations = async () => {
     setLoading(true)
@@ -58,7 +58,7 @@ export function HierarchicalLocationPicker({
     }
   }
 
-  const loadSelectedLocationDetails = async (locationId: string) => {
+  const loadSelectedLocationDetails = useCallback(async (locationId: string) => {
     // Check if it's a regular location or a slot
     const regularLocation = locations.find((loc) => loc.id === locationId)
 
@@ -82,7 +82,7 @@ export function HierarchicalLocationPicker({
         console.error('Failed to load slot details:', err)
       }
     }
-  }
+  }, [locations])
 
   const handleLocationSelect = (locationId: string) => {
     const location = locations.find((loc) => loc.id === locationId)

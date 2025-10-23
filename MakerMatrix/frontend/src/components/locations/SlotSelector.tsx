@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Check, Loader2, Box, Grid3x3, List, AlertCircle, Package } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { locationsService } from '@/services/locations.service'
@@ -31,13 +31,7 @@ export function SlotSelector({
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    if (isOpen && container.id) {
-      loadSlots()
-    }
-  }, [isOpen, container.id])
-
-  const loadSlots = async () => {
+  const loadSlots = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -51,7 +45,13 @@ export function SlotSelector({
     } finally {
       setLoading(false)
     }
-  }
+  }, [container.id])
+
+  useEffect(() => {
+    if (isOpen && container.id) {
+      loadSlots()
+    }
+  }, [isOpen, container.id, loadSlots])
 
   const filteredSlots = showAvailableOnly
     ? slots.filter((slot) => !slot.occupancy?.is_occupied)

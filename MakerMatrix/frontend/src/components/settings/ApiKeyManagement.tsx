@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Key, Plus, Trash2, Copy, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { AvailablePermission } from '@/services/apiKey.service'
@@ -53,15 +53,7 @@ const ApiKeyManagement = () => {
   const [availablePermissions, setAvailablePermissions] = useState<AvailablePermission[]>([])
   const [loadingPermissions, setLoadingPermissions] = useState(false)
 
-  useEffect(() => {
-    loadApiKeys()
-  }, [showAllKeys])
-
-  useEffect(() => {
-    loadAvailablePermissions()
-  }, [])
-
-  const loadAvailablePermissions = async () => {
+  const loadAvailablePermissions = useCallback(async () => {
     try {
       setLoadingPermissions(true)
       const permissions = await apiKeyService.getAvailablePermissions()
@@ -72,9 +64,9 @@ const ApiKeyManagement = () => {
     } finally {
       setLoadingPermissions(false)
     }
-  }
+  }, [])
 
-  const loadApiKeys = async () => {
+  const loadApiKeys = useCallback(async () => {
     try {
       setLoading(true)
       // Admin users can view all API keys in the system
@@ -95,7 +87,15 @@ const ApiKeyManagement = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isAdmin, showAllKeys])
+
+  useEffect(() => {
+    loadApiKeys()
+  }, [loadApiKeys])
+
+  useEffect(() => {
+    loadAvailablePermissions()
+  }, [loadAvailablePermissions])
 
   const createApiKey = async () => {
     try {

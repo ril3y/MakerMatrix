@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MapPin, AlertCircle } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
@@ -51,6 +51,20 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
   const [emojiChanged, setEmojiChanged] = useState(false)
 
+  const loadLocations = useCallback(async () => {
+    try {
+      const data = await locationsService.getAllLocations()
+      // Filter out the current location and its descendants
+      const descendantIds = locationsService.getDescendantIds(location)
+      const validLocations = data.filter(
+        (loc) => loc.id !== location.id && !descendantIds.includes(loc.id)
+      )
+      setLocations(validLocations)
+    } catch (err) {
+      console.error('Failed to load locations:', err)
+    }
+  }, [location])
+
   useEffect(() => {
     if (isOpen) {
       loadLocations()
@@ -71,21 +85,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
       setSelectedEmoji(location.emoji || null)
       setEmojiChanged(false)
     }
-  }, [isOpen, location])
-
-  const loadLocations = async () => {
-    try {
-      const data = await locationsService.getAllLocations()
-      // Filter out the current location and its descendants
-      const descendantIds = locationsService.getDescendantIds(location)
-      const validLocations = data.filter(
-        (loc) => loc.id !== location.id && !descendantIds.includes(loc.id)
-      )
-      setLocations(validLocations)
-    } catch (err) {
-      console.error('Failed to load locations:', err)
-    }
-  }
+  }, [loadLocations, isOpen, location])
 
   const handleImageUploaded = (url: string) => {
     setImageUrl(url)

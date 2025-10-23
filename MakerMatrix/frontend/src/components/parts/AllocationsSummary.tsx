@@ -5,7 +5,7 @@
  * are distributed across multiple locations (reels, cassettes, etc.)
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Package, MapPin, ArrowRightLeft, AlertCircle } from 'lucide-react'
 import type { AllocationSummary, PartAllocation } from '../../services/part-allocation.service'
 import { partAllocationService } from '../../services/part-allocation.service'
@@ -25,11 +25,7 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadAllocations()
-  }, [partId])
-
-  const loadAllocations = async () => {
+  const loadAllocations = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -43,7 +39,11 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [partId])
+
+  useEffect(() => {
+    loadAllocations()
+  }, [loadAllocations])
 
   const handleRefreshClick = async () => {
     await loadAllocations()

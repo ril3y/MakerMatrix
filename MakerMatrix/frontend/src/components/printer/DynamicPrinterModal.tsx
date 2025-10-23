@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { X, TestTube } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
@@ -86,6 +86,47 @@ const DynamicPrinterModal = ({
     custom_fields: {} as Record<string, unknown>,
   })
 
+  const loadDriverInfo = useCallback(
+    async (driverType: string) => {
+      try {
+        const driverInfo = await settingsService.getDriverInfo(driverType)
+        setSelectedDriverInfo(driverInfo)
+
+        // Only set default values if we're in add mode or the field is empty
+        setPrinterData((prev) => ({
+          ...prev,
+          // Only update these if we're in add mode or they're empty
+          dpi: mode === 'add' || !prev.dpi ? driverInfo.default_dpi || prev.dpi || 300 : prev.dpi,
+          scaling_factor:
+            mode === 'add' || !prev.scaling_factor
+              ? driverInfo.recommended_scaling || prev.scaling_factor || 1.1
+              : prev.scaling_factor,
+          model:
+            mode === 'add' || !prev.model ? driverInfo.supported_models?.[0] || '' : prev.model,
+          backend: mode === 'add' || !prev.backend ? driverInfo.backends?.[0] || '' : prev.backend,
+          // Initialize custom fields with defaults only for new fields or add mode
+          custom_fields: {
+            ...prev.custom_fields,
+            ...Object.entries(driverInfo.custom_fields || {}).reduce(
+              (acc, [key, field]: [string, CustomFieldConfig]) => {
+                // Only set default if we're in add mode or the field doesn't exist
+                if (mode === 'add' || prev.custom_fields[key] === undefined) {
+                  acc[key] = field.default
+                }
+                return acc
+              },
+              {} as Record<string, unknown>
+            ),
+          },
+        }))
+      } catch (error) {
+        console.error('Failed to load driver info:', error)
+        toast.error('Failed to load driver information')
+      }
+    },
+    [mode]
+  )
+
   useEffect(() => {
     if (isOpen) {
       loadSupportedDrivers()
@@ -132,7 +173,7 @@ const DynamicPrinterModal = ({
         setSelectedDriverInfo(null)
       }
     }
-  }, [isOpen, mode, existingPrinter])
+  }, [isOpen, mode, existingPrinter, loadDriverInfo])
 
   const loadSupportedDrivers = async () => {
     try {
@@ -141,43 +182,6 @@ const DynamicPrinterModal = ({
     } catch (error) {
       console.error('Failed to load supported drivers:', error)
       toast.error('Failed to load supported drivers')
-    }
-  }
-
-  const loadDriverInfo = async (driverType: string) => {
-    try {
-      const driverInfo = await settingsService.getDriverInfo(driverType)
-      setSelectedDriverInfo(driverInfo)
-
-      // Only set default values if we're in add mode or the field is empty
-      setPrinterData((prev) => ({
-        ...prev,
-        // Only update these if we're in add mode or they're empty
-        dpi: mode === 'add' || !prev.dpi ? driverInfo.default_dpi || prev.dpi || 300 : prev.dpi,
-        scaling_factor:
-          mode === 'add' || !prev.scaling_factor
-            ? driverInfo.recommended_scaling || prev.scaling_factor || 1.1
-            : prev.scaling_factor,
-        model: mode === 'add' || !prev.model ? driverInfo.supported_models?.[0] || '' : prev.model,
-        backend: mode === 'add' || !prev.backend ? driverInfo.backends?.[0] || '' : prev.backend,
-        // Initialize custom fields with defaults only for new fields or add mode
-        custom_fields: {
-          ...prev.custom_fields,
-          ...Object.entries(driverInfo.custom_fields || {}).reduce(
-            (acc, [key, field]: [string, CustomFieldConfig]) => {
-              // Only set default if we're in add mode or the field doesn't exist
-              if (mode === 'add' || prev.custom_fields[key] === undefined) {
-                acc[key] = field.default
-              }
-              return acc
-            },
-            {} as Record<string, unknown>
-          ),
-        },
-      }))
-    } catch (error) {
-      console.error('Failed to load driver info:', error)
-      toast.error('Failed to load driver information')
     }
   }
 

@@ -5,7 +5,7 @@
  * Supports both existing location transfers and creating new cassettes
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ArrowRightLeft, Package, MapPin } from 'lucide-react'
 import CrudModal from '@/components/ui/CrudModal'
 import { FormInput, FormField } from '@/components/forms'
@@ -71,13 +71,7 @@ const TransferQuantityModal = ({
     successMessage: 'Quantity transferred successfully',
   })
 
-  useEffect(() => {
-    if (isOpen) {
-      loadLocations()
-    }
-  }, [isOpen])
-
-  const loadLocations = async () => {
+  const loadLocations = useCallback(async () => {
     try {
       setLoadingLocations(true)
       const allLocations = await locationsService.getAllLocations()
@@ -94,7 +88,13 @@ const TransferQuantityModal = ({
     } finally {
       setLoadingLocations(false)
     }
-  }
+  }, [sourceAllocation.location_id])
+
+  useEffect(() => {
+    if (isOpen) {
+      loadLocations()
+    }
+  }, [isOpen, loadLocations])
 
   // Handle form submission
   async function handleFormSubmit(data: TransferFormData) {

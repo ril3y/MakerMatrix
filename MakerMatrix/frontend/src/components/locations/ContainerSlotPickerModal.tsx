@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Package, MapPin } from 'lucide-react'
 import type { Location } from '@/types/locations'
 import { locationsService } from '@/services/locations.service'
@@ -32,14 +32,7 @@ const ContainerSlotPickerModal = ({
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    if (isOpen) {
-      loadSlots()
-      setSelectedSlotId(currentSlotId)
-    }
-  }, [isOpen, currentSlotId])
-
-  const loadSlots = async () => {
+  const loadSlots = useCallback(async () => {
     try {
       setLoading(true)
       const allLocations = await locationsService.getAllLocations({ hide_auto_slots: false })
@@ -83,7 +76,14 @@ const ContainerSlotPickerModal = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [containerLocation])
+
+  useEffect(() => {
+    if (isOpen) {
+      loadSlots()
+      setSelectedSlotId(currentSlotId)
+    }
+  }, [loadSlots, isOpen, currentSlotId])
 
   const handleSlotClick = (slotId: string) => {
     setSelectedSlotId(slotId)

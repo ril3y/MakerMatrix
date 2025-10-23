@@ -8,7 +8,7 @@
  * - Label printing for parts at this location
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   MapPin,
   Package,
@@ -82,13 +82,27 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
   // Container slot picker modal state
   const [showSlotPickerModal, setShowSlotPickerModal] = useState(false)
 
-  useEffect(() => {
-    if (isOpen) {
-      loadLocationData()
-    }
-  }, [isOpen, location.id])
+  const buildLocationPath = useCallback(
+    async (locationId: string): Promise<string> => {
+      try {
+        const pathData = await locationsService.getLocationPath(locationId)
+        const pathParts: string[] = []
 
-  const loadLocationData = async () => {
+        let current = pathData
+        while (current) {
+          pathParts.unshift(current.name)
+          current = current.parent as any
+        }
+
+        return pathParts.join(' > ')
+      } catch {
+        return location.name
+      }
+    },
+    [location.name]
+  )
+
+  const loadLocationData = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -198,24 +212,13 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [location, buildLocationPath])
 
-  const buildLocationPath = async (locationId: string): Promise<string> => {
-    try {
-      const pathData = await locationsService.getLocationPath(locationId)
-      const pathParts: string[] = []
-
-      let current = pathData
-      while (current) {
-        pathParts.unshift(current.name)
-        current = current.parent as any
-      }
-
-      return pathParts.join(' > ')
-    } catch {
-      return location.name
+  useEffect(() => {
+    if (isOpen) {
+      loadLocationData()
     }
-  }
+  }, [isOpen, loadLocationData])
 
   const handleReturnToOriginal = (part: PartAtLocation) => {
     setPartToReturn(part)

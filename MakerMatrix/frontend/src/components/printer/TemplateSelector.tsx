@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ChevronDown, FileText, Sparkles, User, Trash2, Edit } from 'lucide-react'
 import type { LabelTemplate } from '@/services/template.service'
 import { templateService } from '@/services/template.service'
@@ -30,18 +30,7 @@ const TemplateSelector = ({
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  useEffect(() => {
-    loadTemplates()
-  }, [labelSize])
-
-  // Pass loadTemplates function to parent
-  useEffect(() => {
-    if (onTemplatesLoaded) {
-      onTemplatesLoaded(loadTemplates)
-    }
-  }, [onTemplatesLoaded])
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -90,7 +79,18 @@ const TemplateSelector = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [labelSize])
+
+  useEffect(() => {
+    loadTemplates()
+  }, [loadTemplates])
+
+  // Pass loadTemplates function to parent
+  useEffect(() => {
+    if (onTemplatesLoaded) {
+      onTemplatesLoaded(loadTemplates)
+    }
+  }, [onTemplatesLoaded, loadTemplates])
 
   const handleTemplateSelect = (template: LabelTemplate | null) => {
     onTemplateSelect(template)
