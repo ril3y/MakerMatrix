@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
     paths:
       - 'MakerMatrix/**/*.py'
+      - 'tests/**/*.py'
       - 'vulture.toml'
       - '.github/workflows/backend-quality.yml'
       - 'requirements.txt'
@@ -12,9 +13,11 @@ on:
     branches: [ main, develop ]
     paths:
       - 'MakerMatrix/**/*.py'
+      - 'tests/**/*.py'
       - 'vulture.toml'
       - '.github/workflows/backend-quality.yml'
       - 'requirements.txt'
+  workflow_dispatch:
 
 jobs:
   # Code Formatting Check
