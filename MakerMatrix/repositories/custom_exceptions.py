@@ -20,19 +20,20 @@ from MakerMatrix.exceptions import (
     LocationAlreadyExistsError as _LocationAlreadyExistsError,
     UserAlreadyExistsError as _UserAlreadyExistsError,
     InvalidReferenceError as _InvalidReferenceError,
-    SupplierConfigAlreadyExistsError as _SupplierConfigAlreadyExistsError
+    SupplierConfigAlreadyExistsError as _SupplierConfigAlreadyExistsError,
 )
+
 
 # Backward compatibility wrappers with deprecation warnings
 class ResourceNotFoundError(_ResourceNotFoundError):
     """DEPRECATED: Use MakerMatrix.exceptions.ResourceNotFoundError instead."""
-    
+
     def __init__(self, status: str, message: str, data=None):
         warnings.warn(
             "ResourceNotFoundError from repositories.custom_exceptions is deprecated. "
             "Use MakerMatrix.exceptions.ResourceNotFoundError instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(message, resource_type="generic", resource_id=None)
         self.status = status
@@ -41,13 +42,13 @@ class ResourceNotFoundError(_ResourceNotFoundError):
 
 class PartAlreadyExistsError(_PartAlreadyExistsError):
     """DEPRECATED: Use MakerMatrix.exceptions.PartAlreadyExistsError instead."""
-    
+
     def __init__(self, status: str, message: str, data: dict):
         warnings.warn(
             "PartAlreadyExistsError from repositories.custom_exceptions is deprecated. "
             "Use MakerMatrix.exceptions.PartAlreadyExistsError instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(message)
         self.status = status
@@ -56,13 +57,13 @@ class PartAlreadyExistsError(_PartAlreadyExistsError):
 
 class CategoryAlreadyExistsError(_CategoryAlreadyExistsError):
     """DEPRECATED: Use MakerMatrix.exceptions.CategoryAlreadyExistsError instead."""
-    
+
     def __init__(self, status: str, message: str, data: dict):
         warnings.warn(
             "CategoryAlreadyExistsError from repositories.custom_exceptions is deprecated. "
             "Use MakerMatrix.exceptions.CategoryAlreadyExistsError instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(message)
         self.status = status
@@ -71,13 +72,13 @@ class CategoryAlreadyExistsError(_CategoryAlreadyExistsError):
 
 class LocationAlreadyExistsError(_LocationAlreadyExistsError):
     """DEPRECATED: Use MakerMatrix.exceptions.LocationAlreadyExistsError instead."""
-    
+
     def __init__(self, status: str, message: str, data: dict):
         warnings.warn(
             "LocationAlreadyExistsError from repositories.custom_exceptions is deprecated. "
             "Use MakerMatrix.exceptions.LocationAlreadyExistsError instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(message)
         self.status = status
@@ -86,13 +87,13 @@ class LocationAlreadyExistsError(_LocationAlreadyExistsError):
 
 class UserAlreadyExistsError(_UserAlreadyExistsError):
     """DEPRECATED: Use MakerMatrix.exceptions.UserAlreadyExistsError instead."""
-    
+
     def __init__(self, status: str, message: str, data: dict):
         warnings.warn(
             "UserAlreadyExistsError from repositories.custom_exceptions is deprecated. "
             "Use MakerMatrix.exceptions.UserAlreadyExistsError instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(message)
         self.status = status
@@ -101,13 +102,13 @@ class UserAlreadyExistsError(_UserAlreadyExistsError):
 
 class InvalidReferenceError(_InvalidReferenceError):
     """DEPRECATED: Use MakerMatrix.exceptions.InvalidReferenceError instead."""
-    
+
     def __init__(self, status: str, message: str, data=None):
         warnings.warn(
             "InvalidReferenceError from repositories.custom_exceptions is deprecated. "
             "Use MakerMatrix.exceptions.InvalidReferenceError instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(message)
         self.status = status
@@ -116,13 +117,13 @@ class InvalidReferenceError(_InvalidReferenceError):
 
 class SupplierConfigAlreadyExistsError(_SupplierConfigAlreadyExistsError):
     """DEPRECATED: Use MakerMatrix.exceptions.SupplierConfigAlreadyExistsError instead."""
-    
+
     def __init__(self, message: str, status: str = "error", data=None):
         warnings.warn(
             "SupplierConfigAlreadyExistsError from repositories.custom_exceptions is deprecated. "
             "Use MakerMatrix.exceptions.SupplierConfigAlreadyExistsError instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(message)
         self.status = status

@@ -24,16 +24,16 @@ def test_cleanup_part_files_handles_enriched_datasheet(part_service):
     part.id = "part-456"
     part.part_name = "Enriched Part"
     part.additional_properties = {
-        'datasheet_filename': 'enriched-uuid-123.pdf',
-        'datasheet_downloaded': True,
-        'datasheet_size': 1024000
+        "datasheet_filename": "enriched-uuid-123.pdf",
+        "datasheet_downloaded": True,
+        "datasheet_size": 1024000,
     }
     part.datasheets = []  # No uploaded datasheets
 
     # Mock os.remove to track if it's called
-    with patch('os.remove') as mock_remove:
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('pathlib.Path.is_file', return_value=True):
+    with patch("os.remove") as mock_remove:
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("pathlib.Path.is_file", return_value=True):
                 # Execute cleanup
                 deleted_count = part_service._cleanup_part_files(part)
 
@@ -77,14 +77,11 @@ def test_cleanup_part_files_handles_missing_file(part_service):
     part = Mock()
     part.id = "part-missing"
     part.part_name = "Missing Datasheet"
-    part.additional_properties = {
-        'datasheet_filename': 'nonexistent-file.pdf',
-        'datasheet_downloaded': True
-    }
+    part.additional_properties = {"datasheet_filename": "nonexistent-file.pdf", "datasheet_downloaded": True}
     part.datasheets = []
 
     # Mock Path.exists to return False (file doesn't exist)
-    with patch('pathlib.Path.exists', return_value=False):
+    with patch("pathlib.Path.exists", return_value=False):
         # Execute cleanup - should handle missing file gracefully
         deleted_count = part_service._cleanup_part_files(part)
 
@@ -97,19 +94,19 @@ def test_cleanup_part_files_checks_datasheet_filename_key(part_service):
     part_with_key = Mock()
     part_with_key.id = "part-with-key"
     part_with_key.part_name = "With Key"
-    part_with_key.additional_properties = {'datasheet_filename': 'test.pdf'}
+    part_with_key.additional_properties = {"datasheet_filename": "test.pdf"}
     part_with_key.datasheets = []
 
     part_without_key = Mock()
     part_without_key.id = "part-without-key"
     part_without_key.part_name = "Without Key"
-    part_without_key.additional_properties = {'some_other_key': 'value'}
+    part_without_key.additional_properties = {"some_other_key": "value"}
     part_without_key.datasheets = []
 
     # Mock os.remove to track calls
-    with patch('os.remove') as mock_remove:
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('pathlib.Path.is_file', return_value=True):
+    with patch("os.remove") as mock_remove:
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("pathlib.Path.is_file", return_value=True):
                 # Part with key should attempt deletion
                 part_service._cleanup_part_files(part_with_key)
                 first_call_count = mock_remove.call_count

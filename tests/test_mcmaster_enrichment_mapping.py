@@ -38,10 +38,7 @@ class TestMcMasterEnrichmentMapping:
         mappings = supplier.get_enrichment_field_mappings()
 
         # Get the supplier part number mapping
-        part_number_mapping = next(
-            (m for m in mappings if m.field_name == "supplier_part_number"),
-            None
-        )
+        part_number_mapping = next((m for m in mappings if m.field_name == "supplier_part_number"), None)
 
         assert part_number_mapping is not None
 
@@ -99,11 +96,11 @@ class TestMcMasterEnrichmentMapping:
 
         for mapping in mappings:
             # Check required fields
-            assert hasattr(mapping, 'field_name')
-            assert hasattr(mapping, 'display_name')
-            assert hasattr(mapping, 'url_patterns')
-            assert hasattr(mapping, 'example')
-            assert hasattr(mapping, 'required_for_enrichment')
+            assert hasattr(mapping, "field_name")
+            assert hasattr(mapping, "display_name")
+            assert hasattr(mapping, "url_patterns")
+            assert hasattr(mapping, "example")
+            assert hasattr(mapping, "required_for_enrichment")
 
             # Check types
             assert isinstance(mapping.field_name, str)
@@ -151,14 +148,16 @@ class TestMcMasterEnrichmentMapping:
         # Convert to the format expected by the API
         api_response = []
         for mapping in mappings:
-            api_response.append({
-                "field_name": mapping.field_name,
-                "display_name": mapping.display_name,
-                "url_patterns": mapping.url_patterns,
-                "example": mapping.example,
-                "description": mapping.description,
-                "required_for_enrichment": mapping.required_for_enrichment
-            })
+            api_response.append(
+                {
+                    "field_name": mapping.field_name,
+                    "display_name": mapping.display_name,
+                    "url_patterns": mapping.url_patterns,
+                    "example": mapping.example,
+                    "description": mapping.description,
+                    "required_for_enrichment": mapping.required_for_enrichment,
+                }
+            )
 
         # Verify the response structure
         assert len(api_response) > 0

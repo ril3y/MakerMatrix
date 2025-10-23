@@ -4,6 +4,7 @@ Tests the fix for 403 Forbidden error when viewing DigiKey/Mouser datasheets hos
 
 This test verifies that the allowed_domains list in utility_routes.py includes common manufacturer domains.
 """
+
 import pytest
 
 
@@ -21,20 +22,20 @@ class TestManufacturerDomainAllowlist:
 
         # Verify that important manufacturer domains are in the source
         critical_manufacturer_domains = [
-            'st.com',  # STMicroelectronics - the original bug report
-            'ti.com',  # Texas Instruments
-            'infineon.com',  # Infineon
-            'nxp.com',  # NXP
-            'analog.com',  # Analog Devices
-            'microchip.com',  # Microchip
-            'onsemi.com',  # ON Semiconductor
-            'renesas.com',  # Renesas
-            'vishay.com',  # Vishay
-            'murata.com',  # Murata
-            'te.com',  # TE Connectivity
-            'molex.com',  # Molex
-            'silabs.com',  # Silicon Labs
-            'espressif.com',  # Espressif (ESP32)
+            "st.com",  # STMicroelectronics - the original bug report
+            "ti.com",  # Texas Instruments
+            "infineon.com",  # Infineon
+            "nxp.com",  # NXP
+            "analog.com",  # Analog Devices
+            "microchip.com",  # Microchip
+            "onsemi.com",  # ON Semiconductor
+            "renesas.com",  # Renesas
+            "vishay.com",  # Vishay
+            "murata.com",  # Murata
+            "te.com",  # TE Connectivity
+            "molex.com",  # Molex
+            "silabs.com",  # Silicon Labs
+            "espressif.com",  # Espressif (ESP32)
         ]
 
         missing_domains = []
@@ -48,13 +49,14 @@ class TestManufacturerDomainAllowlist:
         """Test that original supplier domains are still in the allowlist"""
         from MakerMatrix.routers import utility_routes
         import inspect
+
         source = inspect.getsource(utility_routes.proxy_pdf)
 
         original_suppliers = [
-            'lcsc.com',
-            'digikey.com',
-            'mouser.com',
-            'easyeda.com',
+            "lcsc.com",
+            "digikey.com",
+            "mouser.com",
+            "easyeda.com",
         ]
 
         missing_domains = []

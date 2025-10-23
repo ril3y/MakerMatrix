@@ -18,17 +18,25 @@ from urllib.parse import urlparse
 from datetime import datetime
 
 from .base import (
-    BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo, CapabilityRequirement,
-    EnrichmentFieldMapping
+    BaseSupplier,
+    FieldDefinition,
+    FieldType,
+    SupplierCapability,
+    PartSearchResult,
+    SupplierInfo,
+    CapabilityRequirement,
+    EnrichmentFieldMapping,
 )
 from .registry import register_supplier
 from .exceptions import (
-    SupplierConfigurationError, SupplierAuthenticationError,
-    SupplierConnectionError, SupplierRateLimitError
+    SupplierConfigurationError,
+    SupplierAuthenticationError,
+    SupplierConnectionError,
+    SupplierRateLimitError,
 )
 
 logger = logging.getLogger(__name__)
+
 
 @register_supplier("seeedstudio")
 class SeeedStudioSupplier(BaseSupplier):
@@ -46,23 +54,20 @@ class SeeedStudioSupplier(BaseSupplier):
             website_url="https://www.seeedstudio.com",
             api_documentation_url=None,  # No official API - uses web scraping
             supports_oauth=False,
-            rate_limit_info="Conservative delays to respect website resources. Recommend 2-3 second delays between requests."
+            rate_limit_info="Conservative delays to respect website resources. Recommend 2-3 second delays between requests.",
         )
 
     def get_capabilities(self) -> List[SupplierCapability]:
         return [
-            SupplierCapability.GET_PART_DETAILS,       # Scrape individual product pages
-            SupplierCapability.FETCH_PRICING_STOCK,    # Extract pricing and stock data
-            SupplierCapability.FETCH_DATASHEET,        # Extract datasheet PDFs from product pages
+            SupplierCapability.GET_PART_DETAILS,  # Scrape individual product pages
+            SupplierCapability.FETCH_PRICING_STOCK,  # Extract pricing and stock data
+            SupplierCapability.FETCH_DATASHEET,  # Extract datasheet PDFs from product pages
         ]
 
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """Seeed Studio uses web scraping, so no credentials required for any capability"""
         return {
-            capability: CapabilityRequirement(
-                capability=capability,
-                required_credentials=[]
-            )
+            capability: CapabilityRequirement(capability=capability, required_credentials=[])
             for capability in self.get_capabilities()
         }
 
@@ -73,9 +78,9 @@ class SeeedStudioSupplier(BaseSupplier):
     def get_url_patterns(self) -> List[str]:
         """Return URL patterns that identify Seeed Studio product links"""
         return [
-            r'seeedstudio\.com',  # Base domain
-            r'www\.seeedstudio\.com',  # With www
-            r'seeedstudio\.com/.*\.html',  # Product pages ending in .html
+            r"seeedstudio\.com",  # Base domain
+            r"www\.seeedstudio\.com",  # With www
+            r"seeedstudio\.com/.*\.html",  # Product pages ending in .html
         ]
 
     def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
@@ -91,12 +96,12 @@ class SeeedStudioSupplier(BaseSupplier):
                 field_name="supplier_part_number",
                 display_name="Seeed Studio Product Slug",
                 url_patterns=[
-                    r'/([^/]+)\.html$',  # Extract product slug before .html
-                    r'seeedstudio\.com/([^/]+)\.html',  # More specific pattern
+                    r"/([^/]+)\.html$",  # Extract product slug before .html
+                    r"seeedstudio\.com/([^/]+)\.html",  # More specific pattern
                 ],
                 example="Grove-Laser-PM2-5-Sensor-HM3301",
                 description="Product identifier from Seeed Studio URL (e.g., Grove-Laser-PM2-5-Sensor-HM3301)",
-                required_for_enrichment=True
+                required_for_enrichment=True,
             )
         ]
 
@@ -113,7 +118,7 @@ class SeeedStudioSupplier(BaseSupplier):
                 required=False,
                 default_value="https://www.seeedstudio.com",
                 description="Seeed Studio website base URL",
-                help_text="Default URL should work for most users"
+                help_text="Default URL should work for most users",
             ),
             FieldDefinition(
                 name="request_delay_seconds",
@@ -123,7 +128,7 @@ class SeeedStudioSupplier(BaseSupplier):
                 default_value=2.0,
                 description="Delay between requests to be respectful to the website",
                 validation={"min": 1.0, "max": 10.0},
-                help_text="Recommended: 2-3 seconds to avoid overloading the server"
+                help_text="Recommended: 2-3 seconds to avoid overloading the server",
             ),
             FieldDefinition(
                 name="timeout_seconds",
@@ -133,7 +138,7 @@ class SeeedStudioSupplier(BaseSupplier):
                 default_value=30,
                 description="HTTP request timeout in seconds",
                 validation={"min": 5, "max": 120},
-                help_text="How long to wait for page responses"
+                help_text="How long to wait for page responses",
             ),
             FieldDefinition(
                 name="user_agent",
@@ -142,7 +147,7 @@ class SeeedStudioSupplier(BaseSupplier):
                 required=False,
                 default_value="MakerMatrix/1.0 (Inventory Management System)",
                 description="User agent string for HTTP requests",
-                help_text="Identifies your application to the website"
+                help_text="Identifies your application to the website",
             ),
             FieldDefinition(
                 name="enable_caching",
@@ -151,8 +156,8 @@ class SeeedStudioSupplier(BaseSupplier):
                 required=False,
                 default_value=True,
                 description="Cache scraped pages to reduce server load",
-                help_text="Recommended to enable for better performance and server courtesy"
-            )
+                help_text="Recommended to enable for better performance and server courtesy",
+            ),
         ]
 
     def _get_base_url(self) -> str:
@@ -174,15 +179,15 @@ class SeeedStudioSupplier(BaseSupplier):
             parsed = urlparse(url)
 
             # Check if it's a Seeed Studio URL
-            if 'seeedstudio.com' not in parsed.netloc.lower():
+            if "seeedstudio.com" not in parsed.netloc.lower():
                 logger.debug(f"URL {url} is not a Seeed Studio URL")
                 return None
 
             # Extract product slug from path (everything between last / and .html)
             path = parsed.path
-            if path.endswith('.html'):
+            if path.endswith(".html"):
                 # Get the last segment of the path before .html
-                slug = path.rstrip('.html').split('/')[-1]
+                slug = path.rstrip(".html").split("/")[-1]
                 if slug:
                     logger.debug(f"Extracted product slug {slug} from URL {url}")
                     return slug
@@ -207,7 +212,7 @@ class SeeedStudioSupplier(BaseSupplier):
 
     def _get_http_client(self):
         """Get or create HTTP client with Seeed Studio-specific configuration for web scraping"""
-        if not hasattr(self, '_http_client') or not self._http_client:
+        if not hasattr(self, "_http_client") or not self._http_client:
             from .http_client import SupplierHTTPClient, RetryConfig
 
             config = self._config or {}
@@ -216,17 +221,14 @@ class SeeedStudioSupplier(BaseSupplier):
             request_delay = config.get("request_delay_seconds", 2.0)
 
             retry_config = RetryConfig(
-                max_retries=2,
-                base_delay=request_delay,
-                max_delay=10.0,
-                retry_on_status=[429, 500, 502, 503, 504]
+                max_retries=2, base_delay=request_delay, max_delay=10.0, retry_on_status=[429, 500, 502, 503, 504]
             )
 
             self._http_client = SupplierHTTPClient(
                 supplier_name="seeedstudio",
                 default_headers=self._get_headers(),
                 default_timeout=config.get("timeout_seconds", 30),
-                retry_config=retry_config
+                retry_config=retry_config,
             )
 
         return self._http_client
@@ -241,7 +243,7 @@ class SeeedStudioSupplier(BaseSupplier):
             return {
                 "success": False,
                 "message": "Supplier not configured. Call .configure() before testing.",
-                "details": {"error": "Unconfigured supplier"}
+                "details": {"error": "Unconfigured supplier"},
             }
         try:
             http_client = self._get_http_client()
@@ -250,41 +252,33 @@ class SeeedStudioSupplier(BaseSupplier):
             response = await http_client.get(url, endpoint_type="test_connection")
 
             if response.success:
-                soup = BeautifulSoup(response.raw_content, 'html.parser')
+                soup = BeautifulSoup(response.raw_content, "html.parser")
 
                 # Check if this looks like the Seeed Studio website
-                title = soup.find('title')
+                title = soup.find("title")
                 title_text = title.get_text() if title else ""
 
                 if "seeed" in title_text.lower():
                     return {
                         "success": True,
                         "message": "Connection successful",
-                        "details": {
-                            "base_url": url,
-                            "page_title": title_text.strip(),
-                            "status_code": response.status
-                        }
+                        "details": {"base_url": url, "page_title": title_text.strip(), "status_code": response.status},
                     }
                 else:
                     return {
                         "success": False,
                         "message": "Website content doesn't match expected Seeed Studio format",
-                        "details": {"page_title": title_text.strip()}
+                        "details": {"page_title": title_text.strip()},
                     }
             else:
                 return {
                     "success": False,
                     "message": f"HTTP error: {response.status}",
-                    "details": {"status_code": response.status}
+                    "details": {"status_code": response.status},
                 }
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"Connection test failed: {str(e)}",
-                "details": {"exception": str(e)}
-            }
+            return {"success": False, "message": f"Connection test failed: {str(e)}", "details": {"exception": str(e)}}
 
     async def search_parts(self, query: str, limit: int = 50) -> List[PartSearchResult]:
         """
@@ -315,28 +309,32 @@ class SeeedStudioSupplier(BaseSupplier):
                 logger.warning(f"Failed to fetch product {supplier_part_number}: HTTP {response.status}")
                 return None
 
-            soup = BeautifulSoup(response.raw_content, 'html.parser')
+            soup = BeautifulSoup(response.raw_content, "html.parser")
 
             # Debug: Check what we actually got
-            html_content = response.raw_content if isinstance(response.raw_content, str) else response.raw_content.decode('utf-8', errors='ignore')
+            html_content = (
+                response.raw_content
+                if isinstance(response.raw_content, str)
+                else response.raw_content.decode("utf-8", errors="ignore")
+            )
             logger.info(f"Response content type: {type(response.raw_content)}, length: {len(response.raw_content)}")
 
             # Check for actual table tags
-            table_tag_count = html_content.count('<table')
+            table_tag_count = html_content.count("<table")
             logger.info(f"Found {table_tag_count} <table> tags in raw HTML")
 
             # Check for description content
-            if 'Specifications' in html_content or 'specifications' in html_content:
+            if "Specifications" in html_content or "specifications" in html_content:
                 logger.info("Found 'Specifications' text in HTML")
-                spec_idx = html_content.find('Specifications')
+                spec_idx = html_content.find("Specifications")
                 if spec_idx == -1:
-                    spec_idx = html_content.find('specifications')
+                    spec_idx = html_content.find("specifications")
                 if spec_idx > 0:
-                    sample = html_content[spec_idx:spec_idx+800]
+                    sample = html_content[spec_idx : spec_idx + 800]
                     logger.info(f"Specifications context: {sample[:500]}")
 
                     # Check if it's HTML-escaped
-                    if '&lt;' in sample or '&gt;' in sample:
+                    if "&lt;" in sample or "&gt;" in sample:
                         logger.info("HTML is escaped - need to unescape before parsing")
 
             return self._parse_product_page(soup, supplier_part_number, url)
@@ -345,7 +343,9 @@ class SeeedStudioSupplier(BaseSupplier):
             logger.error(f"Error fetching part details for {supplier_part_number}: {e}")
             return None
 
-    async def scrape_part_details(self, url_or_part_number: str, force_refresh: bool = False) -> Optional[PartSearchResult]:
+    async def scrape_part_details(
+        self, url_or_part_number: str, force_refresh: bool = False
+    ) -> Optional[PartSearchResult]:
         """
         Scrape Seeed Studio product page for part details using Playwright.
 
@@ -359,13 +359,14 @@ class SeeedStudioSupplier(BaseSupplier):
         scraper_created = False
         try:
             # Initialize scraper if needed
-            if not hasattr(self, '_scraper') or not self._scraper:
+            if not hasattr(self, "_scraper") or not self._scraper:
                 from .scrapers.web_scraper import WebScraper
+
                 self._scraper = WebScraper()
                 scraper_created = True
 
             # Build URL if only part slug provided
-            if not url_or_part_number.startswith('http'):
+            if not url_or_part_number.startswith("http"):
                 base_url = self._get_base_url()
                 url = f"{base_url}/{url_or_part_number}.html"
                 part_slug = url_or_part_number
@@ -378,22 +379,19 @@ class SeeedStudioSupplier(BaseSupplier):
 
             # Define CSS selectors for data extraction
             selectors = {
-                'title': 'h1',  # Product title
-                'price': 'span.ais_p_price, span[class*="price"]',  # Price
-                'description': 'div.product.attribute.short_description div.value, div[class*="desc"]',  # Description
-                'image': 'div#main-slider img, img[class*="product"]',  # Main product image
-                'sku': 'span[class*="sku"], div[class*="sku"]',  # SKU if available
-                'spec_table': 'table tr',  # Specification table rows
-                'datasheet': 'a[href*="datasheet"]',  # Datasheet link (prioritize links with "datasheet" in URL)
+                "title": "h1",  # Product title
+                "price": 'span.ais_p_price, span[class*="price"]',  # Price
+                "description": 'div.product.attribute.short_description div.value, div[class*="desc"]',  # Description
+                "image": 'div#main-slider img, img[class*="product"]',  # Main product image
+                "sku": 'span[class*="sku"], div[class*="sku"]',  # SKU if available
+                "spec_table": "table tr",  # Specification table rows
+                "datasheet": 'a[href*="datasheet"]',  # Datasheet link (prioritize links with "datasheet" in URL)
             }
 
             # Scrape with Playwright (handles JavaScript-rendered content)
             logger.info(f"Scraping Seeed Studio URL: {url} (force_refresh={force_refresh})")
             scraped_data = await self._scraper.scrape_with_playwright(
-                url,
-                selectors,
-                wait_for_selector='h1',  # Wait for title to load
-                force_refresh=force_refresh
+                url, selectors, wait_for_selector="h1", force_refresh=force_refresh  # Wait for title to load
             )
 
             logger.info(f"Scraped data: {scraped_data}")
@@ -416,94 +414,98 @@ class SeeedStudioSupplier(BaseSupplier):
             return None
         finally:
             # Clean up the scraper session if we created it
-            if scraper_created and hasattr(self, '_scraper') and self._scraper:
+            if scraper_created and hasattr(self, "_scraper") and self._scraper:
                 try:
                     await self._scraper.close()
                     self._scraper = None
                 except Exception as e:
                     logger.debug(f"Error closing scraper: {e}")
 
-    async def _parse_scraped_data_from_scraper(self, scraped_data: Dict[str, Any], part_slug: str, url: str) -> Optional[PartSearchResult]:
+    async def _parse_scraped_data_from_scraper(
+        self, scraped_data: Dict[str, Any], part_slug: str, url: str
+    ) -> Optional[PartSearchResult]:
         """Parse scraped data from WebScraper into PartSearchResult format."""
         try:
             from datetime import datetime
 
             # Extract title
-            title = scraped_data.get('title', '').strip()
+            title = scraped_data.get("title", "").strip()
             if not title:
                 title = part_slug
             else:
                 # Truncate title at first comma to avoid overly long names
                 # (Seeed Studio titles often include full specifications)
-                if ',' in title:
-                    title = title.split(',')[0].strip()
+                if "," in title:
+                    title = title.split(",")[0].strip()
 
             # Extract description
-            description = scraped_data.get('description', '').strip()
+            description = scraped_data.get("description", "").strip()
 
             # Extract image URL
-            image_url = scraped_data.get('image')
+            image_url = scraped_data.get("image")
             if image_url:
                 # Handle protocol-relative URLs
-                if image_url.startswith('//'):
-                    image_url = 'https:' + image_url
-                elif not image_url.startswith('http'):
+                if image_url.startswith("//"):
+                    image_url = "https:" + image_url
+                elif not image_url.startswith("http"):
                     image_url = self._get_base_url() + image_url
 
             # Extract SKU
             sku = None
-            sku_text = scraped_data.get('sku', '').strip()
+            sku_text = scraped_data.get("sku", "").strip()
             if sku_text:
                 # Extract SKU from text like "SKU: 123456"
-                sku_match = re.search(r'SKU[:\s]*([A-Z0-9-]+)', sku_text, re.I)
+                sku_match = re.search(r"SKU[:\s]*([A-Z0-9-]+)", sku_text, re.I)
                 if sku_match:
                     sku = sku_match.group(1)
-                elif re.match(r'^[A-Z0-9-]+$', sku_text):
+                elif re.match(r"^[A-Z0-9-]+$", sku_text):
                     sku = sku_text
 
             # Extract datasheet URL
             datasheet_url = None
-            datasheet_link = scraped_data.get('datasheet')
+            datasheet_link = scraped_data.get("datasheet")
             if datasheet_link:
                 # Handle protocol-relative URLs
-                if datasheet_link.startswith('//'):
-                    datasheet_url = 'https:' + datasheet_link
-                elif datasheet_link.startswith('http'):
+                if datasheet_link.startswith("//"):
+                    datasheet_url = "https:" + datasheet_link
+                elif datasheet_link.startswith("http"):
                     datasheet_url = datasheet_link
-                elif datasheet_link.startswith('/'):
+                elif datasheet_link.startswith("/"):
                     datasheet_url = self._get_base_url() + datasheet_link
                 else:
                     # Relative path without leading slash
-                    datasheet_url = self._get_base_url() + '/' + datasheet_link
+                    datasheet_url = self._get_base_url() + "/" + datasheet_link
 
             # Extract specifications from table
             specifications = {}
-            if 'spec_table' in scraped_data and isinstance(scraped_data['spec_table'], dict):
-                specifications = scraped_data['spec_table']
+            if "spec_table" in scraped_data and isinstance(scraped_data["spec_table"], dict):
+                specifications = scraped_data["spec_table"]
 
             # Parse pricing
             pricing = []
-            if 'price' in scraped_data:
-                price_text = scraped_data['price']
+            if "price" in scraped_data:
+                price_text = scraped_data["price"]
                 if self._scraper:
                     price_info = self._scraper.parse_price(price_text)
-                    if price_info and 'price' in price_info:
-                        pricing = [{
-                            'quantity': price_info.get('quantity', 1),
-                            'price': price_info.get('unit_price', price_info.get('price', 0)),
-                            'currency': price_info.get('currency', 'USD'),
-                        }]
+                    if price_info and "price" in price_info:
+                        pricing = [
+                            {
+                                "quantity": price_info.get("quantity", 1),
+                                "price": price_info.get("unit_price", price_info.get("price", 0)),
+                                "currency": price_info.get("currency", "USD"),
+                            }
+                        ]
 
             # Build additional_data from specifications
             additional_data = dict(specifications) if specifications else {}
-            additional_data['source'] = 'web_scraping'
-            additional_data['scraped_at'] = datetime.now().isoformat()
-            additional_data['url'] = url
+            additional_data["source"] = "web_scraping"
+            additional_data["scraped_at"] = datetime.now().isoformat()
+            additional_data["url"] = url
 
             # Add price to additional_data if available
             if pricing and pricing:
-                additional_data['price'] = f"${pricing[0]['price']:.2f}"
-                additional_data['currency'] = pricing[0].get('currency', 'USD')
+                additional_data["price"] = f"${pricing[0]['price']:.2f}"
+                additional_data["currency"] = pricing[0].get("currency", "USD")
 
             return PartSearchResult(
                 supplier_part_number=part_slug,
@@ -517,7 +519,7 @@ class SeeedStudioSupplier(BaseSupplier):
                 stock_quantity=None,
                 pricing=pricing if pricing else None,
                 specifications=specifications,
-                additional_data=additional_data
+                additional_data=additional_data,
             )
 
         except Exception as e:
@@ -544,8 +546,8 @@ class SeeedStudioSupplier(BaseSupplier):
 
             # Add price to additional_data if available
             if pricing and pricing:
-                additional_data['price'] = f"${pricing[0]['price']:.2f}"
-                additional_data['currency'] = pricing[0].get('currency', 'USD')
+                additional_data["price"] = f"${pricing[0]['price']:.2f}"
+                additional_data["currency"] = pricing[0].get("currency", "USD")
 
             return PartSearchResult(
                 supplier_part_number=part_slug,
@@ -559,7 +561,7 @@ class SeeedStudioSupplier(BaseSupplier):
                 stock_quantity=stock_quantity,
                 pricing=pricing if pricing else None,
                 specifications=specifications,
-                additional_data=additional_data if additional_data else None
+                additional_data=additional_data if additional_data else None,
             )
 
         except Exception as e:
@@ -575,11 +577,11 @@ class SeeedStudioSupplier(BaseSupplier):
             # Look through all text in the page for escaped HTML with "Specifications"
             page_text = str(soup)
 
-            if 'Specifications' in page_text and '&lt;' in page_text:
+            if "Specifications" in page_text and "&lt;" in page_text:
                 # Find where "Specifications" appears
-                spec_idx = page_text.find('Specifications')
+                spec_idx = page_text.find("Specifications")
                 # Get 2000 chars around it to see the structure
-                sample = page_text[max(0, spec_idx-100):spec_idx+2000]
+                sample = page_text[max(0, spec_idx - 100) : spec_idx + 2000]
                 logger.info(f"Specifications context (2000 chars): {sample[:1000]}")
 
                 # Look for escaped table after "Specifications"
@@ -590,17 +592,17 @@ class SeeedStudioSupplier(BaseSupplier):
                 if spec_idx >= 0:
                     remaining_text = page_text[spec_idx:]
                     # Look for &lt;table
-                    table_start = remaining_text.find('&lt;table')
+                    table_start = remaining_text.find("&lt;table")
                     if table_start >= 0:
                         # Found a table start, now find the end
                         # Try both patterns - with and without escaped forward slash
-                        table_end1 = remaining_text.find('&lt;/table&gt;', table_start)
-                        table_end2 = remaining_text.find(r'&lt;\/table&gt;', table_start)
+                        table_end1 = remaining_text.find("&lt;/table&gt;", table_start)
+                        table_end2 = remaining_text.find(r"&lt;\/table&gt;", table_start)
                         table_end = max(table_end1, table_end2)
 
                         if table_end >= 0:
                             # Extract the whole table section including closing tag (14 chars)
-                            escaped_section = remaining_text[table_start:table_end + 14]
+                            escaped_section = remaining_text[table_start : table_end + 14]
                             logger.info(f"Extracted table section, length: {len(escaped_section)}")
 
                 if escaped_section:
@@ -610,15 +612,15 @@ class SeeedStudioSupplier(BaseSupplier):
                     unescaped = html_lib.unescape(escaped_section)
 
                     # Also unescape backslash-escaped forward slashes (\/  -> /)
-                    unescaped = unescaped.replace(r'\/', '/')
+                    unescaped = unescaped.replace(r"\/", "/")
 
                     # Remove \r\n for cleaner parsing
-                    unescaped = unescaped.replace(r'\r\n', '\n')
+                    unescaped = unescaped.replace(r"\r\n", "\n")
 
                     logger.info(f"Unescaped content sample: {unescaped[:300]}")
 
                     # Parse the unescaped HTML
-                    return BeautifulSoup(unescaped, 'html.parser')
+                    return BeautifulSoup(unescaped, "html.parser")
                 else:
                     logger.warning("Found 'Specifications' and escaped HTML but couldn't extract table section")
 
@@ -633,19 +635,19 @@ class SeeedStudioSupplier(BaseSupplier):
         try:
             # Try common title patterns
             title_tag = (
-                soup.find('h1', class_=re.compile(r'product.*title', re.I)) or
-                soup.find('h1', class_='ais_p_title') or
-                soup.find('h1', class_='product-name') or
-                soup.find('h1')
+                soup.find("h1", class_=re.compile(r"product.*title", re.I))
+                or soup.find("h1", class_="ais_p_title")
+                or soup.find("h1", class_="product-name")
+                or soup.find("h1")
             )
 
             if title_tag:
                 return title_tag.get_text().strip()
 
             # Fallback to meta title
-            meta_title = soup.find('meta', attrs={'property': 'og:title'})
+            meta_title = soup.find("meta", attrs={"property": "og:title"})
             if meta_title:
-                return meta_title.get('content', '').strip()
+                return meta_title.get("content", "").strip()
 
             return "Unknown Product"
 
@@ -658,28 +660,27 @@ class SeeedStudioSupplier(BaseSupplier):
         try:
             # Try various description patterns - Seeed Studio uses 'short_description'
             desc_tag = (
-                soup.find('div', class_='product attribute short_description') or
-                soup.find('div', class_=re.compile(r'short.*desc', re.I)) or
-                soup.find('div', class_='ais_p_desc') or
-                soup.find('div', class_=re.compile(r'product.*desc', re.I)) or
-                soup.find('div', class_='description') or
-                soup.find('div', class_='product-overview')
+                soup.find("div", class_="product attribute short_description")
+                or soup.find("div", class_=re.compile(r"short.*desc", re.I))
+                or soup.find("div", class_="ais_p_desc")
+                or soup.find("div", class_=re.compile(r"product.*desc", re.I))
+                or soup.find("div", class_="description")
+                or soup.find("div", class_="product-overview")
             )
 
             if desc_tag:
                 # Extract text from the value div if it exists
-                value_div = desc_tag.find('div', class_='value')
+                value_div = desc_tag.find("div", class_="value")
                 if value_div:
                     return value_div.get_text().strip()
                 return desc_tag.get_text().strip()
 
             # Fallback to meta description
-            meta_desc = (
-                soup.find('meta', attrs={'name': 'description'}) or
-                soup.find('meta', attrs={'property': 'og:description'})
+            meta_desc = soup.find("meta", attrs={"name": "description"}) or soup.find(
+                "meta", attrs={"property": "og:description"}
             )
             if meta_desc:
-                return meta_desc.get('content', '').strip()
+                return meta_desc.get("content", "").strip()
 
             return ""
 
@@ -691,26 +692,26 @@ class SeeedStudioSupplier(BaseSupplier):
         """Extract primary product image URL"""
         try:
             # Try to find image in Splide slider
-            main_slider = soup.find('div', id='main-slider') or soup.find('div', class_='splide-container')
+            main_slider = soup.find("div", id="main-slider") or soup.find("div", class_="splide-container")
             if main_slider:
-                img_tag = main_slider.find('img')
+                img_tag = main_slider.find("img")
                 if img_tag:
                     # Try src, data-src, or other common attributes
-                    img_url = img_tag.get('src') or img_tag.get('data-src') or img_tag.get('data-lazy')
+                    img_url = img_tag.get("src") or img_tag.get("data-src") or img_tag.get("data-lazy")
                     if img_url:
                         # Handle protocol-relative URLs
-                        if img_url.startswith('//'):
-                            img_url = 'https:' + img_url
-                        elif not img_url.startswith('http'):
-                            img_url = 'https://www.seeedstudio.com' + img_url
+                        if img_url.startswith("//"):
+                            img_url = "https:" + img_url
+                        elif not img_url.startswith("http"):
+                            img_url = "https://www.seeedstudio.com" + img_url
                         return img_url
 
             # Fallback to meta image
-            meta_img = soup.find('meta', attrs={'property': 'og:image'})
+            meta_img = soup.find("meta", attrs={"property": "og:image"})
             if meta_img:
-                img_url = meta_img.get('content', '')
-                if img_url.startswith('//'):
-                    img_url = 'https:' + img_url
+                img_url = meta_img.get("content", "")
+                if img_url.startswith("//"):
+                    img_url = "https:" + img_url
                 return img_url if img_url else None
 
             return None
@@ -724,23 +725,19 @@ class SeeedStudioSupplier(BaseSupplier):
         try:
             # Try various price patterns
             price_tag = (
-                soup.find('span', class_='ais_p_price') or
-                soup.find('span', class_=re.compile(r'price', re.I)) or
-                soup.find('div', class_=re.compile(r'price', re.I))
+                soup.find("span", class_="ais_p_price")
+                or soup.find("span", class_=re.compile(r"price", re.I))
+                or soup.find("div", class_=re.compile(r"price", re.I))
             )
 
             if price_tag:
                 price_text = price_tag.get_text()
                 # Extract numeric price
-                price_match = re.search(r'\$?([\d.]+)', price_text)
+                price_match = re.search(r"\$?([\d.]+)", price_text)
                 if price_match:
                     try:
                         price = float(price_match.group(1))
-                        return [{
-                            "quantity": 1,
-                            "price": price,
-                            "currency": "USD"
-                        }]
+                        return [{"quantity": 1, "price": price, "currency": "USD"}]
                     except ValueError:
                         pass
 
@@ -754,16 +751,15 @@ class SeeedStudioSupplier(BaseSupplier):
         """Extract stock/availability information"""
         try:
             # Look for stock indicators
-            stock_tag = (
-                soup.find('div', class_=re.compile(r'stock|availability', re.I)) or
-                soup.find('span', class_=re.compile(r'stock|availability', re.I))
+            stock_tag = soup.find("div", class_=re.compile(r"stock|availability", re.I)) or soup.find(
+                "span", class_=re.compile(r"stock|availability", re.I)
             )
 
             if stock_tag:
                 stock_text = stock_tag.get_text().lower()
-                if 'in stock' in stock_text or 'available' in stock_text:
+                if "in stock" in stock_text or "available" in stock_text:
                     return 999  # Unknown quantity but in stock
-                elif 'out of stock' in stock_text or 'unavailable' in stock_text:
+                elif "out of stock" in stock_text or "unavailable" in stock_text:
                     return 0
 
             return None
@@ -776,20 +772,19 @@ class SeeedStudioSupplier(BaseSupplier):
         """Extract SKU/product code if available"""
         try:
             # Look for SKU in various places
-            sku_tag = (
-                soup.find('span', class_=re.compile(r'sku|product.*code', re.I)) or
-                soup.find('div', class_=re.compile(r'sku|product.*code', re.I))
+            sku_tag = soup.find("span", class_=re.compile(r"sku|product.*code", re.I)) or soup.find(
+                "div", class_=re.compile(r"sku|product.*code", re.I)
             )
 
             if sku_tag:
                 sku_text = sku_tag.get_text()
                 # Extract SKU from text like "SKU: 123456"
-                sku_match = re.search(r'SKU[:\s]*([A-Z0-9-]+)', sku_text, re.I)
+                sku_match = re.search(r"SKU[:\s]*([A-Z0-9-]+)", sku_text, re.I)
                 if sku_match:
                     return sku_match.group(1)
                 # Or just use the text if it looks like a SKU
                 sku_clean = sku_text.strip()
-                if re.match(r'^[A-Z0-9-]+$', sku_clean):
+                if re.match(r"^[A-Z0-9-]+$", sku_clean):
                     return sku_clean
 
             return None
@@ -803,25 +798,27 @@ class SeeedStudioSupplier(BaseSupplier):
         specifications = {}
 
         # Look for specification tables
-        spec_table = soup.find('table')  # Get any table
+        spec_table = soup.find("table")  # Get any table
 
         if spec_table:
-            rows = spec_table.find_all('tr')
+            rows = spec_table.find_all("tr")
             logger.info(f"Found table with {len(rows)} rows")
             for row in rows:
-                cells = row.find_all(['th', 'td'])
+                cells = row.find_all(["th", "td"])
                 if len(cells) >= 2:
                     key = cells[0].get_text(strip=True)
                     value = cells[1].get_text(strip=True)
 
                     # Skip empty keys/values and header rows
-                    if key and value and key.lower() not in ['symbol', 'sysmbol', 'specifications']:
+                    if key and value and key.lower() not in ["symbol", "sysmbol", "specifications"]:
                         specifications[key] = value
                         logger.info(f"Extracted spec: {key} = {value}")
 
         return specifications if specifications else None
 
-    def _extract_specifications(self, soup: BeautifulSoup, escaped_content: Optional[BeautifulSoup] = None) -> Optional[Dict[str, str]]:
+    def _extract_specifications(
+        self, soup: BeautifulSoup, escaped_content: Optional[BeautifulSoup] = None
+    ) -> Optional[Dict[str, str]]:
         """
         Extract specifications from various HTML formats.
 
@@ -844,7 +841,7 @@ class SeeedStudioSupplier(BaseSupplier):
                     return specs_from_escaped
 
             # If no specs from escaped content, try the main soup
-            all_tables = soup.find_all('table')
+            all_tables = soup.find_all("table")
             logger.info(f"Found {len(all_tables)} tables total in main soup")
 
             specs_from_main = self._parse_specs_from_soup(soup)
@@ -853,15 +850,14 @@ class SeeedStudioSupplier(BaseSupplier):
 
             # Strategy 2: Look for definition lists (fallback)
             if not specifications:
-                spec_dl = (
-                    soup.find('dl', class_=re.compile(r'spec|technical|parameter', re.I)) or
-                    soup.find('dl', id=re.compile(r'spec|technical|parameter', re.I))
+                spec_dl = soup.find("dl", class_=re.compile(r"spec|technical|parameter", re.I)) or soup.find(
+                    "dl", id=re.compile(r"spec|technical|parameter", re.I)
                 )
 
                 if spec_dl:
                     logger.debug("Found specification definition list")
-                    dts = spec_dl.find_all('dt')
-                    dds = spec_dl.find_all('dd')
+                    dts = spec_dl.find_all("dt")
+                    dds = spec_dl.find_all("dd")
                     for dt, dd in zip(dts, dds):
                         key = dt.get_text().strip()
                         value = dd.get_text().strip()
@@ -870,22 +866,21 @@ class SeeedStudioSupplier(BaseSupplier):
 
             # Strategy 3: Look for div-based specifications
             if not specifications:
-                spec_section = (
-                    soup.find('div', class_=re.compile(r'spec|technical|parameter', re.I)) or
-                    soup.find('section', class_=re.compile(r'spec|technical|parameter', re.I))
+                spec_section = soup.find("div", class_=re.compile(r"spec|technical|parameter", re.I)) or soup.find(
+                    "section", class_=re.compile(r"spec|technical|parameter", re.I)
                 )
 
                 if spec_section:
                     logger.debug("Found specification div/section")
                     # Look for key-value pairs within divs
-                    spec_items = spec_section.find_all('div', class_=re.compile(r'spec.*item|param.*item', re.I))
+                    spec_items = spec_section.find_all("div", class_=re.compile(r"spec.*item|param.*item", re.I))
                     for item in spec_items:
                         # Try to find label and value
-                        label = item.find(['span', 'strong', 'b'], class_=re.compile(r'label|key|name', re.I))
-                        value = item.find(['span', 'div'], class_=re.compile(r'value|data', re.I))
+                        label = item.find(["span", "strong", "b"], class_=re.compile(r"label|key|name", re.I))
+                        value = item.find(["span", "div"], class_=re.compile(r"value|data", re.I))
 
                         if label and value:
-                            key = label.get_text().strip().rstrip(':')
+                            key = label.get_text().strip().rstrip(":")
                             val = value.get_text().strip()
                             if key and val:
                                 specifications[key] = val
@@ -920,31 +915,31 @@ class SeeedStudioSupplier(BaseSupplier):
 
         # Start with core fields
         mapped = {
-            'supplier_part_number': supplier_data.supplier_part_number,
-            'part_name': supplier_data.part_name or supplier_data.description or supplier_data.supplier_part_number,
-            'manufacturer': supplier_data.manufacturer,
-            'manufacturer_part_number': supplier_data.manufacturer_part_number,
-            'description': supplier_data.description,
-            'category': supplier_data.category,
+            "supplier_part_number": supplier_data.supplier_part_number,
+            "part_name": supplier_data.part_name or supplier_data.description or supplier_data.supplier_part_number,
+            "manufacturer": supplier_data.manufacturer,
+            "manufacturer_part_number": supplier_data.manufacturer_part_number,
+            "description": supplier_data.description,
+            "category": supplier_data.category,
         }
 
         # Add image and datasheet URLs if available
         if supplier_data.image_url:
-            mapped['image_url'] = supplier_data.image_url
+            mapped["image_url"] = supplier_data.image_url
         if supplier_data.datasheet_url:
-            mapped['datasheet_url'] = supplier_data.datasheet_url
+            mapped["datasheet_url"] = supplier_data.datasheet_url
 
         # Extract unit price from pricing array (first tier)
         if supplier_data.pricing and len(supplier_data.pricing) > 0:
             first_price = supplier_data.pricing[0]
-            mapped['unit_price'] = first_price.get('price')
-            mapped['currency'] = first_price.get('currency', 'USD')
+            mapped["unit_price"] = first_price.get("price")
+            mapped["currency"] = first_price.get("currency", "USD")
 
         # Flatten specifications into custom fields
         if supplier_data.specifications:
             for spec_key, spec_value in supplier_data.specifications.items():
                 # Create readable field names
-                field_name = spec_key.replace('_', ' ').title()
+                field_name = spec_key.replace("_", " ").title()
                 if spec_value is not None:
                     mapped[field_name] = str(spec_value)
 
@@ -952,10 +947,10 @@ class SeeedStudioSupplier(BaseSupplier):
         if supplier_data.additional_data:
             for key, value in supplier_data.additional_data.items():
                 # Skip internal tracking fields
-                if key in ['source', 'scraped_at', 'api_version', 'last_updated', 'warning', 'data_source']:
+                if key in ["source", "scraped_at", "api_version", "last_updated", "warning", "data_source"]:
                     continue
                 # Create readable field names
-                field_name = key.replace('_', ' ').title()
+                field_name = key.replace("_", " ").title()
                 if value is not None:
                     mapped[field_name] = str(value)
 

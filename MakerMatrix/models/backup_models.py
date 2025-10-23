@@ -16,6 +16,7 @@ class BackupConfigModel(SQLModel, table=True):
 
     Stores scheduling, retention, and encryption settings.
     """
+
     __tablename__ = "backup_config"
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -34,7 +35,9 @@ class BackupConfigModel(SQLModel, table=True):
 
     # Encryption settings
     encryption_required: bool = Field(default=True, description="Whether backups must be encrypted")
-    encryption_password: Optional[str] = Field(default=None, description="Password for encrypting scheduled backups (stored encrypted)")
+    encryption_password: Optional[str] = Field(
+        default=None, description="Password for encrypting scheduled backups (stored encrypted)"
+    )
 
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -47,13 +50,14 @@ class BackupConfigModel(SQLModel, table=True):
                 "schedule_type": "nightly",
                 "schedule_cron": "0 2 * * *",
                 "retention_count": 7,
-                "encryption_required": True
+                "encryption_required": True,
             }
         }
 
 
 class BackupConfigCreate(SQLModel):
     """Schema for creating backup configuration"""
+
     schedule_enabled: bool = False
     schedule_type: str = "nightly"
     schedule_cron: Optional[str] = None
@@ -63,6 +67,7 @@ class BackupConfigCreate(SQLModel):
 
 class BackupConfigUpdate(SQLModel):
     """Schema for updating backup configuration"""
+
     schedule_enabled: Optional[bool] = None
     schedule_type: Optional[str] = None
     schedule_cron: Optional[str] = None

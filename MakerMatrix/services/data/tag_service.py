@@ -16,8 +16,12 @@ from MakerMatrix.models.part_models import PartModel
 from MakerMatrix.models.tool_models import ToolModel
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
 from MakerMatrix.schemas.tag_schemas import (
-    TagCreate, TagUpdate, TagFilter, TagBulkOperation,
-    TagMergeRequest, TagCleanupRequest
+    TagCreate,
+    TagUpdate,
+    TagFilter,
+    TagBulkOperation,
+    TagMergeRequest,
+    TagCleanupRequest,
 )
 
 # Configure logging
@@ -57,9 +61,7 @@ class TagService(BaseService):
 
             with self.get_session() as session:
                 # Check for duplicate tag name (case-insensitive)
-                existing_tag = session.exec(
-                    select(TagModel).where(TagModel.name_lower == tag_name.lower())
-                ).first()
+                existing_tag = session.exec(select(TagModel).where(TagModel.name_lower == tag_name.lower())).first()
 
                 if existing_tag:
                     return self.error_response(f"Tag '{tag_name}' already exists")
@@ -72,7 +74,7 @@ class TagService(BaseService):
                     description=tag_data.description,
                     icon=tag_data.icon,
                     is_system=tag_data.is_system,
-                    created_by=created_by if not tag_data.is_system else None
+                    created_by=created_by if not tag_data.is_system else None,
                 )
 
                 session.add(new_tag)
@@ -108,8 +110,7 @@ class TagService(BaseService):
                     return self.error_response(f"{self.entity_name} with ID '{tag_id}' not found")
 
                 return self.success_response(
-                    f"{self.entity_name} retrieved successfully",
-                    tag.to_dict(include_items=include_items)
+                    f"{self.entity_name} retrieved successfully", tag.to_dict(include_items=include_items)
                 )
 
         except Exception as e:
@@ -128,22 +129,19 @@ class TagService(BaseService):
         """
         try:
             # Normalize tag name
-            if tag_name.startswith('#'):
+            if tag_name.startswith("#"):
                 tag_name = tag_name[1:]
 
             self.log_operation("get", self.entity_name, tag_name)
 
             with self.get_session() as session:
-                tag = session.exec(
-                    select(TagModel).where(TagModel.name_lower == tag_name.lower())
-                ).first()
+                tag = session.exec(select(TagModel).where(TagModel.name_lower == tag_name.lower())).first()
 
                 if not tag:
                     return self.error_response(f"{self.entity_name} with name '{tag_name}' not found")
 
                 return self.success_response(
-                    f"{self.entity_name} retrieved successfully",
-                    tag.to_dict(include_items=include_items)
+                    f"{self.entity_name} retrieved successfully", tag.to_dict(include_items=include_items)
                 )
 
         except Exception as e:
@@ -175,7 +173,7 @@ class TagService(BaseService):
                     query = query.where(
                         or_(
                             TagModel.name_lower.ilike(f"%{search_term}%"),
-                            TagModel.description.ilike(f"%{search_term}%")
+                            TagModel.description.ilike(f"%{search_term}%"),
                         )
                     )
 
@@ -225,7 +223,7 @@ class TagService(BaseService):
                     "total": total,
                     "page": filter_params.page,
                     "page_size": filter_params.page_size,
-                    "total_pages": (total + filter_params.page_size - 1) // filter_params.page_size
+                    "total_pages": (total + filter_params.page_size - 1) // filter_params.page_size,
                 }
 
                 return self.success_response(f"Retrieved {len(tags)} tags", tags_data)
@@ -257,10 +255,7 @@ class TagService(BaseService):
                 # Check if renaming to existing tag
                 if tag_update.name and tag_update.name.lower() != tag.name_lower:
                     existing = session.exec(
-                        select(TagModel).where(
-                            TagModel.name_lower == tag_update.name.lower(),
-                            TagModel.id != tag_id
-                        )
+                        select(TagModel).where(TagModel.name_lower == tag_update.name.lower(), TagModel.id != tag_id)
                     ).first()
                     if existing:
                         return self.error_response(f"Tag '{tag_update.name}' already exists")
@@ -269,7 +264,7 @@ class TagService(BaseService):
                 update_data = tag_update.model_dump(exclude_unset=True)
                 for key, value in update_data.items():
                     if value is not None:
-                        if key == 'name':
+                        if key == "name":
                             tag.name = value
                             tag.name_lower = value.lower()
                         else:
@@ -322,7 +317,9 @@ class TagService(BaseService):
 
     # === TAG ASSIGNMENT OPERATIONS ===
 
-    def assign_tag_to_part(self, tag_id: str, part_id: str, user_id: Optional[str] = None) -> ServiceResponse[Dict[str, Any]]:
+    def assign_tag_to_part(
+        self, tag_id: str, part_id: str, user_id: Optional[str] = None
+    ) -> ServiceResponse[Dict[str, Any]]:
         """
         Assign a tag to a part.
 
@@ -350,23 +347,14 @@ class TagService(BaseService):
 
                 # Check if already assigned
                 existing_link = session.exec(
-                    select(PartTagLink).where(
-                        and_(
-                            PartTagLink.tag_id == tag_id,
-                            PartTagLink.part_id == part_id
-                        )
-                    )
+                    select(PartTagLink).where(and_(PartTagLink.tag_id == tag_id, PartTagLink.part_id == part_id))
                 ).first()
 
                 if existing_link:
                     return self.success_response(f"Tag '{tag.name}' is already assigned to this part", {})
 
                 # Create the link
-                link = PartTagLink(
-                    part_id=part_id,
-                    tag_id=tag_id,
-                    added_by=user_id
-                )
+                link = PartTagLink(part_id=part_id, tag_id=tag_id, added_by=user_id)
                 session.add(link)
 
                 # Update tag statistics
@@ -378,8 +366,7 @@ class TagService(BaseService):
 
                 self.logger.info(f"Assigned tag '{tag.name}' to part '{part.part_name}'")
                 return self.success_response(
-                    f"Tag '{tag.name}' assigned to part successfully",
-                    {"tag_id": tag_id, "part_id": part_id}
+                    f"Tag '{tag.name}' assigned to part successfully", {"tag_id": tag_id, "part_id": part_id}
                 )
 
         except Exception as e:
@@ -402,12 +389,7 @@ class TagService(BaseService):
             with self.get_session() as session:
                 # Find the link
                 link = session.exec(
-                    select(PartTagLink).where(
-                        and_(
-                            PartTagLink.tag_id == tag_id,
-                            PartTagLink.part_id == part_id
-                        )
-                    )
+                    select(PartTagLink).where(and_(PartTagLink.tag_id == tag_id, PartTagLink.part_id == part_id))
                 ).first()
 
                 if not link:
@@ -428,7 +410,9 @@ class TagService(BaseService):
         except Exception as e:
             return self.handle_exception(e, "remove tag from part")
 
-    def assign_tag_to_tool(self, tag_id: str, tool_id: str, user_id: Optional[str] = None) -> ServiceResponse[Dict[str, Any]]:
+    def assign_tag_to_tool(
+        self, tag_id: str, tool_id: str, user_id: Optional[str] = None
+    ) -> ServiceResponse[Dict[str, Any]]:
         """
         Assign a tag to a tool.
 
@@ -456,23 +440,14 @@ class TagService(BaseService):
 
                 # Check if already assigned
                 existing_link = session.exec(
-                    select(ToolTagLink).where(
-                        and_(
-                            ToolTagLink.tag_id == tag_id,
-                            ToolTagLink.tool_id == tool_id
-                        )
-                    )
+                    select(ToolTagLink).where(and_(ToolTagLink.tag_id == tag_id, ToolTagLink.tool_id == tool_id))
                 ).first()
 
                 if existing_link:
                     return self.success_response(f"Tag '{tag.name}' is already assigned to this tool", {})
 
                 # Create the link
-                link = ToolTagLink(
-                    tool_id=tool_id,
-                    tag_id=tag_id,
-                    added_by=user_id
-                )
+                link = ToolTagLink(tool_id=tool_id, tag_id=tag_id, added_by=user_id)
                 session.add(link)
 
                 # Update tag statistics
@@ -484,8 +459,7 @@ class TagService(BaseService):
 
                 self.logger.info(f"Assigned tag '{tag.name}' to tool '{tool.tool_name}'")
                 return self.success_response(
-                    f"Tag '{tag.name}' assigned to tool successfully",
-                    {"tag_id": tag_id, "tool_id": tool_id}
+                    f"Tag '{tag.name}' assigned to tool successfully", {"tag_id": tag_id, "tool_id": tool_id}
                 )
 
         except Exception as e:
@@ -508,12 +482,7 @@ class TagService(BaseService):
             with self.get_session() as session:
                 # Find the link
                 link = session.exec(
-                    select(ToolTagLink).where(
-                        and_(
-                            ToolTagLink.tag_id == tag_id,
-                            ToolTagLink.tool_id == tool_id
-                        )
-                    )
+                    select(ToolTagLink).where(and_(ToolTagLink.tag_id == tag_id, ToolTagLink.tool_id == tool_id))
                 ).first()
 
                 if not link:
@@ -555,7 +524,7 @@ class TagService(BaseService):
                 if not part:
                     return self.error_response(f"Part with ID '{part_id}' not found")
 
-                tags = part.tags if hasattr(part, 'tags') else []
+                tags = part.tags if hasattr(part, "tags") else []
                 tags_data = [tag.to_dict() for tag in tags]
 
                 self.logger.info(f"Retrieved {len(tags_data)} tags for part ID {part_id}")
@@ -583,7 +552,7 @@ class TagService(BaseService):
                 if not tool:
                     return self.error_response(f"Tool with ID '{tool_id}' not found")
 
-                tags = tool.tags if hasattr(tool, 'tags') else []
+                tags = tool.tags if hasattr(tool, "tags") else []
                 tags_data = [tag.to_dict() for tag in tags]
 
                 self.logger.info(f"Retrieved {len(tags_data)} tags for tool ID {tool_id}")
@@ -614,11 +583,11 @@ class TagService(BaseService):
                     return self.error_response(f"Tag with ID '{tag_id}' not found")
 
                 # Get total count
-                total = len(tag.parts) if hasattr(tag, 'parts') else 0
+                total = len(tag.parts) if hasattr(tag, "parts") else 0
 
                 # Get paginated parts
                 offset = (page - 1) * page_size
-                parts = tag.parts[offset:offset + page_size] if hasattr(tag, 'parts') else []
+                parts = tag.parts[offset : offset + page_size] if hasattr(tag, "parts") else []
 
                 parts_data = {
                     "parts": [part.to_dict() for part in parts],
@@ -626,7 +595,7 @@ class TagService(BaseService):
                     "page": page,
                     "page_size": page_size,
                     "total_pages": (total + page_size - 1) // page_size if total > 0 else 0,
-                    "tag": tag.to_dict()
+                    "tag": tag.to_dict(),
                 }
 
                 self.logger.info(f"Retrieved {len(parts)} parts with tag '{tag.name}'")
@@ -657,11 +626,11 @@ class TagService(BaseService):
                     return self.error_response(f"Tag with ID '{tag_id}' not found")
 
                 # Get total count
-                total = len(tag.tools) if hasattr(tag, 'tools') else 0
+                total = len(tag.tools) if hasattr(tag, "tools") else 0
 
                 # Get paginated tools
                 offset = (page - 1) * page_size
-                tools = tag.tools[offset:offset + page_size] if hasattr(tag, 'tools') else []
+                tools = tag.tools[offset : offset + page_size] if hasattr(tag, "tools") else []
 
                 tools_data = {
                     "tools": [tool.to_dict() for tool in tools],
@@ -669,7 +638,7 @@ class TagService(BaseService):
                     "page": page,
                     "page_size": page_size,
                     "total_pages": (total + page_size - 1) // page_size if total > 0 else 0,
-                    "tag": tag.to_dict()
+                    "tag": tag.to_dict(),
                 }
 
                 self.logger.info(f"Retrieved {len(tools)} tools with tag '{tag.name}'")
@@ -694,16 +663,10 @@ class TagService(BaseService):
             self.log_operation("bulk_operation", self.entity_name, operation_data.operation)
 
             with self.get_session() as session:
-                results = {
-                    "successful": [],
-                    "failed": [],
-                    "skipped": []
-                }
+                results = {"successful": [], "failed": [], "skipped": []}
 
                 # Verify all tags exist
-                tags = session.exec(
-                    select(TagModel).where(TagModel.id.in_(operation_data.tag_ids))
-                ).all()
+                tags = session.exec(select(TagModel).where(TagModel.id.in_(operation_data.tag_ids))).all()
 
                 if len(tags) != len(operation_data.tag_ids):
                     return self.error_response("One or more tags not found")
@@ -726,7 +689,9 @@ class TagService(BaseService):
                             if result.success:
                                 results["successful"].append({"item_id": item_id, "tag_id": tag.id})
                             else:
-                                results["failed"].append({"item_id": item_id, "tag_id": tag.id, "error": result.message})
+                                results["failed"].append(
+                                    {"item_id": item_id, "tag_id": tag.id, "error": result.message}
+                                )
 
                         except Exception as e:
                             results["failed"].append({"item_id": item_id, "tag_id": tag.id, "error": str(e)})
@@ -752,7 +717,9 @@ class TagService(BaseService):
             ServiceResponse with merge results
         """
         try:
-            self.log_operation("merge", self.entity_name, f"{len(merge_request.source_tag_ids)} -> {merge_request.target_tag_id}")
+            self.log_operation(
+                "merge", self.entity_name, f"{len(merge_request.source_tag_ids)} -> {merge_request.target_tag_id}"
+            )
 
             with self.get_session() as session:
                 # Get target tag
@@ -761,9 +728,7 @@ class TagService(BaseService):
                     return self.error_response("Target tag not found")
 
                 # Get source tags
-                source_tags = session.exec(
-                    select(TagModel).where(TagModel.id.in_(merge_request.source_tag_ids))
-                ).all()
+                source_tags = session.exec(select(TagModel).where(TagModel.id.in_(merge_request.source_tag_ids))).all()
 
                 if len(source_tags) != len(merge_request.source_tag_ids):
                     return self.error_response("One or more source tags not found")
@@ -796,7 +761,7 @@ class TagService(BaseService):
                     "target_tag": target_tag.to_dict(),
                     "merged_parts": merged_parts,
                     "merged_tools": merged_tools,
-                    "deleted_tags": len(source_tags) if merge_request.delete_sources else 0
+                    "deleted_tags": len(source_tags) if merge_request.delete_sources else 0,
                 }
 
                 self.logger.info(f"Merged {len(source_tags)} tags into '{target_tag.name}'")
@@ -805,7 +770,9 @@ class TagService(BaseService):
         except Exception as e:
             return self.handle_exception(e, "merge tags")
 
-    def cleanup_unused_tags(self, cleanup_request: Optional[TagCleanupRequest] = None) -> ServiceResponse[Dict[str, Any]]:
+    def cleanup_unused_tags(
+        self, cleanup_request: Optional[TagCleanupRequest] = None
+    ) -> ServiceResponse[Dict[str, Any]]:
         """
         Clean up unused or duplicate tags.
 
@@ -822,19 +789,12 @@ class TagService(BaseService):
                 cleanup_request = TagCleanupRequest()
 
             with self.get_session() as session:
-                results = {
-                    "removed_tags": [],
-                    "merged_tags": [],
-                    "errors": []
-                }
+                results = {"removed_tags": [], "merged_tags": [], "errors": []}
 
                 if cleanup_request.remove_unused:
                     # Find unused tags
                     unused_tags = session.exec(
-                        select(TagModel).where(
-                            TagModel.usage_count == 0,
-                            TagModel.is_system == False
-                        )
+                        select(TagModel).where(TagModel.usage_count == 0, TagModel.is_system == False)
                     ).all()
 
                     for tag in unused_tags:
@@ -878,11 +838,7 @@ class TagService(BaseService):
                 ).one()
 
                 # Most used tags
-                most_used = session.exec(
-                    select(TagModel)
-                    .order_by(desc(TagModel.usage_count))
-                    .limit(10)
-                ).all()
+                most_used = session.exec(select(TagModel).order_by(desc(TagModel.usage_count)).limit(10)).all()
 
                 # Recently used tags
                 recently_used = session.exec(
@@ -899,7 +855,7 @@ class TagService(BaseService):
                     "user_tags": total_tags - system_tags,
                     "unused_tags": unused_tags,
                     "most_used_tags": [tag.to_dict() for tag in most_used],
-                    "recently_used_tags": [tag.to_dict() for tag in recently_used]
+                    "recently_used_tags": [tag.to_dict() for tag in recently_used],
                 }
 
                 return self.success_response("Tag statistics retrieved successfully", stats)

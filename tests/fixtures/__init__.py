@@ -10,7 +10,7 @@ from .test_database import (
     test_session,
     test_db_with_schema,
     test_static_files_dir,
-    cleanup_test_databases
+    cleanup_test_databases,
 )
 
 from .test_data_generators import (
@@ -23,7 +23,7 @@ from .test_data_generators import (
     create_test_allocations,
     create_test_datasheet_files,
     create_test_image_files,
-    populate_test_database
+    populate_test_database,
 )
 
 __all__ = [
@@ -44,5 +44,5 @@ __all__ = [
     "create_test_allocations",
     "create_test_datasheet_files",
     "create_test_image_files",
-    "populate_test_database"
+    "populate_test_database",
 ]

@@ -26,13 +26,18 @@ class EnrichmentCoordinatorService(BaseService):
     Replaces the monolithic EnrichmentTaskHandlers class and delegates to focused services.
     """
 
-    def __init__(self, part_repository: Optional[PartRepository] = None, part_service: Optional[PartService] = None, download_config: Optional[dict] = None):
+    def __init__(
+        self,
+        part_repository: Optional[PartRepository] = None,
+        part_service: Optional[PartService] = None,
+        download_config: Optional[dict] = None,
+    ):
         super().__init__()
         # Repository will be created when needed with proper engine
         self.part_repository = part_repository
         self.part_service = part_service or PartService()
         self.download_config = download_config or self._get_csv_import_config()
-        
+
         # Initialize specialized services
         self.part_enrichment_service = PartEnrichmentService()
         self.datasheet_handler_service = DatasheetHandlerService()
@@ -40,6 +45,7 @@ class EnrichmentCoordinatorService(BaseService):
         self.bulk_enrichment_service = BulkEnrichmentService()
         # Initialize data mapper with supplier data mapper
         from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
+
         self.data_mapper = EnrichmentDataMapper(SupplierDataMapper())
 
     def _get_csv_import_config(self) -> dict:
@@ -52,56 +58,60 @@ class EnrichmentCoordinatorService(BaseService):
                     return config.to_dict()
         except Exception as e:
             logger.warning(f"Failed to get CSV import config, using defaults: {e}")
-        
+
         # Return default configuration
         return {
-            'download_datasheets': True,
-            'download_images': True,
-            'overwrite_existing_files': False,
-            'download_timeout_seconds': 30
+            "download_datasheets": True,
+            "download_images": True,
+            "overwrite_existing_files": False,
+            "download_timeout_seconds": 30,
         }
 
     async def handle_task(self, task: TaskModel, progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """
         Main entry point for handling enrichment tasks.
         Delegates to appropriate specialized services based on task type.
-        
+
         Args:
             task: The task model to handle
             progress_callback: Optional callback for progress updates
-            
+
         Returns:
             Dict containing task results
         """
         try:
             logger.info(f"[ENRICHMENT COORDINATOR] Handling task: {task.task_type} - {task.name}")
-            
+
             # Delegate to appropriate service based on task type
             if task.task_type == TaskType.PART_ENRICHMENT:
                 return await self.part_enrichment_service.handle_part_enrichment(task, progress_callback)
-            
+
             elif task.task_type == TaskType.DATASHEET_FETCH:
                 return await self.datasheet_handler_service.handle_datasheet_fetch(task, progress_callback)
-            
+
             elif task.task_type == TaskType.IMAGE_FETCH:
                 return await self.image_handler_service.handle_image_fetch(task, progress_callback)
-            
+
             elif task.task_type == TaskType.BULK_ENRICHMENT:
                 return await self.bulk_enrichment_service.handle_bulk_enrichment(task, progress_callback)
-            
+
             else:
                 raise ValueError(f"Unsupported task type for enrichment coordinator: {task.task_type}")
-                
+
         except Exception as e:
             logger.error(f"[ENRICHMENT COORDINATOR] Error handling task {task.id}: {e}", exc_info=True)
             raise
 
     # Backward compatibility methods for legacy code
-    async def handle_part_enrichment(self, task: TaskModel, progress_callback: Optional[Callable] = None, session=None) -> Dict[str, Any]:
+    async def handle_part_enrichment(
+        self, task: TaskModel, progress_callback: Optional[Callable] = None, session=None
+    ) -> Dict[str, Any]:
         """Backward compatibility method for part enrichment."""
         return await self.part_enrichment_service.handle_part_enrichment(task, progress_callback, session=session)
 
-    async def handle_datasheet_fetch(self, task: TaskModel, progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
+    async def handle_datasheet_fetch(
+        self, task: TaskModel, progress_callback: Optional[Callable] = None
+    ) -> Dict[str, Any]:
         """Backward compatibility method for datasheet fetch."""
         return await self.datasheet_handler_service.handle_datasheet_fetch(task, progress_callback)
 
@@ -109,7 +119,9 @@ class EnrichmentCoordinatorService(BaseService):
         """Backward compatibility method for image fetch."""
         return await self.image_handler_service.handle_image_fetch(task, progress_callback)
 
-    async def handle_bulk_enrichment(self, task: TaskModel, progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
+    async def handle_bulk_enrichment(
+        self, task: TaskModel, progress_callback: Optional[Callable] = None
+    ) -> Dict[str, Any]:
         """Backward compatibility method for bulk enrichment."""
         return await self.bulk_enrichment_service.handle_bulk_enrichment(task, progress_callback)
 

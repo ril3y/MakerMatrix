@@ -48,34 +48,20 @@ describe('TagInput', () => {
   })
 
   it('renders input with placeholder', () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
     expect(screen.getByPlaceholderText(/Add tags/i)).toBeInTheDocument()
   })
 
   it('displays selected tags as badges', () => {
     render(
-      <TagInput
-        selectedTags={[mockTags[0]]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
+      <TagInput selectedTags={[mockTags[0]]} onTagsChange={mockOnTagsChange} entityType="part" />
     )
     expect(screen.getByText('#testing')).toBeInTheDocument()
   })
 
   it('removes tag when remove button is clicked', async () => {
     render(
-      <TagInput
-        selectedTags={[mockTags[0]]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
+      <TagInput selectedTags={[mockTags[0]]} onTagsChange={mockOnTagsChange} entityType="part" />
     )
 
     const removeButton = screen.getByTitle('Remove tag')
@@ -85,13 +71,7 @@ describe('TagInput', () => {
   })
 
   it('shows suggestions when typing', async () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i)
     await userEvent.type(input, 'test')
@@ -105,11 +85,7 @@ describe('TagInput', () => {
     vi.mocked(tagsService.searchTags).mockResolvedValue(mockTags)
 
     render(
-      <TagInput
-        selectedTags={[mockTags[0]]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
+      <TagInput selectedTags={[mockTags[0]]} onTagsChange={mockOnTagsChange} entityType="part" />
     )
 
     const input = screen.getByPlaceholderText(/Add tags/i)
@@ -123,13 +99,7 @@ describe('TagInput', () => {
   })
 
   it('adds tag when suggestion is clicked', async () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i)
     await userEvent.type(input, 'test')
@@ -161,13 +131,7 @@ describe('TagInput', () => {
     vi.mocked(tagsService.createTag).mockResolvedValue(newTag)
     vi.mocked(tagsService.searchTags).mockResolvedValue([])
 
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i)
     await userEvent.type(input, 'newtag')
@@ -205,13 +169,7 @@ describe('TagInput', () => {
     vi.mocked(tagsService.createTag).mockResolvedValue(newTag)
     vi.mocked(tagsService.searchTags).mockResolvedValue([])
 
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i)
     await userEvent.type(input, '#newtag{Enter}')
@@ -225,13 +183,7 @@ describe('TagInput', () => {
   })
 
   it('clears input after adding tag', async () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i) as HTMLInputElement
     await userEvent.type(input, 'test')
@@ -248,12 +200,7 @@ describe('TagInput', () => {
 
   it('is disabled when disabled prop is true', () => {
     render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-        disabled
-      />
+      <TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" disabled />
     )
 
     const input = screen.getByPlaceholderText(/Add tags/i)
@@ -261,13 +208,7 @@ describe('TagInput', () => {
   })
 
   it('shows clear button when input has value', async () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i)
     await userEvent.type(input, 'test')
@@ -280,13 +221,7 @@ describe('TagInput', () => {
   })
 
   it('clears input when clear button is clicked', async () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i) as HTMLInputElement
     await userEvent.type(input, 'test')
@@ -307,13 +242,7 @@ describe('TagInput', () => {
   })
 
   it('handles keyboard navigation in suggestions', async () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i)
     await userEvent.type(input, 'test')
@@ -334,13 +263,7 @@ describe('TagInput', () => {
   })
 
   it('closes suggestions on Escape key', async () => {
-    render(
-      <TagInput
-        selectedTags={[]}
-        onTagsChange={mockOnTagsChange}
-        entityType="part"
-      />
-    )
+    render(<TagInput selectedTags={[]} onTagsChange={mockOnTagsChange} entityType="part" />)
 
     const input = screen.getByPlaceholderText(/Add tags/i)
     await userEvent.type(input, 'test')

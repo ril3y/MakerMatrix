@@ -42,30 +42,17 @@ class MockDigiKeyAPI:
                 "ProductUrl": "https://www.digikey.com/en/products/detail/texas-instruments/CD4014BPWR/1507558",
                 "Description": {
                     "DetailedDescription": "IC STATIC SHIFT REG 8STG 16-TSSOP",
-                    "ProductDescription": "8-Stage Static Shift Register 16-TSSOP (0.173\", 4.40mm Width)"
+                    "ProductDescription": '8-Stage Static Shift Register 16-TSSOP (0.173", 4.40mm Width)',
                 },
-                "Manufacturer": {
-                    "Name": "Texas Instruments",
-                    "Id": 78
-                },
+                "Manufacturer": {"Name": "Texas Instruments", "Id": 78},
                 "Category": {
                     "CategoryId": 154,
                     "Name": "Logic - Shift Registers",
-                    "ParentCategory": {
-                        "CategoryId": 4,
-                        "Name": "Integrated Circuits (ICs)"
-                    }
+                    "ParentCategory": {"CategoryId": 4, "Name": "Integrated Circuits (ICs)"},
                 },
-                "Series": {
-                    "Name": "CD4000"
-                },
-                "ProductStatus": {
-                    "Id": 1,
-                    "Status": "Active"
-                },
-                "BaseProductNumber": {
-                    "Name": "CD4014"
-                },
+                "Series": {"Name": "CD4000"},
+                "ProductStatus": {"Id": 1, "Status": "Active"},
+                "BaseProductNumber": {"Name": "CD4014"},
                 "ManufacturerLeadWeeks": 16,
                 "ManufacturerPublicQuantity": 0,
                 "QuantityAvailable": 20000,
@@ -79,107 +66,43 @@ class MockDigiKeyAPI:
                     "RohsStatus": "RoHS Compliant",
                     "MoistureSensitivityLevel": "1 (Unlimited)",
                     "ExportControlClassNumber": "EAR99",
-                    "HtsusCode": "8542.33.0001"
+                    "HtsusCode": "8542.33.0001",
                 },
                 "Parameters": [
                     {
                         "ParameterId": 7,
                         "Parameter": "Package / Case",
-                        "Value": "16-TSSOP (0.173\", 4.40mm Width)",
-                        "ValueId": 1989
+                        "Value": '16-TSSOP (0.173", 4.40mm Width)',
+                        "ValueId": 1989,
                     },
-                    {
-                        "ParameterId": 16,
-                        "Parameter": "Supplier Device Package",
-                        "Value": "16-TSSOP",
-                        "ValueId": 45
-                    },
-                    {
-                        "ParameterId": 69,
-                        "Parameter": "Mounting Type",
-                        "Value": "Surface Mount",
-                        "ValueId": 7
-                    },
-                    {
-                        "ParameterId": 252,
-                        "Parameter": "Operating Temperature",
-                        "Value": "-55°C ~ 125°C",
-                        "ValueId": 69
-                    },
-                    {
-                        "ParameterId": 477,
-                        "Parameter": "Voltage - Supply",
-                        "Value": "3 V ~ 18 V",
-                        "ValueId": 42
-                    },
-                    {
-                        "ParameterId": 1989,
-                        "Parameter": "Number of Bits per Element",
-                        "Value": "8",
-                        "ValueId": 123
-                    },
-                    {
-                        "ParameterId": 1990,
-                        "Parameter": "Number of Elements",
-                        "Value": "1",
-                        "ValueId": 1
-                    },
-                    {
-                        "ParameterId": 1991,
-                        "Parameter": "Clock Frequency",
-                        "Value": "5MHz",
-                        "ValueId": 456
-                    },
-                    {
-                        "ParameterId": 2659,
-                        "Parameter": "Logic Type",
-                        "Value": "Shift Register",
-                        "ValueId": 789
-                    }
+                    {"ParameterId": 16, "Parameter": "Supplier Device Package", "Value": "16-TSSOP", "ValueId": 45},
+                    {"ParameterId": 69, "Parameter": "Mounting Type", "Value": "Surface Mount", "ValueId": 7},
+                    {"ParameterId": 252, "Parameter": "Operating Temperature", "Value": "-55°C ~ 125°C", "ValueId": 69},
+                    {"ParameterId": 477, "Parameter": "Voltage - Supply", "Value": "3 V ~ 18 V", "ValueId": 42},
+                    {"ParameterId": 1989, "Parameter": "Number of Bits per Element", "Value": "8", "ValueId": 123},
+                    {"ParameterId": 1990, "Parameter": "Number of Elements", "Value": "1", "ValueId": 1},
+                    {"ParameterId": 1991, "Parameter": "Clock Frequency", "Value": "5MHz", "ValueId": 456},
+                    {"ParameterId": 2659, "Parameter": "Logic Type", "Value": "Shift Register", "ValueId": 789},
                 ],
                 "StandardPricing": [
-                    {
-                        "BreakQuantity": 1,
-                        "UnitPrice": 1.89000,
-                        "TotalPrice": 1.89000
-                    },
-                    {
-                        "BreakQuantity": 10,
-                        "UnitPrice": 1.53600,
-                        "TotalPrice": 15.36000
-                    },
-                    {
-                        "BreakQuantity": 25,
-                        "UnitPrice": 1.38240,
-                        "TotalPrice": 34.56000
-                    },
-                    {
-                        "BreakQuantity": 100,
-                        "UnitPrice": 1.17855,
-                        "TotalPrice": 117.85500
-                    },
-                    {
-                        "BreakQuantity": 250,
-                        "UnitPrice": 1.05660,
-                        "TotalPrice": 264.15000
-                    },
-                    {
-                        "BreakQuantity": 500,
-                        "UnitPrice": 0.94368,
-                        "TotalPrice": 471.84000
-                    }
+                    {"BreakQuantity": 1, "UnitPrice": 1.89000, "TotalPrice": 1.89000},
+                    {"BreakQuantity": 10, "UnitPrice": 1.53600, "TotalPrice": 15.36000},
+                    {"BreakQuantity": 25, "UnitPrice": 1.38240, "TotalPrice": 34.56000},
+                    {"BreakQuantity": 100, "UnitPrice": 1.17855, "TotalPrice": 117.85500},
+                    {"BreakQuantity": 250, "UnitPrice": 1.05660, "TotalPrice": 264.15000},
+                    {"BreakQuantity": 500, "UnitPrice": 0.94368, "TotalPrice": 471.84000},
                 ],
                 "MediaLinks": [
                     {
                         "MediaType": "Datasheet",
                         "Title": "CD4014B Datasheet",
-                        "Url": "https://www.ti.com/lit/ds/symlink/cd4014b.pdf"
+                        "Url": "https://www.ti.com/lit/ds/symlink/cd4014b.pdf",
                     },
                     {
                         "MediaType": "Product Photo",
                         "Title": "CD4014BPWR Product Photo",
-                        "Url": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/1507/295-14248-1-ND.jpg"
-                    }
+                        "Url": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/1507/295-14248-1-ND.jpg",
+                    },
                 ],
                 "PrimaryVideoUrl": None,
                 "OtherNames": ["CD4014B", "CD4014BPWR"],
@@ -187,8 +110,8 @@ class MockDigiKeyAPI:
                     "InputType": "CMOS",
                     "OutputType": "CMOS",
                     "Features": "Reset",
-                    "Applications": "General Purpose"
-                }
+                    "Applications": "General Purpose",
+                },
             }
         }
 
@@ -199,7 +122,7 @@ def analyze_current_part_data():
     print("=" * 80)
 
     with Session(engine) as session:
-        part = session.get(PartModel, 'bdb16d83-3ff4-44ba-9834-2994652e4e96')
+        part = session.get(PartModel, "bdb16d83-3ff4-44ba-9834-2994652e4e96")
         if not part:
             print("❌ Part not found in database")
             return None
@@ -233,19 +156,19 @@ def demonstrate_full_enrichment_potential():
     enriched_data = {
         # URLs and Media
         "product_url": product.get("ProductUrl", ""),
-        "datasheet_url": next((media["Url"] for media in product.get("MediaLinks", [])
-                              if media.get("MediaType") == "Datasheet"), None),
-        "image_url": next((media["Url"] for media in product.get("MediaLinks", [])
-                          if media.get("MediaType") == "Product Photo"), None),
-
+        "datasheet_url": next(
+            (media["Url"] for media in product.get("MediaLinks", []) if media.get("MediaType") == "Datasheet"), None
+        ),
+        "image_url": next(
+            (media["Url"] for media in product.get("MediaLinks", []) if media.get("MediaType") == "Product Photo"), None
+        ),
         # Detailed Information
         "detailed_description": product["Description"]["DetailedDescription"],
         "manufacturer": product["Manufacturer"]["Name"],
         "series": product["Series"]["Name"],
         "base_product_number": product["BaseProductNumber"]["Name"],
-
         # Technical Specifications (from Parameters)
-        "package_case": "16-TSSOP (0.173\", 4.40mm Width)",
+        "package_case": '16-TSSOP (0.173", 4.40mm Width)',
         "supplier_device_package": "16-TSSOP",
         "mounting_type": "Surface Mount",
         "operating_temperature": "-55°C ~ 125°C",
@@ -254,13 +177,11 @@ def demonstrate_full_enrichment_potential():
         "number_of_elements": "1",
         "clock_frequency": "5MHz",
         "logic_type": "Shift Register",
-
         # Stock and Availability
         "stock_quantity": product.get("QuantityAvailable", 0),
         "manufacturer_lead_weeks": product.get("ManufacturerLeadWeeks", 0),
         "factory_stock_availability": product.get("ManufacturerPublicQuantity", 0),
         "normally_stocking": product.get("NormallyStocking", False),
-
         # Compliance and Status
         "rohs_status": product["Classifications"]["RohsStatus"],
         "lifecycle_status": product["ProductStatus"]["Status"],
@@ -268,35 +189,29 @@ def demonstrate_full_enrichment_potential():
         "moisture_sensitivity_level": product["Classifications"]["MoistureSensitivityLevel"],
         "export_control_class": product["Classifications"]["ExportControlClassNumber"],
         "htsus_code": product["Classifications"]["HtsusCode"],
-
         # Category Information
         "digikey_category": product["Category"]["Name"],
         "digikey_parent_category": product["Category"]["ParentCategory"]["Name"],
-
         # Product Status
         "discontinued": product.get("Discontinued", False),
         "end_of_life": product.get("EndOfLife", False),
         "back_order_allowed": not product.get("BackOrderNotAllowed", True),
-
         # Pricing Information (would go to separate pricing table)
         "pricing_breaks": [
             {
                 "quantity": pricing["BreakQuantity"],
                 "unit_price": pricing["UnitPrice"],
-                "total_price": pricing["TotalPrice"]
+                "total_price": pricing["TotalPrice"],
             }
             for pricing in product.get("StandardPricing", [])
         ],
-
         # Technical Attributes
         "input_type": product.get("TechnicalAttributes", {}).get("InputType", ""),
         "output_type": product.get("TechnicalAttributes", {}).get("OutputType", ""),
         "features": product.get("TechnicalAttributes", {}).get("Features", ""),
         "applications": product.get("TechnicalAttributes", {}).get("Applications", ""),
-
         # Alternative Names
         "other_names": product.get("OtherNames", []),
-
         # Enrichment Metadata
         "enrichment_source": "digikey_api_v4",
         "enrichment_timestamp": datetime.utcnow().isoformat(),
@@ -313,8 +228,15 @@ def demonstrate_full_enrichment_potential():
     print()
 
     print("🔧 Technical Specifications:")
-    for key in ["package_case", "mounting_type", "operating_temperature",
-                "voltage_supply", "number_of_bits", "clock_frequency", "logic_type"]:
+    for key in [
+        "package_case",
+        "mounting_type",
+        "operating_temperature",
+        "voltage_supply",
+        "number_of_bits",
+        "clock_frequency",
+        "logic_type",
+    ]:
         print(f"   {key.replace('_', ' ').title()}: {enriched_data[key]}")
     print()
 
@@ -331,9 +253,9 @@ def demonstrate_full_enrichment_potential():
     print()
 
     print("💰 Pricing Information:")
-    for price_break in enriched_data['pricing_breaks'][:3]:  # Show first 3
-        qty = price_break['quantity']
-        price = price_break['unit_price']
+    for price_break in enriched_data["pricing_breaks"][:3]:  # Show first 3
+        qty = price_break["quantity"]
+        price = price_break["unit_price"]
         print(f"   {qty:>3} pcs: ${price:.5f} each")
     print(f"   ... and {len(enriched_data['pricing_breaks']) - 3} more price breaks")
     print()
@@ -353,7 +275,7 @@ async def test_digikey_connection():
         result = await supplier.test_connection()
         print(f"Connection Result: {result}")
 
-        if result.get('success'):
+        if result.get("success"):
             print("✅ DigiKey is properly configured!")
 
             # Try to get part details
@@ -363,7 +285,7 @@ async def test_digikey_connection():
                     print("✅ Successfully retrieved part details from DigiKey API")
                     print(f"   Manufacturer: {part_details.manufacturer}")
                     print(f"   Description: {part_details.description}")
-                    if hasattr(part_details, 'additional_data'):
+                    if hasattr(part_details, "additional_data"):
                         print(f"   Additional Data Keys: {list(part_details.additional_data.keys())}")
                 else:
                     print("⚠️ No part details returned")
@@ -372,12 +294,12 @@ async def test_digikey_connection():
         else:
             print("❌ DigiKey is not properly configured")
             print(f"   Message: {result.get('message', 'Unknown error')}")
-            if 'details' in result:
-                details = result['details']
+            if "details" in result:
+                details = result["details"]
                 print(f"   Error: {details.get('error', 'Unknown')}")
-                if 'required_fields' in details:
+                if "required_fields" in details:
                     print(f"   Required Fields: {details['required_fields']}")
-                if 'setup_url' in details:
+                if "setup_url" in details:
                     print(f"   Setup URL: {details['setup_url']}")
 
     except SupplierAuthenticationError as e:
@@ -421,7 +343,7 @@ def compare_current_vs_potential():
         ("mounting_type", "Surface mount or through-hole"),
         ("operating_temperature", "Operating temperature range"),
         ("voltage_supply", "Supply voltage range"),
-        ("pricing_breaks", "Quantity pricing information")
+        ("pricing_breaks", "Quantity pricing information"),
     ]
 
     for key, description in missing_keys:
@@ -481,6 +403,7 @@ def main():
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
 
 

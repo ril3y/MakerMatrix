@@ -1,6 +1,7 @@
 """
 Mock printer driver for testing without actual hardware.
 """
+
 import asyncio
 import io
 from typing import List, Optional
@@ -17,7 +18,7 @@ from MakerMatrix.printers.base import (
     PrinterInfo,
     TestResult,
     InvalidLabelSizeError,
-    PrintJobError
+    PrintJobError,
 )
 
 
@@ -26,7 +27,7 @@ class MockPrinter(BasePrinter):
     Mock printer implementation for testing.
     Simulates all printer operations without requiring actual hardware.
     """
-    
+
     # Mock label sizes (Brother QL compatible) - support both "12" and "12mm" formats
     SUPPORTED_SIZES = [
         LabelSize("12", 12.0, 29.0, 106, 164),
@@ -49,63 +50,64 @@ class MockPrinter(BasePrinter):
         LabelSize("102mm", 102.0, 51.0, 1164, 565),
         LabelSize("17x54", 17.0, 54.0, 201, 614),
         LabelSize("17x87", 17.0, 87.0, 201, 956),
-        LabelSize("23x23", 23.0, 23.0, 202, 202)
+        LabelSize("23x23", 23.0, 23.0, 202, 202),
     ]
-    
-    def __init__(self, printer_id: str = "mock_printer", name: str = "Mock Printer",
-                 model: str = "MockQL-800", backend: str = "mock", identifier: str = "mock://localhost",
-                 simulate_errors: bool = False, print_delay: float = 0.1):
+
+    def __init__(
+        self,
+        printer_id: str = "mock_printer",
+        name: str = "Mock Printer",
+        model: str = "MockQL-800",
+        backend: str = "mock",
+        identifier: str = "mock://localhost",
+        simulate_errors: bool = False,
+        print_delay: float = 0.1,
+    ):
         super().__init__(printer_id, name, model, backend, identifier)
         self.simulate_errors = simulate_errors
         self.print_delay = print_delay
         self._status = PrinterStatus.READY
         self._current_job_id: Optional[str] = None
         self._print_history: List[dict] = []
-        
+
     async def print_label(self, image: Image.Image, label_size: str, copies: int = 1) -> PrintJobResult:
         """Mock print operation with simulated delay."""
         job_id = self._generate_job_id()
-        
+
         # Validate label size
         if not self._is_valid_label_size(label_size):
             supported = [size.name for size in self.SUPPORTED_SIZES]
             raise InvalidLabelSizeError(label_size, self.printer_id, supported)
-        
+
         # Simulate error conditions
         if self.simulate_errors and len(self._print_history) % 5 == 4:  # Every 5th job fails
             error_msg = "Simulated printer error - out of paper"
             self._set_status(PrinterStatus.OUT_OF_PAPER, error_msg)
-            return PrintJobResult(
-                success=False,
-                job_id=job_id,
-                error=error_msg
-            )
-        
+            return PrintJobResult(success=False, job_id=job_id, error=error_msg)
+
         # Simulate printing
         self._set_status(PrinterStatus.PRINTING)
         self._current_job_id = job_id
-        
+
         # Simulate print time (longer for more copies)
         await asyncio.sleep(self.print_delay * copies)
-        
+
         # Record print job
-        self._print_history.append({
-            "job_id": job_id,
-            "label_size": label_size,
-            "copies": copies,
-            "image_size": image.size,
-            "timestamp": time.time()
-        })
-        
+        self._print_history.append(
+            {
+                "job_id": job_id,
+                "label_size": label_size,
+                "copies": copies,
+                "image_size": image.size,
+                "timestamp": time.time(),
+            }
+        )
+
         self._set_status(PrinterStatus.READY)
         self._current_job_id = None
-        
-        return PrintJobResult(
-            success=True,
-            job_id=job_id,
-            message=f"Printed {copies} label(s) on {label_size}mm"
-        )
-    
+
+        return PrintJobResult(success=True, job_id=job_id, message=f"Printed {copies} label(s) on {label_size}mm")
+
     async def preview_label(self, image: Image.Image, label_size: str) -> PreviewResult:
         """Generate a preview image with label border and info."""
         print(f"[DEBUG] MockPrinter.preview_label called with label_size: {label_size}")
@@ -113,26 +115,29 @@ class MockPrinter(BasePrinter):
             supported = [size.name for size in self.SUPPORTED_SIZES]
             print(f"[ERROR] MockPrinter: Invalid label size '{label_size}'. Supported sizes: {supported}")
             raise InvalidLabelSizeError(label_size, self.printer_id, supported)
-        
+
         # Get label dimensions
         label_info = self._get_label_size_info(label_size)
-        
+
         # Create preview with border and metadata
         border_width = 20
         preview_width = image.width + 2 * border_width
         preview_height = image.height + 2 * border_width + 60  # Extra space for text
-        
-        preview = Image.new('RGB', (preview_width, preview_height), 'white')
-        
+
+        preview = Image.new("RGB", (preview_width, preview_height), "white")
+
         # Draw border
         draw = ImageDraw.Draw(preview)
-        draw.rectangle([0, 0, preview_width-1, preview_height-1], outline='black', width=2)
-        draw.rectangle([border_width-1, border_width-1, preview_width-border_width, image.height+border_width+1], 
-                      outline='gray', width=1)
-        
+        draw.rectangle([0, 0, preview_width - 1, preview_height - 1], outline="black", width=2)
+        draw.rectangle(
+            [border_width - 1, border_width - 1, preview_width - border_width, image.height + border_width + 1],
+            outline="gray",
+            width=1,
+        )
+
         # Paste the label image
         preview.paste(image, (border_width, border_width))
-        
+
         # Add label info text with improved font handling
         print(f"[DEBUG] MockPrinter loading font for preview...")
         font = self._get_safe_font()
@@ -145,38 +150,38 @@ class MockPrinter(BasePrinter):
         actual_height_mm = round(image.height * mm_to_inch / dpi, 1)
 
         # Remove 'mm' suffix if already present in label_size
-        label_size_display = label_size.replace('mm', '')
+        label_size_display = label_size.replace("mm", "")
         info_text = f"Label: {label_size_display}mm ({actual_width_mm}x{actual_height_mm}mm actual)"
         size_text = f"Image: {image.width}x{image.height}px"
 
         print(f"[DEBUG] Drawing text: {info_text}")
         try:
-            draw.text((border_width, image.height + border_width + 10), info_text, fill='black', font=font)
-            draw.text((border_width, image.height + border_width + 30), size_text, fill='gray', font=font)
+            draw.text((border_width, image.height + border_width + 10), info_text, fill="black", font=font)
+            draw.text((border_width, image.height + border_width + 30), size_text, fill="gray", font=font)
             print(f"[DEBUG] Text drawn successfully")
         except Exception as e:
             print(f"[ERROR] Failed to draw text: {e}")
             # Fall back to no text if drawing fails
             pass
-        
+
         # Convert to bytes
         img_byte_arr = io.BytesIO()
-        preview.save(img_byte_arr, format='PNG')
+        preview.save(img_byte_arr, format="PNG")
         img_byte_arr = img_byte_arr.getvalue()
-        
+
         return PreviewResult(
             image_data=img_byte_arr,
-            format='png',
+            format="png",
             width_px=preview_width,
             height_px=preview_height,
             label_size=label_info,
-            message=f"Preview for {label_size}mm label"
+            message=f"Preview for {label_size}mm label",
         )
-    
+
     async def get_status(self) -> PrinterStatus:
         """Return current printer status."""
         return self._status
-    
+
     async def get_capabilities(self) -> List[PrinterCapability]:
         """Return mock printer capabilities."""
         return [
@@ -184,47 +189,41 @@ class MockPrinter(BasePrinter):
             PrinterCapability.BARCODES,
             PrinterCapability.IMAGES,
             PrinterCapability.DIE_CUT_LABELS,
-            PrinterCapability.CONTINUOUS_LABELS
+            PrinterCapability.CONTINUOUS_LABELS,
         ]
-    
+
     async def test_connection(self) -> TestResult:
         """Simulate connection test."""
         start_time = time.time()
-        
+
         # Simulate network delay
         await asyncio.sleep(0.05)
-        
+
         response_time = (time.time() - start_time) * 1000
-        
+
         if self.simulate_errors and response_time > 100:  # Simulate timeout
-            return TestResult(
-                success=False,
-                response_time_ms=response_time,
-                error="Connection timeout (simulated)"
-            )
-        
+            return TestResult(success=False, response_time_ms=response_time, error="Connection timeout (simulated)")
+
         return TestResult(
-            success=True,
-            response_time_ms=response_time,
-            message=f"Connected to mock printer at {self.identifier}"
+            success=True, response_time_ms=response_time, message=f"Connected to mock printer at {self.identifier}"
         )
-    
+
     def get_supported_label_sizes(self) -> List[LabelSize]:
         """Return supported label sizes."""
         return self.SUPPORTED_SIZES.copy()
-    
+
     def get_printer_info(self) -> PrinterInfo:
         """Get printer information."""
         info = super().get_printer_info()
         info.capabilities = [
             PrinterCapability.QR_CODES,
-            PrinterCapability.BARCODES, 
+            PrinterCapability.BARCODES,
             PrinterCapability.IMAGES,
             PrinterCapability.DIE_CUT_LABELS,
-            PrinterCapability.CONTINUOUS_LABELS
+            PrinterCapability.CONTINUOUS_LABELS,
         ]
         return info
-    
+
     async def cancel_current_job(self) -> bool:
         """Cancel current print job."""
         if self._current_job_id:
@@ -232,7 +231,7 @@ class MockPrinter(BasePrinter):
             self._current_job_id = None
             return True
         return False
-    
+
     def _is_valid_label_size(self, label_size: str) -> bool:
         """Check if label size is supported."""
         return any(size.name == label_size for size in self.SUPPORTED_SIZES)
@@ -279,28 +278,28 @@ class MockPrinter(BasePrinter):
             if size.name == label_size:
                 return size
         raise InvalidLabelSizeError(label_size, self.printer_id)
-    
+
     # Additional mock-specific methods for testing
     def get_print_history(self) -> List[dict]:
         """Get print job history for testing."""
         return self._print_history.copy()
-    
+
     def clear_print_history(self):
         """Clear print history for testing."""
         self._print_history.clear()
-    
+
     def set_error_simulation(self, enabled: bool):
         """Enable/disable error simulation for testing."""
         self.simulate_errors = enabled
-    
+
     def simulate_paper_out(self):
         """Simulate out of paper condition."""
         self._set_status(PrinterStatus.OUT_OF_PAPER, "Simulated: Out of paper")
-    
+
     def simulate_offline(self):
         """Simulate offline condition."""
         self._set_status(PrinterStatus.OFFLINE, "Simulated: Printer offline")
-    
+
     def reset_to_ready(self):
         """Reset printer to ready state."""
         self._set_status(PrinterStatus.READY)

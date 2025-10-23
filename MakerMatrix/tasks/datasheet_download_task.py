@@ -55,13 +55,13 @@ class DatasheetDownloadTask(BaseTask):
             input_data = self.get_input_data(task)
 
             # Validate required fields
-            if not self.validate_input_data(task, ['part_id', 'datasheet_url', 'supplier']):
+            if not self.validate_input_data(task, ["part_id", "datasheet_url", "supplier"]):
                 raise ValueError("Missing required fields for datasheet download")
 
-            part_id = input_data['part_id']
-            datasheet_url = input_data['datasheet_url']
-            supplier = input_data['supplier']
-            part_number = input_data.get('part_number', part_id)
+            part_id = input_data["part_id"]
+            datasheet_url = input_data["datasheet_url"]
+            supplier = input_data["supplier"]
+            part_number = input_data.get("part_number", part_id)
 
             # Get part details for logging
             part_name = None
@@ -83,9 +83,7 @@ class DatasheetDownloadTask(BaseTask):
             await self.update_progress(task, 30, "Downloading datasheet file...")
 
             download_result = file_download_service.download_datasheet(
-                url=datasheet_url,
-                part_number=part_number,
-                supplier=supplier
+                url=datasheet_url, part_number=part_number, supplier=supplier
             )
 
             if not download_result:
@@ -96,35 +94,30 @@ class DatasheetDownloadTask(BaseTask):
                 # Update part to indicate download failure
                 await self._update_part_download_status(part_id, success=False, error="Download failed")
 
-                return {
-                    'success': False,
-                    'part_id': part_id,
-                    'error': 'Failed to download datasheet'
-                }
+                return {"success": False, "part_id": part_id, "error": "Failed to download datasheet"}
 
             # Download successful
             await self.update_progress(task, 70, "Processing downloaded datasheet...")
 
             # Update part with download information
-            await self._update_part_download_status(
-                part_id,
-                success=True,
-                download_info=download_result
-            )
+            await self._update_part_download_status(part_id, success=True, download_info=download_result)
 
             # Final progress update
             await self.update_progress(task, 100, f"Datasheet downloaded successfully: {download_result['filename']}")
-            self.log_info(f"Successfully downloaded datasheet: {download_result['filename']} ({download_result['size']} bytes)", task)
+            self.log_info(
+                f"Successfully downloaded datasheet: {download_result['filename']} ({download_result['size']} bytes)",
+                task,
+            )
 
             return {
-                'success': True,
-                'part_id': part_id,
-                'part_name': part_name,
-                'filename': download_result['filename'],
-                'file_path': download_result['file_path'],
-                'size': download_result['size'],
-                'url': datasheet_url,
-                'supplier': supplier
+                "success": True,
+                "part_id": part_id,
+                "part_name": part_name,
+                "filename": download_result["filename"],
+                "file_path": download_result["file_path"],
+                "size": download_result["size"],
+                "url": datasheet_url,
+                "supplier": supplier,
             }
 
         except Exception as e:
@@ -133,15 +126,14 @@ class DatasheetDownloadTask(BaseTask):
             await self.update_progress(task, 100, "Datasheet download failed")
 
             # Try to update part status if we have part_id
-            if 'part_id' in locals():
+            if "part_id" in locals():
                 await self._update_part_download_status(part_id, success=False, error=str(e))
 
-            return {
-                'success': False,
-                'error': error_msg
-            }
+            return {"success": False, "error": error_msg}
 
-    async def _update_part_download_status(self, part_id: str, success: bool, download_info: Dict[str, Any] = None, error: str = None):
+    async def _update_part_download_status(
+        self, part_id: str, success: bool, download_info: Dict[str, Any] = None, error: str = None
+    ):
         """
         Update part's additional_properties with download status.
 
@@ -162,26 +154,27 @@ class DatasheetDownloadTask(BaseTask):
                 if success and download_info:
                     # Update with successful download information
                     # Store just the filename - frontend will construct the full path
-                    part.additional_properties['datasheet_filename'] = download_info['filename']
-                    part.additional_properties['datasheet_downloaded'] = True
-                    part.additional_properties['datasheet_size'] = download_info['size']
+                    part.additional_properties["datasheet_filename"] = download_info["filename"]
+                    part.additional_properties["datasheet_downloaded"] = True
+                    part.additional_properties["datasheet_size"] = download_info["size"]
 
                     # Remove any previous error
-                    if 'datasheet_download_error' in part.additional_properties:
-                        del part.additional_properties['datasheet_download_error']
+                    if "datasheet_download_error" in part.additional_properties:
+                        del part.additional_properties["datasheet_download_error"]
 
                     logger.info(f"Updated part {part_id} with successful datasheet download")
                 else:
                     # Update with failure information
-                    part.additional_properties['datasheet_downloaded'] = False
+                    part.additional_properties["datasheet_downloaded"] = False
                     if error:
-                        part.additional_properties['datasheet_download_error'] = error
+                        part.additional_properties["datasheet_download_error"] = error
 
                     logger.warning(f"Updated part {part_id} with failed datasheet download: {error}")
 
                 # Force SQLAlchemy to recognize the changes
                 from sqlalchemy.orm.attributes import flag_modified
-                flag_modified(part, 'additional_properties')
+
+                flag_modified(part, "additional_properties")
 
                 # Save changes
                 PartRepository.update_part(session, part)

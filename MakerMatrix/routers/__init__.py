@@ -25,7 +25,6 @@ from . import (
     tag_routes,
     backup_routes,
     dashboard_routes,
-
 )
 
 __all__ = [
@@ -53,5 +52,5 @@ __all__ = [
     "tool_routes",
     "tag_routes",
     "backup_routes",
-    "dashboard_routes"
+    "dashboard_routes",
 ]

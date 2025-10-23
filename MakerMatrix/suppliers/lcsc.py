@@ -18,19 +18,31 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 
 from .base import (
-    BaseSupplier, FieldDefinition, FieldType, SupplierCapability,
-    PartSearchResult, SupplierInfo, ConfigurationOption,
-    CapabilityRequirement, ImportResult, EnrichmentFieldMapping
+    BaseSupplier,
+    FieldDefinition,
+    FieldType,
+    SupplierCapability,
+    PartSearchResult,
+    SupplierInfo,
+    ConfigurationOption,
+    CapabilityRequirement,
+    ImportResult,
+    EnrichmentFieldMapping,
 )
 from MakerMatrix.models.enrichment_requirement_models import (
-    EnrichmentRequirements, FieldRequirement, RequirementSeverity
+    EnrichmentRequirements,
+    FieldRequirement,
+    RequirementSeverity,
 )
 from .registry import register_supplier
 from .http_client import SupplierHTTPClient, RetryConfig
 from .data_extraction import DataExtractor, extract_common_part_data
 from .exceptions import (
-    SupplierError, SupplierConfigurationError, SupplierAuthenticationError,
-    SupplierConnectionError, SupplierRateLimitError
+    SupplierError,
+    SupplierConfigurationError,
+    SupplierAuthenticationError,
+    SupplierConnectionError,
+    SupplierRateLimitError,
 )
 from MakerMatrix.services.data.unified_column_mapper import UnifiedColumnMapper
 from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
@@ -79,7 +91,7 @@ class _LCSCProductPageTableParser(HTMLParser):
             return
 
         if tag == "td" and self._in_td:
-            text = ''.join(self._current_text_parts)
+            text = "".join(self._current_text_parts)
             cleaned_text = self._clean_text(text)
             link = self._current_links[0] if self._current_links else None
             self._current_row.append({"text": cleaned_text, "link": link})
@@ -90,11 +102,7 @@ class _LCSCProductPageTableParser(HTMLParser):
                 value = self._current_row[1].get("text", "").strip()
                 link = self._current_row[1].get("link")
                 if label:
-                    self.rows.append({
-                        "label": label,
-                        "value": value,
-                        "link": link
-                    })
+                    self.rows.append({"label": label, "value": value, "link": link})
             self._current_row = []
 
     def handle_data(self, data):
@@ -115,16 +123,16 @@ class _LCSCProductPageTableParser(HTMLParser):
             return ""
         unescaped = html.unescape(text)
         # Collapse whitespace while preserving hyphenated values
-        return ' '.join(unescaped.split())
+        return " ".join(unescaped.split())
 
 
 def _decode_js_string(value: str) -> str:
     """Decode JavaScript-style escaped string."""
     if value is None:
         return ""
-    if '\\u' in value or '\\x' in value:
+    if "\\u" in value or "\\x" in value:
         try:
-            return bytes(value, 'utf-8').decode('unicode_escape').strip()
+            return bytes(value, "utf-8").decode("unicode_escape").strip()
         except UnicodeDecodeError:
             pass
     return value.strip()
@@ -134,91 +142,88 @@ def _decode_js_string(value: str) -> str:
 class LCSCSupplier(BaseSupplier):
     """
     LCSC supplier implementation using unified supplier architecture.
-    
+
     Modernized with:
-    - SupplierHTTPClient for unified HTTP operations 
+    - SupplierHTTPClient for unified HTTP operations
     - DataExtractor for standardized parsing
     - Defensive null safety patterns
     - Consistent error handling
     """
-    
+
     def __init__(self):
         super().__init__()
         self._http_client: Optional[SupplierHTTPClient] = None
         self._data_extractor: Optional[DataExtractor] = None
-        
+
         # LCSC-specific data extraction configuration
         self._extraction_config = {
             "description_paths": ["title", "dataStr.head.c_para.Value", "description"],
             "image_paths": ["thumb", "image_url", "thumbnail", "photo"],
             "datasheet_paths": [
                 "packageDetail.dataStr.head.c_para.link",
-                "dataStr.head.c_para.link", 
+                "dataStr.head.c_para.link",
                 "dataStr.head.c_para.Datasheet",
                 "szlcsc.attributes.Datasheet",
                 "packageDetail.datasheet_pdf",
-                "datasheet_pdf"
+                "datasheet_pdf",
             ],
             "specifications": {
                 "manufacturer": ["dataStr.head.c_para.Manufacturer"],
                 "manufacturer_part": ["dataStr.head.c_para.Manufacturer Part"],
                 "package": ["dataStr.head.c_para.package"],
                 "value": ["dataStr.head.c_para.Value"],
-                "mounting": ["SMT"]
+                "mounting": ["SMT"],
             },
             # Note: Don't use base_url here as EasyEDA thumb paths need special handling
-            "base_url": None
+            "base_url": None,
         }
-    
+
     def _get_http_client(self) -> SupplierHTTPClient:
         """Get or create HTTP client with LCSC-specific configuration"""
         if not self._http_client:
             config = self._config or {}
             rate_limit = config.get("rate_limit_requests_per_minute", 20)
-            
+
             # Calculate request delay from rate limit
             delay_seconds = 60.0 / max(rate_limit, 1)
-            
+
             # Configure retry behavior for LCSC
             retry_config = RetryConfig(
-                max_retries=2,
-                base_delay=delay_seconds,
-                max_delay=30.0,
-                retry_on_status=[429, 500, 502, 503, 504]
+                max_retries=2, base_delay=delay_seconds, max_delay=30.0, retry_on_status=[429, 500, 502, 503, 504]
             )
-            
+
             # Standard headers for EasyEDA API
             default_headers = {
                 "Accept-Encoding": "gzip, deflate",
                 "Accept": "application/json, text/javascript, */*; q=0.01",
                 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "User-Agent": "MakerMatrix/1.0 (easyeda2kicad compatible)"
+                "User-Agent": "MakerMatrix/1.0 (easyeda2kicad compatible)",
             }
-            
+
             # Add custom headers from configuration
             custom_headers_text = config.get("custom_headers", "")
             if custom_headers_text and custom_headers_text.strip():
-                for line in custom_headers_text.strip().split('\n'):
+                for line in custom_headers_text.strip().split("\n"):
                     line = line.strip()
-                    if ':' in line:
-                        header_name, header_value = line.split(':', 1)
+                    if ":" in line:
+                        header_name, header_value = line.split(":", 1)
                         default_headers[header_name.strip()] = header_value.strip()
-            
+
             self._http_client = SupplierHTTPClient(
                 supplier_name="lcsc",
                 default_timeout=config.get("request_timeout", 30),
                 default_headers=default_headers,
-                retry_config=retry_config
+                retry_config=retry_config,
             )
-        
+
         return self._http_client
-    
+
     def _get_data_extractor(self) -> DataExtractor:
         """Get or create data extractor"""
         if not self._data_extractor:
             self._data_extractor = DataExtractor("lcsc")
         return self._data_extractor
-    
+
     def get_supplier_info(self) -> SupplierInfo:
         return SupplierInfo(
             name="lcsc",
@@ -228,15 +233,15 @@ class LCSCSupplier(BaseSupplier):
             api_documentation_url="https://easyeda.com",
             supports_oauth=False,
             rate_limit_info="Configurable rate limiting (default: 20 requests per minute)",
-            supported_file_types=["csv"]
+            supported_file_types=["csv"],
         )
-    
+
     def get_capabilities(self) -> List[SupplierCapability]:
         return [
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,
             SupplierCapability.FETCH_PRICING_STOCK,
-            SupplierCapability.IMPORT_ORDERS
+            SupplierCapability.IMPORT_ORDERS,
         ]
 
     def is_configured(self) -> bool:
@@ -252,7 +257,7 @@ class LCSCSupplier(BaseSupplier):
             cap: CapabilityRequirement(
                 capability=cap,
                 required_credentials=[],  # No credentials needed
-                description=f"LCSC {cap.value} using public EasyEDA API"
+                description=f"LCSC {cap.value} using public EasyEDA API",
             )
             for cap in self.get_capabilities()
         }
@@ -278,7 +283,7 @@ class LCSCSupplier(BaseSupplier):
                     severity=RequirementSeverity.REQUIRED,
                     description="The LCSC part number (e.g., C25804) is required to look up part details from the EasyEDA API. This is the primary identifier for LCSC parts.",
                     example="C25804",
-                    validation_pattern="^C\\d+$"
+                    validation_pattern="^C\\d+$",
                 )
             ],
             recommended_fields=[
@@ -287,7 +292,7 @@ class LCSCSupplier(BaseSupplier):
                     display_name="Manufacturer Part Number",
                     severity=RequirementSeverity.RECOMMENDED,
                     description="Having the manufacturer part number helps validate that the enriched data matches your intended part",
-                    example="STM32F103C8T6"
+                    example="STM32F103C8T6",
                 )
             ],
             optional_fields=[
@@ -296,25 +301,25 @@ class LCSCSupplier(BaseSupplier):
                     display_name="Part Description",
                     severity=RequirementSeverity.OPTIONAL,
                     description="Existing description can help verify the enriched data is correct",
-                    example="ARM Cortex-M3 microcontroller"
+                    example="ARM Cortex-M3 microcontroller",
                 ),
                 FieldRequirement(
                     field_name="component_type",
                     display_name="Component Type",
                     severity=RequirementSeverity.OPTIONAL,
                     description="Component type helps organize enriched specifications",
-                    example="Microcontroller"
-                )
-            ]
+                    example="Microcontroller",
+                ),
+            ],
         )
 
     def get_url_patterns(self) -> List[str]:
         """Return URL patterns that identify LCSC product links"""
         return [
-            r'lcsc\.com',  # Base domain
-            r'www\.lcsc\.com',  # With www
-            r'lcsc\.com/product-detail/',  # Product pages
-            r'lcsc\.com/.*C\d+',  # URLs containing LCSC part numbers (C followed by digits)
+            r"lcsc\.com",  # Base domain
+            r"www\.lcsc\.com",  # With www
+            r"lcsc\.com/product-detail/",  # Product pages
+            r"lcsc\.com/.*C\d+",  # URLs containing LCSC part numbers (C followed by digits)
         ]
 
     def get_enrichment_field_mappings(self) -> List[EnrichmentFieldMapping]:
@@ -330,33 +335,33 @@ class LCSCSupplier(BaseSupplier):
                 field_name="supplier_part_number",
                 display_name="LCSC Part Number",
                 url_patterns=[
-                    r'/(C\d+)\.html',  # Extract C123456 from /C123456.html
-                    r'_(C\d+)\.html',  # Extract C123456 from _C123456.html
-                    r'/(C\d+)/?$',  # Extract C123456 from /C123456 or /C123456/
+                    r"/(C\d+)\.html",  # Extract C123456 from /C123456.html
+                    r"_(C\d+)\.html",  # Extract C123456 from _C123456.html
+                    r"/(C\d+)/?$",  # Extract C123456 from /C123456 or /C123456/
                 ],
                 example="C25804",
                 description="The LCSC part number (C followed by digits) from the product page URL",
-                required_for_enrichment=True
+                required_for_enrichment=True,
             )
         ]
 
     def get_credential_schema(self) -> List[FieldDefinition]:
         # No credentials required for LCSC public API
         return []
-    
+
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """Get configuration schema for LCSC supplier"""
         config_options = self.get_configuration_options()
         default_option = next((opt for opt in config_options if opt.is_default), None)
         return default_option.schema if default_option else []
-    
+
     def get_configuration_options(self) -> List[ConfigurationOption]:
         """Configuration options for LCSC rate limiting"""
         return [
             ConfigurationOption(
-                name='standard',
-                label='LCSC Rate Limiting',
-                description='Configure rate limiting for responsible LCSC API access.',
+                name="standard",
+                label="LCSC Rate Limiting",
+                description="Configure rate limiting for responsible LCSC API access.",
                 schema=[
                     FieldDefinition(
                         name="rate_limit_requests_per_minute",
@@ -366,21 +371,21 @@ class LCSCSupplier(BaseSupplier):
                         default_value=20,
                         description="Maximum requests per minute",
                         validation={"min": 1, "max": 60},
-                        help_text="Lower values are more respectful to LCSC servers"
+                        help_text="Lower values are more respectful to LCSC servers",
                     )
                 ],
                 is_default=True,
                 requirements={
-                    'api_key_required': False,
-                    'complexity': 'low',
-                    'data_type': 'public_api',
-                    'prerequisites': ['Internet access']
-                }
+                    "api_key_required": False,
+                    "complexity": "low",
+                    "data_type": "public_api",
+                    "prerequisites": ["Internet access"],
+                },
             ),
             ConfigurationOption(
-                name='conservative',
-                label='LCSC Conservative Rate Limiting',
-                description='Very slow rate limiting for bulk operations.',
+                name="conservative",
+                label="LCSC Conservative Rate Limiting",
+                description="Very slow rate limiting for bulk operations.",
                 schema=[
                     FieldDefinition(
                         name="rate_limit_requests_per_minute",
@@ -390,29 +395,29 @@ class LCSCSupplier(BaseSupplier):
                         default_value=10,
                         description="Conservative rate limiting",
                         validation={"min": 1, "max": 60},
-                        help_text="Best for large batch operations"
+                        help_text="Best for large batch operations",
                     )
                 ],
                 is_default=False,
                 requirements={
-                    'api_key_required': False,
-                    'complexity': 'low',
-                    'data_type': 'public_api',
-                    'prerequisites': ['Internet access']
-                }
-            )
+                    "api_key_required": False,
+                    "complexity": "low",
+                    "data_type": "public_api",
+                    "prerequisites": ["Internet access"],
+                },
+            ),
         ]
-    
+
     def _get_easyeda_api_url(self, lcsc_id: str) -> str:
         """Get EasyEDA API URL for a specific LCSC part"""
         config = self._config or {}
         version = config.get("api_version", "6.4.19.5")
         return f"https://easyeda.com/api/products/{lcsc_id}/components?version={version}"
-    
+
     async def authenticate(self) -> bool:
         """No authentication required for EasyEDA public API"""
         return True
-    
+
     async def test_connection(self) -> Dict[str, Any]:
         """
         Test connection to EasyEDA API using unified HTTP client.
@@ -422,14 +427,14 @@ class LCSCSupplier(BaseSupplier):
         """
         try:
             http_client = self._get_http_client()
-            
+
             # Test with a known LCSC part (resistor)
             test_lcsc_id = "C25804"  # Common 10K resistor
             url = self._get_easyeda_api_url(test_lcsc_id)
-            
+
             # Make request using unified HTTP client
             response = await http_client.get(url, endpoint_type="test_connection")
-            
+
             if response.success and response.data.get("result"):
                 config = self._config or {}
                 return {
@@ -440,43 +445,37 @@ class LCSCSupplier(BaseSupplier):
                         "test_part": test_lcsc_id,
                         "rate_limit": f"{config.get('rate_limit_requests_per_minute', 20)} requests per minute",
                         "response_time_ms": response.duration_ms,
-                        "api_ready": True
-                    }
+                        "api_ready": True,
+                    },
                 }
             else:
                 return {
                     "success": False,
                     "message": f"API test failed: {response.error_message or 'Invalid response'}",
-                    "details": {
-                        "status_code": response.status,
-                        "response_data": response.data
-                    }
+                    "details": {"status_code": response.status, "response_data": response.data},
                 }
-                
+
         except Exception as e:
             logger.error(f"LCSC connection test failed: {e}")
-            return {
-                "success": False,
-                "message": f"Connection test failed: {str(e)}",
-                "details": {"exception": str(e)}
-            }
-    
+            return {"success": False, "message": f"Connection test failed: {str(e)}", "details": {"exception": str(e)}}
+
     async def search_parts(self, query: str, limit: int = 50) -> List[PartSearchResult]:
         """
         LCSC/EasyEDA API doesn't support search - only individual part lookup.
         If query looks like an LCSC part number, try to get part details.
         """
         # Check if query looks like an LCSC part number (e.g., C25804, c123456)
-        lcsc_pattern = re.compile(r'^c\d+$', re.IGNORECASE)
+        lcsc_pattern = re.compile(r"^c\d+$", re.IGNORECASE)
         if lcsc_pattern.match(query.strip()):
             part_details = await self.get_part_details(query.strip().upper())
             return [part_details] if part_details else []
         else:
             # For non-LCSC part numbers, return empty list since we can't search
             return []
-    
+
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
         """Get detailed information about a specific LCSC part using unified architecture"""
+
         async def _impl():
             try:
                 # Clean part number
@@ -509,16 +508,17 @@ class LCSCSupplier(BaseSupplier):
                 return None
 
         return await self._tracked_api_call("get_part_details", _impl)
-    
+
     def _preprocess_lcsc_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Preprocess LCSC data to fix protocol-relative URLs and other format issues"""
         if not isinstance(data, dict):
             return data
-        
+
         # Create a deep copy to avoid modifying original data
         import copy
+
         processed_data = copy.deepcopy(data)
-        
+
         # Fix protocol-relative URLs (starting with //)
         def fix_urls(obj):
             if isinstance(obj, dict):
@@ -530,7 +530,7 @@ class LCSCSupplier(BaseSupplier):
             elif isinstance(obj, list):
                 for item in obj:
                     fix_urls(item)
-        
+
         fix_urls(processed_data)
         return processed_data
 
@@ -640,13 +640,17 @@ class LCSCSupplier(BaseSupplier):
                         # Fallback: Look for previewPdfUrl in window.__NUXT__ data
                         preview_match = re.search(r'previewPdfUrl:"([^"]+\.pdf)"', datasheet_html)
                         if preview_match:
-                            actual_pdf_url = preview_match.group(1).replace('\\u002F', '/')
+                            actual_pdf_url = preview_match.group(1).replace("\\u002F", "/")
                             logger.debug(f"Extracted PDF URL from __NUXT__: {actual_pdf_url}")
             except Exception as e:
                 logger.warning(f"Failed to fetch datasheet page {datasheet_link}: {e}")
 
         # Priority 3: Use the link as-is if it's already a direct PDF
-        elif datasheet_link and datasheet_link.endswith('.pdf') and ('datasheet.lcsc.com' in datasheet_link or 'wmsc.lcsc.com' in datasheet_link):
+        elif (
+            datasheet_link
+            and datasheet_link.endswith(".pdf")
+            and ("datasheet.lcsc.com" in datasheet_link or "wmsc.lcsc.com" in datasheet_link)
+        ):
             actual_pdf_url = datasheet_link
 
         if actual_pdf_url:
@@ -666,16 +670,16 @@ class LCSCSupplier(BaseSupplier):
     def _extract_nuxt_value_map(self, html_text: str) -> Dict[str, Any]:
         """Build mapping from short parameter names to their values in __NUXT__ payload."""
         try:
-            function_match = re.search(r'window.__NUXT__=\(function\((.*?)\)\{', html_text, re.DOTALL)
-            call_match = re.search(r'\}\((.*)\);</script>', html_text, re.DOTALL)
+            function_match = re.search(r"window.__NUXT__=\(function\((.*?)\)\{", html_text, re.DOTALL)
+            call_match = re.search(r"\}\((.*)\);</script>", html_text, re.DOTALL)
             if not function_match or not call_match:
                 return {}
 
-            params = [p.strip() for p in function_match.group(1).split(',')]
-            raw_args = call_match.group(1).replace('\n', '')
+            params = [p.strip() for p in function_match.group(1).split(",")]
+            raw_args = call_match.group(1).replace("\n", "")
 
             args: List[str] = []
-            current = ''
+            current = ""
             brackets = 0
             quotes: Optional[str] = None
             escape = False
@@ -685,7 +689,7 @@ class LCSCSupplier(BaseSupplier):
                     current += ch
                     escape = False
                     continue
-                if ch == '\\':
+                if ch == "\\":
                     current += ch
                     escape = True
                     continue
@@ -698,17 +702,17 @@ class LCSCSupplier(BaseSupplier):
                     current += ch
                     quotes = ch
                     continue
-                if ch in '([{':
+                if ch in "([{":
                     brackets += 1
                     current += ch
                     continue
-                if ch in ')]}':
+                if ch in ")]}":
                     brackets -= 1
                     current += ch
                     continue
-                if ch == ',' and brackets == 0:
+                if ch == "," and brackets == 0:
                     args.append(current.strip())
-                    current = ''
+                    current = ""
                     continue
                 current += ch
 
@@ -735,23 +739,23 @@ class LCSCSupplier(BaseSupplier):
         if not token:
             return None
 
-        if token.lower() in {'null', 'undefined'}:
+        if token.lower() in {"null", "undefined"}:
             return None
-        if token in {'true', 'True'}:
+        if token in {"true", "True"}:
             return True
-        if token in {'false', 'False'}:
+        if token in {"false", "False"}:
             return False
 
         if token.startswith(('"', "'")) and token.endswith(('"', "'")):
             inner = token[1:-1]
-            inner = inner.replace('\\u002F', '/')
+            inner = inner.replace("\\u002F", "/")
             return _decode_js_string(inner)
 
         # Numeric values
         try:
-            if token.startswith('.'):
-                token = '0' + token
-            if '.' in token:
+            if token.startswith("."):
+                token = "0" + token
+            if "." in token:
                 return float(token)
             return int(token)
         except ValueError:
@@ -767,16 +771,13 @@ class LCSCSupplier(BaseSupplier):
             return specifications
 
         try:
-            pattern = re.compile(
-                r'paramNameEn:"([^"]+)"[^}]*?paramValueEn:([^,}\]]+)',
-                re.DOTALL
-            )
+            pattern = re.compile(r'paramNameEn:"([^"]+)"[^}]*?paramValueEn:([^,}\]]+)', re.DOTALL)
 
             for match in pattern.finditer(html_text):
                 spec_name = match.group(1).strip()
                 value_token = match.group(2).strip()
 
-                if not spec_name or spec_name.startswith('param_'):
+                if not spec_name or spec_name.startswith("param_"):
                     continue
 
                 resolved_value = self._resolve_nuxt_value_token(value_token, value_map)
@@ -794,7 +795,7 @@ class LCSCSupplier(BaseSupplier):
             return None
 
         # Remove trailing characters such as ')' from invocation wrappers
-        token = token.rstrip(')')
+        token = token.rstrip(")")
 
         if token.startswith(('"', "'")) and token.endswith(('"', "'")):
             value = self._convert_js_token(token)
@@ -831,7 +832,7 @@ class LCSCSupplier(BaseSupplier):
         additional_data = {
             "lcsc_part_number": lcsc_id,
             "product_url": f"https://www.lcsc.com/product-detail/{lcsc_id}.html",
-            "data_source": "lcsc_product_page_only"  # Indicate this came from page scraping
+            "data_source": "lcsc_product_page_only",  # Indicate this came from page scraping
         }
 
         # Add package info
@@ -856,10 +857,18 @@ class LCSCSupplier(BaseSupplier):
         for attr_name, attr_value in attributes.items():
             if not attr_value:
                 continue
-            if attr_name in {"Manufacturer", "Mfr. Part #", "LCSC Part #", "Package", "Key Attributes", "Description", "Category"}:
+            if attr_name in {
+                "Manufacturer",
+                "Mfr. Part #",
+                "LCSC Part #",
+                "Package",
+                "Key Attributes",
+                "Description",
+                "Category",
+            }:
                 continue
             # Convert to clean key format
-            clean_key = attr_name.lower().replace(' ', '_').replace('-', '_')
+            clean_key = attr_name.lower().replace(" ", "_").replace("-", "_")
             additional_data[clean_key] = attr_value
 
         return PartSearchResult(
@@ -873,7 +882,7 @@ class LCSCSupplier(BaseSupplier):
             stock_quantity=page_details.get("inventory_level"),
             pricing=None,  # Could be extracted from page but format varies
             specifications=None,
-            additional_data=additional_data
+            additional_data=additional_data,
         )
 
     def _merge_json_ld_item(self, item: Dict[str, Any], page_details: Dict[str, Any]) -> None:
@@ -928,50 +937,49 @@ class LCSCSupplier(BaseSupplier):
                 except (TypeError, ValueError):
                     pass
 
-    
     async def _parse_easyeda_response(self, data: Dict[str, Any], lcsc_id: str) -> PartSearchResult:
         """Parse EasyEDA API response using unified data extraction"""
         extractor = self._get_data_extractor()
-        
+
         # Extract result data safely using defensive null safety
         result = extractor.safe_get(data, "result", {})
-        
+
         # Pre-process the data to fix protocol-relative URLs before extraction
         processed_result = self._preprocess_lcsc_data(result)
-        
+
         # Extract common part data using unified extraction config
         extracted_data = extract_common_part_data(extractor, processed_result, self._extraction_config)
-        
+
         # Extract LCSC-specific data using safe access patterns
         manufacturer = extractor.safe_get(result, ["dataStr", "head", "c_para", "Manufacturer"])
         manufacturer_part_number = extractor.safe_get(result, ["dataStr", "head", "c_para", "Manufacturer Part"])
         value = extractor.safe_get(result, ["dataStr", "head", "c_para", "Value"])
         package = extractor.safe_get(result, ["dataStr", "head", "c_para", "package"])
-        
+
         # Extract category from tags
-        tags = result.get('tags', [])
-        category = tags[0] if tags else ''
-        
+        tags = result.get("tags", [])
+        category = tags[0] if tags else ""
+
         # Determine part type from prefix
         prefix = extractor.safe_get(result, ["dataStr", "head", "c_para", "pre"], "")
         part_type = ""
-        if prefix.startswith('C?'):
+        if prefix.startswith("C?"):
             part_type = "capacitor"
-        elif prefix.startswith('R?'):
+        elif prefix.startswith("R?"):
             part_type = "resistor"
-        
+
         # Check if SMT
-        is_smt = result.get('SMT', False)
-        
+        is_smt = result.get("SMT", False)
+
         # Build flat additional_data instead of nested specifications
         # Store simple key-value pairs that will be flattened into additional_properties
         flat_specs = {}
         if value:
-            flat_specs['value'] = value
+            flat_specs["value"] = value
         if package:
-            flat_specs['package'] = package
+            flat_specs["package"] = package
         if is_smt:
-            flat_specs['mounting_type'] = 'SMT'
+            flat_specs["mounting_type"] = "SMT"
 
         # Merge with extracted specifications but flatten them
         if extracted_data.get("specifications"):
@@ -980,16 +988,16 @@ class LCSCSupplier(BaseSupplier):
                 # Flatten any nested specifications
                 for spec_key, spec_value in extracted_specs.items():
                     # Convert to lowercase with underscores for consistency
-                    clean_key = spec_key.lower().replace(' ', '_').replace('-', '_')
+                    clean_key = spec_key.lower().replace(" ", "_").replace("-", "_")
                     flat_specs[clean_key] = spec_value
-        
+
         # Build additional data with flat specifications merged in
         additional_data = {
             "part_type": part_type,
             "is_smt": is_smt,
             "prefix": prefix,
             "easyeda_data_available": True,
-            "product_url": f"https://www.lcsc.com/product-detail/{lcsc_id}.html"
+            "product_url": f"https://www.lcsc.com/product-detail/{lcsc_id}.html",
         }
         # Merge flat specifications directly into additional_data
         additional_data.update(flat_specs)
@@ -1026,7 +1034,9 @@ class LCSCSupplier(BaseSupplier):
 
             # Prefer clean manufacturer and MPN values from the product page when available
             manufacturer = page_details.get("brand") or attributes.get("Manufacturer") or manufacturer
-            manufacturer_part_number = page_details.get("mpn") or attributes.get("Mfr. Part #") or manufacturer_part_number
+            manufacturer_part_number = (
+                page_details.get("mpn") or attributes.get("Mfr. Part #") or manufacturer_part_number
+            )
 
             # Rich description overrides the terse EasyEDA title
             rich_description = attributes.get("Description") or page_details.get("description")
@@ -1036,11 +1046,11 @@ class LCSCSupplier(BaseSupplier):
             # Capture key attributes and structured package information as flat data
             key_attributes = attributes.get("Key Attributes")
             if key_attributes:
-                additional_data['key_attributes'] = key_attributes
+                additional_data["key_attributes"] = key_attributes
 
             package_from_page = attributes.get("Package")
             if package_from_page:
-                additional_data['package'] = package_from_page
+                additional_data["package"] = package_from_page
 
             # Datasheet link on the product page tends to be more reliable
             datasheet_link = page_details.get("datasheet_url") or attribute_links.get("Datasheet")
@@ -1056,17 +1066,17 @@ class LCSCSupplier(BaseSupplier):
 
             # Enrich additional metadata with pricing and inventory when provided
             if page_details.get("price") is not None:
-                additional_data['lcsc_price'] = page_details['price']
+                additional_data["lcsc_price"] = page_details["price"]
             if page_details.get("price_currency"):
-                additional_data['lcsc_price_currency'] = page_details['price_currency']
+                additional_data["lcsc_price_currency"] = page_details["price_currency"]
             if page_details.get("inventory_level") is not None:
-                additional_data['lcsc_inventory_level'] = page_details['inventory_level']
+                additional_data["lcsc_inventory_level"] = page_details["inventory_level"]
             if page_details.get("name"):
-                additional_data['lcsc_product_name'] = page_details['name']
+                additional_data["lcsc_product_name"] = page_details["name"]
 
             # Store the resolved datasheet link for downstream consumers
             if datasheet_url:
-                additional_data['lcsc_datasheet_url'] = datasheet_url
+                additional_data["lcsc_datasheet_url"] = datasheet_url
 
             # Capture remaining attribute rows as flat additional_data
             for attr_name, attr_value in attributes.items():
@@ -1075,15 +1085,22 @@ class LCSCSupplier(BaseSupplier):
 
                 normalized_attr = attr_name.strip()
 
-                if normalized_attr in {"Manufacturer", "Mfr. Part #", "LCSC Part #", "Package", "Key Attributes", "Description"}:
+                if normalized_attr in {
+                    "Manufacturer",
+                    "Mfr. Part #",
+                    "LCSC Part #",
+                    "Package",
+                    "Key Attributes",
+                    "Description",
+                }:
                     continue
 
                 if normalized_attr == "Category":
-                    additional_data['lcsc_category'] = attr_value
+                    additional_data["lcsc_category"] = attr_value
                     continue
 
                 # Convert attribute name to clean key format
-                clean_attr_key = normalized_attr.lower().replace(' ', '_').replace('-', '_')
+                clean_attr_key = normalized_attr.lower().replace(" ", "_").replace("-", "_")
                 additional_data[clean_attr_key] = attr_value
 
         return PartSearchResult(
@@ -1097,227 +1114,241 @@ class LCSCSupplier(BaseSupplier):
             stock_quantity=stock_quantity,
             pricing=pricing,
             specifications=None,  # No longer using nested specifications
-            additional_data=additional_data  # All data is now flat
+            additional_data=additional_data,  # All data is now flat
         )
-    
+
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:
         """Fetch datasheet URL for an LCSC part"""
+
         async def _impl():
             part_details = await self.get_part_details(supplier_part_number)
             return part_details.datasheet_url if part_details else None
-        
+
         return await self._tracked_api_call("fetch_datasheet", _impl)
-    
+
     async def fetch_pricing_stock(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
         """Fetch pricing and stock information"""
+
         async def _impl():
             part_details = await self.get_part_details(supplier_part_number)
             if not part_details:
                 return None
-            
+
             result = {}
             if part_details.pricing:
                 result["pricing"] = part_details.pricing
             if part_details.stock_quantity is not None:
                 result["stock_quantity"] = part_details.stock_quantity
-            
+
             return result if result else None
-        
+
         return await self._tracked_api_call("fetch_pricing_stock", _impl)
-    
+
     # ========== File Import Capability ==========
-    
+
     def can_import_file(self, filename: str, file_content: bytes = None) -> bool:
         """Check if this supplier can handle this file"""
         if not filename:
             return False
-        
-        file_ext = filename.split('.')[-1].lower() if '.' in filename else ''
-        return file_ext == 'csv' and 'lcsc' in filename.lower()
-    
+
+        file_ext = filename.split(".")[-1].lower() if "." in filename else ""
+        return file_ext == "csv" and "lcsc" in filename.lower()
+
     async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
         """Import LCSC CSV order file using unified patterns and proper data extraction"""
+
         async def _impl():
-            if file_type.lower() != 'csv':
-                return ImportResult(
-                    success=False,
-                    error_message="LCSC only supports CSV file imports"
-                )
-            
+            if file_type.lower() != "csv":
+                return ImportResult(success=False, error_message="LCSC only supports CSV file imports")
+
             try:
                 # Decode CSV content with defensive encoding handling
                 try:
-                    csv_text = file_content.decode('utf-8-sig')  # Handle BOM
+                    csv_text = file_content.decode("utf-8-sig")  # Handle BOM
                 except UnicodeDecodeError:
-                    csv_text = file_content.decode('utf-8', errors='ignore')
-                
+                    csv_text = file_content.decode("utf-8", errors="ignore")
+
                 # Use pandas for robust CSV parsing
                 from io import StringIO
+
                 df = pd.read_csv(StringIO(csv_text))
-                
+
                 if df.empty:
-                    return ImportResult(
-                        success=False,
-                        error_message="CSV file contains no data rows"
-                    )
-                
+                    return ImportResult(success=False, error_message="CSV file contains no data rows")
+
                 # Initialize column mapper with LCSC-specific mappings
                 column_mapper = UnifiedColumnMapper()
-                lcsc_mappings = column_mapper.get_supplier_specific_mappings('lcsc')
-                
+                lcsc_mappings = column_mapper.get_supplier_specific_mappings("lcsc")
+
                 # Map columns using flexible matching
                 mapped_columns = column_mapper.map_columns(df.columns.tolist(), lcsc_mappings)
-                
+
                 # Validate required columns
-                required_fields = ['part_number', 'quantity']
+                required_fields = ["part_number", "quantity"]
                 if not column_mapper.validate_required_columns(mapped_columns, required_fields):
                     return ImportResult(
                         success=False,
-                        error_message=f"Required columns not found. Available columns: {list(df.columns)}"
+                        error_message=f"Required columns not found. Available columns: {list(df.columns)}",
                     )
-                
+
                 parts = []
                 failed_items = []
                 supplier_mapper = SupplierDataMapper()
-                
+
                 # Process each row with full data extraction
                 for index, row in df.iterrows():
                     try:
                         # Extract all available data using column mapping
                         extracted_data = column_mapper.extract_row_data(row, mapped_columns)
-                        
+
                         # Skip rows without part numbers
-                        if not extracted_data.get('part_number'):
+                        if not extracted_data.get("part_number"):
                             continue
-                        
+
                         # Parse quantity safely
                         quantity = 1
-                        if extracted_data.get('quantity'):
+                        if extracted_data.get("quantity"):
                             try:
-                                quantity = max(1, int(float(str(extracted_data['quantity']).replace(',', ''))))
+                                quantity = max(1, int(float(str(extracted_data["quantity"]).replace(",", ""))))
                             except (ValueError, TypeError):
                                 quantity = 1
-                        
+
                         # Parse pricing safely
                         unit_price = None
                         order_price = None
-                        if extracted_data.get('unit_price'):
+                        if extracted_data.get("unit_price"):
                             try:
-                                unit_price = float(str(extracted_data['unit_price']).replace('$', '').replace(',', ''))
+                                unit_price = float(str(extracted_data["unit_price"]).replace("$", "").replace(",", ""))
                             except (ValueError, TypeError):
                                 pass
-                        
-                        if extracted_data.get('order_price'):
+
+                        if extracted_data.get("order_price"):
                             try:
-                                order_price = float(str(extracted_data['order_price']).replace('$', '').replace(',', ''))
+                                order_price = float(
+                                    str(extracted_data["order_price"]).replace("$", "").replace(",", "")
+                                )
                             except (ValueError, TypeError):
                                 pass
-                        
+
                         # Create smart part name from available data
                         part_name = column_mapper.create_smart_part_name(extracted_data)
-                        
+
                         # Build comprehensive additional_properties
                         additional_properties = self._build_lcsc_additional_properties(
                             extracted_data, unit_price, order_price, index
                         )
-                        
+
                         # Create PartSearchResult object for SupplierDataMapper
                         from .base import PartSearchResult
+
                         part_search_result = PartSearchResult(
-                            supplier_part_number=str(extracted_data['part_number']).strip(),
-                            manufacturer=extracted_data.get('manufacturer', '').strip() if extracted_data.get('manufacturer') else None,
-                            manufacturer_part_number=extracted_data.get('manufacturer_part_number', '').strip() if extracted_data.get('manufacturer_part_number') else None,
-                            description=extracted_data.get('description', '').strip() if extracted_data.get('description') else None,
-                            additional_data=additional_properties
+                            supplier_part_number=str(extracted_data["part_number"]).strip(),
+                            manufacturer=(
+                                extracted_data.get("manufacturer", "").strip()
+                                if extracted_data.get("manufacturer")
+                                else None
+                            ),
+                            manufacturer_part_number=(
+                                extracted_data.get("manufacturer_part_number", "").strip()
+                                if extracted_data.get("manufacturer_part_number")
+                                else None
+                            ),
+                            description=(
+                                extracted_data.get("description", "").strip()
+                                if extracted_data.get("description")
+                                else None
+                            ),
+                            additional_data=additional_properties,
                         )
-                        
+
                         # Use SupplierDataMapper for standardization
                         standardized_part = supplier_mapper.map_supplier_result_to_part_data(
-                            part_search_result, 'LCSC', enrichment_capabilities=['csv_import']
+                            part_search_result, "LCSC", enrichment_capabilities=["csv_import"]
                         )
-                        
+
                         # Add import-specific fields that aren't in PartSearchResult
-                        standardized_part['part_name'] = part_name
-                        standardized_part['quantity'] = quantity
-                        standardized_part['supplier'] = 'LCSC'
-                        
+                        standardized_part["part_name"] = part_name
+                        standardized_part["quantity"] = quantity
+                        standardized_part["supplier"] = "LCSC"
+
                         parts.append(standardized_part)
-                        
+
                     except Exception as e:
-                        failed_items.append({
-                            'line_number': index + 2,  # +2 for header and 0-based index
-                            'error': str(e),
-                            'data': row.to_dict()
-                        })
+                        failed_items.append(
+                            {
+                                "line_number": index + 2,  # +2 for header and 0-based index
+                                "error": str(e),
+                                "data": row.to_dict(),
+                            }
+                        )
                         logger.warning(f"Failed to process LCSC CSV row {index + 2}: {e}")
-                
+
                 return ImportResult(
                     success=True,
                     imported_count=len(parts),
                     failed_count=len(failed_items),
                     parts=parts,
                     failed_items=failed_items,
-                    parser_type="lcsc"
+                    parser_type="lcsc",
                 )
-                
+
             except Exception as e:
                 logger.error(f"Failed to parse LCSC CSV: {e}")
-                return ImportResult(
-                    success=False,
-                    error_message=f"Failed to parse LCSC CSV: {str(e)}"
-                )
-        
+                return ImportResult(success=False, error_message=f"Failed to parse LCSC CSV: {str(e)}")
+
         return await self._tracked_api_call("import_orders", _impl)
-    
-    def _build_lcsc_additional_properties(self, extracted_data: Dict[str, Any], unit_price: Optional[float], order_price: Optional[float], row_index: int) -> Dict[str, Any]:
+
+    def _build_lcsc_additional_properties(
+        self, extracted_data: Dict[str, Any], unit_price: Optional[float], order_price: Optional[float], row_index: int
+    ) -> Dict[str, Any]:
         """Build flat additional_properties for LCSC parts (no nested structures)"""
         # Create flat key-value pairs instead of nested structure
         additional_properties = {
             # Supplier information as flat keys
-            'supplier_name': 'LCSC',
-            'supplier_part_number': extracted_data.get('part_number'),
-            'row_index': row_index,
-            'import_source': 'csv'
+            "supplier_name": "LCSC",
+            "supplier_part_number": extracted_data.get("part_number"),
+            "row_index": row_index,
+            "import_source": "csv",
         }
 
         # Add customer reference if available
-        if extracted_data.get('customer_reference'):
-            additional_properties['customer_reference'] = extracted_data['customer_reference']
+        if extracted_data.get("customer_reference"):
+            additional_properties["customer_reference"] = extracted_data["customer_reference"]
 
         # Add minimum order quantity if available
-        if extracted_data.get('min_order_qty'):
+        if extracted_data.get("min_order_qty"):
             try:
-                min_qty_str = str(extracted_data['min_order_qty'])
+                min_qty_str = str(extracted_data["min_order_qty"])
                 # Handle format like "5\5" - take the first number
-                min_qty = int(min_qty_str.split('\\')[0]) if '\\' in min_qty_str else int(min_qty_str)
-                additional_properties['minimum_order_quantity'] = min_qty
+                min_qty = int(min_qty_str.split("\\")[0]) if "\\" in min_qty_str else int(min_qty_str)
+                additional_properties["minimum_order_quantity"] = min_qty
             except (ValueError, TypeError):
                 pass
 
         # Add pricing information as flat keys
         if unit_price is not None:
-            additional_properties['unit_price'] = unit_price
+            additional_properties["unit_price"] = unit_price
         if order_price is not None:
-            additional_properties['order_price'] = order_price
+            additional_properties["order_price"] = order_price
 
         # Add package information as flat keys
-        if extracted_data.get('package'):
-            package_info = str(extracted_data['package']).strip()
-            additional_properties['package'] = package_info
+        if extracted_data.get("package"):
+            package_info = str(extracted_data["package"]).strip()
+            additional_properties["package"] = package_info
 
             # Extract mounting type from package info
-            if 'smd' in package_info.lower():
-                additional_properties['mounting_type'] = 'SMT'
-            elif 'through' in package_info.lower() or 'th' in package_info.lower():
-                additional_properties['mounting_type'] = 'Through Hole'
+            if "smd" in package_info.lower():
+                additional_properties["mounting_type"] = "SMT"
+            elif "through" in package_info.lower() or "th" in package_info.lower():
+                additional_properties["mounting_type"] = "Through Hole"
 
         # Add RoHS compliance as flat keys
-        if extracted_data.get('rohs'):
-            rohs_value = str(extracted_data['rohs']).strip().upper()
-            if rohs_value in ['YES', 'Y', 'TRUE', '1']:
-                additional_properties['rohs_compliant'] = True
-            elif rohs_value in ['NO', 'N', 'FALSE', '0']:
-                additional_properties['rohs_compliant'] = False
+        if extracted_data.get("rohs"):
+            rohs_value = str(extracted_data["rohs"]).strip().upper()
+            if rohs_value in ["YES", "Y", "TRUE", "1"]:
+                additional_properties["rohs_compliant"] = True
+            elif rohs_value in ["NO", "N", "FALSE", "0"]:
+                additional_properties["rohs_compliant"] = False
 
         return additional_properties
 
@@ -1340,43 +1371,67 @@ class LCSCSupplier(BaseSupplier):
         # Extract LCSC Product Name from additional_data if available
         lcsc_product_name = None
         if supplier_data.additional_data:
-            lcsc_product_name = supplier_data.additional_data.get('lcsc_product_name')
+            lcsc_product_name = supplier_data.additional_data.get("lcsc_product_name")
 
         # Start with core fields
         # Prioritize LCSC Product Name (e.g., "BHFUSE BSMD1206C-1200T") over generic description
         mapped = {
-            'supplier_part_number': supplier_data.supplier_part_number,
-            'part_name': lcsc_product_name or supplier_data.description or supplier_data.supplier_part_number,
-            'manufacturer': supplier_data.manufacturer,
-            'manufacturer_part_number': supplier_data.manufacturer_part_number,
-            'description': supplier_data.description,
-            'category': supplier_data.category,
+            "supplier_part_number": supplier_data.supplier_part_number,
+            "part_name": lcsc_product_name or supplier_data.description or supplier_data.supplier_part_number,
+            "manufacturer": supplier_data.manufacturer,
+            "manufacturer_part_number": supplier_data.manufacturer_part_number,
+            "description": supplier_data.description,
+            "category": supplier_data.category,
         }
 
         # Add image and datasheet URLs if available
         if supplier_data.image_url:
-            mapped['image_url'] = supplier_data.image_url
+            mapped["image_url"] = supplier_data.image_url
         if supplier_data.datasheet_url:
-            mapped['datasheet_url'] = supplier_data.datasheet_url
+            mapped["datasheet_url"] = supplier_data.datasheet_url
 
         # Define fields to skip (tariff codes, ordering info, pricing tiers, duplicates, empty fields)
         skip_fields = {
             # Internal tracking fields
-            'data_source', 'easyeda_data_available', 'prefix', 'product_url',
+            "data_source",
+            "easyeda_data_available",
+            "prefix",
+            "product_url",
             # Tariff/customs codes
-            'eccn', 'cnhts', 'ushts', 'taric', 'cahts', 'brhts', 'inhts', 'mxhts',
+            "eccn",
+            "cnhts",
+            "ushts",
+            "taric",
+            "cahts",
+            "brhts",
+            "inhts",
+            "mxhts",
             # Ordering/packaging info
-            'minimum', 'multiple', 'standard_packaging', 'sales_unit',
+            "minimum",
+            "multiple",
+            "standard_packaging",
+            "sales_unit",
             # Pricing tiers (individual tiers)
-            '10+', '100+', '300+', '1,000+', '3,000+', '6,000+', '9,000+', '30,000+',
+            "10+",
+            "100+",
+            "300+",
+            "1,000+",
+            "3,000+",
+            "6,000+",
+            "9,000+",
+            "30,000+",
             # Duplicate pricing/stock fields (we keep formatted versions in SupplierDataMapper)
-            'lcsc_price', 'lcsc_price_currency', 'lcsc_inventory_level',
+            "lcsc_price",
+            "lcsc_price_currency",
+            "lcsc_inventory_level",
             # Fields already used in core part data
-            'lcsc_product_name',  # Used as part_name
+            "lcsc_product_name",  # Used as part_name
             # Empty/useless fields
-            'part_type', 'customer_#', 'customer_number',
+            "part_type",
+            "customer_#",
+            "customer_number",
             # Datasheet field (text value, not URL - we keep datasheet_url)
-            'datasheet'
+            "datasheet",
         }
 
         # Flatten additional_data into custom fields
@@ -1392,11 +1447,11 @@ class LCSCSupplier(BaseSupplier):
                     continue
 
                 # Skip zero-width space and similar unicode characters
-                if isinstance(value, str) and all(ord(c) < 32 or c in '\u200b\ufeff' for c in value):
+                if isinstance(value, str) and all(ord(c) < 32 or c in "\u200b\ufeff" for c in value):
                     continue
 
                 # Create readable field names
-                field_name = key.replace('_', ' ').title()
+                field_name = key.replace("_", " ").title()
                 mapped[field_name] = str(value)
 
         return mapped

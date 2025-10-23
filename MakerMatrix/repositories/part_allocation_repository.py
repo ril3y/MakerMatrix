@@ -8,17 +8,10 @@ Provides CRUD operations and specialized queries for multi-location inventory.
 from typing import Optional, List, Sequence
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
-from MakerMatrix.models.part_allocation_models import (
-    PartLocationAllocation,
-    AllocationCreate,
-    AllocationUpdate
-)
+from MakerMatrix.models.part_allocation_models import PartLocationAllocation, AllocationCreate, AllocationUpdate
 from MakerMatrix.models.part_models import PartModel
 from MakerMatrix.models.location_models import LocationModel
-from MakerMatrix.repositories.custom_exceptions import (
-    ResourceNotFoundError,
-    InvalidReferenceError
-)
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, InvalidReferenceError
 
 
 class PartAllocationRepository:
@@ -26,9 +19,7 @@ class PartAllocationRepository:
 
     @staticmethod
     def get_all_allocations_for_part(
-        session: Session,
-        part_id: str,
-        include_details: bool = True
+        session: Session, part_id: str, include_details: bool = True
     ) -> Sequence[PartLocationAllocation]:
         """
         Get all location allocations for a specific part.
@@ -41,72 +32,46 @@ class PartAllocationRepository:
         Returns:
             List of PartLocationAllocation records
         """
-        query = select(PartLocationAllocation).where(
-            PartLocationAllocation.part_id == part_id
-        )
+        query = select(PartLocationAllocation).where(PartLocationAllocation.part_id == part_id)
 
         if include_details:
             query = query.options(
-                selectinload(PartLocationAllocation.location),
-                selectinload(PartLocationAllocation.part)
+                selectinload(PartLocationAllocation.location), selectinload(PartLocationAllocation.part)
             )
 
         return session.exec(query).all()
 
     @staticmethod
-    def get_allocation_by_id(
-        session: Session,
-        allocation_id: str
-    ) -> Optional[PartLocationAllocation]:
+    def get_allocation_by_id(session: Session, allocation_id: str) -> Optional[PartLocationAllocation]:
         """Get a specific allocation by ID with details loaded"""
         allocation = session.exec(
             select(PartLocationAllocation)
-            .options(
-                selectinload(PartLocationAllocation.location),
-                selectinload(PartLocationAllocation.part)
-            )
+            .options(selectinload(PartLocationAllocation.location), selectinload(PartLocationAllocation.part))
             .where(PartLocationAllocation.id == allocation_id)
         ).first()
 
         if not allocation:
-            raise ResourceNotFoundError(
-                resource="Allocation",
-                resource_id=allocation_id
-            )
+            raise ResourceNotFoundError(resource="Allocation", resource_id=allocation_id)
 
         return allocation
 
     @staticmethod
     def get_allocation_by_part_and_location(
-        session: Session,
-        part_id: str,
-        location_id: str
+        session: Session, part_id: str, location_id: str
     ) -> Optional[PartLocationAllocation]:
         """Get allocation for specific part-location pair"""
         return session.exec(
             select(PartLocationAllocation)
-            .options(
-                selectinload(PartLocationAllocation.location),
-                selectinload(PartLocationAllocation.part)
-            )
-            .where(
-                PartLocationAllocation.part_id == part_id,
-                PartLocationAllocation.location_id == location_id
-            )
+            .options(selectinload(PartLocationAllocation.location), selectinload(PartLocationAllocation.part))
+            .where(PartLocationAllocation.part_id == part_id, PartLocationAllocation.location_id == location_id)
         ).first()
 
     @staticmethod
-    def get_allocations_at_location(
-        session: Session,
-        location_id: str
-    ) -> Sequence[PartLocationAllocation]:
+    def get_allocations_at_location(session: Session, location_id: str) -> Sequence[PartLocationAllocation]:
         """Get all part allocations at a specific location"""
         return session.exec(
             select(PartLocationAllocation)
-            .options(
-                selectinload(PartLocationAllocation.part),
-                selectinload(PartLocationAllocation.location)
-            )
+            .options(selectinload(PartLocationAllocation.part), selectinload(PartLocationAllocation.location))
             .where(PartLocationAllocation.location_id == location_id)
         ).all()
 
@@ -117,7 +82,7 @@ class PartAllocationRepository:
         location_id: str,
         quantity: int,
         is_primary: bool = False,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
     ) -> PartLocationAllocation:
         """
         Create a new part-location allocation.
@@ -148,14 +113,12 @@ class PartAllocationRepository:
             raise ResourceNotFoundError(resource="Location", resource_id=location_id)
 
         # Check if allocation already exists
-        existing = PartAllocationRepository.get_allocation_by_part_and_location(
-            session, part_id, location_id
-        )
+        existing = PartAllocationRepository.get_allocation_by_part_and_location(session, part_id, location_id)
         if existing:
             raise InvalidReferenceError(
                 status="error",
                 message=f"Allocation already exists for part {part_id} at location {location_id}. Use update instead.",
-                data={"existing_allocation_id": existing.id}
+                data={"existing_allocation_id": existing.id},
             )
 
         # Create allocation
@@ -164,7 +127,7 @@ class PartAllocationRepository:
             location_id=location_id,
             quantity_at_location=quantity,
             is_primary_storage=is_primary,
-            notes=notes
+            notes=notes,
         )
 
         session.add(allocation)
@@ -175,9 +138,7 @@ class PartAllocationRepository:
 
     @staticmethod
     def update_allocation(
-        session: Session,
-        allocation_id: str,
-        update_data: AllocationUpdate
+        session: Session, allocation_id: str, update_data: AllocationUpdate
     ) -> PartLocationAllocation:
         """
         Update an existing allocation.
@@ -205,6 +166,7 @@ class PartAllocationRepository:
 
         # Update timestamp
         from datetime import datetime
+
         allocation.last_updated = datetime.utcnow()
 
         session.add(allocation)
@@ -214,11 +176,7 @@ class PartAllocationRepository:
         return allocation
 
     @staticmethod
-    def update_allocation_quantity(
-        session: Session,
-        allocation_id: str,
-        new_quantity: int
-    ) -> PartLocationAllocation:
+    def update_allocation_quantity(session: Session, allocation_id: str, new_quantity: int) -> PartLocationAllocation:
         """
         Update only the quantity of an allocation.
 
@@ -235,6 +193,7 @@ class PartAllocationRepository:
         allocation.quantity_at_location = new_quantity
 
         from datetime import datetime
+
         allocation.last_updated = datetime.utcnow()
 
         session.add(allocation)
@@ -244,10 +203,7 @@ class PartAllocationRepository:
         return allocation
 
     @staticmethod
-    def delete_allocation(
-        session: Session,
-        allocation_id: str
-    ) -> bool:
+    def delete_allocation(session: Session, allocation_id: str) -> bool:
         """
         Delete an allocation.
 
@@ -266,10 +222,7 @@ class PartAllocationRepository:
         return True
 
     @staticmethod
-    def delete_allocations_for_part(
-        session: Session,
-        part_id: str
-    ) -> int:
+    def delete_allocations_for_part(session: Session, part_id: str) -> int:
         """
         Delete all allocations for a part.
 
@@ -280,9 +233,7 @@ class PartAllocationRepository:
         Returns:
             Number of allocations deleted
         """
-        allocations = PartAllocationRepository.get_all_allocations_for_part(
-            session, part_id, include_details=False
-        )
+        allocations = PartAllocationRepository.get_all_allocations_for_part(session, part_id, include_details=False)
 
         count = len(allocations)
         for allocation in allocations:
@@ -292,34 +243,23 @@ class PartAllocationRepository:
         return count
 
     @staticmethod
-    def get_primary_allocation(
-        session: Session,
-        part_id: str
-    ) -> Optional[PartLocationAllocation]:
+    def get_primary_allocation(session: Session, part_id: str) -> Optional[PartLocationAllocation]:
         """Get the primary storage allocation for a part"""
         return session.exec(
             select(PartLocationAllocation)
-            .options(
-                selectinload(PartLocationAllocation.location),
-                selectinload(PartLocationAllocation.part)
-            )
-            .where(
-                PartLocationAllocation.part_id == part_id,
-                PartLocationAllocation.is_primary_storage == True
-            )
+            .options(selectinload(PartLocationAllocation.location), selectinload(PartLocationAllocation.part))
+            .where(PartLocationAllocation.part_id == part_id, PartLocationAllocation.is_primary_storage == True)
         ).first()
 
     @staticmethod
-    def calculate_total_quantity(
-        session: Session,
-        part_id: str
-    ) -> int:
+    def calculate_total_quantity(session: Session, part_id: str) -> int:
         """Calculate total quantity across all allocations for a part"""
         from sqlalchemy import func
 
         result = session.exec(
-            select(func.sum(PartLocationAllocation.quantity_at_location))
-            .where(PartLocationAllocation.part_id == part_id)
+            select(func.sum(PartLocationAllocation.quantity_at_location)).where(
+                PartLocationAllocation.part_id == part_id
+            )
         ).first()
 
         return result or 0

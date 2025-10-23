@@ -29,12 +29,7 @@ class TestUserManagementSecurity:
 
         response = client.post(
             "/api/users/register",
-            json={
-                "username": "hacker",
-                "email": "hacker@evil.com",
-                "password": "Hack123!",
-                "roles": ["admin"]
-            }
+            json={"username": "hacker", "email": "hacker@evil.com", "password": "Hack123!", "roles": ["admin"]},
         )
 
         assert response.status_code == 401
@@ -51,8 +46,8 @@ class TestUserManagementSecurity:
                 "username": f"testuser_{TEST_TIMESTAMP}",
                 "email": f"test_{TEST_TIMESTAMP}@example.com",
                 "password": "Test123!",
-                "roles": ["user"]
-            }
+                "roles": ["user"],
+            },
         )
 
         assert response.status_code in [200, 201, 409, 422]  # 422 validation, 409 if exists
@@ -71,10 +66,7 @@ class TestUserManagementSecurity:
     def test_admin_has_user_management_permissions(self):
         """Test that admin role has all users:* permissions"""
 
-        response = client.get(
-            "/api/users/roles",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/roles", headers={"X-API-Key": ADMIN_API_KEY})
 
         assert response.status_code == 200
         roles = response.json()["data"]
@@ -93,10 +85,7 @@ class TestUserManagementSecurity:
     def test_manager_lacks_user_management_permissions(self):
         """Test that manager role does NOT have users:* permissions"""
 
-        response = client.get(
-            "/api/users/roles",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/roles", headers={"X-API-Key": ADMIN_API_KEY})
 
         assert response.status_code == 200
         roles = response.json()["data"]
@@ -115,10 +104,7 @@ class TestUserManagementSecurity:
     def test_user_role_is_read_only(self):
         """Test that user role only has read permissions"""
 
-        response = client.get(
-            "/api/users/roles",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/roles", headers={"X-API-Key": ADMIN_API_KEY})
 
         assert response.status_code == 200
         roles = response.json()["data"]
@@ -144,24 +130,15 @@ class TestUserManagementSecurity:
         """Test that API key authentication works for all user routes"""
 
         # Test /roles endpoint
-        response = client.get(
-            "/api/users/roles",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/roles", headers={"X-API-Key": ADMIN_API_KEY})
         assert response.status_code == 200
 
         # Test /all endpoint
-        response = client.get(
-            "/api/users/all",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/all", headers={"X-API-Key": ADMIN_API_KEY})
         assert response.status_code == 200
 
         # Test /me endpoint
-        response = client.get(
-            "/api/users/me",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/me", headers={"X-API-Key": ADMIN_API_KEY})
         assert response.status_code == 200
 
         print("✅ API key authentication works for user routes")
@@ -177,8 +154,8 @@ class TestUserManagementSecurity:
                 "username": "shortpass",
                 "email": "short@example.com",
                 "password": "123",  # Too short
-                "roles": ["user"]
-            }
+                "roles": ["user"],
+            },
         )
 
         # Should fail validation (either 400 or 422)
@@ -197,8 +174,8 @@ class TestUserManagementSecurity:
                 "username": "admin",  # Already exists
                 "email": "newemail@example.com",
                 "password": "Test123!",
-                "roles": ["user"]
-            }
+                "roles": ["user"],
+            },
         )
 
         # Should fail with conflict or validation error
@@ -216,8 +193,8 @@ class TestUserManagementSecurity:
                 "username": "roletest123",
                 "email": "roletest123@example.com",
                 "password": "Test123!",
-                "roles": ["nonexistent_role"]  # Invalid role
-            }
+                "roles": ["nonexistent_role"],  # Invalid role
+            },
         )
 
         # Should fail validation

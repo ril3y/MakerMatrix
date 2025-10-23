@@ -30,6 +30,7 @@ def session_fixture():
 
     # Create all tables
     from MakerMatrix.models.models import SQLModel
+
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as session:
@@ -56,7 +57,7 @@ class TestPartLocationAllocationModel:
             location_id=location.id,
             quantity_at_location=100,
             is_primary_storage=True,
-            notes="Primary storage location"
+            notes="Primary storage location",
         )
         session.add(allocation)
         session.commit()
@@ -77,20 +78,12 @@ class TestPartLocationAllocationModel:
         session.commit()
 
         # Create first allocation
-        alloc1 = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location.id,
-            quantity_at_location=50
-        )
+        alloc1 = PartLocationAllocation(part_id=part.id, location_id=location.id, quantity_at_location=50)
         session.add(alloc1)
         session.commit()
 
         # Attempt to create duplicate allocation
-        alloc2 = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location.id,
-            quantity_at_location=100
-        )
+        alloc2 = PartLocationAllocation(part_id=part.id, location_id=location.id, quantity_at_location=100)
         session.add(alloc2)
 
         with pytest.raises(Exception):  # SQLAlchemy integrity error
@@ -100,11 +93,7 @@ class TestPartLocationAllocationModel:
         """Test that allocation relationships load correctly"""
         location = LocationModel(name="Storage Bin")
         part = PartModel(part_name="Resistor 10k")
-        allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location.id,
-            quantity_at_location=200
-        )
+        allocation = PartLocationAllocation(part_id=part.id, location_id=location.id, quantity_at_location=200)
 
         session.add_all([location, part, allocation])
         session.commit()
@@ -125,7 +114,7 @@ class TestPartLocationAllocationModel:
             location_id=location.id,
             quantity_at_location=50,
             is_primary_storage=True,
-            notes="Test notes"
+            notes="Test notes",
         )
 
         session.add_all([location, part, allocation])
@@ -148,11 +137,7 @@ class TestPartLocationAllocationModel:
         """Test that deleting a part cascades to allocations"""
         location = LocationModel(name="Test Location")
         part = PartModel(part_name="Test Part")
-        allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location.id,
-            quantity_at_location=100
-        )
+        allocation = PartLocationAllocation(part_id=part.id, location_id=location.id, quantity_at_location=100)
 
         session.add_all([location, part, allocation])
         session.commit()
@@ -172,11 +157,7 @@ class TestPartLocationAllocationModel:
         """Test that deleting a location cascades to allocations"""
         location = LocationModel(name="Test Location")
         part = PartModel(part_name="Test Part")
-        allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location.id,
-            quantity_at_location=100
-        )
+        allocation = PartLocationAllocation(part_id=part.id, location_id=location.id, quantity_at_location=100)
 
         session.add_all([location, part, allocation])
         session.commit()
@@ -216,10 +197,7 @@ class TestPartModelAllocationIntegration:
         location = LocationModel(name="Bin A1")
         part = PartModel(part_name="Capacitor 100nF")
         allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location.id,
-            quantity_at_location=500,
-            is_primary_storage=True
+            part_id=part.id, location_id=location.id, quantity_at_location=500, is_primary_storage=True
         )
 
         session.add_all([location, part, allocation])
@@ -251,21 +229,21 @@ class TestPartModelAllocationIntegration:
             location_id=reel_storage.id,
             quantity_at_location=3800,
             is_primary_storage=True,
-            notes="Main reel storage"
+            notes="Main reel storage",
         )
         alloc_cass1 = PartLocationAllocation(
             part_id=part.id,
             location_id=cassette1.id,
             quantity_at_location=100,
             is_primary_storage=False,
-            notes="Working stock - Project A"
+            notes="Working stock - Project A",
         )
         alloc_cass2 = PartLocationAllocation(
             part_id=part.id,
             location_id=cassette2.id,
             quantity_at_location=100,
             is_primary_storage=False,
-            notes="Working stock - Project B"
+            notes="Working stock - Project B",
         )
 
         session.add_all([reel_storage, cassette1, cassette2, part, alloc_reel, alloc_cass1, alloc_cass2])
@@ -293,16 +271,10 @@ class TestPartModelAllocationIntegration:
         part = PartModel(part_name="Test Part")
 
         alloc1 = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location1.id,
-            quantity_at_location=50,
-            is_primary_storage=False  # Not primary
+            part_id=part.id, location_id=location1.id, quantity_at_location=50, is_primary_storage=False  # Not primary
         )
         alloc2 = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location2.id,
-            quantity_at_location=50,
-            is_primary_storage=False  # Not primary
+            part_id=part.id, location_id=location2.id, quantity_at_location=50, is_primary_storage=False  # Not primary
         )
 
         session.add_all([location1, location2, part, alloc1, alloc2])
@@ -318,10 +290,7 @@ class TestPartModelAllocationIntegration:
         location = LocationModel(name="Storage")
         part = PartModel(part_name="LED Red 5mm")
         allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=location.id,
-            quantity_at_location=250,
-            is_primary_storage=True
+            part_id=part.id, location_id=location.id, quantity_at_location=250, is_primary_storage=True
         )
 
         session.add_all([location, part, allocation])
@@ -359,16 +328,8 @@ class TestLocationModelAllocationIntegration:
         part1 = PartModel(part_name="Part 1")
         part2 = PartModel(part_name="Part 2")
 
-        alloc1 = PartLocationAllocation(
-            part_id=part1.id,
-            location_id=location.id,
-            quantity_at_location=100
-        )
-        alloc2 = PartLocationAllocation(
-            part_id=part2.id,
-            location_id=location.id,
-            quantity_at_location=200
-        )
+        alloc1 = PartLocationAllocation(part_id=part1.id, location_id=location.id, quantity_at_location=100)
+        alloc2 = PartLocationAllocation(part_id=part2.id, location_id=location.id, quantity_at_location=200)
 
         session.add_all([location, part1, part2, alloc1, alloc2])
         session.commit()
@@ -380,17 +341,10 @@ class TestLocationModelAllocationIntegration:
     def test_container_capacity_tracking(self, session: Session):
         """Test container capacity calculation"""
         cassette = LocationModel(
-            name="SMD Cassette #5",
-            location_type="cassette",
-            is_mobile=True,
-            container_capacity=200
+            name="SMD Cassette #5", location_type="cassette", is_mobile=True, container_capacity=200
         )
         part = PartModel(part_name="Capacitor 10uF")
-        allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=cassette.id,
-            quantity_at_location=150
-        )
+        allocation = PartLocationAllocation(part_id=part.id, location_id=cassette.id, quantity_at_location=150)
 
         session.add_all([cassette, part, allocation])
         session.commit()

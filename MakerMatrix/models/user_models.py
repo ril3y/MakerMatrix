@@ -22,7 +22,7 @@ class RoleModel(SQLModel, table=True):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def to_dict(self) -> Dict[str, Any]:
-        """ Custom serialization method for RoleModel """
+        """Custom serialization method for RoleModel"""
         return self.model_dump(exclude={"users"})
 
 
@@ -41,7 +41,7 @@ class UserModel(SQLModel, table=True):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def to_dict(self) -> Dict[str, Any]:
-        """ Custom serialization method for UserModel """
+        """Custom serialization method for UserModel"""
         base_dict = self.model_dump(exclude={"hashed_password"})
         # Handle datetime fields
         if isinstance(base_dict["created_at"], datetime):
@@ -120,7 +120,8 @@ class PasswordUpdate(SQLModel):
             raise ValueError("Password must contain at least one lowercase letter")
         if not any(c.isdigit() for c in v):
             raise ValueError("Password must contain at least one number")
-        return v 
+        return v
+
 
 # Forward reference for APIKeyModel
 if False:  # Type checking only

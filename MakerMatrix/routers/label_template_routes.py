@@ -19,7 +19,7 @@ from MakerMatrix.models.label_template_models import (
     LabelTemplateResponse,
     TemplatePreviewRequest,
     TemplateCategory,
-    LayoutType
+    LayoutType,
 )
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.exceptions import ResourceNotFoundError, ResourceAlreadyExistsError, ValidationError
@@ -43,12 +43,14 @@ router = APIRouter()
 # Response schemas
 class TemplateListResponse(BaseModel):
     """Response schema for template lists"""
+
     templates: List[LabelTemplateResponse]
     total_count: int
 
 
 class TemplateStatsResponse(BaseModel):
     """Response schema for template statistics"""
+
     total_templates: int
     system_templates: int
     public_templates: int
@@ -59,6 +61,7 @@ class TemplateStatsResponse(BaseModel):
 
 # Template Management Endpoints
 
+
 @router.get("/", response_model=ResponseSchema[TemplateListResponse])
 @standard_error_handling
 async def get_all_templates(
@@ -67,7 +70,7 @@ async def get_all_templates(
     search: Optional[str] = Query(None, description="Search term"),
     is_system: Optional[bool] = Query(None, description="Filter by system templates (true) or user templates (false)"),
     include_public: bool = Query(True, description="Include public templates"),
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    current_user: UserModel = Depends(require_permission("label_templates:create")),
 ) -> ResponseSchema[TemplateListResponse]:
     """
     Get all label templates with optional filtering.
@@ -93,22 +96,17 @@ async def get_all_templates(
                     category=category,
                     layout_type=layout_type,
                     user_id=current_user.id,
-                    include_public=include_public
+                    include_public=include_public,
                 )
             else:
                 # Get user templates with optional public/system templates
                 templates = repo.get_by_user(session, current_user.id, include_public)
 
-            template_responses = [
-                LabelTemplateResponse.model_validate(template) for template in templates
-            ]
+            template_responses = [LabelTemplateResponse.model_validate(template) for template in templates]
 
             return BaseRouter.build_success_response(
-                data=TemplateListResponse(
-                    templates=template_responses,
-                    total_count=len(template_responses)
-                ),
-                message=f"Retrieved {len(templates)} templates"
+                data=TemplateListResponse(templates=template_responses, total_count=len(template_responses)),
+                message=f"Retrieved {len(templates)} templates",
             )
 
     except Exception as e:
@@ -122,7 +120,7 @@ async def get_all_templates(
 async def create_template(
     template_data: LabelTemplateCreate,
     request: Request,
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    current_user: UserModel = Depends(require_permission("label_templates:create")),
 ) -> ResponseSchema[LabelTemplateResponse]:
     logger.info(f"[DEBUG] Received template creation request: {template_data.model_dump()}")
     """
@@ -135,10 +133,7 @@ async def create_template(
             # Create template model from request data
             # Exclude None values to allow default_factory to work
             template_dict = template_data.model_dump(exclude_none=True)
-            template = LabelTemplateModel(
-                **template_dict,
-                created_by_user_id=current_user.id
-            )
+            template = LabelTemplateModel(**template_dict, created_by_user_id=current_user.id)
 
             # Create template with validation
             created_template = repo.create_template(session, template)
@@ -148,7 +143,7 @@ async def create_template(
 
             return BaseRouter.build_success_response(
                 data=LabelTemplateResponse.model_validate(created_template),
-                message=f"Template '{created_template.name}' created successfully"
+                message=f"Template '{created_template.name}' created successfully",
             )
 
     except ResourceAlreadyExistsError as e:
@@ -163,8 +158,7 @@ async def create_template(
 @router.get("/{template_id}", response_model=ResponseSchema[LabelTemplateResponse])
 @standard_error_handling
 async def get_template(
-    template_id: str,
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    template_id: str, current_user: UserModel = Depends(require_permission("label_templates:create"))
 ) -> ResponseSchema[LabelTemplateResponse]:
     """
     Get a specific template by ID.
@@ -178,14 +172,15 @@ async def get_template(
                 raise HTTPException(status_code=404, detail=f"Template with ID '{template_id}' not found")
 
             # Check access permissions
-            if (template.created_by_user_id != current_user.id and
-                not template.is_public and
-                not template.is_system_template):
+            if (
+                template.created_by_user_id != current_user.id
+                and not template.is_public
+                and not template.is_system_template
+            ):
                 raise HTTPException(status_code=403, detail="Access denied to this template")
 
             return BaseRouter.build_success_response(
-                data=LabelTemplateResponse.model_validate(template),
-                message="Template retrieved successfully"
+                data=LabelTemplateResponse.model_validate(template), message="Template retrieved successfully"
             )
 
     except HTTPException:
@@ -202,7 +197,7 @@ async def update_template(
     template_id: str,
     template_data: LabelTemplateUpdate,
     request: Request,
-    current_user: UserModel = Depends(require_permission("label_templates:update"))
+    current_user: UserModel = Depends(require_permission("label_templates:update")),
 ) -> ResponseSchema[LabelTemplateResponse]:
     """
     Update an existing template.
@@ -233,7 +228,7 @@ async def update_template(
 
             return BaseRouter.build_success_response(
                 data=LabelTemplateResponse.model_validate(updated_template),
-                message=f"Template '{updated_template.name}' updated successfully"
+                message=f"Template '{updated_template.name}' updated successfully",
             )
 
     except HTTPException:
@@ -249,9 +244,7 @@ async def update_template(
 @standard_error_handling
 @log_activity("template_deleted", "User {username} deleted template {template_name}")
 async def delete_template(
-    template_id: str,
-    request: Request,
-    current_user: UserModel = Depends(require_permission("label_templates:delete"))
+    template_id: str, request: Request, current_user: UserModel = Depends(require_permission("label_templates:delete"))
 ) -> ResponseSchema[Dict[str, str]]:
     """
     Delete a template.
@@ -282,7 +275,7 @@ async def delete_template(
 
             return BaseRouter.build_success_response(
                 data={"template_id": template_id, "template_name": template_name},
-                message=f"Template '{template_name}' deleted successfully"
+                message=f"Template '{template_name}' deleted successfully",
             )
 
     except HTTPException:
@@ -299,7 +292,7 @@ async def duplicate_template(
     template_id: str,
     request: Request,
     new_name: str = Query(..., description="Name for the duplicated template"),
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    current_user: UserModel = Depends(require_permission("label_templates:create")),
 ) -> ResponseSchema[LabelTemplateResponse]:
     """
     Duplicate an existing template with a new name.
@@ -314,23 +307,21 @@ async def duplicate_template(
                 raise HTTPException(status_code=404, detail=f"Template with ID '{template_id}' not found")
 
             # Check access permissions
-            if (original.created_by_user_id != current_user.id and
-                not original.is_public and
-                not original.is_system_template):
+            if (
+                original.created_by_user_id != current_user.id
+                and not original.is_public
+                and not original.is_system_template
+            ):
                 raise HTTPException(status_code=403, detail="Access denied to this template")
 
             # Duplicate template
             duplicated = repo.duplicate_template(session, template_id, new_name, current_user.id)
 
             # Add names to activity context
-            request.state.activity_context = {
-                "original_name": original.name,
-                "new_name": duplicated.name
-            }
+            request.state.activity_context = {"original_name": original.name, "new_name": duplicated.name}
 
             return BaseRouter.build_success_response(
-                data=LabelTemplateResponse.model_validate(duplicated),
-                message=f"Template duplicated as '{new_name}'"
+                data=LabelTemplateResponse.model_validate(duplicated), message=f"Template duplicated as '{new_name}'"
             )
 
     except HTTPException:
@@ -344,6 +335,7 @@ async def duplicate_template(
 
 # Template Search and Filtering
 
+
 @router.get("/search/", response_model=ResponseSchema[TemplateListResponse])
 @standard_error_handling
 async def search_templates(
@@ -353,7 +345,7 @@ async def search_templates(
     label_height_min: Optional[float] = Query(None, description="Minimum label height in mm"),
     label_height_max: Optional[float] = Query(None, description="Maximum label height in mm"),
     include_public: bool = Query(True, description="Include public templates"),
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    current_user: UserModel = Depends(require_permission("label_templates:create")),
 ) -> ResponseSchema[TemplateListResponse]:
     """
     Search templates with advanced filtering options.
@@ -373,19 +365,14 @@ async def search_templates(
                 layout_type=layout_type,
                 user_id=current_user.id,
                 include_public=include_public,
-                label_size_range=label_size_range
+                label_size_range=label_size_range,
             )
 
-            template_responses = [
-                LabelTemplateResponse.model_validate(template) for template in templates
-            ]
+            template_responses = [LabelTemplateResponse.model_validate(template) for template in templates]
 
             return BaseRouter.build_success_response(
-                data=TemplateListResponse(
-                    templates=template_responses,
-                    total_count=len(template_responses)
-                ),
-                message=f"Found {len(templates)} templates matching search criteria"
+                data=TemplateListResponse(templates=template_responses, total_count=len(template_responses)),
+                message=f"Found {len(templates)} templates matching search criteria",
             )
 
     except Exception as e:
@@ -398,7 +385,7 @@ async def search_templates(
 async def get_compatible_templates(
     label_height_mm: float,
     label_width_mm: Optional[float] = Query(None, description="Label width in mm"),
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    current_user: UserModel = Depends(require_permission("label_templates:create")),
 ) -> ResponseSchema[TemplateListResponse]:
     """
     Get templates compatible with specific label dimensions.
@@ -408,21 +395,14 @@ async def get_compatible_templates(
             repo = LabelTemplateRepository()
 
             templates = repo.get_compatible_templates(
-                session=session,
-                label_height_mm=label_height_mm,
-                label_width_mm=label_width_mm
+                session=session, label_height_mm=label_height_mm, label_width_mm=label_width_mm
             )
 
-            template_responses = [
-                LabelTemplateResponse.model_validate(template) for template in templates
-            ]
+            template_responses = [LabelTemplateResponse.model_validate(template) for template in templates]
 
             return BaseRouter.build_success_response(
-                data=TemplateListResponse(
-                    templates=template_responses,
-                    total_count=len(template_responses)
-                ),
-                message=f"Found {len(templates)} compatible templates"
+                data=TemplateListResponse(templates=template_responses, total_count=len(template_responses)),
+                message=f"Found {len(templates)} compatible templates",
             )
 
     except Exception as e:
@@ -432,6 +412,7 @@ async def get_compatible_templates(
 
 # Template Categories and Information
 
+
 @router.get("/categories/", response_model=ResponseSchema[List[str]])
 @standard_error_handling
 async def get_template_categories() -> ResponseSchema[List[str]]:
@@ -439,16 +420,13 @@ async def get_template_categories() -> ResponseSchema[List[str]]:
     Get list of all template categories.
     """
     categories = [category.value for category in TemplateCategory]
-    return BaseRouter.build_success_response(
-        data=categories,
-        message="Template categories retrieved successfully"
-    )
+    return BaseRouter.build_success_response(data=categories, message="Template categories retrieved successfully")
 
 
 @router.get("/stats/summary", response_model=ResponseSchema[TemplateStatsResponse])
 @standard_error_handling
 async def get_template_statistics(
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    current_user: UserModel = Depends(require_permission("label_templates:create")),
 ) -> ResponseSchema[TemplateStatsResponse]:
     """
     Get template system statistics.
@@ -459,8 +437,7 @@ async def get_template_statistics(
             stats = repo.get_template_statistics(session)
 
             return BaseRouter.build_success_response(
-                data=TemplateStatsResponse(**stats),
-                message="Template statistics retrieved successfully"
+                data=TemplateStatsResponse(**stats), message="Template statistics retrieved successfully"
             )
 
     except Exception as e:
@@ -470,21 +447,18 @@ async def get_template_statistics(
 
 # Template Validation
 
+
 @router.post("/validate", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
 async def validate_template(
-    template_data: LabelTemplateCreate,
-    current_user: UserModel = Depends(require_permission("label_templates:read"))
+    template_data: LabelTemplateCreate, current_user: UserModel = Depends(require_permission("label_templates:read"))
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Validate template configuration without saving.
     """
     try:
         # Create temporary template for validation
-        temp_template = LabelTemplateModel(
-            **template_data.model_dump(),
-            created_by_user_id=current_user.id
-        )
+        temp_template = LabelTemplateModel(**template_data.model_dump(), created_by_user_id=current_user.id)
 
         # Run validation
         errors = temp_template.validate_template()
@@ -492,13 +466,10 @@ async def validate_template(
         validation_result = {
             "is_valid": len(errors) == 0,
             "errors": errors,
-            "warnings": []  # Could add warnings in the future
+            "warnings": [],  # Could add warnings in the future
         }
 
-        return BaseRouter.build_success_response(
-            data=validation_result,
-            message="Template validation completed"
-        )
+        return BaseRouter.build_success_response(data=validation_result, message="Template validation completed")
 
     except Exception as e:
         logger.error(f"Error validating template: {str(e)}")
@@ -507,11 +478,12 @@ async def validate_template(
 
 # Template Preview
 
+
 @router.post("/preview", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
 async def preview_template(
     preview_request: TemplatePreviewRequest,
-    current_user: UserModel = Depends(require_permission("label_templates:create"))
+    current_user: UserModel = Depends(require_permission("label_templates:create")),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Generate a preview of a template with sample data.
@@ -532,9 +504,11 @@ async def preview_template(
                     raise HTTPException(status_code=404, detail="Template not found")
 
                 # Check access permissions
-                if (template.created_by_user_id != current_user.id and
-                    not template.is_public and
-                    not template.is_system_template):
+                if (
+                    template.created_by_user_id != current_user.id
+                    and not template.is_public
+                    and not template.is_system_template
+                ):
                     raise HTTPException(status_code=403, detail="Access denied to this template")
 
                 template_config = LabelTemplateResponse.model_validate(template)
@@ -552,15 +526,16 @@ async def preview_template(
         # TODO: Implement actual template processing and preview generation
         # For now, return template configuration and sample data
         preview_result = {
-            "template_config": template_config.model_dump() if hasattr(template_config, 'model_dump') else template_config,
+            "template_config": (
+                template_config.model_dump() if hasattr(template_config, "model_dump") else template_config
+            ),
             "sample_data": preview_request.sample_data,
             "preview_available": False,
-            "message": "Template preview generation will be implemented in Phase 6"
+            "message": "Template preview generation will be implemented in Phase 6",
         }
 
         return BaseRouter.build_success_response(
-            data=preview_result,
-            message="Template preview data prepared (processing not yet implemented)"
+            data=preview_result, message="Template preview data prepared (processing not yet implemented)"
         )
 
     except HTTPException:
@@ -568,5 +543,3 @@ async def preview_template(
     except Exception as e:
         logger.error(f"Error generating template preview: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
-
-

@@ -18,7 +18,7 @@ from MakerMatrix.models.tool_models import (
     ToolUpdate,
     ToolCheckout,
     ToolReturn,
-    ToolMaintenanceRecord
+    ToolMaintenanceRecord,
 )
 from MakerMatrix.models.category_models import CategoryModel
 from MakerMatrix.models.location_models import LocationModel
@@ -62,9 +62,7 @@ class ToolService(BaseService):
 
             with self.get_session() as session:
                 # Check for duplicate tool name
-                existing_tool = session.exec(
-                    select(ToolModel).where(ToolModel.tool_name == tool_name)
-                ).first()
+                existing_tool = session.exec(select(ToolModel).where(ToolModel.tool_name == tool_name)).first()
 
                 if existing_tool:
                     return self.error_response(f"Tool with name '{tool_name}' already exists")
@@ -73,9 +71,7 @@ class ToolService(BaseService):
                 category_ids = tool_data.pop("category_ids", [])
                 categories = []
                 if category_ids:
-                    categories = session.exec(
-                        select(CategoryModel).where(CategoryModel.id.in_(category_ids))
-                    ).all()
+                    categories = session.exec(select(CategoryModel).where(CategoryModel.id.in_(category_ids))).all()
                     self.logger.info(f"Assigned {len(categories)} categories to tool '{tool_name}'")
 
                 # Extract allocation data
@@ -96,7 +92,7 @@ class ToolService(BaseService):
                         location_id=location_id,
                         quantity_at_location=quantity,
                         is_primary_storage=True,
-                        notes="Initial allocation from tool creation"
+                        notes="Initial allocation from tool creation",
                     )
                     session.add(allocation)
 
@@ -133,9 +129,7 @@ class ToolService(BaseService):
             self.log_operation("get", self.entity_name, tool_name)
 
             with self.get_session() as session:
-                tool = session.exec(
-                    select(ToolModel).where(ToolModel.tool_name == tool_name)
-                ).first()
+                tool = session.exec(select(ToolModel).where(ToolModel.tool_name == tool_name)).first()
 
                 if not tool:
                     return self.error_response(f"{self.entity_name} with name '{tool_name}' not found")
@@ -156,16 +150,14 @@ class ToolService(BaseService):
 
                 # Get paginated results
                 offset = (page - 1) * page_size
-                tools = session.exec(
-                    select(ToolModel).offset(offset).limit(page_size)
-                ).all()
+                tools = session.exec(select(ToolModel).offset(offset).limit(page_size)).all()
 
                 tools_data = {
                     "tools": [tool.to_dict() for tool in tools],
                     "total": total,
                     "page": page,
                     "page_size": page_size,
-                    "total_pages": (total + page_size - 1) // page_size
+                    "total_pages": (total + page_size - 1) // page_size,
                 }
 
                 return self.success_response(f"Retrieved {len(tools)} tools", tools_data)
@@ -204,7 +196,7 @@ class ToolService(BaseService):
                             ToolModel.tool_name.ilike(f"%{search_term}%"),
                             ToolModel.description.ilike(f"%{search_term}%"),
                             ToolModel.manufacturer.ilike(f"%{search_term}%"),
-                            ToolModel.model_number.ilike(f"%{search_term}%")
+                            ToolModel.model_number.ilike(f"%{search_term}%"),
                         )
                     )
 
@@ -228,14 +220,12 @@ class ToolService(BaseService):
                 if search_params.get("is_available"):
                     query = query.where(
                         ToolModel.is_checked_out == False,
-                        ToolModel.condition.not_in(['needs_repair', 'out_of_service'])
+                        ToolModel.condition.not_in(["needs_repair", "out_of_service"]),
                     )
 
                 # Filter tools needing maintenance
                 if search_params.get("needs_maintenance"):
-                    query = query.where(
-                        ToolModel.next_maintenance_date <= datetime.utcnow()
-                    )
+                    query = query.where(ToolModel.next_maintenance_date <= datetime.utcnow())
 
                 # Get total count before pagination
                 count_query = select(func.count()).select_from(query.subquery())
@@ -265,7 +255,7 @@ class ToolService(BaseService):
                     "total": total,
                     "page": page,
                     "page_size": page_size,
-                    "total_pages": (total + page_size - 1) // page_size
+                    "total_pages": (total + page_size - 1) // page_size,
                 }
 
                 return self.success_response(f"Found {total} tools", result_data)
@@ -288,9 +278,7 @@ class ToolService(BaseService):
                 # Handle category updates
                 category_ids = tool_update.pop("category_ids", None)
                 if category_ids is not None:
-                    categories = session.exec(
-                        select(CategoryModel).where(CategoryModel.id.in_(category_ids))
-                    ).all()
+                    categories = session.exec(select(CategoryModel).where(CategoryModel.id.in_(category_ids))).all()
                     tool.categories = list(categories)
 
                 # Update other fields
@@ -432,7 +420,9 @@ class ToolService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"record maintenance for {self.entity_name}")
 
-    def create_maintenance_record(self, tool_id: str, maintenance_data: Dict[str, Any]) -> ServiceResponse[Dict[str, Any]]:
+    def create_maintenance_record(
+        self, tool_id: str, maintenance_data: Dict[str, Any]
+    ) -> ServiceResponse[Dict[str, Any]]:
         """Create a new maintenance record for a tool"""
         try:
             self.log_operation("create_maintenance_record", self.entity_name, tool_id)
@@ -444,10 +434,7 @@ class ToolService(BaseService):
                     return self.error_response(f"{self.entity_name} with ID '{tool_id}' not found")
 
                 # Create maintenance record
-                record = ToolMaintenanceRecord(
-                    tool_id=tool_id,
-                    **maintenance_data
-                )
+                record = ToolMaintenanceRecord(tool_id=tool_id, **maintenance_data)
 
                 session.add(record)
 
@@ -492,7 +479,9 @@ class ToolService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"get maintenance records for {self.entity_name}")
 
-    def update_maintenance_record(self, tool_id: str, record_id: str, update_data: Dict[str, Any]) -> ServiceResponse[Dict[str, Any]]:
+    def update_maintenance_record(
+        self, tool_id: str, record_id: str, update_data: Dict[str, Any]
+    ) -> ServiceResponse[Dict[str, Any]]:
         """Update an existing maintenance record"""
         try:
             self.log_operation("update_maintenance_record", self.entity_name, f"{tool_id}/{record_id}")
@@ -588,23 +577,23 @@ class ToolService(BaseService):
                 ).one()
 
                 available_count = session.exec(
-                    select(func.count()).select_from(ToolModel).where(
+                    select(func.count())
+                    .select_from(ToolModel)
+                    .where(
                         ToolModel.is_checked_out == False,
-                        ToolModel.condition.not_in(['needs_repair', 'out_of_service'])
+                        ToolModel.condition.not_in(["needs_repair", "out_of_service"]),
                     )
                 ).one()
 
                 # Get maintenance needs
                 needs_maintenance_count = session.exec(
-                    select(func.count()).select_from(ToolModel).where(
-                        ToolModel.next_maintenance_date <= datetime.utcnow()
-                    )
+                    select(func.count())
+                    .select_from(ToolModel)
+                    .where(ToolModel.next_maintenance_date <= datetime.utcnow())
                 ).one()
 
                 # Calculate total value
-                total_value_result = session.exec(
-                    select(func.sum(ToolModel.purchase_price))
-                ).one()
+                total_value_result = session.exec(select(func.sum(ToolModel.purchase_price))).one()
                 total_value = float(total_value_result or 0)
 
                 stats = {

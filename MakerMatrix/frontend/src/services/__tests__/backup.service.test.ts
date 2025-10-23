@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { BackupService, backupService } from '../backup.service'
+import { backupService } from '../backup.service'
 import { apiClient } from '../api'
 import type { BackupConfig, BackupInfo } from '@/types/backup'
 
@@ -38,7 +38,7 @@ describe('BackupService', () => {
     last_backup_at: '2025-01-01T00:00:00Z',
     next_backup_at: '2025-01-02T02:00:00Z',
     encryption_required: true,
-    encryption_password: null,  // Never sent from backend
+    encryption_password: null, // Never sent from backend
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
   }
@@ -183,15 +183,11 @@ describe('BackupService', () => {
 
       const result = await backupService.createBackup(backupRequest)
 
-      expect(mockApiClient.post).toHaveBeenCalledWith(
-        '/api/backup/create',
-        expect.any(FormData),
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      )
+      expect(mockApiClient.post).toHaveBeenCalledWith('/api/backup/create', expect.any(FormData), {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
 
       // Verify FormData contains password
       const formData = mockApiClient.post.mock.calls[0][1] as FormData
@@ -288,18 +284,17 @@ describe('BackupService', () => {
         remove: vi.fn(),
       }
       const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any)
-      const appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any)
+      const appendChildSpy = vi
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation(() => mockLink as any)
 
       await backupService.downloadBackup('test_backup.zip')
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/backup/download/test_backup.zip',
-        {
-          headers: {
-            Authorization: 'Bearer mock-auth-token',
-          },
-        }
-      )
+      expect(mockFetch).toHaveBeenCalledWith('/api/backup/download/test_backup.zip', {
+        headers: {
+          Authorization: 'Bearer mock-auth-token',
+        },
+      })
 
       expect(createObjectURLMock).toHaveBeenCalledWith(mockBlob)
       expect(mockLink.click).toHaveBeenCalled()

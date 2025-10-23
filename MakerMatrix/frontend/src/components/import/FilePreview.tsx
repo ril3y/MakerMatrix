@@ -35,7 +35,10 @@ const FilePreview: React.FC<FilePreviewProps> = ({ showPreview, previewData }) =
                 <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                   <tr>
                     {(previewData.headers || []).map((header, index) => (
-                      <th key={index} className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                      <th
+                        key={index}
+                        className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider"
+                      >
                         {header}
                       </th>
                     ))}
@@ -43,7 +46,10 @@ const FilePreview: React.FC<FilePreviewProps> = ({ showPreview, previewData }) =
                 </thead>
                 <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
                   {(previewData.preview_rows || []).slice(0, 5).map((row, index) => (
-                    <tr key={index} className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200">
+                    <tr
+                      key={index}
+                      className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
+                    >
                       {(previewData.headers || []).map((header, colIndex) => (
                         <td key={colIndex} className="px-4 py-3 text-primary">
                           {row[header] || '-'}
@@ -64,16 +70,29 @@ const FilePreview: React.FC<FilePreviewProps> = ({ showPreview, previewData }) =
                 <table className="table w-full">
                   <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Part Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Part Number</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Quantity</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Supplier</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                        Part Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                        Part Number
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                        Quantity
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                        Supplier
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                        Description
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
                     {previewData.parsed_preview.slice(0, 5).map((part, index) => (
-                      <tr key={index} className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200">
+                      <tr
+                        key={index}
+                        className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
+                      >
                         <td className="px-4 py-3 text-primary">{part.name}</td>
                         <td className="px-4 py-3 text-primary">{part.part_number}</td>
                         <td className="px-4 py-3 text-primary">{part.quantity}</td>

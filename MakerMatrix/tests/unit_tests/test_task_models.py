@@ -2,22 +2,23 @@ import pytest
 import json
 from datetime import datetime, timedelta
 from MakerMatrix.models.task_models import (
-    TaskModel, TaskStatus, TaskPriority, TaskType,
-    CreateTaskRequest, UpdateTaskRequest, TaskFilterRequest
+    TaskModel,
+    TaskStatus,
+    TaskPriority,
+    TaskType,
+    CreateTaskRequest,
+    UpdateTaskRequest,
+    TaskFilterRequest,
 )
 
 
 class TestTaskModel:
     """Test the TaskModel class"""
-    
+
     def test_task_creation(self):
         """Test basic task creation"""
-        task = TaskModel(
-            task_type=TaskType.CSV_ENRICHMENT,
-            name="Test Task",
-            description="A test task"
-        )
-        
+        task = TaskModel(task_type=TaskType.CSV_ENRICHMENT, name="Test Task", description="A test task")
+
         assert task.task_type == TaskType.CSV_ENRICHMENT
         assert task.name == "Test Task"
         assert task.description == "A test task"
@@ -27,112 +28,88 @@ class TestTaskModel:
         assert task.retry_count == 0
         assert task.max_retries == 3
         assert task.id is not None  # UUID should be generated
-    
+
     def test_input_data_handling(self):
         """Test input data JSON serialization"""
-        task = TaskModel(
-            task_type=TaskType.PRICE_UPDATE,
-            name="Price Update"
-        )
-        
-        test_data = {
-            "parts": [1, 2, 3],
-            "source": "test_api",
-            "settings": {"timeout": 30}
-        }
-        
+        task = TaskModel(task_type=TaskType.PRICE_UPDATE, name="Price Update")
+
+        test_data = {"parts": [1, 2, 3], "source": "test_api", "settings": {"timeout": 30}}
+
         task.set_input_data(test_data)
         assert task.input_data is not None
         assert task.get_input_data() == test_data
-        
+
         # Test with None
         task.set_input_data(None)
         assert task.input_data is None
         assert task.get_input_data() == {}
-    
+
     def test_result_data_handling(self):
         """Test result data JSON serialization"""
-        task = TaskModel(
-            task_type=TaskType.DATABASE_CLEANUP,
-            name="DB Cleanup"
-        )
-        
-        result_data = {
-            "records_deleted": 150,
-            "space_freed": "50MB",
-            "duration": 45.2
-        }
-        
+        task = TaskModel(task_type=TaskType.DATABASE_CLEANUP, name="DB Cleanup")
+
+        result_data = {"records_deleted": 150, "space_freed": "50MB", "duration": 45.2}
+
         task.set_result_data(result_data)
         assert task.result_data is not None
         assert task.get_result_data() == result_data
-    
+
     def test_dependencies_handling(self):
         """Test task dependencies"""
-        task = TaskModel(
-            task_type=TaskType.DATA_SYNC,
-            name="Data Sync"
-        )
-        
+        task = TaskModel(task_type=TaskType.DATA_SYNC, name="Data Sync")
+
         dep_tasks = ["task-1", "task-2", "task-3"]
         task.set_depends_on(dep_tasks)
         assert task.depends_on_task_ids is not None
         assert task.get_depends_on() == dep_tasks
-        
+
         # Test with empty list
         task.set_depends_on([])
         assert task.depends_on_task_ids is None
         assert task.get_depends_on() == []
-    
+
     def test_is_ready_to_run(self):
         """Test ready-to-run logic"""
-        task = TaskModel(
-            task_type=TaskType.FILE_DOWNLOAD,
-            name="Download Files"
-        )
-        
+        task = TaskModel(task_type=TaskType.FILE_DOWNLOAD, name="Download Files")
+
         # Pending task should be ready
         assert task.is_ready_to_run() is True
-        
+
         # Running task should not be ready
         task.status = TaskStatus.RUNNING
         assert task.is_ready_to_run() is False
-        
+
         # Completed task should not be ready
         task.status = TaskStatus.COMPLETED
         assert task.is_ready_to_run() is False
-        
+
         # Scheduled future task should not be ready
         task.status = TaskStatus.PENDING
         task.scheduled_at = datetime.utcnow() + timedelta(hours=1)
         assert task.is_ready_to_run() is False
-        
+
         # Scheduled past task should be ready
         task.scheduled_at = datetime.utcnow() - timedelta(minutes=1)
         assert task.is_ready_to_run() is True
-    
+
     def test_can_retry(self):
         """Test retry logic"""
-        task = TaskModel(
-            task_type=TaskType.PART_VALIDATION,
-            name="Validate Parts",
-            max_retries=3
-        )
-        
+        task = TaskModel(task_type=TaskType.PART_VALIDATION, name="Validate Parts", max_retries=3)
+
         # Failed task with retries available
         task.status = TaskStatus.FAILED
         task.retry_count = 1
         assert task.can_retry() is True
-        
+
         # Failed task with no retries left
         task.retry_count = 3
         assert task.can_retry() is False
-        
+
         # Completed task should not retry
         task.status = TaskStatus.COMPLETED
         task.retry_count = 0
         assert task.can_retry() is False
-    
+
     def test_to_dict(self):
         """Test dictionary conversion"""
         task = TaskModel(
@@ -142,16 +119,16 @@ class TestTaskModel:
             priority=TaskPriority.HIGH,
             created_by_user_id="user-123",
             related_entity_type="inventory",
-            related_entity_id="inv-456"
+            related_entity_id="inv-456",
         )
-        
+
         test_input = {"check_level": "full"}
         test_result = {"items_checked": 500}
         task.set_input_data(test_input)
         task.set_result_data(test_result)
-        
+
         result_dict = task.to_dict()
-        
+
         assert result_dict["id"] == task.id
         assert result_dict["task_type"] == TaskType.INVENTORY_AUDIT
         assert result_dict["name"] == "Inventory Audit"
@@ -166,7 +143,7 @@ class TestTaskModel:
 
 class TestTaskRequestModels:
     """Test task request models"""
-    
+
     def test_create_task_request(self):
         """Test CreateTaskRequest model"""
         request = CreateTaskRequest(
@@ -178,16 +155,16 @@ class TestTaskRequestModels:
             max_retries=5,
             timeout_seconds=600,
             related_entity_type="csv_import",
-            related_entity_id="import-123"
+            related_entity_id="import-123",
         )
-        
+
         assert request.task_type == TaskType.CSV_ENRICHMENT
         assert request.name == "Enrich CSV Data"
         assert request.priority == TaskPriority.HIGH
         assert request.input_data == {"parts_count": 100}
         assert request.max_retries == 5
         assert request.timeout_seconds == 600
-    
+
     def test_update_task_request(self):
         """Test UpdateTaskRequest model"""
         request = UpdateTaskRequest(
@@ -195,15 +172,15 @@ class TestTaskRequestModels:
             progress_percentage=75,
             current_step="Processing step 3 of 4",
             result_data={"processed": 75},
-            error_message=None
+            error_message=None,
         )
-        
+
         assert request.status == TaskStatus.RUNNING
         assert request.progress_percentage == 75
         assert request.current_step == "Processing step 3 of 4"
         assert request.result_data == {"processed": 75}
         assert request.error_message is None
-    
+
     def test_task_filter_request(self):
         """Test TaskFilterRequest model"""
         request = TaskFilterRequest(
@@ -214,9 +191,9 @@ class TestTaskRequestModels:
             limit=25,
             offset=50,
             order_by="priority",
-            order_desc=True
+            order_desc=True,
         )
-        
+
         assert request.status == [TaskStatus.PENDING, TaskStatus.RUNNING]
         assert request.task_type == [TaskType.CSV_ENRICHMENT]
         assert request.priority == [TaskPriority.HIGH, TaskPriority.URGENT]
@@ -225,11 +202,11 @@ class TestTaskRequestModels:
         assert request.offset == 50
         assert request.order_by == "priority"
         assert request.order_desc is True
-    
+
     def test_task_filter_defaults(self):
         """Test TaskFilterRequest default values"""
         request = TaskFilterRequest()
-        
+
         assert request.status is None
         assert request.task_type is None
         assert request.priority is None
@@ -241,7 +218,7 @@ class TestTaskRequestModels:
 
 class TestTaskEnums:
     """Test task enumerations"""
-    
+
     def test_task_status_enum(self):
         """Test TaskStatus enum values"""
         assert TaskStatus.PENDING == "pending"
@@ -250,14 +227,14 @@ class TestTaskEnums:
         assert TaskStatus.FAILED == "failed"
         assert TaskStatus.CANCELLED == "cancelled"
         assert TaskStatus.RETRY == "retry"
-    
+
     def test_task_priority_enum(self):
         """Test TaskPriority enum values"""
         assert TaskPriority.LOW == "low"
         assert TaskPriority.NORMAL == "normal"
         assert TaskPriority.HIGH == "high"
         assert TaskPriority.URGENT == "urgent"
-    
+
     def test_task_type_enum(self):
         """Test TaskType enum values"""
         assert TaskType.CSV_ENRICHMENT == "csv_enrichment"

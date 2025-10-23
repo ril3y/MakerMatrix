@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Save, Wrench, Plus, X, MapPin, Tag, Calendar, DollarSign } from 'lucide-react'
+import { Save, Plus, X, Tag, DollarSign } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import FormField from '@/components/ui/FormField'
 import ImageUpload from '@/components/ui/ImageUpload'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import LocationTreeSelector from '@/components/ui/LocationTreeSelector'
-import { TooltipIcon } from '@/components/ui/Tooltip'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import TagInput from '@/components/tags/TagInput'
@@ -87,7 +86,10 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           condition: editingTool.condition,
           is_checkable: editingTool.is_checkable,
           location_id: editingTool.location_id || '',
-          category_ids: editingTool.categories && editingTool.categories.length > 0 ? editingTool.categories.map(c => c.id) : [],
+          category_ids:
+            editingTool.categories && editingTool.categories.length > 0
+              ? editingTool.categories.map((c) => c.id)
+              : [],
           image_url: editingTool.image_url || '',
           additional_properties: editingTool.additional_properties || {},
         })
@@ -167,21 +169,22 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         // The data is generic - we just map fields differently
         const enrichedData = await partsService.enrichFromSupplier(
           supplierLower,
-          url  // Pass full URL for enrichment
+          url // Pass full URL for enrichment
         )
 
         if (enrichedData) {
           // Map part fields to tool fields
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             tool_name: enrichedData.part_name || prev.tool_name,
             description: enrichedData.description || prev.description,
             manufacturer: enrichedData.manufacturer || prev.manufacturer,
             model_number: enrichedData.manufacturer_part_number || prev.model_number,
             supplier_part_number: enrichedData.supplier_part_number || prev.supplier_part_number,
-            product_url: url,  // Keep the full URL
+            product_url: url, // Keep the full URL
             // Auto-populate purchase price from unit_price if available
-            purchase_price: enrichedData.unit_price !== undefined ? enrichedData.unit_price : prev.purchase_price,
+            purchase_price:
+              enrichedData.unit_price !== undefined ? enrichedData.unit_price : prev.purchase_price,
           }))
 
           // Set image if available
@@ -190,10 +193,13 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           }
 
           // Set custom properties from enriched specifications
-          if (enrichedData.additional_properties && Object.keys(enrichedData.additional_properties).length > 0) {
+          if (
+            enrichedData.additional_properties &&
+            Object.keys(enrichedData.additional_properties).length > 0
+          ) {
             const customProps = Object.entries(enrichedData.additional_properties)
               .filter(([key]) => !['last_enrichment_date', 'enrichment_source'].includes(key))
-              .slice(0, 10)  // Limit to first 10 specs
+              .slice(0, 10) // Limit to first 10 specs
               .map(([key, value]) => ({
                 key,
                 value: String(value),
@@ -277,7 +283,10 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         model_number: formData.model_number || undefined,
         product_url: formData.product_url || undefined,
         location_id: formData.location_id || undefined,
-        category_ids: formData.category_ids && formData.category_ids.length > 0 ? formData.category_ids : undefined,
+        category_ids:
+          formData.category_ids && formData.category_ids.length > 0
+            ? formData.category_ids
+            : undefined,
       }
 
       let toolId: string
@@ -298,17 +307,17 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         try {
           // First get existing tags to compare
           const existingTags = editingTool ? await tagsService.getToolTags(toolId) : []
-          const existingTagIds = existingTags.map(t => t.id)
-          const selectedTagIds = selectedTags.map(t => t.id)
+          const existingTagIds = existingTags.map((t) => t.id)
+          const selectedTagIds = selectedTags.map((t) => t.id)
 
           // Remove tags that were deselected
-          const tagsToRemove = existingTagIds.filter(id => !selectedTagIds.includes(id))
+          const tagsToRemove = existingTagIds.filter((id) => !selectedTagIds.includes(id))
           for (const tagId of tagsToRemove) {
             await tagsService.removeTagFromTool(tagId, toolId)
           }
 
           // Add new tags
-          const tagsToAdd = selectedTagIds.filter(id => !existingTagIds.includes(id))
+          const tagsToAdd = selectedTagIds.filter((id) => !existingTagIds.includes(id))
           for (const tagId of tagsToAdd) {
             await tagsService.assignTagToTool(tagId, toolId)
           }
@@ -472,7 +481,9 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
               <select
                 className="input w-full"
                 value={formData.condition}
-                onChange={(e) => setFormData({ ...formData, condition: e.target.value as ToolCondition })}
+                onChange={(e) =>
+                  setFormData({ ...formData, condition: e.target.value as ToolCondition })
+                }
               >
                 {conditionOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -543,10 +554,12 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
                   min="0"
                   className="input w-full"
                   value={formData.purchase_price || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    purchase_price: e.target.value ? parseFloat(e.target.value) : undefined
-                  })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      purchase_price: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
                   placeholder="0.00"
                 />
               </div>
@@ -669,7 +682,8 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
                 <Tag className="w-4 h-4 text-primary" />
                 <label className="text-sm font-medium text-primary">Additional Properties</label>
                 <span className="text-xs text-theme-muted">
-                  ({customProperties.length} {customProperties.length === 1 ? 'property' : 'properties'})
+                  ({customProperties.length}{' '}
+                  {customProperties.length === 1 ? 'property' : 'properties'})
                 </span>
               </div>
               <button

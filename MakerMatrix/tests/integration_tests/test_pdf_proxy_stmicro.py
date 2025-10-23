@@ -2,6 +2,7 @@
 Integration test for PDF proxy with manufacturer datasheets.
 Tests the fix for 403 Forbidden error when viewing DigiKey/Mouser datasheets hosted on manufacturer domains.
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, Mock
@@ -37,10 +38,10 @@ class TestManufacturerPDFProxy:
 
         # Mock successful response
         mock_pdf_content = b"%PDF-1.4\ntest content"
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_response = Mock()
             mock_response.status_code = 200
-            mock_response.headers = {'content-type': 'application/pdf'}
+            mock_response.headers = {"content-type": "application/pdf"}
             mock_response.iter_bytes.return_value = [mock_pdf_content]
 
             mock_client_instance = Mock()
@@ -58,10 +59,10 @@ class TestManufacturerPDFProxy:
         test_url = "https://www.ti.com/lit/ds/symlink/lm358.pdf"
 
         mock_pdf_content = b"%PDF-1.4\ntest content"
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_response = Mock()
             mock_response.status_code = 200
-            mock_response.headers = {'content-type': 'application/pdf'}
+            mock_response.headers = {"content-type": "application/pdf"}
             mock_response.iter_bytes.return_value = [mock_pdf_content]
 
             mock_client_instance = Mock()
@@ -104,10 +105,10 @@ class TestManufacturerPDFProxy:
         for domain in manufacturer_domains:
             test_url = f"https://www.{domain}/datasheet.pdf"
 
-            with patch('httpx.AsyncClient') as mock_client:
+            with patch("httpx.AsyncClient") as mock_client:
                 mock_response = Mock()
                 mock_response.status_code = 200
-                mock_response.headers = {'content-type': 'application/pdf'}
+                mock_response.headers = {"content-type": "application/pdf"}
                 mock_response.iter_bytes.return_value = [mock_pdf_content]
 
                 mock_client_instance = Mock()

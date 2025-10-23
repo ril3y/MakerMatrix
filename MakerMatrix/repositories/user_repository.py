@@ -9,10 +9,11 @@ from MakerMatrix.models.user_models import UserModel, RoleModel
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError,
     UserAlreadyExistsError,
-    InvalidReferenceError
+    InvalidReferenceError,
 )
 
 pwd_context = pbkdf2_sha256
+
 
 class UserRepository:
     def __init__(self):
@@ -22,43 +23,33 @@ class UserRepository:
         with Session(self.engine) as session:
             # Check if username or email already exists
             existing_user = session.exec(
-                select(UserModel).where(
-                    (UserModel.username == username) | (UserModel.email == email)
-                )
+                select(UserModel).where((UserModel.username == username) | (UserModel.email == email))
             ).first()
             if existing_user:
                 if existing_user.username == username:
                     raise UserAlreadyExistsError(
                         status="error",
                         message=f"Username '{username}' already exists",
-                        data={"field": "username", "value": username}
+                        data={"field": "username", "value": username},
                     )
                 else:
                     raise UserAlreadyExistsError(
                         status="error",
                         message=f"Email '{email}' already exists",
-                        data={"field": "email", "value": email}
+                        data={"field": "email", "value": email},
                     )
 
             # Create new user
-            user = UserModel(
-                username=username,
-                email=email,
-                hashed_password=hashed_password
-            )
+            user = UserModel(username=username, email=email, hashed_password=hashed_password)
 
             # Add roles if provided
             if roles:
                 role_models = []
                 for role_name in roles:
-                    role = session.exec(
-                        select(RoleModel).where(RoleModel.name == role_name)
-                    ).first()
+                    role = session.exec(select(RoleModel).where(RoleModel.name == role_name)).first()
                     if not role:
                         raise InvalidReferenceError(
-                            status="error",
-                            message=f"Role '{role_name}' not found",
-                            data={"role_name": role_name}
+                            status="error", message=f"Role '{role_name}' not found", data={"role_name": role_name}
                         )
                     role_models.append(role)
                 user.roles = role_models
@@ -66,7 +57,7 @@ class UserRepository:
             session.add(user)
             session.commit()
             session.refresh(user)
-            
+
             # Create a dictionary of the user data while the session is still open
             user_dict = {
                 "id": user.id,
@@ -76,13 +67,16 @@ class UserRepository:
                 "password_change_required": user.password_change_required,
                 "created_at": user.created_at.isoformat(),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
-                "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
+                "roles": [
+                    {"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions}
+                    for role in user.roles
+                ],
             }
-            
+
             # Create a new detached instance with the loaded data
             detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
             detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
-            
+
             return detached_user
 
     def get_user_by_id(self, user_id: str) -> UserModel:
@@ -90,12 +84,8 @@ class UserRepository:
             statement = select(UserModel).options(joinedload(UserModel.roles)).where(UserModel.id == user_id)
             user = session.exec(statement).first()
             if not user:
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"User with ID '{user_id}' not found",
-                    data=None
-                )
-            
+                raise ResourceNotFoundError(status="error", message=f"User with ID '{user_id}' not found", data=None)
+
             # Create a dictionary of the user data while the session is still open
             user_dict = {
                 "id": user.id,
@@ -103,16 +93,27 @@ class UserRepository:
                 "email": user.email,
                 "is_active": user.is_active,
                 "password_change_required": user.password_change_required,
-                "created_at": datetime.fromisoformat(user.created_at.isoformat()) if isinstance(user.created_at, datetime) else datetime.fromisoformat(user.created_at),
-                "last_login": datetime.fromisoformat(user.last_login.isoformat()) if user.last_login and isinstance(user.last_login, datetime) else user.last_login,
+                "created_at": (
+                    datetime.fromisoformat(user.created_at.isoformat())
+                    if isinstance(user.created_at, datetime)
+                    else datetime.fromisoformat(user.created_at)
+                ),
+                "last_login": (
+                    datetime.fromisoformat(user.last_login.isoformat())
+                    if user.last_login and isinstance(user.last_login, datetime)
+                    else user.last_login
+                ),
                 "hashed_password": user.hashed_password,
-                "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
+                "roles": [
+                    {"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions}
+                    for role in user.roles
+                ],
             }
-            
+
             # Create a new detached instance with the loaded data
             detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
             detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
-            
+
             return detached_user
 
     def get_user_by_username(self, username: str) -> UserModel:
@@ -122,11 +123,9 @@ class UserRepository:
                 user = session.exec(statement).first()
                 if not user:
                     raise ResourceNotFoundError(
-                        status="error",
-                        message=f"User with username '{username}' not found",
-                        data=None
+                        status="error", message=f"User with username '{username}' not found", data=None
                     )
-                
+
                 # Create a dictionary of the user data while the session is still open
                 user_dict = {
                     "id": user.id,
@@ -134,20 +133,37 @@ class UserRepository:
                     "email": user.email,
                     "is_active": user.is_active,
                     "password_change_required": user.password_change_required,
-                    "created_at": datetime.fromisoformat(user.created_at.isoformat()) if isinstance(user.created_at, datetime) else datetime.fromisoformat(user.created_at),
-                    "last_login": datetime.fromisoformat(user.last_login.isoformat()) if user.last_login and isinstance(user.last_login, datetime) else user.last_login,
+                    "created_at": (
+                        datetime.fromisoformat(user.created_at.isoformat())
+                        if isinstance(user.created_at, datetime)
+                        else datetime.fromisoformat(user.created_at)
+                    ),
+                    "last_login": (
+                        datetime.fromisoformat(user.last_login.isoformat())
+                        if user.last_login and isinstance(user.last_login, datetime)
+                        else user.last_login
+                    ),
                     "hashed_password": user.hashed_password,
-                    "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
+                    "roles": [
+                        {
+                            "id": role.id,
+                            "name": role.name,
+                            "description": role.description,
+                            "permissions": role.permissions,
+                        }
+                        for role in user.roles
+                    ],
                 }
-                
+
                 # Create a new detached instance with the loaded data
                 detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
                 detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
-                
+
                 return detached_user
         except Exception as e:
             # Log the database error and re-raise with more context
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"Database error in get_user_by_username: {e}")
             logger.error(f"Database URL: {self.engine.url}")
@@ -158,12 +174,8 @@ class UserRepository:
             statement = select(UserModel).options(joinedload(UserModel.roles)).where(UserModel.email == email)
             user = session.exec(statement).first()
             if not user:
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"User with email '{email}' not found",
-                    data=None
-                )
-            
+                raise ResourceNotFoundError(status="error", message=f"User with email '{email}' not found", data=None)
+
             # Create a dictionary of the user data while the session is still open
             user_dict = {
                 "id": user.id,
@@ -171,44 +183,54 @@ class UserRepository:
                 "email": user.email,
                 "is_active": user.is_active,
                 "password_change_required": user.password_change_required,
-                "created_at": datetime.fromisoformat(user.created_at.isoformat()) if isinstance(user.created_at, datetime) else datetime.fromisoformat(user.created_at),
-                "last_login": datetime.fromisoformat(user.last_login.isoformat()) if user.last_login and isinstance(user.last_login, datetime) else user.last_login,
+                "created_at": (
+                    datetime.fromisoformat(user.created_at.isoformat())
+                    if isinstance(user.created_at, datetime)
+                    else datetime.fromisoformat(user.created_at)
+                ),
+                "last_login": (
+                    datetime.fromisoformat(user.last_login.isoformat())
+                    if user.last_login and isinstance(user.last_login, datetime)
+                    else user.last_login
+                ),
                 "hashed_password": user.hashed_password,
-                "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
+                "roles": [
+                    {"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions}
+                    for role in user.roles
+                ],
             }
-            
+
             # Create a new detached instance with the loaded data
             detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
             detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
-            
+
             return detached_user
 
-    def update_user(self, user_id: str, email: Optional[str] = None, 
-                   is_active: Optional[bool] = None, roles: Optional[List[str]] = None,
-                   password_change_required: Optional[bool] = None,
-                   last_login: Optional[datetime] = None) -> Optional[UserModel]:
+    def update_user(
+        self,
+        user_id: str,
+        email: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        roles: Optional[List[str]] = None,
+        password_change_required: Optional[bool] = None,
+        last_login: Optional[datetime] = None,
+    ) -> Optional[UserModel]:
         with Session(self.engine) as session:
             statement = select(UserModel).options(joinedload(UserModel.roles)).where(UserModel.id == user_id)
             user = session.exec(statement).first()
             if not user:
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"User with ID '{user_id}' not found",
-                    data=None
-                )
+                raise ResourceNotFoundError(status="error", message=f"User with ID '{user_id}' not found", data=None)
 
             if email is not None:
                 # Check if email is already used by another user
                 existing_user = session.exec(
-                    select(UserModel).where(
-                        (UserModel.email == email) & (UserModel.id != user_id)
-                    )
+                    select(UserModel).where((UserModel.email == email) & (UserModel.id != user_id))
                 ).first()
                 if existing_user:
                     raise UserAlreadyExistsError(
                         status="error",
                         message=f"Email '{email}' already exists",
-                        data={"field": "email", "value": email}
+                        data={"field": "email", "value": email},
                     )
                 user.email = email
 
@@ -224,14 +246,10 @@ class UserRepository:
             if roles is not None:
                 role_models = []
                 for role_name in roles:
-                    role = session.exec(
-                        select(RoleModel).where(RoleModel.name == role_name)
-                    ).first()
+                    role = session.exec(select(RoleModel).where(RoleModel.name == role_name)).first()
                     if not role:
                         raise InvalidReferenceError(
-                            status="error",
-                            message=f"Role '{role_name}' not found",
-                            data={"role_name": role_name}
+                            status="error", message=f"Role '{role_name}' not found", data={"role_name": role_name}
                         )
                     role_models.append(role)
                 user.roles = role_models
@@ -239,7 +257,7 @@ class UserRepository:
             session.add(user)
             session.commit()
             session.refresh(user)
-            
+
             # Create a dictionary of the user data while the session is still open
             user_dict = {
                 "id": user.id,
@@ -249,13 +267,16 @@ class UserRepository:
                 "password_change_required": user.password_change_required,
                 "created_at": user.created_at.isoformat(),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
-                "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
+                "roles": [
+                    {"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions}
+                    for role in user.roles
+                ],
             }
-            
+
             # Create a new detached instance with the loaded data
             detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
             detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
-            
+
             return detached_user
 
     def update_password(self, user_id: str, new_hashed_password: str) -> Optional[UserModel]:
@@ -269,7 +290,7 @@ class UserRepository:
             session.add(user)
             session.commit()
             session.refresh(user)
-            
+
             # Create a dictionary of the user data while the session is still open
             user_dict = {
                 "id": user.id,
@@ -279,44 +300,38 @@ class UserRepository:
                 "password_change_required": user.password_change_required,
                 "created_at": user.created_at.isoformat(),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
-                "roles": [{"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions} for role in user.roles]
+                "roles": [
+                    {"id": role.id, "name": role.name, "description": role.description, "permissions": role.permissions}
+                    for role in user.roles
+                ],
             }
-            
+
             # Create a new detached instance with the loaded data
             detached_user = UserModel(**{k: v for k, v in user_dict.items() if k != "roles"})
             detached_user.roles = [RoleModel(**role_data) for role_data in user_dict["roles"]]
-            
+
             return detached_user
 
     def delete_user(self, user_id: str) -> bool:
         with Session(self.engine) as session:
             user = session.exec(select(UserModel).where(UserModel.id == user_id)).first()
             if not user:
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"User with ID '{user_id}' not found",
-                    data=None
-                )
+                raise ResourceNotFoundError(status="error", message=f"User with ID '{user_id}' not found", data=None)
 
             session.delete(user)
             session.commit()
             return True
 
-    def create_role(self, name: str, description: Optional[str] = None, 
-                   permissions: Optional[List[str]] = None) -> RoleModel:
+    def create_role(
+        self, name: str, description: Optional[str] = None, permissions: Optional[List[str]] = None
+    ) -> RoleModel:
         with Session(self.engine) as session:
             # Check if role name already exists
-            existing_role = session.exec(
-                select(RoleModel).where(RoleModel.name == name)
-            ).first()
+            existing_role = session.exec(select(RoleModel).where(RoleModel.name == name)).first()
             if existing_role:
                 raise RuntimeError(f"Role '{name}' already exists")
 
-            role = RoleModel(
-                name=name,
-                description=description,
-                permissions=permissions or []
-            )
+            role = RoleModel(name=name, description=description, permissions=permissions or [])
             session.add(role)
             session.commit()
             session.refresh(role)
@@ -331,19 +346,16 @@ class UserRepository:
         with Session(self.engine) as session:
             role = session.exec(select(RoleModel).where(RoleModel.name == name)).first()
             if not role:
-                raise ResourceNotFoundError(
-                    status="error",
-                    message=f"Role with name '{name}' not found",
-                    data=None
-                )
+                raise ResourceNotFoundError(status="error", message=f"Role with name '{name}' not found", data=None)
             return role
 
     def get_role_by_id(self, role_id: str) -> Optional[RoleModel]:
         with Session(self.engine) as session:
             return session.exec(select(RoleModel).where(RoleModel.id == role_id)).first()
 
-    def update_role(self, role_id: str, description: Optional[str] = None, 
-                   permissions: Optional[List[str]] = None) -> Optional[RoleModel]:
+    def update_role(
+        self, role_id: str, description: Optional[str] = None, permissions: Optional[List[str]] = None
+    ) -> Optional[RoleModel]:
         with Session(self.engine) as session:
             role = session.exec(select(RoleModel).where(RoleModel.id == role_id)).first()
             if not role:
@@ -383,21 +395,24 @@ class UserRepository:
             users = session.exec(select(UserModel).options(joinedload(UserModel.roles))).unique().all()
             user_dicts = []
             for user in users:
-                user_dicts.append({
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "is_active": user.is_active,
-                    "password_change_required": user.password_change_required,
-                    "created_at": user.created_at.isoformat() if user.created_at else None,
-                    "last_login": user.last_login.isoformat() if user.last_login else None,
-                    "roles": [
-                        {
-                            "id": role.id,
-                            "name": role.name,
-                            "description": role.description,
-                            "permissions": role.permissions
-                        } for role in user.roles
-                    ]
-                })
+                user_dicts.append(
+                    {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "is_active": user.is_active,
+                        "password_change_required": user.password_change_required,
+                        "created_at": user.created_at.isoformat() if user.created_at else None,
+                        "last_login": user.last_login.isoformat() if user.last_login else None,
+                        "roles": [
+                            {
+                                "id": role.id,
+                                "name": role.name,
+                                "description": role.description,
+                                "permissions": role.permissions,
+                            }
+                            for role in user.roles
+                        ],
+                    }
+                )
             return user_dicts

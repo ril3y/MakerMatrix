@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy import func, or_, delete
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import Session, select
+
 # from MakerMatrix.models.category_model import CategoryModel
 # from MakerMatrix.models.part_model import PartModel
 # from MakerMatrix.repositories.base_repository import BaseRepository
@@ -67,10 +68,7 @@ class PartRepository:
         """
         results = session.exec(
             select(PartModel).where(
-                or_(
-                    PartModel.part_name.ilike(f"%{search_term}%"),
-                    PartModel.part_number.ilike(f"%{search_term}%")
-                )
+                or_(PartModel.part_name.ilike(f"%{search_term}%"), PartModel.part_number.ilike(f"%{search_term}%"))
             )
         ).all()
 
@@ -78,9 +76,7 @@ class PartRepository:
             return results
         else:
             raise ResourceNotFoundError(
-                message=f"No parts found for search term '{search_term}'",
-                resource_type="part",
-                resource_id=search_term
+                message=f"No parts found for search term '{search_term}'", resource_type="part", resource_id=search_term
             )
 
     ###
@@ -96,74 +92,73 @@ class PartRepository:
         from sqlalchemy.exc import IntegrityError
         from sqlalchemy import text
         import logging
-        
+
         logger = logging.getLogger(__name__)
-        
+
         # Get the part first (will raise ResourceNotFoundError if not found)
         part = PartRepository.get_part_by_id(session, part_id)
-        
+
         try:
             # Manual cleanup of dependent records to ensure proper deletion
             # Handle all foreign key relationships explicitly since some have NO ACTION
-            
+
             # 1. Clear many-to-many category relationships (partcategorylink)
             if part.categories:
                 num_categories = len(part.categories)
                 part.categories.clear()
                 logger.info(f"Cleared {num_categories} category relationships for part {part_id}")
-            
-            # 2. Delete datasheet files (datasheetmodel) 
-            if hasattr(part, 'datasheets') and part.datasheets:
+
+            # 2. Delete datasheet files (datasheetmodel)
+            if hasattr(part, "datasheets") and part.datasheets:
                 num_datasheets = len(part.datasheets)
                 for datasheet in part.datasheets:
                     session.delete(datasheet)
                 logger.info(f"Deleted {num_datasheets} datasheet(s) for part {part_id}")
-            
+
             # 3. Delete PartOrderSummary records (should CASCADE but be explicit)
             from MakerMatrix.models.models import PartOrderSummary
-            order_summaries = session.exec(
-                select(PartOrderSummary).where(PartOrderSummary.part_id == part_id)
-            ).all()
+
+            order_summaries = session.exec(select(PartOrderSummary).where(PartOrderSummary.part_id == part_id)).all()
             for summary in order_summaries:
                 session.delete(summary)
                 logger.info(f"Deleted order summary for part {part_id}")
-            
+
             # 4. Update OrderItem records to set part_id to NULL (should SET NULL but be explicit)
             from MakerMatrix.models.order_models import OrderItemModel
-            order_items = session.exec(
-                select(OrderItemModel).where(OrderItemModel.part_id == part_id)
-            ).all()
+
+            order_items = session.exec(select(OrderItemModel).where(OrderItemModel.part_id == part_id)).all()
             for item in order_items:
                 item.part_id = None
                 session.add(item)
                 logger.info(f"Cleared part reference in order item {item.id}")
-            
+
             # 5. Delete PartOrderLink records (partorderlink)
             from MakerMatrix.models.order_models import PartOrderLink
-            part_order_links = session.exec(
-                select(PartOrderLink).where(PartOrderLink.part_id == part_id)
-            ).all()
+
+            part_order_links = session.exec(select(PartOrderLink).where(PartOrderLink.part_id == part_id)).all()
             for link in part_order_links:
                 session.delete(link)
                 logger.info(f"Deleted part-order link for part {part_id}")
-            
+
             # 6. Flush changes to database before deleting the part
             session.flush()
-            
+
             # 7. Now delete the part itself
             session.delete(part)
             session.commit()
             logger.info(f"Successfully deleted part {part_id} and all dependent records")
             return part
-            
+
         except Exception as e:
             session.rollback()
             error_msg = str(e)
             logger.error(f"Failed to delete part {part_id}: {error_msg}")
-            
+
             # Still provide helpful error information
             if isinstance(e, IntegrityError) and "FOREIGN KEY constraint failed" in error_msg:
-                raise ValueError(f"Cannot delete part '{part.part_name}' due to database constraint issues. This may indicate corrupt foreign key relationships.")
+                raise ValueError(
+                    f"Cannot delete part '{part.part_name}' due to database constraint issues. This may indicate corrupt foreign key relationships."
+                )
             else:
                 raise ValueError(f"Failed to delete part '{part.part_name}': {str(e)}")
 
@@ -173,9 +168,8 @@ class PartRepository:
         Get a list of child location IDs for the given location ID.
         """
         from MakerMatrix.models.models import LocationModel
-        child_locations = session.exec(
-            select(LocationModel).where(LocationModel.parent_id == location_id)
-        ).all()
+
+        child_locations = session.exec(select(LocationModel).where(LocationModel.parent_id == location_id)).all()
         return [location.id for location in child_locations]
 
     @staticmethod
@@ -187,7 +181,7 @@ class PartRepository:
                 selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
-                selectinload(PartModel.order_summary)
+                selectinload(PartModel.order_summary),
             )
             .where(PartModel.part_number == part_number)
         ).first()
@@ -197,11 +191,13 @@ class PartRepository:
             raise ResourceNotFoundError(
                 message=f"Error: Part with part number {part_number} not found",
                 resource_type="part",
-                resource_id=part_number)
+                resource_id=part_number,
+            )
 
     @staticmethod
     def get_part_by_id(session: Session, part_id: str) -> Optional[PartModel]:
         from MakerMatrix.models.location_models import LocationModel
+
         part = session.exec(
             select(PartModel)
             .options(
@@ -209,7 +205,7 @@ class PartRepository:
                 selectinload(PartModel.allocations).joinedload(PartLocationAllocation.location),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
-                selectinload(PartModel.order_summary)
+                selectinload(PartModel.order_summary),
             )
             .where(PartModel.id == part_id)
         ).first()
@@ -218,9 +214,7 @@ class PartRepository:
             return part
         else:
             raise ResourceNotFoundError(
-                message=f"Part with ID {part_id} not found",
-                resource_type="part",
-                resource_id=part_id
+                message=f"Part with ID {part_id} not found", resource_type="part", resource_id=part_id
             )
 
     @staticmethod
@@ -232,7 +226,7 @@ class PartRepository:
                 selectinload(PartModel.allocations),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
-                selectinload(PartModel.order_summary)
+                selectinload(PartModel.order_summary),
             )
             .where(PartModel.part_name == part_name)
         ).first()
@@ -241,9 +235,7 @@ class PartRepository:
             return part
         else:
             raise ResourceNotFoundError(
-                message=f"Part with name '{part_name}' not found",
-                resource_type="part",
-                resource_id=part_name
+                message=f"Part with name '{part_name}' not found", resource_type="part", resource_id=part_name
             )
 
     @staticmethod
@@ -251,10 +243,7 @@ class PartRepository:
         offset = (page - 1) * page_size
         results = session.exec(
             select(PartModel)
-            .options(
-                joinedload(PartModel.categories),
-                selectinload(PartModel.allocations)
-            )
+            .options(joinedload(PartModel.categories), selectinload(PartModel.allocations))
             .offset(offset)
             .limit(page_size)
         )
@@ -287,10 +276,10 @@ class PartRepository:
             session.commit()
 
             # Refresh the part with relationships loaded (removed 'location' - no longer exists)
-            session.refresh(part_data, ['categories', 'allocations'])
-            
+            session.refresh(part_data, ["categories", "allocations"])
+
             return part_data
-            
+
         except Exception as e:
             session.rollback()
             raise RuntimeError(f"Failed to add part: {str(e)}")
@@ -339,10 +328,7 @@ class PartRepository:
         Returns a tuple of (results, total_count).
         """
         # Start with a base query
-        query = select(PartModel).options(
-            joinedload(PartModel.categories),
-            selectinload(PartModel.allocations)
-        )
+        query = select(PartModel).options(joinedload(PartModel.categories), selectinload(PartModel.allocations))
 
         # Start with a base count query
         count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel)
@@ -350,8 +336,9 @@ class PartRepository:
         # Apply search term filter
         if search_params.search_term:
             # Check for tag:missing special syntax
-            if search_params.search_term.strip().lower() == 'tag:missing':
+            if search_params.search_term.strip().lower() == "tag:missing":
                 from MakerMatrix.models.tag_models import PartTagLink
+
                 # Subquery to find part IDs that have tags
                 tagged_part_ids = select(PartTagLink.part_id).distinct()
                 # Filter for parts NOT in tagged_part_ids
@@ -362,7 +349,7 @@ class PartRepository:
                 search_filter = or_(
                     PartModel.part_name.ilike(search_term),
                     PartModel.part_number.ilike(search_term),
-                    PartModel.description.ilike(search_term)
+                    PartModel.description.ilike(search_term),
                 )
                 query = query.where(search_filter)
                 count_query = count_query.where(search_filter)
@@ -377,19 +364,19 @@ class PartRepository:
 
         # Apply category filter
         if search_params.category_names:
-            category_ids = [
-                category.id for category in handle_categories(session, search_params.category_names)
-            ]
+            category_ids = [category.id for category in handle_categories(session, search_params.category_names)]
             query = query.join(PartModel.categories).where(CategoryModel.id.in_(category_ids))
             count_query = count_query.join(PartModel.categories).where(CategoryModel.id.in_(category_ids))
 
         # Apply location filter via allocations
         if search_params.location_id:
             # Join with allocations to filter by location
-            query = query.join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)\
-                         .where(PartLocationAllocation.location_id == search_params.location_id)
-            count_query = count_query.join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)\
-                                     .where(PartLocationAllocation.location_id == search_params.location_id)
+            query = query.join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id).where(
+                PartLocationAllocation.location_id == search_params.location_id
+            )
+            count_query = count_query.join(
+                PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id
+            ).where(PartLocationAllocation.location_id == search_params.location_id)
 
         # Apply supplier filter (exact match, case-insensitive)
         if search_params.supplier:
@@ -406,15 +393,12 @@ class PartRepository:
                 quantity_subquery = (
                     select(
                         PartLocationAllocation.part_id,
-                        func.sum(PartLocationAllocation.quantity_at_location).label('total_qty')
+                        func.sum(PartLocationAllocation.quantity_at_location).label("total_qty"),
                     )
                     .group_by(PartLocationAllocation.part_id)
                     .subquery()
                 )
-                query = query.outerjoin(
-                    quantity_subquery,
-                    PartModel.id == quantity_subquery.c.part_id
-                )
+                query = query.outerjoin(quantity_subquery, PartModel.id == quantity_subquery.c.part_id)
                 if search_params.sort_order == "desc":
                     query = query.order_by(quantity_subquery.c.total_qty.desc().nullslast())
                 else:
@@ -422,19 +406,14 @@ class PartRepository:
             elif search_params.sort_by == "location":
                 # Sort by primary location name using a join
                 from MakerMatrix.models.location_models import LocationModel
+
                 primary_alloc = (
-                    select(
-                        PartLocationAllocation.part_id,
-                        LocationModel.name.label('location_name')
-                    )
+                    select(PartLocationAllocation.part_id, LocationModel.name.label("location_name"))
                     .join(LocationModel, PartLocationAllocation.location_id == LocationModel.id)
                     .where(PartLocationAllocation.is_primary_storage == True)
                     .subquery()
                 )
-                query = query.outerjoin(
-                    primary_alloc,
-                    PartModel.id == primary_alloc.c.part_id
-                )
+                query = query.outerjoin(primary_alloc, PartModel.id == primary_alloc.c.part_id)
                 if search_params.sort_order == "desc":
                     query = query.order_by(primary_alloc.c.location_name.desc().nullslast())
                 else:
@@ -466,28 +445,32 @@ class PartRepository:
         allocated_part_ids = select(PartLocationAllocation.part_id).distinct()
 
         # Base query for orphaned parts (parts NOT in allocated_part_ids)
-        query = select(PartModel).options(
-            joinedload(PartModel.categories)
-        ).where(~PartModel.id.in_(allocated_part_ids))
+        query = select(PartModel).options(joinedload(PartModel.categories)).where(~PartModel.id.in_(allocated_part_ids))
 
         # Count query for orphaned parts
-        count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel).where(~PartModel.id.in_(allocated_part_ids))
-        
+        count_query = (
+            select(func.count(PartModel.id.distinct()))
+            .select_from(PartModel)
+            .where(~PartModel.id.in_(allocated_part_ids))
+        )
+
         # Apply pagination
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
-        
+
         # Order by part name for consistent results
         query = query.order_by(PartModel.part_name)
-        
+
         # Execute queries
         results = session.exec(query).unique().all()
         total_count = session.exec(count_query).one()
-        
+
         return results, total_count
 
     @staticmethod
-    def search_parts_text(session: Session, query: str, page: int = 1, page_size: int = 20) -> tuple[List[PartModel], int]:
+    def search_parts_text(
+        session: Session, query: str, page: int = 1, page_size: int = 20
+    ) -> tuple[List[PartModel], int]:
         """
         Advanced text search with field-specific and exact matching support.
 
@@ -508,7 +491,7 @@ class PartRepository:
         search_query = query.strip()
 
         # Check for tag:missing special syntax
-        if search_query.lower() == 'tag:missing':
+        if search_query.lower() == "tag:missing":
             # Query for parts with no tags
             from MakerMatrix.models.tag_models import PartTagLink
 
@@ -516,12 +499,17 @@ class PartRepository:
             tagged_part_ids = select(PartTagLink.part_id).distinct()
 
             # Query for parts NOT in tagged_part_ids
-            base_query = select(PartModel).options(
-                joinedload(PartModel.categories),
-                selectinload(PartModel.allocations)
-            ).where(~PartModel.id.in_(tagged_part_ids))
+            base_query = (
+                select(PartModel)
+                .options(joinedload(PartModel.categories), selectinload(PartModel.allocations))
+                .where(~PartModel.id.in_(tagged_part_ids))
+            )
 
-            count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel).where(~PartModel.id.in_(tagged_part_ids))
+            count_query = (
+                select(func.count(PartModel.id.distinct()))
+                .select_from(PartModel)
+                .where(~PartModel.id.in_(tagged_part_ids))
+            )
 
             # Order by part name
             query_with_filter = base_query.order_by(PartModel.part_name)
@@ -537,33 +525,33 @@ class PartRepository:
             return results, total_count
 
         # Check for field-specific search (desc:, pn:, name:, prop:)
-        if ':' in search_query and not search_query.startswith('"'):
-            parts = search_query.split(':', 1)
+        if ":" in search_query and not search_query.startswith('"'):
+            parts = search_query.split(":", 1)
             if len(parts) == 2:
                 field_prefix = parts[0].lower().strip()
                 search_value = parts[1].strip()
 
-                if field_prefix in ['desc', 'description']:
-                    field_specific = 'description'
+                if field_prefix in ["desc", "description"]:
+                    field_specific = "description"
                     search_query = search_value
-                elif field_prefix in ['pn', 'part_number', 'partnumber']:
-                    field_specific = 'part_number'
+                elif field_prefix in ["pn", "part_number", "partnumber"]:
+                    field_specific = "part_number"
                     search_query = search_value
-                elif field_prefix in ['name', 'part_name', 'partname']:
-                    field_specific = 'part_name'
+                elif field_prefix in ["name", "part_name", "partname"]:
+                    field_specific = "part_name"
                     search_query = search_value
-                elif field_prefix in ['prop', 'property', 'add', 'additional']:
-                    field_specific = 'additional_properties'
+                elif field_prefix in ["prop", "property", "add", "additional"]:
+                    field_specific = "additional_properties"
                     # Handle both "prop:package 0603" and "prop:package=0603" syntax
-                    if '=' in search_value:
-                        key_value = search_value.split('=', 1)
+                    if "=" in search_value:
+                        key_value = search_value.split("=", 1)
                         prop_key = key_value[0].strip()
-                        search_query = key_value[1].strip() if len(key_value) > 1 else ''
+                        search_query = key_value[1].strip() if len(key_value) > 1 else ""
                     else:
                         # Split on first space to get key and value
-                        key_value = search_value.split(' ', 1)
+                        key_value = search_value.split(" ", 1)
                         prop_key = key_value[0].strip()
-                        search_query = key_value[1].strip() if len(key_value) > 1 else ''
+                        search_query = key_value[1].strip() if len(key_value) > 1 else ""
 
         # Check if query is wrapped in quotes for exact matching
         is_exact_match = search_query.startswith('"') and search_query.endswith('"') and len(search_query) > 2
@@ -572,19 +560,18 @@ class PartRepository:
             # Remove quotes and create exact match pattern with word boundaries
             search_query = search_query[1:-1]  # Remove surrounding quotes
             # For exact match, we'll use a more precise filter
-            exact_filter = lambda field: field.ilike(f"% {search_query} %") | \
-                                        field.ilike(f"{search_query} %") | \
-                                        field.ilike(f"% {search_query}") | \
-                                        field.ilike(search_query)
+            exact_filter = (
+                lambda field: field.ilike(f"% {search_query} %")
+                | field.ilike(f"{search_query} %")
+                | field.ilike(f"% {search_query}")
+                | field.ilike(search_query)
+            )
 
         # Create search term for regular searches
         search_term = f"%{search_query}%"
 
         # Base query with eager loading
-        base_query = select(PartModel).options(
-            joinedload(PartModel.categories),
-            selectinload(PartModel.allocations)
-        )
+        base_query = select(PartModel).options(joinedload(PartModel.categories), selectinload(PartModel.allocations))
 
         # Count query
         count_query = select(func.count(PartModel.id.distinct())).select_from(PartModel)
@@ -592,13 +579,13 @@ class PartRepository:
         # Apply search filter based on field-specific or all fields
         if field_specific:
             # Field-specific search
-            if field_specific == 'additional_properties' and prop_key:
+            if field_specific == "additional_properties" and prop_key:
                 # Search within JSON field for specific key
                 # SQLite JSON syntax: json_extract(additional_properties, '$.key')
                 from sqlalchemy import cast, String, JSON
 
                 # Build JSON path
-                json_path = f'$.{prop_key}'
+                json_path = f"$.{prop_key}"
 
                 # Extract the value from JSON and search it
                 json_value = func.json_extract(PartModel.additional_properties, json_path)
@@ -620,15 +607,15 @@ class PartRepository:
                 search_filter = or_(
                     exact_filter(PartModel.part_name),
                     exact_filter(PartModel.part_number),
-                    exact_filter(PartModel.description)
+                    exact_filter(PartModel.description),
                 )
             else:
                 search_filter = or_(
                     PartModel.part_name.ilike(search_term),
                     PartModel.part_number.ilike(search_term),
-                    PartModel.description.ilike(search_term)
+                    PartModel.description.ilike(search_term),
                 )
-        
+
         # Apply filter to both queries
         query_with_filter = base_query.where(search_filter)
         count_query_with_filter = count_query.where(search_filter)
@@ -641,17 +628,17 @@ class PartRepository:
             # Exact part number matches second
             func.lower(PartModel.part_number) == comparison_query.lower(),
             # Then by part name alphabetically
-            PartModel.part_name
+            PartModel.part_name,
         )
-        
+
         # Apply pagination
         offset = (page - 1) * page_size
         query_with_filter = query_with_filter.offset(offset).limit(page_size)
-        
+
         # Execute queries
         results = session.exec(query_with_filter).unique().all()
         total_count = session.exec(count_query_with_filter).one()
-        
+
         return results, total_count
 
     @staticmethod
@@ -661,20 +648,24 @@ class PartRepository:
         Returns part names that start with or contain the query.
         """
         search_term = f"%{query}%"
-        
+
         # Query for part names that contain the search term
         # Prioritize names that start with the query
-        suggestions_query = select(PartModel.part_name).where(
-            PartModel.part_name.ilike(search_term)
-        ).distinct().order_by(
-            # Names starting with query come first
-            ~PartModel.part_name.ilike(f"{query}%"),
-            PartModel.part_name
-        ).limit(limit)
-        
+        suggestions_query = (
+            select(PartModel.part_name)
+            .where(PartModel.part_name.ilike(search_term))
+            .distinct()
+            .order_by(
+                # Names starting with query come first
+                ~PartModel.part_name.ilike(f"{query}%"),
+                PartModel.part_name,
+            )
+            .limit(limit)
+        )
+
         # Execute query and return list of part names
         suggestions = session.exec(suggestions_query).all()
-        
+
         # Filter out None values and return as list
         return [name for name in suggestions if name is not None]
 
@@ -825,56 +816,57 @@ class PartRepository:
     def clear_all_parts(session: Session) -> Dict[str, Any]:
         """Clear all parts from the database - USE WITH CAUTION!"""
         from sqlmodel import text
+
         try:
             # Get count before deletion
             count_before = session.exec(select(func.count()).select_from(PartModel)).one()
-            
+
             # Temporarily disable foreign key constraints
             session.exec(text("PRAGMA foreign_keys = OFF"))
-            
+
             # Delete all related records in sequence
             deleted_records = {}
-            
+
             # Delete part-category links
             result = session.exec(text("DELETE FROM partcategorylink"))
-            deleted_records['part_category_links'] = result.rowcount
-            
+            deleted_records["part_category_links"] = result.rowcount
+
             # Delete datasheet records
             result = session.exec(text("DELETE FROM datasheets"))
-            deleted_records['datasheets'] = result.rowcount
-            
+            deleted_records["datasheets"] = result.rowcount
+
             # Delete part order summaries
             result = session.exec(text("DELETE FROM partordersummary"))
-            deleted_records['part_order_summaries'] = result.rowcount
-            
+            deleted_records["part_order_summaries"] = result.rowcount
+
             # Delete part order links
             result = session.exec(text("DELETE FROM partorderlink"))
-            deleted_records['part_order_links'] = result.rowcount
-            
+            deleted_records["part_order_links"] = result.rowcount
+
             # Delete order items that reference parts (set part_id to NULL instead of deleting)
             result = session.exec(text("UPDATE orderitemmodel SET part_id = NULL WHERE part_id IS NOT NULL"))
-            deleted_records['order_item_part_references'] = result.rowcount
-            
+            deleted_records["order_item_part_references"] = result.rowcount
+
             # Delete activity logs related to parts
             result = session.exec(text("DELETE FROM activitylogmodel WHERE entity_type = 'part'"))
-            deleted_records['activity_logs'] = result.rowcount
-            
+            deleted_records["activity_logs"] = result.rowcount
+
             # Finally, delete all parts
             session.exec(delete(PartModel))
-            
+
             # Re-enable foreign key constraints
             session.exec(text("PRAGMA foreign_keys = ON"))
-            
+
             session.commit()
-            
+
             # Verify deletion
             count_after = session.exec(select(func.count()).select_from(PartModel)).one()
-            
+
             return {
                 "parts_deleted": count_before,
                 "parts_remaining": count_after,
                 "related_records_deleted": deleted_records,
-                "success": True
+                "success": True,
             }
         except Exception as e:
             # Re-enable foreign keys even on error
@@ -884,51 +876,46 @@ class PartRepository:
                 pass
             session.rollback()
             raise Exception(f"Failed to clear all parts: {str(e)}")
-    
+
     @staticmethod
     def get_parts_count_by_supplier(session: Session, supplier_filter: str) -> int:
         """Get count of parts filtered by supplier name (case-insensitive)."""
         from sqlmodel import and_
-        
-        query = select(func.count(PartModel.id)).where(
-            and_(
-                PartModel.supplier.ilike(f"%{supplier_filter}%")
-            )
-        )
+
+        query = select(func.count(PartModel.id)).where(and_(PartModel.supplier.ilike(f"%{supplier_filter}%")))
         count = session.exec(query).one()
         return count
-    
+
     @staticmethod
     def get_all_parts_count(session: Session) -> int:
         """Get total count of all parts in the system."""
         query = select(func.count(PartModel.id))
         count = session.exec(query).one()
         return count
-    
+
     @staticmethod
-    def get_parts_paginated(session: Session, offset: int, limit: int, 
-                          supplier_filter: str = None) -> List[PartModel]:
+    def get_parts_paginated(session: Session, offset: int, limit: int, supplier_filter: str = None) -> List[PartModel]:
         """
         Get parts with pagination, optionally filtered by supplier.
-        
+
         Args:
             session: Database session
             offset: Number of records to skip
             limit: Maximum number of records to return
             supplier_filter: Optional supplier name filter (case-insensitive)
-        
+
         Returns:
             List of PartModel instances
         """
         query = select(PartModel)
-        
+
         # Apply supplier filter if provided
         if supplier_filter:
             query = query.where(PartModel.supplier.ilike(f"%{supplier_filter}%"))
-        
+
         # Apply pagination
         query = query.offset(offset).limit(limit)
-        
+
         # Execute query
         parts = session.exec(query).all()
         return list(parts)

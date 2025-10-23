@@ -7,7 +7,6 @@ import {
   MapPin,
   Tag,
   TrendingUp,
-  TrendingDown,
   RefreshCw,
   ChevronUp,
   ChevronDown,
@@ -141,14 +140,14 @@ const DashboardPage = () => {
             ? data.parts_by_location.slice(0, 8).map((item) => item.part_count)
             : [0],
         backgroundColor: [
-          'rgba(0, 255, 157, 0.8)',   // primary (cyan/green)
-          'rgba(239, 68, 68, 0.8)',   // error (red)
-          'rgba(16, 185, 129, 0.8)',  // success (green)
-          'rgba(245, 158, 11, 0.8)',  // warning (amber)
-          'rgba(147, 51, 234, 0.8)',  // purple
-          'rgba(236, 72, 153, 0.8)',  // pink
-          'rgba(14, 165, 233, 0.8)',  // cyan
-          'rgba(132, 204, 22, 0.8)',  // lime
+          'rgba(0, 255, 157, 0.8)', // primary (cyan/green)
+          'rgba(239, 68, 68, 0.8)', // error (red)
+          'rgba(16, 185, 129, 0.8)', // success (green)
+          'rgba(245, 158, 11, 0.8)', // warning (amber)
+          'rgba(147, 51, 234, 0.8)', // purple
+          'rgba(236, 72, 153, 0.8)', // pink
+          'rgba(14, 165, 233, 0.8)', // cyan
+          'rgba(132, 204, 22, 0.8)', // lime
         ],
         borderWidth: 0,
       },
@@ -167,16 +166,16 @@ const DashboardPage = () => {
             ? data.parts_by_supplier.map((item) => item.part_count)
             : [0],
         backgroundColor: [
-          'rgba(0, 255, 157, 0.8)',   // primary (cyan/green)
-          'rgba(239, 68, 68, 0.8)',   // error (red)
-          'rgba(16, 185, 129, 0.8)',  // success (green)
-          'rgba(245, 158, 11, 0.8)',  // warning (amber)
-          'rgba(147, 51, 234, 0.8)',  // purple
-          'rgba(236, 72, 153, 0.8)',  // pink
-          'rgba(14, 165, 233, 0.8)',  // cyan
-          'rgba(132, 204, 22, 0.8)',  // lime
-          'rgba(168, 85, 247, 0.8)',  // violet
-          'rgba(59, 130, 246, 0.8)',  // blue
+          'rgba(0, 255, 157, 0.8)', // primary (cyan/green)
+          'rgba(239, 68, 68, 0.8)', // error (red)
+          'rgba(16, 185, 129, 0.8)', // success (green)
+          'rgba(245, 158, 11, 0.8)', // warning (amber)
+          'rgba(147, 51, 234, 0.8)', // purple
+          'rgba(236, 72, 153, 0.8)', // pink
+          'rgba(14, 165, 233, 0.8)', // cyan
+          'rgba(132, 204, 22, 0.8)', // lime
+          'rgba(168, 85, 247, 0.8)', // violet
+          'rgba(59, 130, 246, 0.8)', // blue
         ],
         borderWidth: 0,
       },
@@ -581,11 +580,21 @@ const DashboardPage = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Name</th>
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Number</th>
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Supplier</th>
-                      <th className="text-right py-2 px-4 text-sm font-medium text-primary">Quantity</th>
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Location</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Part Name
+                      </th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Part Number
+                      </th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Supplier
+                      </th>
+                      <th className="text-right py-2 px-4 text-sm font-medium text-primary">
+                        Quantity
+                      </th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Location
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -616,11 +625,21 @@ const DashboardPage = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Name</th>
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Number</th>
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Supplier</th>
-                      <th className="text-right py-2 px-4 text-sm font-medium text-primary">Quantity</th>
-                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Location</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Part Name
+                      </th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Part Number
+                      </th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Supplier
+                      </th>
+                      <th className="text-right py-2 px-4 text-sm font-medium text-primary">
+                        Quantity
+                      </th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">
+                        Location
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -675,7 +694,9 @@ const DashboardPage = () => {
                     onClick={() => navigate(`/parts/${part.id}`)}
                     className="bg-error/5 border border-error/20 rounded-lg p-4 cursor-pointer hover:bg-error/10 hover:border-error/30 transition-colors"
                   >
-                    <h4 className="font-medium text-primary hover:text-primary-dark">{part.part_name}</h4>
+                    <h4 className="font-medium text-primary hover:text-primary-dark">
+                      {part.part_name}
+                    </h4>
                     <p className="text-sm text-secondary mb-2">{part.part_number}</p>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">

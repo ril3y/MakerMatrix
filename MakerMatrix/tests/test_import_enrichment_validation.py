@@ -35,6 +35,7 @@ from io import BytesIO
 
 class MockUser:
     """Mock user for testing"""
+
     def __init__(self):
         self.id = "test-user-id"
         self.username = "testuser"
@@ -42,6 +43,7 @@ class MockUser:
 
 class MockUploadFile:
     """Mock UploadFile for testing"""
+
     def __init__(self, content: bytes, filename: str):
         self.content = content
         self.filename = filename
@@ -58,6 +60,7 @@ def clear_database():
     with Session(engine) as session:
         # Disable foreign key constraints temporarily for SQLite
         from sqlalchemy import text
+
         session.execute(text("PRAGMA foreign_keys = OFF"))
 
         # Delete all parts, orders, and categories
@@ -80,7 +83,7 @@ C60633,SWPA6045S101MT,Sunlord,,-,50,0.0715
 C84681,RT8205LGQW,Richtek,QFN-16_3x3x0.75P,IC MOSFET DRIVERS 4.5V-18V,10,0.4951
 C5149,LM358DR,Texas Instruments,SOIC-8_3.9x4.9x1.27P,Operational Amplifier 1MHz 36V,25,0.0792
 """.strip()
-    return csv_content.encode('utf-8')
+    return csv_content.encode("utf-8")
 
 
 def create_digikey_test_csv():
@@ -91,16 +94,16 @@ def create_digikey_test_csv():
 TXB0108PWRCT-ND,Texas Instruments,TXB0108PWR,IC TRANSLATOR BIDIRECTIONAL 20TSSOP,U1,10,0,"$1.50000","$15.00"
 LM358PDRCT-ND,Texas Instruments,LM358PDR,IC OPAMP GP 1.1MHZ 8SOIC,U2,25,0,"$0.50000","$12.50"
 """.strip()
-    return csv_content.encode('utf-8')
+    return csv_content.encode("utf-8")
 
 
 async def test_lcsc_import_with_enrichment():
     """
     Test LCSC import with enrichment capabilities and validate results.
     """
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🧪 TESTING LCSC IMPORT WITH ENRICHMENT VALIDATION")
-    print("="*80)
+    print("=" * 80)
 
     # Step 1: Clear database
     clear_database()
@@ -125,7 +128,7 @@ async def test_lcsc_import_with_enrichment():
             notes="Test LCSC import with enrichment validation",
             enable_enrichment=True,
             enrichment_capabilities="get_part_details,fetch_datasheet",
-            current_user=mock_user
+            current_user=mock_user,
         )
 
         print(f"✅ Import completed successfully!")
@@ -133,12 +136,13 @@ async def test_lcsc_import_with_enrichment():
         print(f"📊 Result message: {result.message}")
 
         # Show actual data structure
-        if hasattr(result.data, 'imported_count'):
+        if hasattr(result.data, "imported_count"):
             print(f"📦 Imported parts: {result.data.imported_count}")
 
     except Exception as e:
         print(f"❌ Import failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -157,9 +161,9 @@ async def test_digikey_import_with_enrichment():
     """
     Test DigiKey import with enrichment capabilities and validate results.
     """
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🧪 TESTING DIGIKEY IMPORT WITH ENRICHMENT VALIDATION")
-    print("="*80)
+    print("=" * 80)
 
     # Step 1: Clear database
     clear_database()
@@ -184,7 +188,7 @@ async def test_digikey_import_with_enrichment():
             notes="Test DigiKey import with enrichment validation",
             enable_enrichment=True,
             enrichment_capabilities="get_part_details,fetch_datasheet,fetch_pricing_stock",
-            current_user=mock_user
+            current_user=mock_user,
         )
 
         print(f"✅ Import completed successfully!")
@@ -192,12 +196,13 @@ async def test_digikey_import_with_enrichment():
         print(f"📊 Result message: {result.message}")
 
         # Show actual data structure
-        if hasattr(result.data, 'imported_count'):
+        if hasattr(result.data, "imported_count"):
             print(f"📦 Imported parts: {result.data.imported_count}")
 
     except Exception as e:
         print(f"❌ Import failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -232,7 +237,7 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
         "parts_with_enrichment_data": 0,
         "validation_errors": [],
         "validation_warnings": [],
-        "parts_details": []
+        "parts_details": [],
     }
 
     with Session(engine) as session:
@@ -262,7 +267,7 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
                 "datasheet_url": None,
                 "product_url": None,
                 "enrichment_source": None,
-                "enrichment_date": None
+                "enrichment_date": None,
             }
 
             # Check additional properties for enrichment data
@@ -270,7 +275,7 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
                 print(f"📋 Additional Properties Found:")
 
                 # Check for datasheet
-                datasheet_url = part.additional_properties.get('datasheet_url')
+                datasheet_url = part.additional_properties.get("datasheet_url")
                 if datasheet_url:
                     print(f"📄 Datasheet URL: {datasheet_url}")
                     part_details["has_datasheet"] = True
@@ -278,7 +283,7 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
                     validation_results["parts_with_datasheets"] += 1
 
                     # Validate datasheet URL format
-                    if not datasheet_url.startswith(('http://', 'https://')):
+                    if not datasheet_url.startswith(("http://", "https://")):
                         validation_results["validation_errors"].append(
                             f"Invalid datasheet URL format for {part.part_name}: {datasheet_url}"
                         )
@@ -286,7 +291,7 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
                     print("⚠️  No datasheet URL found")
 
                 # Check for product URL
-                product_url = part.additional_properties.get('product_url')
+                product_url = part.additional_properties.get("product_url")
                 if product_url:
                     print(f"🔗 Product URL: {product_url}")
                     part_details["has_url"] = True
@@ -294,7 +299,7 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
                     validation_results["parts_with_urls"] += 1
 
                     # Validate product URL format and length
-                    if not product_url.startswith(('http://', 'https://')):
+                    if not product_url.startswith(("http://", "https://")):
                         validation_results["validation_errors"].append(
                             f"Invalid product URL format for {part.part_name}: {product_url}"
                         )
@@ -316,8 +321,8 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
                     print("⚠️  No product URL found")
 
                 # Check for enrichment metadata
-                enrichment_source = part.additional_properties.get('enrichment_source')
-                enrichment_date = part.additional_properties.get('last_enrichment_date')
+                enrichment_source = part.additional_properties.get("enrichment_source")
+                enrichment_date = part.additional_properties.get("last_enrichment_date")
 
                 if enrichment_source:
                     print(f"🔍 Enrichment Source: {enrichment_source}")
@@ -331,14 +336,12 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
 
                 # Check other enrichment data
                 for key, value in part.additional_properties.items():
-                    if key not in ['datasheet_url', 'product_url', 'enrichment_source', 'last_enrichment_date']:
+                    if key not in ["datasheet_url", "product_url", "enrichment_source", "last_enrichment_date"]:
                         print(f"   {key}: {value}")
 
             else:
                 print("⚠️  No additional properties found")
-                validation_results["validation_warnings"].append(
-                    f"Part {part.part_name} has no additional properties"
-                )
+                validation_results["validation_warnings"].append(f"Part {part.part_name} has no additional properties")
 
             validation_results["parts_details"].append(part_details)
 
@@ -378,9 +381,9 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
 
 async def test_supplier_capabilities():
     """Test that suppliers have the expected enrichment capabilities"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🧪 TESTING SUPPLIER ENRICHMENT CAPABILITIES")
-    print("="*80)
+    print("=" * 80)
 
     # Test LCSC capabilities
     print("\n📋 Testing LCSC capabilities...")
@@ -396,7 +399,7 @@ async def test_supplier_capabilities():
             print(f"⚠️  LCSC connection test failed: {e}")
 
         # Check capabilities
-        if hasattr(lcsc_supplier, 'get_supported_capabilities'):
+        if hasattr(lcsc_supplier, "get_supported_capabilities"):
             try:
                 capabilities = lcsc_supplier.get_supported_capabilities()
                 print(f"🔧 LCSC capabilities: {capabilities}")
@@ -419,7 +422,7 @@ async def test_supplier_capabilities():
             print(f"⚠️  DigiKey connection test failed: {e}")
 
         # Check capabilities
-        if hasattr(digikey_supplier, 'get_supported_capabilities'):
+        if hasattr(digikey_supplier, "get_supported_capabilities"):
             try:
                 capabilities = digikey_supplier.get_supported_capabilities()
                 print(f"🔧 DigiKey capabilities: {capabilities}")
@@ -441,42 +444,50 @@ async def run_comprehensive_enrichment_test():
         "lcsc_results": {},
         "digikey_results": {},
         "overall_success": False,
-        "summary": {}
+        "summary": {},
     }
 
     try:
         # Test 1: Check supplier capabilities
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 1: TESTING SUPPLIER CAPABILITIES")
-        print("="*80)
+        print("=" * 80)
         await test_supplier_capabilities()
 
         # Test 2: LCSC import and enrichment
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 2: LCSC IMPORT AND ENRICHMENT")
-        print("="*80)
+        print("=" * 80)
         lcsc_results = await test_lcsc_import_with_enrichment()
         results["lcsc_results"] = lcsc_results
 
         # Test 3: DigiKey import and enrichment
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 3: DIGIKEY IMPORT AND ENRICHMENT")
-        print("="*80)
+        print("=" * 80)
         digikey_results = await test_digikey_import_with_enrichment()
         results["digikey_results"] = digikey_results
 
         # Test 4: Generate overall summary
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 4: OVERALL RESULTS SUMMARY")
-        print("="*80)
+        print("=" * 80)
 
         total_parts = lcsc_results.get("total_parts", 0) + digikey_results.get("total_parts", 0)
-        total_with_datasheets = lcsc_results.get("parts_with_datasheets", 0) + digikey_results.get("parts_with_datasheets", 0)
+        total_with_datasheets = lcsc_results.get("parts_with_datasheets", 0) + digikey_results.get(
+            "parts_with_datasheets", 0
+        )
         total_with_urls = lcsc_results.get("parts_with_urls", 0) + digikey_results.get("parts_with_urls", 0)
-        total_with_enrichment = lcsc_results.get("parts_with_enrichment_data", 0) + digikey_results.get("parts_with_enrichment_data", 0)
+        total_with_enrichment = lcsc_results.get("parts_with_enrichment_data", 0) + digikey_results.get(
+            "parts_with_enrichment_data", 0
+        )
 
-        total_errors = len(lcsc_results.get("validation_errors", [])) + len(digikey_results.get("validation_errors", []))
-        total_warnings = len(lcsc_results.get("validation_warnings", [])) + len(digikey_results.get("validation_warnings", []))
+        total_errors = len(lcsc_results.get("validation_errors", [])) + len(
+            digikey_results.get("validation_errors", [])
+        )
+        total_warnings = len(lcsc_results.get("validation_warnings", [])) + len(
+            digikey_results.get("validation_warnings", [])
+        )
 
         print(f"📊 OVERALL RESULTS:")
         print(f"📦 Total Parts Imported: {total_parts}")
@@ -497,9 +508,7 @@ async def run_comprehensive_enrichment_test():
 
         # Determine overall success
         results["overall_success"] = (
-            total_parts > 0 and
-            total_errors == 0 and
-            (total_with_datasheets > 0 or total_with_urls > 0)
+            total_parts > 0 and total_errors == 0 and (total_with_datasheets > 0 or total_with_urls > 0)
         )
 
         results["summary"] = {
@@ -511,25 +520,26 @@ async def run_comprehensive_enrichment_test():
             "total_warnings": total_warnings,
             "overall_datasheet_rate": overall_datasheet_rate if total_parts > 0 else 0,
             "overall_url_rate": overall_url_rate if total_parts > 0 else 0,
-            "overall_enrichment_rate": overall_enrichment_rate if total_parts > 0 else 0
+            "overall_enrichment_rate": overall_enrichment_rate if total_parts > 0 else 0,
         }
 
         if results["overall_success"]:
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("🎉 ALL TESTS PASSED!")
             print("✅ Import functionality works correctly")
             print("✅ Enrichment data is being captured")
             print("✅ URLs and datasheets are properly stored")
-            print("="*80)
+            print("=" * 80)
         else:
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("⚠️  TESTS COMPLETED WITH ISSUES")
             print("❌ Some validation errors or missing enrichment data")
-            print("="*80)
+            print("=" * 80)
 
     except Exception as e:
         print(f"\n❌ TEST FAILED WITH EXCEPTION: {e}")
         import traceback
+
         traceback.print_exc()
         results["overall_success"] = False
         results["error"] = str(e)
@@ -550,7 +560,7 @@ def main():
 
         # Save results to file for analysis
         results_file = Path(__file__).parent / "enrichment_test_results.json"
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(results, f, indent=2, default=str)
 
         print(f"\n📄 Test results saved to: {results_file}")
@@ -565,6 +575,7 @@ def main():
     except Exception as e:
         print(f"\n❌ TEST RUNNER FAILED WITH EXCEPTION: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
 

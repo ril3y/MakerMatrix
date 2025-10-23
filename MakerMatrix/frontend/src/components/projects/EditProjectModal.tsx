@@ -228,7 +228,10 @@ const EditProjectModal = ({
 
           <div className="space-y-3">
             {links.map((link, index) => (
-              <div key={index} className="flex gap-2 bg-theme-elevated p-3 rounded-lg border border-theme-primary items-center">
+              <div
+                key={index}
+                className="flex gap-2 bg-theme-elevated p-3 rounded-lg border border-theme-primary items-center"
+              >
                 {/* Favicon Preview */}
                 {link && (
                   <img

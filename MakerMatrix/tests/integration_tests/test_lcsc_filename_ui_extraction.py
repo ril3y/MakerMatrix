@@ -11,14 +11,14 @@ from pathlib import Path
 
 class TestLCSCFilenameUIExtraction:
     """Test LCSC filename extraction in the context of file upload UI."""
-    
+
     def test_lcsc_filename_extraction_workflow(self):
         """
         Document the expected workflow for LCSC filename extraction in the UI.
-        
+
         This test serves as documentation for what should happen when a user
         uploads an LCSC CSV file with the correct filename format.
-        
+
         Future Playwright test should verify:
         1. User uploads file "LCSC_Exported__20241222_232703.csv"
         2. Parser is auto-detected as "lcsc"
@@ -26,48 +26,48 @@ class TestLCSCFilenameUIExtraction:
         4. User sees success toast message about auto-extraction
         5. Visual indicator shows "Auto-extracted from filename"
         """
-        
+
         # Test data that would be used in UI tests
         test_filename = "LCSC_Exported__20241222_232703.csv"
         expected_parser = "lcsc"
         expected_order_date = "2024-12-22"
         expected_order_number = "232703"
         expected_notes_contains = "Auto-extracted from filename"
-        
+
         # This is what the UI should do when the file is uploaded
         expected_ui_behavior = {
             "file_upload": {
                 "filename": test_filename,
                 "should_auto_detect_parser": True,
-                "detected_parser": expected_parser
+                "detected_parser": expected_parser,
             },
             "order_form_auto_population": {
                 "order_date_field": expected_order_date,
                 "order_number_field": expected_order_number,
-                "notes_field_contains": expected_notes_contains
+                "notes_field_contains": expected_notes_contains,
             },
             "ui_feedback": {
                 "should_show_success_toast": True,
                 "toast_message_contains": f"Auto-extracted order info: {expected_order_date}",
                 "should_show_auto_extracted_badge": True,
-                "badge_text": "Auto-extracted from filename"
-            }
+                "badge_text": "Auto-extracted from filename",
+            },
         }
-        
+
         # Verify the test data is correct
         assert test_filename == "LCSC_Exported__20241222_232703.csv"
         assert expected_order_date == "2024-12-22"
         assert expected_order_number == "232703"
-        
+
         # This test passes as documentation - actual UI testing would use Playwright
         print("LCSC filename extraction workflow documented for UI testing")
         print(f"Expected behavior: {expected_ui_behavior}")
-    
+
     @pytest.mark.skip(reason="Requires Playwright setup for actual UI testing")
     def test_lcsc_filename_extraction_with_playwright(self):
         """
         Placeholder for future Playwright test.
-        
+
         This test would:
         1. Start the frontend application
         2. Navigate to the import page
@@ -75,7 +75,7 @@ class TestLCSCFilenameUIExtraction:
         4. Verify auto-detection and auto-population
         5. Verify UI feedback (toast, badge, etc.)
         """
-        
+
         # TODO: Implement with Playwright
         # Example structure:
         """
@@ -107,17 +107,17 @@ class TestLCSCFilenameUIExtraction:
             await expect(badge).to_contain_text("Auto-extracted from filename")
         """
         pass
-    
+
     def test_non_lcsc_filename_should_not_extract(self):
         """Test that non-LCSC filenames don't trigger extraction."""
-        
+
         non_lcsc_filenames = [
             "digikey_order_12345.csv",
             "mouser_export.xls",
             "regular_parts_list.csv",
-            "inventory_update.xlsx"
+            "inventory_update.xlsx",
         ]
-        
+
         for filename in non_lcsc_filenames:
             # In the UI, these files should not trigger auto-extraction
             # even if the parser is set to LCSC
@@ -125,50 +125,44 @@ class TestLCSCFilenameUIExtraction:
                 "should_auto_extract": False,
                 "order_fields_should_remain": "empty_or_default",
                 "should_show_extraction_toast": False,
-                "should_show_extraction_badge": False
+                "should_show_extraction_badge": False,
             }
-            
+
             # Document expected behavior
             assert expected_behavior["should_auto_extract"] is False
             print(f"File {filename} should not trigger auto-extraction")
-    
+
     def test_lcsc_filename_extraction_edge_cases(self):
         """Test edge cases for LCSC filename extraction."""
-        
+
         edge_cases = [
             {
                 "filename": "LCSC_Exported__20240229_120000.csv",  # Leap year
                 "expected_date": "2024-02-29",
                 "expected_order": "120000",
-                "should_extract": True
+                "should_extract": True,
             },
             {
                 "filename": "lcsc_exported__20241222_232703.csv",  # Lowercase
-                "expected_date": "2024-12-22", 
+                "expected_date": "2024-12-22",
                 "expected_order": "232703",
-                "should_extract": True
+                "should_extract": True,
             },
-            {
-                "filename": "LCSC_Exported__20241322_232703.csv",  # Invalid month
-                "should_extract": False
-            },
-            {
-                "filename": "LCSC_Exported__invalid_format.csv",  # Wrong format
-                "should_extract": False
-            }
+            {"filename": "LCSC_Exported__20241322_232703.csv", "should_extract": False},  # Invalid month
+            {"filename": "LCSC_Exported__invalid_format.csv", "should_extract": False},  # Wrong format
         ]
-        
+
         for case in edge_cases:
             filename = case["filename"]
             should_extract = case["should_extract"]
-            
+
             if should_extract:
                 expected_date = case["expected_date"]
                 expected_order = case["expected_order"]
                 print(f"File {filename} should extract date={expected_date}, order={expected_order}")
             else:
                 print(f"File {filename} should NOT extract any order info")
-            
+
             # This serves as documentation for UI test expectations
             assert "filename" in case
             assert "should_extract" in case
@@ -177,7 +171,7 @@ class TestLCSCFilenameUIExtraction:
 if __name__ == "__main__":
     # Manual test runner for documentation purposes
     test_instance = TestLCSCFilenameUIExtraction()
-    
+
     print("=== LCSC Filename UI Extraction Test Documentation ===")
     test_instance.test_lcsc_filename_extraction_workflow()
     test_instance.test_non_lcsc_filename_should_not_extract()

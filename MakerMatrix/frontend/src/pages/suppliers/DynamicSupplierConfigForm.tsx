@@ -173,7 +173,11 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
     }
   }
 
-  const renderField = (field: FieldDefinition, value: unknown, onChange: (value: unknown) => void) => {
+  const renderField = (
+    field: FieldDefinition,
+    value: unknown,
+    onChange: (value: unknown) => void
+  ) => {
     const fieldId = `field-${field.name}`
 
     switch (field.field_type) {

@@ -36,4 +36,3 @@ def test_get_by_supplier_name_case_insensitive():
 
     assert retrieved is not None
     assert retrieved.supplier_name == "DIGIKEY"
-

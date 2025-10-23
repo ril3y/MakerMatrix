@@ -11,13 +11,13 @@ import sys
 BASE_URL = "https://localhost:8443/api"
 USERNAME = "admin"
 PASSWORD = "Admin123!"
-HEADERS = {
-    "Content-Type": "application/json"
-}
+HEADERS = {"Content-Type": "application/json"}
 
 # Disable SSL warnings for self-signed cert
 import urllib3
+
 urllib3.disable_warnings()
+
 
 def test_location_rename_preserves_allocations():
     """Test that location rename preserves allocations."""
@@ -30,7 +30,7 @@ def test_location_rename_preserves_allocations():
             f"{BASE_URL}/auth/login",
             json={"username": USERNAME, "password": PASSWORD},
             headers={"Content-Type": "application/json"},
-            verify=False
+            verify=False,
         )
 
         # Check if login was successful
@@ -49,15 +49,9 @@ def test_location_rename_preserves_allocations():
         print("   Login successful, got access token")
         # Step 1: Create a test location
         print("1. Creating test location...")
-        location_data = {
-            "name": "TEST_Storage_Shelf_Original",
-            "description": "Test storage location"
-        }
+        location_data = {"name": "TEST_Storage_Shelf_Original", "description": "Test storage location"}
         response = requests.post(
-            f"{BASE_URL}/locations/add_location",
-            headers=HEADERS,
-            json=location_data,
-            verify=False
+            f"{BASE_URL}/locations/add_location", headers=HEADERS, json=location_data, verify=False
         )
         response.raise_for_status()
         location_result = response.json()
@@ -76,14 +70,9 @@ def test_location_rename_preserves_allocations():
             "part_number": "TEST_R10K",
             "description": "Test 10K resistor",
             "quantity": 100,
-            "location_id": location_id
+            "location_id": location_id,
         }
-        response = requests.post(
-            f"{BASE_URL}/parts/add_part",
-            headers=HEADERS,
-            json=part_data,
-            verify=False
-        )
+        response = requests.post(f"{BASE_URL}/parts/add_part", headers=HEADERS, json=part_data, verify=False)
         response.raise_for_status()
         part_result = response.json()
 
@@ -96,11 +85,7 @@ def test_location_rename_preserves_allocations():
 
         # Step 3: Verify allocation exists
         print("\n3. Verifying allocation exists...")
-        response = requests.get(
-            f"{BASE_URL}/parts/{part_id}/allocations",
-            headers=HEADERS,
-            verify=False
-        )
+        response = requests.get(f"{BASE_URL}/parts/{part_id}/allocations", headers=HEADERS, verify=False)
         response.raise_for_status()
         alloc_result = response.json()
 
@@ -113,20 +98,15 @@ def test_location_rename_preserves_allocations():
         print(f"   Location count: {alloc_data['location_count']}")
         print(f"   Location name: {alloc_data['allocations'][0]['location']['name']}")
 
-        if alloc_data['allocations'][0]['location']['name'] != "TEST_Storage_Shelf_Original":
+        if alloc_data["allocations"][0]["location"]["name"] != "TEST_Storage_Shelf_Original":
             print("ERROR: Initial location name doesn't match!")
             return False
 
         # Step 4: Rename the location
         print("\n4. Renaming location...")
-        rename_data = {
-            "name": "TEST_Storage_Shelf_RENAMED"
-        }
+        rename_data = {"name": "TEST_Storage_Shelf_RENAMED"}
         response = requests.put(
-            f"{BASE_URL}/locations/update_location/{location_id}",
-            headers=HEADERS,
-            json=rename_data,
-            verify=False
+            f"{BASE_URL}/locations/update_location/{location_id}", headers=HEADERS, json=rename_data, verify=False
         )
         response.raise_for_status()
         rename_result = response.json()
@@ -139,11 +119,7 @@ def test_location_rename_preserves_allocations():
 
         # Step 5: Verify allocations are still intact with new location name
         print("\n5. Verifying allocations after rename...")
-        response = requests.get(
-            f"{BASE_URL}/parts/{part_id}/allocations",
-            headers=HEADERS,
-            verify=False
-        )
+        response = requests.get(f"{BASE_URL}/parts/{part_id}/allocations", headers=HEADERS, verify=False)
         response.raise_for_status()
         alloc_after_result = response.json()
 
@@ -159,43 +135,35 @@ def test_location_rename_preserves_allocations():
 
         # Verify the results
         success = True
-        if alloc_after_data['total_quantity'] != 100:
+        if alloc_after_data["total_quantity"] != 100:
             print("ERROR: Total quantity changed after rename!")
             success = False
 
-        if alloc_after_data['location_count'] != 1:
+        if alloc_after_data["location_count"] != 1:
             print("ERROR: Location count changed after rename!")
             success = False
 
-        if alloc_after_data['allocations'][0]['location']['name'] != "TEST_Storage_Shelf_RENAMED":
+        if alloc_after_data["allocations"][0]["location"]["name"] != "TEST_Storage_Shelf_RENAMED":
             print("ERROR: Location name not updated in allocation!")
             success = False
 
-        if alloc_after_data['allocations'][0]['location_id'] != location_id:
+        if alloc_after_data["allocations"][0]["location_id"] != location_id:
             print("ERROR: Location ID changed after rename!")
             success = False
 
-        if alloc_after_data['allocations'][0]['quantity_at_location'] != 100:
+        if alloc_after_data["allocations"][0]["quantity_at_location"] != 100:
             print("ERROR: Quantity at location changed after rename!")
             success = False
 
         # Step 6: Clean up - delete the test part and location
         print("\n6. Cleaning up test data...")
         # Delete part first (will cascade delete allocations)
-        response = requests.delete(
-            f"{BASE_URL}/parts/delete_part?part_id={part_id}",
-            headers=HEADERS,
-            verify=False
-        )
+        response = requests.delete(f"{BASE_URL}/parts/delete_part?part_id={part_id}", headers=HEADERS, verify=False)
         response.raise_for_status()
         print(f"   Deleted test part")
 
         # Delete location
-        response = requests.delete(
-            f"{BASE_URL}/locations/delete_location/{location_id}",
-            headers=HEADERS,
-            verify=False
-        )
+        response = requests.delete(f"{BASE_URL}/locations/delete_location/{location_id}", headers=HEADERS, verify=False)
         response.raise_for_status()
         print(f"   Deleted test location")
 
@@ -209,6 +177,7 @@ def test_location_rename_preserves_allocations():
     except Exception as e:
         print(f"\n❌ TEST FAILED with exception: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

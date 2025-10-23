@@ -16,7 +16,7 @@ from MakerMatrix.main import app
 from MakerMatrix.tests.test_database_config import (
     TestDatabaseConfig,
     create_isolated_test_engine,
-    setup_test_database_with_admin
+    setup_test_database_with_admin,
 )
 
 
@@ -40,12 +40,12 @@ def isolated_test_engine():
     """
     # Create isolated test engine
     test_engine = create_isolated_test_engine(use_memory=False)
-    
+
     # Setup admin user and roles in test database
     setup_test_database_with_admin(test_engine)
-    
+
     yield test_engine
-    
+
     # Cleanup
     test_engine.dispose()
 
@@ -56,12 +56,12 @@ def memory_test_engine():
     Create an in-memory test database engine for fast unit tests.
     """
     test_engine = create_isolated_test_engine(use_memory=True)
-    
+
     # Setup admin user and roles in test database
     setup_test_database_with_admin(test_engine)
-    
+
     yield test_engine
-    
+
     # Cleanup
     test_engine.dispose()
 
@@ -91,12 +91,12 @@ def test_database_config():
     """
     config = TestDatabaseConfig()
     config.create_test_engine(use_memory=False)
-    
+
     # Setup admin user and roles
     setup_test_database_with_admin(config.test_engine)
-    
+
     yield config
-    
+
     # Cleanup
     config.cleanup()
 
@@ -109,10 +109,10 @@ def admin_auth_headers(test_client):
     """
     login_data = {"username": "admin", "password": "Admin123!"}
     response = test_client.post("/auth/login", json=login_data)
-    
+
     if response.status_code != 200:
         pytest.fail(f"Authentication failed: {response.json()}")
-    
+
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
@@ -135,19 +135,19 @@ def validate_test_isolation():
     """
     # Check that we're not accidentally using main database
     main_db_path = "makermatrix.db"
-    
+
     # Get initial size of main database (if it exists)
     initial_size = 0
     if os.path.exists(main_db_path):
         initial_size = os.path.getsize(main_db_path)
-    
+
     yield
-    
+
     # After all tests, ensure main database size hasn't changed significantly
     if os.path.exists(main_db_path):
         final_size = os.path.getsize(main_db_path)
         size_change = abs(final_size - initial_size)
-        
+
         # Allow for small changes (metadata, etc.) but not major data changes
         if size_change > 1024:  # 1KB threshold
             pytest.fail(
@@ -163,12 +163,12 @@ def prevent_main_database_import():
     This fixture runs automatically for all tests.
     """
     import sys
-    
+
     # Check if any test is trying to import the main database engine
     forbidden_imports = [
         "MakerMatrix.models.models.engine",
     ]
-    
+
     for module_name in sys.modules.keys():
         if any(forbidden in module_name for forbidden in forbidden_imports):
             # Check if it's being imported in a test context
@@ -177,5 +177,5 @@ def prevent_main_database_import():
                     f"Test module {module_name} is importing main database engine. "
                     f"Use isolated test fixtures instead."
                 )
-    
+
     yield

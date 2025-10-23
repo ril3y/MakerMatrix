@@ -112,9 +112,7 @@ const TagFilter = ({
             {selectedTags.length}
           </span>
         )}
-        <ChevronDown
-          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Selected tags preview (inline) */}

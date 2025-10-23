@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class TaskRouteFactory:
     """
     Factory for generating standardized quick task creation endpoints.
-    
+
     ARCHITECTURE IMPROVEMENT: This factory eliminates massive duplication in task_routes.py
     by providing a unified pattern for quick task creation with consistent:
     - Error handling
@@ -29,7 +29,7 @@ class TaskRouteFactory:
     - Logging
     - Response formatting
     """
-    
+
     @staticmethod
     def create_quick_task_endpoint(
         task_type: TaskType,
@@ -39,11 +39,11 @@ class TaskRouteFactory:
         validation_func: Optional[Callable] = None,
         permission: str = "tasks:create",
         default_priority: TaskPriority = TaskPriority.NORMAL,
-        admin_only: bool = False
+        admin_only: bool = False,
     ):
         """
         Generate a standardized quick task creation endpoint.
-        
+
         Args:
             task_type: TaskType enum value
             task_name_template: Template for task name (can use {field} placeholders)
@@ -53,50 +53,46 @@ class TaskRouteFactory:
             permission: Required permission (default: "tasks:create")
             default_priority: Default task priority
             admin_only: Whether this requires admin permission
-        
+
         Returns:
             FastAPI endpoint function
         """
         required_fields = required_fields or []
         actual_permission = "admin" if admin_only else permission
-        
+
         async def endpoint_handler(
-            request: Dict[str, Any],
-            current_user: UserModel = Depends(require_permission(actual_permission))
+            request: Dict[str, Any], current_user: UserModel = Depends(require_permission(actual_permission))
         ):
             try:
                 # Validate required fields
                 missing_fields = [field for field in required_fields if not request.get(field)]
                 if missing_fields:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Missing required fields: {', '.join(missing_fields)}"
-                    )
-                
+                    raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(missing_fields)}")
+
                 # Custom validation if provided
                 if validation_func:
                     validation_result = await validation_func(request)
                     if validation_result is not True:
                         raise HTTPException(status_code=400, detail=validation_result)
-                
+
                 # Build task name and description from templates with safe formatting
                 try:
                     # Handle special cases like array length
                     format_data = dict(request)
                     if "part_ids" in request and isinstance(request["part_ids"], list):
                         format_data["part_ids|length"] = len(request["part_ids"])
-                    
+
                     task_name = task_name_template.format(**format_data)
                     description = description_template.format(**format_data)
                 except KeyError as e:
                     # Fallback for missing template variables
                     task_name = f"{task_type.value} task"
                     description = f"Task type: {task_type.value}"
-                
+
                 # Create task request with automatic relationship detection
                 related_entity_type = request.get("related_entity_type")
                 related_entity_id = request.get("related_entity_id")
-                
+
                 # Auto-detect relationships for part-based tasks
                 if not related_entity_type and "part_id" in request:
                     related_entity_type = "part"
@@ -104,7 +100,7 @@ class TaskRouteFactory:
                 elif not related_entity_type and task_type in [TaskType.BACKUP_CREATION]:
                     related_entity_type = "system"
                     related_entity_id = "database"
-                
+
                 task_request = CreateTaskRequest(
                     task_type=task_type,
                     name=task_name,
@@ -112,63 +108,60 @@ class TaskRouteFactory:
                     priority=request.get("priority", default_priority),
                     input_data=TaskRouteFactory._extract_input_data(request),
                     related_entity_type=related_entity_type,
-                    related_entity_id=related_entity_id
+                    related_entity_id=related_entity_id,
                 )
-                
+
                 # Create the task
                 task_response = await task_service.create_task(task_request, user_id=current_user.id)
 
                 if not task_response.success:
                     # CRITICAL SECURITY FIX (CVE-009): Use status_code from ServiceResponse
                     # This allows rate limiting (429) and permission errors (403) to return proper codes
-                    status_code = task_response.status_code if hasattr(task_response, 'status_code') and task_response.status_code else 500
+                    status_code = (
+                        task_response.status_code
+                        if hasattr(task_response, "status_code") and task_response.status_code
+                        else 500
+                    )
                     raise HTTPException(status_code=status_code, detail=task_response.message)
-                
-                logger.info(f"Created {task_type.value} task {task_response.data['id']} for user {current_user.username}")
-                
+
+                logger.info(
+                    f"Created {task_type.value} task {task_response.data['id']} for user {current_user.username}"
+                )
+
                 return {
                     "status": "success",
                     "message": f"{task_type.value.replace('_', ' ').title()} task created successfully",
-                    "data": task_response.data
+                    "data": task_response.data,
                 }
-                
+
             except HTTPException:
                 raise
             except Exception as e:
                 logger.error(f"Failed to create {task_type.value} task: {e}", exc_info=True)
-                raise HTTPException(
-                    status_code=500, 
-                    detail=f"Failed to create {task_type.value} task: {str(e)}"
-                )
-        
+                raise HTTPException(status_code=500, detail=f"Failed to create {task_type.value} task: {str(e)}")
+
         return endpoint_handler
-    
+
     @staticmethod
     def _extract_input_data(request: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract input data from request, excluding metadata fields.
-        
+
         This standardizes which fields go into the task's input_data vs. task metadata.
         """
-        metadata_fields = {
-            "priority", "related_entity_type", "related_entity_id", 
-            "timeout_seconds", "max_retries"
-        }
-        
-        return {
-            key: value for key, value in request.items() 
-            if key not in metadata_fields
-        }
+        metadata_fields = {"priority", "related_entity_type", "related_entity_id", "timeout_seconds", "max_retries"}
+
+        return {key: value for key, value in request.items() if key not in metadata_fields}
 
 
 class TaskValidators:
     """
     Collection of validation functions for different task types.
-    
+
     STANDARDIZATION: Centralizes validation logic that was scattered
     across individual endpoint implementations.
     """
-    
+
     @staticmethod
     async def validate_supplier_enrichment(request: Dict[str, Any]) -> bool:
         """Validate supplier-based enrichment requests"""
@@ -192,11 +185,11 @@ class TaskValidators:
                     return "part_id must be a string"
 
                 # Block path traversal sequences
-                if '..' in part_id or '/' in part_id or '\\' in part_id:
+                if ".." in part_id or "/" in part_id or "\\" in part_id:
                     return "part_id cannot contain path traversal sequences (.., /, \\)"
 
                 # Validate format - only alphanumeric, dash, underscore, and colon (for supplier part numbers like "LM358:DIP")
-                if not re.match(r'^[a-zA-Z0-9_:-]+$', part_id):
+                if not re.match(r"^[a-zA-Z0-9_:-]+$", part_id):
                     return "part_id can only contain letters, numbers, dash, underscore, and colon"
 
             # CRITICAL SECURITY FIX (CVE-007): Capability whitelist validation
@@ -225,23 +218,23 @@ class TaskValidators:
         except Exception as e:
             logger.error(f"Supplier validation failed: {e}")
             return f"Supplier validation failed: {str(e)}"
-    
+
     @staticmethod
     async def validate_bulk_operation(request: Dict[str, Any]) -> bool:
         """Validate bulk operation requests"""
         part_ids = request.get("part_ids", [])
-        
+
         if not part_ids:
             return "part_ids are required"
-        
+
         if not isinstance(part_ids, list):
             return "part_ids must be a list"
-        
+
         if len(part_ids) > 1000:  # Reasonable limit
             return "part_ids list cannot exceed 1000 items"
-        
+
         return True
-    
+
     @staticmethod
     async def validate_backup_request(request: Dict[str, Any]) -> bool:
         """Validate database backup requests with strict security checks"""
@@ -260,16 +253,16 @@ class TaskValidators:
             # CRITICAL SECURITY FIX (CVE-002): Strict alphanumeric whitelist
             # Only allow letters, numbers, dash, and underscore to prevent command injection
             import re
-            if not re.match(r'^[a-zA-Z0-9_-]+$', backup_name):
+
+            if not re.match(r"^[a-zA-Z0-9_-]+$", backup_name):
                 return "backup_name can only contain letters, numbers, dash, and underscore (no special characters or spaces)"
 
             # Block path traversal sequences
-            if '..' in backup_name:
+            if ".." in backup_name:
                 return "backup_name cannot contain path traversal sequences (..)"
 
         return True
-    
-    
+
     @staticmethod
     async def validate_file_import_enrichment(request: Dict[str, Any]) -> bool:
         """Validate file import enrichment requests with security checks"""
@@ -282,11 +275,11 @@ class TaskValidators:
                 return "file_name must be a string"
 
             # Block path traversal sequences
-            if '..' in file_name or '/' in file_name or '\\' in file_name:
+            if ".." in file_name or "/" in file_name or "\\" in file_name:
                 return "file_name cannot contain path traversal sequences (.., /, \\)"
 
             # Validate file extension
-            allowed_extensions = ['.csv', '.xls', '.xlsx']
+            allowed_extensions = [".csv", ".xls", ".xlsx"]
             if not any(file_name.lower().endswith(ext) for ext in allowed_extensions):
                 return f"Invalid file extension. Allowed: {', '.join(allowed_extensions)}"
 
@@ -316,19 +309,19 @@ class TaskValidators:
             return "part_id is required"
 
         # Validate part_id for path traversal (CVE-004)
-        if '..' in part_id or '/' in part_id or '\\' in part_id:
+        if ".." in part_id or "/" in part_id or "\\" in part_id:
             return "part_id cannot contain path traversal sequences"
 
         try:
             parsed = urlparse(datasheet_url)
 
             # Only allow HTTPS (not HTTP, file://, ftp://, etc.)
-            ALLOWED_SCHEMES = ['https']
+            ALLOWED_SCHEMES = ["https"]
             if parsed.scheme not in ALLOWED_SCHEMES:
                 return f"Invalid URL scheme. Only HTTPS allowed (got: {parsed.scheme})"
 
             # Block file:// protocol explicitly
-            if parsed.scheme == 'file':
+            if parsed.scheme == "file":
                 return "file:// URLs are not allowed"
 
             # Get hostname
@@ -337,7 +330,7 @@ class TaskValidators:
                 return "Invalid URL: no hostname"
 
             # Block localhost/loopback addresses
-            localhost_variants = ['localhost', '127.0.0.1', '::1', '0.0.0.0']
+            localhost_variants = ["localhost", "127.0.0.1", "::1", "0.0.0.0"]
             if hostname.lower() in localhost_variants:
                 return f"Blocked hostname: {hostname} (localhost/loopback not allowed)"
 
@@ -348,13 +341,13 @@ class TaskValidators:
 
                 # Define blocked network ranges
                 BLOCKED_NETWORKS = [
-                    ipaddress.ip_network('127.0.0.0/8'),      # Loopback
-                    ipaddress.ip_network('10.0.0.0/8'),       # Private Class A
-                    ipaddress.ip_network('172.16.0.0/12'),    # Private Class B
-                    ipaddress.ip_network('192.168.0.0/16'),   # Private Class C
-                    ipaddress.ip_network('169.254.0.0/16'),   # Link-local (AWS metadata)
-                    ipaddress.ip_network('224.0.0.0/4'),      # Multicast
-                    ipaddress.ip_network('240.0.0.0/4'),      # Reserved
+                    ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+                    ipaddress.ip_network("10.0.0.0/8"),  # Private Class A
+                    ipaddress.ip_network("172.16.0.0/12"),  # Private Class B
+                    ipaddress.ip_network("192.168.0.0/16"),  # Private Class C
+                    ipaddress.ip_network("169.254.0.0/16"),  # Link-local (AWS metadata)
+                    ipaddress.ip_network("224.0.0.0/4"),  # Multicast
+                    ipaddress.ip_network("240.0.0.0/4"),  # Reserved
                 ]
 
                 # Check if IP is in any blocked network
@@ -374,19 +367,19 @@ class TaskValidators:
             # Domain whitelist (optional but recommended for production)
             # Uncomment and customize for your trusted supplier domains
             ALLOWED_DOMAINS = [
-                'digikey.com',
-                'mouser.com',
-                'lcsc.com',
-                'seeedstudio.com',
-                'adafruit.com',
-                'sparkfun.com',
-                'pololu.com',
-                'jameco.com',
-                'newark.com',
-                'element14.com',
-                'arrow.com',
-                'alliedelec.com',
-                'mcmaster.com'
+                "digikey.com",
+                "mouser.com",
+                "lcsc.com",
+                "seeedstudio.com",
+                "adafruit.com",
+                "sparkfun.com",
+                "pololu.com",
+                "jameco.com",
+                "newark.com",
+                "element14.com",
+                "arrow.com",
+                "alliedelec.com",
+                "mcmaster.com",
             ]
 
             # Check if hostname ends with any allowed domain
@@ -410,43 +403,45 @@ def create_part_enrichment_endpoint():
         task_name_template="Enrich part {part_id}",
         description_template="Enrich part using {supplier} with capabilities: {capabilities}",
         required_fields=["part_id", "supplier", "capabilities"],
-        validation_func=TaskValidators.validate_supplier_enrichment
+        validation_func=TaskValidators.validate_supplier_enrichment,
     )
 
 
 def create_datasheet_fetch_endpoint():
     """Generate datasheet fetch endpoint"""
+
     async def datasheet_handler(request: Dict[str, Any], current_user):
         # Auto-add capabilities if not provided
         if "capabilities" not in request:
             request["capabilities"] = ["fetch_datasheet"]
-        
+
         factory_handler = TaskRouteFactory.create_quick_task_endpoint(
             task_type=TaskType.DATASHEET_FETCH,
             task_name_template="Fetch datasheet for part {part_id}",
             description_template="Fetch datasheet using {supplier}",
-            required_fields=["part_id"]
+            required_fields=["part_id"],
         )
         return await factory_handler(request, current_user)
-    
+
     return datasheet_handler
 
 
 def create_image_fetch_endpoint():
     """Generate image fetch endpoint"""
+
     async def image_handler(request: Dict[str, Any], current_user):
         # Auto-add capabilities if not provided
         if "capabilities" not in request:
             request["capabilities"] = ["fetch_image"]
-        
+
         factory_handler = TaskRouteFactory.create_quick_task_endpoint(
             task_type=TaskType.IMAGE_FETCH,
             task_name_template="Fetch image for part {part_id}",
             description_template="Fetch image using {supplier}",
-            required_fields=["part_id"]
+            required_fields=["part_id"],
         )
         return await factory_handler(request, current_user)
-    
+
     return image_handler
 
 
@@ -457,26 +452,27 @@ def create_bulk_enrichment_endpoint():
         task_name_template="Bulk enrich {part_ids|length} parts",
         description_template="Bulk enrich parts using {supplier} with capabilities: {capabilities}",
         required_fields=["part_ids"],
-        validation_func=TaskValidators.validate_bulk_operation
+        validation_func=TaskValidators.validate_bulk_operation,
     )
 
 
 def create_price_update_endpoint():
     """Generate price update endpoint"""
+
     async def price_handler(request: Dict[str, Any], current_user):
         # Auto-add capabilities if not provided
         if "capabilities" not in request:
             request["capabilities"] = ["fetch_pricing"]
-        
+
         factory_handler = TaskRouteFactory.create_quick_task_endpoint(
             task_type=TaskType.PRICE_UPDATE,
             task_name_template="Update prices for {part_ids|length} parts",
             description_template="Update part prices using {supplier}",
             required_fields=["part_ids"],
-            validation_func=TaskValidators.validate_bulk_operation
+            validation_func=TaskValidators.validate_bulk_operation,
         )
         return await factory_handler(request, current_user)
-    
+
     return price_handler
 
 
@@ -489,7 +485,7 @@ def create_database_backup_endpoint():
         required_fields=[],
         validation_func=TaskValidators.validate_backup_request,
         admin_only=True,
-        default_priority=TaskPriority.HIGH
+        default_priority=TaskPriority.HIGH,
     )
 
 
@@ -501,25 +497,24 @@ def create_datasheet_download_endpoint():
         description_template="Download datasheet from {supplier} for part",
         required_fields=["part_id", "datasheet_url", "supplier"],
         validation_func=TaskValidators.validate_datasheet_download,  # CVE-003 fix
-        default_priority=TaskPriority.NORMAL
+        default_priority=TaskPriority.NORMAL,
     )
-
-
 
 
 def create_file_import_enrichment_endpoint():
     """Generate file import enrichment endpoint (modern replacement for CSV enrichment)"""
+
     async def file_import_handler(request: Dict[str, Any], current_user):
         # Auto-add default values
         request.setdefault("enrichment_enabled", True)
-        
+
         factory_handler = TaskRouteFactory.create_quick_task_endpoint(
             task_type=TaskType.FILE_IMPORT_ENRICHMENT,
             task_name_template="File Import Enrichment: {file_name}",
             description_template="Enrich parts imported from {file_name} ({file_type})",
             required_fields=[],
-            validation_func=TaskValidators.validate_file_import_enrichment
+            validation_func=TaskValidators.validate_file_import_enrichment,
         )
         return await factory_handler(request, current_user)
-    
+
     return file_import_handler

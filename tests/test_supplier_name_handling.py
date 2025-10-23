@@ -41,14 +41,14 @@ class TestSupplierNameHandling:
             supplier = SupplierRegistry.get_supplier("mcmaster-carr")
             info = supplier.get_supplier_info()
 
-            if hasattr(supplier, 'get_url_patterns'):
+            if hasattr(supplier, "get_url_patterns"):
                 patterns = supplier.get_url_patterns()
                 for pattern in patterns:
                     if re.search(pattern, url, re.IGNORECASE):
                         return {
                             "supplier_name": "mcmaster-carr",  # Should be lowercase
                             "display_name": info.name,  # Should be "McMaster-Carr"
-                            "confidence": 1.0
+                            "confidence": 1.0,
                         }
             return None
 
@@ -84,7 +84,7 @@ class TestSupplierNameHandling:
         supplier = McMasterCarrSupplier()
 
         # Supplier should have URL patterns
-        assert hasattr(supplier, 'get_url_patterns')
+        assert hasattr(supplier, "get_url_patterns")
         patterns = supplier.get_url_patterns()
 
         # Test URL extraction with patterns
@@ -104,7 +104,7 @@ class TestSupplierNameHandling:
             assert matched, f"No pattern matched URL: {url}"
 
             # Extract part number from URL (simplified)
-            part_match = re.search(r'/([A-Za-z0-9]+)/?$', url)
+            part_match = re.search(r"/([A-Za-z0-9]+)/?$", url)
             if part_match:
                 part_number = part_match.group(1)
                 assert part_number == "91253A194"
@@ -113,11 +113,7 @@ class TestSupplierNameHandling:
         """Test that frontend sets correct supplier field value"""
 
         # Simulate what the frontend should do
-        detected_supplier = {
-            "supplier_name": "mcmaster-carr",
-            "display_name": "McMaster-Carr",
-            "confidence": 1.0
-        }
+        detected_supplier = {"supplier_name": "mcmaster-carr", "display_name": "McMaster-Carr", "confidence": 1.0}
 
         # Frontend should use supplier_name for form field
         supplier_for_form = detected_supplier["supplier_name"].lower()
@@ -138,9 +134,9 @@ class TestSupplierNameHandling:
         expected_mapping = {
             "field_name": "supplier_part_number",
             "display_name": "Supplier Part Number",
-            "url_patterns": [r'/([A-Za-z0-9]+)/?$'],
+            "url_patterns": [r"/([A-Za-z0-9]+)/?$"],
             "example": "91253A194",
-            "required_for_enrichment": True
+            "required_for_enrichment": True,
         }
 
         # Verify the structure matches what frontend expects

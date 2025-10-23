@@ -57,17 +57,13 @@ def load_env_credentials():
     mouser_api_key = os.getenv("MOUSER_API_KEY")
 
     if mouser_api_key:
-        credentials["MOUSER"] = {
-            "api_key": mouser_api_key
-        }
+        credentials["MOUSER"] = {"api_key": mouser_api_key}
 
     # LCSC
     lcsc_api_key = os.getenv("LCSC_API_KEY")
 
     if lcsc_api_key:
-        credentials["LCSC"] = {
-            "api_key": lcsc_api_key
-        }
+        credentials["LCSC"] = {"api_key": lcsc_api_key}
 
     # McMaster-Carr
     mcmaster_username = os.getenv("MCMASTER_CARR_USERNAME")
@@ -161,9 +157,7 @@ def migrate_credentials(dry_run=False):
                     continue
 
             # Store credentials using service (use None for user_id to avoid foreign key issues)
-            result = supplier_config_service.set_supplier_credentials(
-                supplier_name, creds, user_id=None
-            )
+            result = supplier_config_service.set_supplier_credentials(supplier_name, creds, user_id=None)
 
             if result.get("status") == "database_stored":
                 print(f"✓ MIGRATED")
@@ -221,14 +215,8 @@ def migrate_credentials(dry_run=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Migrate supplier credentials from .env to database storage"
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be migrated without making changes"
-    )
+    parser = argparse.ArgumentParser(description="Migrate supplier credentials from .env to database storage")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be migrated without making changes")
 
     args = parser.parse_args()
 
@@ -237,6 +225,7 @@ def main():
     except Exception as e:
         print(f"❌ Migration failed: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

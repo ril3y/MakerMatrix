@@ -234,7 +234,10 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
       )
       setTestResult(result)
     } catch (err) {
-      const error = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
+      const error = err as {
+        response?: { data?: { detail?: string; message?: string } }
+        message?: string
+      }
       setTestResult({
         supplier_name: supplier.supplier_name,
         success: false,
@@ -289,7 +292,10 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
         onSuccess()
       }, 1000)
     } catch (err) {
-      const error = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
+      const error = err as {
+        response?: { data?: { detail?: string; message?: string } }
+        message?: string
+      }
       const errorMessage = error.response?.data?.detail || 'Failed to update supplier configuration'
       setErrors([errorMessage])
     } finally {

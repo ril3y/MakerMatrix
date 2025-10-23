@@ -31,10 +31,10 @@ async def fetch_and_save_favicon(supplier_name: str, website_url: str, save_dir:
 
     try:
         # Normalize supplier name for filename
-        normalized_name = supplier_name.lower().strip().replace(' ', '-').replace('_', '-')
+        normalized_name = supplier_name.lower().strip().replace(" ", "-").replace("_", "-")
 
         # Parse URL to get domain
-        parsed = urlparse(website_url if website_url.startswith('http') else f'https://{website_url}')
+        parsed = urlparse(website_url if website_url.startswith("http") else f"https://{website_url}")
         domain = parsed.netloc or parsed.path
 
         logger.info(f"Fetching favicon for {supplier_name} from {domain}")
@@ -60,21 +60,21 @@ async def fetch_and_save_favicon(supplier_name: str, website_url: str, save_dir:
                                 continue
 
                             # Determine file extension
-                            content_type = response.headers.get('content-type', '')
-                            if 'png' in content_type or favicon_url.endswith('.png'):
-                                ext = 'png'
-                            elif 'svg' in content_type or favicon_url.endswith('.svg'):
-                                ext = 'svg'
-                            elif 'jpeg' in content_type or 'jpg' in content_type:
-                                ext = 'jpg'
+                            content_type = response.headers.get("content-type", "")
+                            if "png" in content_type or favicon_url.endswith(".png"):
+                                ext = "png"
+                            elif "svg" in content_type or favicon_url.endswith(".svg"):
+                                ext = "svg"
+                            elif "jpeg" in content_type or "jpg" in content_type:
+                                ext = "jpg"
                             else:
-                                ext = 'ico'
+                                ext = "ico"
 
                             # Save with supplier name
                             save_dir.mkdir(parents=True, exist_ok=True)
                             filepath = save_dir / f"{normalized_name}.{ext}"
 
-                            with open(filepath, 'wb') as f:
+                            with open(filepath, "wb") as f:
                                 f.write(content)
 
                             logger.info(f"Successfully saved favicon for {supplier_name} to {filepath}")
@@ -115,7 +115,7 @@ class FaviconFetcherService:
 
         try:
             # Parse URL to get domain
-            parsed = urlparse(website_url if website_url.startswith('http') else f'https://{website_url}')
+            parsed = urlparse(website_url if website_url.startswith("http") else f"https://{website_url}")
             domain = parsed.netloc or parsed.path
             base_url = f"{parsed.scheme}://{domain}" if parsed.scheme else f"https://{domain}"
 
@@ -144,15 +144,15 @@ class FaviconFetcherService:
                                     continue
 
                                 # Determine file extension from content-type or URL
-                                content_type = response.headers.get('content-type', '')
-                                if 'png' in content_type or favicon_url.endswith('.png'):
-                                    ext = 'png'
-                                elif 'svg' in content_type or favicon_url.endswith('.svg'):
-                                    ext = 'svg'
-                                elif 'jpeg' in content_type or 'jpg' in content_type:
-                                    ext = 'jpg'
+                                content_type = response.headers.get("content-type", "")
+                                if "png" in content_type or favicon_url.endswith(".png"):
+                                    ext = "png"
+                                elif "svg" in content_type or favicon_url.endswith(".svg"):
+                                    ext = "svg"
+                                elif "jpeg" in content_type or "jpg" in content_type:
+                                    ext = "jpg"
                                 else:
-                                    ext = 'ico'
+                                    ext = "ico"
 
                                 # Generate filename with UUID only (no supplier prefix)
                                 file_id = str(uuid.uuid4())
@@ -160,7 +160,7 @@ class FaviconFetcherService:
                                 filepath = self.static_images_dir / filename
 
                                 # Save file
-                                with open(filepath, 'wb') as f:
+                                with open(filepath, "wb") as f:
                                     f.write(content)
 
                                 logger.info(f"Successfully saved favicon for {supplier_name} to {filename}")

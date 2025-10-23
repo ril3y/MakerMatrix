@@ -31,8 +31,7 @@ async def get_current_user_optional(request: Request) -> Optional[UserModel]:
 
 
 async def get_user_from_api_key(
-    request: Request,
-    x_api_key: Optional[str] = Depends(api_key_header)
+    request: Request, x_api_key: Optional[str] = Depends(api_key_header)
 ) -> Optional[UserModel]:
     """
     Get user from API key in X-API-Key header or Authorization header.
@@ -56,29 +55,21 @@ async def get_user_from_api_key(
     result = api_key_service.validate_api_key(api_key, ip_address=client_ip)
 
     if not result.success:
-        raise HTTPException(
-            status_code=401,
-            detail=result.message or "Invalid API key"
-        )
+        raise HTTPException(status_code=401, detail=result.message or "Invalid API key")
 
     api_key_model: APIKeyModel = result.data
 
     # Get the user associated with this API key
     from MakerMatrix.repositories.user_repository import UserRepository
+
     user_repo = UserRepository()
     user = user_repo.get_user_by_id(api_key_model.user_id)
 
     if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="User associated with API key not found"
-        )
+        raise HTTPException(status_code=401, detail="User associated with API key not found")
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=403,
-            detail="User account is inactive"
-        )
+        raise HTTPException(status_code=403, detail="User account is inactive")
 
     return user
 
@@ -86,7 +77,7 @@ async def get_user_from_api_key(
 async def get_current_user(
     request: Request,
     jwt_user: Optional[UserModel] = Depends(get_current_user_optional),
-    api_key_user: Optional[UserModel] = Depends(get_user_from_api_key)
+    api_key_user: Optional[UserModel] = Depends(get_user_from_api_key),
 ) -> UserModel:
     """
     Unified authentication that accepts either JWT token or API key.
@@ -107,7 +98,7 @@ async def get_current_user(
     # No valid authentication provided
     raise HTTPException(
         status_code=401,
-        detail="Not authenticated. Provide either a valid JWT token (Authorization: Bearer <token>) or API key (X-API-Key: <key> or Authorization: ApiKey <key>)"
+        detail="Not authenticated. Provide either a valid JWT token (Authorization: Bearer <token>) or API key (X-API-Key: <key> or Authorization: ApiKey <key>)",
     )
 
 

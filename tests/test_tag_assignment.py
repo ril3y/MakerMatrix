@@ -9,7 +9,7 @@ import sys
 import os
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Set JWT secret for testing
 os.environ["JWT_SECRET_KEY"] = "test_secret_key_for_testing"
@@ -47,20 +47,30 @@ class TestTagAssignment:
             # Delete test tags
             test_tags = session.exec(select(TagModel)).all()
             for tag in test_tags:
-                if any(keyword in tag.name.lower() for keyword in ['tag', 'filter', 'bulk', 'remove', 'orphan', 'assoc', 'multi', 'urgent', 'review', 'prototype']):
+                if any(
+                    keyword in tag.name.lower()
+                    for keyword in [
+                        "tag",
+                        "filter",
+                        "bulk",
+                        "remove",
+                        "orphan",
+                        "assoc",
+                        "multi",
+                        "urgent",
+                        "review",
+                        "prototype",
+                    ]
+                ):
                     session.delete(tag)
 
             # Delete test parts
-            test_parts = session.exec(
-                select(PartModel).where(PartModel.part_name.like("%Test%"))
-            ).all()
+            test_parts = session.exec(select(PartModel).where(PartModel.part_name.like("%Test%"))).all()
             for part in test_parts:
                 session.delete(part)
 
             # Delete test tools
-            test_tools = session.exec(
-                select(ToolModel).where(ToolModel.tool_name.like("%Test%"))
-            ).all()
+            test_tools = session.exec(select(ToolModel).where(ToolModel.tool_name.like("%Test%"))).all()
             for tool in test_tools:
                 session.delete(tool)
 
@@ -79,20 +89,30 @@ class TestTagAssignment:
             # Delete test tags
             test_tags = session.exec(select(TagModel)).all()
             for tag in test_tags:
-                if any(keyword in tag.name.lower() for keyword in ['tag', 'filter', 'bulk', 'remove', 'orphan', 'assoc', 'multi', 'urgent', 'review', 'prototype']):
+                if any(
+                    keyword in tag.name.lower()
+                    for keyword in [
+                        "tag",
+                        "filter",
+                        "bulk",
+                        "remove",
+                        "orphan",
+                        "assoc",
+                        "multi",
+                        "urgent",
+                        "review",
+                        "prototype",
+                    ]
+                ):
                     session.delete(tag)
 
             # Delete test parts
-            test_parts = session.exec(
-                select(PartModel).where(PartModel.part_name.like("%Test%"))
-            ).all()
+            test_parts = session.exec(select(PartModel).where(PartModel.part_name.like("%Test%"))).all()
             for part in test_parts:
                 session.delete(part)
 
             # Delete test tools
-            test_tools = session.exec(
-                select(ToolModel).where(ToolModel.tool_name.like("%Test%"))
-            ).all()
+            test_tools = session.exec(select(ToolModel).where(ToolModel.tool_name.like("%Test%"))).all()
             for tool in test_tools:
                 session.delete(tool)
 
@@ -112,7 +132,7 @@ class TestTagAssignment:
                 "part_name": "Test Resistor",
                 "part_number": "R-001",
                 "description": "10k Ohm resistor",
-                "quantity": 100
+                "quantity": 100,
             }
             part_response = client.post("/api/parts/add_part", json=part_data, headers=auth_headers)
             assert part_response.status_code == 200
@@ -199,7 +219,7 @@ class TestTagAssignment:
                 "tool_name": "Test Screwdriver",
                 "tool_number": "T-001",
                 "description": "Phillips screwdriver",
-                "quantity": 1
+                "quantity": 1,
             }
             tool_response = client.post("/api/tools/", json=tool_data, headers=auth_headers)
             assert tool_response.status_code == 200
@@ -324,12 +344,7 @@ class TestTagAssignment:
                 part_ids.append(part_response.json()["data"]["id"])
 
             # Bulk add tags to parts
-            bulk_data = {
-                "item_ids": part_ids,
-                "tag_ids": tag_ids,
-                "operation": "add",
-                "item_type": "part"
-            }
+            bulk_data = {"item_ids": part_ids, "tag_ids": tag_ids, "operation": "add", "item_type": "part"}
             response = client.post("/api/tags/bulk", json=bulk_data, headers=auth_headers)
             assert response.status_code == 200
 
@@ -364,12 +379,7 @@ class TestTagAssignment:
                 client.post(f"/api/tags/{tag_id}/tools/{tool_id}", headers=auth_headers)
 
             # Bulk remove tag from tools
-            bulk_data = {
-                "item_ids": tool_ids,
-                "tag_ids": [tag_id],
-                "operation": "remove",
-                "item_type": "tool"
-            }
+            bulk_data = {"item_ids": tool_ids, "tag_ids": [tag_id], "operation": "remove", "item_type": "tool"}
             response = client.post("/api/tags/bulk", json=bulk_data, headers=auth_headers)
             assert response.status_code == 200
 

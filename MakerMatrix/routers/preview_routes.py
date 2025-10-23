@@ -1,6 +1,7 @@
 """
 Preview routes for generating label previews without printing.
 """
+
 import base64
 import re
 from typing import Optional, Dict, Any, List
@@ -22,6 +23,7 @@ base_router = BaseRouter()
 
 class PreviewResponse(BaseModel):
     """Response model for preview operations."""
+
     success: bool
     preview_data: Optional[str] = None  # Base64 encoded image
     format: Optional[str] = None
@@ -33,6 +35,7 @@ class PreviewResponse(BaseModel):
 
 class TextPreviewRequest(BaseModel):
     """Request model for text preview."""
+
     text: str
     label_size: str = "12"
     printer_id: Optional[str] = None
@@ -40,6 +43,7 @@ class TextPreviewRequest(BaseModel):
 
 class AdvancedPreviewOptions(BaseModel):
     """Options for advanced preview."""
+
     fit_to_label: bool = True
     include_qr: bool = False
     qr_data: Optional[str] = None
@@ -48,6 +52,7 @@ class AdvancedPreviewOptions(BaseModel):
 
 class AdvancedPreviewRequest(BaseModel):
     """Request model for advanced preview."""
+
     template: str
     text: str
     label_size: str = "12"
@@ -59,6 +64,7 @@ class AdvancedPreviewRequest(BaseModel):
 
 # Global preview manager instance
 preview_manager = PreviewManager()
+
 
 # Initialize with default printers
 def get_preview_manager():
@@ -77,7 +83,7 @@ def get_preview_manager():
                     name="Mock Preview Printer",
                     model="MockQL-800",
                     backend="mock",
-                    identifier="mock://preview"
+                    identifier="mock://preview",
                 )
                 print(f"[DEBUG] Mock printer created, registering...")
                 preview_manager.register_printer("mock_preview", mock_printer)
@@ -85,6 +91,7 @@ def get_preview_manager():
             except Exception as e:
                 print(f"[ERROR] Failed to register mock printer: {e}")
                 import traceback
+
                 traceback.print_exc()
                 raise Exception(f"Failed to initialize mock printer: {str(e)}")
 
@@ -96,7 +103,7 @@ def get_preview_manager():
                     name="Brother QL Preview",
                     model="QL-800",
                     backend="network",
-                    identifier="tcp://192.168.1.100:9100"
+                    identifier="tcp://192.168.1.100:9100",
                 )
                 preview_manager.register_printer("brother_ql_preview", brother_ql)
                 print(f"[DEBUG] Brother QL printer registered successfully")
@@ -111,6 +118,7 @@ def get_preview_manager():
     except Exception as e:
         print(f"[ERROR] Fatal error in get_preview_manager: {e}")
         import traceback
+
         traceback.print_exc()
         raise Exception(f"Preview manager initialization failed: {str(e)}")
 
@@ -122,12 +130,9 @@ async def get_available_printers() -> ResponseSchema[Dict[str, Any]]:
     manager = get_preview_manager()
     data = {
         "printers": manager.get_registered_printers(),
-        "default": "mock_preview" if "mock_preview" in manager.get_registered_printers() else None
+        "default": "mock_preview" if "mock_preview" in manager.get_registered_printers() else None,
     }
-    return base_router.build_success_response(
-        data=data,
-        message="Available printers retrieved successfully"
-    )
+    return base_router.build_success_response(data=data, message="Available printers retrieved successfully")
 
 
 @router.get("/labels/sizes")
@@ -137,7 +142,7 @@ async def get_label_sizes(printer_id: Optional[str] = None) -> ResponseSchema[Di
     manager = get_preview_manager()
     service = manager.get_preview_service(printer_id)
     sizes = service.get_available_label_sizes()
-    
+
     data = {
         "sizes": [
             {
@@ -146,16 +151,13 @@ async def get_label_sizes(printer_id: Optional[str] = None) -> ResponseSchema[Di
                 "height_mm": size.height_mm,
                 "width_px": size.width_px,
                 "height_px": size.height_px,
-                "is_continuous": size.is_continuous()
+                "is_continuous": size.is_continuous(),
             }
             for size in sizes
         ]
     }
-    
-    return base_router.build_success_response(
-        data=data,
-        message="Available label sizes retrieved successfully"
-    )
+
+    return base_router.build_success_response(data=data, message="Available label sizes retrieved successfully")
 
 
 @router.post("/part/qr_code/{part_id}", response_model=PreviewResponse)
@@ -167,23 +169,23 @@ async def preview_part_qr_code(part_id: str, label_size: str = "12", printer_id:
         part = PartRepository.get_part_by_id(session, part_id)
         if not part:
             raise HTTPException(status_code=404, detail=f"Part not found: {part_id}")
-    
+
     # Generate preview
     manager = get_preview_manager()
     service = manager.get_preview_service(printer_id)
-    
+
     result = await service.preview_part_qr_code(part, label_size)
-    
+
     # Encode image data as base64
-    preview_data = base64.b64encode(result.image_data).decode('utf-8')
-    
+    preview_data = base64.b64encode(result.image_data).decode("utf-8")
+
     return PreviewResponse(
         success=True,
         preview_data=preview_data,
         format=result.format,
         width_px=result.width_px,
         height_px=result.height_px,
-        message=result.message
+        message=result.message,
     )
 
 
@@ -196,23 +198,23 @@ async def preview_part_name(part_id: str, label_size: str = "12", printer_id: Op
         part = PartRepository.get_part_by_id(session, part_id)
         if not part:
             raise HTTPException(status_code=404, detail=f"Part not found: {part_id}")
-    
+
     # Generate preview
     manager = get_preview_manager()
     service = manager.get_preview_service(printer_id)
-    
+
     result = await service.preview_part_name(part, label_size)
-    
+
     # Encode image data as base64
-    preview_data = base64.b64encode(result.image_data).decode('utf-8')
-    
+    preview_data = base64.b64encode(result.image_data).decode("utf-8")
+
     return PreviewResponse(
         success=True,
         preview_data=preview_data,
         format=result.format,
         width_px=result.width_px,
         height_px=result.height_px,
-        message=result.message
+        message=result.message,
     )
 
 
@@ -223,49 +225,50 @@ async def preview_text_label(request: TextPreviewRequest):
     # Generate preview
     manager = get_preview_manager()
     service = manager.get_preview_service(request.printer_id)
-    
+
     result = await service.preview_text_label(request.text, request.label_size)
-    
+
     # Encode image data as base64
-    preview_data = base64.b64encode(result.image_data).decode('utf-8')
-    
+    preview_data = base64.b64encode(result.image_data).decode("utf-8")
+
     return PreviewResponse(
         success=True,
         preview_data=preview_data,
         format=result.format,
         width_px=result.width_px,
         height_px=result.height_px,
-        message=result.message
+        message=result.message,
     )
 
 
 @router.post("/part/combined/{part_id}", response_model=PreviewResponse)
 @standard_error_handling
-async def preview_combined_label(part_id: str, custom_text: Optional[str] = None, 
-                                 label_size: str = "12", printer_id: Optional[str] = None):
+async def preview_combined_label(
+    part_id: str, custom_text: Optional[str] = None, label_size: str = "12", printer_id: Optional[str] = None
+):
     """Generate preview of a combined QR code + text label."""
     # Get part from database
     with engine.begin() as session:
         part = PartRepository.get_part_by_id(session, part_id)
         if not part:
             raise HTTPException(status_code=404, detail=f"Part not found: {part_id}")
-    
+
     # Generate preview
     manager = get_preview_manager()
     service = manager.get_preview_service(printer_id)
-    
+
     result = await service.preview_combined_label(part, custom_text, label_size)
-    
+
     # Encode image data as base64
-    preview_data = base64.b64encode(result.image_data).decode('utf-8')
-    
+    preview_data = base64.b64encode(result.image_data).decode("utf-8")
+
     return PreviewResponse(
         success=True,
         preview_data=preview_data,
         format=result.format,
         width_px=result.width_px,
         height_px=result.height_px,
-        message=result.message
+        message=result.message,
     )
 
 
@@ -279,16 +282,9 @@ async def validate_label_size(label_size: str, printer_id: Optional[str] = None)
     is_valid = service.validate_label_size(label_size)
     sizes = service.get_available_label_sizes()
 
-    data = {
-        "valid": is_valid,
-        "label_size": label_size,
-        "supported_sizes": [size.name for size in sizes]
-    }
+    data = {"valid": is_valid, "label_size": label_size, "supported_sizes": [size.name for size in sizes]}
 
-    return base_router.build_success_response(
-        data=data,
-        message="Label size validation completed"
-    )
+    return base_router.build_success_response(data=data, message="Label size validation completed")
 
 
 @router.get("/health")
@@ -299,11 +295,8 @@ async def preview_system_health() -> ResponseSchema[Dict[str, Any]]:
         "status": "unknown",
         "preview_manager": "not_initialized",
         "registered_printers": [],
-        "dependencies": {
-            "pil": "not_checked",
-            "fonts": "not_checked"
-        },
-        "errors": []
+        "dependencies": {"pil": "not_checked", "fonts": "not_checked"},
+        "errors": [],
     }
 
     try:
@@ -317,6 +310,7 @@ async def preview_system_health() -> ResponseSchema[Dict[str, Any]]:
         # Check PIL dependency
         try:
             from PIL import Image, ImageDraw, ImageFont
+
             health_data["dependencies"]["pil"] = "available"
             print(f"[DEBUG] Health check: PIL available")
         except ImportError as e:
@@ -367,24 +361,21 @@ async def preview_system_health() -> ResponseSchema[Dict[str, Any]]:
                 service = manager.get_preview_service()
 
                 # Create a simple test image
-                test_image = Image.new('RGB', (100, 50), 'white')
+                test_image = Image.new("RGB", (100, 50), "white")
                 draw = ImageDraw.Draw(test_image)
-                draw.text((10, 10), "TEST", fill='black')
+                draw.text((10, 10), "TEST", fill="black")
 
                 # Try to generate preview
                 result = await service.preview_text_label("Test", "12")
                 health_data["test_preview"] = {
                     "status": "success",
                     "image_size": f"{result.width_px}x{result.height_px}",
-                    "format": result.format
+                    "format": result.format,
                 }
                 print(f"[DEBUG] Health check: Preview generation successful")
 
             except Exception as e:
-                health_data["test_preview"] = {
-                    "status": "failed",
-                    "error": str(e)
-                }
+                health_data["test_preview"] = {"status": "failed", "error": str(e)}
                 health_data["errors"].append(f"Preview generation test failed: {str(e)}")
                 print(f"[ERROR] Health check: Preview generation failed: {e}")
 
@@ -403,11 +394,11 @@ async def preview_system_health() -> ResponseSchema[Dict[str, Any]]:
         health_data["errors"].append(f"Health check failed: {str(e)}")
         print(f"[ERROR] Health check: Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
 
     return base_router.build_success_response(
-        data=health_data,
-        message=f"Preview system health check completed - Status: {health_data['status']}"
+        data=health_data, message=f"Preview system health check completed - Status: {health_data['status']}"
     )
 
 
@@ -430,11 +421,12 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         except Exception as e:
             print(f"[ERROR] Failed to initialize preview manager: {e}")
             import traceback
+
             traceback.print_exc()
             return PreviewResponse(
                 success=False,
                 error=f"Preview system initialization failed: {str(e)}",
-                message="Failed to initialize preview system"
+                message="Failed to initialize preview system",
             )
 
         # Get preview service with error handling
@@ -445,9 +437,7 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         except Exception as e:
             print(f"[ERROR] Failed to get preview service: {e}")
             return PreviewResponse(
-                success=False,
-                error=f"No preview service available: {str(e)}",
-                message="Preview service not available"
+                success=False, error=f"No preview service available: {str(e)}", message="Preview service not available"
             )
 
         # Process template with data
@@ -455,49 +445,49 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         processed_text = request.template
 
         # Check for placeholders BEFORE applying template data
-        has_qr_placeholder = '{qr}' in processed_text or re.search(r'\{qr=[^}]+\}', processed_text)
-        has_emoji_placeholder = '{emoji}' in processed_text
+        has_qr_placeholder = "{qr}" in processed_text or re.search(r"\{qr=[^}]+\}", processed_text)
+        has_emoji_placeholder = "{emoji}" in processed_text
 
         # Extract emoji value from data if placeholder exists
-        emoji_value = request.data.get('emoji') if (request.data and has_emoji_placeholder) else None
+        emoji_value = request.data.get("emoji") if (request.data and has_emoji_placeholder) else None
 
         print(f"[DEBUG] Template has QR placeholder: {has_qr_placeholder}")
         print(f"[DEBUG] Template has emoji placeholder: {has_emoji_placeholder}, emoji value: {emoji_value}")
 
         # Extract QR field name if specified (e.g., {qr=description})
         qr_field = None
-        qr_field_match = re.search(r'\{qr=([^}]+)\}', processed_text)
+        qr_field_match = re.search(r"\{qr=([^}]+)\}", processed_text)
         if qr_field_match:
             qr_field = qr_field_match.group(1)
             print(f"[DEBUG] QR field specified: {qr_field}")
 
         # Remove QR placeholders from text (they will be rendered as actual QR codes)
         if has_qr_placeholder:
-            processed_text = re.sub(r'\{qr=[^}]+\}', '', processed_text)
-            processed_text = processed_text.replace('{qr}', '')
+            processed_text = re.sub(r"\{qr=[^}]+\}", "", processed_text)
+            processed_text = processed_text.replace("{qr}", "")
 
         # Remove emoji placeholders from text (they will be rendered as actual emoji images)
         if has_emoji_placeholder:
-            processed_text = processed_text.replace('{emoji}', '')
+            processed_text = processed_text.replace("{emoji}", "")
 
         # Apply template data (after extracting special placeholders)
         if request.data:
             print(f"[DEBUG] Applying template data: {request.data}")
             for key, value in request.data.items():
                 # Skip emoji key as we handle it specially
-                if key == 'emoji':
+                if key == "emoji":
                     continue
                 processed_text = processed_text.replace(f"{{{key}}}", str(value))
 
         # Extract and remove rotation directive (default 0 degrees)
-        rotate_match = re.search(r'\{rotate=(\d+)\}', processed_text)
+        rotate_match = re.search(r"\{rotate=(\d+)\}", processed_text)
         rotation_degrees = int(rotate_match.group(1)) if rotate_match else 0
-        processed_text = re.sub(r'\{rotate=\d+\}', '', processed_text)
+        processed_text = re.sub(r"\{rotate=\d+\}", "", processed_text)
         print(f"[DEBUG] Rotation: {rotation_degrees}°")
 
         # Convert escape sequences to actual characters (e.g., \n to newline)
-        processed_text = processed_text.replace('\\n', '\n')
-        processed_text = processed_text.replace('\\t', '\t')
+        processed_text = processed_text.replace("\\n", "\n")
+        processed_text = processed_text.replace("\\t", "\t")
         print(f"[DEBUG] Processed text (after escape conversion): {repr(processed_text)}")
 
         # Check if QR code is requested (via option or {qr} placeholder)
@@ -513,16 +503,17 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         try:
             # Use PrinterManagerService to create the label image (same as print)
             from MakerMatrix.services.printer.printer_manager_service import get_printer_manager
+
             printer_manager = get_printer_manager()
 
             # Create options dict for advanced label creation
             options_dict = {
-                'include_qr': include_qr,
-                'skip_qr': not include_qr,
+                "include_qr": include_qr,
+                "skip_qr": not include_qr,
             }
             if request.options:
                 if request.options.font_size_override:
-                    options_dict['font_size_override'] = request.options.font_size_override
+                    options_dict["font_size_override"] = request.options.font_size_override
 
             # Create label image using the SAME method as print
             label_image = await printer_manager._create_advanced_label_image(
@@ -530,7 +521,7 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
                 data=request.data or {},
                 label_size=request.label_size,
                 label_length=request.label_length,
-                options=options_dict
+                options=options_dict,
             )
 
             print(f"[DEBUG] Preview: Created label image size: {label_image.width}x{label_image.height}px")
@@ -546,13 +537,14 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
                 print(f"[DEBUG] Applying {rotation_degrees}° rotation to preview")
                 from PIL import Image
                 import io
+
                 # Decode image
                 img = Image.open(io.BytesIO(result.image_data))
                 # Rotate image
-                img = img.rotate(-rotation_degrees, expand=True, fillcolor='white')
+                img = img.rotate(-rotation_degrees, expand=True, fillcolor="white")
                 # Re-encode image
                 img_buffer = io.BytesIO()
-                img.save(img_buffer, format='PNG')
+                img.save(img_buffer, format="PNG")
                 result.image_data = img_buffer.getvalue()
                 # Update dimensions
                 result.width_px = img.width
@@ -562,24 +554,21 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
         except Exception as e:
             print(f"[ERROR] Failed to generate preview: {e}")
             import traceback
+
             traceback.print_exc()
             return PreviewResponse(
-                success=False,
-                error=f"Preview generation failed: {str(e)}",
-                message="Failed to generate preview image"
+                success=False, error=f"Preview generation failed: {str(e)}", message="Failed to generate preview image"
             )
 
         # Encode image data as base64
         print(f"[DEBUG] Encoding image data to base64...")
         try:
-            preview_data = base64.b64encode(result.image_data).decode('utf-8')
+            preview_data = base64.b64encode(result.image_data).decode("utf-8")
             print(f"[DEBUG] Base64 encoding successful, length: {len(preview_data)}")
         except Exception as e:
             print(f"[ERROR] Failed to encode image data: {e}")
             return PreviewResponse(
-                success=False,
-                error=f"Image encoding failed: {str(e)}",
-                message="Failed to encode preview image"
+                success=False, error=f"Image encoding failed: {str(e)}", message="Failed to encode preview image"
             )
 
         print(f"[DEBUG] Returning successful preview response")
@@ -589,15 +578,16 @@ async def preview_advanced_label(request: AdvancedPreviewRequest):
             format=result.format,
             width_px=result.width_px,
             height_px=result.height_px,
-            message=result.message
+            message=result.message,
         )
 
     except Exception as e:
         print(f"[ERROR] Unexpected error in preview_advanced_label: {e}")
         import traceback
+
         traceback.print_exc()
         return PreviewResponse(
             success=False,
             error=f"Unexpected error: {str(e)}",
-            message="Internal server error during preview generation"
+            message="Internal server error during preview generation",
         )

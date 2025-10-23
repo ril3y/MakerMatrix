@@ -25,13 +25,14 @@ from MakerMatrix.models.label_template_models import (
     TextRotation,
     QRPosition,
     TextAlignment,
-    LayoutType
+    LayoutType,
 )
 
 
 @dataclass
 class ProcessingContext:
     """Context for template processing operations"""
+
     template: LabelTemplateModel
     data: Dict[str, Any]
     print_settings: PrintSettings
@@ -43,6 +44,7 @@ class ProcessingContext:
 @dataclass
 class LayoutDimensions:
     """Calculated dimensions for label layout"""
+
     qr_size_px: int
     qr_x: int
     qr_y: int
@@ -60,10 +62,7 @@ class TemplateProcessor:
         self.label_service = LabelService()
 
     def process_template(
-        self,
-        template: LabelTemplateModel,
-        data: Dict[str, Any],
-        print_settings: PrintSettings
+        self, template: LabelTemplateModel, data: Dict[str, Any], print_settings: PrintSettings
     ) -> Image.Image:
         """
         Process a template with given data and generate a label image.
@@ -77,15 +76,15 @@ class TemplateProcessor:
             PIL Image ready for printing
         """
         # Detect if template text contains {qr} placeholder
-        has_qr_in_text = '{qr}' in template.text_template or re.search(r'\{qr=[^}]+\}', template.text_template)
+        has_qr_in_text = "{qr}" in template.text_template or re.search(r"\{qr=[^}]+\}", template.text_template)
 
         # Dynamically enable QR if found in text (for custom templates)
         if has_qr_in_text and not template.qr_enabled:
             # Create a modified template with QR enabled
             template.qr_enabled = True
             # Default to LEFT position if not set
-            if not template.qr_position or template.qr_position == 'NONE':
-                template.qr_position = 'LEFT'
+            if not template.qr_position or template.qr_position == "NONE":
+                template.qr_position = "LEFT"
 
         # Create processing context
         context = self._create_context(template, data, print_settings)
@@ -105,10 +104,7 @@ class TemplateProcessor:
             return self._generate_combined_label(context, processed_text, layout)
 
     def _create_context(
-        self,
-        template: LabelTemplateModel,
-        data: Dict[str, Any],
-        print_settings: PrintSettings
+        self, template: LabelTemplateModel, data: Dict[str, Any], print_settings: PrintSettings
     ) -> ProcessingContext:
         """Create processing context with calculated dimensions"""
 
@@ -122,7 +118,7 @@ class TemplateProcessor:
             print_settings=print_settings,
             label_width_px=label_width_px,
             label_height_px=label_height_px,
-            dpi=print_settings.dpi
+            dpi=print_settings.dpi,
         )
 
     def _process_template_text(self, template_text: str, data: Dict[str, Any]) -> str:
@@ -141,12 +137,12 @@ class TemplateProcessor:
 
         # Remove QR placeholders from text (they will be rendered as actual QR codes)
         # Handle {qr=field_name} pattern
-        processed = re.sub(r'\{qr=[^}]+\}', '', processed)
+        processed = re.sub(r"\{qr=[^}]+\}", "", processed)
         # Handle plain {qr} pattern
-        processed = processed.replace('{qr}', '')
+        processed = processed.replace("{qr}", "")
 
         # Remove emoji placeholders from text (they will be rendered as emoji images)
-        processed = processed.replace('{emoji}', '')
+        processed = processed.replace("{emoji}", "")
 
         # Replace placeholders with actual data
         for key, value in data.items():
@@ -173,7 +169,7 @@ class TemplateProcessor:
             "top": round(((margins_config.get("top", 1) / 25.4) * context.dpi)),
             "bottom": round(((margins_config.get("bottom", 1) / 25.4) * context.dpi)),
             "left": round(((margins_config.get("left", 1) / 25.4) * context.dpi)),
-            "right": round(((margins_config.get("right", 1) / 25.4) * context.dpi))
+            "right": round(((margins_config.get("right", 1) / 25.4) * context.dpi)),
         }
 
         # Calculate QR code size if enabled
@@ -186,17 +182,13 @@ class TemplateProcessor:
             min_qr_px = round((template.qr_min_size_mm / 25.4) * context.dpi)
             max_qr_size = min(
                 context.label_width_px - margins["left"] - margins["right"],
-                context.label_height_px - margins["top"] - margins["bottom"]
+                context.label_height_px - margins["top"] - margins["bottom"],
             )
             qr_size_px = max(min_qr_px, round(max_qr_size * template.qr_scale))
 
             # Calculate QR position
             qr_x, qr_y = self._calculate_qr_position(
-                template.qr_position,
-                context.label_width_px,
-                context.label_height_px,
-                qr_size_px,
-                margins
+                template.qr_position, context.label_width_px, context.label_height_px, qr_size_px, margins
             )
 
         # Calculate text area dimensions
@@ -206,7 +198,7 @@ class TemplateProcessor:
             qr_size_px,
             template.qr_position if template.qr_enabled else QRPosition.CENTER,
             margins,
-            template.layout_config.get("spacing", {}).get("qr_text_gap", 2)
+            template.layout_config.get("spacing", {}).get("qr_text_gap", 2),
         )
 
         return LayoutDimensions(
@@ -217,16 +209,11 @@ class TemplateProcessor:
             text_area_y=text_area[1],
             text_area_width=text_area[2],
             text_area_height=text_area[3],
-            margins=margins
+            margins=margins,
         )
 
     def _calculate_qr_position(
-        self,
-        position: QRPosition,
-        label_width: int,
-        label_height: int,
-        qr_size: int,
-        margins: Dict[str, int]
+        self, position: QRPosition, label_width: int, label_height: int, qr_size: int, margins: Dict[str, int]
     ) -> Tuple[int, int]:
         """Calculate QR code position based on QRPosition enum"""
 
@@ -256,7 +243,7 @@ class TemplateProcessor:
         qr_size: int,
         qr_position: QRPosition,
         margins: Dict[str, int],
-        qr_text_gap_mm: float
+        qr_text_gap_mm: float,
     ) -> Tuple[int, int, int, int]:
         """
         Calculate available text area considering QR code position.
@@ -270,7 +257,7 @@ class TemplateProcessor:
                 margins["left"],
                 margins["top"],
                 label_width - margins["left"] - margins["right"],
-                label_height - margins["top"] - margins["bottom"]
+                label_height - margins["top"] - margins["bottom"],
             )
 
         # Calculate text area based on QR position
@@ -279,28 +266,28 @@ class TemplateProcessor:
                 margins["left"] + qr_size + gap_px,
                 margins["top"],
                 label_width - margins["left"] - margins["right"] - qr_size - gap_px,
-                label_height - margins["top"] - margins["bottom"]
+                label_height - margins["top"] - margins["bottom"],
             )
         elif qr_position == QRPosition.RIGHT:
             return (
                 margins["left"],
                 margins["top"],
                 label_width - margins["left"] - margins["right"] - qr_size - gap_px,
-                label_height - margins["top"] - margins["bottom"]
+                label_height - margins["top"] - margins["bottom"],
             )
         elif qr_position == QRPosition.TOP:
             return (
                 margins["left"],
                 margins["top"] + qr_size + gap_px,
                 label_width - margins["left"] - margins["right"],
-                label_height - margins["top"] - margins["bottom"] - qr_size - gap_px
+                label_height - margins["top"] - margins["bottom"] - qr_size - gap_px,
             )
         elif qr_position == QRPosition.BOTTOM:
             return (
                 margins["left"],
                 margins["top"],
                 label_width - margins["left"] - margins["right"],
-                label_height - margins["top"] - margins["bottom"] - qr_size - gap_px
+                label_height - margins["top"] - margins["bottom"] - qr_size - gap_px,
             )
         else:
             # For corner positions, use remaining space more intelligently
@@ -310,7 +297,7 @@ class TemplateProcessor:
                     margins["left"] + qr_size + gap_px,
                     margins["top"],
                     label_width - margins["left"] - margins["right"] - qr_size - gap_px,
-                    label_height - margins["top"] - margins["bottom"]
+                    label_height - margins["top"] - margins["bottom"],
                 )
             else:  # TOP_RIGHT, BOTTOM_RIGHT
                 # QR on right, text on left
@@ -318,15 +305,11 @@ class TemplateProcessor:
                     margins["left"],
                     margins["top"],
                     label_width - margins["left"] - margins["right"] - qr_size - gap_px,
-                    label_height - margins["top"] - margins["bottom"]
+                    label_height - margins["top"] - margins["bottom"],
                 )
 
     def generate_rotated_text_image(
-        self,
-        text: str,
-        font: ImageFont.FreeTypeFont,
-        rotation: TextRotation,
-        text_color: str = "black"
+        self, text: str, font: ImageFont.FreeTypeFont, rotation: TextRotation, text_color: str = "black"
     ) -> Image.Image:
         """
         Generate text image with specified rotation.
@@ -347,7 +330,7 @@ class TemplateProcessor:
 
         # Create image with some padding
         padding = 10
-        img = Image.new('RGBA', (text_width + padding * 2, text_height + padding * 2), (255, 255, 255, 0))
+        img = Image.new("RGBA", (text_width + padding * 2, text_height + padding * 2), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
 
         # Draw text
@@ -370,7 +353,7 @@ class TemplateProcessor:
         available_width: int,
         available_height: int,
         font_config: Dict[str, Any],
-        enable_auto_sizing: bool = True
+        enable_auto_sizing: bool = True,
     ) -> Tuple[List[str], ImageFont.FreeTypeFont, int]:
         """
         Calculate optimal font size and line breaks for multi-line text.
@@ -382,7 +365,7 @@ class TemplateProcessor:
         max_size = font_config.get("max_size", 72)
         font_family = font_config.get("family", "DejaVu Sans")
 
-        lines = text.split('\n')
+        lines = text.split("\n")
 
         if not enable_auto_sizing:
             # Use a fixed size
@@ -429,11 +412,7 @@ class TemplateProcessor:
         return lines, best_font, line_height
 
     def process_vertical_text(
-        self,
-        text: str,
-        available_width: int,
-        available_height: int,
-        font_config: Dict[str, Any]
+        self, text: str, available_width: int, available_height: int, font_config: Dict[str, Any]
     ) -> Image.Image:
         """
         Process vertical text layout (character-per-line: "EASY" -> "E\nA\nS\nY").
@@ -448,24 +427,20 @@ class TemplateProcessor:
             Vertical text image
         """
         # Convert text to vertical layout
-        if '\n' not in text:
+        if "\n" not in text:
             # Convert horizontal text to vertical (character per line)
-            vertical_text = '\n'.join(list(text))
+            vertical_text = "\n".join(list(text))
         else:
             vertical_text = text
 
         # Calculate optimal sizing for vertical layout
         lines, font, line_height = self.calculate_multiline_optimal_sizing(
-            vertical_text,
-            available_width,
-            available_height,
-            font_config,
-            True
+            vertical_text, available_width, available_height, font_config, True
         )
 
         # Create vertical text image
         total_height = len(lines) * line_height
-        img = Image.new('RGBA', (available_width, total_height), (255, 255, 255, 0))
+        img = Image.new("RGBA", (available_width, total_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
 
         y_offset = 0
@@ -497,15 +472,10 @@ class TemplateProcessor:
                     # Fallback to default font
                     return ImageFont.load_default()
 
-    def _generate_text_only_label(
-        self,
-        context: ProcessingContext,
-        text: str,
-        layout: LayoutDimensions
-    ) -> Image.Image:
+    def _generate_text_only_label(self, context: ProcessingContext, text: str, layout: LayoutDimensions) -> Image.Image:
         """Generate a text-only label"""
         # Create label image
-        img = Image.new('RGB', (context.label_width_px, context.label_height_px), 'white')
+        img = Image.new("RGB", (context.label_width_px, context.label_height_px), "white")
         draw = ImageDraw.Draw(img)
 
         # Calculate optimal text sizing
@@ -514,7 +484,7 @@ class TemplateProcessor:
             layout.text_area_width,
             layout.text_area_height,
             context.template.font_config,
-            context.template.enable_auto_sizing
+            context.template.enable_auto_sizing,
         )
 
         # Handle text rotation
@@ -545,14 +515,10 @@ class TemplateProcessor:
 
         return img
 
-    def _generate_qr_only_label(
-        self,
-        context: ProcessingContext,
-        layout: LayoutDimensions
-    ) -> Image.Image:
+    def _generate_qr_only_label(self, context: ProcessingContext, layout: LayoutDimensions) -> Image.Image:
         """Generate a QR-only label"""
         # Create label image
-        img = Image.new('RGB', (context.label_width_px, context.label_height_px), 'white')
+        img = Image.new("RGB", (context.label_width_px, context.label_height_px), "white")
 
         # Generate QR code
         qr_data = self._get_qr_data(context.data, context.template.text_template)
@@ -563,15 +529,10 @@ class TemplateProcessor:
 
         return img
 
-    def _generate_combined_label(
-        self,
-        context: ProcessingContext,
-        text: str,
-        layout: LayoutDimensions
-    ) -> Image.Image:
+    def _generate_combined_label(self, context: ProcessingContext, text: str, layout: LayoutDimensions) -> Image.Image:
         """Generate a combined QR + text label"""
         # Create label image
-        img = Image.new('RGB', (context.label_width_px, context.label_height_px), 'white')
+        img = Image.new("RGB", (context.label_width_px, context.label_height_px), "white")
         draw = ImageDraw.Draw(img)
 
         # Generate and paste QR code if enabled
@@ -602,17 +563,16 @@ class TemplateProcessor:
 
                     # Adjust text area to account for emoji
                     layout.text_area_x = emoji_x + emoji_img.width + layout.margins.get("left", 0)
-                    layout.text_area_width = max(1, layout.text_area_width - emoji_img.width - layout.margins.get("left", 0))
+                    layout.text_area_width = max(
+                        1, layout.text_area_width - emoji_img.width - layout.margins.get("left", 0)
+                    )
 
         # Generate and paste text
         if text.strip():
-            if context.template.supports_vertical_text and '\n' not in text and len(text) > 1:
+            if context.template.supports_vertical_text and "\n" not in text and len(text) > 1:
                 # Use vertical text processing
                 text_img = self.process_vertical_text(
-                    text,
-                    layout.text_area_width,
-                    layout.text_area_height,
-                    context.template.font_config
+                    text, layout.text_area_width, layout.text_area_height, context.template.font_config
                 )
                 paste_x = layout.text_area_x + (layout.text_area_width - text_img.width) // 2
                 paste_y = layout.text_area_y + (layout.text_area_height - text_img.height) // 2
@@ -625,9 +585,9 @@ class TemplateProcessor:
                     layout.text_area_width,
                     layout.text_area_height,
                     context.template.font_config,
-                    context.template.enable_auto_sizing
+                    context.template.enable_auto_sizing,
                 )
-                text_img = self.generate_rotated_text_image('\n'.join(lines), font, context.template.text_rotation)
+                text_img = self.generate_rotated_text_image("\n".join(lines), font, context.template.text_rotation)
                 paste_x = layout.text_area_x + (layout.text_area_width - text_img.width) // 2
                 paste_y = layout.text_area_y + (layout.text_area_height - text_img.height) // 2
                 img.paste(text_img, (paste_x, paste_y), text_img)
@@ -639,7 +599,7 @@ class TemplateProcessor:
                     layout.text_area_width,
                     layout.text_area_height,
                     context.template.font_config,
-                    context.template.enable_auto_sizing
+                    context.template.enable_auto_sizing,
                 )
 
                 y_offset = layout.text_area_y
@@ -660,7 +620,7 @@ class TemplateProcessor:
 
         return img
 
-    def _get_qr_data(self, data: Dict[str, Any], template_text: str = '') -> str:
+    def _get_qr_data(self, data: Dict[str, Any], template_text: str = "") -> str:
         """
         Generate QR code data from context data.
         Returns MM:id format by default (MakerMatrix ID format).
@@ -670,14 +630,12 @@ class TemplateProcessor:
             ValueError: If specified field doesn't exist in data or QR data exceeds size limit
         """
         # Check if template specifies which field to use for QR
-        qr_field_match = re.search(r'\{qr=([^}]+)\}', template_text)
+        qr_field_match = re.search(r"\{qr=([^}]+)\}", template_text)
         if qr_field_match:
             field_name = qr_field_match.group(1)
             if field_name not in data:
-                available_fields = ', '.join(data.keys())
-                raise ValueError(
-                    f"Field '{field_name}' not found in data. Available fields: {available_fields}"
-                )
+                available_fields = ", ".join(data.keys())
+                raise ValueError(f"Field '{field_name}' not found in data. Available fields: {available_fields}")
             qr_data = str(data[field_name])
 
             # Validate QR data size (11mm x 11mm QR code constraint)
@@ -693,14 +651,14 @@ class TemplateProcessor:
             return qr_data
 
         # Default: Prefer ID for QR code in MM:id format
-        if 'id' in data:
+        if "id" in data:
             return f"MM:{data['id']}"
-        elif 'part_id' in data:
+        elif "part_id" in data:
             return f"MM:{data['part_id']}"
-        elif 'part_number' in data:
-            return str(data['part_number'])
-        elif 'location_id' in data:
-            return str(data['location_id'])
+        elif "part_number" in data:
+            return str(data["part_number"])
+        elif "location_id" in data:
+            return str(data["location_id"])
         else:
             # Use first available data value
             return str(next(iter(data.values()))) if data else "DEFAULT_QR"
@@ -725,21 +683,16 @@ class TemplateProcessor:
 
     def _has_emoji_placeholder(self, template_text: str) -> bool:
         """Check if template has {emoji} placeholder"""
-        return '{emoji}' in template_text
+        return "{emoji}" in template_text
 
     def _get_emoji_char(self, data: Dict[str, Any]) -> Optional[str]:
         """
         Get emoji character from data.
         Returns the emoji field value if present, otherwise None.
         """
-        return data.get('emoji', None)
+        return data.get("emoji", None)
 
-    def _render_emoji_image(
-        self,
-        emoji_char: str,
-        max_width: int,
-        max_height: int
-    ) -> Optional[Image.Image]:
+    def _render_emoji_image(self, emoji_char: str, max_width: int, max_height: int) -> Optional[Image.Image]:
         """
         Render emoji as an image using EmojiRenderService.
 
@@ -757,7 +710,7 @@ class TemplateProcessor:
                 max_width=max_width,
                 max_height=max_height,
                 background_color="white",
-                convert_shortcode=True
+                convert_shortcode=True,
             )
         except Exception as e:
             print(f"[ERROR] Failed to render emoji '{emoji_char}': {e}")

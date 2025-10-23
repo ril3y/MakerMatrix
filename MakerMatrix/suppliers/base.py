@@ -16,8 +16,10 @@ import time
 import logging
 from datetime import datetime
 
+
 class FieldType(Enum):
     """Types of configuration/credential fields"""
+
     TEXT = "text"
     PASSWORD = "password"
     EMAIL = "email"
@@ -26,20 +28,24 @@ class FieldType(Enum):
     BOOLEAN = "boolean"
     SELECT = "select"
     TEXTAREA = "textarea"
-    INFO = "info"        # Display-only informational text
-    HIDDEN = "hidden"    # Hidden field for internal values
+    INFO = "info"  # Display-only informational text
+    HIDDEN = "hidden"  # Hidden field for internal values
+
 
 class SupplierCapability(Enum):
     """Capabilities that suppliers can support"""
+
     GET_PART_DETAILS = "get_part_details"  # Complete part info including images, specifications
-    FETCH_DATASHEET = "fetch_datasheet"    # Datasheet URL retrieval
+    FETCH_DATASHEET = "fetch_datasheet"  # Datasheet URL retrieval
     FETCH_PRICING_STOCK = "fetch_pricing_stock"  # Combined pricing and stock information
-    IMPORT_ORDERS = "import_orders"        # Import order files (CSV, XLS, etc.)
+    IMPORT_ORDERS = "import_orders"  # Import order files (CSV, XLS, etc.)
     SCRAPE_PART_DETAILS = "scrape_part_details"  # Web scraping fallback when API unavailable
+
 
 @dataclass
 class FieldDefinition:
     """Definition of a configuration or credential field"""
+
     name: str
     label: str
     field_type: FieldType
@@ -51,9 +57,11 @@ class FieldDefinition:
     options: Optional[List[Dict[str, str]]] = None  # For SELECT type
     validation: Optional[Dict[str, Any]] = None  # min_length, max_length, pattern, etc.
 
+
 @dataclass
 class PartSearchResult:
     """Result from part search"""
+
     supplier_part_number: str
     part_name: Optional[str] = None  # Product name (e.g., "Adafruit Feather M4 CAN Express")
     manufacturer: Optional[str] = None
@@ -67,42 +75,48 @@ class PartSearchResult:
     specifications: Optional[Dict[str, Any]] = None
     additional_data: Optional[Dict[str, Any]] = None
 
+
 @dataclass
 class ConfigurationOption:
     """A configuration option for a supplier (e.g., sandbox vs production)"""
+
     name: str
     label: str
     description: str
-    schema: List['FieldDefinition']
+    schema: List["FieldDefinition"]
     is_default: bool = False
     requirements: Optional[Dict[str, Any]] = None  # Additional requirements like OAuth setup
+
 
 @dataclass
 class CapabilityRequirement:
     """Defines what credentials/config a capability requires"""
+
     capability: SupplierCapability
     required_credentials: List[str] = None  # e.g., ["api_key"], ["client_id", "client_secret"]
     optional_credentials: List[str] = None  # Credentials that enhance but aren't required
     description: str = ""
-    
+
     def __post_init__(self):
         if self.required_credentials is None:
             self.required_credentials = []
         if self.optional_credentials is None:
             self.optional_credentials = []
 
+
 @dataclass
 class EnrichmentResult:
     """Result from part enrichment"""
+
     success: bool
     supplier_part_number: str
     enriched_fields: List[str] = None  # List of fields that were successfully enriched
-    failed_fields: List[str] = None    # List of fields that failed to enrich
+    failed_fields: List[str] = None  # List of fields that failed to enrich
     data: Optional[PartSearchResult] = None  # The enriched part data
-    errors: Dict[str, str] = None      # Field-specific error messages
+    errors: Dict[str, str] = None  # Field-specific error messages
     warnings: List[str] = None
     duration_ms: Optional[int] = None  # Total enrichment time in milliseconds
-    
+
     def __post_init__(self):
         if self.enriched_fields is None:
             self.enriched_fields = []
@@ -113,9 +127,11 @@ class EnrichmentResult:
         if self.warnings is None:
             self.warnings = []
 
+
 @dataclass
 class ImportResult:
     """Result from importing an order file"""
+
     success: bool
     imported_count: int = 0
     failed_count: int = 0
@@ -125,7 +141,7 @@ class ImportResult:
     order_info: Optional[Dict[str, Any]] = None  # Extracted order metadata
     parser_type: Optional[str] = None  # Which parser was used
     error_message: Optional[str] = None
-    
+
     def __post_init__(self):
         if self.parts is None:
             self.parts = []
@@ -134,9 +150,11 @@ class ImportResult:
         if self.warnings is None:
             self.warnings = []
 
+
 @dataclass
 class SupplierInfo:
     """Information about a supplier"""
+
     name: str
     display_name: str
     description: str
@@ -150,6 +168,7 @@ class SupplierInfo:
     def __post_init__(self):
         if self.supported_file_types is None:
             self.supported_file_types = []
+
 
 @dataclass
 class EnrichmentFieldMapping:
@@ -168,6 +187,7 @@ class EnrichmentFieldMapping:
             description="The product ID from the Adafruit product page URL"
         )
     """
+
     field_name: str  # Part field to populate (e.g., "supplier_part_number")
     display_name: str  # Human-readable name (e.g., "Product ID")
     url_patterns: List[str]  # Regex patterns for extraction (e.g., [r'/product/(\d+)'])
@@ -175,25 +195,27 @@ class EnrichmentFieldMapping:
     description: Optional[str] = None  # Description of what this field represents
     required_for_enrichment: bool = True  # Whether this field is required for enrichment to work
 
+
 logger = logging.getLogger(__name__)
+
 
 class BaseSupplier(ABC):
     """
     Abstract base class for all supplier implementations.
-    
+
     Each supplier must implement these methods to provide a consistent interface
     for discovering capabilities, configuring credentials, and fetching data.
-    
+
     Automatically tracks API usage for all supplier methods.
     """
-    
+
     def __init__(self):
         self._configured = False
         self._credentials: Dict[str, Any] = {}
         self._config: Dict[str, Any] = {}
         self._session: Optional[aiohttp.ClientSession] = None
         self._rate_limit_service = None  # Lazy loaded to avoid circular imports
-    
+
     def _get_rate_limit_service(self):
         """Lazy load rate limit service to avoid circular imports"""
         if self._rate_limit_service is None:
@@ -201,49 +223,51 @@ class BaseSupplier(ABC):
                 # Lazy import to avoid circular dependency
                 from MakerMatrix.services.rate_limit_service import RateLimitService
                 from MakerMatrix.models.models import engine
+
                 self._rate_limit_service = RateLimitService(engine)
             except ImportError as e:
                 logger.warning(f"Could not import RateLimitService: {e}")
                 self._rate_limit_service = None
         return self._rate_limit_service
-    
+
     def _track_api_call(self, endpoint_type: str):
         """Decorator to track API calls with rate limiting and usage statistics"""
+
         def decorator(func: Callable):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
                 supplier_name = self.get_supplier_info().name
                 rate_service = self._get_rate_limit_service()
-                
+
                 if not rate_service:
                     # If rate limiting service is not available, just call the function
                     return await func(*args, **kwargs)
-                
+
                 start_time = time.time()
                 success = False
                 error_message = None
                 result = None
-                
+
                 try:
                     # Check rate limits before making the request
                     rate_status = await rate_service.check_rate_limit(supplier_name, endpoint_type)
                     if not rate_status.get("allowed", True):
                         from ..suppliers.exceptions import SupplierRateLimitError
+
                         raise SupplierRateLimitError(
-                            f"Rate limit exceeded for {supplier_name}",
-                            supplier_name=supplier_name
+                            f"Rate limit exceeded for {supplier_name}", supplier_name=supplier_name
                         )
-                    
+
                     # Make the actual API call
                     result = await func(*args, **kwargs)
                     success = True
                     return result
-                    
+
                 except Exception as e:
                     error_message = str(e)
                     logger.error(f"API call failed for {supplier_name}.{endpoint_type}: {e}")
                     raise
-                
+
                 finally:
                     # Record the request regardless of success/failure
                     try:
@@ -257,29 +281,30 @@ class BaseSupplier(ABC):
                             request_metadata={
                                 "method": func.__name__,
                                 "args_count": len(args),
-                                "kwargs_keys": list(kwargs.keys())
-                            }
+                                "kwargs_keys": list(kwargs.keys()),
+                            },
                         )
                     except Exception as tracking_error:
                         logger.error(f"Failed to record API usage: {tracking_error}")
                         # Don't let tracking errors affect the main functionality
                         pass
-            
+
             return wrapper
+
         return decorator
-    
+
     # ========== Supplier Information ==========
-    
+
     @abstractmethod
     def get_supplier_info(self) -> SupplierInfo:
         """Get basic information about this supplier"""
         pass
-    
+
     @abstractmethod
     def get_capabilities(self) -> List[SupplierCapability]:
         """Get list of capabilities this supplier supports"""
         pass
-    
+
     @abstractmethod
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """Get requirements for each capability"""
@@ -319,7 +344,9 @@ class BaseSupplier(ABC):
         """
         return False  # Default: no scraping support
 
-    async def scrape_part_details(self, url_or_part_number: str, force_refresh: bool = False) -> Optional[PartSearchResult]:
+    async def scrape_part_details(
+        self, url_or_part_number: str, force_refresh: bool = False
+    ) -> Optional[PartSearchResult]:
         """
         Scrape part details from supplier website when API is unavailable.
 
@@ -346,81 +373,78 @@ class BaseSupplier(ABC):
             - rate_limit_seconds: Delay between requests
             - user_agent: Custom user agent string if needed
         """
-        return {
-            'selectors': {},
-            'requires_js': False,
-            'rate_limit_seconds': 1.0,
-            'user_agent': None
-        }
+        return {"selectors": {}, "requires_js": False, "rate_limit_seconds": 1.0, "user_agent": None}
 
     # ========== Schema Definitions ==========
-    
+
     @abstractmethod
     def get_credential_schema(self) -> List[FieldDefinition]:
         """Get the schema for credentials this supplier requires"""
         pass
-    
-    @abstractmethod 
+
+    @abstractmethod
     def get_configuration_schema(self, **kwargs) -> List[FieldDefinition]:
         """
         Get the schema for configuration fields this supplier needs.
-        
+
         Returns:
             List of FieldDefinition objects defining configuration options.
             For suppliers with multiple configuration methods, return all options
             and let the frontend handle showing appropriate fields based on user selection.
-        
+
         Args:
             **kwargs: Optional parameters for dynamic schema generation
         """
         pass
-    
+
     def get_configuration_options(self) -> List[ConfigurationOption]:
         """
         Get all possible configuration options for this supplier.
-        
+
         Returns:
             List of ConfigurationOption objects defining different configuration methods.
-            
+
         Default implementation returns a single configuration option.
         Suppliers with multiple methods (like DigiKey sandbox vs production) should override this.
         """
         return [
             ConfigurationOption(
-                name='default',
-                label=f'{self.get_supplier_info().display_name} Configuration',
-                description=f'Standard configuration for {self.get_supplier_info().display_name}',
+                name="default",
+                label=f"{self.get_supplier_info().display_name} Configuration",
+                description=f"Standard configuration for {self.get_supplier_info().display_name}",
                 schema=self.get_configuration_schema(),
-                is_default=True
+                is_default=True,
             )
         ]
-    
+
     def get_configuration_options_dict(self) -> List[Dict[str, Any]]:
         """
         Get configuration options as dictionaries for backward compatibility.
-        
+
         Returns configuration options in the legacy dictionary format.
         """
         options = []
         for config_option in self.get_configuration_options():
-            options.append({
-                'name': config_option.name,
-                'label': config_option.label,
-                'description': config_option.description,
-                'schema': config_option.schema,
-                'is_default': config_option.is_default,
-                'requirements': config_option.requirements
-            })
+            options.append(
+                {
+                    "name": config_option.name,
+                    "label": config_option.label,
+                    "description": config_option.description,
+                    "schema": config_option.schema,
+                    "is_default": config_option.is_default,
+                    "requirements": config_option.requirements,
+                }
+            )
         return options
-    
+
     def validate_configuration_option(self, option_name: str, config_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Validate a configuration option against its schema.
-        
+
         Args:
             option_name: Name of the configuration option to validate
             config_data: Configuration data to validate
-            
+
         Returns:
             Dictionary with 'valid' boolean and 'errors' list
         """
@@ -430,73 +454,70 @@ class BaseSupplier(ABC):
             if option.name == option_name:
                 config_option = option
                 break
-        
+
         if not config_option:
-            return {
-                'valid': False,
-                'errors': [f'Unknown configuration option: {option_name}']
-            }
-        
+            return {"valid": False, "errors": [f"Unknown configuration option: {option_name}"]}
+
         errors = []
-        
+
         # Validate each field in the schema
         for field in config_option.schema:
             value = config_data.get(field.name)
-            
+
             # Check required fields
-            if field.required and (value is None or value == ''):
-                errors.append(f'{field.label} is required')
+            if field.required and (value is None or value == ""):
+                errors.append(f"{field.label} is required")
                 continue
-            
+
             # Skip validation for non-required empty fields
-            if not field.required and (value is None or value == ''):
+            if not field.required and (value is None or value == ""):
                 continue
-            
+
             # Type-specific validation
             if field.field_type == FieldType.EMAIL and value:
                 import re
-                email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+                email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
                 if not re.match(email_pattern, value):
-                    errors.append(f'{field.label} must be a valid email address')
-            
+                    errors.append(f"{field.label} must be a valid email address")
+
             elif field.field_type == FieldType.URL and value:
                 import re
-                url_pattern = r'^https?://[^\s]+$'
+
+                url_pattern = r"^https?://[^\s]+$"
                 if not re.match(url_pattern, value):
-                    errors.append(f'{field.label} must be a valid URL')
-            
+                    errors.append(f"{field.label} must be a valid URL")
+
             elif field.field_type == FieldType.NUMBER and value:
                 try:
                     float(value)
                 except ValueError:
-                    errors.append(f'{field.label} must be a valid number')
-            
+                    errors.append(f"{field.label} must be a valid number")
+
             # Custom validation rules
             if field.validation:
-                if 'min_length' in field.validation and len(str(value)) < field.validation['min_length']:
+                if "min_length" in field.validation and len(str(value)) < field.validation["min_length"]:
                     errors.append(f'{field.label} must be at least {field.validation["min_length"]} characters')
-                
-                if 'max_length' in field.validation and len(str(value)) > field.validation['max_length']:
+
+                if "max_length" in field.validation and len(str(value)) > field.validation["max_length"]:
                     errors.append(f'{field.label} must be no more than {field.validation["max_length"]} characters')
-                
-                if 'pattern' in field.validation:
+
+                if "pattern" in field.validation:
                     import re
-                    if not re.match(field.validation['pattern'], str(value)):
-                        errors.append(f'{field.label} format is invalid')
-        
-        return {
-            'valid': len(errors) == 0,
-            'errors': errors
-        }
-    
+
+                    if not re.match(field.validation["pattern"], str(value)):
+                        errors.append(f"{field.label} format is invalid")
+
+        return {"valid": len(errors) == 0, "errors": errors}
+
     # ========== Configuration and Authentication ==========
-    
+
     def configure(self, credentials: Dict[str, Any], config: Dict[str, Any] = None):
         """Configure the supplier with credentials and optional config"""
         self._credentials = credentials.copy()
         self._config = config.copy() if config else {}
         self._configured = True
-    
+
     @abstractmethod
     async def authenticate(self) -> bool:
         """
@@ -504,7 +525,7 @@ class BaseSupplier(ABC):
         Returns True if authentication successful, False otherwise.
         """
         pass
-    
+
     @abstractmethod
     async def test_connection(self) -> Dict[str, Any]:
         """
@@ -512,43 +533,41 @@ class BaseSupplier(ABC):
         Returns dict with 'success', 'message', and optional 'details'.
         """
         pass
-    
+
     # ========== API Tracking Helpers ==========
-    
+
     async def _tracked_api_call(self, endpoint_type: str, api_func: Callable, *args, **kwargs):
         """Helper method to track any API call with rate limiting and usage statistics"""
         supplier_name = self.get_supplier_info().name
         rate_service = self._get_rate_limit_service()
-        
+
         if not rate_service:
             # If rate limiting service is not available, just call the function
             return await api_func(*args, **kwargs)
-        
+
         start_time = time.time()
         success = False
         error_message = None
         result = None
-        
+
         try:
             # Check rate limits before making the request
             rate_status = await rate_service.check_rate_limit(supplier_name, endpoint_type)
             if not rate_status.get("allowed", True):
                 from .exceptions import SupplierRateLimitError
-                raise SupplierRateLimitError(
-                    f"Rate limit exceeded for {supplier_name}",
-                    supplier_name=supplier_name
-                )
-            
+
+                raise SupplierRateLimitError(f"Rate limit exceeded for {supplier_name}", supplier_name=supplier_name)
+
             # Make the actual API call
             result = await api_func(*args, **kwargs)
             success = True
             return result
-            
+
         except Exception as e:
             error_message = str(e)
             logger.error(f"API call failed for {supplier_name}.{endpoint_type}: {e}")
             raise
-        
+
         finally:
             # Record the request regardless of success/failure
             try:
@@ -560,16 +579,16 @@ class BaseSupplier(ABC):
                     response_time_ms=response_time_ms,
                     error_message=error_message,
                     request_metadata={
-                        "function": api_func.__name__ if hasattr(api_func, '__name__') else str(api_func),
+                        "function": api_func.__name__ if hasattr(api_func, "__name__") else str(api_func),
                         "args_count": len(args),
-                        "kwargs_keys": list(kwargs.keys())
-                    }
+                        "kwargs_keys": list(kwargs.keys()),
+                    },
                 )
             except Exception as tracking_error:
                 logger.error(f"Failed to record API usage: {tracking_error}")
                 # Don't let tracking errors affect the main functionality
                 pass
-    
+
     # ========== Core Functionality ==========
 
     @abstractmethod
@@ -577,7 +596,9 @@ class BaseSupplier(ABC):
         """Search for parts using a text query"""
         pass
 
-    def map_to_standard_format(self, supplier_data: Union[PartSearchResult, EnrichmentResult, Dict[str, Any]]) -> Dict[str, Any]:
+    def map_to_standard_format(
+        self, supplier_data: Union[PartSearchResult, EnrichmentResult, Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
         Map supplier-specific data to standardized part format.
 
@@ -629,21 +650,21 @@ class BaseSupplier(ABC):
         if isinstance(supplier_data, PartSearchResult):
             # Map from PartSearchResult
             mapped_data = {
-                'supplier_part_number': supplier_data.supplier_part_number,
-                'part_name': supplier_data.part_name,
-                'manufacturer': supplier_data.manufacturer,
-                'manufacturer_part_number': supplier_data.manufacturer_part_number,
-                'description': supplier_data.description,
-                'category': supplier_data.category,
-                'datasheet_url': supplier_data.datasheet_url,
-                'image_url': supplier_data.image_url,
-                'quantity': supplier_data.stock_quantity if supplier_data.stock_quantity is not None else 0,
-                'additional_properties': supplier_data.specifications or {}
+                "supplier_part_number": supplier_data.supplier_part_number,
+                "part_name": supplier_data.part_name,
+                "manufacturer": supplier_data.manufacturer,
+                "manufacturer_part_number": supplier_data.manufacturer_part_number,
+                "description": supplier_data.description,
+                "category": supplier_data.category,
+                "datasheet_url": supplier_data.datasheet_url,
+                "image_url": supplier_data.image_url,
+                "quantity": supplier_data.stock_quantity if supplier_data.stock_quantity is not None else 0,
+                "additional_properties": supplier_data.specifications or {},
             }
 
             # Add pricing if available
             if supplier_data.pricing:
-                mapped_data['price'] = self._extract_unit_price(supplier_data.pricing)
+                mapped_data["price"] = self._extract_unit_price(supplier_data.pricing)
 
         elif isinstance(supplier_data, EnrichmentResult):
             # Map from EnrichmentResult
@@ -672,26 +693,30 @@ class BaseSupplier(ABC):
 
         # Look for quantity 1 pricing
         for price_tier in pricing:
-            if price_tier.get('quantity') == 1:
-                return price_tier.get('price')
+            if price_tier.get("quantity") == 1:
+                return price_tier.get("price")
 
         # Fall back to first tier if no unit pricing
-        if pricing and 'price' in pricing[0]:
-            return pricing[0]['price']
+        if pricing and "price" in pricing[0]:
+            return pricing[0]["price"]
 
         return None
-    
+
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
         """Get detailed information about a specific part"""
+
         # Default implementation with tracking - subclasses can override for more efficient single-part lookup
         async def _impl():
             results = await self.search_parts(supplier_part_number, limit=1)
             return results[0] if results else None
-        
+
         return await self._tracked_api_call("get_part_details", _impl)
-    
-    async def bulk_search_parts(self, queries: List[str], limit_per_query: int = 10) -> Dict[str, List[PartSearchResult]]:
+
+    async def bulk_search_parts(
+        self, queries: List[str], limit_per_query: int = 10
+    ) -> Dict[str, List[PartSearchResult]]:
         """Search for multiple parts at once (if supported)"""
+
         # Default implementation with tracking - subclasses can override for more efficient bulk operations
         async def _impl():
             results = {}
@@ -701,42 +726,45 @@ class BaseSupplier(ABC):
                 except Exception as e:
                     results[query] = []
             return results
-        
+
         return await self._tracked_api_call("bulk_search", _impl)
-    
+
     # ========== Optional Advanced Features ==========
-    
+
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:
         """Fetch datasheet URL for a part (if supported)"""
+
         async def _impl():
             if SupplierCapability.FETCH_DATASHEET not in self.get_capabilities():
                 return None
             # Subclasses should implement this
             return None
-        
+
         return await self._tracked_api_call("fetch_datasheet", _impl)
-    
+
     async def fetch_pricing_stock(self, supplier_part_number: str) -> Optional[Dict[str, Any]]:
         """Fetch combined pricing and stock information for a part (if supported)"""
+
         async def _impl():
             if SupplierCapability.FETCH_PRICING_STOCK not in self.get_capabilities():
                 return None
             # Subclasses should implement this
             return None
-        
+
         return await self._tracked_api_call("fetch_pricing_stock", _impl)
-    
-    
+
     # ========== Unified Enrichment ==========
-    
-    async def enrich_part(self, supplier_part_number: str, capabilities: List[SupplierCapability] = None) -> EnrichmentResult:
+
+    async def enrich_part(
+        self, supplier_part_number: str, capabilities: List[SupplierCapability] = None
+    ) -> EnrichmentResult:
         """
         Enrich a part with all available data from the supplier.
-        
+
         Args:
             supplier_part_number: The supplier's part number
             capabilities: Optional list of specific capabilities to use. If None, uses all available.
-            
+
         Returns:
             EnrichmentResult with enriched part data and status information
         """
@@ -745,15 +773,16 @@ class BaseSupplier(ABC):
         failed_fields = []
         errors = {}
         warnings = []
-        
+
         # Determine which capabilities to use
         if capabilities is None:
             # Use all enrichment capabilities that are available
             capabilities = [
-                cap for cap in [
+                cap
+                for cap in [
                     SupplierCapability.GET_PART_DETAILS,
                     SupplierCapability.FETCH_DATASHEET,
-                    SupplierCapability.FETCH_PRICING_STOCK
+                    SupplierCapability.FETCH_PRICING_STOCK,
                 ]
                 if cap in self.get_capabilities() and self.is_capability_available(cap)
             ]
@@ -766,19 +795,19 @@ class BaseSupplier(ABC):
                 elif not self.is_capability_available(cap):
                     missing_creds = self.get_missing_credentials_for_capability(cap)
                     warnings.append(f"Capability {cap.value} requires missing credentials: {', '.join(missing_creds)}")
-            
+
             # Filter to only available capabilities
             capabilities = [cap for cap in capabilities if cap in available_caps and self.is_capability_available(cap)]
-        
+
         if not capabilities:
             return EnrichmentResult(
                 success=False,
                 supplier_part_number=supplier_part_number,
                 errors={"general": "No enrichment capabilities available"},
                 warnings=warnings,
-                duration_ms=int((time.time() - start_time) * 1000)
+                duration_ms=int((time.time() - start_time) * 1000),
             )
-        
+
         # Start with basic part details if available
         part_data = None
         if SupplierCapability.GET_PART_DETAILS in capabilities:
@@ -797,7 +826,7 @@ class BaseSupplier(ABC):
                         failed_fields=failed_fields,
                         errors=errors,
                         warnings=warnings,
-                        duration_ms=int((time.time() - start_time) * 1000)
+                        duration_ms=int((time.time() - start_time) * 1000),
                     )
             except Exception as e:
                 failed_fields.append("part_details")
@@ -807,27 +836,26 @@ class BaseSupplier(ABC):
         else:
             # Create minimal part data if GET_PART_DETAILS not available
             part_data = PartSearchResult(supplier_part_number=supplier_part_number)
-        
+
         # Enrich with additional data
         enrichment_tasks = []
-        
+
         if SupplierCapability.FETCH_DATASHEET in capabilities and not part_data.datasheet_url:
             enrichment_tasks.append(("datasheet_url", self.fetch_datasheet(supplier_part_number)))
-        
-        if SupplierCapability.FETCH_PRICING_STOCK in capabilities and (not part_data.pricing or part_data.stock_quantity is None):
+
+        if SupplierCapability.FETCH_PRICING_STOCK in capabilities and (
+            not part_data.pricing or part_data.stock_quantity is None
+        ):
             enrichment_tasks.append(("pricing_stock", self.fetch_pricing_stock(supplier_part_number)))
-        
+
         # Extract specifications from GET_PART_DETAILS result (no separate call needed)
         if part_data.specifications:
             enriched_fields.append("specifications")
-        
+
         # Run all enrichment tasks concurrently
         if enrichment_tasks:
-            results = await asyncio.gather(
-                *[task for _, task in enrichment_tasks],
-                return_exceptions=True
-            )
-            
+            results = await asyncio.gather(*[task for _, task in enrichment_tasks], return_exceptions=True)
+
             for (field_name, _), result in zip(enrichment_tasks, results):
                 if isinstance(result, Exception):
                     failed_fields.append(field_name)
@@ -852,10 +880,10 @@ class BaseSupplier(ABC):
                     # None result means the data wasn't available
                     failed_fields.append(field_name)
                     errors[field_name] = "Data not available"
-        
+
         # Determine overall success
         success = len(enriched_fields) > 0 and ("part_details" in enriched_fields or part_data)
-        
+
         return EnrichmentResult(
             success=success,
             supplier_part_number=supplier_part_number,
@@ -864,101 +892,98 @@ class BaseSupplier(ABC):
             data=part_data,
             errors=errors,
             warnings=warnings,
-            duration_ms=int((time.time() - start_time) * 1000)
+            duration_ms=int((time.time() - start_time) * 1000),
         )
-    
+
     # ========== Order Import Features ==========
-    
+
     async def import_order_file(self, file_content: bytes, file_type: str, filename: str = None) -> ImportResult:
         """Import order file (CSV, XLS, etc.) - usually requires no API key"""
+
         async def _impl():
             if SupplierCapability.IMPORT_ORDERS not in self.get_capabilities():
                 return ImportResult(
                     success=False,
-                    error_message=f"{self.get_supplier_info().display_name} does not support order file imports"
+                    error_message=f"{self.get_supplier_info().display_name} does not support order file imports",
                 )
             # Subclasses should implement this
-            return ImportResult(
-                success=False,
-                error_message="Import not implemented for this supplier"
-            )
-        
+            return ImportResult(success=False, error_message="Import not implemented for this supplier")
+
         return await self._tracked_api_call("import_orders", _impl)
-    
+
     def can_import_file(self, filename: str, file_content: bytes = None) -> bool:
         """Check if this supplier can handle this file"""
         # Default implementation - check if IMPORT_ORDERS capability exists
         # and file type is supported
         if SupplierCapability.IMPORT_ORDERS not in self.get_capabilities():
             return False
-        
+
         # Check file extension
-        file_ext = filename.split('.')[-1].lower() if '.' in filename else ''
+        file_ext = filename.split(".")[-1].lower() if "." in filename else ""
         supported_types = self.get_supplier_info().supported_file_types
-        
+
         if file_ext and supported_types and file_ext in supported_types:
             return True
-        
+
         # Subclasses should override for content-based detection
         return False
-    
-    
+
     # ========== Capability Checking ==========
-    
+
     def is_capability_available(self, capability: SupplierCapability) -> bool:
         """Check if a capability is available with current configuration"""
         if capability not in self.get_capabilities():
             return False
-        
+
         requirements = self.get_capability_requirements().get(capability)
         if not requirements:
             return True  # No requirements means always available
-        
+
         # Check if all required credentials are present
         credentials = self._credentials or {}
         for cred in requirements.required_credentials:
             if cred not in credentials or not credentials[cred]:
                 return False
-        
+
         return True
-    
+
     def get_missing_credentials_for_capability(self, capability: SupplierCapability) -> List[str]:
         """Get list of missing credentials for a capability"""
         requirements = self.get_capability_requirements().get(capability)
         if not requirements:
             return []
-        
+
         missing = []
         credentials = self._credentials or {}
         for cred in requirements.required_credentials:
             if cred not in credentials or not credentials[cred]:
                 missing.append(cred)
-        
+
         return missing
-    
+
     # ========== Utility Methods ==========
-    
+
     def is_configured(self) -> bool:
         """Check if supplier has been configured with credentials"""
         return self._configured and bool(self._credentials)
-    
+
     def get_rate_limit_delay(self) -> float:
         """Get the delay (in seconds) to respect rate limits"""
         # Default 1 second delay - subclasses can customize
         return 1.0
-    
+
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create an aiohttp session for making API calls"""
         if not self._session or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=30)
             self._session = aiohttp.ClientSession(timeout=timeout)
         return self._session
-    
+
     async def close(self):
         """Clean up resources"""
         if self._session and not self._session.closed:
             await self._session.close()
-    
+
     def __del__(self):
         """Cleanup when object is destroyed"""
         if self._session and not self._session.closed:

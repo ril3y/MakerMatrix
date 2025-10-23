@@ -63,13 +63,7 @@ describe('TagFilter', () => {
   })
 
   it('renders filter button', () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
     expect(screen.getByText('Tags')).toBeInTheDocument()
   })
 
@@ -85,13 +79,7 @@ describe('TagFilter', () => {
   })
 
   it('opens dropdown when button is clicked', async () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -102,13 +90,7 @@ describe('TagFilter', () => {
   })
 
   it('loads tags when dropdown is opened', async () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -124,13 +106,7 @@ describe('TagFilter', () => {
   })
 
   it('displays available tags in dropdown', async () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -143,13 +119,7 @@ describe('TagFilter', () => {
   })
 
   it('shows usage counts for tags', async () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -162,13 +132,7 @@ describe('TagFilter', () => {
   })
 
   it('toggles tag selection when clicked', async () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -207,13 +171,7 @@ describe('TagFilter', () => {
   })
 
   it('filters tags by search query', async () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -323,11 +281,7 @@ describe('TagFilter', () => {
 
   it('shows "+X more" when more than 3 tags selected', () => {
     render(
-      <TagFilter
-        selectedTags={mockTags}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
+      <TagFilter selectedTags={mockTags} onFilterChange={mockOnFilterChange} entityType="parts" />
     )
 
     // Should show first 3 tags + "+X more" text
@@ -337,11 +291,7 @@ describe('TagFilter', () => {
   it('closes dropdown when clicking outside', async () => {
     render(
       <div>
-        <TagFilter
-          selectedTags={[]}
-          onFilterChange={mockOnFilterChange}
-          entityType="parts"
-        />
+        <TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />
         <div data-testid="outside">Outside</div>
       </div>
     )
@@ -380,13 +330,7 @@ describe('TagFilter', () => {
         )
     )
 
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -406,13 +350,7 @@ describe('TagFilter', () => {
       total_pages: 1,
     })
 
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="parts"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
@@ -423,13 +361,7 @@ describe('TagFilter', () => {
   })
 
   it('uses correct entity_type in API call for tools', async () => {
-    render(
-      <TagFilter
-        selectedTags={[]}
-        onFilterChange={mockOnFilterChange}
-        entityType="tools"
-      />
-    )
+    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="tools" />)
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)

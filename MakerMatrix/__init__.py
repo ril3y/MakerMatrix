@@ -9,5 +9,5 @@ __schema_version__ = "1.0.0"  # Database schema version
 VERSION_INFO = {
     "app_version": __version__,
     "schema_version": __schema_version__,
-    "description": "Initial stable release with comprehensive backup system"
+    "description": "Initial stable release with comprehensive backup system",
 }

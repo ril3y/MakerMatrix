@@ -17,12 +17,13 @@ from MakerMatrix.suppliers.base import (
     CapabilityRequirement,
     FieldDefinition,
     ConfigurationOption,
-    PartSearchResult
+    PartSearchResult,
 )
 from MakerMatrix.suppliers.exceptions import SupplierConfigurationError
 
 # Get all registered suppliers to test them dynamically
 ALL_SUPPLIERS = get_available_suppliers()
+
 
 @pytest.mark.parametrize("supplier_name", ALL_SUPPLIERS)
 class TestSupplierContracts:

@@ -14,6 +14,7 @@ from pydantic import ConfigDict
 
 class PartProjectLink(SQLModel, table=True):
     """Link table for many-to-many relationship between parts and projects"""
+
     __tablename__ = "part_project_link"
 
     part_id: str = Field(foreign_key="partmodel.id", primary_key=True)
@@ -34,6 +35,7 @@ class ProjectModel(SQLModel, table=True):
     - "home-automation-system"
     - "robot-arm-prototype"
     """
+
     __tablename__ = "projectmodel"
 
     # === CORE IDENTIFICATION ===
@@ -50,14 +52,10 @@ class ProjectModel(SQLModel, table=True):
 
     # === METADATA ===
     links: Optional[Dict[str, Any]] = Field(
-        default=None,
-        sa_column=Column(JSON),
-        description="Project-related links (GitHub, docs, website, etc.)"
+        default=None, sa_column=Column(JSON), description="Project-related links (GitHub, docs, website, etc.)"
     )
     project_metadata: Optional[Dict[str, Any]] = Field(
-        default=None,
-        sa_column=Column(JSON),
-        description="Additional project metadata (tags, custom fields, etc.)"
+        default=None, sa_column=Column(JSON), description="Additional project metadata (tags, custom fields, etc.)"
     )
 
     # === STATISTICS ===
@@ -71,10 +69,7 @@ class ProjectModel(SQLModel, table=True):
 
     # === RELATIONSHIPS ===
     # Many-to-many relationship with parts through link table
-    parts: List["PartModel"] = Relationship(
-        back_populates="projects",
-        link_model=PartProjectLink
-    )
+    parts: List["PartModel"] = Relationship(back_populates="projects", link_model=PartProjectLink)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -98,10 +93,7 @@ class ProjectModel(SQLModel, table=True):
         from sqlmodel import select, func
 
         # Count parts
-        parts_count_stmt = (
-            select(func.count(PartProjectLink.part_id))
-            .where(PartProjectLink.project_id == self.id)
-        )
+        parts_count_stmt = select(func.count(PartProjectLink.part_id)).where(PartProjectLink.project_id == self.id)
         self.parts_count = session.exec(parts_count_stmt).one()
 
         # Calculate estimated cost from current pricing

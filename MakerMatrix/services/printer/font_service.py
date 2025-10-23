@@ -18,6 +18,7 @@ FONTS_DIR = Path(__file__).parent.parent.parent / "fonts"
 @dataclass
 class FontInfo:
     """Information about an available font"""
+
     name: str
     path: str
     is_bundled: bool
@@ -53,14 +54,16 @@ class FontService:
 
             description = FontService._get_font_description(name)
 
-            fonts.append(FontInfo(
-                name=name,
-                path=str(font_file),
-                is_bundled=True,
-                supports_emoji=supports_emoji,
-                file_size_kb=size_kb,
-                description=description
-            ))
+            fonts.append(
+                FontInfo(
+                    name=name,
+                    path=str(font_file),
+                    is_bundled=True,
+                    supports_emoji=supports_emoji,
+                    file_size_kb=size_kb,
+                    description=description,
+                )
+            )
 
         return fonts
 
@@ -84,14 +87,16 @@ class FontService:
                 size_kb = os.path.getsize(font_path) // 1024
                 supports_emoji = "emoji" in name.lower() or "color" in name.lower()
 
-                fonts.append(FontInfo(
-                    name=name,
-                    path=font_path,
-                    is_bundled=False,
-                    supports_emoji=supports_emoji,
-                    file_size_kb=size_kb,
-                    description=f"System font: {name}"
-                ))
+                fonts.append(
+                    FontInfo(
+                        name=name,
+                        path=font_path,
+                        is_bundled=False,
+                        supports_emoji=supports_emoji,
+                        file_size_kb=size_kb,
+                        description=f"System font: {name}",
+                    )
+                )
 
         return fonts
 
@@ -159,6 +164,6 @@ class FontService:
         """Validate that a font file exists and is readable."""
         try:
             path = Path(font_path)
-            return path.exists() and path.is_file() and path.suffix in ['.ttf', '.otf', '.ttc']
+            return path.exists() and path.is_file() and path.suffix in [".ttf", ".otf", ".ttc"]
         except:
             return False

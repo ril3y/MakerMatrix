@@ -3,7 +3,6 @@ import {
   Package,
   Plus,
   Search,
-  Filter,
   X,
   Copy,
   Check,
@@ -161,7 +160,14 @@ const PartsPage = () => {
         page_size: pageSize,
       }
 
-      console.log('Loading parts with:', { searchTerm, supplierFilter, sortBy, sortOrder, page, append })
+      console.log('Loading parts with:', {
+        searchTerm,
+        supplierFilter,
+        sortBy,
+        sortOrder,
+        page,
+        append,
+      })
       response = await partsService.searchParts(searchParamsObj)
 
       // Debug logging to understand response structure
@@ -207,10 +213,10 @@ const PartsPage = () => {
           const partTagIds = part.tags?.map((t: Tag) => t.id) || []
           if (tagFilterMode === 'AND') {
             // All selected tags must be present
-            return selectedTags.every(tag => partTagIds.includes(tag.id))
+            return selectedTags.every((tag) => partTagIds.includes(tag.id))
           } else {
             // At least one selected tag must be present
-            return selectedTags.some(tag => partTagIds.includes(tag.id))
+            return selectedTags.some((tag) => partTagIds.includes(tag.id))
           }
         })
         console.log(`Filtered ${mappedParts.length} parts to ${filteredParts.length} based on tags`)
@@ -218,7 +224,7 @@ const PartsPage = () => {
 
       // Append vs replace logic for infinite scroll
       if (append) {
-        setParts(prev => [...prev, ...filteredParts])
+        setParts((prev) => [...prev, ...filteredParts])
       } else {
         setParts(filteredParts)
       }
@@ -232,13 +238,18 @@ const PartsPage = () => {
       if (selectedTags.length === 0) {
         const totalLoaded = append ? parts.length + filteredParts.length : filteredParts.length
         setHasMore(totalLoaded < totalCount)
-        console.log(`Infinite scroll: loaded ${totalLoaded}/${totalCount}, hasMore: ${totalLoaded < totalCount}`)
+        console.log(
+          `Infinite scroll: loaded ${totalLoaded}/${totalCount}, hasMore: ${totalLoaded < totalCount}`
+        )
       } else {
         // All results already loaded when tag filtering
         setHasMore(false)
       }
     } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      const error = err as {
+        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       console.error('Error loading parts:', err)
       setError(err.response?.data?.error || err.message || 'Failed to load parts')
       // Set empty array on error to prevent map issues
@@ -252,7 +263,7 @@ const PartsPage = () => {
   // Load suppliers on mount
   useEffect(() => {
     loadSuppliers()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // Sync with URL params (browser back/forward navigation)
   useEffect(() => {
@@ -714,12 +725,42 @@ const PartsPage = () => {
                   <div className="font-semibold text-primary mb-2">Advanced Search Syntax:</div>
 
                   <div className="space-y-1.5 text-secondary">
-                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">desc:capacitor</code> - Search in description only</div>
-                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">pn:STM32</code> - Search in part number only</div>
-                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">name:resistor</code> - Search in name only</div>
-                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">prop:package 0603</code> - Search in properties</div>
-                    <div><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">tag:missing</code> - Find parts with no tags</div>
-                    <div className="pt-1 border-t border-border mt-2"><code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">"exact match"</code> - Search for exact phrase</div>
+                    <div>
+                      <code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">
+                        desc:capacitor
+                      </code>{' '}
+                      - Search in description only
+                    </div>
+                    <div>
+                      <code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">
+                        pn:STM32
+                      </code>{' '}
+                      - Search in part number only
+                    </div>
+                    <div>
+                      <code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">
+                        name:resistor
+                      </code>{' '}
+                      - Search in name only
+                    </div>
+                    <div>
+                      <code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">
+                        prop:package 0603
+                      </code>{' '}
+                      - Search in properties
+                    </div>
+                    <div>
+                      <code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">
+                        tag:missing
+                      </code>{' '}
+                      - Find parts with no tags
+                    </div>
+                    <div className="pt-1 border-t border-border mt-2">
+                      <code className="bg-background-secondary px-1.5 py-0.5 rounded text-xs">
+                        "exact match"
+                      </code>{' '}
+                      - Search for exact phrase
+                    </div>
                   </div>
                 </div>
 
@@ -834,8 +875,8 @@ const PartsPage = () => {
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>Searching...</span>
               </div>
-            ) : loading && (
-              <div className="text-sm text-muted">Loading...</div>
+            ) : (
+              loading && <div className="text-sm text-muted">Loading...</div>
             )}
           </div>
         </div>
@@ -1137,7 +1178,7 @@ const PartsPage = () => {
                                   size="sm"
                                   onClick={() => {
                                     // Add tag to filter when clicked
-                                    if (!selectedTags.find(t => t.id === tag.id)) {
+                                    if (!selectedTags.find((t) => t.id === tag.id)) {
                                       setSelectedTags([...selectedTags, tag])
                                     }
                                   }}
@@ -1291,10 +1332,7 @@ const PartsPage = () => {
       />
 
       {/* Tag Management Modal */}
-      <TagManagementModal
-        isOpen={showTagManagement}
-        onClose={() => setShowTagManagement(false)}
-      />
+      <TagManagementModal isOpen={showTagManagement} onClose={() => setShowTagManagement(false)} />
     </div>
   )
 }

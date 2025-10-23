@@ -13,7 +13,8 @@ from sqlmodel import Session, select
 # Import test fixtures and utilities
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from MakerMatrix.main import app
 from MakerMatrix.models.models import engine, LocationModel
@@ -36,9 +37,7 @@ class TestLocationImagePersistence:
         # Clean up before test
         with Session(engine) as session:
             # Delete all test locations
-            test_locations = session.exec(
-                select(LocationModel).where(LocationModel.name.like("TEST_IMAGE_%"))
-            ).all()
+            test_locations = session.exec(select(LocationModel).where(LocationModel.name.like("TEST_IMAGE_%"))).all()
             for location in test_locations:
                 session.delete(location)
             session.commit()
@@ -48,9 +47,7 @@ class TestLocationImagePersistence:
         # Clean up after test
         with Session(engine) as session:
             # Delete test locations
-            test_locations = session.exec(
-                select(LocationModel).where(LocationModel.name.like("TEST_IMAGE_%"))
-            ).all()
+            test_locations = session.exec(select(LocationModel).where(LocationModel.name.like("TEST_IMAGE_%"))).all()
             for location in test_locations:
                 session.delete(location)
             session.commit()
@@ -64,9 +61,9 @@ class TestLocationImagePersistence:
                 json={
                     "name": "TEST_IMAGE_Storage_A",
                     "description": "Test storage location with image",
-                    "image_url": "https://example.com/images/storage-a.jpg"
+                    "image_url": "https://example.com/images/storage-a.jpg",
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert location_response.status_code == 200
             location_data = location_response.json()
@@ -80,15 +77,16 @@ class TestLocationImagePersistence:
             update_response = client.put(
                 f"/api/locations/update_location/{location_id}",
                 json={"name": "TEST_IMAGE_Storage_B_Renamed"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert update_response.status_code == 200
             updated_data = update_response.json()
 
             # Step 3: Verify the image is still present
             assert updated_data["data"]["name"] == "TEST_IMAGE_Storage_B_Renamed"
-            assert updated_data["data"]["image_url"] == original_image_url, \
-                f"Image was lost! Expected '{original_image_url}', got '{updated_data['data'].get('image_url')}'"
+            assert (
+                updated_data["data"]["image_url"] == original_image_url
+            ), f"Image was lost! Expected '{original_image_url}', got '{updated_data['data'].get('image_url')}'"
 
             print(f"✓ Image preserved after name update: {updated_data['data']['image_url']}")
 
@@ -101,25 +99,22 @@ class TestLocationImagePersistence:
                 json={
                     "name": "TEST_IMAGE_Storage_C",
                     "description": "Test location",
-                    "image_url": "https://example.com/images/storage-c.jpg"
+                    "image_url": "https://example.com/images/storage-c.jpg",
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert location_response.status_code == 200
             location_id = location_response.json()["data"]["id"]
 
             # Step 2: Explicitly clear the image by setting it to null
             update_response = client.put(
-                f"/api/locations/update_location/{location_id}",
-                json={"image_url": None},
-                headers=auth_headers
+                f"/api/locations/update_location/{location_id}", json={"image_url": None}, headers=auth_headers
             )
             assert update_response.status_code == 200
             updated_data = update_response.json()
 
             # Step 3: Verify the image was cleared
-            assert updated_data["data"]["image_url"] is None, \
-                "Image should be cleared when explicitly set to None"
+            assert updated_data["data"]["image_url"] is None, "Image should be cleared when explicitly set to None"
 
             print("✓ Image successfully cleared when explicitly set to None")
 
@@ -129,12 +124,8 @@ class TestLocationImagePersistence:
             # Step 1: Create a test location with an emoji
             location_response = client.post(
                 "/api/locations/add_location",
-                json={
-                    "name": "TEST_IMAGE_Storage_D",
-                    "description": "Test location with emoji",
-                    "emoji": "📦"
-                },
-                headers=auth_headers
+                json={"name": "TEST_IMAGE_Storage_D", "description": "Test location with emoji", "emoji": "📦"},
+                headers=auth_headers,
             )
             assert location_response.status_code == 200
             location_data = location_response.json()
@@ -148,15 +139,16 @@ class TestLocationImagePersistence:
             update_response = client.put(
                 f"/api/locations/update_location/{location_id}",
                 json={"description": "Updated description"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert update_response.status_code == 200
             updated_data = update_response.json()
 
             # Step 3: Verify the emoji is still present
             assert updated_data["data"]["description"] == "Updated description"
-            assert updated_data["data"]["emoji"] == original_emoji, \
-                f"Emoji was lost! Expected '{original_emoji}', got '{updated_data['data'].get('emoji')}'"
+            assert (
+                updated_data["data"]["emoji"] == original_emoji
+            ), f"Emoji was lost! Expected '{original_emoji}', got '{updated_data['data'].get('emoji')}'"
 
             print(f"✓ Emoji preserved after description update: {updated_data['data']['emoji']}")
 
@@ -170,9 +162,9 @@ class TestLocationImagePersistence:
                     "name": "TEST_IMAGE_Storage_E",
                     "description": "DB test location",
                     "image_url": "https://example.com/images/storage-e.jpg",
-                    "emoji": "🏢"
+                    "emoji": "🏢",
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert location_response.status_code == 200
             location_id = location_response.json()["data"]["id"]
@@ -188,7 +180,7 @@ class TestLocationImagePersistence:
             update_response = client.put(
                 f"/api/locations/update_location/{location_id}",
                 json={"name": "TEST_IMAGE_Storage_E_Renamed"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert update_response.status_code == 200
 
@@ -196,10 +188,10 @@ class TestLocationImagePersistence:
             with Session(engine) as session:
                 location_after = session.get(LocationModel, location_id)
                 assert location_after.name == "TEST_IMAGE_Storage_E_Renamed"
-                assert location_after.image_url == "https://example.com/images/storage-e.jpg", \
-                    "Image URL was lost in database!"
-                assert location_after.emoji == "🏢", \
-                    "Emoji was lost in database!"
+                assert (
+                    location_after.image_url == "https://example.com/images/storage-e.jpg"
+                ), "Image URL was lost in database!"
+                assert location_after.emoji == "🏢", "Emoji was lost in database!"
 
             print("✓ Database-level verification passed: image and emoji preserved")
 

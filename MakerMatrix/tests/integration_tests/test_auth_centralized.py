@@ -17,16 +17,16 @@ def setup_database():
     """Create database tables and setup default roles and admin user."""
     # Create all tables
     SQLModel.metadata.create_all(engine)
-    
+
     # Create user repository
     user_repo = UserRepository()
-    
+
     # Setup default roles and admin user
     setup_default_roles(user_repo)
     setup_default_admin(user_repo)
-    
+
     yield
-    
+
     # No teardown needed for tests
 
 
@@ -47,7 +47,7 @@ def test_role():
             role = RoleModel(
                 name="user",
                 description="Regular user role",
-                permissions=["parts:read", "parts:create", "locations:read", "categories:read"]
+                permissions=["parts:read", "parts:create", "locations:read", "categories:read"],
             )
             session.add(role)
             session.commit()
@@ -67,10 +67,7 @@ def test_user(test_role):
         # User doesn't exist, create test user
         hashed_password = user_repo.get_password_hash("testpassword")
         user = user_repo.create_user(
-            username="testuser",
-            email="test@example.com",
-            hashed_password=hashed_password,
-            roles=["user"]
+            username="testuser", email="test@example.com", hashed_password=hashed_password, roles=["user"]
         )
         return user
 
@@ -121,7 +118,7 @@ def test_permission_required_endpoint(auth_token):
     """Test that an endpoint requiring specific permissions works with the right permissions."""
     # Generate a unique part name to avoid conflicts
     unique_part_name = f"Test Part {uuid.uuid4()}"
-    
+
     # This test assumes the test user has the 'parts:create' permission
     headers = {"Authorization": f"Bearer {auth_token}"}
     response = client.post(
@@ -131,10 +128,10 @@ def test_permission_required_endpoint(auth_token):
             "part_name": unique_part_name,
             "part_number": f"TP-{uuid.uuid4().hex[:8]}",
             "quantity": 10,
-            "description": "A test part"
-        }
+            "description": "A test part",
+        },
     )
-    
+
     # The endpoint should return 200 OK or 409 Conflict (if the part already exists)
     # We just want to make sure it's not a 401 Unauthorized or 403 Forbidden
-    assert response.status_code not in [401, 403] 
+    assert response.status_code not in [401, 403]

@@ -12,6 +12,7 @@ Run with: python scripts/migrate_datasheet_urls.py
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine
@@ -32,9 +33,7 @@ def migrate_datasheet_urls():
 
     try:
         # Get all parts with additional_properties
-        parts = session.query(PartModel).filter(
-            PartModel.additional_properties != None
-        ).all()
+        parts = session.query(PartModel).filter(PartModel.additional_properties != None).all()
 
         migrated_count = 0
         already_correct = 0
@@ -50,7 +49,7 @@ def migrate_datasheet_urls():
             modified = False
 
             # Check if datasheet_url already exists at root level
-            if 'datasheet_url' in additional_props and additional_props['datasheet_url']:
+            if "datasheet_url" in additional_props and additional_props["datasheet_url"]:
                 already_correct += 1
                 continue
 
@@ -58,25 +57,25 @@ def migrate_datasheet_urls():
             datasheet_url = None
 
             # Check supplier_data nested structure
-            if 'supplier_data' in additional_props:
-                supplier_data = additional_props['supplier_data']
+            if "supplier_data" in additional_props:
+                supplier_data = additional_props["supplier_data"]
                 if isinstance(supplier_data, dict):
                     for supplier_key, supplier_info in supplier_data.items():
                         if isinstance(supplier_info, dict):
-                            if 'datasheet_url' in supplier_info and supplier_info['datasheet_url']:
-                                datasheet_url = supplier_info['datasheet_url']
+                            if "datasheet_url" in supplier_info and supplier_info["datasheet_url"]:
+                                datasheet_url = supplier_info["datasheet_url"]
                                 break
-                            if 'DataSheetUrl' in supplier_info and supplier_info['DataSheetUrl']:
-                                datasheet_url = supplier_info['DataSheetUrl']
+                            if "DataSheetUrl" in supplier_info and supplier_info["DataSheetUrl"]:
+                                datasheet_url = supplier_info["DataSheetUrl"]
                                 break
 
             # Check for LCSC-specific datasheet URL
-            if not datasheet_url and 'lcsc_datasheet_url' in additional_props:
-                datasheet_url = additional_props['lcsc_datasheet_url']
+            if not datasheet_url and "lcsc_datasheet_url" in additional_props:
+                datasheet_url = additional_props["lcsc_datasheet_url"]
 
             # Check for other variations
             if not datasheet_url:
-                datasheet_keys = ['DataSheetUrl', 'datasheet_link', 'datasheet', 'pdf_url']
+                datasheet_keys = ["DataSheetUrl", "datasheet_link", "datasheet", "pdf_url"]
                 for key in datasheet_keys:
                     if key in additional_props and additional_props[key]:
                         datasheet_url = additional_props[key]
@@ -88,22 +87,25 @@ def migrate_datasheet_urls():
                 print(f"    URL: {datasheet_url}")
 
                 # Store at the standardized location
-                additional_props['datasheet_url'] = datasheet_url
+                additional_props["datasheet_url"] = datasheet_url
 
                 # Add migration metadata
-                if 'migration_history' not in additional_props:
-                    additional_props['migration_history'] = []
+                if "migration_history" not in additional_props:
+                    additional_props["migration_history"] = []
 
-                additional_props['migration_history'].append({
-                    'migration': 'datasheet_url_standardization',
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'original_location': 'nested or alternative key',
-                    'new_location': 'additional_properties.datasheet_url'
-                })
+                additional_props["migration_history"].append(
+                    {
+                        "migration": "datasheet_url_standardization",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "original_location": "nested or alternative key",
+                        "new_location": "additional_properties.datasheet_url",
+                    }
+                )
 
                 # Mark the part as modified
                 from sqlalchemy.orm.attributes import flag_modified
-                flag_modified(part, 'additional_properties')
+
+                flag_modified(part, "additional_properties")
 
                 migrated_count += 1
                 modified = True
@@ -141,57 +143,55 @@ def check_datasheet_urls():
 
     try:
         # Get all parts with additional_properties
-        parts = session.query(PartModel).filter(
-            PartModel.additional_properties != None
-        ).all()
+        parts = session.query(PartModel).filter(PartModel.additional_properties != None).all()
 
         stats = {
-            'total_parts': len(parts),
-            'has_datasheet_url_root': 0,
-            'has_datasheet_url_nested': 0,
-            'has_lcsc_datasheet_url': 0,
-            'has_other_datasheet_key': 0,
-            'no_datasheet': 0
+            "total_parts": len(parts),
+            "has_datasheet_url_root": 0,
+            "has_datasheet_url_nested": 0,
+            "has_lcsc_datasheet_url": 0,
+            "has_other_datasheet_key": 0,
+            "no_datasheet": 0,
         }
 
         for part in parts:
             if not part.additional_properties:
-                stats['no_datasheet'] += 1
+                stats["no_datasheet"] += 1
                 continue
 
             additional_props = part.additional_properties
 
             # Check root level datasheet_url
-            if 'datasheet_url' in additional_props and additional_props['datasheet_url']:
-                stats['has_datasheet_url_root'] += 1
+            if "datasheet_url" in additional_props and additional_props["datasheet_url"]:
+                stats["has_datasheet_url_root"] += 1
             # Check nested locations
-            elif 'supplier_data' in additional_props:
+            elif "supplier_data" in additional_props:
                 has_nested = False
-                supplier_data = additional_props['supplier_data']
+                supplier_data = additional_props["supplier_data"]
                 if isinstance(supplier_data, dict):
                     for supplier_key, supplier_info in supplier_data.items():
                         if isinstance(supplier_info, dict):
-                            if 'datasheet_url' in supplier_info or 'DataSheetUrl' in supplier_info:
-                                stats['has_datasheet_url_nested'] += 1
+                            if "datasheet_url" in supplier_info or "DataSheetUrl" in supplier_info:
+                                stats["has_datasheet_url_nested"] += 1
                                 has_nested = True
                                 break
 
                 if not has_nested:
                     # Check for other keys
-                    if 'lcsc_datasheet_url' in additional_props:
-                        stats['has_lcsc_datasheet_url'] += 1
-                    elif any(key in additional_props for key in ['DataSheetUrl', 'datasheet_link', 'datasheet']):
-                        stats['has_other_datasheet_key'] += 1
+                    if "lcsc_datasheet_url" in additional_props:
+                        stats["has_lcsc_datasheet_url"] += 1
+                    elif any(key in additional_props for key in ["DataSheetUrl", "datasheet_link", "datasheet"]):
+                        stats["has_other_datasheet_key"] += 1
                     else:
-                        stats['no_datasheet'] += 1
+                        stats["no_datasheet"] += 1
             else:
                 # Check for other keys at root
-                if 'lcsc_datasheet_url' in additional_props:
-                    stats['has_lcsc_datasheet_url'] += 1
-                elif any(key in additional_props for key in ['DataSheetUrl', 'datasheet_link', 'datasheet']):
-                    stats['has_other_datasheet_key'] += 1
+                if "lcsc_datasheet_url" in additional_props:
+                    stats["has_lcsc_datasheet_url"] += 1
+                elif any(key in additional_props for key in ["DataSheetUrl", "datasheet_link", "datasheet"]):
+                    stats["has_other_datasheet_key"] += 1
                 else:
-                    stats['no_datasheet'] += 1
+                    stats["no_datasheet"] += 1
 
         print("\n📊 Datasheet URL Statistics:")
         print(f"  Total parts: {stats['total_parts']}")
@@ -202,9 +202,7 @@ def check_datasheet_urls():
         print(f"  ❌ No datasheet URL: {stats['no_datasheet']}")
 
         needs_migration = (
-            stats['has_datasheet_url_nested'] +
-            stats['has_lcsc_datasheet_url'] +
-            stats['has_other_datasheet_key']
+            stats["has_datasheet_url_nested"] + stats["has_lcsc_datasheet_url"] + stats["has_other_datasheet_key"]
         )
 
         if needs_migration > 0:

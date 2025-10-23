@@ -52,7 +52,10 @@ const LocationsPage = () => {
       const tree = locationsService.buildLocationTree(data)
       setLocationTree(tree)
     } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      const error = err as {
+        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       setError(error.response?.data?.error || 'Failed to load locations')
     } finally {
       setLoading(false)
@@ -101,7 +104,10 @@ const LocationsPage = () => {
       await locationsService.deleteLocation(location.id.toString())
       loadLocations()
     } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      const error = err as {
+        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       alert(error.response?.data?.error || 'Failed to delete location')
     }
   }
@@ -284,11 +290,21 @@ const LocationsPage = () => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                 <tr className="border-b border-purple-500/10">
-                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Name</th>
-                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Type</th>
-                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Parent</th>
-                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">Description</th>
-                  <th className="text-right p-4 text-primary font-bold text-xs uppercase tracking-wider">Actions</th>
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">
+                    Parent
+                  </th>
+                  <th className="text-left p-4 text-primary font-bold text-xs uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="text-right p-4 text-primary font-bold text-xs uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
@@ -327,7 +343,9 @@ const LocationsPage = () => {
                     <td className="p-4 text-secondary">
                       {location.location_type || 'General'}
                       {location.location_type === 'container' && location.slot_count && (
-                        <span className="ml-2 text-xs text-muted">({location.slot_layout_type || 'simple'})</span>
+                        <span className="ml-2 text-xs text-muted">
+                          ({location.slot_layout_type || 'simple'})
+                        </span>
                       )}
                     </td>
                     <td className="p-4 text-secondary">{location.parent?.name || '-'}</td>

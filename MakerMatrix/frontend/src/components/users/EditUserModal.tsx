@@ -47,7 +47,10 @@ const EditUserModal = ({
       console.log('=== EditUserModal Debug ===')
       console.log('Current User ID:', currentUser?.id)
       console.log('Editing User ID:', user?.id)
-      console.log('Current User Roles:', currentUser?.roles?.map(r => r.name))
+      console.log(
+        'Current User Roles:',
+        currentUser?.roles?.map((r) => r.name)
+      )
       console.log('isAdmin:', isAdmin)
       console.log('isEditingSelf:', isEditingSelf)
       console.log('requireCurrentPassword:', requireCurrentPassword)
@@ -261,7 +264,9 @@ const EditUserModal = ({
                 <Key className="w-4 h-4 text-muted" />
                 <span className="text-sm font-medium text-primary">Change Password</span>
               </div>
-              <Lock className={`w-4 h-4 text-muted transition-transform ${showPasswordSection ? 'rotate-90' : ''}`} />
+              <Lock
+                className={`w-4 h-4 text-muted transition-transform ${showPasswordSection ? 'rotate-90' : ''}`}
+              />
             </button>
 
             {showPasswordSection && (
@@ -270,7 +275,8 @@ const EditUserModal = ({
                 {!requireCurrentPassword && (
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 mb-3">
                     <p className="text-xs text-blue-800 dark:text-blue-200">
-                      ℹ️ As an admin, you can change this user's password without their current password.
+                      ℹ️ As an admin, you can change this user's password without their current
+                      password.
                     </p>
                   </div>
                 )}
@@ -294,7 +300,11 @@ const EditUserModal = ({
                         onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
                       >
-                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showCurrentPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -318,7 +328,11 @@ const EditUserModal = ({
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
                     >
-                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showNewPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -341,7 +355,11 @@ const EditUserModal = ({
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
                     >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 """
 Base printer interfaces and classes.
 """
+
 from .printer_interface import (
     PrinterInterface,
     BasePrinter,
@@ -10,7 +11,7 @@ from .printer_interface import (
     PrintJobResult,
     PreviewResult,
     PrinterInfo,
-    TestResult
+    TestResult,
 )
 from .exceptions import (
     PrinterError,
@@ -25,12 +26,12 @@ from .exceptions import (
     PrinterConfigurationError,
     PreviewGenerationError,
     PrinterDriverError,
-    LabelSizeError  # Legacy
+    LabelSizeError,  # Legacy
 )
 
 __all__ = [
     "PrinterInterface",
-    "BasePrinter", 
+    "BasePrinter",
     "PrinterStatus",
     "PrinterCapability",
     "LabelSize",
@@ -50,5 +51,5 @@ __all__ = [
     "PrinterConfigurationError",
     "PreviewGenerationError",
     "PrinterDriverError",
-    "LabelSizeError"
+    "LabelSizeError",
 ]

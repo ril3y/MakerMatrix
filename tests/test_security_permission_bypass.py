@@ -35,6 +35,7 @@ GUEST_TOKEN_PATH = "/tmp/guest_token.json"
 
 # Disable SSL verification warnings for self-signed cert
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -44,17 +45,14 @@ class SecurityTester:
     def __init__(self):
         self.base_url = BASE_URL
         self.guest_token = self._load_guest_token()
-        self.headers = {
-            "Authorization": f"Bearer {self.guest_token}",
-            "Content-Type": "application/json"
-        }
+        self.headers = {"Authorization": f"Bearer {self.guest_token}", "Content-Type": "application/json"}
 
     def _load_guest_token(self) -> str:
         """Load guest token from file"""
         try:
-            with open(GUEST_TOKEN_PATH, 'r') as f:
+            with open(GUEST_TOKEN_PATH, "r") as f:
                 data = json.load(f)
-                return data['access_token']
+                return data["access_token"]
         except Exception as e:
             pytest.fail(f"Failed to load guest token: {e}")
 
@@ -89,6 +87,7 @@ def security_tester():
 # CRITICAL: User Management Vulnerabilities (9 endpoints)
 # ========================================
 
+
 class TestUserManagementBypass:
     """Test user management endpoints that lack permission checks"""
 
@@ -99,16 +98,20 @@ class TestUserManagementBypass:
         Expected: 403 Forbidden (missing require_permission check)
         Current: NO AUTHENTICATION - completely unprotected!
         """
-        response = security_tester.post("/api/users/register", {
-            "username": "malicious_admin",
-            "email": "hacker@evil.com",
-            "password": "EvilPassword123!",
-            "roles": ["admin"]  # Attempting to create admin user!
-        })
+        response = security_tester.post(
+            "/api/users/register",
+            {
+                "username": "malicious_admin",
+                "email": "hacker@evil.com",
+                "password": "EvilPassword123!",
+                "roles": ["admin"],  # Attempting to create admin user!
+            },
+        )
 
         # This should be 403, but will likely be 200 (success) - CRITICAL VULNERABILITY
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created user! Status: {response.status_code}, Response: {response.text}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest created user! Status: {response.status_code}, Response: {response.text}"
 
     def test_guest_cannot_get_user_by_id(self, security_tester):
         """
@@ -120,8 +123,9 @@ class TestUserManagementBypass:
         response = security_tester.get("/api/users/admin")
 
         # Should be 403 for guests viewing user details
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest accessed user details! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest accessed user details! Status: {response.status_code}"
 
     def test_guest_cannot_get_user_by_username(self, security_tester):
         """
@@ -132,8 +136,9 @@ class TestUserManagementBypass:
         """
         response = security_tester.get("/api/users/by-username/admin")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest accessed user by username! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest accessed user by username! Status: {response.status_code}"
 
     def test_guest_cannot_update_user(self, security_tester):
         """
@@ -142,13 +147,9 @@ class TestUserManagementBypass:
         Expected: 403 Forbidden
         Current: NO AUTHENTICATION - can escalate privileges!
         """
-        response = security_tester.put("/api/users/admin", {
-            "email": "pwned@hacker.com",
-            "roles": ["admin"]
-        })
+        response = security_tester.put("/api/users/admin", {"email": "pwned@hacker.com", "roles": ["admin"]})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest modified user! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest modified user! Status: {response.status_code}"
 
     def test_guest_cannot_update_user_password(self, security_tester):
         """
@@ -157,14 +158,14 @@ class TestUserManagementBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.put("/api/users/admin/password", {
-            "current_password": "Admin123!",
-            "new_password": "Hacked123!"
-        })
+        response = security_tester.put(
+            "/api/users/admin/password", {"current_password": "Admin123!", "new_password": "Hacked123!"}
+        )
 
         # Even if current password is wrong, should be 403 not 400
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest attempted password change! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest attempted password change! Status: {response.status_code}"
 
     def test_guest_cannot_delete_user(self, security_tester):
         """
@@ -175,8 +176,7 @@ class TestUserManagementBypass:
         """
         response = security_tester.delete("/api/users/some-user-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted user! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest deleted user! Status: {response.status_code}"
 
     def test_guest_cannot_update_user_roles(self, security_tester):
         """
@@ -185,12 +185,11 @@ class TestUserManagementBypass:
         Expected: 403 Forbidden
         Current: NO AUTHENTICATION - privilege escalation!
         """
-        response = security_tester.put("/api/users/guest_9fe60030/roles", {
-            "role_ids": ["admin-role-id"]  # Attempting privilege escalation!
-        })
+        response = security_tester.put(
+            "/api/users/guest_9fe60030/roles", {"role_ids": ["admin-role-id"]}  # Attempting privilege escalation!
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest modified roles! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest modified roles! Status: {response.status_code}"
 
     def test_guest_cannot_update_user_status(self, security_tester):
         """
@@ -199,12 +198,9 @@ class TestUserManagementBypass:
         Expected: 403 Forbidden
         Current: NO AUTHENTICATION
         """
-        response = security_tester.put("/api/users/admin/status", {
-            "is_active": False  # Attempting to disable admin!
-        })
+        response = security_tester.put("/api/users/admin/status", {"is_active": False})  # Attempting to disable admin!
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest changed user status! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest changed user status! Status: {response.status_code}"
 
     def test_guest_cannot_create_role(self, security_tester):
         """
@@ -213,14 +209,12 @@ class TestUserManagementBypass:
         Expected: 403 Forbidden
         Current: NO AUTHENTICATION - can create superuser role!
         """
-        response = security_tester.post("/api/users/roles/add_role", {
-            "name": "superadmin",
-            "description": "Evil role",
-            "permissions": ["*:*"]  # All permissions!
-        })
+        response = security_tester.post(
+            "/api/users/roles/add_role",
+            {"name": "superadmin", "description": "Evil role", "permissions": ["*:*"]},  # All permissions!
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created role! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest created role! Status: {response.status_code}"
 
     def test_guest_cannot_update_role(self, security_tester):
         """
@@ -229,12 +223,11 @@ class TestUserManagementBypass:
         Expected: 403 Forbidden
         Current: NO AUTHENTICATION
         """
-        response = security_tester.put("/api/users/roles/viewer-role-id", {
-            "permissions": ["*:*"]  # Escalate viewer to full access!
-        })
+        response = security_tester.put(
+            "/api/users/roles/viewer-role-id", {"permissions": ["*:*"]}  # Escalate viewer to full access!
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest modified role! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest modified role! Status: {response.status_code}"
 
     def test_guest_cannot_delete_role(self, security_tester):
         """
@@ -245,13 +238,13 @@ class TestUserManagementBypass:
         """
         response = security_tester.delete("/api/users/roles/some-role-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted role! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest deleted role! Status: {response.status_code}"
 
 
 # ========================================
 # HIGH: Categories Vulnerabilities (3 endpoints)
 # ========================================
+
 
 class TestCategoriesPermissionBypass:
     """Test category endpoints that lack permission checks"""
@@ -263,13 +256,11 @@ class TestCategoriesPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user (allows guest)
         """
-        response = security_tester.post("/api/categories/add_category", {
-            "name": "Evil Category",
-            "description": "Created by guest"
-        })
+        response = security_tester.post(
+            "/api/categories/add_category", {"name": "Evil Category", "description": "Created by guest"}
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created category! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest created category! Status: {response.status_code}"
 
     def test_guest_cannot_update_category(self, security_tester):
         """
@@ -278,12 +269,9 @@ class TestCategoriesPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user (allows guest)
         """
-        response = security_tester.put("/api/categories/update_category/some-id", {
-            "name": "Hacked Category"
-        })
+        response = security_tester.put("/api/categories/update_category/some-id", {"name": "Hacked Category"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest updated category! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest updated category! Status: {response.status_code}"
 
     def test_guest_cannot_delete_category(self, security_tester):
         """
@@ -294,13 +282,13 @@ class TestCategoriesPermissionBypass:
         """
         response = security_tester.delete("/api/categories/remove_category?cat_id=some-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted category! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest deleted category! Status: {response.status_code}"
 
 
 # ========================================
 # HIGH: Locations Vulnerabilities (4 endpoints)
 # ========================================
+
 
 class TestLocationsPermissionBypass:
     """Test location endpoints that lack permission checks"""
@@ -312,13 +300,11 @@ class TestLocationsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/locations/add_location", {
-            "name": "Evil Location",
-            "description": "Created by guest"
-        })
+        response = security_tester.post(
+            "/api/locations/add_location", {"name": "Evil Location", "description": "Created by guest"}
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created location! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest created location! Status: {response.status_code}"
 
     def test_guest_cannot_update_location(self, security_tester):
         """
@@ -327,12 +313,9 @@ class TestLocationsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.put("/api/locations/update_location/some-id", {
-            "name": "Hacked Location"
-        })
+        response = security_tester.put("/api/locations/update_location/some-id", {"name": "Hacked Location"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest updated location! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest updated location! Status: {response.status_code}"
 
     def test_guest_cannot_delete_location(self, security_tester):
         """
@@ -343,8 +326,7 @@ class TestLocationsPermissionBypass:
         """
         response = security_tester.delete("/api/locations/delete_location/some-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted location! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest deleted location! Status: {response.status_code}"
 
     def test_unauthenticated_cannot_cleanup_locations(self, security_tester):
         """
@@ -354,18 +336,17 @@ class TestLocationsPermissionBypass:
         Current: NO AUTHENTICATION AT ALL!
         """
         # Test without ANY authentication
-        response = requests.delete(
-            f"{BASE_URL}/api/locations/cleanup-locations",
-            verify=False
-        )
+        response = requests.delete(f"{BASE_URL}/api/locations/cleanup-locations", verify=False)
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated cleanup succeeded! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"CRITICAL: Unauthenticated cleanup succeeded! Status: {response.status_code}"
 
 
 # ========================================
 # HIGH: Projects Vulnerabilities (5 endpoints)
 # ========================================
+
 
 class TestProjectsPermissionBypass:
     """Test project endpoints that lack permission checks"""
@@ -377,13 +358,9 @@ class TestProjectsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user (allows guest)
         """
-        response = security_tester.post("/api/projects/", {
-            "name": "Evil Project",
-            "description": "Created by guest"
-        })
+        response = security_tester.post("/api/projects/", {"name": "Evil Project", "description": "Created by guest"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created project! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest created project! Status: {response.status_code}"
 
     def test_guest_cannot_update_project(self, security_tester):
         """
@@ -392,12 +369,9 @@ class TestProjectsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user (allows guest)
         """
-        response = security_tester.put("/api/projects/some-id", {
-            "name": "Hacked Project"
-        })
+        response = security_tester.put("/api/projects/some-id", {"name": "Hacked Project"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest updated project! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest updated project! Status: {response.status_code}"
 
     def test_guest_cannot_delete_project(self, security_tester):
         """
@@ -408,8 +382,7 @@ class TestProjectsPermissionBypass:
         """
         response = security_tester.delete("/api/projects/some-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted project! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest deleted project! Status: {response.status_code}"
 
     def test_guest_cannot_add_part_to_project(self, security_tester):
         """
@@ -420,8 +393,9 @@ class TestProjectsPermissionBypass:
         """
         response = security_tester.post("/api/projects/proj-id/parts/part-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest added part to project! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest added part to project! Status: {response.status_code}"
 
     def test_guest_cannot_remove_part_from_project(self, security_tester):
         """
@@ -432,13 +406,15 @@ class TestProjectsPermissionBypass:
         """
         response = security_tester.delete("/api/projects/proj-id/parts/part-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest removed part from project! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest removed part from project! Status: {response.status_code}"
 
 
 # ========================================
 # HIGH: Tools Vulnerabilities (8 endpoints)
 # ========================================
+
 
 class TestToolsPermissionBypass:
     """Test tool endpoints that lack permission checks"""
@@ -450,13 +426,9 @@ class TestToolsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/tools/", {
-            "name": "Evil Tool",
-            "tool_type": "power_tool"
-        })
+        response = security_tester.post("/api/tools/", {"name": "Evil Tool", "tool_type": "power_tool"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created tool! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest created tool! Status: {response.status_code}"
 
     def test_guest_cannot_update_tool(self, security_tester):
         """
@@ -465,12 +437,9 @@ class TestToolsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.put("/api/tools/some-id", {
-            "name": "Hacked Tool"
-        })
+        response = security_tester.put("/api/tools/some-id", {"name": "Hacked Tool"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest updated tool! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest updated tool! Status: {response.status_code}"
 
     def test_guest_cannot_delete_tool(self, security_tester):
         """
@@ -481,8 +450,7 @@ class TestToolsPermissionBypass:
         """
         response = security_tester.delete("/api/tools/some-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted tool! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest deleted tool! Status: {response.status_code}"
 
     def test_guest_cannot_checkout_tool(self, security_tester):
         """
@@ -491,12 +459,9 @@ class TestToolsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/tools/some-id/checkout", {
-            "checked_out_by": "guest"
-        })
+        response = security_tester.post("/api/tools/some-id/checkout", {"checked_out_by": "guest"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest checked out tool! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest checked out tool! Status: {response.status_code}"
 
     def test_guest_cannot_return_tool(self, security_tester):
         """
@@ -507,8 +472,7 @@ class TestToolsPermissionBypass:
         """
         response = security_tester.post("/api/tools/some-id/return", {})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest returned tool! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest returned tool! Status: {response.status_code}"
 
     def test_guest_cannot_create_maintenance_record(self, security_tester):
         """
@@ -517,13 +481,13 @@ class TestToolsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/tools/some-id/maintenance", {
-            "maintenance_type": "repair",
-            "notes": "Fake maintenance"
-        })
+        response = security_tester.post(
+            "/api/tools/some-id/maintenance", {"maintenance_type": "repair", "notes": "Fake maintenance"}
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created maintenance record! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest created maintenance record! Status: {response.status_code}"
 
     def test_guest_cannot_update_maintenance_record(self, security_tester):
         """
@@ -532,12 +496,11 @@ class TestToolsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.put("/api/tools/tool-id/maintenance/record-id", {
-            "notes": "Hacked maintenance"
-        })
+        response = security_tester.put("/api/tools/tool-id/maintenance/record-id", {"notes": "Hacked maintenance"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest updated maintenance record! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest updated maintenance record! Status: {response.status_code}"
 
     def test_guest_cannot_delete_maintenance_record(self, security_tester):
         """
@@ -548,13 +511,15 @@ class TestToolsPermissionBypass:
         """
         response = security_tester.delete("/api/tools/tool-id/maintenance/record-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted maintenance record! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest deleted maintenance record! Status: {response.status_code}"
 
 
 # ========================================
 # HIGH: Tags Vulnerabilities (10 endpoints)
 # ========================================
+
 
 class TestTagsPermissionBypass:
     """Test tag endpoints that lack permission checks"""
@@ -566,13 +531,9 @@ class TestTagsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/tags", {
-            "name": "evil-tag",
-            "color": "#FF0000"
-        })
+        response = security_tester.post("/api/tags", {"name": "evil-tag", "color": "#FF0000"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest created tag! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest created tag! Status: {response.status_code}"
 
     def test_guest_cannot_update_tag(self, security_tester):
         """
@@ -581,12 +542,9 @@ class TestTagsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.put("/api/tags/some-id", {
-            "name": "hacked-tag"
-        })
+        response = security_tester.put("/api/tags/some-id", {"name": "hacked-tag"})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest updated tag! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest updated tag! Status: {response.status_code}"
 
     def test_guest_cannot_delete_tag(self, security_tester):
         """
@@ -597,8 +555,7 @@ class TestTagsPermissionBypass:
         """
         response = security_tester.delete("/api/tags/some-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest deleted tag! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest deleted tag! Status: {response.status_code}"
 
     def test_guest_cannot_assign_tag_to_part(self, security_tester):
         """
@@ -609,8 +566,7 @@ class TestTagsPermissionBypass:
         """
         response = security_tester.post("/api/tags/tag-id/parts/part-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest assigned tag to part! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest assigned tag to part! Status: {response.status_code}"
 
     def test_guest_cannot_remove_tag_from_part(self, security_tester):
         """
@@ -621,8 +577,9 @@ class TestTagsPermissionBypass:
         """
         response = security_tester.delete("/api/tags/tag-id/parts/part-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest removed tag from part! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest removed tag from part! Status: {response.status_code}"
 
     def test_guest_cannot_assign_tag_to_tool(self, security_tester):
         """
@@ -633,8 +590,7 @@ class TestTagsPermissionBypass:
         """
         response = security_tester.post("/api/tags/tag-id/tools/tool-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest assigned tag to tool! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest assigned tag to tool! Status: {response.status_code}"
 
     def test_guest_cannot_remove_tag_from_tool(self, security_tester):
         """
@@ -645,8 +601,9 @@ class TestTagsPermissionBypass:
         """
         response = security_tester.delete("/api/tags/tag-id/tools/tool-id")
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest removed tag from tool! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest removed tag from tool! Status: {response.status_code}"
 
     def test_guest_cannot_bulk_tag_operation(self, security_tester):
         """
@@ -655,15 +612,14 @@ class TestTagsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/tags/bulk", {
-            "operation": "assign",
-            "tag_ids": ["tag1", "tag2"],
-            "item_ids": ["item1", "item2"],
-            "item_type": "part"
-        })
+        response = security_tester.post(
+            "/api/tags/bulk",
+            {"operation": "assign", "tag_ids": ["tag1", "tag2"], "item_ids": ["item1", "item2"], "item_type": "part"},
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest performed bulk tag operation! Status: {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"VULNERABILITY: Guest performed bulk tag operation! Status: {response.status_code}"
 
     def test_guest_cannot_merge_tags(self, security_tester):
         """
@@ -672,13 +628,11 @@ class TestTagsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/tags/merge", {
-            "source_tag_ids": ["tag1", "tag2"],
-            "target_tag_id": "tag3"
-        })
+        response = security_tester.post(
+            "/api/tags/merge", {"source_tag_ids": ["tag1", "tag2"], "target_tag_id": "tag3"}
+        )
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest merged tags! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest merged tags! Status: {response.status_code}"
 
     def test_guest_cannot_cleanup_tags(self, security_tester):
         """
@@ -687,26 +641,24 @@ class TestTagsPermissionBypass:
         Expected: 403 Forbidden
         Current: Uses get_current_user_flexible (allows guest)
         """
-        response = security_tester.post("/api/tags/cleanup", {
-            "remove_unused": True
-        })
+        response = security_tester.post("/api/tags/cleanup", {"remove_unused": True})
 
-        assert response.status_code == 403, \
-            f"VULNERABILITY: Guest cleaned up tags! Status: {response.status_code}"
+        assert response.status_code == 403, f"VULNERABILITY: Guest cleaned up tags! Status: {response.status_code}"
 
 
 # ========================================
 # Summary Report Generator
 # ========================================
 
+
 def pytest_sessionfinish(session, exitstatus):
     """Generate summary report after all tests complete"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("SECURITY ASSESSMENT SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"\nTotal Tests: {session.testscollected}")
     print(f"Failed Tests (Vulnerabilities Found): {session.testsfailed}")
     print(f"Passed Tests (Security Controls Working): {session.testspassed}")
     print("\nNOTE: Failed tests indicate active vulnerabilities!")
     print("After applying permission fixes, all tests should pass.")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")

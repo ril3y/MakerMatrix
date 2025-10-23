@@ -64,7 +64,7 @@ async def test_websocket_broadcasts():
                         print(f"   Entity: {entity_data.get('entity_type')} - {entity_data.get('entity_name')}")
                         print(f"   Action: {entity_data.get('action')}")
                         print(f"   User: {entity_data.get('username', 'N/A')}")
-                        if entity_data.get('changes'):
+                        if entity_data.get("changes"):
                             print(f"   Changes: {entity_data.get('changes')}")
                         print()
                 except asyncio.TimeoutError:
@@ -87,7 +87,7 @@ async def test_websocket_broadcasts():
             "part_number": f"WST-{int(datetime.now().timestamp())}",
             "quantity": 100,
             "description": "Test part for websocket broadcast",
-            "supplier": "Test Supplier"
+            "supplier": "Test Supplier",
         }
 
         response = session.post(f"{BACKEND_URL}/api/parts/add_part", json=part_data)
@@ -103,10 +103,7 @@ async def test_websocket_broadcasts():
 
             # Test 2: Update the part
             print("📝 Test 2: Updating the part...")
-            update_data = {
-                "quantity": 150,
-                "description": "Updated via websocket test"
-            }
+            update_data = {"quantity": 150, "description": "Updated via websocket test"}
 
             response = session.put(f"{BACKEND_URL}/api/parts/update_part/{part_id}", json=update_data)
 
@@ -157,6 +154,7 @@ async def test_websocket_broadcasts():
 if __name__ == "__main__":
     # Suppress SSL warnings
     import urllib3
+
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     # Run the test

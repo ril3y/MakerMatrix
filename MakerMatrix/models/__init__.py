@@ -16,7 +16,7 @@ from .project_models import *
 # User and authentication models
 from .user_models import *
 
-# Order management models  
+# Order management models
 from .order_models import *
 
 # Configuration models

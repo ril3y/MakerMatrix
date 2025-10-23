@@ -23,68 +23,47 @@ class PartLocationAllocation(SQLModel, table=True):
       - Reel Storage Shelf: 3900 pcs (primary)
       - SMD Cassette #42: 100 pcs (working stock)
     """
+
     __tablename__ = "part_location_allocations"
 
     # === IDENTITY ===
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     part_id: str = Field(
         sa_column=Column(String, ForeignKey("partmodel.id", ondelete="CASCADE"), index=True),
-        description="Part that is allocated"
+        description="Part that is allocated",
     )
     location_id: str = Field(
         sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="CASCADE"), index=True),
-        description="Location where quantity is allocated"
+        description="Location where quantity is allocated",
     )
 
     # === QUANTITY TRACKING ===
-    quantity_at_location: int = Field(
-        default=0,
-        ge=0,
-        description="Quantity allocated at this specific location"
-    )
+    quantity_at_location: int = Field(default=0, ge=0, description="Quantity allocated at this specific location")
     is_primary_storage: bool = Field(
-        default=False,
-        description="True for main storage (reel/bulk), False for working stock (cassettes)"
+        default=False, description="True for main storage (reel/bulk), False for working stock (cassettes)"
     )
 
     # === METADATA ===
-    allocated_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When this allocation was created"
-    )
-    last_updated: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Last quantity change timestamp"
-    )
+    allocated_at: datetime = Field(default_factory=datetime.utcnow, description="When this allocation was created")
+    last_updated: datetime = Field(default_factory=datetime.utcnow, description="Last quantity change timestamp")
     notes: Optional[str] = Field(
-        default=None,
-        description="Allocation notes (e.g., 'Working stock for GC_CONTROLLER project')"
+        default=None, description="Allocation notes (e.g., 'Working stock for GC_CONTROLLER project')"
     )
 
     # === FUTURE: SMART LOCATION SUPPORT (Phase 2 - Not Implemented Yet) ===
-    auto_synced: bool = Field(
-        default=False,
-        description="True if quantity is auto-updated by smart location sensor"
-    )
-    last_nfc_scan: Optional[datetime] = Field(
-        default=None,
-        description="Last NFC scan timestamp (for smart locations)"
-    )
+    auto_synced: bool = Field(default=False, description="True if quantity is auto-updated by smart location sensor")
+    last_nfc_scan: Optional[datetime] = Field(default=None, description="Last NFC scan timestamp (for smart locations)")
 
     # === RELATIONSHIPS ===
     part: Optional["PartModel"] = Relationship(
-        back_populates="allocations",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="allocations", sa_relationship_kwargs={"lazy": "selectin"}
     )
     location: Optional["LocationModel"] = Relationship(
-        back_populates="allocations",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="allocations", sa_relationship_kwargs={"lazy": "selectin"}
     )
 
     # === CONSTRAINTS ===
-    __table_args__ = (
-        UniqueConstraint('part_id', 'location_id', name='uix_part_location'),
-    )
+    __table_args__ = (UniqueConstraint("part_id", "location_id", name="uix_part_location"),)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -100,27 +79,27 @@ class PartLocationAllocation(SQLModel, table=True):
             "auto_synced": self.auto_synced,
             "allocated_at": self.allocated_at.isoformat() if self.allocated_at else None,
             "last_updated": self.last_updated.isoformat() if self.last_updated else None,
-            "last_nfc_scan": self.last_nfc_scan.isoformat() if self.last_nfc_scan else None
+            "last_nfc_scan": self.last_nfc_scan.isoformat() if self.last_nfc_scan else None,
         }
 
         # Include location details if loaded
-        if hasattr(self, 'location') and self.location is not None:
+        if hasattr(self, "location") and self.location is not None:
             # Use LocationModel's to_dict() to include all fields (container slots, parent, etc.)
             base_dict["location"] = self.location.to_dict()
 
             # Add location path if available
             try:
-                if hasattr(self.location, 'get_full_path'):
+                if hasattr(self.location, "get_full_path"):
                     base_dict["location_path"] = self.location.get_full_path()
             except Exception:
                 pass
 
         # Include part details if loaded (minimal to avoid circular refs)
-        if hasattr(self, 'part') and self.part is not None:
+        if hasattr(self, "part") and self.part is not None:
             base_dict["part"] = {
                 "id": self.part.id,
                 "part_name": self.part.part_name,
-                "part_number": self.part.part_number
+                "part_number": self.part.part_number,
             }
 
         return base_dict
@@ -128,8 +107,10 @@ class PartLocationAllocation(SQLModel, table=True):
 
 # === REQUEST/RESPONSE MODELS ===
 
+
 class AllocationCreate(SQLModel):
     """Request model for creating a new allocation"""
+
     location_id: str
     quantity: int = Field(gt=0, description="Quantity to allocate (must be > 0)")
     is_primary: bool = False
@@ -138,6 +119,7 @@ class AllocationCreate(SQLModel):
 
 class AllocationUpdate(SQLModel):
     """Request model for updating an allocation"""
+
     quantity: Optional[int] = Field(default=None, ge=0)
     is_primary: Optional[bool] = None
     notes: Optional[str] = None
@@ -145,6 +127,7 @@ class AllocationUpdate(SQLModel):
 
 class TransferRequest(SQLModel):
     """Request model for transferring quantity between locations"""
+
     from_location_id: str
     to_location_id: str
     quantity: int = Field(gt=0, description="Quantity to transfer (must be > 0)")
@@ -153,6 +136,7 @@ class TransferRequest(SQLModel):
 
 class SplitToCassetteRequest(SQLModel):
     """Request model for quick split to cassette operation"""
+
     from_location_id: str
     quantity: int = Field(gt=0, description="Quantity to split (must be > 0)")
 

@@ -21,7 +21,7 @@ export interface Part {
   id: string
   name: string
   part_number?: string
-  supplier_part_number?: string  // Supplier's part number (different from our internal part_number)
+  supplier_part_number?: string // Supplier's part number (different from our internal part_number)
   description?: string
   quantity: number
   minimum_quantity?: number

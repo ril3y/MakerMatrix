@@ -22,7 +22,7 @@ class LabelService:
         if isinstance(label_size, int):
             width_mm = label_size
         else:
-            width_mm = int(''.join(filter(str.isdigit, str(label_size))))
+            width_mm = int("".join(filter(str.isdigit, str(label_size))))
         return width_mm / 25.4
 
     @staticmethod
@@ -34,11 +34,7 @@ class LabelService:
         return round(inches * print_settings.dpi)
 
     @staticmethod
-    def measure_text_size(
-        text: str,
-        print_settings: PrintSettings,
-        allowed_height: int
-    ) -> (int, int):
+    def measure_text_size(text: str, print_settings: PrintSettings, allowed_height: int) -> (int, int):
         """
         Measure the width/height of a text block given the label's allowed height.
         Returns the final text width and text height in pixels (after auto-scaling).
@@ -157,10 +153,7 @@ class LabelService:
 
         # If there's a specified qr_size, resize
         if hasattr(print_settings, "qr_size") and print_settings.qr_size is not None:
-            qr_image = qr_image.resize(
-                (print_settings.qr_size, print_settings.qr_size),
-                Image.Resampling.LANCZOS
-            )
+            qr_image = qr_image.resize((print_settings.qr_size, print_settings.qr_size), Image.Resampling.LANCZOS)
         return qr_image
 
     @staticmethod
@@ -210,7 +203,7 @@ class LabelService:
             version=1,  # Let it auto-size based on data
             error_correction=qrcode.constants.ERROR_CORRECT_M,  # Medium error correction for better scanning
             box_size=1,  # Will be resized anyway
-            border=1,    # Minimal border to maximize QR size
+            border=1,  # Minimal border to maximize QR size
         )
 
         qr.add_data(qr_data)
@@ -227,10 +220,7 @@ class LabelService:
 
     @staticmethod
     def compute_label_len_mm_for_text_and_qr(
-        text_width_px: int,
-        margin_px: int,
-        dpi: int,
-        qr_width_px: int = 0
+        text_width_px: int, margin_px: int, dpi: int, qr_width_px: int = 0
     ) -> float:
         """
         Given the measured text width (in pixels), optional QR width (in pixels),
@@ -240,11 +230,7 @@ class LabelService:
         return (total_width_px / dpi) * 25.4  # px -> mm
 
     @staticmethod
-    def finalize_label_width_px(
-        label_len_mm: float,
-        print_settings: PrintSettings,
-        scaling_factor: float = 1.1
-    ) -> int:
+    def finalize_label_width_px(label_len_mm: float, print_settings: PrintSettings, scaling_factor: float = 1.1) -> int:
         """
         Converts a label length (in mm) to a final pixel width, applying
         a scaling factor to compensate for printing shrinkage.
@@ -253,10 +239,7 @@ class LabelService:
 
     @staticmethod
     def generate_text_label(
-        text: str,
-        print_settings: PrintSettings,
-        allowed_width: int,
-        allowed_height: int
+        text: str, print_settings: PrintSettings, allowed_width: int, allowed_height: int
     ) -> Image.Image:
         """
         Generate a text label image that scales its font size to fit within the allowed area.
@@ -372,9 +355,7 @@ class LabelService:
 
     @staticmethod
     def generate_combined_label(
-        part: Dict[str, Any],
-        print_settings: PrintSettings,
-        custom_text: Optional[str] = None
+        part: Dict[str, Any], print_settings: PrintSettings, custom_text: Optional[str] = None
     ) -> Image.Image:
         """
         Generate a combined label with a QR code and text. If label_len is not set,
@@ -400,16 +381,11 @@ class LabelService:
         if print_settings.label_len is None:
             # 1) Measure text size given the allowed height
             text_width_px, _ = LabelService.measure_text_size(
-                text=custom_text,
-                print_settings=print_settings,
-                allowed_height=available_height_pixels
+                text=custom_text, print_settings=print_settings, allowed_height=available_height_pixels
             )
             # 2) Compute the label length in mm (text + QR + margins)
             label_len_mm = LabelService.compute_label_len_mm_for_text_and_qr(
-                text_width_px=text_width_px,
-                margin_px=margin_pixels,
-                dpi=dpi,
-                qr_width_px=qr_size_px
+                text_width_px=text_width_px, margin_px=margin_pixels, dpi=dpi, qr_width_px=qr_size_px
             )
         else:
             # Otherwise, just use the provided label_len
@@ -417,9 +393,7 @@ class LabelService:
 
         # Convert mm -> final px (with a scaling factor for shrinkage)
         total_label_width_px = LabelService.finalize_label_width_px(
-            label_len_mm=label_len_mm,
-            print_settings=print_settings,
-            scaling_factor=1.1
+            label_len_mm=label_len_mm, print_settings=print_settings, scaling_factor=1.1
         )
 
         # Create the optimized QR code image
@@ -429,7 +403,7 @@ class LabelService:
         qr_size_px = qr_image.width  # Should be same as height since QR is square
 
         # Create a blank canvas for the label
-        combined_img = Image.new('RGB', (total_label_width_px, available_height_pixels), 'white')
+        combined_img = Image.new("RGB", (total_label_width_px, available_height_pixels), "white")
 
         # Paste the QR code, centered vertically
         qr_y = (available_height_pixels - qr_size_px) // 2
@@ -444,7 +418,7 @@ class LabelService:
             text=custom_text,
             print_settings=print_settings,
             allowed_width=remaining_text_width,
-            allowed_height=available_height_pixels
+            allowed_height=available_height_pixels,
         )
 
         # Center the text vertically in the remaining area
@@ -475,25 +449,21 @@ class LabelService:
         if print_settings.label_len is None:
             # Measure text size for the given height
             text_width_px, _ = LabelService.measure_text_size(
-                text=text,
-                print_settings=print_settings,
-                allowed_height=available_height_pixels
+                text=text, print_settings=print_settings, allowed_height=available_height_pixels
             )
             # Convert to mm with margins
             label_len_mm = LabelService.compute_label_len_mm_for_text_and_qr(
                 text_width_px=text_width_px,
                 margin_px=margin_pixels,
                 dpi=dpi,
-                qr_width_px=0  # no QR code in text-only label
+                qr_width_px=0,  # no QR code in text-only label
             )
         else:
             label_len_mm = float(print_settings.label_len)
 
         # Convert mm -> final px (with a scaling factor)
         total_label_width_px = LabelService.finalize_label_width_px(
-            label_len_mm=label_len_mm,
-            print_settings=print_settings,
-            scaling_factor=1.1
+            label_len_mm=label_len_mm, print_settings=print_settings, scaling_factor=1.1
         )
 
         # Generate the text label
@@ -501,7 +471,7 @@ class LabelService:
             text=text,
             print_settings=print_settings,
             allowed_width=total_label_width_px,
-            allowed_height=available_height_pixels
+            allowed_height=available_height_pixels,
         )
 
         # Rotate if needed

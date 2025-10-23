@@ -18,13 +18,10 @@ async def get_ai_config():
     config = load_ai_config()
     # Don't return the API key for security
     config_dict = config.model_dump()
-    if config_dict.get('api_key'):
-        config_dict['api_key'] = '***'
-    
-    return base_router.build_success_response(
-        message="AI configuration retrieved successfully",
-        data=config_dict
-    )
+    if config_dict.get("api_key"):
+        config_dict["api_key"] = "***"
+
+    return base_router.build_success_response(message="AI configuration retrieved successfully", data=config_dict)
 
 
 @router.put("/config")
@@ -32,20 +29,17 @@ async def get_ai_config():
 async def update_ai_config(config_update: AIConfigUpdate):
     """Update AI configuration"""
     current_config = load_ai_config()
-    
+
     # Update only provided fields
     update_data = config_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(current_config, field, value)
-    
+
     if save_ai_config(current_config):
         # Reload the provider to apply the new configuration
         ai_service.reload_provider()
-        
-        return base_router.build_success_response(
-            message="AI configuration updated successfully",
-            data=None
-        )
+
+        return base_router.build_success_response(message="AI configuration updated successfully", data=None)
     else:
         raise HTTPException(status_code=500, detail="Failed to save configuration")
 
@@ -54,58 +48,48 @@ class ChatMessage(BaseModel):
     message: str
     conversation_history: List[Dict[str, str]] = []
 
+
 class ChatResponse(BaseModel):
     response: str
     success: bool
     model: str = ""
     provider: str = ""
 
+
 @router.post("/chat")
 @standard_error_handling
 async def chat_with_ai(chat_data: ChatMessage):
     """Chat with AI assistant"""
     result = await ai_service.chat_with_ai(
-        message=chat_data.message,
-        conversation_history=chat_data.conversation_history
+        message=chat_data.message, conversation_history=chat_data.conversation_history
     )
-    
+
     if result.get("error"):
-        return base_router.build_error_response(
-            message=result["error"],
-            data=None
-        )
-    
+        return base_router.build_error_response(message=result["error"], data=None)
+
     return base_router.build_success_response(
         message="AI response generated",
         data=ChatResponse(
             response=result["response"],
             success=result["success"],
             model=result.get("model", ""),
-            provider=result.get("provider", "")
-        )
+            provider=result.get("provider", ""),
+        ),
     )
+
 
 @router.post("/test")
 @standard_error_handling
 async def test_ai_connection():
     """Test AI connection with current configuration"""
     result = await ai_service.test_connection()
-    
+
     if result.get("error"):
-        return base_router.build_error_response(
-            message=result["error"],
-            data=result
-        )
+        return base_router.build_error_response(message=result["error"], data=result)
     elif result.get("warning"):
-        return base_router.build_warning_response(
-            message=result["warning"],
-            data=result
-        )
+        return base_router.build_warning_response(message=result["warning"], data=result)
     else:
-        return base_router.build_success_response(
-            message=result.get("message", "Connection successful"),
-            data=result
-        )
+        return base_router.build_success_response(message=result.get("message", "Connection successful"), data=result)
 
 
 @router.post("/reset")
@@ -114,10 +98,7 @@ async def reset_ai_config():
     """Reset AI configuration to defaults"""
     default_config = AIConfig()
     if save_ai_config(default_config):
-        return base_router.build_success_response(
-            message="AI configuration reset to defaults",
-            data=None
-        )
+        return base_router.build_success_response(message="AI configuration reset to defaults", data=None)
     else:
         raise HTTPException(status_code=500, detail="Failed to reset configuration")
 
@@ -128,14 +109,14 @@ async def get_available_providers():
     """Get information about available AI providers"""
     providers = ai_service.get_available_providers()
     current_provider = ai_service.get_provider_info()
-    
+
     return base_router.build_success_response(
         message="Available providers retrieved",
         data={
             "providers": providers,
             "current_provider": current_provider,
-            "sql_support": ai_service.supports_sql_queries()
-        }
+            "sql_support": ai_service.supports_sql_queries(),
+        },
     )
 
 
@@ -144,10 +125,11 @@ async def get_available_providers():
 async def get_available_models():
     """Get available models from the current AI provider"""
     config = load_ai_config()
-    
+
     if config.provider.lower() == "ollama":
         # Fetch models from Ollama
         import requests
+
         try:
             response = requests.get(f"{config.api_url}/api/tags", timeout=10)
             if response.status_code == 200:
@@ -158,46 +140,37 @@ async def get_available_models():
                         "name": model.get("name", ""),
                         "size": model.get("size", 0),
                         "modified_at": model.get("modified_at", ""),
-                        "digest": model.get("digest", "")
+                        "digest": model.get("digest", ""),
                     }
                     models.append(model_info)
-                
+
                 return base_router.build_success_response(
                     message=f"Found {len(models)} Ollama models",
-                    data={
-                        "provider": "ollama",
-                        "models": models,
-                        "current_model": config.model_name
-                    }
+                    data={"provider": "ollama", "models": models, "current_model": config.model_name},
                 )
             else:
                 return base_router.build_error_response(
                     message=f"Failed to fetch Ollama models: HTTP {response.status_code}",
-                    data={"provider": "ollama", "models": []}
+                    data={"provider": "ollama", "models": []},
                 )
         except requests.RequestException as e:
             return base_router.build_error_response(
-                message=f"Cannot connect to Ollama: {str(e)}",
-                data={"provider": "ollama", "models": []}
+                message=f"Cannot connect to Ollama: {str(e)}", data={"provider": "ollama", "models": []}
             )
-    
+
     elif config.provider.lower() == "openai":
         # OpenAI models are predefined
         models = [
             {"name": "gpt-4", "description": "Most capable GPT-4 model"},
             {"name": "gpt-4-turbo", "description": "Latest GPT-4 turbo model"},
             {"name": "gpt-3.5-turbo", "description": "Fast and efficient model"},
-            {"name": "gpt-3.5-turbo-16k", "description": "Extended context version"}
+            {"name": "gpt-3.5-turbo-16k", "description": "Extended context version"},
         ]
         return base_router.build_success_response(
             message=f"OpenAI predefined models",
-            data={
-                "provider": "openai",
-                "models": models,
-                "current_model": config.model_name
-            }
+            data={"provider": "openai", "models": models, "current_model": config.model_name},
         )
-    
+
     elif config.provider.lower() == "anthropic":
         # Anthropic models are predefined
         models = [
@@ -205,19 +178,14 @@ async def get_available_models():
             {"name": "claude-3-sonnet-20240229", "description": "Balanced performance and speed"},
             {"name": "claude-3-haiku-20240307", "description": "Fastest Claude model"},
             {"name": "claude-2.1", "description": "Previous generation Claude"},
-            {"name": "claude-2.0", "description": "Previous generation Claude"}
+            {"name": "claude-2.0", "description": "Previous generation Claude"},
         ]
         return base_router.build_success_response(
             message=f"Anthropic predefined models",
-            data={
-                "provider": "anthropic",
-                "models": models,
-                "current_model": config.model_name
-            }
+            data={"provider": "anthropic", "models": models, "current_model": config.model_name},
         )
-    
+
     else:
         return base_router.build_error_response(
-            message=f"Unsupported provider: {config.provider}",
-            data={"provider": config.provider, "models": []}
+            message=f"Unsupported provider: {config.provider}", data={"provider": config.provider, "models": []}
         )

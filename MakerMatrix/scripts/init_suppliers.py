@@ -11,7 +11,7 @@ import os
 import asyncio
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from MakerMatrix.models.models import engine
 from sqlmodel import SQLModel, Session
@@ -22,11 +22,11 @@ from MakerMatrix.services.utility.favicon_fetcher import FaviconFetcherService
 
 # Built-in advanced suppliers with hardcoded icons
 BUILTIN_ICON_MAP = {
-    'LCSC': '/api/utility/get_image/lcsc.ico',
-    'DIGIKEY': '/api/utility/get_image/digikey.png',
-    'MOUSER': '/api/utility/get_image/mouser.png',
-    'MCMASTER-CARR': '/api/utility/get_image/mcmaster-carr.ico',
-    'BOLT-DEPOT': '/api/utility/get_image/bolt-depot.png',
+    "LCSC": "/api/utility/get_image/lcsc.ico",
+    "DIGIKEY": "/api/utility/get_image/digikey.png",
+    "MOUSER": "/api/utility/get_image/mouser.png",
+    "MCMASTER-CARR": "/api/utility/get_image/mcmaster-carr.ico",
+    "BOLT-DEPOT": "/api/utility/get_image/bolt-depot.png",
 }
 
 # Default simple suppliers (URL-only, no API enrichment)
@@ -77,9 +77,9 @@ async def init_simple_suppliers():
             supplier_name = supplier_data["supplier_name"]
 
             # Check if supplier already exists
-            existing = session.query(SupplierConfigModel).filter(
-                SupplierConfigModel.supplier_name == supplier_name
-            ).first()
+            existing = (
+                session.query(SupplierConfigModel).filter(SupplierConfigModel.supplier_name == supplier_name).first()
+            )
 
             if existing:
                 print(f"  - {supplier_name}: Already exists")
@@ -88,8 +88,7 @@ async def init_simple_suppliers():
             # Fetch favicon
             print(f"  - {supplier_name}: Creating...")
             image_url = await favicon_service.fetch_and_store_favicon(
-                supplier_data["website_url"],
-                supplier_name.lower()
+                supplier_data["website_url"], supplier_name.lower()
             )
 
             if image_url:
@@ -122,9 +121,9 @@ def set_builtin_icons():
 
     with Session(engine) as session:
         for supplier_name, icon_url in BUILTIN_ICON_MAP.items():
-            config = session.query(SupplierConfigModel).filter(
-                SupplierConfigModel.supplier_name == supplier_name
-            ).first()
+            config = (
+                session.query(SupplierConfigModel).filter(SupplierConfigModel.supplier_name == supplier_name).first()
+            )
 
             if config:
                 config.image_url = icon_url
@@ -139,9 +138,9 @@ def set_builtin_icons():
 
 def main():
     """Initialize supplier configurations"""
-    print("="*60)
+    print("=" * 60)
     print("SUPPLIER INITIALIZATION")
-    print("="*60)
+    print("=" * 60)
 
     # Create all tables if they don't exist
     SQLModel.metadata.create_all(engine)
@@ -154,7 +153,7 @@ def main():
     print(f"Advanced suppliers: {len(configs)} initialized")
 
     for config in configs:
-        capabilities = config.get('capabilities', [])
+        capabilities = config.get("capabilities", [])
         print(f"  - {config['supplier_name']}: {len(capabilities)} capabilities")
 
     # Set hardcoded icons for built-in advanced suppliers
@@ -163,9 +162,9 @@ def main():
     # Initialize simple suppliers
     asyncio.run(init_simple_suppliers())
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUPPLIER INITIALIZATION COMPLETE")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

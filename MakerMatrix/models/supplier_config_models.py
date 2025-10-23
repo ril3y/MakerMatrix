@@ -17,35 +17,42 @@ import uuid
 class SupplierConfigModel(SQLModel, table=True):
     """
     Supplier API configuration model
-    
+
     Stores non-sensitive configuration data for supplier APIs including
     endpoints, rate limits, and feature flags.
     """
+
     __tablename__ = "supplier_configs"
-    
+
     # Primary key
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    
+
     # Basic configuration
     supplier_name: str = Field(unique=True, index=True, max_length=100)
     display_name: str = Field(max_length=200)
     description: Optional[str] = Field(default=None, max_length=1000)
     website_url: Optional[str] = Field(default=None, max_length=500, description="Supplier website URL")
-    image_url: Optional[str] = Field(default=None, max_length=500, description="URL or path to supplier logo/icon (favicon)")
-    supplier_type: str = Field(default="advanced", max_length=50, description="Supplier type: advanced (API enrichment), basic (limited features), simple (URL-only)")
+    image_url: Optional[str] = Field(
+        default=None, max_length=500, description="URL or path to supplier logo/icon (favicon)"
+    )
+    supplier_type: str = Field(
+        default="advanced",
+        max_length=50,
+        description="Supplier type: advanced (API enrichment), basic (limited features), simple (URL-only)",
+    )
 
     # API configuration
     api_type: str = Field(max_length=50, default="rest")  # "rest", "graphql", "scraping"
     base_url: str = Field(max_length=500)
     api_version: Optional[str] = Field(default=None, max_length=50)
     api_documentation_url: Optional[str] = Field(default=None, max_length=500)
-    
+
     # Rate limiting and timeouts
     rate_limit_per_minute: Optional[int] = Field(default=None, gt=0)
     timeout_seconds: int = Field(default=30, gt=0)
     max_retries: int = Field(default=3, ge=0)
     retry_backoff: float = Field(default=1.0, gt=0)
-    
+
     # Feature flags and capabilities
     enabled: bool = Field(default=True)
     supports_datasheet: bool = Field(default=False)
@@ -56,27 +63,26 @@ class SupplierConfigModel(SQLModel, table=True):
     supports_alternatives: bool = Field(default=False)
     supports_lifecycle_status: bool = Field(default=False)
     supports_part_validation: bool = Field(default=False)
-    
+
     # Capabilities (stored as JSON list - flexible and extensible)
     capabilities: Optional[str] = Field(default=None)  # JSON array of capability strings
-    
+
     # Custom headers and parameters (stored as JSON)
     custom_headers: Optional[str] = Field(default=None)  # JSON string
     custom_parameters: Optional[str] = Field(default=None)  # JSON string
-    
+
     # Metadata
     created_by_user_id: Optional[str] = Field(foreign_key="usermodel.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_tested_at: Optional[datetime] = Field(default=None)
     test_status: Optional[str] = Field(default=None, max_length=50)  # "success", "failed", "pending"
-    
+
     # Relationships
     credentials: Optional["SupplierCredentialsModel"] = Relationship(
-        back_populates="config",
-        sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"}
+        back_populates="config", sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"}
     )
-    
+
     def get_custom_headers(self) -> Dict[str, str]:
         """Parse custom headers from JSON string"""
         if not self.custom_headers:
@@ -85,11 +91,11 @@ class SupplierConfigModel(SQLModel, table=True):
             return json.loads(self.custom_headers)
         except (json.JSONDecodeError, TypeError):
             return {}
-    
+
     def set_custom_headers(self, headers: Dict[str, str]) -> None:
         """Set custom headers as JSON string"""
         self.custom_headers = json.dumps(headers) if headers else None
-    
+
     def get_custom_parameters(self) -> Dict[str, Any]:
         """Parse custom parameters from JSON string"""
         if not self.custom_parameters:
@@ -98,11 +104,11 @@ class SupplierConfigModel(SQLModel, table=True):
             return json.loads(self.custom_parameters)
         except (json.JSONDecodeError, TypeError):
             return {}
-    
+
     def set_custom_parameters(self, parameters: Dict[str, Any]) -> None:
         """Set custom parameters as JSON string"""
         self.custom_parameters = json.dumps(parameters) if parameters else None
-    
+
     def get_capabilities(self) -> List[str]:
         """Get list of supported capabilities - uses flexible JSON list if available, fallback to boolean flags"""
         # Priority 1: Use flexible capabilities list if set
@@ -113,7 +119,7 @@ class SupplierConfigModel(SQLModel, table=True):
                     return caps
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         # Fallback: Build from boolean flags for backward compatibility
         capabilities = []
         if self.supports_datasheet:
@@ -132,17 +138,17 @@ class SupplierConfigModel(SQLModel, table=True):
             capabilities.append("fetch_lifecycle_status")
         if self.supports_part_validation:
             capabilities.append("validate_part_number")
-        
+
         # Always include get_part_details if any other capability is supported
         if capabilities:
             capabilities.append("get_part_details")
-            
+
         return capabilities
-    
+
     def set_capabilities(self, capabilities: List[str]) -> None:
         """Set capabilities as JSON list - modern flexible approach"""
         self.capabilities = json.dumps(capabilities) if capabilities else None
-        
+
         # Also update boolean flags for backward compatibility
         self.supports_datasheet = "fetch_datasheet" in capabilities
         self.supports_image = "fetch_image" in capabilities
@@ -152,7 +158,7 @@ class SupplierConfigModel(SQLModel, table=True):
         self.supports_alternatives = "fetch_alternatives" in capabilities
         self.supports_lifecycle_status = "fetch_lifecycle_status" in capabilities
         self.supports_part_validation = "validate_part_number" in capabilities
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses"""
         # Check for credentials relationship safely
@@ -163,7 +169,7 @@ class SupplierConfigModel(SQLModel, table=True):
         except:
             # If relationship access fails (detached instance), assume no credentials
             has_credentials = False
-        
+
         return {
             "id": self.id,
             "supplier_name": self.supplier_name,
@@ -188,7 +194,7 @@ class SupplierConfigModel(SQLModel, table=True):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "last_tested_at": self.last_tested_at.isoformat() if self.last_tested_at else None,
             "test_status": self.test_status,
-            "has_credentials": has_credentials
+            "has_credentials": has_credentials,
         }
 
 
@@ -199,6 +205,7 @@ class SupplierCredentialsModel(SQLModel, table=True):
     Stores supplier API authentication credentials in plain text.
     Protected by password-encrypted backup ZIPs and OS file permissions.
     """
+
     __tablename__ = "supplier_credentials"
 
     # Primary key
@@ -238,20 +245,22 @@ class SupplierCredentialsModel(SQLModel, table=True):
             "has_username": self.username is not None,
             "has_password": self.password is not None,
             "has_oauth_token": self.oauth_token is not None,
-            "has_refresh_token": self.refresh_token is not None
+            "has_refresh_token": self.refresh_token is not None,
         }
 
         # Only include actual credentials if explicitly requested (for internal use)
         if include_secrets:
-            data.update({
-                "api_key": self.api_key,
-                "secret_key": self.secret_key,
-                "username": self.username,
-                "password": self.password,
-                "oauth_token": self.oauth_token,
-                "refresh_token": self.refresh_token,
-                "additional_data": self.additional_data
-            })
+            data.update(
+                {
+                    "api_key": self.api_key,
+                    "secret_key": self.secret_key,
+                    "username": self.username,
+                    "password": self.password,
+                    "oauth_token": self.oauth_token,
+                    "refresh_token": self.refresh_token,
+                    "additional_data": self.additional_data,
+                }
+            )
 
         return data
 
@@ -259,29 +268,30 @@ class SupplierCredentialsModel(SQLModel, table=True):
 class EnrichmentProfileModel(SQLModel, table=True):
     """
     User-defined enrichment workflow profiles
-    
+
     Allows users to create custom enrichment workflows with supplier
     priority ordering and capability selection.
     """
+
     __tablename__ = "enrichment_profiles"
-    
+
     # Primary key
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    
+
     # Profile identification
     name: str = Field(max_length=200, index=True)
     description: Optional[str] = Field(default=None, max_length=1000)
-    
+
     # Profile configuration
     supplier_priority: str = Field()  # JSON array of supplier names in priority order
     enabled_capabilities: str = Field()  # JSON array of capability names
     fallback_enabled: bool = Field(default=True)
     timeout_seconds: int = Field(default=30, gt=0)
-    
+
     # Custom field mappings and transformations
     field_mappings: Optional[str] = Field(default=None)  # JSON object
     data_transformations: Optional[str] = Field(default=None)  # JSON object
-    
+
     # Profile metadata
     is_default: bool = Field(default=False)
     is_public: bool = Field(default=False)  # Can be shared with other users
@@ -290,56 +300,56 @@ class EnrichmentProfileModel(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_used_at: Optional[datetime] = Field(default=None)
     usage_count: int = Field(default=0, ge=0)
-    
+
     def get_supplier_priority(self) -> List[str]:
         """Parse supplier priority from JSON string"""
         try:
             return json.loads(self.supplier_priority) if self.supplier_priority else []
         except (json.JSONDecodeError, TypeError):
             return []
-    
+
     def set_supplier_priority(self, suppliers: List[str]) -> None:
         """Set supplier priority as JSON string"""
         self.supplier_priority = json.dumps(suppliers)
-    
+
     def get_enabled_capabilities(self) -> List[str]:
         """Parse enabled capabilities from JSON string"""
         try:
             return json.loads(self.enabled_capabilities) if self.enabled_capabilities else []
         except (json.JSONDecodeError, TypeError):
             return []
-    
+
     def set_enabled_capabilities(self, capabilities: List[str]) -> None:
         """Set enabled capabilities as JSON string"""
         self.enabled_capabilities = json.dumps(capabilities)
-    
+
     def get_field_mappings(self) -> Dict[str, str]:
         """Parse field mappings from JSON string"""
         try:
             return json.loads(self.field_mappings) if self.field_mappings else {}
         except (json.JSONDecodeError, TypeError):
             return {}
-    
+
     def set_field_mappings(self, mappings: Dict[str, str]) -> None:
         """Set field mappings as JSON string"""
         self.field_mappings = json.dumps(mappings) if mappings else None
-    
+
     def get_data_transformations(self) -> Dict[str, Any]:
         """Parse data transformations from JSON string"""
         try:
             return json.loads(self.data_transformations) if self.data_transformations else {}
         except (json.JSONDecodeError, TypeError):
             return {}
-    
+
     def set_data_transformations(self, transformations: Dict[str, Any]) -> None:
         """Set data transformations as JSON string"""
         self.data_transformations = json.dumps(transformations) if transformations else None
-    
+
     def increment_usage(self) -> None:
         """Increment usage count and update last used timestamp"""
         self.usage_count += 1
         self.last_used_at = datetime.utcnow()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses"""
         return {
@@ -357,5 +367,5 @@ class EnrichmentProfileModel(SQLModel, table=True):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
-            "usage_count": self.usage_count
+            "usage_count": self.usage_count,
         }

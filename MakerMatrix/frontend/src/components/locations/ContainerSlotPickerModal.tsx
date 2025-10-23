@@ -62,10 +62,7 @@ const ContainerSlotPickerModal = ({
             })
             // Response is wrapped in ApiResponse, so data contains the paginated response
             const items = (response as any).data?.items || (response as any).items || []
-            console.log(
-              `[ContainerSlotPicker] Slot ${slot.name} has ${items.length} parts:`,
-              items
-            )
+            console.log(`[ContainerSlotPicker] Slot ${slot.name} has ${items.length} parts:`, items)
             return {
               ...slot,
               parts: items,
@@ -177,9 +174,10 @@ const ContainerSlotPickerModal = ({
                   onClick={() => handleSlotClick(slot.id)}
                   className={`
                     relative px-3 py-2 rounded-lg border-2 transition-all w-[160px] flex flex-col
-                    ${isSelected
-                      ? 'border-primary bg-primary/20 shadow-lg scale-105'
-                      : 'border-theme-primary hover:border-primary hover:bg-primary/10'
+                    ${
+                      isSelected
+                        ? 'border-primary bg-primary/20 shadow-lg scale-105'
+                        : 'border-theme-primary hover:border-primary hover:bg-primary/10'
                     }
                     ${hasParts ? 'bg-yellow-500/10' : ''}
                   `}
@@ -212,7 +210,9 @@ const ContainerSlotPickerModal = ({
                       ))}
                     </div>
                   ) : (
-                    <div className="text-xs text-theme-muted italic flex-1 flex items-center">Empty</div>
+                    <div className="text-xs text-theme-muted italic flex-1 flex items-center">
+                      Empty
+                    </div>
                   )}
                   {isSelected && (
                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
@@ -246,9 +246,10 @@ const ContainerSlotPickerModal = ({
               onClick={() => handleSlotClick(slot.id)}
               className={`
                 relative px-3 py-2 rounded-lg border-2 transition-all w-[160px] flex flex-col
-                ${isSelected
-                  ? 'border-primary bg-primary/20 shadow-lg scale-105'
-                  : 'border-theme-primary hover:border-primary hover:bg-primary/10'
+                ${
+                  isSelected
+                    ? 'border-primary bg-primary/20 shadow-lg scale-105'
+                    : 'border-theme-primary hover:border-primary hover:bg-primary/10'
                 }
                 ${hasParts ? 'bg-yellow-500/10' : ''}
               `}
@@ -281,7 +282,9 @@ const ContainerSlotPickerModal = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-theme-muted italic flex-1 flex items-center">Empty</div>
+                <div className="text-xs text-theme-muted italic flex-1 flex items-center">
+                  Empty
+                </div>
               )}
               {isSelected && (
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
@@ -311,8 +314,7 @@ const ContainerSlotPickerModal = ({
               <p className="text-sm text-theme-secondary mt-1">
                 {isGridLayout
                   ? `${containerLocation.grid_rows} × ${containerLocation.grid_columns} grid layout`
-                  : `${slots.length} slots`
-                }
+                  : `${slots.length} slots`}
               </p>
             </div>
           </div>

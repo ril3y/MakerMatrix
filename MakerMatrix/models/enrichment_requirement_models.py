@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 class RequirementSeverity(str, Enum):
     """Severity level of a requirement"""
+
     REQUIRED = "required"  # Must have this field for enrichment to work
     RECOMMENDED = "recommended"  # Enrichment may work but results will be limited
     OPTIONAL = "optional"  # Nice to have but not necessary
@@ -21,6 +22,7 @@ class RequirementSeverity(str, Enum):
 
 class FieldRequirement(BaseModel):
     """Defines a requirement for a specific field"""
+
     field_name: str = Field(description="Name of the required field (e.g., 'supplier_part_number')")
     display_name: str = Field(description="Human-readable field name (e.g., 'Supplier Part Number')")
     severity: RequirementSeverity = Field(description="How critical this field is")
@@ -36,31 +38,24 @@ class FieldRequirement(BaseModel):
                 "severity": "required",
                 "description": "The LCSC part number (e.g., C25804) is required to look up part details",
                 "example": "C25804",
-                "validation_pattern": "^C\\d+$"
+                "validation_pattern": "^C\\d+$",
             }
         }
 
 
 class EnrichmentRequirements(BaseModel):
     """Complete set of requirements for a supplier's enrichment"""
+
     supplier_name: str = Field(description="Name of the supplier")
     display_name: str = Field(description="Human-readable supplier name")
     required_fields: List[FieldRequirement] = Field(
-        default_factory=list,
-        description="Fields that MUST be present for enrichment"
+        default_factory=list, description="Fields that MUST be present for enrichment"
     )
     recommended_fields: List[FieldRequirement] = Field(
-        default_factory=list,
-        description="Fields that improve enrichment quality"
+        default_factory=list, description="Fields that improve enrichment quality"
     )
-    optional_fields: List[FieldRequirement] = Field(
-        default_factory=list,
-        description="Fields that are nice to have"
-    )
-    description: str = Field(
-        default="",
-        description="Overall description of what this supplier can enrich"
-    )
+    optional_fields: List[FieldRequirement] = Field(default_factory=list, description="Fields that are nice to have")
+    description: str = Field(default="", description="Overall description of what this supplier can enrich")
 
     def get_all_requirements(self) -> List[FieldRequirement]:
         """Get all requirements regardless of severity"""
@@ -86,10 +81,10 @@ class EnrichmentRequirements(BaseModel):
                         "display_name": "LCSC Part Number",
                         "severity": "required",
                         "description": "Required to look up part details from LCSC",
-                        "example": "C25804"
+                        "example": "C25804",
                     }
                 ],
-                "recommended_fields": []
+                "recommended_fields": [],
             }
         }
 
@@ -97,6 +92,7 @@ class EnrichmentRequirements(BaseModel):
 @dataclass
 class FieldCheck:
     """Result of checking a single field requirement"""
+
     field_name: str
     display_name: str
     severity: RequirementSeverity
@@ -113,6 +109,7 @@ class FieldCheck:
 @dataclass
 class EnrichmentRequirementCheck:
     """Result of checking all requirements for a part"""
+
     supplier_name: str
     part_id: str
     can_enrich: bool  # Overall: can enrichment proceed?
@@ -137,7 +134,7 @@ class EnrichmentRequirementCheck:
                     "is_present": check.is_present,
                     "current_value": check.current_value,
                     "validation_passed": check.validation_passed,
-                    "validation_message": check.validation_message
+                    "validation_message": check.validation_message,
                 }
                 for check in self.required_checks
             ],
@@ -146,19 +143,20 @@ class EnrichmentRequirementCheck:
                     "field_name": check.field_name,
                     "display_name": check.display_name,
                     "is_present": check.is_present,
-                    "current_value": check.current_value
+                    "current_value": check.current_value,
                 }
                 for check in self.recommended_checks
             ],
             "missing_required": self.missing_required,
             "missing_recommended": self.missing_recommended,
             "warnings": self.warnings,
-            "suggestions": self.suggestions
+            "suggestions": self.suggestions,
         }
 
 
 class EnrichmentRequirementCheckResponse(BaseModel):
     """API response schema for enrichment requirement checks"""
+
     supplier_name: str
     part_id: str
     can_enrich: bool
@@ -182,7 +180,7 @@ class EnrichmentRequirementCheckResponse(BaseModel):
                         "is_present": False,
                         "current_value": None,
                         "validation_passed": False,
-                        "validation_message": "Supplier part number is required"
+                        "validation_message": "Supplier part number is required",
                     }
                 ],
                 "missing_required": ["supplier_part_number"],
@@ -190,7 +188,7 @@ class EnrichmentRequirementCheckResponse(BaseModel):
                 "warnings": [],
                 "suggestions": [
                     "Add the LCSC part number (e.g., C25804) to enable enrichment",
-                    "The part number can be found on the LCSC product page"
-                ]
+                    "The part number can be found on the LCSC product page",
+                ],
             }
         }

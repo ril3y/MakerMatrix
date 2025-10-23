@@ -14,24 +14,17 @@ import {
   Calendar,
   Trash2,
   Lock,
-  Shield,
   Clock,
   AlertTriangle,
   CheckCircle,
-  Settings as SettingsIcon,
   Save,
-  Play,
   HardDrive,
   Eye,
-  EyeOff
+  EyeOff,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { backupService } from '@/services/backup.service'
-import type {
-  BackupConfig,
-  BackupInfo,
-  BackupStatus as BackupStatusType
-} from '@/types/backup'
+import type { BackupConfig, BackupInfo, BackupStatus as BackupStatusType } from '@/types/backup'
 
 const BackupManagement = () => {
   const [backupConfig, setBackupConfig] = useState<BackupConfig | null>(null)
@@ -85,15 +78,20 @@ const BackupManagement = () => {
         const token = localStorage.getItem('auth_token')
         const response = await fetch(`/api/tasks/${activeTaskId}`, {
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         })
 
         if (response.ok) {
           const data = await response.json()
           const task = data.data
 
-          console.log('[BackupManagement] Task status:', task.status, 'Progress:', task.progress_percentage)
+          console.log(
+            '[BackupManagement] Task status:',
+            task.status,
+            'Progress:',
+            task.progress_percentage
+          )
 
           setTaskProgress(task.progress_percentage || 0)
           setTaskStatus(task.current_step || task.status)
@@ -112,10 +110,13 @@ const BackupManagement = () => {
 
             if (task.status === 'completed') {
               // Check if this was a restore task
-              const isRestoreTask = task.name?.includes('Restore') || task.task_type === 'backup_restore'
+              const isRestoreTask =
+                task.name?.includes('Restore') || task.task_type === 'backup_restore'
 
               if (isRestoreTask) {
-                console.log('[BackupManagement] Restore completed - waiting for application restart')
+                console.log(
+                  '[BackupManagement] Restore completed - waiting for application restart'
+                )
                 setIsRestoreCompleted(true)
                 setIsWaitingForRestart(true)
                 setActiveTaskId(null)
@@ -125,7 +126,9 @@ const BackupManagement = () => {
                   try {
                     const response = await fetch('/api/utility/get_counts')
                     if (response.ok) {
-                      console.log('[BackupManagement] Application is back online - redirecting to dashboard')
+                      console.log(
+                        '[BackupManagement] Application is back online - redirecting to dashboard'
+                      )
                       clearInterval(checkInterval)
                       toast.success('Restore completed! Redirecting to dashboard...')
                       setTimeout(() => {
@@ -141,7 +144,9 @@ const BackupManagement = () => {
                 setTimeout(() => {
                   clearInterval(checkInterval)
                   if (isWaitingForRestart) {
-                    console.error('[BackupManagement] Restart timeout - application did not come back online')
+                    console.error(
+                      '[BackupManagement] Restart timeout - application did not come back online'
+                    )
                     toast.error('Application restart timeout. Please refresh the page manually.')
                     setIsWaitingForRestart(false)
                   }
@@ -184,7 +189,9 @@ const BackupManagement = () => {
           completionProcessedRef.current = true
 
           // If we're monitoring a restore task, assume it completed and switch to restart mode
-          console.log('[BackupManagement] Task not found (404) - assuming restore completed and database was replaced')
+          console.log(
+            '[BackupManagement] Task not found (404) - assuming restore completed and database was replaced'
+          )
           clearInterval(interval) // Clear interval immediately to prevent duplicate processing
           setIsRestoreCompleted(true)
           setIsWaitingForRestart(true)
@@ -195,7 +202,9 @@ const BackupManagement = () => {
             try {
               const response = await fetch('/api/utility/get_counts')
               if (response.ok) {
-                console.log('[BackupManagement] Application is back online - redirecting to dashboard')
+                console.log(
+                  '[BackupManagement] Application is back online - redirecting to dashboard'
+                )
                 clearInterval(checkInterval)
                 toast.success('Restore completed! Redirecting to dashboard...')
                 setTimeout(() => {
@@ -227,7 +236,7 @@ const BackupManagement = () => {
         backupService.getBackupConfig(),
         backupService.getBackupStatus(),
         backupService.listBackups(),
-        backupService.isPasswordSet()
+        backupService.isPasswordSet(),
       ])
 
       setBackupConfig(config)
@@ -250,7 +259,7 @@ const BackupManagement = () => {
         password: backupPassword || undefined,
         include_datasheets: includeDatasheets,
         include_images: includeImages,
-        include_env: includeEnv
+        include_env: includeEnv,
       })
 
       toast.success('Backup task created - monitoring progress...')
@@ -277,7 +286,7 @@ const BackupManagement = () => {
       const task = await backupService.restoreBackup({
         backup_file: restoreFile,
         password: restorePassword || undefined,
-        create_safety_backup: createSafetyBackup
+        create_safety_backup: createSafetyBackup,
       })
 
       console.log('[BackupManagement] Restore task created:', task.task_id)
@@ -326,7 +335,7 @@ const BackupManagement = () => {
       // Include the password if user entered one (empty string clears it)
       const configToSave = {
         ...backupConfig,
-        encryption_password: schedulePassword || undefined
+        encryption_password: schedulePassword || undefined,
       }
 
       await backupService.updateBackupConfig(configToSave)
@@ -393,9 +402,7 @@ const BackupManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-secondary">Total Backups</p>
-                <p className="text-2xl font-bold text-primary">
-                  {backupStatus.backups.count}
-                </p>
+                <p className="text-2xl font-bold text-primary">{backupStatus.backups.count}</p>
                 <p className="text-xs text-secondary mt-1">
                   {backupStatus.backups.total_size_mb.toFixed(2)} MB total
                 </p>
@@ -533,7 +540,7 @@ const BackupManagement = () => {
                   </label>
                   <div className="relative">
                     <input
-                      type={showBackupPassword ? "text" : "password"}
+                      type={showBackupPassword ? 'text' : 'password'}
                       className="input w-full pr-10"
                       placeholder="Enter password to encrypt backup"
                       value={backupPassword}
@@ -614,7 +621,8 @@ const BackupManagement = () => {
                           {backup.encrypted && <Lock className="w-4 h-4 text-primary" />}
                         </div>
                         <p className="text-sm text-secondary">
-                          {backup.size_mb.toFixed(2)} MB • {new Date(backup.created_at).toLocaleString()}
+                          {backup.size_mb.toFixed(2)} MB •{' '}
+                          {new Date(backup.created_at).toLocaleString()}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -664,7 +672,10 @@ const BackupManagement = () => {
                       <li>• A safety backup will be created before restore begins</li>
                       <li>• Application services will restart after restore completes</li>
                       <li>• All current data will be replaced with backup data</li>
-                      <li>• Docker: Configure supplier API keys in docker-compose.yml environment section</li>
+                      <li>
+                        • Docker: Configure supplier API keys in docker-compose.yml environment
+                        section
+                      </li>
                       <li>• Development: API keys from .env will be restored automatically</li>
                     </ul>
                   </div>
@@ -696,7 +707,7 @@ const BackupManagement = () => {
                   </label>
                   <div className="relative">
                     <input
-                      type={showRestorePassword ? "text" : "password"}
+                      type={showRestorePassword ? 'text' : 'password'}
                       className="input w-full pr-10"
                       placeholder="Enter password to decrypt backup"
                       value={restorePassword}
@@ -760,17 +771,21 @@ const BackupManagement = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-primary font-medium">Enable Scheduled Backups</span>
-                    <p className="text-sm text-secondary">Automatically create backups on schedule</p>
+                    <p className="text-sm text-secondary">
+                      Automatically create backups on schedule
+                    </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       className="sr-only peer"
                       checked={backupConfig.schedule_enabled}
-                      onChange={(e) => setBackupConfig({
-                        ...backupConfig,
-                        schedule_enabled: e.target.checked
-                      })}
+                      onChange={(e) =>
+                        setBackupConfig({
+                          ...backupConfig,
+                          schedule_enabled: e.target.checked,
+                        })
+                      }
                     />
                     <div className="w-11 h-6 bg-background-tertiary peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
@@ -785,10 +800,12 @@ const BackupManagement = () => {
                       <select
                         className="input w-full"
                         value={backupConfig.schedule_type}
-                        onChange={(e) => setBackupConfig({
-                          ...backupConfig,
-                          schedule_type: e.target.value
-                        })}
+                        onChange={(e) =>
+                          setBackupConfig({
+                            ...backupConfig,
+                            schedule_type: e.target.value,
+                          })
+                        }
                       >
                         <option value="nightly">Nightly (2:00 AM)</option>
                         <option value="weekly">Weekly (Sunday 2:00 AM)</option>
@@ -806,10 +823,12 @@ const BackupManagement = () => {
                           className="input w-full"
                           placeholder="0 2 * * *"
                           value={backupConfig.schedule_cron || ''}
-                          onChange={(e) => setBackupConfig({
-                            ...backupConfig,
-                            schedule_cron: e.target.value
-                          })}
+                          onChange={(e) =>
+                            setBackupConfig({
+                              ...backupConfig,
+                              schedule_cron: e.target.value,
+                            })
+                          }
                         />
                         <p className="text-xs text-secondary mt-2">
                           Example: "0 2 * * *" runs at 2:00 AM daily
@@ -847,13 +866,16 @@ const BackupManagement = () => {
                     max="100"
                     className="input w-full"
                     value={backupConfig.retention_count}
-                    onChange={(e) => setBackupConfig({
-                      ...backupConfig,
-                      retention_count: parseInt(e.target.value) || 7
-                    })}
+                    onChange={(e) =>
+                      setBackupConfig({
+                        ...backupConfig,
+                        retention_count: parseInt(e.target.value) || 7,
+                      })
+                    }
                   />
                   <p className="text-xs text-secondary mt-2">
-                    Older backups will be automatically deleted. Current: {backupList.length} backups
+                    Older backups will be automatically deleted. Current: {backupList.length}{' '}
+                    backups
                   </p>
                 </div>
 
@@ -867,10 +889,12 @@ const BackupManagement = () => {
                       type="checkbox"
                       className="sr-only peer"
                       checked={backupConfig.encryption_required}
-                      onChange={(e) => setBackupConfig({
-                        ...backupConfig,
-                        encryption_required: e.target.checked
-                      })}
+                      onChange={(e) =>
+                        setBackupConfig({
+                          ...backupConfig,
+                          encryption_required: e.target.checked,
+                        })
+                      }
                     />
                     <div className="w-11 h-6 bg-background-tertiary peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
@@ -890,16 +914,21 @@ const BackupManagement = () => {
                           Password configured for scheduled backups
                         </p>
                         <p className="text-xs text-green-700 dark:text-green-400 mt-1">
-                          Enter a new password below to change it, or leave empty to keep current password
+                          Enter a new password below to change it, or leave empty to keep current
+                          password
                         </p>
                       </div>
                     )}
 
                     <div className="relative">
                       <input
-                        type={showSchedulePassword ? "text" : "password"}
+                        type={showSchedulePassword ? 'text' : 'password'}
                         className="input w-full pr-10"
-                        placeholder={passwordIsSet ? "Enter new password to change (leave empty to keep current)" : "Enter password for automated backups"}
+                        placeholder={
+                          passwordIsSet
+                            ? 'Enter new password to change (leave empty to keep current)'
+                            : 'Enter password for automated backups'
+                        }
                         value={schedulePassword}
                         onChange={(e) => setSchedulePassword(e.target.value)}
                       />
@@ -982,16 +1011,26 @@ const BackupManagement = () => {
                   <h3 className="text-xl font-bold text-primary">Restarting Application</h3>
                   <div className="space-y-2">
                     <p className="text-secondary">
-                      The restore completed successfully. The application is now restarting to load the restored data.
+                      The restore completed successfully. The application is now restarting to load
+                      the restored data.
                     </p>
                     <p className="text-sm text-secondary">
                       You will be redirected to the dashboard automatically...
                     </p>
                   </div>
                   <div className="flex items-center justify-center gap-2 mt-4">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div
+                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                      style={{ animationDelay: '0ms' }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                      style={{ animationDelay: '150ms' }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                      style={{ animationDelay: '300ms' }}
+                    ></div>
                   </div>
                 </>
               )}

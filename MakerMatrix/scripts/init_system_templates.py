@@ -20,7 +20,7 @@ from MakerMatrix.models.label_template_models import (
     LayoutType,
     TextRotation,
     TextAlignment,
-    QRPosition
+    QRPosition,
 )
 from MakerMatrix.repositories.label_template_repository import LabelTemplateRepository
 
@@ -45,7 +45,7 @@ SYSTEM_TEMPLATES = [
         "enable_auto_sizing": True,
         "is_system_template": True,
         "is_public": True,
-        "is_active": True
+        "is_active": True,
     },
     {
         "name": "component_vertical",
@@ -64,7 +64,7 @@ SYSTEM_TEMPLATES = [
         "enable_auto_sizing": True,
         "is_system_template": True,
         "is_public": True,
-        "is_active": True
+        "is_active": True,
     },
     {
         "name": "location_label",
@@ -84,7 +84,7 @@ SYSTEM_TEMPLATES = [
         "enable_auto_sizing": True,
         "is_system_template": True,
         "is_public": True,
-        "is_active": True
+        "is_active": True,
     },
     {
         "name": "inventory_tag",
@@ -104,7 +104,7 @@ SYSTEM_TEMPLATES = [
         "enable_auto_sizing": True,
         "is_system_template": True,
         "is_public": True,
-        "is_active": True
+        "is_active": True,
     },
     {
         "name": "cable_label",
@@ -123,7 +123,7 @@ SYSTEM_TEMPLATES = [
         "enable_auto_sizing": True,
         "is_system_template": True,
         "is_public": True,
-        "is_active": True
+        "is_active": True,
     },
     {
         "name": "storage_box",
@@ -143,7 +143,7 @@ SYSTEM_TEMPLATES = [
         "enable_auto_sizing": True,
         "is_system_template": True,
         "is_public": True,
-        "is_active": True
+        "is_active": True,
     },
     {
         "name": "small_parts",
@@ -162,8 +162,8 @@ SYSTEM_TEMPLATES = [
         "enable_auto_sizing": True,
         "is_system_template": True,
         "is_public": True,
-        "is_active": True
-    }
+        "is_active": True,
+    },
 ]
 
 

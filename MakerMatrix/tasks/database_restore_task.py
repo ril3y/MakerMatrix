@@ -43,9 +43,9 @@ class DatabaseRestoreTask(BaseTask):
     async def execute(self, task: TaskModel) -> Dict[str, Any]:
         """Execute database restore from backup"""
         input_data = self.get_input_data(task)
-        backup_filepath = input_data.get('backup_filepath')
-        password = input_data.get('password')  # Required if backup is encrypted
-        create_safety_backup = input_data.get('create_safety_backup', True)
+        backup_filepath = input_data.get("backup_filepath")
+        password = input_data.get("password")  # Required if backup is encrypted
+        create_safety_backup = input_data.get("create_safety_backup", True)
 
         if not backup_filepath:
             raise ValueError("backup_filepath is required")
@@ -60,11 +60,13 @@ class DatabaseRestoreTask(BaseTask):
         if is_password_protected and not password:
             raise ValueError("Password is required for password-protected backups")
 
-        self.log_info(f"Starting restore from backup: {backup_path.name} (password protected: {is_password_protected})", task)
+        self.log_info(
+            f"Starting restore from backup: {backup_path.name} (password protected: {is_password_protected})", task
+        )
         await self.update_progress(task, 5, "Initializing restore process")
 
         # Define paths - use environment variable for static files path if set
-        static_files_path = os.getenv('STATIC_FILES_PATH')
+        static_files_path = os.getenv("STATIC_FILES_PATH")
         if static_files_path:
             # Using environment-configured path (e.g., Docker: /data/static)
             static_path = Path(static_files_path)
@@ -78,14 +80,14 @@ class DatabaseRestoreTask(BaseTask):
         images_path = static_path / "images"
 
         restore_stats = {
-            'backup_file': backup_path.name,
-            'restore_started_at': datetime.now().isoformat(),
-            'safety_backup_created': False,
-            'database_restored': False,
-            'env_restored': False,
-            'datasheets_restored': 0,
-            'images_restored': 0,
-            'rollback_performed': False
+            "backup_file": backup_path.name,
+            "restore_started_at": datetime.now().isoformat(),
+            "safety_backup_created": False,
+            "database_restored": False,
+            "env_restored": False,
+            "datasheets_restored": 0,
+            "images_restored": 0,
+            "rollback_performed": False,
         }
 
         safety_backup_path = None
@@ -93,28 +95,35 @@ class DatabaseRestoreTask(BaseTask):
         try:
             # Step 1: Create safety backup of current state
             if create_safety_backup:
-                await self.update_progress(task, 10, "Creating emergency backup of current database (in case restore fails)")
+                await self.update_progress(
+                    task, 10, "Creating emergency backup of current database (in case restore fails)"
+                )
                 safety_backup_task = DatabaseBackupTask(self.task_service)
                 safety_backup_name = f"emergency_backup_before_restore_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
                 safety_task_model = TaskModel(
                     task_type="backup_creation",
                     name=f"Emergency Backup: {safety_backup_name}",
-                    description="Automatic emergency backup before restore - can be used to rollback if restore fails"
+                    description="Automatic emergency backup before restore - can be used to rollback if restore fails",
                 )
-                safety_task_model.set_input_data({
-                    'backup_name': safety_backup_name,
-                    'include_datasheets': True,
-                    'include_images': True,
-                    'include_env': True
-                })
+                safety_task_model.set_input_data(
+                    {
+                        "backup_name": safety_backup_name,
+                        "include_datasheets": True,
+                        "include_images": True,
+                        "include_env": True,
+                    }
+                )
 
                 safety_result = await safety_backup_task.execute(safety_task_model)
-                safety_backup_path = Path(safety_result['backup_file_path'])
-                restore_stats['safety_backup_created'] = True
-                restore_stats['safety_backup_path'] = str(safety_backup_path)
+                safety_backup_path = Path(safety_result["backup_file_path"])
+                restore_stats["safety_backup_created"] = True
+                restore_stats["safety_backup_path"] = str(safety_backup_path)
 
-                self.log_info(f"Emergency backup created: {safety_backup_path.name} (available in backup list if rollback needed)", task)
+                self.log_info(
+                    f"Emergency backup created: {safety_backup_path.name} (available in backup list if rollback needed)",
+                    task,
+                )
 
             # Step 2: Extract backup
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -123,7 +132,7 @@ class DatabaseRestoreTask(BaseTask):
                 extract_dir.mkdir()
 
                 # Extract with password if needed - show progress during extraction
-                with zipfile.ZipFile(backup_path, 'r') as zipf:
+                with zipfile.ZipFile(backup_path, "r") as zipf:
                     if is_password_protected and password:
                         # Set password for ZipCrypto encrypted files
                         zipf.setpassword(password.encode())
@@ -133,7 +142,9 @@ class DatabaseRestoreTask(BaseTask):
                     total_files = len(file_list)
 
                     if is_password_protected:
-                        await self.update_progress(task, 15, f"Extracting encrypted backup ({total_files} files, this may take a moment)...")
+                        await self.update_progress(
+                            task, 15, f"Extracting encrypted backup ({total_files} files, this may take a moment)..."
+                        )
                     else:
                         await self.update_progress(task, 15, f"Extracting backup ({total_files} files)...")
 
@@ -156,7 +167,7 @@ class DatabaseRestoreTask(BaseTask):
                 metadata_path = extract_dir / "backup_info.json"
 
                 if metadata_path.exists():
-                    with open(metadata_path, 'r') as f:
+                    with open(metadata_path, "r") as f:
                         metadata = json.load(f)
                     self.log_info(f"Backup metadata: {metadata.get('backup_name', 'unknown')}", task)
                 else:
@@ -166,14 +177,18 @@ class DatabaseRestoreTask(BaseTask):
                 # Step 4: Restore database file
                 db_backup_file = extract_dir / "makers_matrix.db"
                 if db_backup_file.exists():
-                    await self.update_progress(task, 50, "Replacing database file (all parts, locations, categories will be restored)")
+                    await self.update_progress(
+                        task, 50, "Replacing database file (all parts, locations, categories will be restored)"
+                    )
                     db_path = self._get_database_path()
 
                     # Stop database connections (in production, you'd want to coordinate with app shutdown)
-                    self.log_info("Replacing database file - application will need to restart after restore completes", task)
+                    self.log_info(
+                        "Replacing database file - application will need to restart after restore completes", task
+                    )
 
                     shutil.copy2(db_backup_file, db_path)
-                    restore_stats['database_restored'] = True
+                    restore_stats["database_restored"] = True
                     self.log_info(f"Database file successfully restored to {db_path}", task)
                 else:
                     self.log_info("Warning: Database file not found in backup", task)
@@ -184,14 +199,21 @@ class DatabaseRestoreTask(BaseTask):
                     # Check if we're running in Docker (by checking if STATIC_FILES_PATH is set)
                     if static_files_path:
                         # Running in Docker - don't restore .env (use docker-compose environment instead)
-                        await self.update_progress(task, 60, "Skipping .env restore (Docker uses docker-compose.yml for configuration)")
-                        self.log_info("Skipping .env file restore in Docker environment - configure API keys in docker-compose.yml", task)
+                        await self.update_progress(
+                            task, 60, "Skipping .env restore (Docker uses docker-compose.yml for configuration)"
+                        )
+                        self.log_info(
+                            "Skipping .env file restore in Docker environment - configure API keys in docker-compose.yml",
+                            task,
+                        )
                     else:
                         # Development mode - restore .env
-                        await self.update_progress(task, 60, "Restoring environment configuration (.env file with API keys)")
+                        await self.update_progress(
+                            task, 60, "Restoring environment configuration (.env file with API keys)"
+                        )
                         env_path = base_path.parent / ".env"
                         shutil.copy2(env_backup_file, env_path)
-                        restore_stats['env_restored'] = True
+                        restore_stats["env_restored"] = True
                         self.log_info(".env file restored (supplier credentials and configuration)", task)
                 else:
                     await self.update_progress(task, 60, "No .env file in backup")
@@ -213,11 +235,13 @@ class DatabaseRestoreTask(BaseTask):
                     for i, datasheet_file in enumerate(datasheet_files):
                         if datasheet_file.is_file():
                             shutil.copy2(datasheet_file, datasheets_path / datasheet_file.name)
-                            restore_stats['datasheets_restored'] += 1
+                            restore_stats["datasheets_restored"] += 1
 
                             if i % 10 == 0:  # Update progress periodically
                                 progress = 70 + int((i + 1) / len(datasheet_files) * 10)
-                                await self.update_progress(task, progress, f"Restored datasheet {i + 1}/{len(datasheet_files)}")
+                                await self.update_progress(
+                                    task, progress, f"Restored datasheet {i + 1}/{len(datasheet_files)}"
+                                )
 
                     self.log_info(f"Restored {restore_stats['datasheets_restored']} datasheets", task)
 
@@ -237,7 +261,7 @@ class DatabaseRestoreTask(BaseTask):
                     for i, image_file in enumerate(image_files):
                         if image_file.is_file():
                             shutil.copy2(image_file, images_path / image_file.name)
-                            restore_stats['images_restored'] += 1
+                            restore_stats["images_restored"] += 1
 
                             if i % 20 == 0:  # Update progress periodically
                                 progress = 80 + int((i + 1) / len(image_files) * 15)
@@ -247,8 +271,8 @@ class DatabaseRestoreTask(BaseTask):
 
             # Step 8: Finalize
             await self.update_progress(task, 95, "Restore completed - application will restart automatically")
-            restore_stats['restore_completed_at'] = datetime.now().isoformat()
-            restore_stats['status'] = 'success'
+            restore_stats["restore_completed_at"] = datetime.now().isoformat()
+            restore_stats["status"] = "success"
 
             await self.update_progress(task, 100, "Restore completed successfully! Application restarting...")
 
@@ -257,13 +281,13 @@ class DatabaseRestoreTask(BaseTask):
                 f"Datasheets: {restore_stats['datasheets_restored']}, "
                 f"Images: {restore_stats['images_restored']}. "
                 f"Application will restart to load restored data.",
-                task
+                task,
             )
 
             return restore_stats
 
         except Exception as e:
-            restore_stats['status'] = 'failed'
+            restore_stats["status"] = "failed"
 
             # Determine user-friendly error message
             error_message = str(e)
@@ -283,31 +307,39 @@ class DatabaseRestoreTask(BaseTask):
                 # Keep original error message if it's not one we recognize
                 error_message = f"Restore failed: {error_message}"
 
-            restore_stats['error'] = error_message
+            restore_stats["error"] = error_message
 
             # Attempt rollback if safety backup was created
             if safety_backup_path and safety_backup_path.exists():
-                self.log_error(f"Restore failed: {error_message}. Attempting rollback from emergency backup", task, exc_info=True)
+                self.log_error(
+                    f"Restore failed: {error_message}. Attempting rollback from emergency backup", task, exc_info=True
+                )
                 try:
-                    await self.update_progress(task, 50, f"Restore failed: {error_message}. Rolling back to emergency backup...")
+                    await self.update_progress(
+                        task, 50, f"Restore failed: {error_message}. Rolling back to emergency backup..."
+                    )
                     # Recursive call to restore from safety backup
                     rollback_task = TaskModel(
                         task_type="backup_restore",
                         name="Rollback Restore",
-                        description="Rollback from emergency backup"
+                        description="Rollback from emergency backup",
                     )
-                    rollback_task.set_input_data({
-                        'backup_filepath': str(safety_backup_path),
-                        'create_safety_backup': False,  # Don't create another safety backup
-                        'password': None  # Emergency backups are never encrypted
-                    })
+                    rollback_task.set_input_data(
+                        {
+                            "backup_filepath": str(safety_backup_path),
+                            "create_safety_backup": False,  # Don't create another safety backup
+                            "password": None,  # Emergency backups are never encrypted
+                        }
+                    )
                     await self.execute(rollback_task)
-                    restore_stats['rollback_performed'] = True
+                    restore_stats["rollback_performed"] = True
                     self.log_info("Rollback completed - database restored to state before failed restore attempt", task)
 
                     # Re-raise with clearer message that includes rollback info
                     # Don't chain from e to avoid confusing error messages
-                    raise ValueError(f"{error_message}. Your database has been safely rolled back to its previous state.")
+                    raise ValueError(
+                        f"{error_message}. Your database has been safely rolled back to its previous state."
+                    )
                 except Exception as rollback_error:
                     # Check if this is a ValueError we raised (successful rollback) or actual rollback failure
                     rollback_error_msg = str(rollback_error)

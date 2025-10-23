@@ -30,19 +30,21 @@ class TestDatabaseBackupTask:
         mock_task_model = Mock(spec=TaskModel)
         mock_task_model.id = "task-123"
         mock_task_model.input_data = {
-            'backup_name': 'test_backup',
-            'password': 'TestPassword123',
-            'include_datasheets': True,
-            'include_images': True,
-            'include_env': True
+            "backup_name": "test_backup",
+            "password": "TestPassword123",
+            "include_datasheets": True,
+            "include_images": True,
+            "include_env": True,
         }
 
-        with patch('MakerMatrix.tasks.database_backup_task.pyminizip') as mock_pyminizip, \
-             patch('MakerMatrix.tasks.database_backup_task.Path') as mock_path_class, \
-             patch('MakerMatrix.tasks.database_backup_task.shutil') as mock_shutil, \
-             patch('MakerMatrix.tasks.database_backup_task.asyncio.sleep', new_callable=AsyncMock), \
-             patch.object(task, 'update_progress', new_callable=AsyncMock), \
-             patch.object(task, 'log_info'):
+        with (
+            patch("MakerMatrix.tasks.database_backup_task.pyminizip") as mock_pyminizip,
+            patch("MakerMatrix.tasks.database_backup_task.Path") as mock_path_class,
+            patch("MakerMatrix.tasks.database_backup_task.shutil") as mock_shutil,
+            patch("MakerMatrix.tasks.database_backup_task.asyncio.sleep", new_callable=AsyncMock),
+            patch.object(task, "update_progress", new_callable=AsyncMock),
+            patch.object(task, "log_info"),
+        ):
 
             # Mock database file
             mock_db_path = Mock()
@@ -56,19 +58,19 @@ class TestDatabaseBackupTask:
             # Mock final ZIP path
             mock_final_zip = Mock()
             mock_final_zip.stat.return_value.st_size = 2 * 1024 * 1024  # 2MB compressed
-            mock_final_zip.name = 'test_backup_encrypted.zip'
+            mock_final_zip.name = "test_backup_encrypted.zip"
 
-            with patch.object(task, '_get_database_path', return_value=mock_db_path):
+            with patch.object(task, "_get_database_path", return_value=mock_db_path):
                 result = await task.execute(mock_task_model)
 
             # Verify pyminizip was called for encryption
             assert mock_pyminizip.compress_multiple.called
             call_args = mock_pyminizip.compress_multiple.call_args
-            assert call_args[0][3] == 'TestPassword123'  # Password argument
+            assert call_args[0][3] == "TestPassword123"  # Password argument
 
             # Verify result contains encryption info
-            assert result['password_protected'] is True
-            assert 'ZipCrypto' in result['encryption_algorithm']
+            assert result["password_protected"] is True
+            assert "ZipCrypto" in result["encryption_algorithm"]
 
     @pytest.mark.asyncio
     async def test_backup_creates_unencrypted_zip_without_password(self):
@@ -78,18 +80,20 @@ class TestDatabaseBackupTask:
         mock_task_model = Mock(spec=TaskModel)
         mock_task_model.id = "task-456"
         mock_task_model.input_data = {
-            'backup_name': 'test_backup_unencrypted',
-            'include_datasheets': False,
-            'include_images': False,
-            'include_env': False
+            "backup_name": "test_backup_unencrypted",
+            "include_datasheets": False,
+            "include_images": False,
+            "include_env": False,
         }
 
-        with patch('MakerMatrix.tasks.database_backup_task.zipfile.ZipFile') as mock_zipfile, \
-             patch('MakerMatrix.tasks.database_backup_task.Path') as mock_path_class, \
-             patch('MakerMatrix.tasks.database_backup_task.shutil') as mock_shutil, \
-             patch('MakerMatrix.tasks.database_backup_task.asyncio.sleep', new_callable=AsyncMock), \
-             patch.object(task, 'update_progress', new_callable=AsyncMock), \
-             patch.object(task, 'log_info'):
+        with (
+            patch("MakerMatrix.tasks.database_backup_task.zipfile.ZipFile") as mock_zipfile,
+            patch("MakerMatrix.tasks.database_backup_task.Path") as mock_path_class,
+            patch("MakerMatrix.tasks.database_backup_task.shutil") as mock_shutil,
+            patch("MakerMatrix.tasks.database_backup_task.asyncio.sleep", new_callable=AsyncMock),
+            patch.object(task, "update_progress", new_callable=AsyncMock),
+            patch.object(task, "log_info"),
+        ):
 
             mock_db_path = Mock()
             mock_db_path.exists.return_value = True
@@ -97,16 +101,16 @@ class TestDatabaseBackupTask:
 
             mock_final_zip = Mock()
             mock_final_zip.stat.return_value.st_size = 400 * 1024  # 400KB compressed
-            mock_final_zip.name = 'test_backup_unencrypted.zip'
+            mock_final_zip.name = "test_backup_unencrypted.zip"
 
-            with patch.object(task, '_get_database_path', return_value=mock_db_path):
+            with patch.object(task, "_get_database_path", return_value=mock_db_path):
                 result = await task.execute(mock_task_model)
 
             # Verify standard zipfile was used (not pyminizip)
             assert mock_zipfile.called
 
             # Verify result shows no encryption
-            assert result['password_protected'] is False
+            assert result["password_protected"] is False
 
     @pytest.mark.asyncio
     async def test_backup_includes_metadata_with_version_info(self):
@@ -116,34 +120,36 @@ class TestDatabaseBackupTask:
         mock_task_model = Mock(spec=TaskModel)
         mock_task_model.id = "task-789"
         mock_task_model.input_data = {
-            'backup_name': 'test_backup_metadata',
-            'include_datasheets': True,
-            'include_images': True,
-            'include_env': True
+            "backup_name": "test_backup_metadata",
+            "include_datasheets": True,
+            "include_images": True,
+            "include_env": True,
         }
 
-        with patch('MakerMatrix.tasks.database_backup_task.__version__', '1.0.0'), \
-             patch('MakerMatrix.tasks.database_backup_task.__schema_version__', '1.0.0'), \
-             patch('MakerMatrix.tasks.database_backup_task.zipfile.ZipFile'), \
-             patch('MakerMatrix.tasks.database_backup_task.Path'), \
-             patch('MakerMatrix.tasks.database_backup_task.shutil'), \
-             patch('MakerMatrix.tasks.database_backup_task.asyncio.sleep', new_callable=AsyncMock), \
-             patch('builtins.open', mock_open()) as mock_file, \
-             patch.object(task, 'update_progress', new_callable=AsyncMock), \
-             patch.object(task, 'log_info'):
+        with (
+            patch("MakerMatrix.tasks.database_backup_task.__version__", "1.0.0"),
+            patch("MakerMatrix.tasks.database_backup_task.__schema_version__", "1.0.0"),
+            patch("MakerMatrix.tasks.database_backup_task.zipfile.ZipFile"),
+            patch("MakerMatrix.tasks.database_backup_task.Path"),
+            patch("MakerMatrix.tasks.database_backup_task.shutil"),
+            patch("MakerMatrix.tasks.database_backup_task.asyncio.sleep", new_callable=AsyncMock),
+            patch("builtins.open", mock_open()) as mock_file,
+            patch.object(task, "update_progress", new_callable=AsyncMock),
+            patch.object(task, "log_info"),
+        ):
 
             mock_db_path = Mock()
             mock_db_path.exists.return_value = True
             mock_db_path.stat.return_value.st_size = 1024 * 1024
 
-            with patch.object(task, '_get_database_path', return_value=mock_db_path):
+            with patch.object(task, "_get_database_path", return_value=mock_db_path):
                 result = await task.execute(mock_task_model)
 
             # Verify metadata contains version info
-            assert result['makermatrix_version'] == '1.0.0'
-            assert result['schema_version'] == '1.0.0'
-            assert result['backup_format_version'] == '2.0'
-            assert 'python_version' in result
+            assert result["makermatrix_version"] == "1.0.0"
+            assert result["schema_version"] == "1.0.0"
+            assert result["backup_format_version"] == "2.0"
+            assert "python_version" in result
 
     @pytest.mark.asyncio
     async def test_backup_progress_tracking(self):
@@ -153,10 +159,10 @@ class TestDatabaseBackupTask:
         mock_task_model = Mock(spec=TaskModel)
         mock_task_model.id = "task-progress"
         mock_task_model.input_data = {
-            'backup_name': 'test_progress',
-            'include_datasheets': True,
-            'include_images': True,
-            'include_env': True
+            "backup_name": "test_progress",
+            "include_datasheets": True,
+            "include_images": True,
+            "include_env": True,
         }
 
         progress_updates = []
@@ -164,18 +170,20 @@ class TestDatabaseBackupTask:
         async def capture_progress(task_model, percentage, message):
             progress_updates.append((percentage, message))
 
-        with patch('MakerMatrix.tasks.database_backup_task.zipfile.ZipFile'), \
-             patch('MakerMatrix.tasks.database_backup_task.Path'), \
-             patch('MakerMatrix.tasks.database_backup_task.shutil'), \
-             patch('MakerMatrix.tasks.database_backup_task.asyncio.sleep', new_callable=AsyncMock), \
-             patch.object(task, 'update_progress', side_effect=capture_progress), \
-             patch.object(task, 'log_info'):
+        with (
+            patch("MakerMatrix.tasks.database_backup_task.zipfile.ZipFile"),
+            patch("MakerMatrix.tasks.database_backup_task.Path"),
+            patch("MakerMatrix.tasks.database_backup_task.shutil"),
+            patch("MakerMatrix.tasks.database_backup_task.asyncio.sleep", new_callable=AsyncMock),
+            patch.object(task, "update_progress", side_effect=capture_progress),
+            patch.object(task, "log_info"),
+        ):
 
             mock_db_path = Mock()
             mock_db_path.exists.return_value = True
             mock_db_path.stat.return_value.st_size = 1024 * 1024
 
-            with patch.object(task, '_get_database_path', return_value=mock_db_path):
+            with patch.object(task, "_get_database_path", return_value=mock_db_path):
                 await task.execute(mock_task_model)
 
             # Verify progress was updated multiple times
@@ -190,8 +198,8 @@ class TestDatabaseBackupTask:
 
             # Verify meaningful status messages
             messages = [p[1] for p in progress_updates]
-            assert any('database' in msg.lower() for msg in messages)
-            assert any('completed' in msg.lower() or 'success' in msg.lower() for msg in messages)
+            assert any("database" in msg.lower() for msg in messages)
+            assert any("completed" in msg.lower() or "success" in msg.lower() for msg in messages)
 
     @pytest.mark.asyncio
     async def test_backup_with_missing_database_raises_error(self):
@@ -200,18 +208,16 @@ class TestDatabaseBackupTask:
 
         mock_task_model = Mock(spec=TaskModel)
         mock_task_model.id = "task-error"
-        mock_task_model.input_data = {
-            'backup_name': 'test_error'
-        }
+        mock_task_model.input_data = {"backup_name": "test_error"}
 
         mock_db_path = Mock()
         mock_db_path.exists.return_value = False  # Database doesn't exist
 
         with pytest.raises(FileNotFoundError) as exc_info:
-            with patch.object(task, '_get_database_path', return_value=mock_db_path):
+            with patch.object(task, "_get_database_path", return_value=mock_db_path):
                 await task.execute(mock_task_model)
 
-        assert 'Database file not found' in str(exc_info.value)
+        assert "Database file not found" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_backup_filename_includes_encrypted_suffix(self):
@@ -220,17 +226,16 @@ class TestDatabaseBackupTask:
 
         mock_task_model = Mock(spec=TaskModel)
         mock_task_model.id = "task-naming"
-        mock_task_model.input_data = {
-            'backup_name': 'test_naming',
-            'password': 'SecretPassword'
-        }
+        mock_task_model.input_data = {"backup_name": "test_naming", "password": "SecretPassword"}
 
-        with patch('MakerMatrix.tasks.database_backup_task.pyminizip'), \
-             patch('MakerMatrix.tasks.database_backup_task.Path'), \
-             patch('MakerMatrix.tasks.database_backup_task.shutil'), \
-             patch('MakerMatrix.tasks.database_backup_task.asyncio.sleep', new_callable=AsyncMock), \
-             patch.object(task, 'update_progress', new_callable=AsyncMock), \
-             patch.object(task, 'log_info'):
+        with (
+            patch("MakerMatrix.tasks.database_backup_task.pyminizip"),
+            patch("MakerMatrix.tasks.database_backup_task.Path"),
+            patch("MakerMatrix.tasks.database_backup_task.shutil"),
+            patch("MakerMatrix.tasks.database_backup_task.asyncio.sleep", new_callable=AsyncMock),
+            patch.object(task, "update_progress", new_callable=AsyncMock),
+            patch.object(task, "log_info"),
+        ):
 
             mock_db_path = Mock()
             mock_db_path.exists.return_value = True
@@ -238,13 +243,13 @@ class TestDatabaseBackupTask:
 
             mock_final_zip = Mock()
             mock_final_zip.stat.return_value.st_size = 512
-            mock_final_zip.name = 'test_naming_encrypted.zip'
+            mock_final_zip.name = "test_naming_encrypted.zip"
 
-            with patch.object(task, '_get_database_path', return_value=mock_db_path):
+            with patch.object(task, "_get_database_path", return_value=mock_db_path):
                 result = await task.execute(mock_task_model)
 
             # Verify filename contains '_encrypted'
-            assert '_encrypted' in result['backup_filename']
+            assert "_encrypted" in result["backup_filename"]
 
 
 if __name__ == "__main__":

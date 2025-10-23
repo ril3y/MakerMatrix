@@ -26,6 +26,7 @@ from io import BytesIO
 
 class MockUser:
     """Mock user for testing"""
+
     def __init__(self):
         self.id = "test-user-id"
         self.username = "testuser"
@@ -33,6 +34,7 @@ class MockUser:
 
 class MockUploadFile:
     """Mock UploadFile for testing"""
+
     def __init__(self, content: bytes, filename: str):
         self.content = content
         self.filename = filename
@@ -96,9 +98,9 @@ async def test_lcsc_import_flat_properties():
     """
     Test LCSC import with flat additional_properties validation.
     """
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🧪 TESTING LCSC IMPORT WITH FLAT ADDITIONAL_PROPERTIES")
-    print("="*80)
+    print("=" * 80)
 
     # Step 1: Clear database
     clear_database()
@@ -107,7 +109,7 @@ async def test_lcsc_import_flat_properties():
     csv_file_path = Path(__file__).parent / "csv_test_data" / "LCSC_Exported__20241222_232708.csv"
     print(f"\n📁 Reading CSV file: {csv_file_path}")
 
-    with open(csv_file_path, 'rb') as f:
+    with open(csv_file_path, "rb") as f:
         csv_content = f.read()
 
     print(f"📄 CSV content length: {len(csv_content)} bytes")
@@ -128,7 +130,7 @@ async def test_lcsc_import_flat_properties():
             notes="Test import for flat properties validation",
             enable_enrichment=False,  # Disable enrichment to focus on import structure
             enrichment_capabilities=None,
-            current_user=mock_user
+            current_user=mock_user,
         )
 
         print(f"✅ Import completed successfully!")
@@ -137,20 +139,20 @@ async def test_lcsc_import_flat_properties():
 
         # Check what attributes are actually available
         print(f"📊 Result data type: {type(result.data)}")
-        if hasattr(result.data, 'imported_count'):
+        if hasattr(result.data, "imported_count"):
             print(f"📦 Imported parts: {result.data.imported_count}")
-        if hasattr(result.data, 'failed_count'):
+        if hasattr(result.data, "failed_count"):
             print(f"❌ Failed parts: {result.data.failed_count}")
-        if hasattr(result.data, 'skipped_count'):
+        if hasattr(result.data, "skipped_count"):
             print(f"⏭️  Skipped parts: {result.data.skipped_count}")
 
         # Show actual data structure
         print(f"📋 Full result data: {result.data}")
 
-        if hasattr(result.data, 'warnings') and result.data.warnings:
+        if hasattr(result.data, "warnings") and result.data.warnings:
             print(f"⚠️  Warnings: {result.data.warnings}")
 
-        if hasattr(result.data, 'failed_items') and result.data.failed_items:
+        if hasattr(result.data, "failed_items") and result.data.failed_items:
             print(f"❌ Failed items:")
             for item in result.data.failed_items:
                 print(f"   {item}")
@@ -158,6 +160,7 @@ async def test_lcsc_import_flat_properties():
     except Exception as e:
         print(f"❌ Import failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -188,10 +191,7 @@ async def test_lcsc_import_flat_properties():
                 content_str = str(part.additional_properties)
                 print(f"   {content_str[:500]}...")
 
-                is_flat = validate_flat_additional_properties(
-                    part.additional_properties,
-                    part.part_name
-                )
+                is_flat = validate_flat_additional_properties(part.additional_properties, part.part_name)
                 if not is_flat:
                     all_flat = False
 
@@ -215,22 +215,23 @@ def main():
         success = asyncio.run(test_lcsc_import_flat_properties())
 
         if success:
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("🎉 ALL TESTS PASSED!")
             print("✅ Import works correctly")
             print("✅ Additional properties are flat")
             print("✅ No nested objects found")
-            print("="*80)
+            print("=" * 80)
         else:
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("❌ TESTS FAILED!")
             print("❌ Found nested objects in additional_properties")
-            print("="*80)
+            print("=" * 80)
             exit(1)
 
     except Exception as e:
         print(f"\n❌ TEST FAILED WITH EXCEPTION: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
 

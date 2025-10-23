@@ -5,9 +5,7 @@ from typing import Optional, Dict, Any
 from MakerMatrix.models.printer_config_model import PrinterConfig
 
 # Map config driver names to the actual class names.
-DRIVER_CLASS_MAP = {
-    "brother_ql": "BrotherQL"
-}
+DRIVER_CLASS_MAP = {"brother_ql": "BrotherQL"}
 
 
 class PrinterRepository:
@@ -40,7 +38,7 @@ class PrinterRepository:
             dpi=config_data["dpi"],
             model=config_data["model"],
             scaling_factor=config_data.get("scaling_factor", 1.0),
-            additional_settings=config_data.get("additional_settings", {})
+            additional_settings=config_data.get("additional_settings", {}),
         )
         # Reset any existing printer/driver so that changes take effect.
         self._printer = None
@@ -50,10 +48,10 @@ class PrinterRepository:
         """Load configuration from a JSON file."""
         if not self.config_path:
             raise ValueError("No config path provided")
-            
+
         with open(self.config_path, "r", encoding="utf-8") as f:
             config_data = json.load(f)
-            
+
         self._load_config_data(config_data)
 
     def _import_driver(self) -> None:
@@ -69,7 +67,7 @@ class PrinterRepository:
         driver_class_name = DRIVER_CLASS_MAP.get(self._printer_config.driver)
         if not driver_class_name:
             # Fallback: convert snake_case to CamelCase.
-            driver_class_name = ''.join(word.capitalize() for word in self._printer_config.driver.split('_'))
+            driver_class_name = "".join(word.capitalize() for word in self._printer_config.driver.split("_"))
 
         self._driver_cls = getattr(driver_module, driver_class_name, None)
         if not self._driver_cls:
@@ -88,7 +86,7 @@ class PrinterRepository:
                 printer_identifier=self._printer_config.printer_identifier,
                 dpi=self._printer_config.dpi,
                 scaling_factor=self._printer_config.scaling_factor,
-                additional_settings=self._printer_config.additional_settings
+                additional_settings=self._printer_config.additional_settings,
             )
         return self._printer
 
@@ -104,19 +102,20 @@ class PrinterRepository:
             raise ValueError("Printer config is not set.")
         if not self.config_path:
             raise ValueError("No config path provided")
-            
+
         with open(self.config_path, "w", encoding="utf-8") as f:
-            json.dump({
-                "backend": self._printer_config.backend,
-                "driver": self._printer_config.driver,
-                "printer_identifier": self._printer_config.printer_identifier,
-                "dpi": self._printer_config.dpi,
-                "model": self._printer_config.model,
-                "scaling_factor": self._printer_config.scaling_factor,
-                "additional_settings": self._printer_config.additional_settings
-            },
+            json.dump(
+                {
+                    "backend": self._printer_config.backend,
+                    "driver": self._printer_config.driver,
+                    "printer_identifier": self._printer_config.printer_identifier,
+                    "dpi": self._printer_config.dpi,
+                    "model": self._printer_config.model,
+                    "scaling_factor": self._printer_config.scaling_factor,
+                    "additional_settings": self._printer_config.additional_settings,
+                },
                 f,
-                indent=4
+                indent=4,
             )
 
     def get_configuration(self) -> dict:
@@ -129,5 +128,5 @@ class PrinterRepository:
             "dpi": self._printer_config.dpi,
             "model": self._printer_config.model,
             "scaling_factor": self._printer_config.scaling_factor,
-            "additional_settings": self._printer_config.additional_settings
+            "additional_settings": self._printer_config.additional_settings,
         }

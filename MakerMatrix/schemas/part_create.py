@@ -24,10 +24,10 @@ class PartCreate(BaseModel):
     enrichment_supplier: Optional[str] = None
     enrichment_capabilities: Optional[List[str]] = []
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     def check_part_identifiers(cls, values):
-        if not values.get('part_name') and not values.get('part_number'):
-            raise ValueError('Either part_name or part_number must be provided')
+        if not values.get("part_name") and not values.get("part_number"):
+            raise ValueError("Either part_name or part_number must be provided")
         return values
 
     class Config:

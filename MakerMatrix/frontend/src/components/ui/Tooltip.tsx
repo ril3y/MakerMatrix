@@ -226,9 +226,7 @@ export const Tooltip = ({
           style={{ maxWidth, minWidth, width: minWidth }}
         >
           {/* Tooltip content with high contrast */}
-          <div
-            className="bg-gray-900 dark:bg-gray-800 text-white px-4 py-3 rounded-lg shadow-2xl border-2 border-primary w-full"
-          >
+          <div className="bg-gray-900 dark:bg-gray-800 text-white px-4 py-3 rounded-lg shadow-2xl border-2 border-primary w-full">
             <div className="text-sm leading-relaxed">{content}</div>
           </div>
 

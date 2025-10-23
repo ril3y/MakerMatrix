@@ -24,10 +24,7 @@ import os
 
 # Use in-memory SQLite database for testing
 TEST_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -64,10 +61,7 @@ class TestSupplierSpecificConfigs:
     def auth_headers(self):
         """Get authentication headers for API requests"""
         # Try to login with default admin
-        login_response = client.post(
-            "/auth/login",
-            data={"username": "admin", "password": "Admin123!"}
-        )
+        login_response = client.post("/auth/login", data={"username": "admin", "password": "Admin123!"})
 
         if login_response.status_code == 200:
             token = login_response.json().get("access_token")
@@ -94,15 +88,12 @@ class TestSupplierSpecificConfigs:
             "supports_pricing": True,
             "supports_stock": True,
             "supports_specifications": True,
-            "custom_headers": {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
+            "custom_headers": {"Accept": "application/json", "Content-Type": "application/json"},
             "custom_parameters": {
                 "sandbox_mode": True,
                 "oauth_callback_url": "https://localhost:8443/api/suppliers/digikey/oauth/callback",
-                "storage_path": "/tmp/digikey_cache"
-            }
+                "storage_path": "/tmp/digikey_cache",
+            },
         }
 
     @pytest.fixture
@@ -123,11 +114,8 @@ class TestSupplierSpecificConfigs:
             "supports_image": True,
             "supports_pricing": True,
             "supports_specifications": True,
-            "custom_headers": {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            "custom_parameters": {}
+            "custom_headers": {"Accept": "application/json", "Content-Type": "application/json"},
+            "custom_parameters": {},
         }
 
     @pytest.fixture
@@ -149,20 +137,13 @@ class TestSupplierSpecificConfigs:
             "supports_pricing": True,
             "supports_stock": True,
             "supports_specifications": True,
-            "custom_headers": {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            "custom_parameters": {}
+            "custom_headers": {"Accept": "application/json", "Content-Type": "application/json"},
+            "custom_parameters": {},
         }
 
     def test_digikey_oauth_fields_in_custom_parameters(self, auth_headers, digikey_config_data):
         """Test DigiKey configuration stores OAuth fields in custom_parameters"""
-        response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=digikey_config_data,
-            headers=auth_headers
-        )
+        response = client.post("/api/suppliers/config/suppliers", json=digikey_config_data, headers=auth_headers)
 
         assert response.status_code in [200, 201], f"Failed to create DigiKey config: {response.text}"
 
@@ -186,16 +167,10 @@ class TestSupplierSpecificConfigs:
             "supplier_name": "digikey_sandbox",
             "display_name": "DigiKey Sandbox",
             "base_url": "https://sandbox-api.digikey.com",
-            "custom_parameters": {
-                "sandbox_mode": True
-            }
+            "custom_parameters": {"sandbox_mode": True},
         }
 
-        response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=sandbox_config,
-            headers=auth_headers
-        )
+        response = client.post("/api/suppliers/config/suppliers", json=sandbox_config, headers=auth_headers)
 
         if response.status_code in [200, 201]:
             data = response.json().get("data")
@@ -204,11 +179,7 @@ class TestSupplierSpecificConfigs:
 
     def test_lcsc_standard_fields_only(self, auth_headers, lcsc_config_data):
         """Test LCSC configuration uses only standard fields"""
-        response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=lcsc_config_data,
-            headers=auth_headers
-        )
+        response = client.post("/api/suppliers/config/suppliers", json=lcsc_config_data, headers=auth_headers)
 
         assert response.status_code in [200, 201], f"Failed to create LCSC config: {response.text}"
 
@@ -226,11 +197,7 @@ class TestSupplierSpecificConfigs:
 
     def test_mouser_standard_fields_only(self, auth_headers, mouser_config_data):
         """Test Mouser configuration uses only standard fields"""
-        response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=mouser_config_data,
-            headers=auth_headers
-        )
+        response = client.post("/api/suppliers/config/suppliers", json=mouser_config_data, headers=auth_headers)
 
         assert response.status_code in [200, 201], f"Failed to create Mouser config: {response.text}"
 
@@ -249,19 +216,12 @@ class TestSupplierSpecificConfigs:
     def test_custom_parameters_persistence(self, auth_headers, digikey_config_data):
         """Test custom_parameters are properly persisted and retrieved"""
         # Create DigiKey config
-        create_response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=digikey_config_data,
-            headers=auth_headers
-        )
+        create_response = client.post("/api/suppliers/config/suppliers", json=digikey_config_data, headers=auth_headers)
 
         assert create_response.status_code in [200, 201]
 
         # Retrieve the config
-        get_response = client.get(
-            "/api/suppliers/config/suppliers/digikey",
-            headers=auth_headers
-        )
+        get_response = client.get("/api/suppliers/config/suppliers/digikey", headers=auth_headers)
 
         assert get_response.status_code == 200
 
@@ -276,11 +236,7 @@ class TestSupplierSpecificConfigs:
     def test_update_digikey_oauth_fields(self, auth_headers, digikey_config_data):
         """Test updating DigiKey OAuth fields in custom_parameters"""
         # Create initial config
-        create_response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=digikey_config_data,
-            headers=auth_headers
-        )
+        create_response = client.post("/api/suppliers/config/suppliers", json=digikey_config_data, headers=auth_headers)
 
         assert create_response.status_code in [200, 201]
 
@@ -289,15 +245,11 @@ class TestSupplierSpecificConfigs:
             "custom_parameters": {
                 "sandbox_mode": False,  # Switch to production
                 "oauth_callback_url": "https://production.example.com/callback",
-                "storage_path": "/var/lib/digikey_tokens"
+                "storage_path": "/var/lib/digikey_tokens",
             }
         }
 
-        update_response = client.put(
-            "/api/suppliers/config/suppliers/digikey",
-            json=update_data,
-            headers=auth_headers
-        )
+        update_response = client.put("/api/suppliers/config/suppliers/digikey", json=update_data, headers=auth_headers)
 
         if update_response.status_code == 200:
             data = update_response.json().get("data")
@@ -309,11 +261,7 @@ class TestSupplierSpecificConfigs:
 
     def test_custom_headers_set_correctly(self, auth_headers, digikey_config_data):
         """Test custom headers are properly set for all suppliers"""
-        response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=digikey_config_data,
-            headers=auth_headers
-        )
+        response = client.post("/api/suppliers/config/suppliers", json=digikey_config_data, headers=auth_headers)
 
         if response.status_code in [200, 201]:
             data = response.json().get("data")
@@ -325,27 +273,16 @@ class TestSupplierSpecificConfigs:
     def test_multiple_suppliers_coexist(self, auth_headers, digikey_config_data, lcsc_config_data, mouser_config_data):
         """Test multiple suppliers with different config patterns can coexist"""
         # Create all three suppliers
-        suppliers = [
-            ("digikey", digikey_config_data),
-            ("lcsc", lcsc_config_data),
-            ("mouser", mouser_config_data)
-        ]
+        suppliers = [("digikey", digikey_config_data), ("lcsc", lcsc_config_data), ("mouser", mouser_config_data)]
 
         for supplier_name, config_data in suppliers:
-            response = client.post(
-                "/api/suppliers/config/suppliers",
-                json=config_data,
-                headers=auth_headers
-            )
+            response = client.post("/api/suppliers/config/suppliers", json=config_data, headers=auth_headers)
 
             if response.status_code not in [200, 201]:
                 continue  # Skip if creation fails (might already exist)
 
         # Verify all exist with correct configurations
-        list_response = client.get(
-            "/api/suppliers/config/suppliers",
-            headers=auth_headers
-        )
+        list_response = client.get("/api/suppliers/config/suppliers", headers=auth_headers)
 
         if list_response.status_code == 200:
             suppliers_list = list_response.json().get("data", [])
@@ -372,14 +309,10 @@ class TestSupplierSpecificConfigs:
             "supplier_name": "invalid_test",
             "display_name": "Invalid Test",
             "base_url": "https://example.com",
-            "custom_parameters": "this should be a dict not a string"
+            "custom_parameters": "this should be a dict not a string",
         }
 
-        response = client.post(
-            "/api/suppliers/config/suppliers",
-            json=invalid_config,
-            headers=auth_headers
-        )
+        response = client.post("/api/suppliers/config/suppliers", json=invalid_config, headers=auth_headers)
 
         # Should fail validation
         assert response.status_code in [400, 422]

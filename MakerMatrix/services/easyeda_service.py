@@ -20,9 +20,7 @@ class EasyedaApi:
         r = requests.get(url=API_ENDPOINT.format(lcsc_id=lcsc_id), headers=self.headers)
         api_response = r.json()
 
-        if not api_response or (
-            "code" in api_response and api_response["success"] is False
-        ):
+        if not api_response or ("code" in api_response and api_response["success"] is False):
             logging.debug(f"{api_response}")
             return {}
 

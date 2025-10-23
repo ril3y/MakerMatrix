@@ -120,14 +120,18 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-theme-muted" />
                   <span className="text-theme-secondary">
-                    <span className="font-semibold text-theme-primary">{project.parts_count}</span> parts
+                    <span className="font-semibold text-theme-primary">{project.parts_count}</span>{' '}
+                    parts
                   </span>
                 </div>
                 {project.estimated_cost && (
                   <div className="flex items-center gap-2">
                     <span className="text-theme-muted">•</span>
                     <span className="text-theme-secondary">
-                      Est. <span className="font-semibold text-theme-primary">${project.estimated_cost.toFixed(2)}</span>
+                      Est.{' '}
+                      <span className="font-semibold text-theme-primary">
+                        ${project.estimated_cost.toFixed(2)}
+                      </span>
                     </span>
                   </div>
                 )}
@@ -138,7 +142,9 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }: ProjectDetailsModalPr
           {/* Project Links */}
           {project.links && Object.keys(project.links).length > 0 && (
             <div className="mt-4 pt-4 border-t border-theme-primary">
-              <p className="text-xs font-semibold text-theme-secondary mb-2 uppercase tracking-wide">Project Links</p>
+              <p className="text-xs font-semibold text-theme-secondary mb-2 uppercase tracking-wide">
+                Project Links
+              </p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(project.links).map(([key, value]) => {
                   const domain = extractDomain(value as string)

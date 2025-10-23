@@ -59,7 +59,9 @@ function parseCSV(text: string): { headers: string[]; rows: any[]; totalRows: nu
 /**
  * Parse Excel file (XLS or XLSX)
  */
-async function parseExcel(file: File): Promise<{ headers: string[]; rows: any[]; totalRows: number }> {
+async function parseExcel(
+  file: File
+): Promise<{ headers: string[]; rows: any[]; totalRows: number }> {
   const arrayBuffer = await file.arrayBuffer()
   const workbook = XLSX.read(arrayBuffer, { type: 'array' })
 
@@ -170,7 +172,8 @@ export async function previewFile(file: File): Promise<FilePreviewData> {
       is_supported:
         !!extractedInfo.detected_supplier &&
         (validationErrors.length === 0 ||
-          (filenameLower.endsWith('.xls') || filenameLower.endsWith('.xlsx'))),
+          filenameLower.endsWith('.xls') ||
+          filenameLower.endsWith('.xlsx')),
       validation_errors: allValidationErrors,
     }
   } catch (error) {

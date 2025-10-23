@@ -12,13 +12,13 @@ Architecture:
 
 Usage:
     from MakerMatrix.suppliers import SupplierRegistry
-    
+
     # Get a supplier instance
     supplier = SupplierRegistry.get_supplier("digikey")
-    
+
     # Get what credentials this supplier needs
     credential_fields = supplier.get_credential_schema()
-    
+
     # Configure and use the supplier
     supplier.configure(config_data)
     results = supplier.search_parts("STM32")
@@ -38,11 +38,11 @@ from . import adafruit
 from . import seeed_studio
 
 __all__ = [
-    'BaseSupplier',
-    'FieldDefinition', 
-    'SupplierCapability',
-    'SupplierRegistry',
-    'SupplierError',
-    'SupplierConfigurationError',
-    'SupplierAuthenticationError'
+    "BaseSupplier",
+    "FieldDefinition",
+    "SupplierCapability",
+    "SupplierRegistry",
+    "SupplierError",
+    "SupplierConfigurationError",
+    "SupplierAuthenticationError",
 ]

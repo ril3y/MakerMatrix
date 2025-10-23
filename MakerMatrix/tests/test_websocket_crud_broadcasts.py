@@ -77,6 +77,7 @@ def mock_user():
 # WebSocket Manager Basic Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_websocket_manager_connect(fresh_ws_manager, mock_websocket):
     """Test connecting a WebSocket client"""
@@ -163,6 +164,7 @@ async def test_broadcast_handles_disconnected_socket(fresh_ws_manager):
 # CRUD Broadcast Tests - Parts
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_broadcast_part_created(fresh_ws_manager, mock_user):
     """Test broadcasting part creation event"""
@@ -177,12 +179,7 @@ async def test_broadcast_part_created(fresh_ws_manager, mock_user):
     ws_admin.clear_messages()
 
     # Broadcast part creation
-    part_data = {
-        "id": "part-123",
-        "part_name": "Test Resistor",
-        "part_number": "R-1K-001",
-        "quantity": 100
-    }
+    part_data = {"id": "part-123", "part_name": "Test Resistor", "part_number": "R-1K-001", "quantity": 100}
 
     await fresh_ws_manager.broadcast_crud_event(
         action="created",
@@ -191,7 +188,7 @@ async def test_broadcast_part_created(fresh_ws_manager, mock_user):
         entity_name="Test Resistor",
         user_id=mock_user.id,
         username=mock_user.username,
-        entity_data=part_data
+        entity_data=part_data,
     )
 
     # Both general and admin should receive the event
@@ -223,16 +220,9 @@ async def test_broadcast_part_updated(fresh_ws_manager, mock_user):
     ws_general.clear_messages()
 
     # Broadcast part update with changes
-    part_data = {
-        "id": "part-123",
-        "part_name": "Test Resistor",
-        "quantity": 150
-    }
+    part_data = {"id": "part-123", "part_name": "Test Resistor", "quantity": 150}
 
-    changes = {
-        "quantity": {"from": 100, "to": 150},
-        "location_id": {"from": "loc-1", "to": "loc-2"}
-    }
+    changes = {"quantity": {"from": 100, "to": 150}, "location_id": {"from": "loc-1", "to": "loc-2"}}
 
     await fresh_ws_manager.broadcast_crud_event(
         action="updated",
@@ -242,7 +232,7 @@ async def test_broadcast_part_updated(fresh_ws_manager, mock_user):
         user_id=mock_user.id,
         username=mock_user.username,
         changes=changes,
-        entity_data=part_data
+        entity_data=part_data,
     )
 
     msgs = ws_general.get_messages()
@@ -269,7 +259,7 @@ async def test_broadcast_part_deleted(fresh_ws_manager, mock_user):
         entity_id="part-123",
         entity_name="Test Resistor",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     msgs = ws_general.get_messages()
@@ -294,10 +284,7 @@ async def test_broadcast_parts_bulk_updated(fresh_ws_manager, mock_user):
         "part_ids": ["part-1", "part-2", "part-3"],
         "updated_count": 3,
         "failed_count": 0,
-        "changes": {
-            "location_id": "new-location-123",
-            "supplier": "LCSC"
-        }
+        "changes": {"location_id": "new-location-123", "supplier": "LCSC"},
     }
 
     await fresh_ws_manager.broadcast_crud_event(
@@ -307,7 +294,7 @@ async def test_broadcast_parts_bulk_updated(fresh_ws_manager, mock_user):
         entity_name="3 parts",
         user_id=mock_user.id,
         username=mock_user.username,
-        details=details
+        details=details,
     )
 
     msgs = ws_general.get_messages()
@@ -324,6 +311,7 @@ async def test_broadcast_parts_bulk_updated(fresh_ws_manager, mock_user):
 # CRUD Broadcast Tests - Locations
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_broadcast_location_created(fresh_ws_manager, mock_user):
     """Test broadcasting location creation event"""
@@ -336,7 +324,7 @@ async def test_broadcast_location_created(fresh_ws_manager, mock_user):
         "id": "loc-123",
         "name": "Shelf A",
         "description": "Top shelf in storage room",
-        "location_type": "shelf"
+        "location_type": "shelf",
     }
 
     await fresh_ws_manager.broadcast_crud_event(
@@ -346,7 +334,7 @@ async def test_broadcast_location_created(fresh_ws_manager, mock_user):
         entity_name="Shelf A",
         user_id=mock_user.id,
         username=mock_user.username,
-        entity_data=location_data
+        entity_data=location_data,
     )
 
     msgs = ws_general.get_messages()
@@ -367,10 +355,7 @@ async def test_broadcast_location_updated(fresh_ws_manager, mock_user):
     await fresh_ws_manager.connect(ws_general, "general", "user-1")
     ws_general.clear_messages()
 
-    changes = {
-        "name": "Shelf A-1",
-        "description": "Updated description"
-    }
+    changes = {"name": "Shelf A-1", "description": "Updated description"}
 
     await fresh_ws_manager.broadcast_crud_event(
         action="updated",
@@ -379,7 +364,7 @@ async def test_broadcast_location_updated(fresh_ws_manager, mock_user):
         entity_name="Shelf A-1",
         user_id=mock_user.id,
         username=mock_user.username,
-        changes=changes
+        changes=changes,
     )
 
     msgs = ws_general.get_messages()
@@ -395,11 +380,7 @@ async def test_broadcast_location_deleted(fresh_ws_manager, mock_user):
     await fresh_ws_manager.connect(ws_general, "general", "user-1")
     ws_general.clear_messages()
 
-    details = {
-        "deleted_location_name": "Shelf A",
-        "affected_parts_count": 5,
-        "child_locations_count": 2
-    }
+    details = {"deleted_location_name": "Shelf A", "affected_parts_count": 5, "child_locations_count": 2}
 
     await fresh_ws_manager.broadcast_crud_event(
         action="deleted",
@@ -408,7 +389,7 @@ async def test_broadcast_location_deleted(fresh_ws_manager, mock_user):
         entity_name="Shelf A",
         user_id=mock_user.id,
         username=mock_user.username,
-        details=details
+        details=details,
     )
 
     msgs = ws_general.get_messages()
@@ -423,6 +404,7 @@ async def test_broadcast_location_deleted(fresh_ws_manager, mock_user):
 # CRUD Broadcast Tests - Categories
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_broadcast_category_created(fresh_ws_manager, mock_user):
     """Test broadcasting category creation event"""
@@ -431,11 +413,7 @@ async def test_broadcast_category_created(fresh_ws_manager, mock_user):
     await fresh_ws_manager.connect(ws_general, "general", "user-1")
     ws_general.clear_messages()
 
-    category_data = {
-        "id": "cat-123",
-        "name": "Resistors",
-        "description": "All types of resistors"
-    }
+    category_data = {"id": "cat-123", "name": "Resistors", "description": "All types of resistors"}
 
     await fresh_ws_manager.broadcast_crud_event(
         action="created",
@@ -444,7 +422,7 @@ async def test_broadcast_category_created(fresh_ws_manager, mock_user):
         entity_name="Resistors",
         user_id=mock_user.id,
         username=mock_user.username,
-        entity_data=category_data
+        entity_data=category_data,
     )
 
     msgs = ws_general.get_messages()
@@ -464,10 +442,7 @@ async def test_broadcast_category_updated(fresh_ws_manager, mock_user):
     await fresh_ws_manager.connect(ws_general, "general", "user-1")
     ws_general.clear_messages()
 
-    changes = {
-        "name": "Passive Components - Resistors",
-        "description": "Updated description for resistors"
-    }
+    changes = {"name": "Passive Components - Resistors", "description": "Updated description for resistors"}
 
     await fresh_ws_manager.broadcast_crud_event(
         action="updated",
@@ -476,7 +451,7 @@ async def test_broadcast_category_updated(fresh_ws_manager, mock_user):
         entity_name="Passive Components - Resistors",
         user_id=mock_user.id,
         username=mock_user.username,
-        changes=changes
+        changes=changes,
     )
 
     msgs = ws_general.get_messages()
@@ -498,7 +473,7 @@ async def test_broadcast_category_deleted(fresh_ws_manager, mock_user):
         entity_id="cat-123",
         entity_name="Resistors",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     msgs = ws_general.get_messages()
@@ -512,6 +487,7 @@ async def test_broadcast_category_deleted(fresh_ws_manager, mock_user):
 # ============================================================================
 # Connection Type Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_crud_events_sent_to_both_general_and_admin(fresh_ws_manager, mock_user):
@@ -536,7 +512,7 @@ async def test_crud_events_sent_to_both_general_and_admin(fresh_ws_manager, mock
         entity_id="part-123",
         entity_name="Test Part",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     # General and admin should receive, tasks should not
@@ -548,6 +524,7 @@ async def test_crud_events_sent_to_both_general_and_admin(fresh_ws_manager, mock
 # ============================================================================
 # Message Format Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_message_format_includes_timestamp(fresh_ws_manager, mock_user):
@@ -563,7 +540,7 @@ async def test_message_format_includes_timestamp(fresh_ws_manager, mock_user):
         entity_id="part-123",
         entity_name="Test Part",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     msgs = ws_general.get_messages()
@@ -572,7 +549,7 @@ async def test_message_format_includes_timestamp(fresh_ws_manager, mock_user):
     # Verify timestamp is valid ISO format
     timestamp_str = msgs[0]["timestamp"]
     # Should not raise exception
-    datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+    datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
 
 
 @pytest.mark.asyncio
@@ -592,7 +569,7 @@ async def test_message_data_structure(fresh_ws_manager, mock_user):
         username=mock_user.username,
         changes={"test": "value"},
         details={"extra": "info"},
-        entity_data={"id": "part-123"}
+        entity_data={"id": "part-123"},
     )
 
     msgs = ws_general.get_messages()
@@ -626,10 +603,7 @@ async def test_empty_optional_fields(fresh_ws_manager, mock_user):
 
     # Call with minimal required parameters
     await fresh_ws_manager.broadcast_crud_event(
-        action="created",
-        entity_type="part",
-        entity_id="part-123",
-        entity_name="Test Part"
+        action="created", entity_type="part", entity_id="part-123", entity_name="Test Part"
     )
 
     msgs = ws_general.get_messages()
@@ -645,6 +619,7 @@ async def test_empty_optional_fields(fresh_ws_manager, mock_user):
 # ============================================================================
 # Connection Statistics Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_connection_stats(fresh_ws_manager):
@@ -669,6 +644,7 @@ async def test_connection_stats(fresh_ws_manager):
 # Error Handling Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_send_to_connection_handles_errors(fresh_ws_manager):
     """Test that send_to_connection handles errors gracefully"""
@@ -690,6 +666,7 @@ async def test_send_to_connection_handles_errors(fresh_ws_manager):
 # Integration-like Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_sequential_crud_operations(fresh_ws_manager, mock_user):
     """Test sequential CRUD operations to simulate real workflow"""
@@ -706,7 +683,7 @@ async def test_sequential_crud_operations(fresh_ws_manager, mock_user):
         entity_name="Resistor 1K",
         user_id=mock_user.id,
         username=mock_user.username,
-        entity_data={"id": "part-123", "quantity": 100}
+        entity_data={"id": "part-123", "quantity": 100},
     )
 
     # Update
@@ -717,7 +694,7 @@ async def test_sequential_crud_operations(fresh_ws_manager, mock_user):
         entity_name="Resistor 1K",
         user_id=mock_user.id,
         username=mock_user.username,
-        changes={"quantity": {"from": 100, "to": 150}}
+        changes={"quantity": {"from": 100, "to": 150}},
     )
 
     # Delete
@@ -727,7 +704,7 @@ async def test_sequential_crud_operations(fresh_ws_manager, mock_user):
         entity_id="part-123",
         entity_name="Resistor 1K",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     msgs = ws.get_messages()
@@ -752,7 +729,7 @@ async def test_multiple_entity_types_in_sequence(fresh_ws_manager, mock_user):
         entity_id="part-123",
         entity_name="Test Part",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     # Location
@@ -762,7 +739,7 @@ async def test_multiple_entity_types_in_sequence(fresh_ws_manager, mock_user):
         entity_id="loc-123",
         entity_name="Test Location",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     # Category
@@ -772,7 +749,7 @@ async def test_multiple_entity_types_in_sequence(fresh_ws_manager, mock_user):
         entity_id="cat-123",
         entity_name="Test Category",
         user_id=mock_user.id,
-        username=mock_user.username
+        username=mock_user.username,
     )
 
     msgs = ws.get_messages()

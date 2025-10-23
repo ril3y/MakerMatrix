@@ -1,20 +1,22 @@
 """
 Test script to verify Mouser XLS import works correctly
 """
+
 import asyncio
 from pathlib import Path
+
 
 async def test_mouser_xls_import():
     from MakerMatrix.suppliers.registry import get_supplier
 
     # Get Mouser supplier
-    mouser = get_supplier('mouser')
+    mouser = get_supplier("mouser")
 
     # Load test XLS file
-    xls_path = Path('/home/ril3y/MakerMatrix/MakerMatrix/tests/mouser_xls_test/271360826.xls')
+    xls_path = Path("/home/ril3y/MakerMatrix/MakerMatrix/tests/mouser_xls_test/271360826.xls")
     print(f"Testing with file: {xls_path}")
 
-    with open(xls_path, 'rb') as f:
+    with open(xls_path, "rb") as f:
         file_content = f.read()
 
     filename = xls_path.name
@@ -30,7 +32,7 @@ async def test_mouser_xls_import():
 
     # Test import_order_file
     print(f"\n2. Testing import_order_file...")
-    result = await mouser.import_order_file(file_content, 'xls', filename)
+    result = await mouser.import_order_file(file_content, "xls", filename)
     print(f"   Success: {result.success}")
     print(f"   Parts imported: {len(result.parts) if result.parts else 0}")
 
@@ -50,6 +52,7 @@ async def test_mouser_xls_import():
             print(f"   Warnings: {result.warnings}")
         return False
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     success = asyncio.run(test_mouser_xls_import())
     exit(0 if success else 1)

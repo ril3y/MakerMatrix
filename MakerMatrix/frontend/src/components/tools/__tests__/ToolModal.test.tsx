@@ -22,13 +22,7 @@ describe('ToolModal', () => {
   })
 
   it('renders create tool modal correctly', async () => {
-    render(
-      <ToolModal
-        isOpen={true}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />
-    )
+    render(<ToolModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
     await waitFor(() => {
       expect(screen.getByText('Add New Tool')).toBeInTheDocument()
@@ -68,13 +62,7 @@ describe('ToolModal', () => {
   })
 
   it('validates required fields', async () => {
-    render(
-      <ToolModal
-        isOpen={true}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />
-    )
+    render(<ToolModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
     await waitFor(() => {
       const submitButton = screen.getByText('Create Tool')
@@ -101,13 +89,7 @@ describe('ToolModal', () => {
 
     vi.mocked(toolsService.createTool).mockResolvedValue(mockCreatedTool)
 
-    render(
-      <ToolModal
-        isOpen={true}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />
-    )
+    render(<ToolModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
     await waitFor(() => {
       const nameInput = screen.getByLabelText(/Tool Name/i)
@@ -180,13 +162,7 @@ describe('ToolModal', () => {
   })
 
   it('handles cancel button correctly', async () => {
-    render(
-      <ToolModal
-        isOpen={true}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />
-    )
+    render(<ToolModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
     await waitFor(() => {
       const cancelButton = screen.getByText('Cancel')
@@ -198,13 +174,7 @@ describe('ToolModal', () => {
   })
 
   it('validates purchase price is non-negative', async () => {
-    render(
-      <ToolModal
-        isOpen={true}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />
-    )
+    render(<ToolModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
     await waitFor(() => {
       const nameInput = screen.getByLabelText(/Tool Name/i)

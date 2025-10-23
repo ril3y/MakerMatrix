@@ -14,7 +14,7 @@ import os
 from datetime import datetime
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from sqlmodel import Session, select
 from MakerMatrix.models.models import PartModel, engine
@@ -32,16 +32,12 @@ def migrate_missing_allocations():
         print(f"Found {len(parts)} total parts")
 
         # Find or create Unsorted location
-        unsorted = session.exec(
-            select(LocationModel).where(LocationModel.name == "Unsorted")
-        ).first()
+        unsorted = session.exec(select(LocationModel).where(LocationModel.name == "Unsorted")).first()
 
         if not unsorted:
             print("Creating 'Unsorted' location...")
             unsorted = LocationModel(
-                name="Unsorted",
-                description="Default location for parts without allocations",
-                location_type="storage"
+                name="Unsorted", description="Default location for parts without allocations", location_type="storage"
             )
             session.add(unsorted)
             session.commit()
@@ -56,9 +52,7 @@ def migrate_missing_allocations():
         for part in parts:
             # Check if part has any allocations
             existing_allocs = session.exec(
-                select(PartLocationAllocation).where(
-                    PartLocationAllocation.part_id == part.id
-                )
+                select(PartLocationAllocation).where(PartLocationAllocation.part_id == part.id)
             ).all()
 
             if existing_allocs:
@@ -79,7 +73,7 @@ def migrate_missing_allocations():
                 is_primary_storage=True,
                 notes="Auto-created by migration script - please update quantity",
                 allocated_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
+                last_updated=datetime.utcnow(),
             )
 
             session.add(allocation)
@@ -92,17 +86,17 @@ def migrate_missing_allocations():
         session.commit()
 
         # Print summary
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("MIGRATION COMPLETE")
-        print("="*60)
+        print("=" * 60)
         print(f"Total parts: {len(parts)}")
         print(f"Parts with allocations: {parts_with_allocations}")
         print(f"Parts without allocations: {parts_without_allocations}")
         print(f"Allocations created: {allocations_created}")
-        print("="*60)
+        print("=" * 60)
         print("\nNOTE: All new allocations have quantity = 0")
         print("Please update quantities manually in the UI or via API")
-        print("="*60)
+        print("=" * 60)
 
 
 if __name__ == "__main__":
@@ -111,7 +105,7 @@ if __name__ == "__main__":
     print("All new allocations will have quantity = 0\n")
 
     response = input("Continue? (yes/no): ")
-    if response.lower() in ['yes', 'y']:
+    if response.lower() in ["yes", "y"]:
         migrate_missing_allocations()
     else:
         print("Migration cancelled")

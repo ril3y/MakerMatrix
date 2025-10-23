@@ -189,10 +189,7 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-muted hover:text-primary transition-colors"
-          >
+          <button onClick={onClose} className="text-muted hover:text-primary transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>

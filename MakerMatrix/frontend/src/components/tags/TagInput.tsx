@@ -90,9 +90,7 @@ const TagInput = ({
       if (exists) {
         // Find and return existing tag
         const allTags = await tagsService.searchTags(tagName, 1)
-        const existingTag = allTags.find(
-          (tag) => tag.name.toLowerCase() === tagName.toLowerCase()
-        )
+        const existingTag = allTags.find((tag) => tag.name.toLowerCase() === tagName.toLowerCase())
         if (existingTag) {
           return existingTag
         }
@@ -181,9 +179,7 @@ const TagInput = ({
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveSuggestionIndex((prev) =>
-        prev < suggestions.length - 1 ? prev + 1 : prev
-      )
+      setActiveSuggestionIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
     }
 
     if (e.key === 'ArrowUp') {
@@ -216,12 +212,7 @@ const TagInput = ({
         <div className="flex flex-wrap gap-2">
           <AnimatePresence>
             {selectedTags.map((tag) => (
-              <TagBadge
-                key={tag.id}
-                tag={tag}
-                size="md"
-                onRemove={() => removeTag(tag.id)}
-              />
+              <TagBadge key={tag.id} tag={tag} size="md" onRemove={() => removeTag(tag.id)} />
             ))}
           </AnimatePresence>
         </div>

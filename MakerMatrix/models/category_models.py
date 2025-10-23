@@ -17,6 +17,7 @@ from .tool_models import ToolCategoryLink
 
 class CategoryUpdate(SQLModel):
     """Update model for category modifications"""
+
     name: Optional[str] = None
     description: Optional[str] = None
     parent_id: Optional[str] = None
@@ -37,16 +38,12 @@ class CategoryModel(SQLModel, table=True):
 
     # Many-to-many relationship with parts through PartCategoryLink
     parts: List["PartModel"] = Relationship(
-        back_populates="categories",
-        link_model=PartCategoryLink,
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="categories", link_model=PartCategoryLink, sa_relationship_kwargs={"lazy": "selectin"}
     )
 
     # Many-to-many relationship with tools through ToolCategoryLink
     tools: List["ToolModel"] = Relationship(
-        back_populates="categories",
-        link_model=ToolCategoryLink,
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="categories", link_model=ToolCategoryLink, sa_relationship_kwargs={"lazy": "selectin"}
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

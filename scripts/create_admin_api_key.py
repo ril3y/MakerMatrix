@@ -13,6 +13,7 @@ from MakerMatrix.services.system.api_key_service import APIKeyService
 from MakerMatrix.models.api_key_models import APIKeyCreate
 from MakerMatrix.models.models import engine
 
+
 def create_admin_api_key():
     """Create API key with full admin permissions"""
 
@@ -27,7 +28,7 @@ def create_admin_api_key():
         description="Full admin API key for debugging and testing",
         role_names=["admin"],  # Admin role should have all permissions
         expires_in_days=365,  # 1 year expiration
-        allowed_ips=None  # No IP restriction for testing
+        allowed_ips=None,  # No IP restriction for testing
     )
 
     print(f"Creating admin API key for user {admin_user_id}...")
@@ -45,7 +46,9 @@ def create_admin_api_key():
         print(f"  - Expires: {response.data.get('expires_at')}")
         print(f"\n⚠️  SAVE THIS KEY - It won't be shown again!")
         print(f"\nUsage:")
-        print(f'  curl -H "X-API-Key: {response.data.get("api_key")}" https://192.168.1.58:8443/api/parts/get_all_parts')
+        print(
+            f'  curl -H "X-API-Key: {response.data.get("api_key")}" https://192.168.1.58:8443/api/parts/get_all_parts'
+        )
     else:
         print(f"\n❌ Failed to create API key: {response.message}")
         if response.errors:
@@ -53,6 +56,7 @@ def create_admin_api_key():
         return 1
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(create_admin_api_key())

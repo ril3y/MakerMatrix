@@ -16,17 +16,14 @@ from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    tags=["Dashboard"],
-    dependencies=[Depends(get_current_user_flexible)]
-)
+router = APIRouter(tags=["Dashboard"], dependencies=[Depends(get_current_user_flexible)])
 base_router = BaseRouter()
 
 
 @router.get("/summary", response_model=ResponseSchema)
 @standard_error_handling
 async def get_dashboard_summary(
-    current_user: UserModel = Depends(get_current_user_flexible)
+    current_user: UserModel = Depends(get_current_user_flexible),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Get complete dashboard summary with inventory analytics.
@@ -41,7 +38,4 @@ async def get_dashboard_summary(
 
     summary = dashboard_service.get_dashboard_summary()
 
-    return base_router.build_success_response(
-        message="Retrieved dashboard summary",
-        data=summary
-    )
+    return base_router.build_success_response(message="Retrieved dashboard summary", data=summary)

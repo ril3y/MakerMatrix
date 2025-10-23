@@ -9,7 +9,7 @@ from MakerMatrix.exceptions import (
     ResourceNotFoundError,
     ProjectAlreadyExistsError,
     ProjectNotFoundError,
-    InvalidReferenceError
+    InvalidReferenceError,
 )
 
 # Configure logging
@@ -21,7 +21,9 @@ class ProjectRepository:
         self.engine = engine
 
     @staticmethod
-    def get_project(session: Session, project_id: Optional[str] = None, name: Optional[str] = None, slug: Optional[str] = None) -> ProjectModel:
+    def get_project(
+        session: Session, project_id: Optional[str] = None, name: Optional[str] = None, slug: Optional[str] = None
+    ) -> ProjectModel:
         """
         Get a project by ID, name, or slug.
 
@@ -39,33 +41,26 @@ class ProjectRepository:
             ProjectNotFoundError: If project is not found
         """
         if project_id:
-            project = session.exec(
-                select(ProjectModel).where(ProjectModel.id == project_id)
-            ).first()
+            project = session.exec(select(ProjectModel).where(ProjectModel.id == project_id)).first()
             identifier = f"ID '{project_id}'"
         elif name:
-            project = session.exec(
-                select(ProjectModel).where(ProjectModel.name == name)
-            ).first()
+            project = session.exec(select(ProjectModel).where(ProjectModel.name == name)).first()
             identifier = f"name '{name}'"
         elif slug:
-            project = session.exec(
-                select(ProjectModel).where(ProjectModel.slug == slug)
-            ).first()
+            project = session.exec(select(ProjectModel).where(ProjectModel.slug == slug)).first()
             identifier = f"slug '{slug}'"
         else:
             raise InvalidReferenceError(
                 message="Either 'project_id', 'name', or 'slug' must be provided for project lookup",
                 reference_type="project_lookup",
-                reference_id=None
+                reference_id=None,
             )
 
         if project:
             return project
         else:
             raise ProjectNotFoundError(
-                message=f"Project with {identifier} not found",
-                project_id=project_id or name or slug
+                message=f"Project with {identifier} not found", project_id=project_id or name or slug
             )
 
     @staticmethod
@@ -89,26 +84,20 @@ class ProjectRepository:
 
         # Check for duplicate project name
         if project_name:
-            existing_project = session.exec(
-                select(ProjectModel).where(ProjectModel.name == project_name)
-            ).first()
+            existing_project = session.exec(select(ProjectModel).where(ProjectModel.name == project_name)).first()
             if existing_project:
                 logger.debug(f"[REPO] Project creation failed - duplicate name: {project_name}")
                 raise ProjectAlreadyExistsError(
-                    message=f"Project with name '{project_name}' already exists",
-                    project_name=project_name
+                    message=f"Project with name '{project_name}' already exists", project_name=project_name
                 )
 
         # Check for duplicate slug
         if project_slug:
-            existing_project = session.exec(
-                select(ProjectModel).where(ProjectModel.slug == project_slug)
-            ).first()
+            existing_project = session.exec(select(ProjectModel).where(ProjectModel.slug == project_slug)).first()
             if existing_project:
                 logger.debug(f"[REPO] Project creation failed - duplicate slug: {project_slug}")
                 raise ProjectAlreadyExistsError(
-                    message=f"Project with slug '{project_slug}' already exists",
-                    project_name=project_slug
+                    message=f"Project with slug '{project_slug}' already exists", project_name=project_slug
                 )
 
         try:
@@ -116,7 +105,9 @@ class ProjectRepository:
             session.add(project_model)
             session.commit()
             session.refresh(project_model)
-            logger.debug(f"[REPO] Successfully created project in database: {project_model.name} (ID: {project_model.id})")
+            logger.debug(
+                f"[REPO] Successfully created project in database: {project_model.name} (ID: {project_model.id})"
+            )
             return project_model
         except Exception as e:
             session.rollback()
@@ -141,9 +132,7 @@ class ProjectRepository:
         from MakerMatrix.models.part_models import PartModel
 
         # Remove all part-project associations via the link table
-        session.exec(
-            delete(PartProjectLink).where(PartProjectLink.project_id == rm_project.id)
-        )
+        session.exec(delete(PartProjectLink).where(PartProjectLink.project_id == rm_project.id))
         session.commit()
 
         logger.debug(f"[REPO] Removed all part associations for project: {rm_project.name}")
@@ -209,10 +198,7 @@ class ProjectRepository:
         project = session.get(ProjectModel, project_id)
         if not project:
             logger.debug(f"[REPO] Project update failed - not found: {project_id}")
-            raise ProjectNotFoundError(
-                message=f"Project with ID {project_id} not found",
-                project_id=project_id
-            )
+            raise ProjectNotFoundError(message=f"Project with ID {project_id} not found", project_id=project_id)
 
         # Update fields that are not None
         updated_fields = []
@@ -234,7 +220,9 @@ class ProjectRepository:
         return project
 
     @staticmethod
-    def associate_part_with_project(session: Session, part_id: str, project_id: str, notes: Optional[str] = None) -> bool:
+    def associate_part_with_project(
+        session: Session, part_id: str, project_id: str, notes: Optional[str] = None
+    ) -> bool:
         """
         Associate a part with a project.
 
@@ -255,14 +243,15 @@ class ProjectRepository:
             project = session.get(ProjectModel, project_id)
 
             if not part or not project:
-                logger.warning(f"[REPO] Failed to associate part {part_id} with project {project_id} - one or both not found")
+                logger.warning(
+                    f"[REPO] Failed to associate part {part_id} with project {project_id} - one or both not found"
+                )
                 return False
 
             # Check if association already exists
             existing_link = session.exec(
                 select(PartProjectLink).where(
-                    PartProjectLink.part_id == part_id,
-                    PartProjectLink.project_id == project_id
+                    PartProjectLink.part_id == part_id, PartProjectLink.project_id == project_id
                 )
             ).first()
 
@@ -275,11 +264,7 @@ class ProjectRepository:
                 return True
 
             # Create new association
-            link = PartProjectLink(
-                part_id=part_id,
-                project_id=project_id,
-                notes=notes
-            )
+            link = PartProjectLink(part_id=part_id, project_id=project_id, notes=notes)
             session.add(link)
             session.commit()
 
@@ -312,8 +297,7 @@ class ProjectRepository:
             # Find and delete the association
             link = session.exec(
                 select(PartProjectLink).where(
-                    PartProjectLink.part_id == part_id,
-                    PartProjectLink.project_id == project_id
+                    PartProjectLink.part_id == part_id, PartProjectLink.project_id == project_id
                 )
             ).first()
 
@@ -354,8 +338,7 @@ class ProjectRepository:
         try:
             link = session.exec(
                 select(PartProjectLink).where(
-                    PartProjectLink.part_id == part_id,
-                    PartProjectLink.project_id == project_id
+                    PartProjectLink.part_id == part_id, PartProjectLink.project_id == project_id
                 )
             ).first()
 

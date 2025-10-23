@@ -10,10 +10,7 @@ from typing import Optional, List
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from MakerMatrix.models.api_key_models import (
-    APIKeyModel, APIKeyCreate, APIKeyUpdate,
-    generate_api_key, hash_api_key
-)
+from MakerMatrix.models.api_key_models import APIKeyModel, APIKeyCreate, APIKeyUpdate, generate_api_key, hash_api_key
 from MakerMatrix.models.user_models import UserModel, RoleModel
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
@@ -28,11 +25,7 @@ class APIKeyService(BaseService):
         super().__init__(engine_override=engine)
         self.entity_name = "API Key"
 
-    def create_api_key(
-        self,
-        user_id: str,
-        key_data: APIKeyCreate
-    ) -> ServiceResponse[dict]:
+    def create_api_key(self, user_id: str, key_data: APIKeyCreate) -> ServiceResponse[dict]:
         """
         Create a new API key for a user.
 
@@ -61,9 +54,7 @@ class APIKeyService(BaseService):
                 permissions = list(key_data.permissions) if key_data.permissions else []
                 if key_data.role_names:
                     for role_name in key_data.role_names:
-                        role = session.exec(
-                            select(RoleModel).where(RoleModel.name == role_name)
-                        ).first()
+                        role = session.exec(select(RoleModel).where(RoleModel.name == role_name)).first()
                         if role:
                             permissions.extend(role.permissions)
 
@@ -85,7 +76,7 @@ class APIKeyService(BaseService):
                     permissions=permissions,
                     role_names=key_data.role_names or [],
                     expires_at=expires_at,
-                    allowed_ips=key_data.allowed_ips
+                    allowed_ips=key_data.allowed_ips,
                 )
 
                 session.add(api_key_model)
@@ -97,18 +88,13 @@ class APIKeyService(BaseService):
                 result["api_key"] = api_key  # Include plaintext key in response
 
                 return self.success_response(
-                    f"API key '{key_data.name}' created successfully. Save the key - it won't be shown again!",
-                    result
+                    f"API key '{key_data.name}' created successfully. Save the key - it won't be shown again!", result
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"create {self.entity_name}")
 
-    def validate_api_key(
-        self,
-        api_key: str,
-        ip_address: Optional[str] = None
-    ) -> ServiceResponse[APIKeyModel]:
+    def validate_api_key(self, api_key: str, ip_address: Optional[str] = None) -> ServiceResponse[APIKeyModel]:
         """
         Validate an API key and return the associated model if valid.
 
@@ -123,9 +109,7 @@ class APIKeyService(BaseService):
             key_hash = hash_api_key(api_key)
 
             with self.get_session() as session:
-                api_key_model = session.exec(
-                    select(APIKeyModel).where(APIKeyModel.key_hash == key_hash)
-                ).first()
+                api_key_model = session.exec(select(APIKeyModel).where(APIKeyModel.key_hash == key_hash)).first()
 
                 if not api_key_model:
                     return self.error_response("Invalid API key")
@@ -163,16 +147,11 @@ class APIKeyService(BaseService):
             self.log_operation("get_all", f"{self.entity_name}s for user")
 
             with self.get_session() as session:
-                api_keys = session.exec(
-                    select(APIKeyModel).where(APIKeyModel.user_id == user_id)
-                ).all()
+                api_keys = session.exec(select(APIKeyModel).where(APIKeyModel.user_id == user_id)).all()
 
                 keys_data = [key.to_dict() for key in api_keys]
 
-                return self.success_response(
-                    f"Found {len(keys_data)} API keys",
-                    keys_data
-                )
+                return self.success_response(f"Found {len(keys_data)} API keys", keys_data)
 
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name}s")
@@ -188,19 +167,12 @@ class APIKeyService(BaseService):
                 if not api_key:
                     return self.error_response(f"API key with ID '{key_id}' not found")
 
-                return self.success_response(
-                    f"API key found",
-                    api_key.to_dict()
-                )
+                return self.success_response(f"API key found", api_key.to_dict())
 
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name}")
 
-    def update_api_key(
-        self,
-        key_id: str,
-        update_data: APIKeyUpdate
-    ) -> ServiceResponse[dict]:
+    def update_api_key(self, key_id: str, update_data: APIKeyUpdate) -> ServiceResponse[dict]:
         """Update an API key"""
         try:
             self.log_operation("update", self.entity_name, key_id)
@@ -221,9 +193,7 @@ class APIKeyService(BaseService):
                 if "role_names" in update_dict and update_dict["role_names"]:
                     permissions = list(api_key.permissions) if api_key.permissions else []
                     for role_name in update_dict["role_names"]:
-                        role = session.exec(
-                            select(RoleModel).where(RoleModel.name == role_name)
-                        ).first()
+                        role = session.exec(select(RoleModel).where(RoleModel.name == role_name)).first()
                         if role:
                             permissions.extend(role.permissions)
                     api_key.permissions = list(set(permissions))
@@ -232,10 +202,7 @@ class APIKeyService(BaseService):
                 session.commit()
                 session.refresh(api_key)
 
-                return self.success_response(
-                    f"API key updated successfully",
-                    api_key.to_dict()
-                )
+                return self.success_response(f"API key updated successfully", api_key.to_dict())
 
         except Exception as e:
             return self.handle_exception(e, f"update {self.entity_name}")
@@ -255,8 +222,7 @@ class APIKeyService(BaseService):
                 session.commit()
 
                 return self.success_response(
-                    f"API key '{api_key.name}' deleted successfully",
-                    {"id": key_id, "name": api_key.name}
+                    f"API key '{api_key.name}' deleted successfully", {"id": key_id, "name": api_key.name}
                 )
 
         except Exception as e:
@@ -278,10 +244,7 @@ class APIKeyService(BaseService):
                 session.commit()
                 session.refresh(api_key)
 
-                return self.success_response(
-                    f"API key '{api_key.name}' revoked successfully",
-                    api_key.to_dict()
-                )
+                return self.success_response(f"API key '{api_key.name}' revoked successfully", api_key.to_dict())
 
         except Exception as e:
             return self.handle_exception(e, f"revoke {self.entity_name}")

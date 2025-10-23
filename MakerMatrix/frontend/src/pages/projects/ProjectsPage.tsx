@@ -73,7 +73,10 @@ const ProjectsPage = () => {
       await projectsService.deleteProject(project.id)
       loadProjects()
     } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      const error = err as {
+        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       alert(error.response?.data?.error || 'Failed to delete project')
     }
   }
@@ -270,7 +273,9 @@ const ProjectsPage = () => {
 
                   {/* Description */}
                   {project.description && (
-                    <p className="text-sm text-secondary mb-3 line-clamp-2">{project.description}</p>
+                    <p className="text-sm text-secondary mb-3 line-clamp-2">
+                      {project.description}
+                    </p>
                   )}
 
                   {/* Stats */}

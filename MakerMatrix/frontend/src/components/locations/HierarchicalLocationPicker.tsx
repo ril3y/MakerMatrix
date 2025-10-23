@@ -118,7 +118,7 @@ export function HierarchicalLocationPicker({
     return {
       value: loc.id,
       label: label,
-      image_url: loc.emoji ? undefined : (loc.image_url || undefined),
+      image_url: loc.emoji ? undefined : loc.image_url || undefined,
     }
   })
 
@@ -147,9 +147,7 @@ export function HierarchicalLocationPicker({
       {selectedSlot && selectedLocation && (
         <div className="mb-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
           <div className="flex items-center gap-2 text-sm">
-            {selectedLocation.emoji && (
-              <span className="text-xl">{selectedLocation.emoji}</span>
-            )}
+            {selectedLocation.emoji && <span className="text-xl">{selectedLocation.emoji}</span>}
             <Box className="w-4 h-4 text-primary" />
             <span className="font-medium">{selectedLocation.name}</span>
             <ChevronRight className="w-4 h-4 text-secondary" />
@@ -157,8 +155,10 @@ export function HierarchicalLocationPicker({
             <span className="font-medium">{selectedSlot.name}</span>
             {selectedSlot.slot_metadata && (
               <span className="text-xs text-secondary">
-                {selectedSlot.slot_metadata.row !== undefined && `Row ${selectedSlot.slot_metadata.row}`}
-                {selectedSlot.slot_metadata.column !== undefined && `, Col ${selectedSlot.slot_metadata.column}`}
+                {selectedSlot.slot_metadata.row !== undefined &&
+                  `Row ${selectedSlot.slot_metadata.row}`}
+                {selectedSlot.slot_metadata.column !== undefined &&
+                  `, Col ${selectedSlot.slot_metadata.column}`}
               </span>
             )}
           </div>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Key, Plus, Trash2, Copy, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { apiKeyService, AvailablePermission } from '@/services/apiKey.service'
+import type { AvailablePermission } from '@/services/apiKey.service'
+import { apiKeyService } from '@/services/apiKey.service'
 import { useAuthStore } from '@/store/authStore'
 
 interface APIKey {
@@ -299,48 +300,52 @@ const ApiKeyManagement = () => {
             ) : (
               <div className="border border-border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto">
                 {/* Get unique categories from available permissions */}
-                {Array.from(new Set(availablePermissions.map((p) => p.category))).map((category) => {
-                  const categoryPerms = availablePermissions.filter((p) => p.category === category)
-                  if (categoryPerms.length === 0) return null
+                {Array.from(new Set(availablePermissions.map((p) => p.category))).map(
+                  (category) => {
+                    const categoryPerms = availablePermissions.filter(
+                      (p) => p.category === category
+                    )
+                    if (categoryPerms.length === 0) return null
 
-                  return (
-                    <div key={category}>
-                      <div className="text-xs font-semibold text-secondary uppercase mb-2">
-                        {category}
+                    return (
+                      <div key={category}>
+                        <div className="text-xs font-semibold text-secondary uppercase mb-2">
+                          {category}
+                        </div>
+                        <div className="space-y-1.5">
+                          {categoryPerms.map((perm) => (
+                            <label
+                              key={perm.value}
+                              className="flex items-center gap-2 cursor-pointer hover:bg-background-secondary p-1.5 rounded"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={newKeyData.permissions.includes(perm.value)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewKeyData({
+                                      ...newKeyData,
+                                      permissions: [...newKeyData.permissions, perm.value],
+                                    })
+                                  } else {
+                                    setNewKeyData({
+                                      ...newKeyData,
+                                      permissions: newKeyData.permissions.filter(
+                                        (p) => p !== perm.value
+                                      ),
+                                    })
+                                  }
+                                }}
+                                className="rounded border-border"
+                              />
+                              <span className="text-sm text-primary">{perm.label}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        {categoryPerms.map((perm) => (
-                          <label
-                            key={perm.value}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-background-secondary p-1.5 rounded"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={newKeyData.permissions.includes(perm.value)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNewKeyData({
-                                    ...newKeyData,
-                                    permissions: [...newKeyData.permissions, perm.value],
-                                  })
-                                } else {
-                                  setNewKeyData({
-                                    ...newKeyData,
-                                    permissions: newKeyData.permissions.filter(
-                                      (p) => p !== perm.value
-                                    ),
-                                  })
-                                }
-                              }}
-                              className="rounded border-border"
-                            />
-                            <span className="text-sm text-primary">{perm.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  }
+                )}
               </div>
             )}
             <p className="text-xs text-secondary mt-1">

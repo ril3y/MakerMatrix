@@ -24,6 +24,7 @@ class TestSupplierScrapingInterface:
         supplier = BaseSupplier()
         with pytest.raises(NotImplementedError):
             import asyncio
+
             asyncio.run(supplier.scrape_part_details("test_url"))
 
     def test_base_supplier_scraping_config_default(self):
@@ -47,19 +48,19 @@ class TestMcMasterCarrScraping:
         config = supplier.get_scraping_config()
 
         # Check required config keys
-        assert 'requires_js' in config
-        assert config['requires_js'] is True  # McMaster uses React
+        assert "requires_js" in config
+        assert config["requires_js"] is True  # McMaster uses React
 
-        assert 'rate_limit_seconds' in config
-        assert config['rate_limit_seconds'] == 2
+        assert "rate_limit_seconds" in config
+        assert config["rate_limit_seconds"] == 2
 
-        assert 'selectors' in config
-        selectors = config['selectors']
+        assert "selectors" in config
+        selectors = config["selectors"]
 
         # Check key selectors are defined
-        assert 'part_number' in selectors
-        assert 'price' in selectors
-        assert 'spec_table' in selectors
+        assert "part_number" in selectors
+        assert "price" in selectors
+        assert "spec_table" in selectors
 
     def test_mcmaster_has_scraping_capability(self):
         """Test that McMaster-Carr reports scraping capability"""
@@ -68,19 +69,15 @@ class TestMcMasterCarrScraping:
         assert SupplierCapability.SCRAPE_PART_DETAILS in capabilities
 
     @pytest.mark.asyncio
-    @patch('MakerMatrix.suppliers.scrapers.web_scraper.WebScraper.scrape_with_playwright')
+    @patch("MakerMatrix.suppliers.scrapers.web_scraper.WebScraper.scrape_with_playwright")
     async def test_mcmaster_scrape_part_details_with_url(self, mock_scrape):
         """Test scraping part details from URL"""
         # Mock scraped data
         mock_scrape.return_value = {
-            'part_number': '91253A194',
-            'name': 'Socket Head Cap Screw',
-            'price': '$12.50',
-            'specs': {
-                'Material': 'Steel',
-                'Thread Size': 'M5',
-                'Length': '16mm'
-            }
+            "part_number": "91253A194",
+            "name": "Socket Head Cap Screw",
+            "price": "$12.50",
+            "specs": {"Material": "Steel", "Thread Size": "M5", "Length": "16mm"},
         }
 
         supplier = McMasterCarrSupplier()
@@ -89,19 +86,16 @@ class TestMcMasterCarrScraping:
         # Verify result
         assert result is not None
         assert isinstance(result, PartSearchResult)
-        assert result.supplier_part_number == '91253A194'
-        assert result.part_name == 'Socket Head Cap Screw'
+        assert result.supplier_part_number == "91253A194"
+        assert result.part_name == "Socket Head Cap Screw"
         assert len(result.specifications) > 0
 
     @pytest.mark.asyncio
-    @patch('MakerMatrix.suppliers.scrapers.web_scraper.WebScraper.scrape_with_playwright')
+    @patch("MakerMatrix.suppliers.scrapers.web_scraper.WebScraper.scrape_with_playwright")
     async def test_mcmaster_scrape_part_details_with_part_number(self, mock_scrape):
         """Test scraping part details from part number"""
         # Mock scraped data
-        mock_scrape.return_value = {
-            'part_number': '91253A194',
-            'name': 'Socket Head Cap Screw'
-        }
+        mock_scrape.return_value = {"part_number": "91253A194", "name": "Socket Head Cap Screw"}
 
         supplier = McMasterCarrSupplier()
         result = await supplier.scrape_part_details("91253A194")
@@ -117,18 +111,11 @@ class TestMcMasterCarrScraping:
         supplier = McMasterCarrSupplier()
 
         # Mock the scraping method
-        mock_result = PartSearchResult(
-            supplier_part_number="91253A194",
-            part_name="Test Part"
-        )
+        mock_result = PartSearchResult(supplier_part_number="91253A194", part_name="Test Part")
         supplier.scrape_part_details = AsyncMock(return_value=mock_result)
 
         # Call with scraping mode enabled
-        result = await supplier.get_part_details(
-            "91253A194",
-            credentials={},
-            config={'scraping_mode': True}
-        )
+        result = await supplier.get_part_details("91253A194", credentials={}, config={"scraping_mode": True})
 
         # Verify scraping was called
         supplier.scrape_part_details.assert_called_once_with("91253A194")
@@ -165,12 +152,7 @@ class TestWebScraper:
         """Test price parsing with invalid formats"""
         scraper = WebScraper()
 
-        invalid_prices = [
-            "not a price",
-            "",
-            "N/A",
-            "Call for quote"
-        ]
+        invalid_prices = ["not a price", "", "N/A", "Call for quote"]
 
         for price_text in invalid_prices:
             result = scraper.parse_price(price_text)
@@ -190,16 +172,13 @@ class TestWebScraper:
         """
 
         from bs4 import BeautifulSoup
-        soup = BeautifulSoup(html, 'html.parser')
-        table = soup.find('table')
+
+        soup = BeautifulSoup(html, "html.parser")
+        table = soup.find("table")
 
         result = scraper.extract_table_data(table)
 
-        assert result == {
-            'Material': 'Steel',
-            'Thread Size': 'M5',
-            'Length': '16mm'
-        }
+        assert result == {"Material": "Steel", "Thread Size": "M5", "Length": "16mm"}
 
     @pytest.mark.asyncio
     async def test_scraper_caching(self):
@@ -207,7 +186,7 @@ class TestWebScraper:
         scraper = WebScraper()
 
         # Mock the actual scraping
-        with patch.object(scraper, '_fetch_page', new_callable=AsyncMock) as mock_fetch:
+        with patch.object(scraper, "_fetch_page", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = "<html><body><div id='test'>Content</div></body></html>"
 
             # First call
@@ -224,10 +203,11 @@ class TestWebScraper:
     async def test_scraper_rate_limiting(self):
         """Test that scraper respects rate limits"""
         import time
+
         scraper = WebScraper()
 
         # Mock the fetch method
-        with patch.object(scraper, '_fetch_page', new_callable=AsyncMock) as mock_fetch:
+        with patch.object(scraper, "_fetch_page", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = "<html><body>Test</body></html>"
 
             start_time = time.time()
@@ -253,17 +233,16 @@ class TestEnrichmentServiceScrapingFallback:
         service = PartEnrichmentService()
 
         # Mock the supplier registry to return McMaster
-        with patch('MakerMatrix.suppliers.registry.supplier_registry.get_supplier') as mock_get:
+        with patch("MakerMatrix.suppliers.registry.supplier_registry.get_supplier") as mock_get:
             mock_supplier = Mock(spec=McMasterCarrSupplier)
             mock_supplier.supports_scraping.return_value = True
-            mock_supplier.get_part_details = AsyncMock(return_value=PartSearchResult(
-                supplier_part_number="TEST123",
-                part_name="Test Part"
-            ))
+            mock_supplier.get_part_details = AsyncMock(
+                return_value=PartSearchResult(supplier_part_number="TEST123", part_name="Test Part")
+            )
             mock_get.return_value = mock_supplier
 
             # Mock credentials storage to return empty
-            with patch.object(service, '_get_supplier_credentials') as mock_creds:
+            with patch.object(service, "_get_supplier_credentials") as mock_creds:
                 mock_creds.return_value = {}  # No credentials
 
                 # Call enrichment
@@ -289,23 +268,20 @@ class TestSupplierRoutesScrapingEndpoint:
 
         with TestClient(app) as client:
             # Mock the supplier registry
-            with patch('MakerMatrix.suppliers.registry.supplier_registry.get_supplier') as mock_get:
+            with patch("MakerMatrix.suppliers.registry.supplier_registry.get_supplier") as mock_get:
                 mock_supplier = Mock(spec=McMasterCarrSupplier)
                 mock_supplier.supports_scraping.return_value = True
-                mock_supplier.get_scraping_config.return_value = {
-                    'requires_js': True,
-                    'rate_limit_seconds': 2
-                }
+                mock_supplier.get_scraping_config.return_value = {"requires_js": True, "rate_limit_seconds": 2}
                 mock_get.return_value = mock_supplier
 
                 response = client.get("/api/suppliers/mcmaster-carr/supports-scraping")
 
                 assert response.status_code == 200
                 data = response.json()
-                assert data['data']['supports_scraping'] is True
-                assert data['data']['requires_js'] is True
-                assert data['data']['rate_limit_seconds'] == 2
-                assert 'warning' in data['data']
+                assert data["data"]["supports_scraping"] is True
+                assert data["data"]["requires_js"] is True
+                assert data["data"]["rate_limit_seconds"] == 2
+                assert "warning" in data["data"]
 
     @pytest.mark.asyncio
     async def test_supports_scraping_endpoint_no_scraping(self):
@@ -319,7 +295,7 @@ class TestSupplierRoutesScrapingEndpoint:
 
         with TestClient(app) as client:
             # Mock a supplier that doesn't support scraping
-            with patch('MakerMatrix.suppliers.registry.supplier_registry.get_supplier') as mock_get:
+            with patch("MakerMatrix.suppliers.registry.supplier_registry.get_supplier") as mock_get:
                 mock_supplier = Mock(spec=BaseSupplier)
                 mock_supplier.supports_scraping.return_value = False
                 mock_get.return_value = mock_supplier
@@ -328,5 +304,5 @@ class TestSupplierRoutesScrapingEndpoint:
 
                 assert response.status_code == 200
                 data = response.json()
-                assert data['data']['supports_scraping'] is False
-                assert data['data']['warning'] is None
+                assert data["data"]["supports_scraping"] is False
+                assert data["data"]["warning"] is None

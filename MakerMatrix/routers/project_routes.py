@@ -11,7 +11,7 @@ from MakerMatrix.schemas.project_schemas import (
     ProjectResponse,
     ProjectsListResponse,
     ProjectPartAssociation,
-    DeleteProjectsResponse
+    DeleteProjectsResponse,
 )
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.project_service import ProjectService
@@ -41,10 +41,7 @@ async def get_all_projects() -> ResponseSchema[ProjectsListResponse]:
     service_response = project_service.get_all_projects()
     data = validate_service_response(service_response)
 
-    return BaseRouter.build_success_response(
-        data=ProjectsListResponse(**data),
-        message=service_response.message
-    )
+    return BaseRouter.build_success_response(data=ProjectsListResponse(**data), message=service_response.message)
 
 
 @router.post("/", response_model=ResponseSchema[ProjectResponse])
@@ -52,7 +49,7 @@ async def get_all_projects() -> ResponseSchema[ProjectsListResponse]:
 async def create_project(
     project_data: ProjectCreate,
     request: Request,
-    current_user: UserModel = Depends(require_permission("projects:create"))
+    current_user: UserModel = Depends(require_permission("projects:create")),
 ) -> ResponseSchema[ProjectResponse]:
     """
     Create a new project.
@@ -73,6 +70,7 @@ async def create_project(
     # Log project creation activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_activity(
             action="project_created",
@@ -81,7 +79,7 @@ async def create_project(
             entity_name=data["name"],
             user=current_user,
             request=request,
-            details={"project_slug": data["slug"], "status": data["status"]}
+            details={"project_slug": data["slug"], "status": data["status"]},
         )
     except Exception as e:
         logger.warning(f"Failed to log project creation activity: {e}")
@@ -95,23 +93,20 @@ async def create_project(
             entity_name=data["name"],
             user_id=current_user.id,
             username=current_user.username,
-            entity_data=data
+            entity_data=data,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast project creation: {e}")
 
     return BaseRouter.build_success_response(
-        data=ProjectResponse.model_validate(data),
-        message=service_response.message
+        data=ProjectResponse.model_validate(data), message=service_response.message
     )
 
 
 @router.get("/{project_id}", response_model=ResponseSchema[ProjectResponse])
 @standard_error_handling
 async def get_project(
-    project_id: Optional[str] = None,
-    name: Optional[str] = None,
-    slug: Optional[str] = None
+    project_id: Optional[str] = None, name: Optional[str] = None, slug: Optional[str] = None
 ) -> ResponseSchema[ProjectResponse]:
     """
     Get a project by ID, name, or slug.
@@ -132,8 +127,7 @@ async def get_project(
     data = validate_service_response(service_response)
 
     return BaseRouter.build_success_response(
-        data=ProjectResponse.model_validate(data),
-        message=service_response.message
+        data=ProjectResponse.model_validate(data), message=service_response.message
     )
 
 
@@ -143,7 +137,7 @@ async def update_project(
     project_id: str,
     project_data: ProjectUpdate,
     request: Request,
-    current_user: UserModel = Depends(require_permission("projects:update"))
+    current_user: UserModel = Depends(require_permission("projects:update")),
 ) -> ResponseSchema[ProjectResponse]:
     """
     Update a project's fields.
@@ -165,6 +159,7 @@ async def update_project(
     # Log activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
 
         # Create changes dict from the update data
@@ -177,7 +172,7 @@ async def update_project(
             entity_name=data["name"],
             user=current_user,
             request=request,
-            details={"changes": changes}
+            details={"changes": changes},
         )
     except Exception as activity_error:
         logger.warning(f"Failed to log project update activity: {activity_error}")
@@ -195,23 +190,20 @@ async def update_project(
             user_id=current_user.id,
             username=current_user.username,
             changes=changes_dict,
-            entity_data=data
+            entity_data=data,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast project update: {e}")
 
     return BaseRouter.build_success_response(
-        data=ProjectResponse.model_validate(data),
-        message=service_response.message
+        data=ProjectResponse.model_validate(data), message=service_response.message
     )
 
 
 @router.delete("/{project_id}", response_model=ResponseSchema[ProjectResponse])
 @standard_error_handling
 async def delete_project(
-    project_id: str,
-    request: Request,
-    current_user: UserModel = Depends(require_permission("projects:delete"))
+    project_id: str, request: Request, current_user: UserModel = Depends(require_permission("projects:delete"))
 ) -> ResponseSchema[ProjectResponse]:
     """
     Delete a project by ID.
@@ -232,6 +224,7 @@ async def delete_project(
     # Log project deletion activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_activity(
             action="project_deleted",
@@ -239,7 +232,7 @@ async def delete_project(
             entity_id=data["id"],
             entity_name=data["name"],
             user=current_user,
-            request=request
+            request=request,
         )
     except Exception as e:
         logger.warning(f"Failed to log project deletion activity: {e}")
@@ -252,14 +245,13 @@ async def delete_project(
             entity_id=data["id"],
             entity_name=data["name"],
             user_id=current_user.id,
-            username=current_user.username
+            username=current_user.username,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast project deletion: {e}")
 
     return BaseRouter.build_success_response(
-        data=ProjectResponse.model_validate(data),
-        message=service_response.message
+        data=ProjectResponse.model_validate(data), message=service_response.message
     )
 
 
@@ -267,7 +259,7 @@ async def delete_project(
 @standard_error_handling
 @log_activity("projects_cleared", "User {username} cleared all projects")
 async def delete_all_projects(
-    current_user: UserModel = Depends(require_permission("admin"))
+    current_user: UserModel = Depends(require_permission("admin")),
 ) -> ResponseSchema[DeleteProjectsResponse]:
     """
     Delete all projects from the system - USE WITH CAUTION! (Admin only)
@@ -278,12 +270,12 @@ async def delete_all_projects(
     response = ProjectService.delete_all_projects()
 
     return BaseRouter.build_success_response(
-        data=DeleteProjectsResponse(deleted_count=response["data"]["deleted_count"]),
-        message=response["message"]
+        data=DeleteProjectsResponse(deleted_count=response["data"]["deleted_count"]), message=response["message"]
     )
 
 
 # === Part-Project Association Endpoints ===
+
 
 @router.post("/{project_id}/parts/{part_id}", response_model=ResponseSchema[dict])
 @standard_error_handling
@@ -292,7 +284,7 @@ async def add_part_to_project(
     part_id: str,
     request: Request,
     notes: Optional[str] = None,
-    current_user: UserModel = Depends(require_permission("projects:update"))
+    current_user: UserModel = Depends(require_permission("projects:update")),
 ) -> ResponseSchema[dict]:
     """
     Add a part to a project.
@@ -312,6 +304,7 @@ async def add_part_to_project(
     # Log activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_activity(
             action="part_added_to_project",
@@ -320,15 +313,12 @@ async def add_part_to_project(
             entity_name=data.get("project_name", ""),
             user=current_user,
             request=request,
-            details={"part_id": part_id, "notes": notes}
+            details={"part_id": part_id, "notes": notes},
         )
     except Exception as e:
         logger.warning(f"Failed to log part addition activity: {e}")
 
-    return BaseRouter.build_success_response(
-        data=data,
-        message=service_response.message
-    )
+    return BaseRouter.build_success_response(data=data, message=service_response.message)
 
 
 @router.delete("/{project_id}/parts/{part_id}", response_model=ResponseSchema[dict])
@@ -337,7 +327,7 @@ async def remove_part_from_project(
     project_id: str,
     part_id: str,
     request: Request,
-    current_user: UserModel = Depends(require_permission("projects:update"))
+    current_user: UserModel = Depends(require_permission("projects:update")),
 ) -> ResponseSchema[dict]:
     """
     Remove a part from a project.
@@ -356,6 +346,7 @@ async def remove_part_from_project(
     # Log activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_activity(
             action="part_removed_from_project",
@@ -364,15 +355,12 @@ async def remove_part_from_project(
             entity_name=data.get("project_name", ""),
             user=current_user,
             request=request,
-            details={"part_id": part_id}
+            details={"part_id": part_id},
         )
     except Exception as e:
         logger.warning(f"Failed to log part removal activity: {e}")
 
-    return BaseRouter.build_success_response(
-        data=data,
-        message=service_response.message
-    )
+    return BaseRouter.build_success_response(data=data, message=service_response.message)
 
 
 @router.get("/{project_id}/parts", response_model=ResponseSchema[dict])
@@ -391,10 +379,7 @@ async def get_project_parts(project_id: str) -> ResponseSchema[dict]:
     service_response = project_service.get_parts_for_project(project_id)
     data = validate_service_response(service_response)
 
-    return BaseRouter.build_success_response(
-        data=data,
-        message=service_response.message
-    )
+    return BaseRouter.build_success_response(data=data, message=service_response.message)
 
 
 @router.get("/parts/{part_id}/projects", response_model=ResponseSchema[dict])
@@ -413,7 +398,4 @@ async def get_part_projects(part_id: str) -> ResponseSchema[dict]:
     service_response = project_service.get_projects_for_part(part_id)
     data = validate_service_response(service_response)
 
-    return BaseRouter.build_success_response(
-        data=data,
-        message=service_response.message
-    )
+    return BaseRouter.build_success_response(data=data, message=service_response.message)

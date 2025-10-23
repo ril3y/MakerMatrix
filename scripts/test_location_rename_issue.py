@@ -12,13 +12,11 @@ from typing import Dict, Any
 # Configuration
 API_BASE = "https://localhost:8443/api"
 API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
-HEADERS = {
-    "X-API-Key": API_KEY,
-    "Content-Type": "application/json"
-}
+HEADERS = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
 
 # Disable SSL warnings for localhost
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -41,7 +39,7 @@ def make_request(method: str, endpoint: str, data: Dict[str, Any] = None) -> Dic
         return response.json()
     except requests.exceptions.RequestException as e:
         print(f"Error making request to {url}: {e}")
-        if hasattr(e.response, 'text'):
+        if hasattr(e.response, "text"):
             print(f"Response: {e.response.text}")
         raise
 
@@ -73,9 +71,9 @@ def cleanup_test_data():
 
 def test_location_rename_preserves_allocations():
     """Main test function."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST: Location Rename Should Preserve Allocations")
-    print("="*60)
+    print("=" * 60)
 
     try:
         # Step 1: Create a test location
@@ -83,7 +81,7 @@ def test_location_rename_preserves_allocations():
         location_data = {
             "name": "TEST_RENAME_Storage_A",
             "description": "Test storage location for rename testing",
-            "location_type": "storage"
+            "location_type": "storage",
         }
         location_response = make_request("POST", "/locations/add_location", location_data)
         location = location_response["data"]
@@ -98,7 +96,7 @@ def test_location_rename_preserves_allocations():
             "description": "Test 10K resistor for rename testing",
             "manufacturer": "TestCorp",
             "quantity": 100,
-            "location_id": location_id
+            "location_id": location_id,
         }
         part_response = make_request("POST", "/parts/add_part", part_data)
         part = part_response["data"]
@@ -113,8 +111,8 @@ def test_location_rename_preserves_allocations():
         print(f"   Total quantity: {allocations_data['total_quantity']}")
         print(f"   Location count: {allocations_data['location_count']}")
 
-        if allocations_data['allocations']:
-            alloc = allocations_data['allocations'][0]
+        if allocations_data["allocations"]:
+            alloc = allocations_data["allocations"][0]
             print(f"   Allocation details:")
             print(f"     - Location ID: {alloc['location_id']}")
             print(f"     - Location Name: {alloc['location']['name']}")
@@ -122,18 +120,16 @@ def test_location_rename_preserves_allocations():
             print(f"     - Is Primary: {alloc['is_primary_storage']}")
 
             # Store original values for comparison
-            original_alloc_id = alloc['id']
-            original_location_id = alloc['location_id']
-            original_quantity = alloc['quantity_at_location']
+            original_alloc_id = alloc["id"]
+            original_location_id = alloc["location_id"]
+            original_quantity = alloc["quantity_at_location"]
         else:
             print("   ERROR: No allocations found!")
             return False
 
         # Step 4: Rename the location
         print("\n4. Renaming the location...")
-        rename_data = {
-            "name": "TEST_RENAME_Distribution_Center_B"
-        }
+        rename_data = {"name": "TEST_RENAME_Distribution_Center_B"}
         rename_response = make_request("PUT", f"/locations/update_location/{location_id}", rename_data)
         renamed_location = rename_response["data"]
         print(f"   Location renamed from '{location['name']}' to '{renamed_location['name']}'")
@@ -147,8 +143,8 @@ def test_location_rename_preserves_allocations():
         print(f"   Total quantity after rename: {allocations_after['total_quantity']}")
         print(f"   Location count after rename: {allocations_after['location_count']}")
 
-        if allocations_after['allocations']:
-            alloc_after = allocations_after['allocations'][0]
+        if allocations_after["allocations"]:
+            alloc_after = allocations_after["allocations"][0]
             print(f"   Allocation details after rename:")
             print(f"     - Allocation ID: {alloc_after['id']}")
             print(f"     - Location ID: {alloc_after['location_id']}")
@@ -160,28 +156,30 @@ def test_location_rename_preserves_allocations():
             success = True
             print("\n6. Verification Results:")
 
-            if alloc_after['id'] == original_alloc_id:
+            if alloc_after["id"] == original_alloc_id:
                 print("   ✓ Allocation ID preserved")
             else:
                 print(f"   ✗ Allocation ID changed: {original_alloc_id} → {alloc_after['id']}")
                 success = False
 
-            if alloc_after['location_id'] == original_location_id:
+            if alloc_after["location_id"] == original_location_id:
                 print("   ✓ Location ID reference preserved")
             else:
                 print(f"   ✗ Location ID changed: {original_location_id} → {alloc_after['location_id']}")
                 success = False
 
-            if alloc_after['quantity_at_location'] == original_quantity:
+            if alloc_after["quantity_at_location"] == original_quantity:
                 print("   ✓ Quantity preserved")
             else:
                 print(f"   ✗ Quantity changed: {original_quantity} → {alloc_after['quantity_at_location']}")
                 success = False
 
-            if alloc_after['location']['name'] == renamed_location['name']:
+            if alloc_after["location"]["name"] == renamed_location["name"]:
                 print("   ✓ Location name updated correctly in allocation")
             else:
-                print(f"   ✗ Location name mismatch: expected '{renamed_location['name']}', got '{alloc_after['location']['name']}'")
+                print(
+                    f"   ✗ Location name mismatch: expected '{renamed_location['name']}', got '{alloc_after['location']['name']}'"
+                )
                 success = False
 
             # Check part's location reference
@@ -189,13 +187,13 @@ def test_location_rename_preserves_allocations():
             part_after_response = make_request("GET", f"/parts/get_part?part_id={part_id}")
             part_after = part_after_response["data"]
 
-            if part_after.get('location_id') == original_location_id:
+            if part_after.get("location_id") == original_location_id:
                 print(f"   ✓ Part's location_id preserved: {part_after['location_id']}")
             else:
                 print(f"   ✗ Part's location_id changed or lost: {part_after.get('location_id')}")
                 success = False
 
-            if part_after.get('location', {}).get('name') == renamed_location['name']:
+            if part_after.get("location", {}).get("name") == renamed_location["name"]:
                 print(f"   ✓ Part shows correct location name: {part_after['location']['name']}")
             else:
                 print(f"   ✗ Part shows incorrect location: {part_after.get('location', {}).get('name')}")
@@ -218,9 +216,9 @@ def test_location_rename_preserves_allocations():
 
 def test_multiple_allocations():
     """Test with multiple allocations to ensure all are preserved."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST: Multiple Allocations After Location Rename")
-    print("="*60)
+    print("=" * 60)
 
     try:
         # Create multiple locations
@@ -230,7 +228,7 @@ def test_multiple_allocations():
             loc_data = {
                 "name": f"TEST_RENAME_Location_{i}",
                 "description": f"Test location {i}",
-                "location_type": "storage"
+                "location_type": "storage",
             }
             loc_response = make_request("POST", "/locations/add_location", loc_data)
             locations.append(loc_response["data"])
@@ -244,7 +242,7 @@ def test_multiple_allocations():
             "description": "Part with multiple allocations",
             "manufacturer": "TestCorp",
             "quantity": 300,
-            "location_id": locations[0]["id"]
+            "location_id": locations[0]["id"],
         }
         part_response = make_request("POST", "/parts/add_part", part_data)
         part_id = part_response["data"]["id"]
@@ -252,10 +250,16 @@ def test_multiple_allocations():
 
         # Transfer to create multiple allocations
         print("\n3. Creating multiple allocations via transfers...")
-        transfer1 = make_request("POST", f"/parts/{part_id}/transfer?from_location_id={locations[0]['id']}&to_location_id={locations[1]['id']}&quantity=100")
+        transfer1 = make_request(
+            "POST",
+            f"/parts/{part_id}/transfer?from_location_id={locations[0]['id']}&to_location_id={locations[1]['id']}&quantity=100",
+        )
         print(f"   Transferred 100 units to {locations[1]['name']}")
 
-        transfer2 = make_request("POST", f"/parts/{part_id}/transfer?from_location_id={locations[0]['id']}&to_location_id={locations[2]['id']}&quantity=50")
+        transfer2 = make_request(
+            "POST",
+            f"/parts/{part_id}/transfer?from_location_id={locations[0]['id']}&to_location_id={locations[2]['id']}&quantity=50",
+        )
         print(f"   Transferred 50 units to {locations[2]['name']}")
 
         # Verify allocations before rename
@@ -263,7 +267,7 @@ def test_multiple_allocations():
         allocations_before = make_request("GET", f"/parts/{part_id}/allocations")["data"]
         print(f"   Total quantity: {allocations_before['total_quantity']}")
         print(f"   Locations: {allocations_before['location_count']}")
-        for alloc in allocations_before['allocations']:
+        for alloc in allocations_before["allocations"]:
             print(f"     - {alloc['location']['name']}: {alloc['quantity_at_location']} units")
 
         # Rename all locations
@@ -283,12 +287,12 @@ def test_multiple_allocations():
         expected_quantities = {
             "TEST_RENAME_NewName_0": 150,  # 300 - 100 - 50
             "TEST_RENAME_NewName_1": 100,
-            "TEST_RENAME_NewName_2": 50
+            "TEST_RENAME_NewName_2": 50,
         }
 
-        for alloc in allocations_after['allocations']:
-            loc_name = alloc['location']['name']
-            quantity = alloc['quantity_at_location']
+        for alloc in allocations_after["allocations"]:
+            loc_name = alloc["location"]["name"]
+            quantity = alloc["quantity_at_location"]
             print(f"     - {loc_name}: {quantity} units")
 
             if loc_name in expected_quantities:
@@ -301,13 +305,13 @@ def test_multiple_allocations():
                 print(f"       ✗ Unexpected location name!")
                 success = False
 
-        if allocations_after['total_quantity'] == 300:
+        if allocations_after["total_quantity"] == 300:
             print(f"   ✓ Total quantity preserved: 300")
         else:
             print(f"   ✗ Total quantity changed: {allocations_after['total_quantity']}")
             success = False
 
-        if allocations_after['location_count'] == 3:
+        if allocations_after["location_count"] == 3:
             print(f"   ✓ All 3 allocations preserved")
         else:
             print(f"   ✗ Location count changed: {allocations_after['location_count']}")
@@ -325,18 +329,18 @@ def test_multiple_allocations():
 
 
 if __name__ == "__main__":
-    print("="*60)
+    print("=" * 60)
     print("Location Rename Issue Investigation")
-    print("="*60)
+    print("=" * 60)
 
     # Run tests
     test1_passed = test_location_rename_preserves_allocations()
     test2_passed = test_multiple_allocations()
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST SUMMARY")
-    print("="*60)
+    print("=" * 60)
     if test1_passed:
         print("✓ Single allocation test: PASSED")
     else:

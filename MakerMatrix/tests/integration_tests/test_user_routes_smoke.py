@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from MakerMatrix.main import app
 
+
 def test_users_all_route_available():
     with TestClient(app) as client:
         # Log in as admin
@@ -18,7 +19,9 @@ def test_users_all_route_available():
         assert any(user["username"] == "admin" for user in data["data"])
         print("[DEBUG] /users/all route smoke test passed.")
 
+
 def test_print_routes():
     from MakerMatrix.main import app
+
     with TestClient(app) as client:
         print("[DEBUG ROUTES]", [route.path for route in app.routes])

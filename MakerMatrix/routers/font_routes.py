@@ -17,6 +17,7 @@ router = APIRouter(prefix="/fonts", tags=["fonts"])
 
 class FontInfoResponse(BaseModel):
     """Font information response model"""
+
     name: str
     path: str
     is_bundled: bool
@@ -50,23 +51,15 @@ async def list_fonts(bundled_only: bool = False):
                 "is_bundled": font.is_bundled,
                 "supports_emoji": font.supports_emoji,
                 "file_size_kb": font.file_size_kb,
-                "description": font.description
+                "description": font.description,
             }
             for font in fonts
         ]
 
-        return ResponseSchema(
-            status="success",
-            message=f"Found {len(font_data)} font(s)",
-            data=font_data
-        )
+        return ResponseSchema(status="success", message=f"Found {len(font_data)} font(s)", data=font_data)
 
     except Exception as e:
-        return ResponseSchema(
-            status="error",
-            message=f"Failed to list fonts: {str(e)}",
-            data=None
-        )
+        return ResponseSchema(status="error", message=f"Failed to list fonts: {str(e)}", data=None)
 
 
 @router.get("/bundled", response_model=ResponseSchema)
@@ -87,23 +80,15 @@ async def list_bundled_fonts():
                 "is_bundled": font.is_bundled,
                 "supports_emoji": font.supports_emoji,
                 "file_size_kb": font.file_size_kb,
-                "description": font.description
+                "description": font.description,
             }
             for font in fonts
         ]
 
-        return ResponseSchema(
-            status="success",
-            message=f"Found {len(font_data)} bundled font(s)",
-            data=font_data
-        )
+        return ResponseSchema(status="success", message=f"Found {len(font_data)} bundled font(s)", data=font_data)
 
     except Exception as e:
-        return ResponseSchema(
-            status="error",
-            message=f"Failed to list bundled fonts: {str(e)}",
-            data=None
-        )
+        return ResponseSchema(status="error", message=f"Failed to list bundled fonts: {str(e)}", data=None)
 
 
 @router.get("/system", response_model=ResponseSchema)
@@ -124,23 +109,15 @@ async def list_system_fonts():
                 "is_bundled": font.is_bundled,
                 "supports_emoji": font.supports_emoji,
                 "file_size_kb": font.file_size_kb,
-                "description": font.description
+                "description": font.description,
             }
             for font in fonts
         ]
 
-        return ResponseSchema(
-            status="success",
-            message=f"Found {len(font_data)} system font(s)",
-            data=font_data
-        )
+        return ResponseSchema(status="success", message=f"Found {len(font_data)} system font(s)", data=font_data)
 
     except Exception as e:
-        return ResponseSchema(
-            status="error",
-            message=f"Failed to list system fonts: {str(e)}",
-            data=None
-        )
+        return ResponseSchema(status="error", message=f"Failed to list system fonts: {str(e)}", data=None)
 
 
 @router.get("/preferred/emoji", response_model=ResponseSchema)
@@ -155,24 +132,12 @@ async def get_preferred_emoji_font():
         font_path = FontService.get_preferred_emoji_font()
 
         if not font_path:
-            return ResponseSchema(
-                status="warning",
-                message="No emoji font available",
-                data=None
-            )
+            return ResponseSchema(status="warning", message="No emoji font available", data=None)
 
-        return ResponseSchema(
-            status="success",
-            message="Preferred emoji font found",
-            data={"path": font_path}
-        )
+        return ResponseSchema(status="success", message="Preferred emoji font found", data={"path": font_path})
 
     except Exception as e:
-        return ResponseSchema(
-            status="error",
-            message=f"Failed to get preferred emoji font: {str(e)}",
-            data=None
-        )
+        return ResponseSchema(status="error", message=f"Failed to get preferred emoji font: {str(e)}", data=None)
 
 
 @router.get("/preferred/text", response_model=ResponseSchema)
@@ -187,24 +152,12 @@ async def get_preferred_text_font():
         font_path = FontService.get_preferred_text_font()
 
         if not font_path:
-            return ResponseSchema(
-                status="warning",
-                message="No text font available",
-                data=None
-            )
+            return ResponseSchema(status="warning", message="No text font available", data=None)
 
-        return ResponseSchema(
-            status="success",
-            message="Preferred text font found",
-            data={"path": font_path}
-        )
+        return ResponseSchema(status="success", message="Preferred text font found", data={"path": font_path})
 
     except Exception as e:
-        return ResponseSchema(
-            status="error",
-            message=f"Failed to get preferred text font: {str(e)}",
-            data=None
-        )
+        return ResponseSchema(status="error", message=f"Failed to get preferred text font: {str(e)}", data=None)
 
 
 @router.get("/validate/{font_name}", response_model=ResponseSchema)
@@ -227,18 +180,10 @@ async def validate_font(font_name: str):
                 return ResponseSchema(
                     status="success" if is_valid else "error",
                     message="Font is valid" if is_valid else "Font file not readable",
-                    data={"path": font.path, "valid": is_valid}
+                    data={"path": font.path, "valid": is_valid},
                 )
 
-        return ResponseSchema(
-            status="error",
-            message=f"Font '{font_name}' not found",
-            data=None
-        )
+        return ResponseSchema(status="error", message=f"Font '{font_name}' not found", data=None)
 
     except Exception as e:
-        return ResponseSchema(
-            status="error",
-            message=f"Failed to validate font: {str(e)}",
-            data=None
-        )
+        return ResponseSchema(status="error", message=f"Failed to validate font: {str(e)}", data=None)

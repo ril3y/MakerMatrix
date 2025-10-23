@@ -4,7 +4,8 @@ Script to assign categories to existing parts in the database.
 """
 
 import sys
-sys.path.append('.')
+
+sys.path.append(".")
 
 from sqlmodel import Session
 from MakerMatrix.models.models import engine
@@ -15,7 +16,7 @@ from MakerMatrix.schemas.part_create import PartUpdate
 
 def assign_categories_to_parts():
     """Assign categories to existing parts based on their names and descriptions"""
-    
+
     # Get all categories first
     try:
         categories_result = CategoryService.get_all_categories()
@@ -24,7 +25,7 @@ def assign_categories_to_parts():
     except Exception as e:
         print(f"Failed to get categories: {e}")
         return
-    
+
     # Get all parts
     try:
         parts_result = PartService.get_all_parts()
@@ -33,7 +34,7 @@ def assign_categories_to_parts():
     except Exception as e:
         print(f"Failed to get parts: {e}")
         return
-    
+
     # Part to category mappings based on part names/descriptions
     part_category_mappings = {
         "Arduino Uno R3": ["Electronics", "Microcontrollers"],
@@ -55,15 +56,15 @@ def assign_categories_to_parts():
         "Aluminum Sheet 1mm": ["Raw Materials", "Metal Stock"],
         "Acrylic Sheet Clear 3mm": ["Raw Materials", "Plastic Stock"],
         "Super Glue": ["Consumables", "Adhesives"],
-        "Isopropyl Alcohol 99%": ["Consumables", "Cleaning Supplies"]
+        "Isopropyl Alcohol 99%": ["Consumables", "Cleaning Supplies"],
     }
-    
+
     # Assign categories to parts
     for part in parts:
         part_name = part["part_name"]
         if part_name in part_category_mappings:
             category_names = part_category_mappings[part_name]
-            
+
             # Get category IDs
             valid_category_names = []
             for cat_name in category_names:
@@ -71,7 +72,7 @@ def assign_categories_to_parts():
                     valid_category_names.append(cat_name)
                 else:
                     print(f"  Warning: Category '{cat_name}' not found for part '{part_name}'")
-            
+
             if valid_category_names:
                 try:
                     # Update part with categories

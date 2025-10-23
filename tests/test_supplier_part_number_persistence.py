@@ -35,28 +35,26 @@ class TestSupplierPartNumberPersistence:
 
         # Create mock enrichment results (what Mouser API returns)
         enrichment_results = {
-            'part_data': {
-                'success': True,
-                'manufacturer': 'Yageo',
-                'manufacturer_part_number': 'RC0805FR-071KL',
-                'description': 'RES SMD 1K OHM 1% 1/8W 0805',
-                'datasheet_url': 'https://www.mouser.com/datasheet/2/447/yageo_datasheet.pdf',
-                'image_url': None,
-                'category': 'Chip Resistor',
-                'stock_quantity': 50000,
-                'pricing': [{'quantity': 1, 'price': 0.10, 'currency': 'USD'}],
-                'specifications': {'Resistance': '1kΩ', 'Power': '1/8W'},
-                'additional_data': {
-                    'mouser_part_number': '652-CRL0805JWR330ELF',  # Mouser returns this in additional_data
-                    'product_detail_url': 'https://www.mouser.com/ProductDetail/652-CRL0805JWR330ELF'
-                }
+            "part_data": {
+                "success": True,
+                "manufacturer": "Yageo",
+                "manufacturer_part_number": "RC0805FR-071KL",
+                "description": "RES SMD 1K OHM 1% 1/8W 0805",
+                "datasheet_url": "https://www.mouser.com/datasheet/2/447/yageo_datasheet.pdf",
+                "image_url": None,
+                "category": "Chip Resistor",
+                "stock_quantity": 50000,
+                "pricing": [{"quantity": 1, "price": 0.10, "currency": "USD"}],
+                "specifications": {"Resistance": "1kΩ", "Power": "1/8W"},
+                "additional_data": {
+                    "mouser_part_number": "652-CRL0805JWR330ELF",  # Mouser returns this in additional_data
+                    "product_detail_url": "https://www.mouser.com/ProductDetail/652-CRL0805JWR330ELF",
+                },
             }
         }
 
         # Convert to PartSearchResult
-        result = service._convert_enrichment_to_part_search_result(
-            part, enrichment_results, 'mouser'
-        )
+        result = service._convert_enrichment_to_part_search_result(part, enrichment_results, "mouser")
 
         # Verify the supplier part number is preserved from the part, not lost
         assert result is not None
@@ -78,31 +76,29 @@ class TestSupplierPartNumberPersistence:
             datasheet_url="https://www.mouser.com/datasheet/2/447/yageo_datasheet.pdf",
             image_url=None,
             stock_quantity=50000,
-            pricing=[{'quantity': 1, 'price': 0.10, 'currency': 'USD'}],
-            specifications={'Resistance': '1kΩ', 'Power': '1/8W'},
+            pricing=[{"quantity": 1, "price": 0.10, "currency": "USD"}],
+            specifications={"Resistance": "1kΩ", "Power": "1/8W"},
             additional_data={
-                'mouser_part_number': '652-CRL0805JWR330ELF',  # Mouser API also returns this
-                'product_detail_url': 'https://www.mouser.com/ProductDetail/652-CRL0805JWR330ELF',
-                'lead_time': '0 Weeks',
-                'min_order_qty': 1
-            }
+                "mouser_part_number": "652-CRL0805JWR330ELF",  # Mouser API also returns this
+                "product_detail_url": "https://www.mouser.com/ProductDetail/652-CRL0805JWR330ELF",
+                "lead_time": "0 Weeks",
+                "min_order_qty": 1,
+            },
         )
 
         # Map to part data
         part_data = mapper.map_supplier_result_to_part_data(
-            result,
-            'Mouser',
-            enrichment_capabilities=['get_part_details', 'fetch_datasheet']
+            result, "Mouser", enrichment_capabilities=["get_part_details", "fetch_datasheet"]
         )
 
         # Verify supplier_part_number is preserved
-        assert part_data['supplier_part_number'] == "652-CRL0805JWR330ELF"
-        assert part_data['manufacturer'] == "Yageo"
-        assert part_data['manufacturer_part_number'] == "RC0805FR-071KL"
+        assert part_data["supplier_part_number"] == "652-CRL0805JWR330ELF"
+        assert part_data["manufacturer"] == "Yageo"
+        assert part_data["manufacturer_part_number"] == "RC0805FR-071KL"
 
         # Also verify it's in additional_properties
-        assert 'mouser_part_number' in part_data['additional_properties']
-        assert part_data['additional_properties']['mouser_part_number'] == "652-CRL0805JWR330ELF"
+        assert "mouser_part_number" in part_data["additional_properties"]
+        assert part_data["additional_properties"]["mouser_part_number"] == "652-CRL0805JWR330ELF"
 
     def test_digikey_part_number_preserved_in_part_search_result(self):
         """Test that DigiKey part number from part is used in PartSearchResult."""
@@ -121,28 +117,26 @@ class TestSupplierPartNumberPersistence:
 
         # Create mock enrichment results (what DigiKey API returns)
         enrichment_results = {
-            'part_data': {
-                'success': True,
-                'manufacturer': 'STMicroelectronics',
-                'manufacturer_part_number': 'STM32F103C8T6',
-                'description': 'IC MCU 32BIT 64KB FLASH 48LQFP',
-                'datasheet_url': 'https://www.st.com/resource/en/datasheet/stm32f103c8.pdf',
-                'image_url': 'https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/123.jpg',
-                'category': 'Embedded - Microcontrollers',
-                'stock_quantity': 12500,
-                'pricing': [{'quantity': 1, 'price': 2.85, 'currency': 'USD'}],
-                'specifications': {'Core Processor': 'ARM Cortex-M3', 'Speed': '72MHz'},
-                'additional_data': {
-                    'digikey_part_number': '497-6063-ND',  # DigiKey returns this in additional_data
-                    'product_url': 'https://www.digikey.com/en/products/detail/stmicroelectronics/STM32F103C8T6/1646340'
-                }
+            "part_data": {
+                "success": True,
+                "manufacturer": "STMicroelectronics",
+                "manufacturer_part_number": "STM32F103C8T6",
+                "description": "IC MCU 32BIT 64KB FLASH 48LQFP",
+                "datasheet_url": "https://www.st.com/resource/en/datasheet/stm32f103c8.pdf",
+                "image_url": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/123.jpg",
+                "category": "Embedded - Microcontrollers",
+                "stock_quantity": 12500,
+                "pricing": [{"quantity": 1, "price": 2.85, "currency": "USD"}],
+                "specifications": {"Core Processor": "ARM Cortex-M3", "Speed": "72MHz"},
+                "additional_data": {
+                    "digikey_part_number": "497-6063-ND",  # DigiKey returns this in additional_data
+                    "product_url": "https://www.digikey.com/en/products/detail/stmicroelectronics/STM32F103C8T6/1646340",
+                },
             }
         }
 
         # Convert to PartSearchResult
-        result = service._convert_enrichment_to_part_search_result(
-            part, enrichment_results, 'digikey'
-        )
+        result = service._convert_enrichment_to_part_search_result(part, enrichment_results, "digikey")
 
         # Verify the supplier part number is preserved from the part, not lost
         assert result is not None
@@ -164,31 +158,29 @@ class TestSupplierPartNumberPersistence:
             datasheet_url="https://www.st.com/resource/en/datasheet/stm32f103c8.pdf",
             image_url="https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/123.jpg",
             stock_quantity=12500,
-            pricing=[{'quantity': 1, 'price': 2.85, 'currency': 'USD'}],
-            specifications={'Core Processor': 'ARM Cortex-M3', 'Speed': '72MHz'},
+            pricing=[{"quantity": 1, "price": 2.85, "currency": "USD"}],
+            specifications={"Core Processor": "ARM Cortex-M3", "Speed": "72MHz"},
             additional_data={
-                'digikey_part_number': '497-6063-ND',  # DigiKey API also returns this
-                'product_url': 'https://www.digikey.com/en/products/detail/stmicroelectronics/STM32F103C8T6/1646340',
-                'lifecycle_status': 'Active',
-                'rohs_status': 'Compliant'
-            }
+                "digikey_part_number": "497-6063-ND",  # DigiKey API also returns this
+                "product_url": "https://www.digikey.com/en/products/detail/stmicroelectronics/STM32F103C8T6/1646340",
+                "lifecycle_status": "Active",
+                "rohs_status": "Compliant",
+            },
         )
 
         # Map to part data
         part_data = mapper.map_supplier_result_to_part_data(
-            result,
-            'DigiKey',
-            enrichment_capabilities=['get_part_details', 'fetch_datasheet']
+            result, "DigiKey", enrichment_capabilities=["get_part_details", "fetch_datasheet"]
         )
 
         # Verify supplier_part_number is preserved
-        assert part_data['supplier_part_number'] == "497-6063-ND"
-        assert part_data['manufacturer'] == "STMicroelectronics"
-        assert part_data['manufacturer_part_number'] == "STM32F103C8T6"
+        assert part_data["supplier_part_number"] == "497-6063-ND"
+        assert part_data["manufacturer"] == "STMicroelectronics"
+        assert part_data["manufacturer_part_number"] == "STM32F103C8T6"
 
         # Also verify it's in additional_properties
-        assert 'digikey_part_number' in part_data['additional_properties']
-        assert part_data['additional_properties']['digikey_part_number'] == "497-6063-ND"
+        assert "digikey_part_number" in part_data["additional_properties"]
+        assert part_data["additional_properties"]["digikey_part_number"] == "497-6063-ND"
 
     def test_fallback_when_no_supplier_part_number(self):
         """Test that system falls back gracefully when no supplier part number is provided."""
@@ -207,21 +199,19 @@ class TestSupplierPartNumberPersistence:
 
         # Create mock enrichment results
         enrichment_results = {
-            'part_data': {
-                'success': True,
-                'manufacturer': 'TestCorp',
-                'manufacturer_part_number': 'MPN123',
-                'description': 'Test Component',
-                'additional_data': {
-                    'mouser_part_number': '652-MPN123',  # Mouser returns a part number
-                }
+            "part_data": {
+                "success": True,
+                "manufacturer": "TestCorp",
+                "manufacturer_part_number": "MPN123",
+                "description": "Test Component",
+                "additional_data": {
+                    "mouser_part_number": "652-MPN123",  # Mouser returns a part number
+                },
             }
         }
 
         # Convert to PartSearchResult
-        result = service._convert_enrichment_to_part_search_result(
-            part, enrichment_results, 'mouser'
-        )
+        result = service._convert_enrichment_to_part_search_result(part, enrichment_results, "mouser")
 
         # Verify it falls back to the Mouser part number from additional_data
         assert result is not None

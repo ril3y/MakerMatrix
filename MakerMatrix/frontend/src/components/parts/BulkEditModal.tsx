@@ -508,7 +508,8 @@ const BulkEditModal = ({
                     Warning: This will permanently delete all selected parts
                   </p>
                   <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                    This action cannot be undone. Associated images and datasheets will also be deleted.
+                    This action cannot be undone. Associated images and datasheets will also be
+                    deleted.
                   </p>
                 </div>
               </div>

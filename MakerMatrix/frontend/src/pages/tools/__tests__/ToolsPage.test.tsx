@@ -124,13 +124,16 @@ describe('ToolsPage', () => {
     const searchInput = screen.getByPlaceholderText(/Search tools/i)
     fireEvent.change(searchInput, { target: { value: 'Drill' } })
 
-    await waitFor(() => {
-      expect(toolsService.searchTools).toHaveBeenCalledWith(
-        expect.objectContaining({
-          search_term: 'Drill',
-        })
-      )
-    }, { timeout: 1000 })
+    await waitFor(
+      () => {
+        expect(toolsService.searchTools).toHaveBeenCalledWith(
+          expect.objectContaining({
+            search_term: 'Drill',
+          })
+        )
+      },
+      { timeout: 1000 }
+    )
   })
 
   it('filters tools by status', async () => {
@@ -259,7 +262,9 @@ describe('ToolsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No Tools Found')).toBeInTheDocument()
-      expect(screen.getByText('Start by adding your first tool to the inventory.')).toBeInTheDocument()
+      expect(
+        screen.getByText('Start by adding your first tool to the inventory.')
+      ).toBeInTheDocument()
     })
   })
 })

@@ -41,7 +41,7 @@ class EnrichmentEngine:
         supplier_name: str,
         part_identifier: str,
         force_refresh: bool = False,
-        enrichment_capabilities: Optional[List[SupplierCapability]] = None
+        enrichment_capabilities: Optional[List[SupplierCapability]] = None,
     ) -> Dict[str, Any]:
         """
         Enrich a part using supplier data.
@@ -79,6 +79,7 @@ class EnrichmentEngine:
             # Configure supplier with credentials from database
             try:
                 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+
                 config_service = SupplierConfigService()
 
                 # Get supplier config and credentials
@@ -87,14 +88,14 @@ class EnrichmentEngine:
 
                 # Build config dict
                 config_dict = {
-                    'base_url': supplier_config.get('base_url', ''),
-                    'request_timeout': supplier_config.get('timeout_seconds', 30),
-                    'max_retries': supplier_config.get('max_retries', 3),
-                    'rate_limit_per_minute': supplier_config.get('rate_limit_per_minute', 60),
+                    "base_url": supplier_config.get("base_url", ""),
+                    "request_timeout": supplier_config.get("timeout_seconds", 30),
+                    "max_retries": supplier_config.get("max_retries", 3),
+                    "rate_limit_per_minute": supplier_config.get("rate_limit_per_minute", 60),
                 }
 
                 # Add custom parameters if available
-                custom_params = supplier_config.get('custom_parameters', {})
+                custom_params = supplier_config.get("custom_parameters", {})
                 if custom_params:
                     config_dict.update(custom_params)
 
@@ -122,9 +123,7 @@ class EnrichmentEngine:
                 # Use scraping when supplier supports it and has no credentials
                 logger.info(f"Using web scraping for {supplier_info.display_name} (no API credentials)")
                 enriched_data = await self._enrich_via_scraping(
-                    supplier=supplier,
-                    part_identifier=part_identifier,
-                    force_refresh=force_refresh
+                    supplier=supplier, part_identifier=part_identifier, force_refresh=force_refresh
                 )
 
             elif has_credentials:
@@ -134,16 +133,14 @@ class EnrichmentEngine:
                     supplier=supplier,
                     part_identifier=part_identifier,
                     enrichment_capabilities=enrichment_capabilities,
-                    force_refresh=force_refresh
+                    force_refresh=force_refresh,
                 )
 
             elif supports_scraping:
                 # Fallback to scraping if available (even with credentials if API fails)
                 logger.info(f"Falling back to web scraping for {supplier_info.display_name}")
                 enriched_data = await self._enrich_via_scraping(
-                    supplier=supplier,
-                    part_identifier=part_identifier,
-                    force_refresh=force_refresh
+                    supplier=supplier, part_identifier=part_identifier, force_refresh=force_refresh
                 )
 
             else:
@@ -160,35 +157,32 @@ class EnrichmentEngine:
             standardized_data = self._map_to_standard_format(
                 enriched_data=enriched_data,
                 supplier_name=supplier_name,
-                enrichment_capabilities=enrichment_capabilities
+                enrichment_capabilities=enrichment_capabilities,
             )
 
             logger.info(f"Successfully enriched part {part_identifier} from {supplier_info.display_name}")
 
             return {
-                'success': True,
-                'supplier': supplier_name,
-                'part_identifier': part_identifier,
-                'enrichment_method': enriched_data.get('enrichment_method', 'unknown'),
-                'data': standardized_data,
-                'timestamp': datetime.utcnow().isoformat()
+                "success": True,
+                "supplier": supplier_name,
+                "part_identifier": part_identifier,
+                "enrichment_method": enriched_data.get("enrichment_method", "unknown"),
+                "data": standardized_data,
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Enrichment failed for {supplier_name} part {part_identifier}: {e}")
             return {
-                'success': False,
-                'supplier': supplier_name,
-                'part_identifier': part_identifier,
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
+                "success": False,
+                "supplier": supplier_name,
+                "part_identifier": part_identifier,
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     async def _enrich_via_scraping(
-        self,
-        supplier,
-        part_identifier: str,
-        force_refresh: bool = False
+        self, supplier, part_identifier: str, force_refresh: bool = False
     ) -> Optional[Dict[str, Any]]:
         """
         Enrich part data via web scraping.
@@ -203,20 +197,13 @@ class EnrichmentEngine:
         """
         try:
             # Call supplier's scrape_part_details method
-            result = await supplier.scrape_part_details(
-                url_or_part_number=part_identifier,
-                force_refresh=force_refresh
-            )
+            result = await supplier.scrape_part_details(url_or_part_number=part_identifier, force_refresh=force_refresh)
 
             if not result:
                 logger.warning(f"Scraping returned no data for {part_identifier}")
                 return None
 
-            return {
-                'enrichment_method': 'scraping',
-                'result': result,
-                'success': True
-            }
+            return {"enrichment_method": "scraping", "result": result, "success": True}
 
         except Exception as e:
             logger.error(f"Scraping failed for {part_identifier}: {e}")
@@ -227,7 +214,7 @@ class EnrichmentEngine:
         supplier,
         part_identifier: str,
         enrichment_capabilities: Optional[List[SupplierCapability]] = None,
-        force_refresh: bool = False
+        force_refresh: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
         Enrich part data via supplier API.
@@ -244,8 +231,7 @@ class EnrichmentEngine:
         try:
             # Call supplier's enrich_part method
             result = await supplier.enrich_part(
-                supplier_part_number=part_identifier,
-                capabilities=enrichment_capabilities
+                supplier_part_number=part_identifier, capabilities=enrichment_capabilities
             )
 
             if not result or not result.success:
@@ -253,11 +239,7 @@ class EnrichmentEngine:
                 logger.warning(f"API enrichment failed for {part_identifier}: {error_msg}")
                 return None
 
-            return {
-                'enrichment_method': 'api',
-                'result': result,
-                'success': True
-            }
+            return {"enrichment_method": "api", "result": result, "success": True}
 
         except Exception as e:
             logger.error(f"API enrichment failed for {part_identifier}: {e}")
@@ -267,7 +249,7 @@ class EnrichmentEngine:
         self,
         enriched_data: Dict[str, Any],
         supplier_name: str,
-        enrichment_capabilities: Optional[List[SupplierCapability]] = None
+        enrichment_capabilities: Optional[List[SupplierCapability]] = None,
     ) -> Dict[str, Any]:
         """
         Map enriched data to standardized database format.
@@ -281,7 +263,7 @@ class EnrichmentEngine:
             Dictionary with standardized part data ready for database storage
         """
         # Extract the result based on enrichment method
-        result = enriched_data.get('result')
+        result = enriched_data.get("result")
 
         if not result:
             logger.warning("No result data to map")
@@ -309,7 +291,7 @@ class EnrichmentEngine:
         standardized_data = self.mapper.map_supplier_result_to_part_data(
             supplier_result=part_search_result,
             supplier_name=supplier_name,
-            enrichment_capabilities=[cap.value for cap in enrichment_capabilities] if enrichment_capabilities else None
+            enrichment_capabilities=[cap.value for cap in enrichment_capabilities] if enrichment_capabilities else None,
         )
 
         return standardized_data

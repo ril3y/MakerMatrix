@@ -44,7 +44,7 @@ class WebScraper:
         """Get or create an aiohttp session."""
         if not self._session or self._session.closed:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
             timeout = aiohttp.ClientTimeout(total=30)
             self._session = aiohttp.ClientSession(headers=headers, timeout=timeout)
@@ -67,18 +67,15 @@ class WebScraper:
         cache_key = self._get_cache_key(url)
         if cache_key in SCRAPE_CACHE:
             cached = SCRAPE_CACHE[cache_key]
-            if datetime.now() - cached['timestamp'] < timedelta(minutes=CACHE_TTL_MINUTES):
+            if datetime.now() - cached["timestamp"] < timedelta(minutes=CACHE_TTL_MINUTES):
                 logger.info(f"Using cached data for {url}")
-                return cached['data']
+                return cached["data"]
         return None
 
     def _set_cached_data(self, url: str, data: Dict[str, Any]):
         """Store data in cache."""
         cache_key = self._get_cache_key(url)
-        SCRAPE_CACHE[cache_key] = {
-            'data': data,
-            'timestamp': datetime.now()
-        }
+        SCRAPE_CACHE[cache_key] = {"data": data, "timestamp": datetime.now()}
 
     async def scrape_simple(self, url: str, selectors: Dict[str, str]) -> Dict[str, Any]:
         """
@@ -109,10 +106,10 @@ class WebScraper:
                     return {}
 
                 html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
+                soup = BeautifulSoup(html, "html.parser")
 
                 # Log the page title to see if we got actual content
-                title = soup.find('title')
+                title = soup.find("title")
                 if title:
                     logger.info(f"Page title: {title.get_text()[:100]}")
                 else:
@@ -121,7 +118,7 @@ class WebScraper:
                 result = {}
                 for field, selector in selectors.items():
                     try:
-                        if selector.startswith('//'):
+                        if selector.startswith("//"):
                             # XPath selector - BeautifulSoup doesn't support XPath natively
                             logger.warning(f"XPath selectors not supported in simple mode: {selector}")
                             continue
@@ -146,7 +143,9 @@ class WebScraper:
             # It will be closed in the close() method
             pass
 
-    async def scrape_with_playwright(self, url: str, selectors: Dict[str, str], wait_for_selector: str = None, force_refresh: bool = False) -> Dict[str, Any]:
+    async def scrape_with_playwright(
+        self, url: str, selectors: Dict[str, str], wait_for_selector: str = None, force_refresh: bool = False
+    ) -> Dict[str, Any]:
         """
         Scrape JavaScript-rendered content using Playwright.
 
@@ -192,11 +191,11 @@ class WebScraper:
                         item_path = os.path.join(path, item)
                         if os.path.isdir(item_path):
                             # Look for the actual browser subdirectory
-                            for subdir in ['chrome-linux', 'chrome-win', 'chrome-mac']:
+                            for subdir in ["chrome-linux", "chrome-win", "chrome-mac"]:
                                 browser_dir = os.path.join(item_path, subdir)
                                 if os.path.exists(browser_dir):
                                     # Check for actual executable files
-                                    executables = ['chrome', 'chrome.exe', 'headless_shell', 'Chromium.app']
+                                    executables = ["chrome", "chrome.exe", "headless_shell", "Chromium.app"]
                                     for exe in executables:
                                         if os.path.exists(os.path.join(browser_dir, exe)):
                                             browser_installed = True
@@ -223,24 +222,25 @@ class WebScraper:
                 browser = await p.chromium.launch(
                     headless=True,
                     args=[
-                        '--disable-blink-features=AutomationControlled',
-                        '--exclude-switches=enable-automation',
-                        '--disable-dev-shm-usage',
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                    ]
+                        "--disable-blink-features=AutomationControlled",
+                        "--exclude-switches=enable-automation",
+                        "--disable-dev-shm-usage",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                    ],
                 )
 
                 # Create context with viewport and other settings
                 context = await browser.new_context(
-                    viewport={'width': 1920, 'height': 1080},
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    viewport={"width": 1920, "height": 1080},
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 )
 
                 page = await context.new_page()
 
                 # Add anti-detection script
-                await page.add_init_script("""
+                await page.add_init_script(
+                    """
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => false,
                     });
@@ -250,21 +250,24 @@ class WebScraper:
                         runtime: {},
                         app: {isInstalled: false}
                     };
-                """)
+                """
+                )
 
                 # Set a realistic user agent and headers to appear more like a real browser
-                await page.set_extra_http_headers({
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'DNT': '1',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1'
-                })
+                await page.set_extra_http_headers(
+                    {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                        "Accept-Language": "en-US,en;q=0.9",
+                        "Accept-Encoding": "gzip, deflate, br",
+                        "DNT": "1",
+                        "Connection": "keep-alive",
+                        "Upgrade-Insecure-Requests": "1",
+                    }
+                )
 
                 # Navigate to page with better wait strategy
-                await page.goto(url, wait_until='networkidle', timeout=30000)
+                await page.goto(url, wait_until="networkidle", timeout=30000)
 
                 # Wait for specific element if provided
                 if wait_for_selector:
@@ -280,14 +283,19 @@ class WebScraper:
                 for field, selector in selectors.items():
                     try:
                         # Special handling for spec tables - extract all rows
-                        if field == 'spec_table' and ('table' in selector.lower() or 'spec' in selector.lower() or 'tbody' in selector.lower() or 'tr' in selector.lower()):
+                        if field == "spec_table" and (
+                            "table" in selector.lower()
+                            or "spec" in selector.lower()
+                            or "tbody" in selector.lower()
+                            or "tr" in selector.lower()
+                        ):
                             # Try to extract table data from rows directly
                             rows = await page.query_selector_all(selector)
                             if rows:
                                 table_data = {}
                                 for row in rows:
                                     # Look for cells within each row
-                                    cells = await row.query_selector_all('td')
+                                    cells = await row.query_selector_all("td")
                                     if len(cells) >= 2:
                                         label = await cells[0].text_content()
                                         value = await cells[1].text_content()
@@ -298,21 +306,21 @@ class WebScraper:
                                     result[field] = table_data
                                     logger.info(f"Extracted {len(table_data)} specifications from table")
                         # Special handling for images - extract src attribute
-                        elif field == 'image' and ('img' in selector.lower()):
+                        elif field == "image" and ("img" in selector.lower()):
                             element = await page.query_selector(selector)
                             if element:
                                 # Try to get src attribute
-                                src = await element.get_attribute('src')
+                                src = await element.get_attribute("src")
                                 if src:
                                     result[field] = src
                                     logger.info(f"Extracted image URL: {src}")
                         # Special handling for links - extract href attribute
-                        elif selector.startswith('a[') or selector.startswith('a:'):
+                        elif selector.startswith("a[") or selector.startswith("a:"):
                             logger.debug(f"Attempting to extract link for field '{field}' with selector: {selector}")
                             element = await page.query_selector(selector)
                             if element:
                                 # Try to get href attribute
-                                href = await element.get_attribute('href')
+                                href = await element.get_attribute("href")
                                 if href:
                                     result[field] = href
                                     logger.info(f"Extracted {field} link URL: {href}")
@@ -338,7 +346,9 @@ class WebScraper:
             return result
 
         except ImportError:
-            logger.error("Playwright not installed. Install with: pip install playwright && playwright install chromium")
+            logger.error(
+                "Playwright not installed. Install with: pip install playwright && playwright install chromium"
+            )
             # Fall back to simple scraping
             return await self.scrape_simple(url, selectors)
         except Exception as e:
@@ -385,17 +395,17 @@ class WebScraper:
         Returns:
             Dictionary with table data (label -> value)
         """
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(html, "html.parser")
         table = soup.select_one(table_selector)
 
         if not table:
             return {}
 
         data = {}
-        rows = table.find_all('tr')
+        rows = table.find_all("tr")
 
         for row in rows:
-            cells = row.find_all(['td', 'th'])
+            cells = row.find_all(["td", "th"])
             if len(cells) >= 2:
                 # Assume first cell is label, second is value
                 label = self.clean_text(cells[0].get_text())
@@ -412,11 +422,11 @@ class WebScraper:
             return ""
 
         # Remove extra whitespace
-        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r"\s+", " ", text)
         # Remove leading/trailing whitespace
         text = text.strip()
         # Remove zero-width spaces and other invisible characters
-        text = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', text)
+        text = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", text)
 
         return text
 
@@ -425,9 +435,9 @@ class WebScraper:
         # Convert to lowercase
         key = text.lower()
         # Replace spaces and special characters with underscores
-        key = re.sub(r'[^a-z0-9]+', '_', key)
+        key = re.sub(r"[^a-z0-9]+", "_", key)
         # Remove leading/trailing underscores
-        key = key.strip('_')
+        key = key.strip("_")
         return key
 
     def parse_price(self, price_text: str) -> Optional[Dict[str, Any]]:
@@ -445,25 +455,25 @@ class WebScraper:
 
         # Common price patterns
         patterns = [
-            r'\$?([\d,]+\.?\d*)\s*(?:per\s+)?(?:pack\s+of\s+)?(\d+)?',
-            r'([\d,]+\.?\d*)\s*([A-Z]{3})',  # e.g., "19.04 USD"
+            r"\$?([\d,]+\.?\d*)\s*(?:per\s+)?(?:pack\s+of\s+)?(\d+)?",
+            r"([\d,]+\.?\d*)\s*([A-Z]{3})",  # e.g., "19.04 USD"
         ]
 
         for pattern in patterns:
             match = re.search(pattern, price_text, re.IGNORECASE)
             if match:
-                price = float(match.group(1).replace(',', ''))
+                price = float(match.group(1).replace(",", ""))
                 quantity = int(match.group(2)) if len(match.groups()) > 1 and match.group(2) else 1
 
                 return {
-                    'price': price,
-                    'currency': 'USD',  # Default to USD
-                    'quantity': quantity,
-                    'unit_price': price / quantity,
-                    'original_text': price_text
+                    "price": price,
+                    "currency": "USD",  # Default to USD
+                    "quantity": quantity,
+                    "unit_price": price / quantity,
+                    "original_text": price_text,
                 }
 
-        return {'original_text': price_text}
+        return {"original_text": price_text}
 
     async def close(self):
         """Clean up resources."""

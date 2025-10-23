@@ -38,7 +38,7 @@ async def test_digikey_enrichment_availability():
     enrichment_caps = [
         SupplierCapability.GET_PART_DETAILS,
         SupplierCapability.FETCH_DATASHEET,
-        SupplierCapability.FETCH_PRICING_STOCK
+        SupplierCapability.FETCH_PRICING_STOCK,
     ]
 
     print("\n🔧 ENRICHMENT CAPABILITY ANALYSIS:")
@@ -72,7 +72,7 @@ async def test_digikey_enrichment_availability():
     return {
         "enrichment_available": enrichment_available,
         "enrichment_capabilities": available_enrichment_caps,
-        "enrichment_missing_credentials": missing_credentials_list
+        "enrichment_missing_credentials": missing_credentials_list,
     }
 
 
@@ -97,7 +97,7 @@ async def test_suppliers_endpoint_logic():
         connection_result = await supplier.test_connection()
         print(f"🔌 Connection test: {connection_result}")
 
-        is_configured = connection_result.get('success', False)
+        is_configured = connection_result.get("success", False)
         print(f"⚙️ Is configured: {is_configured}")
 
         # Check enrichment capabilities (from import_routes.py logic)
@@ -109,7 +109,7 @@ async def test_suppliers_endpoint_logic():
         enrichment_capability_types = [
             SupplierCapability.GET_PART_DETAILS,
             SupplierCapability.FETCH_DATASHEET,
-            SupplierCapability.FETCH_PRICING_STOCK
+            SupplierCapability.FETCH_PRICING_STOCK,
         ]
 
         for cap in enrichment_capability_types:
@@ -133,7 +133,7 @@ async def test_suppliers_endpoint_logic():
             "name": "digikey",
             "enrichment_capabilities": enrichment_capabilities,
             "enrichment_available": enrichment_available,
-            "enrichment_missing_credentials": enrichment_missing_credentials if not is_configured else []
+            "enrichment_missing_credentials": enrichment_missing_credentials if not is_configured else [],
         }
 
         print(f"\n📡 ENDPOINT WOULD RETURN:")
@@ -162,7 +162,7 @@ async def test_lcsc_for_comparison():
     enrichment_caps = [
         SupplierCapability.GET_PART_DETAILS,
         SupplierCapability.FETCH_DATASHEET,
-        SupplierCapability.FETCH_PRICING_STOCK
+        SupplierCapability.FETCH_PRICING_STOCK,
     ]
 
     print("🔧 LCSC ENRICHMENT CAPABILITY ANALYSIS:")
@@ -206,11 +206,11 @@ async def main():
     print("🎯 CONCLUSION:")
 
     if endpoint_result:
-        if endpoint_result['enrichment_available'] and not endpoint_result['enrichment_capabilities']:
+        if endpoint_result["enrichment_available"] and not endpoint_result["enrichment_capabilities"]:
             print("❌ BUG FOUND: enrichment_available=True but no capabilities available")
-        elif not endpoint_result['enrichment_available'] and endpoint_result['enrichment_missing_credentials']:
+        elif not endpoint_result["enrichment_available"] and endpoint_result["enrichment_missing_credentials"]:
             print("✅ CORRECT: enrichment_available=False with missing credentials listed")
-        elif endpoint_result['enrichment_available'] and endpoint_result['enrichment_capabilities']:
+        elif endpoint_result["enrichment_available"] and endpoint_result["enrichment_capabilities"]:
             print("✅ CORRECT: enrichment_available=True with working capabilities")
         else:
             print(f"⚠️ UNCLEAR STATE: {endpoint_result}")

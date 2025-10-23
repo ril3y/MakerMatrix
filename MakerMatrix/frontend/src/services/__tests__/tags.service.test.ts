@@ -59,9 +59,7 @@ describe('TagsService', () => {
         message: 'Failed to create tag',
       })
 
-      await expect(tagsService.createTag({ name: 'test' })).rejects.toThrow(
-        'Failed to create tag'
-      )
+      await expect(tagsService.createTag({ name: 'test' })).rejects.toThrow('Failed to create tag')
     })
   })
 
@@ -129,9 +127,7 @@ describe('TagsService', () => {
         message: 'Cannot delete system tag',
       })
 
-      await expect(tagsService.deleteTag('tag-1')).rejects.toThrow(
-        'Cannot delete system tag'
-      )
+      await expect(tagsService.deleteTag('tag-1')).rejects.toThrow('Cannot delete system tag')
     })
   })
 

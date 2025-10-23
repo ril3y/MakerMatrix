@@ -56,7 +56,6 @@ import PartImage from '@/components/parts/PartImage'
 import AddCategoryModal from '@/components/categories/AddCategoryModal'
 import CategorySelector from '@/components/ui/CategorySelector'
 import SupplierSelector from '@/components/ui/SupplierSelector'
-import ProjectSelector from '@/components/ui/ProjectSelector'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import AddProjectModal from '@/components/projects/AddProjectModal'
 import ProjectDetailsModal from '@/components/projects/ProjectDetailsModal'
@@ -76,7 +75,6 @@ import ContainerSlotPickerModal from '@/components/locations/ContainerSlotPicker
 import Modal from '@/components/ui/Modal'
 import type { Location } from '@/types/locations'
 import { locationsService } from '@/services/locations.service'
-import TagInput from '@/components/tags/TagInput'
 import TagBadge from '@/components/tags/TagBadge'
 import type { Tag as TagType } from '@/types/tags'
 import { tagsService } from '@/services/tags.service'
@@ -278,7 +276,7 @@ const PartDetailsPage = () => {
         try {
           // Get available suppliers from registry
           const availableSuppliersData = await dynamicSupplierService.getAvailableSuppliers()
-          setAvailableSuppliers(availableSuppliersData.map(s => s.toLowerCase()))
+          setAvailableSuppliers(availableSuppliersData.map((s) => s.toLowerCase()))
 
           // Get configured suppliers
           const suppliers = await supplierService.getSuppliers()
@@ -291,7 +289,9 @@ const PartDetailsPage = () => {
 
           // Check if supplier supports scraping (for unconfigured suppliers)
           const supplierLower = response.supplier.toLowerCase()
-          const isInRegistry = availableSuppliersData.map(s => s.toLowerCase()).includes(supplierLower)
+          const isInRegistry = availableSuppliersData
+            .map((s) => s.toLowerCase())
+            .includes(supplierLower)
           const isConfigured = config !== undefined && config !== null
 
           // If supplier is in registry but not configured, check scraping support
@@ -322,7 +322,10 @@ const PartDetailsPage = () => {
       // loadPriceHistory(partId)
       loadAllocations(partId)
     } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      const error = err as {
+        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       setError(error.response?.data?.error || 'Failed to load part details')
     } finally {
       setLoading(false)
@@ -407,7 +410,13 @@ const PartDetailsPage = () => {
         await partsService.deletePart(part.id)
         navigate('/parts')
       } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+        const error = err as {
+          response?: {
+            data?: { error?: string; message?: string; detail?: string }
+            status?: number
+          }
+          message?: string
+        }
         setError(error.response?.data?.error || 'Failed to delete part')
       }
     }
@@ -464,7 +473,10 @@ const PartDetailsPage = () => {
       setEditingField(null)
       setEditingValue('')
     } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      const error = err as {
+        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       setError(error.response?.data?.error || `Failed to update ${field}`)
     } finally {
       setSaving(false)
@@ -482,8 +494,10 @@ const PartDetailsPage = () => {
     }
 
     // Check for enriched datasheet (downloaded from supplier)
-    if (part?.additional_properties?.datasheet_filename &&
-        part?.additional_properties?.datasheet_downloaded) {
+    if (
+      part?.additional_properties?.datasheet_filename &&
+      part?.additional_properties?.datasheet_downloaded
+    ) {
       return `/api/utility/static/datasheets/${part.additional_properties.datasheet_filename}`
     }
 
@@ -650,12 +664,12 @@ const PartDetailsPage = () => {
 
     try {
       // Get current tag IDs and new tag IDs
-      const currentTagIds = partTags.map(t => t.id)
-      const newTagIds = newTags.map(t => t.id)
+      const currentTagIds = partTags.map((t) => t.id)
+      const newTagIds = newTags.map((t) => t.id)
 
       // Find tags to add and remove
-      const tagsToAdd = newTagIds.filter(id => !currentTagIds.includes(id))
-      const tagsToRemove = currentTagIds.filter(id => !newTagIds.includes(id))
+      const tagsToAdd = newTagIds.filter((id) => !currentTagIds.includes(id))
+      const tagsToRemove = currentTagIds.filter((id) => !newTagIds.includes(id))
 
       // Add new tags
       for (const tagId of tagsToAdd) {
@@ -694,18 +708,18 @@ const PartDetailsPage = () => {
 
       if (existingTags && existingTags.length > 0) {
         // Use existing tag (exact match or first result)
-        const exactMatch = existingTags.find(t => t.name.toLowerCase() === tagName.toLowerCase())
+        const exactMatch = existingTags.find((t) => t.name.toLowerCase() === tagName.toLowerCase())
         tagToAdd = exactMatch || existingTags[0]
       } else {
         // Create new tag
         tagToAdd = await tagsService.createTag({
           name: tagName,
-          color: generateTagColor(tagName) // Consistent color based on tag name
+          color: generateTagColor(tagName), // Consistent color based on tag name
         })
       }
 
       // Check if tag is already assigned
-      if (!partTags.find(t => t.id === tagToAdd.id)) {
+      if (!partTags.find((t) => t.id === tagToAdd.id)) {
         // Add tag to part
         const updatedTags = [...partTags, tagToAdd]
         await handleTagsChange(updatedTags)
@@ -751,13 +765,13 @@ const PartDetailsPage = () => {
       setSaving(true)
 
       // Get current project IDs
-      const currentProjectIds = part.projects?.map(p => p.id) || []
+      const currentProjectIds = part.projects?.map((p) => p.id) || []
 
       // Find projects to add (selected but not in current)
-      const projectsToAdd = selectedProjectIds.filter(pid => !currentProjectIds.includes(pid))
+      const projectsToAdd = selectedProjectIds.filter((pid) => !currentProjectIds.includes(pid))
 
       // Find projects to remove (in current but not selected)
-      const projectsToRemove = currentProjectIds.filter(pid => !selectedProjectIds.includes(pid))
+      const projectsToRemove = currentProjectIds.filter((pid) => !selectedProjectIds.includes(pid))
 
       // Add new projects
       for (const projectId of projectsToAdd) {
@@ -1083,9 +1097,7 @@ const PartDetailsPage = () => {
                       className="group hover:bg-primary-10 rounded-lg px-3 py-2 transition-all duration-200 flex items-center gap-2 min-w-0 max-w-full"
                       title={`Click to copy part name: ${part.name}`}
                     >
-                      {part.emoji && (
-                        <span className="text-2xl flex-shrink-0">{part.emoji}</span>
-                      )}
+                      {part.emoji && <span className="text-2xl flex-shrink-0">{part.emoji}</span>}
                       <h1 className="text-2xl font-theme-display font-bold text-theme-primary truncate max-w-lg">
                         {part.name}
                       </h1>
@@ -1104,28 +1116,27 @@ const PartDetailsPage = () => {
 
               <div className="flex flex-wrap gap-3">
                 {/* Show Enrich button if supplier supports enrichment via API OR scraping */}
-                {part.supplier && (
+                {part.supplier &&
                   // Show if: 1) Configured supplier (not simple type) OR 2) Unconfigured but supports scraping
-                  (supplierConfig?.supplier_type !== 'simple' || supplierSupportsScraping)
-                ) && (
-                  <PermissionGuard permission="parts:update">
-                    <button
-                      onClick={handleEnrich}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-theme-inverse rounded-lg hover:bg-primary-dark transition-colors font-medium"
-                      title={
-                        !supplierConfig && supplierSupportsScraping
-                          ? 'Enrich using web scraping (API not configured)'
-                          : 'Enrich from supplier API'
-                      }
-                    >
-                      <Zap className="w-4 h-4" />
-                      Enrich Data
-                      {!supplierConfig && supplierSupportsScraping && (
-                        <span className="text-xs opacity-80">(Scraping)</span>
-                      )}
-                    </button>
-                  </PermissionGuard>
-                )}
+                  (supplierConfig?.supplier_type !== 'simple' || supplierSupportsScraping) && (
+                    <PermissionGuard permission="parts:update">
+                      <button
+                        onClick={handleEnrich}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-theme-inverse rounded-lg hover:bg-primary-dark transition-colors font-medium"
+                        title={
+                          !supplierConfig && supplierSupportsScraping
+                            ? 'Enrich using web scraping (API not configured)'
+                            : 'Enrich from supplier API'
+                        }
+                      >
+                        <Zap className="w-4 h-4" />
+                        Enrich Data
+                        {!supplierConfig && supplierSupportsScraping && (
+                          <span className="text-xs opacity-80">(Scraping)</span>
+                        )}
+                      </button>
+                    </PermissionGuard>
+                  )}
                 <PermissionGuard permission="parts:update">
                   <button
                     onClick={() => setPrinterModalOpen(true)}
@@ -1194,7 +1205,8 @@ const PartDetailsPage = () => {
                     <div className="space-y-2">
                       <div
                         className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                          part.minimum_quantity && (allocationTotalQuantity ?? part.quantity) <= part.minimum_quantity
+                          part.minimum_quantity &&
+                          (allocationTotalQuantity ?? part.quantity) <= part.minimum_quantity
                             ? 'bg-error text-theme-inverse'
                             : (allocationTotalQuantity ?? part.quantity) > 0
                               ? 'bg-success text-theme-inverse'
@@ -1202,7 +1214,8 @@ const PartDetailsPage = () => {
                         }`}
                       >
                         <Box className="w-4 h-4" />
-                        {part.minimum_quantity && (allocationTotalQuantity ?? part.quantity) <= part.minimum_quantity
+                        {part.minimum_quantity &&
+                        (allocationTotalQuantity ?? part.quantity) <= part.minimum_quantity
                           ? `Low Stock (${allocationTotalQuantity ?? part.quantity} remaining)`
                           : (allocationTotalQuantity ?? part.quantity) > 0
                             ? `In Stock (${allocationTotalQuantity ?? part.quantity} available)`
@@ -1441,7 +1454,9 @@ const PartDetailsPage = () => {
                                           loadAllocations(id)
                                         }
                                       } catch (error: any) {
-                                        toast.error(error.message || 'Failed to return to primary storage')
+                                        toast.error(
+                                          error.message || 'Failed to return to primary storage'
+                                        )
                                       }
                                     }}
                                     className="text-orange-500 hover:text-orange-600 transition-colors"
@@ -1673,13 +1688,11 @@ const PartDetailsPage = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium text-theme-secondary">
-                              Tags
-                            </p>
+                            <p className="text-sm font-medium text-theme-secondary">Tags</p>
                             <button
                               onClick={() => setShowTagInput(!showTagInput)}
                               className="p-1 hover:bg-primary-10 rounded transition-colors"
-                              title={showTagInput ? "Hide tag input" : "Add tag"}
+                              title={showTagInput ? 'Hide tag input' : 'Add tag'}
                             >
                               {showTagInput ? (
                                 <X className="w-4 h-4 text-theme-secondary" />
@@ -1698,7 +1711,7 @@ const PartDetailsPage = () => {
                                   tag={tag}
                                   size="sm"
                                   onRemove={() => {
-                                    const updatedTags = partTags.filter(t => t.id !== tag.id)
+                                    const updatedTags = partTags.filter((t) => t.id !== tag.id)
                                     handleTagsChange(updatedTags)
                                   }}
                                 />
@@ -1727,9 +1740,7 @@ const PartDetailsPage = () => {
                           )}
 
                           {partTags.length === 0 && !showTagInput && (
-                            <p className="text-sm text-theme-muted">
-                              No tags yet
-                            </p>
+                            <p className="text-sm text-theme-muted">No tags yet</p>
                           )}
                         </div>
                       </div>
@@ -2152,67 +2163,67 @@ const PartDetailsPage = () => {
                   {/* Enriched datasheet URL from additional_properties - only show if NOT downloaded locally */}
                   {part.additional_properties?.datasheet_url &&
                     !part.additional_properties?.datasheet_downloaded && (
-                    <div className="border border-green-500/30 rounded-lg p-4 bg-black hover:bg-black/80 transition-colors">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <h3 className="font-medium text-green-400 truncate">
-                              Supplier Datasheet
-                            </h3>
-                            <p className="text-xs text-green-300/80">
-                              {part.supplier || 'Unknown Supplier'}
-                            </p>
+                      <div className="border border-green-500/30 rounded-lg p-4 bg-black hover:bg-black/80 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <h3 className="font-medium text-green-400 truncate">
+                                Supplier Datasheet
+                              </h3>
+                              <p className="text-xs text-green-300/80">
+                                {part.supplier || 'Unknown Supplier'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400">
+                            Online
                           </div>
                         </div>
-                        <div className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400">
-                          Online
+
+                        <p className="text-sm text-green-200/70 mb-3 line-clamp-2">
+                          Official datasheet from supplier website
+                        </p>
+
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between text-xs text-green-300/60">
+                            <span>Source:</span>
+                            <span>Supplier API</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-green-300/60">
+                            <span>Type:</span>
+                            <span>External Link</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={openPDFPreview}
+                            className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Preview
+                          </button>
+                          <button
+                            onClick={downloadDatasheetLocally}
+                            className="btn btn-success text-sm flex items-center justify-center gap-2"
+                            title="Download and save locally"
+                          >
+                            <Download className="w-4 h-4" />
+                            Save
+                          </button>
+                          <a
+                            href={getDatasheetUrl() || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary text-sm flex items-center justify-center"
+                            title="Open in new tab"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
                         </div>
                       </div>
-
-                      <p className="text-sm text-green-200/70 mb-3 line-clamp-2">
-                        Official datasheet from supplier website
-                      </p>
-
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between text-xs text-green-300/60">
-                          <span>Source:</span>
-                          <span>Supplier API</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-green-300/60">
-                          <span>Type:</span>
-                          <span>External Link</span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={openPDFPreview}
-                          className="flex-1 btn btn-primary text-sm flex items-center justify-center gap-2"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Preview
-                        </button>
-                        <button
-                          onClick={downloadDatasheetLocally}
-                          className="btn btn-success text-sm flex items-center justify-center gap-2"
-                          title="Download and save locally"
-                        >
-                          <Download className="w-4 h-4" />
-                          Save
-                        </button>
-                        <a
-                          href={getDatasheetUrl() || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-secondary text-sm flex items-center justify-center"
-                          title="Open in new tab"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               </div>
             </motion.div>
@@ -2325,10 +2336,18 @@ const PartDetailsPage = () => {
                         <table className="table w-full">
                           <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                             <tr>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Date</th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Supplier</th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Unit Price</th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">Change</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                                Date
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                                Supplier
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                                Unit Price
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
+                                Change
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
@@ -2342,12 +2361,17 @@ const PartDetailsPage = () => {
                                 : 0
 
                               return (
-                                <tr key={index} className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200">
+                                <tr
+                                  key={index}
+                                  className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
+                                >
                                   <td className="px-4 py-3 text-primary">
                                     {new Date(trend.order_date).toLocaleDateString()}
                                   </td>
                                   <td className="px-4 py-3 text-secondary">{trend.supplier}</td>
-                                  <td className="px-4 py-3 text-secondary">${trend.unit_price.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-secondary">
+                                    ${trend.unit_price.toFixed(2)}
+                                  </td>
                                   <td className="px-4 py-3">
                                     {prevPrice && (
                                       <span
@@ -2525,13 +2549,13 @@ const PartDetailsPage = () => {
                         selectedValues={selectedProjectIds}
                         onMultiSelectChange={(values) => {
                           // Handle multi-select change by comparing with current and calling API
-                          const added = values.filter(v => !selectedProjectIds.includes(v))
-                          const removed = selectedProjectIds.filter(v => !values.includes(v))
+                          const added = values.filter((v) => !selectedProjectIds.includes(v))
+                          const removed = selectedProjectIds.filter((v) => !values.includes(v))
 
                           // Process additions
-                          added.forEach(projectId => handleToggleProject(projectId))
+                          added.forEach((projectId) => handleToggleProject(projectId))
                           // Process removals
-                          removed.forEach(projectId => handleToggleProject(projectId))
+                          removed.forEach((projectId) => handleToggleProject(projectId))
                         }}
                         options={allProjects.map((project) => ({
                           value: project.id,
@@ -2888,7 +2912,9 @@ function SpecificationCard({
             </button>
           )}
         </dt>
-        <dd className={`font-semibold text-theme-primary ${small ? 'text-sm' : 'text-base'} break-all overflow-hidden`}>
+        <dd
+          className={`font-semibold text-theme-primary ${small ? 'text-sm' : 'text-base'} break-all overflow-hidden`}
+        >
           {isExpanded && isComplexObject ? (
             <div className="space-y-1">
               {Object.entries(value).map(([key, val]) => (
@@ -2925,7 +2951,7 @@ function formatSpecValue(value: any): string | JSX.Element {
 
     // Check if array contains complex objects
     const hasComplexItems = value.some(
-      item => typeof item === 'object' && item !== null && !Array.isArray(item)
+      (item) => typeof item === 'object' && item !== null && !Array.isArray(item)
     )
 
     if (hasComplexItems) {
@@ -2942,7 +2968,7 @@ function formatSpecValue(value: any): string | JSX.Element {
     // Simple array - can safely join strings
     const formatted = value.map((item) => formatSpecValue(item))
     // Only join if all items are strings
-    if (formatted.every(item => typeof item === 'string')) {
+    if (formatted.every((item) => typeof item === 'string')) {
       return formatted.join(', ')
     }
     // Otherwise return as JSX
@@ -3032,7 +3058,12 @@ function formatSpecValue(value: any): string | JSX.Element {
         title={stringValue}
       >
         <span className="truncate">{stringValue}</span>
-        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-3 h-3 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"

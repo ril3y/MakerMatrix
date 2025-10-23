@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.models.models import engine
 
+
 def update_admin_permissions():
     """Add users:* permissions to admin role"""
 
@@ -26,8 +27,15 @@ def update_admin_permissions():
         new_permissions = admin_role.permissions.copy() if admin_role.permissions else []
 
         required_perms = [
-            "users:read", "users:create", "users:update", "users:delete",
-            "api_keys:read", "api_keys:create", "api_keys:update", "api_keys:delete", "api_keys:admin"
+            "users:read",
+            "users:create",
+            "users:update",
+            "users:delete",
+            "api_keys:read",
+            "api_keys:create",
+            "api_keys:update",
+            "api_keys:delete",
+            "api_keys:admin",
         ]
 
         for perm in required_perms:
@@ -36,10 +44,7 @@ def update_admin_permissions():
                 print(f"Adding permission: {perm}")
 
         # Update the role
-        updated_role = user_repo.update_role(
-            role_id=admin_role.id,
-            permissions=new_permissions
-        )
+        updated_role = user_repo.update_role(role_id=admin_role.id, permissions=new_permissions)
 
         print(f"\n✅ Updated admin permissions: {updated_role.permissions}")
 
@@ -48,6 +53,7 @@ def update_admin_permissions():
         return 1
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(update_admin_permissions())

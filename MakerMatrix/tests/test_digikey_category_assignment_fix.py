@@ -29,6 +29,7 @@ from io import BytesIO
 
 class MockUser:
     """Mock user for testing"""
+
     def __init__(self):
         self.id = "test-user-id"
         self.username = "testuser"
@@ -36,6 +37,7 @@ class MockUser:
 
 class MockUploadFile:
     """Mock UploadFile for testing"""
+
     def __init__(self, content: bytes, filename: str):
         self.content = content
         self.filename = filename
@@ -52,6 +54,7 @@ def clear_database():
     with Session(engine) as session:
         # Disable foreign key constraints temporarily for SQLite
         from sqlalchemy import text
+
         session.execute(text("PRAGMA foreign_keys = OFF"))
 
         # Delete all parts, orders, and categories
@@ -72,7 +75,7 @@ def create_test_csv_with_categories():
 311-1.00KCRCT-ND,Yageo,RC0805FR-071KL,RES SMD 1K OHM 1% 1/8W 0805,R1,100,0,"$0.10000","$10.00"
 399-11785-1-ND,Kemet,C0805C104K5RAC7800,CAP CER 0.1UF 50V X7R 0805,C1,50,0,"$0.20000","$10.00"
 """.strip()
-    return csv_content.encode('utf-8')
+    return csv_content.encode("utf-8")
 
 
 def create_enriched_test_data():
@@ -90,10 +93,10 @@ def create_enriched_test_data():
                     "digikey_category": "Capacitors",  # This should auto-create category "capacitors"
                     "product_url": "https://www.digikey.com/en/products/detail/samsung-electro-mechanics/CL21B105KOFNNNG/3894469",
                     "last_enrichment_date": "2025-09-28T18:00:12.544579",
-                    "enrichment_source": "DigiKey"
+                    "enrichment_source": "DigiKey",
                 },
                 "part_name": "RC0805FR-071KL-ENRICHED",
-                "quantity": 100
+                "quantity": 100,
             },
             {
                 "part_number": "TEST-ENRICHED-2",
@@ -106,11 +109,11 @@ def create_enriched_test_data():
                     "digikey_category": "Capacitors",  # Same category
                     "product_url": "https://www.digikey.com/en/products/detail/kemet/C0805C104K5RAC7800/411234567",
                     "last_enrichment_date": "2025-09-28T18:00:12.544775",
-                    "enrichment_source": "DigiKey"
+                    "enrichment_source": "DigiKey",
                 },
                 "part_name": "C0805C104K5RAC7800-ENRICHED",
-                "quantity": 50
-            }
+                "quantity": 50,
+            },
         ]
     }
 
@@ -119,9 +122,9 @@ async def test_digikey_category_assignment():
     """
     Test DigiKey import with category assignment and URL validation.
     """
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🧪 TESTING DIGIKEY CATEGORY ASSIGNMENT AND URL VALIDATION")
-    print("="*80)
+    print("=" * 80)
 
     # Step 1: Clear database
     clear_database()
@@ -146,7 +149,7 @@ async def test_digikey_category_assignment():
             notes="Test import for DigiKey category assignment",
             enable_enrichment=False,
             enrichment_capabilities=None,
-            current_user=mock_user
+            current_user=mock_user,
         )
 
         print(f"✅ Import completed successfully!")
@@ -154,12 +157,13 @@ async def test_digikey_category_assignment():
         print(f"📊 Result message: {result.message}")
 
         # Show actual data structure
-        if hasattr(result.data, 'imported_count'):
+        if hasattr(result.data, "imported_count"):
             print(f"📦 Imported parts: {result.data.imported_count}")
 
     except Exception as e:
         print(f"❌ Import failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -169,6 +173,7 @@ async def test_digikey_category_assignment():
     enriched_data = create_enriched_test_data()
 
     from MakerMatrix.services.data.part_service import PartService
+
     part_service = PartService()
 
     for part_data in enriched_data["parts_data"]:
@@ -177,10 +182,10 @@ async def test_digikey_category_assignment():
         print(f"   Product URL: {part_data['additional_properties'].get('product_url')}")
 
         # Extract category name from digikey_category and create category_names list
-        digikey_category = part_data['additional_properties'].get('digikey_category')
+        digikey_category = part_data["additional_properties"].get("digikey_category")
         if digikey_category:
             category_names = [digikey_category.lower()]  # Convert to lowercase as requested
-            part_data['category_names'] = category_names
+            part_data["category_names"] = category_names
             print(f"   Auto-assigned category: {category_names[0]}")
 
         response = part_service.add_part(part_data)
@@ -225,8 +230,8 @@ async def test_digikey_category_assignment():
 
             # Check additional properties
             if part.additional_properties:
-                digikey_cat = part.additional_properties.get('digikey_category')
-                product_url = part.additional_properties.get('product_url')
+                digikey_cat = part.additional_properties.get("digikey_category")
+                product_url = part.additional_properties.get("product_url")
 
                 if digikey_cat:
                     print(f"📋 DigiKey Category: {digikey_cat}")
@@ -258,22 +263,23 @@ def main():
         success = asyncio.run(test_digikey_category_assignment())
 
         if success:
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("🎉 ALL TESTS PASSED!")
             print("✅ DigiKey category assignment works")
             print("✅ Product URLs stored completely")
             print("✅ Categories display correctly")
-            print("="*80)
+            print("=" * 80)
         else:
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("❌ TESTS FAILED!")
             print("❌ Found issues with category assignment or URLs")
-            print("="*80)
+            print("=" * 80)
             exit(1)
 
     except Exception as e:
         print(f"\n❌ TEST FAILED WITH EXCEPTION: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
 

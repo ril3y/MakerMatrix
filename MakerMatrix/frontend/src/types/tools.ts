@@ -1,5 +1,11 @@
 // Tool condition enum (matches backend validation)
-export type ToolCondition = 'excellent' | 'good' | 'fair' | 'poor' | 'needs_repair' | 'out_of_service'
+export type ToolCondition =
+  | 'excellent'
+  | 'good'
+  | 'fair'
+  | 'poor'
+  | 'needs_repair'
+  | 'out_of_service'
 
 // Tool status enum
 export type ToolStatus = 'available' | 'checked_out' | 'maintenance' | 'retired'

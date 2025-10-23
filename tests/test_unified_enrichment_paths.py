@@ -25,30 +25,28 @@ class MockEnrichmentEngine:
     async def enrich_part(self, supplier_name, part_identifier, force_refresh=False, enrichment_capabilities=None):
         """Track all enrichment calls"""
         call_info = {
-            'supplier_name': supplier_name,
-            'part_identifier': part_identifier,
-            'force_refresh': force_refresh,
-            'enrichment_capabilities': enrichment_capabilities,
-            'call_count': len(self.calls) + 1
+            "supplier_name": supplier_name,
+            "part_identifier": part_identifier,
+            "force_refresh": force_refresh,
+            "enrichment_capabilities": enrichment_capabilities,
+            "call_count": len(self.calls) + 1,
         }
         self.calls.append(call_info)
 
         # Return standardized mock result
         return {
-            'success': True,
-            'supplier': supplier_name,
-            'part_identifier': part_identifier,
-            'enrichment_method': 'test',
-            'data': {
-                'supplier_part_number': part_identifier,
-                'part_name': f'Test Part {len(self.calls)}',
-                'manufacturer': 'Test Mfg',
-                'description': 'Test enriched part',
-                'additional_properties': {
-                    'enrichment_call_number': len(self.calls)
-                }
+            "success": True,
+            "supplier": supplier_name,
+            "part_identifier": part_identifier,
+            "enrichment_method": "test",
+            "data": {
+                "supplier_part_number": part_identifier,
+                "part_name": f"Test Part {len(self.calls)}",
+                "manufacturer": "Test Mfg",
+                "description": "Test enriched part",
+                "additional_properties": {"enrichment_call_number": len(self.calls)},
             },
-            'timestamp': '2025-01-01T00:00:00'
+            "timestamp": "2025-01-01T00:00:00",
         }
 
 
@@ -68,9 +66,7 @@ class TestInstantEnrichmentPath:
         # Create a mock supplier for configuration
         mock_supplier = Mock()
         mock_supplier.get_supplier_info.return_value = SupplierInfo(
-            name="test-supplier",
-            display_name="Test Supplier",
-            description="Test supplier for testing"
+            name="test-supplier", display_name="Test Supplier", description="Test supplier for testing"
         )
         mock_supplier.supports_scraping.return_value = False
         mock_supplier.configure = Mock()
@@ -79,29 +75,28 @@ class TestInstantEnrichmentPath:
         # Mock SupplierConfigService
         mock_config_service = Mock()
         mock_config_service.get_supplier_config.return_value = {
-            'base_url': 'https://test.com',
-            'timeout_seconds': 30,
-            'enabled': True
+            "base_url": "https://test.com",
+            "timeout_seconds": 30,
+            "enabled": True,
         }
-        mock_config_service.get_supplier_credentials.return_value = {'api_key': 'test'}
+        mock_config_service.get_supplier_credentials.return_value = {"api_key": "test"}
 
         # Patch everything
-        with patch('MakerMatrix.routers.parts_routes.get_supplier', return_value=mock_supplier), \
-             patch('MakerMatrix.routers.parts_routes.enrichment_engine', mock_engine), \
-             patch('MakerMatrix.routers.parts_routes.SupplierConfigService', return_value=mock_config_service):
+        with (
+            patch("MakerMatrix.routers.parts_routes.get_supplier", return_value=mock_supplier),
+            patch("MakerMatrix.routers.parts_routes.enrichment_engine", mock_engine),
+            patch("MakerMatrix.routers.parts_routes.SupplierConfigService", return_value=mock_config_service),
+        ):
 
             # Call the endpoint
             await enrich_part_from_supplier(
-                supplier_name='test-supplier',
-                part_identifier='TEST-123',
-                force_refresh=False,
-                current_user=mock_user
+                supplier_name="test-supplier", part_identifier="TEST-123", force_refresh=False, current_user=mock_user
             )
 
         # Verify EnrichmentEngine was called
         assert len(mock_engine.calls) == 1
-        assert mock_engine.calls[0]['supplier_name'] == 'test-supplier'
-        assert mock_engine.calls[0]['part_identifier'] == 'TEST-123'
+        assert mock_engine.calls[0]["supplier_name"] == "test-supplier"
+        assert mock_engine.calls[0]["part_identifier"] == "TEST-123"
 
 
 class TestBackgroundEnrichmentPath:
@@ -117,20 +112,20 @@ class TestBackgroundEnrichmentPath:
         mock_task = Mock(spec=TaskModel)
         mock_task.task_type = TaskType.PART_ENRICHMENT
         mock_task.status = TaskStatus.PENDING
-        mock_task.created_by_user_id = 'test-user-id'
+        mock_task.created_by_user_id = "test-user-id"
         mock_task.get_input_data.return_value = {
-            'part_id': 'test-part-id',
-            'supplier': 'test-supplier',
-            'capabilities': ['get_part_details']
+            "part_id": "test-part-id",
+            "supplier": "test-supplier",
+            "capabilities": ["get_part_details"],
         }
 
         # Mock part
         mock_part = Mock()
-        mock_part.id = 'test-part-id'
-        mock_part.part_name = 'Test Part'
-        mock_part.supplier = 'test-supplier'
+        mock_part.id = "test-part-id"
+        mock_part.part_name = "Test Part"
+        mock_part.supplier = "test-supplier"
         mock_part.part_vendor = None
-        mock_part.part_number = 'TEST-123'
+        mock_part.part_number = "TEST-123"
         mock_part.supplier_part_number = None
         mock_part.product_url = None
         mock_part.supplier_url = None
@@ -141,18 +136,20 @@ class TestBackgroundEnrichmentPath:
         service = PartEnrichmentService()
 
         # Mock all the dependencies
-        with patch.object(service, '_get_part_by_id_in_session', return_value=mock_part), \
-             patch.object(service, '_get_supplier_config', return_value={'enabled': True}), \
-             patch.object(service, '_get_supplier_client') as mock_get_client, \
-             patch('MakerMatrix.services.system.part_enrichment_service.enrichment_engine', mock_engine), \
-             patch.object(service, '_apply_enrichment_to_part', new_callable=AsyncMock), \
-             patch.object(service, '_get_user_from_task', return_value=None), \
-             patch.object(service, 'get_session'):
+        with (
+            patch.object(service, "_get_part_by_id_in_session", return_value=mock_part),
+            patch.object(service, "_get_supplier_config", return_value={"enabled": True}),
+            patch.object(service, "_get_supplier_client") as mock_get_client,
+            patch("MakerMatrix.services.system.part_enrichment_service.enrichment_engine", mock_engine),
+            patch.object(service, "_apply_enrichment_to_part", new_callable=AsyncMock),
+            patch.object(service, "_get_user_from_task", return_value=None),
+            patch.object(service, "get_session"),
+        ):
 
             # Setup mock client
             mock_client = Mock()
             mock_client.supports_scraping.return_value = False
-            mock_client.get_supplier_info.return_value = Mock(display_name='Test Supplier')
+            mock_client.get_supplier_info.return_value = Mock(display_name="Test Supplier")
             mock_get_client.return_value = mock_client
 
             # Create a mock session
@@ -163,15 +160,15 @@ class TestBackgroundEnrichmentPath:
                 task=mock_task,
                 progress_callback=None,
                 session=mock_session,
-                part_id='test-part-id',
-                preferred_supplier='test-supplier',
-                requested_capabilities=['get_part_details'],
-                force_refresh=False
+                part_id="test-part-id",
+                preferred_supplier="test-supplier",
+                requested_capabilities=["get_part_details"],
+                force_refresh=False,
             )
 
         # Verify EnrichmentEngine was called
         assert len(mock_engine.calls) == 1
-        assert mock_engine.calls[0]['supplier_name'] == 'test-supplier'
+        assert mock_engine.calls[0]["supplier_name"] == "test-supplier"
 
 
 class TestBothPathsProduceIdenticalResults:
@@ -183,32 +180,28 @@ class TestBothPathsProduceIdenticalResults:
         mock_engine = MockEnrichmentEngine()
 
         # Test parameters
-        test_supplier = 'test-supplier'
-        test_identifier = 'TEST-123'
+        test_supplier = "test-supplier"
+        test_identifier = "TEST-123"
 
         # Simulate instant enrichment call
-        with patch('MakerMatrix.services.system.enrichment_engine.enrichment_engine', mock_engine):
+        with patch("MakerMatrix.services.system.enrichment_engine.enrichment_engine", mock_engine):
             instant_result = await mock_engine.enrich_part(
-                supplier_name=test_supplier,
-                part_identifier=test_identifier,
-                force_refresh=False
+                supplier_name=test_supplier, part_identifier=test_identifier, force_refresh=False
             )
 
         # Simulate background enrichment call (reset call count to simulate separate call)
         mock_engine.calls = []
 
-        with patch('MakerMatrix.services.system.enrichment_engine.enrichment_engine', mock_engine):
+        with patch("MakerMatrix.services.system.enrichment_engine.enrichment_engine", mock_engine):
             background_result = await mock_engine.enrich_part(
-                supplier_name=test_supplier,
-                part_identifier=test_identifier,
-                force_refresh=False
+                supplier_name=test_supplier, part_identifier=test_identifier, force_refresh=False
             )
 
         # Both should produce identical data structure
-        assert instant_result['success'] == background_result['success']
-        assert instant_result['supplier'] == background_result['supplier']
-        assert instant_result['part_identifier'] == background_result['part_identifier']
-        assert instant_result['enrichment_method'] == background_result['enrichment_method']
+        assert instant_result["success"] == background_result["success"]
+        assert instant_result["supplier"] == background_result["supplier"]
+        assert instant_result["part_identifier"] == background_result["part_identifier"]
+        assert instant_result["enrichment_method"] == background_result["enrichment_method"]
 
 
 class TestMaximumCodeReuse:
@@ -223,11 +216,13 @@ class TestMaximumCodeReuse:
         source = inspect.getsource(parts_routes.enrich_part_from_supplier)
 
         # Should call enrichment_engine.enrich_part()
-        assert 'enrichment_engine.enrich_part' in source
+        assert "enrichment_engine.enrich_part" in source
 
         # Should NOT have its own scraping/API decision logic
-        assert 'if supports_scraping and not has_credentials:' not in source or \
-               source.count('if supports_scraping and not has_credentials:') <= 1  # Only in comments/old code
+        assert (
+            "if supports_scraping and not has_credentials:" not in source
+            or source.count("if supports_scraping and not has_credentials:") <= 1
+        )  # Only in comments/old code
 
     def test_no_duplicate_enrichment_logic_in_service(self):
         """Verify part_enrichment_service.py doesn't have duplicate enrichment logic"""
@@ -238,7 +233,7 @@ class TestMaximumCodeReuse:
         source = inspect.getsource(part_enrichment_service.PartEnrichmentService._handle_with_session)
 
         # Should call enrichment_engine.enrich_part()
-        assert 'enrichment_engine.enrich_part' in source
+        assert "enrichment_engine.enrich_part" in source
 
         # Should NOT have its own implementation of scraping vs API logic
         # The engine handles this now
@@ -254,8 +249,8 @@ class TestMaximumCodeReuse:
         service_source = inspect.getsource(service)
 
         # Both should reference enrichment_engine
-        assert 'enrichment_engine' in routes_source
-        assert 'enrichment_engine' in service_source
+        assert "enrichment_engine" in routes_source
+        assert "enrichment_engine" in service_source
 
 
 class TestEnrichmentEngineCallPatterns:
@@ -267,24 +262,19 @@ class TestEnrichmentEngineCallPatterns:
         mock_engine = MockEnrichmentEngine()
 
         # Common test parameters
-        common_params = {
-            'supplier_name': 'test-supplier',
-            'part_identifier': 'TEST-123',
-            'force_refresh': True
-        }
+        common_params = {"supplier_name": "test-supplier", "part_identifier": "TEST-123", "force_refresh": True}
 
         # Call 1: From instant enrichment path
         result1 = await mock_engine.enrich_part(**common_params)
 
         # Call 2: From background enrichment path (with capabilities)
         result2 = await mock_engine.enrich_part(
-            **common_params,
-            enrichment_capabilities=[SupplierCapability.GET_PART_DETAILS]
+            **common_params, enrichment_capabilities=[SupplierCapability.GET_PART_DETAILS]
         )
 
         # Both calls should succeed
-        assert result1['success']
-        assert result2['success']
+        assert result1["success"]
+        assert result2["success"]
 
         # Both should use identical parameter names
         assert set(mock_engine.calls[0].keys()) == set(mock_engine.calls[1].keys())
@@ -302,9 +292,9 @@ class TestNoCodeDuplication:
         engine_source = inspect.getsource(enrichment_engine.EnrichmentEngine)
 
         # Core enrichment decision logic should be in engine
-        assert 'supports_scraping and not has_credentials' in engine_source
-        assert 'enrich_via_scraping' in engine_source
-        assert 'enrich_via_api' in engine_source
+        assert "supports_scraping and not has_credentials" in engine_source
+        assert "enrich_via_scraping" in engine_source
+        assert "enrich_via_api" in engine_source
 
         # This logic should NOT be duplicated in routes or service
         # (They should only call the engine)
@@ -324,8 +314,7 @@ class TestNoCodeDuplication:
         ]
 
         for pattern in forbidden_patterns:
-            assert pattern not in engine_source.lower(), \
-                f"Found hardcoded supplier logic: {pattern}"
+            assert pattern not in engine_source.lower(), f"Found hardcoded supplier logic: {pattern}"
 
 
 if __name__ == "__main__":

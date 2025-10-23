@@ -3,7 +3,6 @@ import {
   Wrench,
   Plus,
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   X,
@@ -12,15 +11,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  MapPin,
   Edit3,
-  CheckSquare,
-  Square,
   Calendar,
   CheckCircle,
   XCircle,
-  AlertCircle,
-  Package,
   Tag as TagIcon,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
@@ -170,7 +164,7 @@ const ToolsPage = () => {
         search_term: search && search.trim() ? search.trim() : undefined,
         status: statusFilter || undefined,
         condition: conditionFilter || undefined,
-        sort_by: sortBy as any || 'created_at',
+        sort_by: (sortBy as any) || 'created_at',
         sort_order: sortOrder || 'desc',
         page,
         page_size: pageSize,
@@ -185,17 +179,19 @@ const ToolsPage = () => {
           const toolTagIds = tool.tags?.map((t: Tag) => t.id) || []
           if (tagFilterMode === 'AND') {
             // All selected tags must be present
-            return selectedTags.every(tag => toolTagIds.includes(tag.id))
+            return selectedTags.every((tag) => toolTagIds.includes(tag.id))
           } else {
             // At least one selected tag must be present
-            return selectedTags.some(tag => toolTagIds.includes(tag.id))
+            return selectedTags.some((tag) => toolTagIds.includes(tag.id))
           }
         })
-        console.log(`Filtered ${response.items?.length || 0} tools to ${filteredTools.length} based on tags`)
+        console.log(
+          `Filtered ${response.items?.length || 0} tools to ${filteredTools.length} based on tags`
+        )
       }
 
       setTools(filteredTools)
-      setTotalTools(selectedTags.length > 0 ? filteredTools.length : (response.total || 0))
+      setTotalTools(selectedTags.length > 0 ? filteredTools.length : response.total || 0)
       setCurrentPage(page)
     } catch (err: any) {
       console.error('Error loading tools:', err)
@@ -756,7 +752,9 @@ const ToolsPage = () => {
                         )}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${getConditionColor(tool.condition)}`}>
+                        <span
+                          className={`text-sm font-medium ${getConditionColor(tool.condition)}`}
+                        >
                           {tool.condition.charAt(0).toUpperCase() + tool.condition.slice(1)}
                         </span>
                       </td>
@@ -770,7 +768,7 @@ const ToolsPage = () => {
                                 size="sm"
                                 onClick={() => {
                                   // Add tag to filter when clicked
-                                  if (!selectedTags.find(t => t.id === tag.id)) {
+                                  if (!selectedTags.find((t) => t.id === tag.id)) {
                                     setSelectedTags([...selectedTags, tag])
                                   }
                                 }}
@@ -782,9 +780,7 @@ const ToolsPage = () => {
                         )}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
-                        <div className="flex items-center gap-1">
-                          {tool.location?.name || '-'}
-                        </div>
+                        <div className="flex items-center gap-1">{tool.location?.name || '-'}</div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                         {tool.checked_out_by ? (
@@ -929,10 +925,7 @@ const ToolsPage = () => {
       )}
 
       {/* Tag Management Modal */}
-      <TagManagementModal
-        isOpen={showTagManagement}
-        onClose={() => setShowTagManagement(false)}
-      />
+      <TagManagementModal isOpen={showTagManagement} onClose={() => setShowTagManagement(false)} />
     </div>
   )
 }

@@ -29,17 +29,15 @@ class DashboardService(BaseService):
             total_parts = session.exec(select(func.count()).select_from(PartModel)).one()[0]
 
             # Get total units from allocations
-            total_units = session.exec(
-                select(func.sum(PartLocationAllocation.quantity_at_location))
-            ).one()[0] or 0
+            total_units = session.exec(select(func.sum(PartLocationAllocation.quantity_at_location))).one()[0] or 0
 
             total_categories = session.exec(select(func.count()).select_from(CategoryModel)).one()[0]
             total_locations = session.exec(select(func.count()).select_from(LocationModel)).one()[0]
 
             # Count parts with allocations (have locations)
-            parts_with_location = session.exec(
-                select(func.count(func.distinct(PartLocationAllocation.part_id)))
-            ).one()[0]
+            parts_with_location = session.exec(select(func.count(func.distinct(PartLocationAllocation.part_id)))).one()[
+                0
+            ]
 
             parts_without_location = total_parts - parts_with_location
 
@@ -47,23 +45,19 @@ class DashboardService(BaseService):
             low_stock_subquery = (
                 select(
                     PartLocationAllocation.part_id,
-                    func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity')
+                    func.sum(PartLocationAllocation.quantity_at_location).label("total_quantity"),
                 )
                 .group_by(PartLocationAllocation.part_id)
                 .subquery()
             )
 
             low_stock_count = session.exec(
-                select(func.count())
-                .select_from(low_stock_subquery)
-                .where(low_stock_subquery.c.total_quantity < 10)
+                select(func.count()).select_from(low_stock_subquery).where(low_stock_subquery.c.total_quantity < 10)
             ).one()[0]
 
             # Count zero stock parts
             zero_stock_count = session.exec(
-                select(func.count())
-                .select_from(low_stock_subquery)
-                .where(low_stock_subquery.c.total_quantity == 0)
+                select(func.count()).select_from(low_stock_subquery).where(low_stock_subquery.c.total_quantity == 0)
             ).one()[0]
 
             return {
@@ -74,7 +68,7 @@ class DashboardService(BaseService):
                 "parts_with_location": parts_with_location,
                 "parts_without_location": parts_without_location,
                 "low_stock_count": low_stock_count,
-                "zero_stock_count": zero_stock_count
+                "zero_stock_count": zero_stock_count,
             }
 
     def get_parts_by_category(self) -> List[Dict[str, Any]]:
@@ -82,8 +76,8 @@ class DashboardService(BaseService):
         with self.get_session() as session:
             stmt = (
                 select(
-                    CategoryModel.name.label('category'),
-                    func.count(PartModel.id).label('part_count'),
+                    CategoryModel.name.label("category"),
+                    func.count(PartModel.id).label("part_count"),
                     func.coalesce(
                         func.sum(
                             select(func.sum(PartLocationAllocation.quantity_at_location))
@@ -91,8 +85,8 @@ class DashboardService(BaseService):
                             .correlate(PartModel)
                             .scalar_subquery()
                         ),
-                        0
-                    ).label('total_quantity')
+                        0,
+                    ).label("total_quantity"),
                 )
                 .select_from(PartModel)
                 .outerjoin(PartModel.categories)
@@ -106,7 +100,7 @@ class DashboardService(BaseService):
                 {
                     "category": r.category or "Uncategorized",
                     "part_count": r.part_count,
-                    "total_quantity": int(r.total_quantity)
+                    "total_quantity": int(r.total_quantity),
                 }
                 for r in results
             ]
@@ -116,9 +110,9 @@ class DashboardService(BaseService):
         with self.get_session() as session:
             stmt = (
                 select(
-                    LocationModel.name.label('location'),
-                    func.count(func.distinct(PartLocationAllocation.part_id)).label('part_count'),
-                    func.sum(PartLocationAllocation.quantity_at_location).label('total_quantity')
+                    LocationModel.name.label("location"),
+                    func.count(func.distinct(PartLocationAllocation.part_id)).label("part_count"),
+                    func.sum(PartLocationAllocation.quantity_at_location).label("total_quantity"),
                 )
                 .select_from(PartLocationAllocation)
                 .join(LocationModel, PartLocationAllocation.location_id == LocationModel.id)
@@ -129,11 +123,7 @@ class DashboardService(BaseService):
             results = session.exec(stmt).all()
 
             return [
-                {
-                    "location": r.location,
-                    "part_count": r.part_count,
-                    "total_quantity": int(r.total_quantity)
-                }
+                {"location": r.location, "part_count": r.part_count, "total_quantity": int(r.total_quantity)}
                 for r in results
             ]
 
@@ -142,8 +132,8 @@ class DashboardService(BaseService):
         with self.get_session() as session:
             stmt = (
                 select(
-                    PartModel.supplier.label('supplier'),
-                    func.count(PartModel.id).label('part_count'),
+                    PartModel.supplier.label("supplier"),
+                    func.count(PartModel.id).label("part_count"),
                     func.coalesce(
                         func.sum(
                             select(func.sum(PartLocationAllocation.quantity_at_location))
@@ -151,8 +141,8 @@ class DashboardService(BaseService):
                             .correlate(PartModel)
                             .scalar_subquery()
                         ),
-                        0
-                    ).label('total_quantity')
+                        0,
+                    ).label("total_quantity"),
                 )
                 .where(PartModel.supplier.isnot(None))
                 .group_by(PartModel.supplier)
@@ -162,11 +152,7 @@ class DashboardService(BaseService):
             results = session.exec(stmt).all()
 
             return [
-                {
-                    "supplier": r.supplier,
-                    "part_count": r.part_count,
-                    "total_quantity": int(r.total_quantity)
-                }
+                {"supplier": r.supplier, "part_count": r.part_count, "total_quantity": int(r.total_quantity)}
                 for r in results
             ]
 
@@ -177,7 +163,7 @@ class DashboardService(BaseService):
             qty_subquery = (
                 select(
                     PartLocationAllocation.part_id,
-                    func.sum(PartLocationAllocation.quantity_at_location).label('total_qty')
+                    func.sum(PartLocationAllocation.quantity_at_location).label("total_qty"),
                 )
                 .group_by(PartLocationAllocation.part_id)
                 .subquery()
@@ -189,13 +175,19 @@ class DashboardService(BaseService):
                     PartModel.part_name,
                     PartModel.part_number,
                     PartModel.supplier,
-                    qty_subquery.c.total_qty.label('quantity'),
-                    func.group_concat(LocationModel.name, ', ').label('location')
+                    qty_subquery.c.total_qty.label("quantity"),
+                    func.group_concat(LocationModel.name, ", ").label("location"),
                 )
                 .join(qty_subquery, PartModel.id == qty_subquery.c.part_id)
                 .outerjoin(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)
                 .outerjoin(LocationModel, PartLocationAllocation.location_id == LocationModel.id)
-                .group_by(PartModel.id, PartModel.part_name, PartModel.part_number, PartModel.supplier, qty_subquery.c.total_qty)
+                .group_by(
+                    PartModel.id,
+                    PartModel.part_name,
+                    PartModel.part_number,
+                    PartModel.supplier,
+                    qty_subquery.c.total_qty,
+                )
                 .order_by(qty_subquery.c.total_qty.desc())
                 .limit(limit)
             )
@@ -209,7 +201,7 @@ class DashboardService(BaseService):
                     "part_number": r.part_number,
                     "supplier": r.supplier or "Unknown",
                     "quantity": int(r.quantity),
-                    "location": r.location or "No Location"
+                    "location": r.location or "No Location",
                 }
                 for r in results
             ]
@@ -221,7 +213,7 @@ class DashboardService(BaseService):
             qty_subquery = (
                 select(
                     PartLocationAllocation.part_id,
-                    func.sum(PartLocationAllocation.quantity_at_location).label('total_qty')
+                    func.sum(PartLocationAllocation.quantity_at_location).label("total_qty"),
                 )
                 .group_by(PartLocationAllocation.part_id)
                 .subquery()
@@ -230,11 +222,11 @@ class DashboardService(BaseService):
             stmt = (
                 select(
                     PartModel.id,
-                    PartModel.part_name.label('part_name'),
+                    PartModel.part_name.label("part_name"),
                     PartModel.part_number,
                     PartModel.supplier,
-                    qty_subquery.c.total_qty.label('quantity'),
-                    func.group_concat(LocationModel.name, ', ').label('location')
+                    qty_subquery.c.total_qty.label("quantity"),
+                    func.group_concat(LocationModel.name, ", ").label("location"),
                 )
                 .join(qty_subquery, PartModel.id == qty_subquery.c.part_id)
                 .outerjoin(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)
@@ -245,8 +237,13 @@ class DashboardService(BaseService):
                 stmt = stmt.where(qty_subquery.c.total_qty > 0)
 
             stmt = (
-                stmt
-                .group_by(PartModel.id, PartModel.part_name, PartModel.part_number, PartModel.supplier, qty_subquery.c.total_qty)
+                stmt.group_by(
+                    PartModel.id,
+                    PartModel.part_name,
+                    PartModel.part_number,
+                    PartModel.supplier,
+                    qty_subquery.c.total_qty,
+                )
                 .order_by(qty_subquery.c.total_qty.asc())
                 .limit(limit)
             )
@@ -260,7 +257,7 @@ class DashboardService(BaseService):
                     "part_number": r.part_number,
                     "supplier": r.supplier or "Unknown",
                     "quantity": int(r.quantity),
-                    "location": r.location or "No Location"
+                    "location": r.location or "No Location",
                 }
                 for r in results
             ]
@@ -272,7 +269,7 @@ class DashboardService(BaseService):
             qty_subquery = (
                 select(
                     PartLocationAllocation.part_id,
-                    func.sum(PartLocationAllocation.quantity_at_location).label('total_qty')
+                    func.sum(PartLocationAllocation.quantity_at_location).label("total_qty"),
                 )
                 .group_by(PartLocationAllocation.part_id)
                 .subquery()
@@ -281,11 +278,11 @@ class DashboardService(BaseService):
             stmt = (
                 select(
                     PartModel.id,
-                    PartModel.part_name.label('part_name'),
+                    PartModel.part_name.label("part_name"),
                     PartModel.part_number,
                     PartModel.supplier,
-                    qty_subquery.c.total_qty.label('quantity'),
-                    func.group_concat(LocationModel.name, ', ').label('location_name')
+                    qty_subquery.c.total_qty.label("quantity"),
+                    func.group_concat(LocationModel.name, ", ").label("location_name"),
                 )
                 .join(qty_subquery, PartModel.id == qty_subquery.c.part_id)
                 .outerjoin(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)
@@ -296,11 +293,9 @@ class DashboardService(BaseService):
             if not include_zero:
                 stmt = stmt.where(qty_subquery.c.total_qty > 0)
 
-            stmt = (
-                stmt
-                .group_by(PartModel.id, PartModel.part_name, PartModel.part_number, PartModel.supplier, qty_subquery.c.total_qty)
-                .order_by(qty_subquery.c.total_qty.asc())
-            )
+            stmt = stmt.group_by(
+                PartModel.id, PartModel.part_name, PartModel.part_number, PartModel.supplier, qty_subquery.c.total_qty
+            ).order_by(qty_subquery.c.total_qty.asc())
 
             results = session.exec(stmt).all()
 
@@ -311,7 +306,7 @@ class DashboardService(BaseService):
                     "part_number": r.part_number,
                     "supplier": r.supplier or "Unknown",
                     "quantity": int(r.quantity),
-                    "location_name": r.location_name or "No Location"
+                    "location_name": r.location_name or "No Location",
                 }
                 for r in results
             ]
@@ -325,7 +320,7 @@ class DashboardService(BaseService):
             "parts_by_supplier": self.get_parts_by_supplier(),
             "most_stocked_parts": self.get_most_stocked_parts(limit=10),
             "least_stocked_parts": self.get_least_stocked_parts(limit=10, exclude_zero=True),
-            "low_stock_parts": self.get_low_stock_parts(threshold=10, include_zero=False)[:10]
+            "low_stock_parts": self.get_low_stock_parts(threshold=10, include_zero=False)[:10],
         }
 
 

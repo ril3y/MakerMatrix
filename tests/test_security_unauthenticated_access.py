@@ -31,6 +31,7 @@ BASE_URL = "https://10.2.0.2:8443"
 
 # Disable SSL verification warnings for self-signed cert
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -72,6 +73,7 @@ def unauth_tester():
 # CRITICAL: Completely Unprotected Endpoints
 # ========================================
 
+
 class TestCriticalUnauthenticatedAccess:
     """Test endpoints with NO authentication at all"""
 
@@ -82,16 +84,20 @@ class TestCriticalUnauthenticatedAccess:
         Expected: 401 Unauthorized
         Current: COMPLETELY UNPROTECTED - anyone can create admin users!
         """
-        response = unauth_tester.post("/api/users/register", {
-            "username": "anonymous_hacker",
-            "email": "hacker@evil.com",
-            "password": "EvilPassword123!",
-            "roles": ["admin"]
-        })
+        response = unauth_tester.post(
+            "/api/users/register",
+            {
+                "username": "anonymous_hacker",
+                "email": "hacker@evil.com",
+                "password": "EvilPassword123!",
+                "roles": ["admin"],
+            },
+        )
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated user registration! Status: {response.status_code}, " \
+        assert response.status_code == 401, (
+            f"CRITICAL: Unauthenticated user registration! Status: {response.status_code}, "
             f"Response: {response.text[:200]}"
+        )
 
     def test_cleanup_locations_requires_auth(self, unauth_tester):
         """
@@ -102,9 +108,10 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.delete("/api/locations/cleanup-locations")
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated location cleanup! Status: {response.status_code}, " \
+        assert response.status_code == 401, (
+            f"CRITICAL: Unauthenticated location cleanup! Status: {response.status_code}, "
             f"Response: {response.text[:200]}"
+        )
 
     def test_get_user_by_id_requires_auth(self, unauth_tester):
         """
@@ -115,8 +122,7 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.get("/api/users/admin")
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated user access! Status: {response.status_code}"
+        assert response.status_code == 401, f"CRITICAL: Unauthenticated user access! Status: {response.status_code}"
 
     def test_get_user_by_username_requires_auth(self, unauth_tester):
         """
@@ -127,8 +133,7 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.get("/api/users/by-username/admin")
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated username lookup! Status: {response.status_code}"
+        assert response.status_code == 401, f"CRITICAL: Unauthenticated username lookup! Status: {response.status_code}"
 
     def test_update_user_requires_auth(self, unauth_tester):
         """
@@ -137,13 +142,11 @@ class TestCriticalUnauthenticatedAccess:
         Expected: 401 Unauthorized
         Current: NO AUTHENTICATION - account takeover possible!
         """
-        response = unauth_tester.put("/api/users/admin", {
-            "email": "pwned@hacker.com",
-            "roles": ["admin"]
-        })
+        response = unauth_tester.put("/api/users/admin", {"email": "pwned@hacker.com", "roles": ["admin"]})
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated user modification! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"CRITICAL: Unauthenticated user modification! Status: {response.status_code}"
 
     def test_delete_user_requires_auth(self, unauth_tester):
         """
@@ -154,8 +157,7 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.delete("/api/users/some-user-id")
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated user deletion! Status: {response.status_code}"
+        assert response.status_code == 401, f"CRITICAL: Unauthenticated user deletion! Status: {response.status_code}"
 
     def test_update_user_roles_requires_auth(self, unauth_tester):
         """
@@ -164,12 +166,11 @@ class TestCriticalUnauthenticatedAccess:
         Expected: 401 Unauthorized
         Current: NO AUTHENTICATION - privilege escalation!
         """
-        response = unauth_tester.put("/api/users/admin/roles", {
-            "role_ids": ["admin-role-id"]
-        })
+        response = unauth_tester.put("/api/users/admin/roles", {"role_ids": ["admin-role-id"]})
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated role modification! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"CRITICAL: Unauthenticated role modification! Status: {response.status_code}"
 
     def test_update_user_status_requires_auth(self, unauth_tester):
         """
@@ -178,12 +179,9 @@ class TestCriticalUnauthenticatedAccess:
         Expected: 401 Unauthorized
         Current: NO AUTHENTICATION - can disable admin!
         """
-        response = unauth_tester.put("/api/users/admin/status", {
-            "is_active": False
-        })
+        response = unauth_tester.put("/api/users/admin/status", {"is_active": False})
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated status change! Status: {response.status_code}"
+        assert response.status_code == 401, f"CRITICAL: Unauthenticated status change! Status: {response.status_code}"
 
     def test_create_role_requires_auth(self, unauth_tester):
         """
@@ -192,13 +190,9 @@ class TestCriticalUnauthenticatedAccess:
         Expected: 401 Unauthorized
         Current: NO AUTHENTICATION - can create superuser role!
         """
-        response = unauth_tester.post("/api/users/roles/add_role", {
-            "name": "superadmin",
-            "permissions": ["*:*"]
-        })
+        response = unauth_tester.post("/api/users/roles/add_role", {"name": "superadmin", "permissions": ["*:*"]})
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated role creation! Status: {response.status_code}"
+        assert response.status_code == 401, f"CRITICAL: Unauthenticated role creation! Status: {response.status_code}"
 
     def test_update_role_requires_auth(self, unauth_tester):
         """
@@ -207,12 +201,9 @@ class TestCriticalUnauthenticatedAccess:
         Expected: 401 Unauthorized
         Current: NO AUTHENTICATION - can modify role permissions!
         """
-        response = unauth_tester.put("/api/users/roles/some-role-id", {
-            "permissions": ["*:*"]
-        })
+        response = unauth_tester.put("/api/users/roles/some-role-id", {"permissions": ["*:*"]})
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated role update! Status: {response.status_code}"
+        assert response.status_code == 401, f"CRITICAL: Unauthenticated role update! Status: {response.status_code}"
 
     def test_delete_role_requires_auth(self, unauth_tester):
         """
@@ -223,8 +214,7 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.delete("/api/users/roles/some-role-id")
 
-        assert response.status_code == 401, \
-            f"CRITICAL: Unauthenticated role deletion! Status: {response.status_code}"
+        assert response.status_code == 401, f"CRITICAL: Unauthenticated role deletion! Status: {response.status_code}"
 
     def test_get_role_requires_auth(self, unauth_tester):
         """
@@ -235,8 +225,7 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.get("/api/users/roles/some-role-id")
 
-        assert response.status_code == 401, \
-            f"HIGH: Unauthenticated role access! Status: {response.status_code}"
+        assert response.status_code == 401, f"HIGH: Unauthenticated role access! Status: {response.status_code}"
 
     def test_get_role_by_name_requires_auth(self, unauth_tester):
         """
@@ -247,8 +236,7 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.get("/api/users/roles/by-name/admin")
 
-        assert response.status_code == 401, \
-            f"HIGH: Unauthenticated role lookup! Status: {response.status_code}"
+        assert response.status_code == 401, f"HIGH: Unauthenticated role lookup! Status: {response.status_code}"
 
     def test_get_all_roles_requires_auth(self, unauth_tester):
         """
@@ -259,13 +247,13 @@ class TestCriticalUnauthenticatedAccess:
         """
         response = unauth_tester.get("/api/users/roles")
 
-        assert response.status_code == 401, \
-            f"HIGH: Unauthenticated roles listing! Status: {response.status_code}"
+        assert response.status_code == 401, f"HIGH: Unauthenticated roles listing! Status: {response.status_code}"
 
 
 # ========================================
 # HIGH: Data Modification Without Auth
 # ========================================
+
 
 class TestWriteOperationsRequireAuth:
     """Test that all write operations require authentication"""
@@ -276,12 +264,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: POST /api/categories/add_category
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.post("/api/categories/add_category", {
-            "name": "Unauthorized Category"
-        })
+        response = unauth_tester.post("/api/categories/add_category", {"name": "Unauthorized Category"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated category creation! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated category creation! Status: {response.status_code}"
 
     def test_update_category_requires_auth(self, unauth_tester):
         """
@@ -289,12 +276,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: PUT /api/categories/update_category/{category_id}
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.put("/api/categories/update_category/some-id", {
-            "name": "Hacked"
-        })
+        response = unauth_tester.put("/api/categories/update_category/some-id", {"name": "Hacked"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated category update! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated category update! Status: {response.status_code}"
 
     def test_delete_category_requires_auth(self, unauth_tester):
         """
@@ -304,8 +290,9 @@ class TestWriteOperationsRequireAuth:
         """
         response = unauth_tester.delete("/api/categories/remove_category?cat_id=some-id")
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated category deletion! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated category deletion! Status: {response.status_code}"
 
     def test_create_location_requires_auth(self, unauth_tester):
         """
@@ -313,12 +300,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: POST /api/locations/add_location
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.post("/api/locations/add_location", {
-            "name": "Unauthorized Location"
-        })
+        response = unauth_tester.post("/api/locations/add_location", {"name": "Unauthorized Location"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated location creation! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated location creation! Status: {response.status_code}"
 
     def test_update_location_requires_auth(self, unauth_tester):
         """
@@ -326,12 +312,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: PUT /api/locations/update_location/{location_id}
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.put("/api/locations/update_location/some-id", {
-            "name": "Hacked"
-        })
+        response = unauth_tester.put("/api/locations/update_location/some-id", {"name": "Hacked"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated location update! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated location update! Status: {response.status_code}"
 
     def test_delete_location_requires_auth(self, unauth_tester):
         """
@@ -341,8 +326,9 @@ class TestWriteOperationsRequireAuth:
         """
         response = unauth_tester.delete("/api/locations/delete_location/some-id")
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated location deletion! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated location deletion! Status: {response.status_code}"
 
     def test_create_project_requires_auth(self, unauth_tester):
         """
@@ -350,12 +336,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: POST /api/projects/
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.post("/api/projects/", {
-            "name": "Unauthorized Project"
-        })
+        response = unauth_tester.post("/api/projects/", {"name": "Unauthorized Project"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated project creation! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated project creation! Status: {response.status_code}"
 
     def test_update_project_requires_auth(self, unauth_tester):
         """
@@ -363,12 +348,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: PUT /api/projects/{project_id}
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.put("/api/projects/some-id", {
-            "name": "Hacked"
-        })
+        response = unauth_tester.put("/api/projects/some-id", {"name": "Hacked"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated project update! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated project update! Status: {response.status_code}"
 
     def test_delete_project_requires_auth(self, unauth_tester):
         """
@@ -378,8 +362,9 @@ class TestWriteOperationsRequireAuth:
         """
         response = unauth_tester.delete("/api/projects/some-id")
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated project deletion! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated project deletion! Status: {response.status_code}"
 
     def test_create_tag_requires_auth(self, unauth_tester):
         """
@@ -387,12 +372,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: POST /api/tags
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.post("/api/tags", {
-            "name": "unauthorized-tag"
-        })
+        response = unauth_tester.post("/api/tags", {"name": "unauthorized-tag"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated tag creation! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated tag creation! Status: {response.status_code}"
 
     def test_update_tag_requires_auth(self, unauth_tester):
         """
@@ -400,12 +384,9 @@ class TestWriteOperationsRequireAuth:
         Endpoint: PUT /api/tags/{tag_id}
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.put("/api/tags/some-id", {
-            "name": "hacked"
-        })
+        response = unauth_tester.put("/api/tags/some-id", {"name": "hacked"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated tag update! Status: {response.status_code}"
+        assert response.status_code == 401, f"VULNERABILITY: Unauthenticated tag update! Status: {response.status_code}"
 
     def test_delete_tag_requires_auth(self, unauth_tester):
         """
@@ -415,8 +396,9 @@ class TestWriteOperationsRequireAuth:
         """
         response = unauth_tester.delete("/api/tags/some-id")
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated tag deletion! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated tag deletion! Status: {response.status_code}"
 
     def test_create_tool_requires_auth(self, unauth_tester):
         """
@@ -424,12 +406,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: POST /api/tools/
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.post("/api/tools/", {
-            "name": "Unauthorized Tool"
-        })
+        response = unauth_tester.post("/api/tools/", {"name": "Unauthorized Tool"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated tool creation! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated tool creation! Status: {response.status_code}"
 
     def test_update_tool_requires_auth(self, unauth_tester):
         """
@@ -437,12 +418,11 @@ class TestWriteOperationsRequireAuth:
         Endpoint: PUT /api/tools/{tool_id}
         Expected: 401 Unauthorized
         """
-        response = unauth_tester.put("/api/tools/some-id", {
-            "name": "Hacked"
-        })
+        response = unauth_tester.put("/api/tools/some-id", {"name": "Hacked"})
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated tool update! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated tool update! Status: {response.status_code}"
 
     def test_delete_tool_requires_auth(self, unauth_tester):
         """
@@ -452,13 +432,15 @@ class TestWriteOperationsRequireAuth:
         """
         response = unauth_tester.delete("/api/tools/some-id")
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated tool deletion! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated tool deletion! Status: {response.status_code}"
 
 
 # ========================================
 # MEDIUM: Information Disclosure
 # ========================================
+
 
 class TestReadOperationsRequireAuth:
     """Test that sensitive read operations require authentication"""
@@ -472,8 +454,9 @@ class TestReadOperationsRequireAuth:
         """
         response = unauth_tester.get("/api/users/all")
 
-        assert response.status_code == 401, \
-            f"VULNERABILITY: Unauthenticated user enumeration! Status: {response.status_code}"
+        assert (
+            response.status_code == 401
+        ), f"VULNERABILITY: Unauthenticated user enumeration! Status: {response.status_code}"
 
     def test_get_categories_public_or_requires_auth(self, unauth_tester):
         """
@@ -506,12 +489,12 @@ class TestReadOperationsRequireAuth:
 
 def pytest_sessionfinish(session, exitstatus):
     """Generate summary report after all tests complete"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("UNAUTHENTICATED ACCESS VULNERABILITY SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"\nTotal Tests: {session.testscollected}")
     print(f"Failed Tests (Endpoints Accessible Without Auth): {session.testsfailed}")
     print(f"Passed Tests (Auth Required): {session.testspassed}")
     print("\nCRITICAL: Any failed test represents an endpoint that can be accessed")
     print("without authentication, which is a severe security vulnerability!")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")

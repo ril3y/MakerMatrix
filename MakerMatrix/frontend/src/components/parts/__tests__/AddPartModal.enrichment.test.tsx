@@ -42,22 +42,16 @@ describe('AddPartModal - Auto-Enrichment', () => {
           description: '10K Ohm 0805 Resistor',
           image_url: 'https://example.com/image.jpg',
           additional_properties: {
-            'Resistance': '10K',
-            'Package': '0805',
-            'Tolerance': '1%',
+            Resistance: '10K',
+            Package: '0805',
+            Tolerance: '1%',
             'Power Rating': '0.125W',
-            'Is Smt': 'True'
-          }
-        }
+            'Is Smt': 'True',
+          },
+        },
       })
 
-      render(
-        <AddPartModal
-          isOpen={true}
-          onClose={mockOnClose}
-          onPartAdded={mockOnPartAdded}
-        />
-      )
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
 
       // Find and paste LCSC URL
       const urlInput = screen.getByLabelText(/Product URL/i)
@@ -100,13 +94,7 @@ describe('AddPartModal - Auto-Enrichment', () => {
         new Error('Request failed with status code 500')
       )
 
-      render(
-        <AddPartModal
-          isOpen={true}
-          onClose={mockOnClose}
-          onPartAdded={mockOnPartAdded}
-        />
-      )
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -139,21 +127,15 @@ describe('AddPartModal - Auto-Enrichment', () => {
           description: 'NeoPixel Digital RGB LED Strip',
           image_url: 'https://adafruit.com/image.jpg',
           additional_properties: {
-            'Length': '1m',
+            Length: '1m',
             'LED Count': '60',
-            'Voltage': '5V',
-            'Type': 'WS2812B'
-          }
-        }
+            Voltage: '5V',
+            Type: 'WS2812B',
+          },
+        },
       })
 
-      render(
-        <AddPartModal
-          isOpen={true}
-          onClose={mockOnClose}
-          onPartAdded={mockOnPartAdded}
-        />
-      )
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -196,22 +178,16 @@ describe('AddPartModal - Auto-Enrichment', () => {
           description: 'Black-Oxide Alloy Steel Socket Head Screw',
           image_url: 'https://mcmaster.com/image.jpg',
           additional_properties: {
-            'Material': 'Black-Oxide Alloy Steel',
+            Material: 'Black-Oxide Alloy Steel',
             'Thread Size': 'M3 x 0.5mm',
-            'Length': '15mm',
+            Length: '15mm',
             'Head Type': 'Socket Head',
-            'Drive Style': 'Hex'
-          }
-        }
+            'Drive Style': 'Hex',
+          },
+        },
       })
 
-      render(
-        <AddPartModal
-          isOpen={true}
-          onClose={mockOnClose}
-          onPartAdded={mockOnPartAdded}
-        />
-      )
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -255,17 +231,11 @@ describe('AddPartModal - Auto-Enrichment', () => {
             'Property 2': 'Value 2',
             'Property 3': 'Value 3',
             // No nested objects should appear
-          }
-        }
+          },
+        },
       })
 
-      render(
-        <AddPartModal
-          isOpen={true}
-          onClose={mockOnClose}
-          onPartAdded={mockOnPartAdded}
-        />
-      )
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -296,21 +266,15 @@ describe('AddPartModal - Auto-Enrichment', () => {
           supplier_part_number: 'C25804',
           part_name: 'Resistor',
           additional_properties: {
-            'Resistance': '10K',
-            'last_enrichment_date': '2025-01-01T00:00:00',  // Should be filtered
-            'enrichment_source': 'lcsc',  // Should be filtered
-            'Package': '0805'
-          }
-        }
+            Resistance: '10K',
+            last_enrichment_date: '2025-01-01T00:00:00', // Should be filtered
+            enrichment_source: 'lcsc', // Should be filtered
+            Package: '0805',
+          },
+        },
       })
 
-      render(
-        <AddPartModal
-          isOpen={true}
-          onClose={mockOnClose}
-          onPartAdded={mockOnPartAdded}
-        />
-      )
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)

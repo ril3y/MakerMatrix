@@ -129,7 +129,8 @@ export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({
     } catch (err) {
       console.error('Failed to create simple supplier:', err)
       const error = err as { response?: { data?: { detail?: string } }; message?: string }
-      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create supplier'
+      const errorMessage =
+        error.response?.data?.detail || error.message || 'Failed to create supplier'
       setError(errorMessage)
     } finally {
       setLoading(false)

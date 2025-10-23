@@ -10,7 +10,7 @@ import sys
 import os
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Set JWT secret for testing
 os.environ["JWT_SECRET_KEY"] = "test_secret_key_for_testing"
@@ -36,12 +36,32 @@ class TestTagCRUD:
         # Clean up before test
         with Session(engine) as session:
             # Delete all test tags (be careful with patterns to avoid deleting real data)
-            test_tags = session.exec(
-                select(TagModel)
-            ).all()
+            test_tags = session.exec(select(TagModel)).all()
             for tag in test_tags:
                 # Only delete tags created by our tests
-                if any(keyword in tag.name.lower() for keyword in ['test', 'urgent', 'duplicate', 'case', 'list', 'frontend', 'backend', 'database', 'active', 'inactive', 'update', 'old', 'new', 'tag1', 'tag2', 'delete', 'system', 'stat']):
+                if any(
+                    keyword in tag.name.lower()
+                    for keyword in [
+                        "test",
+                        "urgent",
+                        "duplicate",
+                        "case",
+                        "list",
+                        "frontend",
+                        "backend",
+                        "database",
+                        "active",
+                        "inactive",
+                        "update",
+                        "old",
+                        "new",
+                        "tag1",
+                        "tag2",
+                        "delete",
+                        "system",
+                        "stat",
+                    ]
+                ):
                     session.delete(tag)
             session.commit()
 
@@ -49,12 +69,32 @@ class TestTagCRUD:
 
         # Clean up after test
         with Session(engine) as session:
-            test_tags = session.exec(
-                select(TagModel)
-            ).all()
+            test_tags = session.exec(select(TagModel)).all()
             for tag in test_tags:
                 # Only delete tags created by our tests
-                if any(keyword in tag.name.lower() for keyword in ['test', 'urgent', 'duplicate', 'case', 'list', 'frontend', 'backend', 'database', 'active', 'inactive', 'update', 'old', 'new', 'tag1', 'tag2', 'delete', 'system', 'stat']):
+                if any(
+                    keyword in tag.name.lower()
+                    for keyword in [
+                        "test",
+                        "urgent",
+                        "duplicate",
+                        "case",
+                        "list",
+                        "frontend",
+                        "backend",
+                        "database",
+                        "active",
+                        "inactive",
+                        "update",
+                        "old",
+                        "new",
+                        "tag1",
+                        "tag2",
+                        "delete",
+                        "system",
+                        "stat",
+                    ]
+                ):
                     session.delete(tag)
             session.commit()
 
@@ -66,7 +106,7 @@ class TestTagCRUD:
                 "color": "#FF0000",
                 "description": "Urgent items that need immediate attention",
                 "icon": "⚡",
-                "is_system": False
+                "is_system": False,
             }
 
             response = client.post("/api/tags", json=tag_data, headers=auth_headers)
@@ -84,11 +124,7 @@ class TestTagCRUD:
     def test_create_tag_strips_hash(self, auth_headers):
         """Test that creating a tag with # prefix strips it"""
         with TestClient(app) as client:
-            tag_data = {
-                "name": "#testing",
-                "color": "#00FF00",
-                "description": "Test tag with hash prefix"
-            }
+            tag_data = {"name": "#testing", "color": "#00FF00", "description": "Test tag with hash prefix"}
 
             response = client.post("/api/tags", json=tag_data, headers=auth_headers)
             assert response.status_code == 200
@@ -99,10 +135,7 @@ class TestTagCRUD:
     def test_create_duplicate_tag_fails(self, auth_headers):
         """Test that creating a duplicate tag fails"""
         with TestClient(app) as client:
-            tag_data = {
-                "name": "duplicate",
-                "color": "#0000FF"
-            }
+            tag_data = {"name": "duplicate", "color": "#0000FF"}
 
             # Create first tag
             response = client.post("/api/tags", json=tag_data, headers=auth_headers)
@@ -210,7 +243,7 @@ class TestTagCRUD:
             tags = [
                 {"name": "frontend", "description": "Frontend related"},
                 {"name": "backend", "description": "Backend related"},
-                {"name": "database", "description": "Database operations"}
+                {"name": "database", "description": "Database operations"},
             ]
 
             for tag_data in tags:
@@ -263,11 +296,7 @@ class TestTagCRUD:
             tag_id = create_response.json()["data"]["id"]
 
             # Update the tag
-            update_data = {
-                "color": "#FFFFFF",
-                "description": "Updated description",
-                "icon": "📝"
-            }
+            update_data = {"color": "#FFFFFF", "description": "Updated description", "icon": "📝"}
             response = client.put(f"/api/tags/{tag_id}", json=update_data, headers=auth_headers)
             assert response.status_code == 200
 

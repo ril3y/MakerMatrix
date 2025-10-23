@@ -29,10 +29,7 @@ class TestAPIKeyRoleDowngrade:
         """
 
         # Step 1: Get admin role ID
-        response = client.get(
-            "/api/users/roles",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/roles", headers={"X-API-Key": ADMIN_API_KEY})
         assert response.status_code == 200
         admin_role = next((r for r in response.json()["data"] if r["name"] == "admin"), None)
         user_role = next((r for r in response.json()["data"] if r["name"] == "user"), None)
@@ -40,6 +37,7 @@ class TestAPIKeyRoleDowngrade:
 
         # Step 2: Create test admin user
         import time
+
         test_username = f"testadmin_{int(time.time())}"
 
         response = client.post(
@@ -49,8 +47,8 @@ class TestAPIKeyRoleDowngrade:
                 "username": test_username,
                 "email": f"{test_username}@test.com",
                 "password": "Test123!",
-                "roles": ["admin"]
-            }
+                "roles": ["admin"],
+            },
         )
 
         # May fail if user exists
@@ -74,21 +72,15 @@ class TestAPIKeyRoleDowngrade:
                 "name": f"Test Key for {test_username}",
                 "description": "Testing downgrade scenario",
                 "role_names": ["admin"],
-                "expires_in_days": 1
-            }
+                "expires_in_days": 1,
+            },
         )
 
         # API key creation should fail for the test user via admin
         # We need to create the key as the test user, so let's get a JWT token instead
 
         # Login as test user to get JWT
-        response = client.post(
-            "/api/login",
-            data={
-                "username": test_username,
-                "password": "Test123!"
-            }
-        )
+        response = client.post("/api/login", data={"username": test_username, "password": "Test123!"})
 
         if response.status_code != 200:
             pytest.skip(f"Could not login as test user: {response.json()}")
@@ -104,8 +96,8 @@ class TestAPIKeyRoleDowngrade:
                 "name": f"Admin Key for {test_username}",
                 "description": "This key will be tested after downgrade",
                 "role_names": ["admin"],
-                "expires_in_days": 1
-            }
+                "expires_in_days": 1,
+            },
         )
 
         assert response.status_code in [200, 201], f"Failed to create API key: {response.json()}"
@@ -116,7 +108,7 @@ class TestAPIKeyRoleDowngrade:
         response = client.put(
             f"/api/users/{test_user_id}/roles",
             headers={"X-API-Key": ADMIN_API_KEY},
-            json={"role_ids": [user_role["id"]]}
+            json={"role_ids": [user_role["id"]]},
         )
 
         assert response.status_code == 200, f"Failed to downgrade user: {response.json()}"
@@ -130,23 +122,21 @@ class TestAPIKeyRoleDowngrade:
                 "name": "Should Not Work",
                 "description": "This should fail",
                 "role_names": ["admin"],
-                "expires_in_days": 1
-            }
+                "expires_in_days": 1,
+            },
         )
 
         # CRITICAL TEST: This should fail with 403 Forbidden
         # If it succeeds (200/201), we have a privilege escalation vulnerability
-        assert response.status_code == 403, \
-            f"SECURITY VULN: Downgraded user's API key still has admin permissions! Status: {response.status_code}, Response: {response.json()}"
+        assert (
+            response.status_code == 403
+        ), f"SECURITY VULN: Downgraded user's API key still has admin permissions! Status: {response.status_code}, Response: {response.json()}"
 
         print("✅ SECURITY CHECK PASSED: API key correctly uses current user permissions")
         print(f"   User downgraded from admin -> user, API key creation properly denied")
 
         # Cleanup: Delete test user
-        response = client.delete(
-            f"/api/users/{test_user_id}",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.delete(f"/api/users/{test_user_id}", headers={"X-API-Key": ADMIN_API_KEY})
         print(f"✅ Cleaned up test user")
 
 

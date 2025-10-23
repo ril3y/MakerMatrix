@@ -1,4 +1,4 @@
-import { Package, Hash, Tag, MapPin } from 'lucide-react'
+import { Package, Hash, Tag } from 'lucide-react'
 import type { Part } from '@/types/parts'
 
 interface PartPreviewCardProps {

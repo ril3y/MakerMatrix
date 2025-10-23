@@ -10,10 +10,7 @@ from datetime import datetime, timedelta
 from typing import Dict
 from sqlmodel import Session
 
-from MakerMatrix.models.api_key_models import (
-    APIKeyModel, APIKeyCreate, APIKeyUpdate,
-    generate_api_key, hash_api_key
-)
+from MakerMatrix.models.api_key_models import APIKeyModel, APIKeyCreate, APIKeyUpdate, generate_api_key, hash_api_key
 from MakerMatrix.models.user_models import UserModel, RoleModel
 from MakerMatrix.services.system.api_key_service import APIKeyService
 
@@ -55,7 +52,7 @@ class TestAPIKeyModels:
             key_hash="test_hash",
             key_prefix="mm_test",
             user_id="test_user_id",
-            expires_at=datetime.utcnow() - timedelta(days=1)
+            expires_at=datetime.utcnow() - timedelta(days=1),
         )
 
         # Create valid key
@@ -64,16 +61,12 @@ class TestAPIKeyModels:
             key_hash="test_hash_2",
             key_prefix="mm_vali",
             user_id="test_user_id",
-            expires_at=datetime.utcnow() + timedelta(days=30)
+            expires_at=datetime.utcnow() + timedelta(days=30),
         )
 
         # Create never-expiring key
         never_expires_key = APIKeyModel(
-            name="Never Expires",
-            key_hash="test_hash_3",
-            key_prefix="mm_neve",
-            user_id="test_user_id",
-            expires_at=None
+            name="Never Expires", key_hash="test_hash_3", key_prefix="mm_neve", user_id="test_user_id", expires_at=None
         )
 
         assert expired_key.is_expired() is True
@@ -89,7 +82,7 @@ class TestAPIKeyModels:
             key_prefix="mm_vali",
             user_id="test_user_id",
             is_active=True,
-            expires_at=datetime.utcnow() + timedelta(days=30)
+            expires_at=datetime.utcnow() + timedelta(days=30),
         )
 
         # Expired key
@@ -99,16 +92,12 @@ class TestAPIKeyModels:
             key_prefix="mm_expi",
             user_id="test_user_id",
             is_active=True,
-            expires_at=datetime.utcnow() - timedelta(days=1)
+            expires_at=datetime.utcnow() - timedelta(days=1),
         )
 
         # Inactive key
         inactive_key = APIKeyModel(
-            name="Inactive Key",
-            key_hash="hash3",
-            key_prefix="mm_inac",
-            user_id="test_user_id",
-            is_active=False
+            name="Inactive Key", key_hash="hash3", key_prefix="mm_inac", user_id="test_user_id", is_active=False
         )
 
         assert valid_key.is_valid() is True
@@ -123,16 +112,12 @@ class TestAPIKeyModels:
             key_hash="hash1",
             key_prefix="mm_rest",
             user_id="test_user_id",
-            allowed_ips=["192.168.1.100", "10.0.0.50"]
+            allowed_ips=["192.168.1.100", "10.0.0.50"],
         )
 
         # Key without restrictions
         unrestricted_key = APIKeyModel(
-            name="Unrestricted Key",
-            key_hash="hash2",
-            key_prefix="mm_unre",
-            user_id="test_user_id",
-            allowed_ips=None
+            name="Unrestricted Key", key_hash="hash2", key_prefix="mm_unre", user_id="test_user_id", allowed_ips=None
         )
 
         assert restricted_key.can_be_used_from_ip("192.168.1.100") is True
@@ -143,11 +128,7 @@ class TestAPIKeyModels:
     def test_api_key_usage_tracking(self):
         """Test usage count and last used tracking"""
         api_key = APIKeyModel(
-            name="Test Key",
-            key_hash="hash1",
-            key_prefix="mm_test",
-            user_id="test_user_id",
-            usage_count=0
+            name="Test Key", key_hash="hash1", key_prefix="mm_test", user_id="test_user_id", usage_count=0
         )
 
         initial_count = api_key.usage_count
@@ -168,11 +149,7 @@ class TestAPIKeyService:
         """Test creating an API key through the service"""
         # Create a test user
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -180,11 +157,7 @@ class TestAPIKeyService:
 
         # Create API key
         service = APIKeyService(engine=memory_test_engine)
-        key_data = APIKeyCreate(
-            name="Test API Key",
-            description="Test key for unit tests",
-            expires_in_days=30
-        )
+        key_data = APIKeyCreate(name="Test API Key", description="Test key for unit tests", expires_in_days=30)
 
         response = service.create_api_key(user_id, key_data)
 
@@ -197,19 +170,11 @@ class TestAPIKeyService:
         """Test creating an API key with role-based permissions"""
         with Session(memory_test_engine) as session:
             # Create user and role
-            role = RoleModel(
-                name="test_role",
-                description="Test role",
-                permissions=["parts:read", "parts:write"]
-            )
+            role = RoleModel(name="test_role", description="Test role", permissions=["parts:read", "parts:write"])
             session.add(role)
             session.commit()
 
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -217,10 +182,7 @@ class TestAPIKeyService:
 
         # Create API key with role
         service = APIKeyService(engine=memory_test_engine)
-        key_data = APIKeyCreate(
-            name="Role-based Key",
-            role_names=["test_role"]
-        )
+        key_data = APIKeyCreate(name="Role-based Key", role_names=["test_role"])
 
         response = service.create_api_key(user_id, key_data)
 
@@ -232,11 +194,7 @@ class TestAPIKeyService:
         """Test successful API key validation"""
         # Create user and API key
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -258,11 +216,7 @@ class TestAPIKeyService:
     def test_validate_api_key_expired(self, memory_test_engine):
         """Test validation fails for expired keys"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -275,7 +229,7 @@ class TestAPIKeyService:
                 key_prefix=api_key[:8],
                 user_id=user.id,
                 is_active=True,
-                expires_at=datetime.utcnow() - timedelta(days=1)
+                expires_at=datetime.utcnow() - timedelta(days=1),
             )
             session.add(expired_key)
             session.commit()
@@ -289,11 +243,7 @@ class TestAPIKeyService:
     def test_validate_api_key_ip_restriction(self, memory_test_engine):
         """Test IP restriction validation"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -306,7 +256,7 @@ class TestAPIKeyService:
                 key_prefix=api_key[:8],
                 user_id=user.id,
                 is_active=True,
-                allowed_ips=["192.168.1.100"]
+                allowed_ips=["192.168.1.100"],
             )
             session.add(restricted_key)
             session.commit()
@@ -325,11 +275,7 @@ class TestAPIKeyService:
     def test_get_user_api_keys(self, memory_test_engine):
         """Test retrieving all API keys for a user"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -351,11 +297,7 @@ class TestAPIKeyService:
     def test_revoke_api_key(self, memory_test_engine):
         """Test revoking an API key"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -377,11 +319,7 @@ class TestAPIKeyService:
     def test_delete_api_key(self, memory_test_engine):
         """Test deleting an API key"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -406,11 +344,7 @@ class TestAPIKeyService:
     def test_update_api_key(self, memory_test_engine):
         """Test updating an API key"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -424,10 +358,7 @@ class TestAPIKeyService:
         key_id = create_response.data["id"]
 
         # Update key
-        update_data = APIKeyUpdate(
-            name="Updated Name",
-            description="Updated description"
-        )
+        update_data = APIKeyUpdate(name="Updated Name", description="Updated description")
         update_response = service.update_api_key(key_id, update_data)
 
         assert update_response.success is True
@@ -460,21 +391,14 @@ class TestAPIKeyEdgeCases:
     def test_create_key_with_custom_permissions(self, memory_test_engine):
         """Test creating a key with custom permissions"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)
             user_id = user.id
 
         service = APIKeyService(engine=memory_test_engine)
-        key_data = APIKeyCreate(
-            name="Custom Permissions Key",
-            permissions=["parts:read", "locations:read"]
-        )
+        key_data = APIKeyCreate(name="Custom Permissions Key", permissions=["parts:read", "locations:read"])
 
         response = service.create_api_key(user_id, key_data)
 
@@ -485,11 +409,7 @@ class TestAPIKeyEdgeCases:
     def test_usage_tracking_on_validation(self, memory_test_engine):
         """Test that validating a key updates usage statistics"""
         with Session(memory_test_engine) as session:
-            user = UserModel(
-                username="testuser",
-                email="test@example.com",
-                hashed_password="hashed_password"
-            )
+            user = UserModel(username="testuser", email="test@example.com", hashed_password="hashed_password")
             session.add(user)
             session.commit()
             session.refresh(user)

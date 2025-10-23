@@ -4,6 +4,7 @@
 
 import pytest
 
+
 # Override the init_db fixture to prevent database setup in unit tests
 @pytest.fixture(scope="session", autouse=True)
 def init_db():

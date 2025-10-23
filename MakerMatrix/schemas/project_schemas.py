@@ -5,6 +5,7 @@ from datetime import datetime
 
 class ProjectCreate(BaseModel):
     """Schema for creating a new project"""
+
     name: str
     slug: Optional[str] = None
     description: Optional[str] = None
@@ -18,6 +19,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     """Schema for updating a project"""
+
     name: Optional[str] = None
     slug: Optional[str] = None
     description: Optional[str] = None
@@ -33,6 +35,7 @@ class ProjectUpdate(BaseModel):
 
 class ProjectResponse(BaseModel):
     """Schema for project responses"""
+
     id: Optional[str] = None
     name: str
     slug: str
@@ -52,6 +55,7 @@ class ProjectResponse(BaseModel):
 
 class ProjectsListResponse(BaseModel):
     """Schema for list of projects"""
+
     projects: List[ProjectResponse]
 
     model_config = ConfigDict(from_attributes=True)
@@ -59,6 +63,7 @@ class ProjectsListResponse(BaseModel):
 
 class ProjectPartAssociation(BaseModel):
     """Schema for adding/removing parts from projects"""
+
     part_id: str
     project_id: str
     notes: Optional[str] = None
@@ -68,6 +73,7 @@ class ProjectPartAssociation(BaseModel):
 
 class DeleteProjectsResponse(BaseModel):
     """Schema for delete all projects response"""
+
     deleted_count: int
 
     model_config = ConfigDict(from_attributes=True)

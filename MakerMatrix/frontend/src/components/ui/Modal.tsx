@@ -70,7 +70,8 @@ const Modal = ({
               transition={{ duration: 0.2, ease: 'easeOut' }}
               className={`relative w-full ${sizeClasses[size]} mx-auto mt-20 bg-background-secondary border-2 border-purple-500/30 rounded-lg shadow-2xl shadow-purple-500/10 text-primary ${className}`}
               style={{
-                boxShadow: '0 25px 50px -12px rgba(168, 85, 247, 0.15), 0 0 0 1px rgba(168, 85, 247, 0.1)',
+                boxShadow:
+                  '0 25px 50px -12px rgba(168, 85, 247, 0.15), 0 0 0 1px rgba(168, 85, 247, 0.1)',
               }}
             >
               {/* Header */}

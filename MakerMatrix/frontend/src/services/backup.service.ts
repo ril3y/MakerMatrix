@@ -13,7 +13,7 @@ import type {
   BackupStatus,
   CreateBackupRequest,
   RestoreBackupRequest,
-  BackupTaskResponse
+  BackupTaskResponse,
 } from '@/types/backup'
 
 class BackupService {
@@ -80,8 +80,8 @@ class BackupService {
       formData,
       {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       }
     )
 
@@ -109,8 +109,8 @@ class BackupService {
       formData,
       {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       }
     )
 
@@ -131,8 +131,8 @@ class BackupService {
     // Create a temporary link with auth header via fetch
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     })
 
     if (!response.ok) {
@@ -164,7 +164,9 @@ class BackupService {
    * Run retention cleanup manually
    */
   async runRetentionCleanup(): Promise<BackupTaskResponse> {
-    const response = await apiClient.post<ApiResponse<BackupTaskResponse>>('/api/backup/retention/run')
+    const response = await apiClient.post<ApiResponse<BackupTaskResponse>>(
+      '/api/backup/retention/run'
+    )
     if (response.status === 'success' && response.data) {
       return response.data
     }
@@ -175,7 +177,9 @@ class BackupService {
    * Check if scheduled backup encryption password is set
    */
   async isPasswordSet(): Promise<boolean> {
-    const response = await apiClient.get<ApiResponse<{ password_set: boolean }>>('/api/backup/config/password-set')
+    const response = await apiClient.get<ApiResponse<{ password_set: boolean }>>(
+      '/api/backup/config/password-set'
+    )
     if (response.status === 'success' && response.data) {
       return response.data.password_set
     }

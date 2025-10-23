@@ -32,9 +32,7 @@ def recreate_credentials_table():
 
     with Session(engine) as session:
         # Check if table exists
-        result = session.exec(text(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='supplier_credentials'"
-        ))
+        result = session.exec(text("SELECT name FROM sqlite_master WHERE type='table' AND name='supplier_credentials'"))
         table_exists = result.first() is not None
 
         if table_exists:
@@ -91,6 +89,7 @@ def main():
     except Exception as e:
         print(f"❌ Failed to recreate table: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

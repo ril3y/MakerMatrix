@@ -27,18 +27,15 @@ router = APIRouter()
 async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
     """
     Get all categories in the system.
-    
+
     Returns:
         ResponseSchema: A response containing all categories
     """
     category_service = CategoryService()
     service_response = category_service.get_all_categories()
     data = validate_service_response(service_response)
-    
-    return BaseRouter.build_success_response(
-        data=CategoriesListResponse(**data),
-        message=service_response.message
-    )
+
+    return BaseRouter.build_success_response(data=CategoriesListResponse(**data), message=service_response.message)
 
 
 @router.post("/add_category", response_model=ResponseSchema[CategoryResponse])
@@ -46,7 +43,7 @@ async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
 async def add_category(
     category_data: CategoryModel,
     request: Request,
-    current_user: UserModel = Depends(require_permission("categories:create"))
+    current_user: UserModel = Depends(require_permission("categories:create")),
 ) -> ResponseSchema[CategoryResponse]:
     """
     Add a new category to the system.
@@ -67,12 +64,10 @@ async def add_category(
     # Log category creation activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_category_created(
-            category_id=data["id"],
-            category_name=data["name"],
-            user=current_user,
-            request=request
+            category_id=data["id"], category_name=data["name"], user=current_user, request=request
         )
     except Exception as e:
         logger.warning(f"Failed to log category creation activity: {e}")
@@ -86,14 +81,13 @@ async def add_category(
             entity_name=data["name"],
             user_id=current_user.id,
             username=current_user.username,
-            entity_data=data
+            entity_data=data,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast category creation: {e}")
 
     return BaseRouter.build_success_response(
-        data=CategoryResponse.model_validate(data),
-        message=service_response.message
+        data=CategoryResponse.model_validate(data), message=service_response.message
     )
 
 
@@ -103,39 +97,36 @@ async def update_category(
     category_id: str,
     category_data: CategoryUpdate,
     request: Request,
-    current_user: UserModel = Depends(require_permission("categories:update"))
+    current_user: UserModel = Depends(require_permission("categories:update")),
 ) -> ResponseSchema[CategoryResponse]:
     """
     Update a category's fields.
-    
+
     Args:
         category_id: The ID of the category to update
         category_data: The fields to update
-        
+
     Returns:
         ResponseSchema: A response containing the updated category
     """
     if not category_id:
         raise ValueError("Category ID is required")
-        
+
     category_service = CategoryService()
     service_response = category_service.update_category(category_id, category_data)
     data = validate_service_response(service_response)
-    
+
     # Log activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
 
         # Create changes dict from the update data
         changes = {k: v for k, v in category_data.model_dump().items() if v is not None}
 
         await activity_service.log_category_updated(
-            category_id=category_id,
-            category_name=data["name"],
-            changes=changes,
-            user=current_user,
-            request=request
+            category_id=category_id, category_name=data["name"], changes=changes, user=current_user, request=request
         )
     except Exception as activity_error:
         logger.warning(f"Failed to log category update activity: {activity_error}")
@@ -153,40 +144,40 @@ async def update_category(
             user_id=current_user.id,
             username=current_user.username,
             changes=changes_dict,
-            entity_data=data
+            entity_data=data,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast category update: {e}")
 
     return BaseRouter.build_success_response(
-        data=CategoryResponse.model_validate(data),
-        message=service_response.message
+        data=CategoryResponse.model_validate(data), message=service_response.message
     )
 
 
 @router.get("/get_category", response_model=ResponseSchema[CategoryResponse])
 @standard_error_handling
-async def get_category(category_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[CategoryResponse]:
+async def get_category(
+    category_id: Optional[str] = None, name: Optional[str] = None
+) -> ResponseSchema[CategoryResponse]:
     """
     Get a category by ID or name.
-    
+
     Args:
         category_id: Optional ID of the category to retrieve
         name: Optional name of the category to retrieve
-        
+
     Returns:
         ResponseSchema: A response containing the requested category
     """
     if not category_id and not name:
         raise ValueError("Either 'category_id' or 'name' must be provided")
-        
+
     category_service = CategoryService()
     service_response = category_service.get_category(category_id=category_id, name=name)
     data = validate_service_response(service_response)
-    
+
     return BaseRouter.build_success_response(
-        data=CategoryResponse.model_validate(data),
-        message=service_response.message
+        data=CategoryResponse.model_validate(data), message=service_response.message
     )
 
 
@@ -196,7 +187,7 @@ async def remove_category(
     request: Request,
     current_user: UserModel = Depends(require_permission("categories:delete")),
     cat_id: Optional[str] = None,
-    name: Optional[str] = None
+    name: Optional[str] = None,
 ) -> ResponseSchema[CategoryResponse]:
     """
     Remove a category by ID or name.
@@ -218,12 +209,10 @@ async def remove_category(
     # Log category deletion activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_category_deleted(
-            category_id=data["id"],
-            category_name=data["name"],
-            user=current_user,
-            request=request
+            category_id=data["id"], category_name=data["name"], user=current_user, request=request
         )
     except Exception as e:
         logger.warning(f"Failed to log category deletion activity: {e}")
@@ -236,14 +225,13 @@ async def remove_category(
             entity_id=data["id"],
             entity_name=data["name"],
             user_id=current_user.id,
-            username=current_user.username
+            username=current_user.username,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast category deletion: {e}")
 
     return BaseRouter.build_success_response(
-        data=CategoryResponse.model_validate(data),
-        message=service_response.message
+        data=CategoryResponse.model_validate(data), message=service_response.message
     )
 
 
@@ -251,17 +239,16 @@ async def remove_category(
 @standard_error_handling
 @log_activity("categories_cleared", "User {username} cleared all categories")
 async def delete_all_categories(
-    current_user: UserModel = Depends(require_permission("admin"))
+    current_user: UserModel = Depends(require_permission("admin")),
 ) -> ResponseSchema[DeleteCategoriesResponse]:
     """
     Delete all categories from the system - USE WITH CAUTION! (Admin only)
-    
+
     Returns:
         ResponseSchema: A response containing the deletion status
     """
     response = CategoryService.delete_all_categories()
-    
+
     return BaseRouter.build_success_response(
-        data=DeleteCategoriesResponse(deleted_count=response["data"]["deleted_count"]),
-        message=response["message"]
+        data=DeleteCategoriesResponse(deleted_count=response["data"]["deleted_count"]), message=response["message"]
     )

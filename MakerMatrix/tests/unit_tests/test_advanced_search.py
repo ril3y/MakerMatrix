@@ -26,21 +26,13 @@ def session_fixture():
 @pytest.fixture(name="test_data")
 def test_data_fixture(session: Session):
     # Create test categories
-    categories = [
-        CategoryModel(name="Electronics"),
-        CategoryModel(name="Mechanical"),
-        CategoryModel(name="Tools")
-    ]
+    categories = [CategoryModel(name="Electronics"), CategoryModel(name="Mechanical"), CategoryModel(name="Tools")]
     for category in categories:
         session.add(category)
     session.commit()
 
     # Create test locations
-    locations = [
-        LocationModel(name="Workshop A"),
-        LocationModel(name="Storage B"),
-        LocationModel(name="Lab C")
-    ]
+    locations = [LocationModel(name="Workshop A"), LocationModel(name="Storage B"), LocationModel(name="Lab C")]
     for location in locations:
         session.add(location)
     session.commit()
@@ -54,7 +46,7 @@ def test_data_fixture(session: Session):
             quantity=10,
             supplier="Arduino",
             location_id=locations[0].id,
-            categories=[categories[0]]
+            categories=[categories[0]],
         ),
         PartModel(
             part_name="Stepper Motor",
@@ -63,7 +55,7 @@ def test_data_fixture(session: Session):
             quantity=5,
             supplier="Adafruit",
             location_id=locations[1].id,
-            categories=[categories[0], categories[1]]
+            categories=[categories[0], categories[1]],
         ),
         PartModel(
             part_name="Screwdriver Set",
@@ -72,18 +64,14 @@ def test_data_fixture(session: Session):
             quantity=3,
             supplier="ToolCo",
             location_id=locations[2].id,
-            categories=[categories[2]]
-        )
+            categories=[categories[2]],
+        ),
     ]
     for part in parts:
         session.add(part)
     session.commit()
 
-    return {
-        "categories": categories,
-        "locations": locations,
-        "parts": parts
-    }
+    return {"categories": categories, "locations": locations, "parts": parts}
 
 
 def test_search_by_term(session: Session, test_data):
@@ -150,10 +138,7 @@ def test_search_with_pagination(session: Session, test_data):
 
 def test_search_with_multiple_filters(session: Session, test_data):
     search_params = AdvancedPartSearch(
-        search_term="motor",
-        category_names=["Electronics"],
-        min_quantity=1,
-        max_quantity=10
+        search_term="motor", category_names=["Electronics"], min_quantity=1, max_quantity=10
     )
     results, total = PartRepository.advanced_search(session, search_params)
 

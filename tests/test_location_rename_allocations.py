@@ -14,7 +14,8 @@ from sqlmodel import Session, select
 # Import test fixtures and utilities
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from MakerMatrix.main import app
 from MakerMatrix.models.models import engine, LocationModel, PartModel
@@ -39,25 +40,19 @@ class TestLocationRenameAllocations:
         # Clean up before test
         with Session(engine) as session:
             # Delete all test allocations
-            session.exec(
-                select(PartLocationAllocation)
-            ).all()
+            session.exec(select(PartLocationAllocation)).all()
             for alloc in session.exec(select(PartLocationAllocation)).all():
                 session.delete(alloc)
             session.commit()
 
             # Delete all test parts
-            test_parts = session.exec(
-                select(PartModel).where(PartModel.part_name.like("TEST_%"))
-            ).all()
+            test_parts = session.exec(select(PartModel).where(PartModel.part_name.like("TEST_%"))).all()
             for part in test_parts:
                 session.delete(part)
             session.commit()
 
             # Delete all test locations
-            test_locations = session.exec(
-                select(LocationModel).where(LocationModel.name.like("TEST_%"))
-            ).all()
+            test_locations = session.exec(select(LocationModel).where(LocationModel.name.like("TEST_%"))).all()
             for location in test_locations:
                 session.delete(location)
             session.commit()
@@ -72,17 +67,13 @@ class TestLocationRenameAllocations:
             session.commit()
 
             # Delete test parts
-            test_parts = session.exec(
-                select(PartModel).where(PartModel.part_name.like("TEST_%"))
-            ).all()
+            test_parts = session.exec(select(PartModel).where(PartModel.part_name.like("TEST_%"))).all()
             for part in test_parts:
                 session.delete(part)
             session.commit()
 
             # Delete test locations
-            test_locations = session.exec(
-                select(LocationModel).where(LocationModel.name.like("TEST_%"))
-            ).all()
+            test_locations = session.exec(select(LocationModel).where(LocationModel.name.like("TEST_%"))).all()
             for location in test_locations:
                 session.delete(location)
             session.commit()
@@ -94,7 +85,7 @@ class TestLocationRenameAllocations:
             location_response = client.post(
                 "/api/locations/add_location",
                 json={"name": "TEST_Storage_Shelf_A", "description": "Test storage location"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert location_response.status_code == 200
             location_data = location_response.json()
@@ -108,19 +99,16 @@ class TestLocationRenameAllocations:
                     "part_number": "TEST_R10K",
                     "description": "Test 10K resistor",
                     "quantity": 100,
-                    "location_id": location_id
+                    "location_id": location_id,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_data = part_response.json()
             part_id = part_data["data"]["id"]
 
             # Step 3: Verify allocation exists
-            allocations_response = client.get(
-                f"/api/parts/{part_id}/allocations",
-                headers=auth_headers
-            )
+            allocations_response = client.get(f"/api/parts/{part_id}/allocations", headers=auth_headers)
             assert allocations_response.status_code == 200
             allocations_data = allocations_response.json()
             assert allocations_data["data"]["total_quantity"] == 100
@@ -132,17 +120,14 @@ class TestLocationRenameAllocations:
             rename_response = client.put(
                 f"/api/locations/update_location/{location_id}",
                 json={"name": "TEST_Storage_Shelf_B_Renamed"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert rename_response.status_code == 200
             rename_data = rename_response.json()
             assert rename_data["data"]["name"] == "TEST_Storage_Shelf_B_Renamed"
 
             # Step 5: Verify allocations are still intact with new location name
-            allocations_after_response = client.get(
-                f"/api/parts/{part_id}/allocations",
-                headers=auth_headers
-            )
+            allocations_after_response = client.get(f"/api/parts/{part_id}/allocations", headers=auth_headers)
             assert allocations_after_response.status_code == 200
             allocations_after_data = allocations_after_response.json()
 
@@ -151,15 +136,14 @@ class TestLocationRenameAllocations:
             assert allocations_after_data["data"]["location_count"] == 1
 
             # Verify the location name is updated in the allocation
-            assert allocations_after_data["data"]["allocations"][0]["location"]["name"] == "TEST_Storage_Shelf_B_Renamed"
+            assert (
+                allocations_after_data["data"]["allocations"][0]["location"]["name"] == "TEST_Storage_Shelf_B_Renamed"
+            )
             assert allocations_after_data["data"]["allocations"][0]["quantity_at_location"] == 100
             assert allocations_after_data["data"]["allocations"][0]["location_id"] == location_id
 
             # Step 6: Verify part still shows correct location
-            part_response = client.get(
-                f"/api/parts/get_part?part_id={part_id}",
-                headers=auth_headers
-            )
+            part_response = client.get(f"/api/parts/get_part?part_id={part_id}", headers=auth_headers)
             assert part_response.status_code == 200
             part_data = part_response.json()
             # The part's location_id should still be the same
@@ -174,7 +158,7 @@ class TestLocationRenameAllocations:
                 loc_response = client.post(
                     "/api/locations/add_location",
                     json={"name": f"TEST_Location_{i}", "description": f"Test location {i}"},
-                    headers=auth_headers
+                    headers=auth_headers,
                 )
                 assert loc_response.status_code == 200
                 locations.append(loc_response.json()["data"])
@@ -187,9 +171,9 @@ class TestLocationRenameAllocations:
                     "part_number": "TEST_MAP",
                     "description": "Test part with multiple allocations",
                     "quantity": 300,
-                    "location_id": locations[0]["id"]
+                    "location_id": locations[0]["id"],
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_id = part_response.json()["data"]["id"]
@@ -197,21 +181,18 @@ class TestLocationRenameAllocations:
             # Transfer some quantity to other locations
             transfer1_response = client.post(
                 f"/api/parts/{part_id}/transfer?from_location_id={locations[0]['id']}&to_location_id={locations[1]['id']}&quantity=100",
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert transfer1_response.status_code == 200
 
             transfer2_response = client.post(
                 f"/api/parts/{part_id}/transfer?from_location_id={locations[0]['id']}&to_location_id={locations[2]['id']}&quantity=50",
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert transfer2_response.status_code == 200
 
             # Verify allocations before rename
-            allocations_before = client.get(
-                f"/api/parts/{part_id}/allocations",
-                headers=auth_headers
-            )
+            allocations_before = client.get(f"/api/parts/{part_id}/allocations", headers=auth_headers)
             assert allocations_before.status_code == 200
             alloc_data = allocations_before.json()["data"]
             assert alloc_data["total_quantity"] == 300
@@ -222,15 +203,12 @@ class TestLocationRenameAllocations:
                 rename_response = client.put(
                     f"/api/locations/update_location/{location['id']}",
                     json={"name": f"TEST_Renamed_Location_{i}"},
-                    headers=auth_headers
+                    headers=auth_headers,
                 )
                 assert rename_response.status_code == 200
 
             # Verify all allocations still exist with correct quantities
-            allocations_after = client.get(
-                f"/api/parts/{part_id}/allocations",
-                headers=auth_headers
-            )
+            allocations_after = client.get(f"/api/parts/{part_id}/allocations", headers=auth_headers)
             assert allocations_after.status_code == 200
             alloc_data_after = allocations_after.json()["data"]
 
@@ -239,8 +217,7 @@ class TestLocationRenameAllocations:
 
             # Verify each allocation has the correct renamed location
             allocation_map = {
-                alloc["location"]["name"]: alloc["quantity_at_location"]
-                for alloc in alloc_data_after["allocations"]
+                alloc["location"]["name"]: alloc["quantity_at_location"] for alloc in alloc_data_after["allocations"]
             }
 
             assert allocation_map["TEST_Renamed_Location_0"] == 150  # 300 - 100 - 50
@@ -254,7 +231,7 @@ class TestLocationRenameAllocations:
             location_response = client.post(
                 "/api/locations/add_location",
                 json={"name": "TEST_DB_Location", "description": "Test DB location"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert location_response.status_code == 200
             location_id = location_response.json()["data"]["id"]
@@ -266,9 +243,9 @@ class TestLocationRenameAllocations:
                     "part_number": "TEST_DBP",
                     "description": "Test DB part",
                     "quantity": 75,
-                    "location_id": location_id
+                    "location_id": location_id,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_id = part_response.json()["data"]["id"]
@@ -291,7 +268,7 @@ class TestLocationRenameAllocations:
             rename_response = client.put(
                 f"/api/locations/update_location/{location_id}",
                 json={"name": "TEST_DB_Location_Renamed"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert rename_response.status_code == 200
 

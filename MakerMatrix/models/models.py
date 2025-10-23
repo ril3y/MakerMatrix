@@ -36,13 +36,13 @@ load_dotenv()
 sqlite_url = os.getenv("DATABASE_URL", "sqlite:////home/ril3y/MakerMatrix/makermatrix.db")
 
 engine = create_engine(
-    sqlite_url, 
+    sqlite_url,
     echo=False,
     pool_size=20,
     max_overflow=30,
     pool_timeout=30,
     pool_recycle=3600,
-    connect_args={"check_same_thread": False}
+    connect_args={"check_same_thread": False},
 )
 
 

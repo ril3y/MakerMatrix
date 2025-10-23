@@ -15,7 +15,7 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from MakerMatrix.repositories.user_repository import UserRepository
 
@@ -70,7 +70,10 @@ def update_role_permissions():
         manager_role = user_repo.get_role_by_name("manager")
         if manager_role:
             current_permissions = manager_role.permissions or []
-            has_all = all(p in current_permissions for p in ["projects:read", "projects:create", "projects:update", "projects:delete"])
+            has_all = all(
+                p in current_permissions
+                for p in ["projects:read", "projects:create", "projects:update", "projects:delete"]
+            )
 
             if has_all:
                 print("✓ Manager role already has all project permissions")
@@ -93,9 +96,9 @@ def update_role_permissions():
     except Exception as e:
         print(f"⚠️  Error checking viewer role: {e}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Role Permissions Summary:")
-    print("="*60)
+    print("=" * 60)
 
     # Display current state of all roles
     all_roles = user_repo.get_all_roles()
@@ -107,9 +110,9 @@ def update_role_permissions():
         else:
             print(f"  Project permissions: None")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Update complete!")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

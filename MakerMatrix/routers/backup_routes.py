@@ -28,6 +28,7 @@ base_router = BaseRouter()
 # Backup Creation Routes
 # ========================================
 
+
 @router.post("/create")
 @standard_error_handling
 async def create_backup(
@@ -35,7 +36,7 @@ async def create_backup(
     include_datasheets: bool = Form(True),
     include_images: bool = Form(True),
     include_env: bool = Form(True),
-    current_user: UserModel = Depends(require_permission("admin"))
+    current_user: UserModel = Depends(require_permission("admin")),
 ):
     """
     Create a comprehensive encrypted backup
@@ -57,7 +58,7 @@ async def create_backup(
         "backup_name": backup_name,
         "include_datasheets": include_datasheets,
         "include_images": include_images,
-        "include_env": include_env
+        "include_env": include_env,
     }
 
     # Add password if provided
@@ -73,7 +74,7 @@ async def create_backup(
         input_data=input_data,
         related_entity_type="system",
         related_entity_id="database",
-        created_by_user_id=current_user.id
+        created_by_user_id=current_user.id,
     )
 
     task_response = await task_service.create_task(task_request, user_id=current_user.id)
@@ -101,8 +102,8 @@ async def create_backup(
             "priority": task_data["priority"],
             "backup_name": backup_name,
             "encrypted": bool(password),
-            "monitor_url": f"/api/tasks/{task_data['id']}"
-        }
+            "monitor_url": f"/api/tasks/{task_data['id']}",
+        },
     )
 
 
@@ -110,13 +111,14 @@ async def create_backup(
 # Backup Restore Routes
 # ========================================
 
+
 @router.post("/restore")
 @standard_error_handling
 async def restore_backup(
     backup_file: UploadFile = File(...),
     password: Optional[str] = Form(None),
     create_safety_backup: bool = Form(True),
-    current_user: UserModel = Depends(require_permission("admin"))
+    current_user: UserModel = Depends(require_permission("admin")),
 ):
     """
     Restore from an encrypted backup file
@@ -131,11 +133,8 @@ async def restore_backup(
     """
     # Validate file extension
     filename = backup_file.filename
-    if not filename.endswith('.zip'):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid file format. Must be .zip"
-        )
+    if not filename.endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Invalid file format. Must be .zip")
 
     # Save uploaded file temporarily
     base_path = Path(__file__).parent.parent
@@ -151,10 +150,7 @@ async def restore_backup(
             buffer.write(content)
 
         # Create restore task
-        input_data = {
-            "backup_filepath": str(temp_file_path),
-            "create_safety_backup": create_safety_backup
-        }
+        input_data = {"backup_filepath": str(temp_file_path), "create_safety_backup": create_safety_backup}
 
         # Add password if provided
         if password:
@@ -163,12 +159,16 @@ async def restore_backup(
         task_request = CreateTaskRequest(
             task_type=TaskType.BACKUP_RESTORE,
             name=f"Restore from: {filename}",
-            description="Restore database and files from encrypted backup" if password else "Restore database and files from backup",
+            description=(
+                "Restore database and files from encrypted backup"
+                if password
+                else "Restore database and files from backup"
+            ),
             priority=TaskPriority.URGENT,
             input_data=input_data,
             related_entity_type="system",
             related_entity_id="database",
-            created_by_user_id=current_user.id
+            created_by_user_id=current_user.id,
         )
 
         task_response = await task_service.create_task(task_request, user_id=current_user.id)
@@ -188,8 +188,8 @@ async def restore_backup(
                 "priority": task_data["priority"],
                 "safety_backup_enabled": create_safety_backup,
                 "monitor_url": f"/api/tasks/{task_data['id']}",
-                "warning": "Application services will need to restart after restore completion"
-            }
+                "warning": "Application services will need to restart after restore completion",
+            },
         )
 
     except Exception as e:
@@ -203,19 +203,17 @@ async def restore_backup(
 # Backup Download and List Routes
 # ========================================
 
+
 @router.get("/list")
 @standard_error_handling
-async def list_backups(
-    current_user: UserModel = Depends(require_permission("admin"))
-):
+async def list_backups(current_user: UserModel = Depends(require_permission("admin"))):
     """List all available backup files"""
     base_path = Path(__file__).parent.parent
     backups_dir = base_path / "backups"
 
     if not backups_dir.exists():
         return base_router.build_success_response(
-            message="No backups found",
-            data={"backups": [], "total_count": 0, "total_size_mb": 0}
+            message="No backups found", data={"backups": [], "total_count": 0, "total_size_mb": 0}
         )
 
     backups = []
@@ -228,40 +226,35 @@ async def list_backups(
             size_bytes = stat.st_size
             total_size += size_bytes
 
-            backups.append({
-                "filename": backup_file.name,
-                "encrypted": "_encrypted" in backup_file.name,
-                "size_bytes": size_bytes,
-                "size_mb": round(size_bytes / (1024 * 1024), 2),
-                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                "download_url": f"/api/backup/download/{backup_file.name}"
-            })
+            backups.append(
+                {
+                    "filename": backup_file.name,
+                    "encrypted": "_encrypted" in backup_file.name,
+                    "size_bytes": size_bytes,
+                    "size_mb": round(size_bytes / (1024 * 1024), 2),
+                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "download_url": f"/api/backup/download/{backup_file.name}",
+                }
+            )
 
     # Sort by creation time (newest first)
     backups.sort(key=lambda x: x["created_at"], reverse=True)
 
     return base_router.build_success_response(
         message=f"Found {len(backups)} backup files",
-        data={
-            "backups": backups,
-            "total_count": len(backups),
-            "total_size_mb": round(total_size / (1024 * 1024), 2)
-        }
+        data={"backups": backups, "total_count": len(backups), "total_size_mb": round(total_size / (1024 * 1024), 2)},
     )
 
 
 @router.get("/download/{backup_filename}")
 @standard_error_handling
-async def download_backup(
-    backup_filename: str,
-    current_user: UserModel = Depends(require_permission("admin"))
-):
+async def download_backup(backup_filename: str, current_user: UserModel = Depends(require_permission("admin"))):
     """Download a backup file"""
     # Security validation
-    if '..' in backup_filename or '/' in backup_filename:
+    if ".." in backup_filename or "/" in backup_filename:
         raise HTTPException(status_code=400, detail="Invalid backup filename")
 
-    if not backup_filename.endswith('.zip'):
+    if not backup_filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Invalid file format")
 
     # Locate backup file
@@ -279,22 +272,19 @@ async def download_backup(
         path=str(backup_file_path),
         filename=backup_filename,
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={backup_filename}"}
+        headers={"Content-Disposition": f"attachment; filename={backup_filename}"},
     )
 
 
 @router.delete("/delete/{backup_filename}")
 @standard_error_handling
-async def delete_backup(
-    backup_filename: str,
-    current_user: UserModel = Depends(require_permission("admin"))
-):
+async def delete_backup(backup_filename: str, current_user: UserModel = Depends(require_permission("admin"))):
     """Delete a backup file"""
     # Security validation
-    if '..' in backup_filename or '/' in backup_filename:
+    if ".." in backup_filename or "/" in backup_filename:
         raise HTTPException(status_code=400, detail="Invalid backup filename")
 
-    if not backup_filename.endswith('.zip'):
+    if not backup_filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Invalid file format")
 
     # Locate and delete backup file
@@ -313,10 +303,7 @@ async def delete_backup(
 
     return base_router.build_success_response(
         message=f"Backup '{backup_filename}' deleted successfully",
-        data={
-            "deleted_filename": backup_filename,
-            "space_freed_mb": size_mb
-        }
+        data={"deleted_filename": backup_filename, "space_freed_mb": size_mb},
     )
 
 
@@ -324,11 +311,10 @@ async def delete_backup(
 # Retention Policy Routes
 # ========================================
 
+
 @router.post("/retention/run")
 @standard_error_handling
-async def run_retention_cleanup(
-    current_user: UserModel = Depends(require_permission("admin"))
-):
+async def run_retention_cleanup(current_user: UserModel = Depends(require_permission("admin"))):
     """Manually trigger backup retention cleanup"""
     task_request = CreateTaskRequest(
         task_type=TaskType.BACKUP_RETENTION,
@@ -338,7 +324,7 @@ async def run_retention_cleanup(
         input_data={},
         related_entity_type="system",
         related_entity_id="backup_retention",
-        created_by_user_id=current_user.id
+        created_by_user_id=current_user.id,
     )
 
     task_response = await task_service.create_task(task_request, user_id=current_user.id)
@@ -355,8 +341,8 @@ async def run_retention_cleanup(
             "task_type": task_data["task_type"],
             "task_name": task_data["name"],
             "status": task_data["status"],
-            "monitor_url": f"/api/tasks/{task_data['id']}"
-        }
+            "monitor_url": f"/api/tasks/{task_data['id']}",
+        },
     )
 
 
@@ -364,11 +350,10 @@ async def run_retention_cleanup(
 # Backup Configuration Routes
 # ========================================
 
+
 @router.get("/config")
 @standard_error_handling
-async def get_backup_config(
-    current_user: UserModel = Depends(require_permission("admin"))
-):
+async def get_backup_config(current_user: UserModel = Depends(require_permission("admin"))):
     """Get current backup configuration (password excluded for security)"""
     with Session(engine) as session:
         config = session.exec(select(BackupConfigModel)).first()
@@ -393,16 +378,14 @@ async def get_backup_config(
                 "encryption_required": config.encryption_required,
                 "encryption_password": None,  # Never send password to frontend
                 "created_at": config.created_at.isoformat(),
-                "updated_at": config.updated_at.isoformat()
-            }
+                "updated_at": config.updated_at.isoformat(),
+            },
         )
 
 
 @router.get("/config/password-set")
 @standard_error_handling
-async def check_password_set(
-    current_user: UserModel = Depends(require_permission("admin"))
-):
+async def check_password_set(current_user: UserModel = Depends(require_permission("admin"))):
     """Check if scheduled backup encryption password is configured"""
     with Session(engine) as session:
         config = session.exec(select(BackupConfigModel)).first()
@@ -410,18 +393,14 @@ async def check_password_set(
         password_set = bool(config and config.encryption_password)
 
         return base_router.build_success_response(
-            message="Password status retrieved successfully",
-            data={
-                "password_set": password_set
-            }
+            message="Password status retrieved successfully", data={"password_set": password_set}
         )
 
 
 @router.put("/config")
 @standard_error_handling
 async def update_backup_config(
-    config_update: BackupConfigUpdate,
-    current_user: UserModel = Depends(require_permission("admin"))
+    config_update: BackupConfigUpdate, current_user: UserModel = Depends(require_permission("admin"))
 ):
     """Update backup configuration"""
     with Session(engine) as session:
@@ -446,10 +425,12 @@ async def update_backup_config(
         # Reload scheduler to apply new schedule
         try:
             from MakerMatrix.services.system.backup_scheduler import backup_scheduler
+
             await backup_scheduler.reload_schedule()
         except Exception as e:
             # Log error but don't fail the update
             import logging
+
             logging.error(f"Failed to reload backup schedule: {e}")
 
         return base_router.build_success_response(
@@ -461,8 +442,8 @@ async def update_backup_config(
                 "schedule_cron": config.schedule_cron,
                 "retention_count": config.retention_count,
                 "encryption_required": config.encryption_required,
-                "updated_at": config.updated_at.isoformat()
-            }
+                "updated_at": config.updated_at.isoformat(),
+            },
         )
 
 
@@ -470,11 +451,10 @@ async def update_backup_config(
 # Backup Status Routes
 # ========================================
 
+
 @router.get("/status")
 @standard_error_handling
-async def get_backup_status(
-    current_user: UserModel = Depends(require_permission("admin"))
-):
+async def get_backup_status(current_user: UserModel = Depends(require_permission("admin"))):
     """Get comprehensive backup system status"""
     from MakerMatrix.database.db import DATABASE_URL
 
@@ -515,7 +495,7 @@ async def get_backup_status(
                 "filename": latest.name,
                 "size_mb": round(latest.stat().st_size / (1024 * 1024), 2),
                 "created_at": datetime.fromtimestamp(latest.stat().st_mtime).isoformat(),
-                "encrypted": "_encrypted" in latest.name
+                "encrypted": "_encrypted" in latest.name,
             }
 
     # Get backup config
@@ -529,22 +509,18 @@ async def get_backup_status(
                 "schedule_type": config.schedule_type,
                 "retention_count": config.retention_count,
                 "last_backup_at": config.last_backup_at.isoformat() if config.last_backup_at else None,
-                "next_backup_at": config.next_backup_at.isoformat() if config.next_backup_at else None
+                "next_backup_at": config.next_backup_at.isoformat() if config.next_backup_at else None,
             }
 
     return base_router.build_success_response(
         message="Backup status retrieved successfully",
         data={
-            "database": {
-                "size_mb": db_size_mb,
-                "last_modified": db_last_modified,
-                "path": str(db_path)
-            },
+            "database": {"size_mb": db_size_mb, "last_modified": db_last_modified, "path": str(db_path)},
             "backups": {
                 "count": backup_count,
                 "total_size_mb": round(backup_size_mb, 2),
-                "latest_backup": latest_backup
+                "latest_backup": latest_backup,
             },
-            "configuration": config_data
-        }
+            "configuration": config_data,
+        },
     )

@@ -26,7 +26,7 @@ class TestSupplierConfigTransformations:
             "max_retries": 3,
             "enabled": True,
             "custom_headers": {},
-            "custom_parameters": {}
+            "custom_parameters": {},
         }
 
     @pytest.fixture
@@ -35,19 +35,17 @@ class TestSupplierConfigTransformations:
         return {
             "sandbox_mode": True,
             "oauth_callback_url": "https://localhost:8443/api/suppliers/digikey/oauth/callback",
-            "storage_path": "/tmp/digikey_cache"
+            "storage_path": "/tmp/digikey_cache",
         }
 
-    def test_digikey_oauth_fields_transform_to_custom_parameters(
-        self, base_digikey_config, digikey_oauth_data
-    ):
+    def test_digikey_oauth_fields_transform_to_custom_parameters(self, base_digikey_config, digikey_oauth_data):
         """Test DigiKey OAuth fields are transformed into custom_parameters"""
         # Simulate frontend transformation: DigiKey-specific fields -> custom_parameters
         config = base_digikey_config.copy()
         config["custom_parameters"] = {
             "sandbox_mode": digikey_oauth_data["sandbox_mode"],
             "oauth_callback_url": digikey_oauth_data["oauth_callback_url"],
-            "storage_path": digikey_oauth_data["storage_path"]
+            "storage_path": digikey_oauth_data["storage_path"],
         }
 
         # Verify transformation
@@ -79,10 +77,7 @@ class TestSupplierConfigTransformations:
     def test_digikey_sets_default_headers(self, base_digikey_config):
         """Test DigiKey transformation sets default headers"""
         config = base_digikey_config.copy()
-        config["custom_headers"] = {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        }
+        config["custom_headers"] = {"Accept": "application/json", "Content-Type": "application/json"}
 
         assert config["custom_headers"]["Accept"] == "application/json"
         assert config["custom_headers"]["Content-Type"] == "application/json"
@@ -95,10 +90,7 @@ class TestSupplierConfigTransformations:
             "base_url": "https://easyeda.com/api/components",
             "rate_limit_per_minute": 100,
             "custom_parameters": {},
-            "custom_headers": {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            }
+            "custom_headers": {"Accept": "application/json", "Content-Type": "application/json"},
         }
 
         # Verify no OAuth-specific fields
@@ -117,10 +109,7 @@ class TestSupplierConfigTransformations:
             "base_url": "https://api.mouser.com/api/v1",
             "rate_limit_per_minute": 1000,
             "custom_parameters": {},
-            "custom_headers": {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            }
+            "custom_headers": {"Accept": "application/json", "Content-Type": "application/json"},
         }
 
         # Verify no OAuth-specific fields
@@ -135,17 +124,11 @@ class TestSupplierConfigTransformations:
         """Test merging custom_parameters preserves existing fields"""
         existing_config = {
             "supplier_name": "digikey",
-            "custom_parameters": {
-                "existing_field": "existing_value",
-                "another_field": 123
-            }
+            "custom_parameters": {"existing_field": "existing_value", "another_field": 123},
         }
 
         # Merge new OAuth fields
-        oauth_fields = {
-            "sandbox_mode": True,
-            "oauth_callback_url": "https://example.com/callback"
-        }
+        oauth_fields = {"sandbox_mode": True, "oauth_callback_url": "https://example.com/callback"}
 
         merged_params = {**existing_config["custom_parameters"], **oauth_fields}
 
@@ -169,16 +152,12 @@ class TestSupplierConfigTransformations:
     def test_supplier_specific_field_separation(self):
         """Test supplier-specific fields are properly separated from base config"""
         # Simulates frontend pattern of keeping supplier-specific data separate
-        base_config = {
-            "supplier_name": "digikey",
-            "display_name": "DigiKey",
-            "base_url": "https://api.digikey.com"
-        }
+        base_config = {"supplier_name": "digikey", "display_name": "DigiKey", "base_url": "https://api.digikey.com"}
 
         supplier_specific_data = {
             "sandbox_mode": True,
             "oauth_callback_url": "https://localhost:8443/callback",
-            "storage_path": "/tmp/cache"
+            "storage_path": "/tmp/cache",
         }
 
         # These should NOT be in base config
@@ -208,7 +187,7 @@ class TestSupplierConfigTransformations:
         valid_urls = [
             "https://localhost:8443/api/suppliers/digikey/oauth/callback",
             "https://production.example.com/api/suppliers/digikey/oauth/callback",
-            "http://192.168.1.58:8443/api/suppliers/digikey/oauth/callback"
+            "http://192.168.1.58:8443/api/suppliers/digikey/oauth/callback",
         ]
 
         for url in valid_urls:
@@ -217,11 +196,7 @@ class TestSupplierConfigTransformations:
 
     def test_storage_path_validation_format(self):
         """Test storage path follows expected format"""
-        valid_paths = [
-            "/tmp/digikey_cache",
-            "/var/lib/digikey_tokens",
-            "/opt/makermatrix/digikey_cache"
-        ]
+        valid_paths = ["/tmp/digikey_cache", "/var/lib/digikey_tokens", "/opt/makermatrix/digikey_cache"]
 
         for path in valid_paths:
             assert path.startswith("/")
@@ -242,15 +217,9 @@ class TestSupplierConfigTransformations:
 
     def test_digikey_production_vs_sandbox_distinction(self):
         """Test clear distinction between production and sandbox DigiKey configs"""
-        sandbox_config = {
-            "base_url": "https://sandbox-api.digikey.com",
-            "custom_parameters": {"sandbox_mode": True}
-        }
+        sandbox_config = {"base_url": "https://sandbox-api.digikey.com", "custom_parameters": {"sandbox_mode": True}}
 
-        production_config = {
-            "base_url": "https://api.digikey.com",
-            "custom_parameters": {"sandbox_mode": False}
-        }
+        production_config = {"base_url": "https://api.digikey.com", "custom_parameters": {"sandbox_mode": False}}
 
         assert sandbox_config["base_url"] != production_config["base_url"]
         assert sandbox_config["custom_parameters"]["sandbox_mode"] is True

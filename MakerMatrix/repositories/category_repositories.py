@@ -5,11 +5,7 @@ from sqlmodel import Session, select
 
 from MakerMatrix.database.db import get_session
 from MakerMatrix.models.models import CategoryModel
-from MakerMatrix.exceptions import (
-    ResourceNotFoundError,
-    CategoryAlreadyExistsError,
-    InvalidReferenceError
-)
+from MakerMatrix.exceptions import ResourceNotFoundError, CategoryAlreadyExistsError, InvalidReferenceError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -23,75 +19,68 @@ class CategoryRepository:
     def get_category(session: Session, category_id: Optional[str] = None, name: Optional[str] = None) -> CategoryModel:
         """
         Get a category by ID or name.
-        
+
         Args:
             session: The database session
             category_id: Optional ID of the category to retrieve
             name: Optional name of the category to retrieve
-            
+
         Returns:
             CategoryModel: The category if found
-            
+
         Raises:
             InvalidReferenceError: If neither category_id nor name is provided
             ResourceNotFoundError: If category is not found
         """
         if category_id:
-            category = session.exec(
-                select(CategoryModel).where(CategoryModel.id == category_id)
-            ).first()
+            category = session.exec(select(CategoryModel).where(CategoryModel.id == category_id)).first()
             identifier = f"ID '{category_id}'"
         elif name:
-            category = session.exec(
-                select(CategoryModel).where(CategoryModel.name == name)
-            ).first()
+            category = session.exec(select(CategoryModel).where(CategoryModel.name == name)).first()
             identifier = f"name '{name}'"
         else:
             raise InvalidReferenceError(
                 message="Either 'category_id' or 'name' must be provided for category lookup",
                 reference_type="category_lookup",
-                reference_id=None
+                reference_id=None,
             )
-        
+
         if category:
             return category
         else:
             raise ResourceNotFoundError(
                 message=f"Category with {identifier} not found",
                 resource_type="category",
-                resource_id=category_id or name
+                resource_id=category_id or name,
             )
 
     @staticmethod
     def create_category(session: Session, new_category: Dict[str, Any]) -> CategoryModel:
         """
         Create a new category.
-        
+
         Args:
             session: The database session
             new_category: The category data to create
-            
+
         Returns:
             CategoryModel: The created category
-            
+
         Raises:
             CategoryAlreadyExistsError: If category with same name already exists
         """
         category_name = new_category.get("name")
         logger.debug(f"[REPO] Attempting to create category in database: {category_name}")
-        
+
         # Check for duplicate category name
         if category_name:
-            existing_category = session.exec(
-                select(CategoryModel).where(CategoryModel.name == category_name)
-            ).first()
+            existing_category = session.exec(select(CategoryModel).where(CategoryModel.name == category_name)).first()
             if existing_category:
                 logger.debug(f"[REPO] Category creation failed - duplicate name: {category_name}")
                 raise CategoryAlreadyExistsError(
-                    message=f"Category with name '{category_name}' already exists",
-                    category_name=category_name
+                    message=f"Category with name '{category_name}' already exists", category_name=category_name
                 )
-        
+
         try:
             cmodel = CategoryModel(**new_category)
             session.add(cmodel)
@@ -108,23 +97,21 @@ class CategoryRepository:
     def remove_category(session: Session, rm_category: CategoryModel) -> CategoryModel:
         """
         Remove a category and its associations.
-        
+
         Args:
             session: The database session
             rm_category: The category to remove
-            
+
         Returns:
             CategoryModel: The removed category
         """
         logger.debug(f"[REPO] Removing category from database: {rm_category.name} (ID: {rm_category.id})")
-        
+
         # Remove associations between parts and the category
         from MakerMatrix.models.models import PartModel
 
-        parts = session.exec(
-            select(PartModel).where(PartModel.categories.any(id=rm_category.id))
-        ).all()
-        
+        parts = session.exec(select(PartModel).where(PartModel.categories.any(id=rm_category.id))).all()
+
         if parts:
             logger.debug(f"[REPO] Removing category associations from {len(parts)} parts")
             for part in parts:
@@ -143,10 +130,10 @@ class CategoryRepository:
     def delete_all_categories(session: Session) -> int:
         """
         Delete all categories from the system.
-        
+
         Args:
             session: The database session
-            
+
         Returns:
             int: Number of categories deleted
         """
@@ -164,10 +151,10 @@ class CategoryRepository:
     def get_all_categories(session: Session) -> List[CategoryModel]:
         """
         Get all categories from the system.
-        
+
         Args:
             session: The database session
-            
+
         Returns:
             List[CategoryModel]: List of all categories
         """
@@ -177,24 +164,22 @@ class CategoryRepository:
     def update_category(session: Session, category_id: str, category_data: Dict[str, Any]) -> CategoryModel:
         """
         Update a category's fields.
-        
+
         Args:
             session: The database session
             category_id: The ID of the category to update
             category_data: The fields to update
-            
+
         Returns:
             CategoryModel: The updated category
         """
         logger.debug(f"[REPO] Updating category in database: {category_id} with data: {category_data}")
-        
+
         category = session.get(CategoryModel, category_id)
         if not category:
             logger.debug(f"[REPO] Category update failed - not found: {category_id}")
             raise ResourceNotFoundError(
-                message=f"Category with ID {category_id} not found",
-                resource_type="category",
-                resource_id=category_id
+                message=f"Category with ID {category_id} not found", resource_type="category", resource_id=category_id
             )
 
         # Update fields that are not None
@@ -206,79 +191,81 @@ class CategoryRepository:
                 updated_fields.append(f"{key}: {old_value} -> {value}")
 
         logger.debug(f"[REPO] Updating fields for category {category.name}: {', '.join(updated_fields)}")
-        
+
         session.add(category)
         session.commit()
         session.refresh(category)
         logger.debug(f"[REPO] Successfully updated category in database: {category.name} (ID: {category_id})")
         return category
-    
+
     @staticmethod
     def associate_part_with_category(session: Session, part_id: str, category_id: str) -> bool:
         """
         Associate a part with a category.
-        
+
         Args:
             session: The database session
             part_id: The ID of the part to associate
             category_id: The ID of the category to associate with
-            
+
         Returns:
             bool: True if association was successful, False otherwise
         """
         try:
             from MakerMatrix.models.models import PartModel
-            
+
             # Get the part and category
             part = session.get(PartModel, part_id)
             category = session.get(CategoryModel, category_id)
-            
+
             if not part or not category:
-                logger.warning(f"[REPO] Failed to associate part {part_id} with category {category_id} - one or both not found")
+                logger.warning(
+                    f"[REPO] Failed to associate part {part_id} with category {category_id} - one or both not found"
+                )
                 return False
-            
+
             # Check if association already exists
             if category in part.categories:
                 logger.debug(f"[REPO] Part {part_id} already associated with category {category_id}")
                 return True
-            
+
             # Add the association
             part.categories.append(category)
             session.commit()
-            
+
             logger.info(f"[REPO] Successfully associated part {part_id} with category {category_id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"[REPO] Error associating part {part_id} with category {category_id}: {e}")
             session.rollback()
             return False
-    
+
     @staticmethod
     def is_part_associated_with_category(session: Session, part_id: str, category_id: str) -> bool:
         """
         Check if a part is associated with a category.
-        
+
         Args:
             session: The database session
             part_id: The ID of the part to check
             category_id: The ID of the category to check
-            
+
         Returns:
             bool: True if part is associated with category, False otherwise
         """
         try:
             from MakerMatrix.models.models import PartModel
-            
+
             # Get the part
             part = session.get(PartModel, part_id)
             if not part:
                 logger.warning(f"[REPO] Part {part_id} not found when checking category association")
                 return False
-            
+
             # Check if category is in part's categories
             return any(cat.id == category_id for cat in part.categories)
-            
+
         except Exception as e:
             logger.error(f"[REPO] Error checking part-category association: {e}")
             return False

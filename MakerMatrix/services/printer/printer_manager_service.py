@@ -1,6 +1,7 @@
 """
 Printer manager service for managing multiple printers and routing print jobs.
 """
+
 import uuid
 import asyncio
 import os
@@ -19,7 +20,7 @@ from MakerMatrix.printers.base import (
     PrinterInfo,
     TestResult,
     PrinterError,
-    PrinterOfflineError
+    PrinterOfflineError,
 )
 from MakerMatrix.printers.drivers.mock.driver import MockPrinter
 from MakerMatrix.printers.drivers.brother_ql.driver import BrotherQLModern
@@ -65,6 +66,7 @@ def get_bundled_font_path() -> str:
 @dataclass
 class PrintJob:
     """Represents a print job with routing information."""
+
     job_id: str
     printer_id: str
     job_type: str  # "qr_code", "text", "part_name", "combined"
@@ -77,12 +79,9 @@ class PrintJob:
 
 class PrinterManagerService:
     """Service for managing multiple printers and routing print jobs."""
-    
-    SUPPORTED_DRIVERS = {
-        "MockPrinter": MockPrinter,
-        "BrotherQLModern": BrotherQLModern
-    }
-    
+
+    SUPPORTED_DRIVERS = {"MockPrinter": MockPrinter, "BrotherQLModern": BrotherQLModern}
+
     def __init__(self):
         self.printers: Dict[str, PrinterInterface] = {}
         self.print_jobs: Dict[str, PrintJob] = {}
@@ -90,14 +89,14 @@ class PrinterManagerService:
         self._job_lock = asyncio.Lock()
         self.template_processor = TemplateProcessor()
         self.template_repository = LabelTemplateRepository()
-    
+
     async def register_printer(self, printer: PrinterInterface) -> bool:
         """
         Register a printer with the manager.
-        
+
         Args:
             printer: Printer instance implementing PrinterInterface
-            
+
         Returns:
             True if registration successful, False otherwise
         """
@@ -105,36 +104,37 @@ class PrinterManagerService:
             # Get printer info
             info = printer.get_printer_info()
             print(f"Registering printer: {info.id} - {info.name}")
-            
+
             # Store printer
             self.printers[info.id] = printer
             print(f"Stored printer {info.id}. Total printers: {len(self.printers)}")
-            
+
             # Set as default if this is the first printer
             if not self.default_printer_id:
                 self.default_printer_id = info.id
                 print(f"Set default printer to: {info.id}")
-            
+
             return True
-            
+
         except Exception as e:
             print(f"Failed to register printer: {e}")
             import traceback
+
             traceback.print_exc()
             return False
-    
+
     async def unregister_printer(self, printer_id: str) -> bool:
         """Remove a printer from the manager."""
         if printer_id in self.printers:
             del self.printers[printer_id]
-            
+
             # Update default if needed
             if self.default_printer_id == printer_id:
                 self.default_printer_id = next(iter(self.printers.keys()), None)
-            
+
             return True
         return False
-    
+
     async def get_printer(self, printer_id: Optional[str] = None) -> Optional[PrinterInterface]:
         """Get a printer by ID or the default printer."""
         if printer_id and printer_id in self.printers:
@@ -142,18 +142,18 @@ class PrinterManagerService:
         elif self.default_printer_id:
             return self.printers[self.default_printer_id]
         return None
-    
+
     def get_default_printer(self) -> Optional[PrinterInterface]:
         """Get the default printer."""
         return self.get_printer()
-    
+
     def set_default_printer(self, printer_id: str) -> bool:
         """Set the default printer."""
         if printer_id in self.printers:
             self.default_printer_id = printer_id
             return True
         return False
-    
+
     async def list_printers(self, enabled_only: bool = True) -> List[PrinterInterface]:
         """List all registered printers."""
         printers = list(self.printers.values())
@@ -162,51 +162,47 @@ class PrinterManagerService:
             info = printer.get_printer_info()
             print(f"  - {info.id}: {info.name} ({info.model})")
         return printers
-    
+
     async def get_printer_status(self, printer_id: Optional[str] = None) -> Optional[PrinterStatus]:
         """Get status of a specific printer or default printer."""
         printer = await self.get_printer(printer_id)
         if printer:
             return await printer.get_status()
         return None
-    
+
     async def get_all_printer_statuses(self) -> Dict[str, PrinterStatus]:
         """Get status of all printers."""
         statuses = {}
-        
+
         for printer_id, printer in self.printers.items():
             try:
                 statuses[printer_id] = await printer.get_status()
             except Exception as e:
                 print(f"Failed to get status for printer {printer_id}: {e}")
                 statuses[printer_id] = PrinterStatus.ERROR
-        
+
         return statuses
-    
+
     async def test_printer_connection(self, printer_id: Optional[str] = None) -> Optional[TestResult]:
         """Test connection to a specific printer."""
         printer = await self.get_printer(printer_id)
         if printer:
             return await printer.test_connection()
         return None
-    
+
     async def test_all_printers(self) -> Dict[str, TestResult]:
         """Test connections to all enabled printers."""
         results = {}
-        
+
         for printer_id, printer in self.printers.items():
             try:
                 results[printer_id] = await printer.test_connection()
             except Exception as e:
-                results[printer_id] = TestResult(
-                    success=False,
-                    error=f"Test failed: {str(e)}"
-                )
-        
+                results[printer_id] = TestResult(success=False, error=f"Test failed: {str(e)}")
+
         return results
-    
-    async def route_print_job(self, job_type: str, printer_id: Optional[str] = None, 
-                              **job_params) -> PrintJob:
+
+    async def route_print_job(self, job_type: str, printer_id: Optional[str] = None, **job_params) -> PrintJob:
         """Route a print job to the appropriate printer."""
         async with self._job_lock:
             # Create job record
@@ -216,86 +212,78 @@ class PrinterManagerService:
                 printer_id=printer_id or self.default_printer_id or "unknown",
                 job_type=job_type,
                 status="pending",
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
-            
+
             self.print_jobs[job_id] = job
-            
+
             try:
                 # Get printer
                 printer = await self.get_printer(printer_id)
                 if not printer:
                     raise PrinterError("No printer available for job")
-                
+
                 job.status = "printing"
-                
+
                 # Route to appropriate print method based on job type
                 if job_type == "text":
                     result = await printer.print_label(
-                        job_params["image"], 
-                        job_params["label_size"], 
-                        job_params.get("copies", 1)
+                        job_params["image"], job_params["label_size"], job_params.get("copies", 1)
                     )
                 elif job_type == "qr_code":
                     result = await printer.print_label(
-                        job_params["image"], 
-                        job_params["label_size"], 
-                        job_params.get("copies", 1)
+                        job_params["image"], job_params["label_size"], job_params.get("copies", 1)
                     )
                 elif job_type == "part_name":
                     result = await printer.print_label(
-                        job_params["image"], 
-                        job_params["label_size"], 
-                        job_params.get("copies", 1)
+                        job_params["image"], job_params["label_size"], job_params.get("copies", 1)
                     )
                 elif job_type == "combined":
                     result = await printer.print_label(
-                        job_params["image"], 
-                        job_params["label_size"], 
-                        job_params.get("copies", 1)
+                        job_params["image"], job_params["label_size"], job_params.get("copies", 1)
                     )
                 else:
                     raise ValueError(f"Unknown job type: {job_type}")
-                
+
                 # Update job with result
                 job.status = "completed" if result.success else "failed"
                 job.result = result
                 job.completed_at = datetime.utcnow()
-                
+
                 if not result.success:
                     job.error = result.error
-                
+
                 return job
-                
+
             except Exception as e:
                 job.status = "failed"
                 job.error = str(e)
                 job.completed_at = datetime.utcnow()
                 return job
-    
+
     def get_print_job(self, job_id: str) -> Optional[PrintJob]:
         """Get a print job by ID."""
         return self.print_jobs.get(job_id)
-    
+
     def list_print_jobs(self, limit: int = 100, printer_id: Optional[str] = None) -> List[PrintJob]:
         """List recent print jobs."""
         jobs = list(self.print_jobs.values())
-        
+
         # Filter by printer if specified
         if printer_id:
             jobs = [job for job in jobs if job.printer_id == printer_id]
-        
+
         # Sort by creation time (newest first)
         jobs.sort(key=lambda x: x.created_at, reverse=True)
-        
+
         return jobs[:limit]
-    
+
     async def cancel_print_job(self, job_id: str) -> bool:
         """Cancel a print job."""
         job = self.get_print_job(job_id)
         if not job or job.status not in ["pending", "printing"]:
             return False
-        
+
         # Try to cancel on the printer
         printer = await self.get_printer(job.printer_id)
         if printer:
@@ -307,52 +295,50 @@ class PrinterManagerService:
                     return True
             except Exception as e:
                 print(f"Failed to cancel job on printer: {e}")
-        
+
         return False
-    
+
     async def get_supported_label_sizes(self, printer_id: Optional[str] = None) -> List[LabelSize]:
         """Get supported label sizes for a printer."""
         printer = await self.get_printer(printer_id)
         if printer:
             return printer.get_supported_label_sizes()
         return []
-    
+
     async def get_printer_capabilities(self, printer_id: Optional[str] = None) -> List[PrinterCapability]:
         """Get capabilities of a printer."""
         printer = await self.get_printer(printer_id)
         if printer:
             return await printer.get_capabilities()
         return []
-    
-    
+
     def clear_completed_jobs(self, older_than_hours: int = 24) -> int:
         """Clear completed jobs older than specified hours."""
         from datetime import timedelta
-        
+
         cutoff_time = datetime.utcnow() - timedelta(hours=older_than_hours)
         jobs_to_remove = []
-        
+
         for job_id, job in self.print_jobs.items():
-            if (job.status in ["completed", "failed", "cancelled"] and 
-                job.completed_at and job.completed_at < cutoff_time):
+            if (
+                job.status in ["completed", "failed", "cancelled"]
+                and job.completed_at
+                and job.completed_at < cutoff_time
+            ):
                 jobs_to_remove.append(job_id)
-        
+
         for job_id in jobs_to_remove:
             del self.print_jobs[job_id]
-        
+
         return len(jobs_to_remove)
-    
-    async def print_template_label(self, printer_id: str, template_id: str, data: dict,
-                                   label_size: str, copies: int = 1) -> PrintJobResult:
+
+    async def print_template_label(
+        self, printer_id: str, template_id: str, data: dict, label_size: str, copies: int = 1
+    ) -> PrintJobResult:
         """Print a label using a saved template - uses text_template directly."""
         printer = await self.get_printer(printer_id)
         if not printer:
-            return PrintJobResult(
-                success=False,
-                job_id="",
-                message="",
-                error=f"Printer {printer_id} not found"
-            )
+            return PrintJobResult(success=False, job_id="", message="", error=f"Printer {printer_id} not found")
 
         try:
             # Get the template from database
@@ -363,10 +349,7 @@ class PrinterManagerService:
                 template = self.template_repository.get_by_id(session, template_id)
                 if not template:
                     return PrintJobResult(
-                        success=False,
-                        job_id="",
-                        message="",
-                        error=f"Template {template_id} not found"
+                        success=False, job_id="", message="", error=f"Template {template_id} not found"
                     )
 
                 # Use the text_template directly with the advanced label creation method
@@ -384,7 +367,7 @@ class PrinterManagerService:
                     data=data,
                     label_size=template_label_size,
                     label_length=template_label_length,
-                    options={}
+                    options={},
                 )
 
                 print(f"[DEBUG] - Generated image size: {label_image.width}x{label_image.height}")
@@ -412,10 +395,7 @@ class PrinterManagerService:
 
         except Exception as e:
             return PrintJobResult(
-                success=False,
-                job_id="",
-                message="",
-                error=f"Failed to print template label: {str(e)}"
+                success=False, job_id="", message="", error=f"Failed to print template label: {str(e)}"
             )
 
     async def preview_template_label(self, template_id: str, data: dict) -> PreviewResult:
@@ -427,10 +407,7 @@ class PrinterManagerService:
             with Session(engine) as session:
                 template = self.template_repository.get_by_id(session, template_id)
                 if not template:
-                    return PreviewResult(
-                        success=False,
-                        error=f"Template {template_id} not found"
-                    )
+                    return PreviewResult(success=False, error=f"Template {template_id} not found")
 
                 # Use the text_template directly with the advanced label creation method
                 # This ensures the same rendering as custom templates
@@ -442,7 +419,7 @@ class PrinterManagerService:
                     data=data,
                     label_size=label_size,
                     label_length=label_length,
-                    options={}
+                    options={},
                 )
 
                 # Convert image to base64 for preview
@@ -450,24 +427,22 @@ class PrinterManagerService:
                 import base64
 
                 buffer = io.BytesIO()
-                preview_image.save(buffer, format='PNG')
+                preview_image.save(buffer, format="PNG")
                 image_data = base64.b64encode(buffer.getvalue()).decode()
 
                 return PreviewResult(
                     success=True,
                     preview_url=f"data:image/png;base64,{image_data}",
                     width=preview_image.width,
-                    height=preview_image.height
+                    height=preview_image.height,
                 )
 
         except Exception as e:
-            return PreviewResult(
-                success=False,
-                error=f"Failed to preview template label: {str(e)}"
-            )
+            return PreviewResult(success=False, error=f"Failed to preview template label: {str(e)}")
 
-    async def _create_advanced_label_image(self, template: str, data: dict, label_size: str,
-                                          label_length: int = None, options: dict = None):
+    async def _create_advanced_label_image(
+        self, template: str, data: dict, label_size: str, label_length: int = None, options: dict = None
+    ):
         """Create an advanced label image with template processing and QR codes (legacy method)."""
         from PIL import Image, ImageDraw, ImageFont
         import qrcode
@@ -516,20 +491,20 @@ class PrinterManagerService:
 
         # Parse template for QR codes, emoji, text, and rotation
         # Check for both {qr} and {qr=field} syntax
-        has_simple_qr = '{qr}' in template
-        qr_field_matches = re.findall(r'\{qr=([^}]+)\}', template)
-        has_qr = has_simple_qr or len(qr_field_matches) > 0 or options.get('include_qr', False)
+        has_simple_qr = "{qr}" in template
+        qr_field_matches = re.findall(r"\{qr=([^}]+)\}", template)
+        has_qr = has_simple_qr or len(qr_field_matches) > 0 or options.get("include_qr", False)
 
         # Check for emoji placeholder BEFORE processing template text
-        has_emoji_placeholder = '{emoji}' in template
-        emoji_value = data.get('emoji') if has_emoji_placeholder else None
-        skip_qr = options.get('skip_qr', False)
+        has_emoji_placeholder = "{emoji}" in template
+        emoji_value = data.get("emoji") if has_emoji_placeholder else None
+        skip_qr = options.get("skip_qr", False)
 
         print(f"[DEBUG] Print: Template has QR placeholder: {has_qr}, skip_qr: {skip_qr}")
         print(f"[DEBUG] Print: Template has emoji placeholder: {has_emoji_placeholder}, emoji value: {emoji_value}")
 
         # Extract rotation (default 0 degrees)
-        rotate_match = re.search(r'\{rotate=(\d+)\}', template)
+        rotate_match = re.search(r"\{rotate=(\d+)\}", template)
         rotation_degrees = int(rotate_match.group(1)) if rotate_match else 0
         print(f"[DEBUG] Print: Rotation: {rotation_degrees}°")
 
@@ -538,13 +513,13 @@ class PrinterManagerService:
 
         # Remove emoji placeholder from text (it's rendered separately)
         if has_emoji_placeholder:
-            processed_text = processed_text.replace('{emoji}', '')
+            processed_text = processed_text.replace("{emoji}", "")
             print(f"[DEBUG] Print: Removed {{emoji}} placeholder from text")
-        
+
         # Create base image
-        image = Image.new('RGB', (width, height), 'white')
+        image = Image.new("RGB", (width, height), "white")
         draw = ImageDraw.Draw(image)
-        
+
         if has_qr or has_emoji_placeholder:
             # Create optimized layout with QR code, emoji, and text using improved sizing logic
 
@@ -561,7 +536,7 @@ class PrinterManagerService:
                     dpi=300,  # Standard Brother QL DPI
                     qr_scale=0.95,  # Use 95% of available height for better scanning
                     qr_min_size_mm=8.0,  # Minimum 8mm for phone scanning
-                    qr_max_margin_mm=1.0  # 1mm max margin
+                    qr_max_margin_mm=1.0,  # 1mm max margin
                 )
 
                 # Generate optimized QR code using LabelService
@@ -569,15 +544,15 @@ class PrinterManagerService:
                 if qr_field_matches:
                     # User specified {qr=field_name}
                     qr_field = qr_field_matches[0]
-                    qr_data = str(data.get(qr_field, 'UNKNOWN'))
+                    qr_data = str(data.get(qr_field, "UNKNOWN"))
                     print(f"[DEBUG] Print: Using QR field '{qr_field}': {qr_data}")
-                    part_dict = {'id': qr_data}
+                    part_dict = {"id": qr_data}
                 else:
                     # Default to MM:id format
-                    part_id = data.get('id') or data.get('part_id') or 'UNKNOWN'
+                    part_id = data.get("id") or data.get("part_id") or "UNKNOWN"
                     qr_data = f"MM:{part_id}"
                     print(f"[DEBUG] Print: Using default QR data: {qr_data}")
-                    part_dict = {'id': qr_data}
+                    part_dict = {"id": qr_data}
 
                 qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
                 qr_size = qr_image.width  # Get actual optimized size
@@ -598,20 +573,20 @@ class PrinterManagerService:
                     # Calculate emoji size (use most of available height)
                     emoji_size = int(height * 0.8)
                     emoji_img = EmojiRenderService.render_emoji(
-                        emoji_char=emoji_value,
-                        size_px=emoji_size,
-                        background_color="white",
-                        convert_shortcode=True
+                        emoji_char=emoji_value, size_px=emoji_size, background_color="white", convert_shortcode=True
                     )
 
                     # Paste emoji
                     emoji_y = (height - emoji_img.height) // 2
                     image.paste(emoji_img, (current_x, emoji_y))
                     current_x += emoji_img.width + 4  # Move position after emoji with spacing
-                    print(f"[DEBUG] Print: Emoji rendered at ({current_x - emoji_img.width - 4}, {emoji_y}), size: {emoji_img.width}x{emoji_img.height}")
+                    print(
+                        f"[DEBUG] Print: Emoji rendered at ({current_x - emoji_img.width - 4}, {emoji_y}), size: {emoji_img.width}x{emoji_img.height}"
+                    )
                 except Exception as e:
                     print(f"[ERROR] Print: Failed to render emoji '{emoji_value}': {e}")
                     import traceback
+
                     traceback.print_exc()
                     # Continue without emoji if rendering fails
 
@@ -620,14 +595,16 @@ class PrinterManagerService:
             text_width = width - text_x - 2  # Minimal right padding
             text_height = height - 4  # 2px top/bottom margins
 
-            print(f"[DEBUG] Print: Layout - QR={qr_size}px, emoji={emoji_size}px, text_area={text_width}x{text_height}px")
+            print(
+                f"[DEBUG] Print: Layout - QR={qr_size}px, emoji={emoji_size}px, text_area={text_width}x{text_height}px"
+            )
 
             # Use SIMPLE auto-sizing logic with proper multi-line support AND text wrapping
             target_height = int(text_height * 0.8)  # Use 80% of available height
-            max_width = int(text_width * 0.9)       # Use 90% of available width
+            max_width = int(text_width * 0.9)  # Use 90% of available width
 
             # Start with user-provided line breaks
-            text_lines = processed_text.split('\n')
+            text_lines = processed_text.split("\n")
             num_lines = len(text_lines)
 
             print(f"[DEBUG] Initial lines ({num_lines}): {text_lines}")
@@ -715,7 +692,7 @@ class PrinterManagerService:
                 font = ImageFont.load_default()
 
             # Draw multi-line wrapped text centered
-            wrapped_text = '\n'.join(final_wrapped_lines)
+            wrapped_text = "\n".join(final_wrapped_lines)
 
             # Use multiline_textbbox for proper measurement
             bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font)
@@ -725,15 +702,15 @@ class PrinterManagerService:
             x = text_x + (text_width - final_text_width) // 2
             y = (height - final_text_height) // 2
 
-            draw.multiline_text((x, y), wrapped_text, fill='black', font=font)
+            draw.multiline_text((x, y), wrapped_text, fill="black", font=font)
             print(f"[DEBUG] Rendered wrapped text ({len(final_wrapped_lines)} lines) at font_size={font_size}px")
         else:
             # Text-only layout - maximize text size
             target_height = int(height * 0.98)  # Use 98% of label height
-            max_width = int(width * 0.96)       # Use 96% of label width
+            max_width = int(width * 0.96)  # Use 96% of label width
 
-            text_lines = processed_text.strip().split('\n')
-            num_lines = len(text_lines) if '\n' in processed_text else 1
+            text_lines = processed_text.strip().split("\n")
+            num_lines = len(text_lines) if "\n" in processed_text else 1
 
             # For multi-line, divide height by number of lines
             if num_lines > 1:
@@ -782,51 +759,55 @@ class PrinterManagerService:
                     line_width = bbox[2] - bbox[0]
                     x = (width - line_width) // 2
                     y = start_y + i * line_height
-                    draw.text((x, y), line, fill='black', font=font)
+                    draw.text((x, y), line, fill="black", font=font)
 
         # Apply rotation if specified
         if rotation_degrees != 0:
             print(f"[DEBUG] Applying {rotation_degrees}° rotation to label image")
-            image = image.rotate(-rotation_degrees, expand=True, fillcolor='white')
+            image = image.rotate(-rotation_degrees, expand=True, fillcolor="white")
 
         return image
-    
-    async def _create_advanced_label_image_for_preview(self, template: str, data: dict, label_size: str, 
-                                                      label_length: int = None, options: dict = None):
+
+    async def _create_advanced_label_image_for_preview(
+        self, template: str, data: dict, label_size: str, label_length: int = None, options: dict = None
+    ):
         """Create an advanced label image for preview (with proper rotation for display)."""
         # Get the base image without rotation
         image = await self._create_advanced_label_image(template, data, label_size, label_length, options)
-        
+
         # Get label info to determine if we need rotation
         printer = await self.get_printer()
         if not printer:
             return image
-            
+
         supported_sizes = printer.get_supported_label_sizes()
         label_info = None
         for size in supported_sizes:
             if size.name == label_size:
                 label_info = size
                 break
-        
+
         # Rotate for 12mm labels to show how it will look when printed (horizontal preview)
         if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
             image = image.rotate(-90, expand=True)  # Rotate -90° to show horizontally
-        
+
         return image
-    
-    async def print_advanced_label(self, printer_id: str, template: str, data: dict, label_size: str, 
-                                   label_length: int = None, options: dict = None, copies: int = 1) -> PrintJobResult:
+
+    async def print_advanced_label(
+        self,
+        printer_id: str,
+        template: str,
+        data: dict,
+        label_size: str,
+        label_length: int = None,
+        options: dict = None,
+        copies: int = 1,
+    ) -> PrintJobResult:
         """Print an advanced label with template processing and QR codes."""
         printer = await self.get_printer(printer_id)
         if not printer:
-            return PrintJobResult(
-                success=False,
-                job_id="",
-                message="",
-                error=f"Printer {printer_id} not found"
-            )
-        
+            return PrintJobResult(success=False, job_id="", message="", error=f"Printer {printer_id} not found")
+
         try:
             # Process template and create label image
             label_image = await self._create_advanced_label_image(template, data, label_size, label_length, options)
@@ -846,29 +827,21 @@ class PrinterManagerService:
 
             # Print the label
             return await printer.print_label(label_image, label_size, copies)
-            
+
         except Exception as e:
             return PrintJobResult(
-                success=False,
-                job_id="",
-                message="",
-                error=f"Failed to create advanced label: {str(e)}"
+                success=False, job_id="", message="", error=f"Failed to create advanced label: {str(e)}"
             )
 
     async def print_text_label(self, printer_id: str, text: str, label_size: str, copies: int = 1) -> PrintJobResult:
         """Print a text label using the specified printer."""
         printer = await self.get_printer(printer_id)
         if not printer:
-            return PrintJobResult(
-                success=False,
-                job_id="",
-                message="",
-                error=f"Printer {printer_id} not found"
-            )
-        
+            return PrintJobResult(success=False, job_id="", message="", error=f"Printer {printer_id} not found")
+
         # Create text label image directly
         from PIL import Image, ImageDraw, ImageFont
-        
+
         # Get label size info
         supported_sizes = printer.get_supported_label_sizes()
         label_info = None
@@ -876,15 +849,15 @@ class PrinterManagerService:
             if size.name == label_size:
                 label_info = size
                 break
-        
+
         if not label_info:
             return PrintJobResult(
                 success=False,
                 job_id="",
                 message="",
-                error=f"Label size {label_size} not supported by printer {printer_id}"
+                error=f"Label size {label_size} not supported by printer {printer_id}",
             )
-        
+
         # Create image with appropriate dimensions
         # For 12mm labels (both "12" die-cut and "12mm" continuous), we need to create a wide image and rotate it 90°
         if label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0:
@@ -898,14 +871,14 @@ class PrinterManagerService:
         else:  # Continuous label - use width and calculate height based on text
             width = int(label_info.width_px or 400)
             height = max(100, len(text) * 20 + 40)  # Dynamic height based on text
-        
+
         # Create white background image
-        image = Image.new('RGB', (width, height), 'white')
+        image = Image.new("RGB", (width, height), "white")
         draw = ImageDraw.Draw(image)
-        
+
         # Dynamic font sizing to fit label dimensions (same as preview service)
         target_height = int(height * 0.8)  # Use 80% of label height
-        max_width = int(width * 0.9)       # Use 90% of label width
+        max_width = int(width * 0.9)  # Use 90% of label width
 
         # Start with a large font size and scale down to fit
         font_size = max(target_height, 12)  # Start with target height or minimum 12
@@ -936,7 +909,7 @@ class PrinterManagerService:
         # If we couldn't load a TrueType font, use default
         if font is None:
             font = ImageFont.load_default()
-        
+
         # Calculate text position (centered)
         if font:
             bbox = draw.textbbox((0, 0), text, font=font)
@@ -945,35 +918,30 @@ class PrinterManagerService:
         else:
             text_width = len(text) * 10
             text_height = 20
-        
+
         x = (width - text_width) // 2
         y = (height - text_height) // 2
-        
+
         # Draw text in black
-        draw.text((x, y), text, fill='black', font=font)
-        
+        draw.text((x, y), text, fill="black", font=font)
+
         # For 12mm labels, rotate 90° like the old implementation
         if label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0:
             image = image.rotate(90, expand=True)
-        
+
         # Print the label
         return await printer.print_label(image, label_size, copies)
-    
+
     async def print_qr_code(self, printer_id: str, data: str, label_size: str, copies: int = 1) -> PrintJobResult:
         """Print a QR code label using the specified printer."""
         printer = await self.get_printer(printer_id)
         if not printer:
-            return PrintJobResult(
-                success=False,
-                job_id="",
-                message="",
-                error=f"Printer {printer_id} not found"
-            )
-        
+            return PrintJobResult(success=False, job_id="", message="", error=f"Printer {printer_id} not found")
+
         # Create QR code image directly
         from PIL import Image
         import qrcode
-        
+
         # Get label size info
         supported_sizes = printer.get_supported_label_sizes()
         label_info = None
@@ -981,15 +949,15 @@ class PrinterManagerService:
             if size.name == label_size:
                 label_info = size
                 break
-        
+
         if not label_info:
             return PrintJobResult(
                 success=False,
                 job_id="",
                 message="",
-                error=f"Label size {label_size} not supported by printer {printer_id}"
+                error=f"Label size {label_size} not supported by printer {printer_id}",
             )
-        
+
         # Create label image with appropriate dimensions
         if label_info.height_mm:  # Die-cut label
             width = int(label_info.width_px or 400)
@@ -1005,7 +973,7 @@ class PrinterManagerService:
             dpi=300,  # Standard Brother QL DPI
             qr_scale=0.98,  # Use 98% of available space for QR-only labels
             qr_min_size_mm=8.0,  # Minimum 8mm for phone scanning
-            qr_max_margin_mm=0.5  # Minimal margin for QR-only labels
+            qr_max_margin_mm=0.5,  # Minimal margin for QR-only labels
         )
 
         # Generate optimized QR code using template processor
@@ -1013,51 +981,47 @@ class PrinterManagerService:
         qr_size = qr_image.width  # Get actual optimized size
 
         # Create white background and center the QR code
-        image = Image.new('RGB', (width, height), 'white')
-        
+        image = Image.new("RGB", (width, height), "white")
+
         # Center the QR code
         x = (width - qr_size) // 2
         y = (height - qr_size) // 2
         image.paste(qr_image, (x, y))
-        
+
         # Print the label
         return await printer.print_label(image, label_size, copies)
-    
+
     async def print_image(self, printer_id: str, image_data: bytes, label_size: str, copies: int = 1) -> PrintJobResult:
         """Print an image label using the specified printer."""
         printer = await self.get_printer(printer_id)
         if not printer:
-            return PrintJobResult(
-                success=False,
-                job_id="",
-                message="",
-                error=f"Printer {printer_id} not found"
-            )
-        
+            return PrintJobResult(success=False, job_id="", message="", error=f"Printer {printer_id} not found")
+
         # Convert image data to PIL Image
         from PIL import Image
         import io
+
         image = Image.open(io.BytesIO(image_data))
-        
+
         # Print the label
         return await printer.print_label(image, label_size, copies)
-    
+
     def get_manager_stats(self) -> Dict[str, Any]:
         """Get printer manager statistics."""
         total_printers = len(self.printers)
         total_jobs = len(self.print_jobs)
-        
+
         job_statuses = {}
         for job in self.print_jobs.values():
             job_statuses[job.status] = job_statuses.get(job.status, 0) + 1
-        
+
         return {
             "total_printers": total_printers,
             "enabled_printers": total_printers,  # All registered printers are enabled
             "default_printer": self.default_printer_id,
             "total_jobs": total_jobs,
             "job_statuses": job_statuses,
-            "supported_drivers": list(self.SUPPORTED_DRIVERS.keys())
+            "supported_drivers": list(self.SUPPORTED_DRIVERS.keys()),
         }
 
 
@@ -1073,8 +1037,8 @@ def get_printer_manager() -> PrinterManagerService:
 async def initialize_default_printers():
     """Initialize default printers for testing and development."""
     manager = get_printer_manager()
-    
+
     # Note: Mock printers are only added during testing
     # Production users should add their real Brother QL printers via the UI
-    
+
     print(f"Initialized printer manager with {len(manager.printers)} printers")

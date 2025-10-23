@@ -25,6 +25,7 @@ Key capabilities:
 
 Be helpful, accurate, and proactive in suggesting improvements to their inventory management."""
 
+
 class AIConfig(BaseModel):
     enabled: bool = False
     provider: str = "ollama"  # ollama, openai, anthropic

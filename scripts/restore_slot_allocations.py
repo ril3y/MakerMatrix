@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import sqlite3
 from sqlmodel import Session, select
@@ -29,14 +29,16 @@ def restore_slot_allocations(backup_path: str, dry_run: bool = False):
     backup_cursor = backup_conn.cursor()
 
     # Get slot allocations from backup (parts in slot locations)
-    backup_cursor.execute("""
+    backup_cursor.execute(
+        """
         SELECT pla.part_id, l.name as slot_name, pla.quantity_at_location,
                pla.is_primary_storage, pla.notes, p.part_name
         FROM part_location_allocations pla
         JOIN locationmodel l ON pla.location_id = l.id
         JOIN partmodel p ON pla.part_id = p.id
         WHERE l.is_auto_generated_slot = 1 OR l.slot_number IS NOT NULL
-    """)
+    """
+    )
     backup_slot_allocations = backup_cursor.fetchall()
     backup_conn.close()
 
@@ -54,9 +56,7 @@ def restore_slot_allocations(backup_path: str, dry_run: bool = False):
 
         for part_id, slot_name, quantity, is_primary, notes, part_name in backup_slot_allocations:
             # Find the slot location in current DB by name
-            slot_location = session.exec(
-                select(LocationModel).where(LocationModel.name == slot_name)
-            ).first()
+            slot_location = session.exec(select(LocationModel).where(LocationModel.name == slot_name)).first()
 
             if not slot_location:
                 not_found_slots += 1
@@ -65,9 +65,7 @@ def restore_slot_allocations(backup_path: str, dry_run: bool = False):
 
             # Find the part's current allocation
             current_alloc = session.exec(
-                select(PartLocationAllocation).where(
-                    PartLocationAllocation.part_id == part_id
-                )
+                select(PartLocationAllocation).where(PartLocationAllocation.part_id == part_id)
             ).first()
 
             if not current_alloc:
@@ -94,14 +92,14 @@ def restore_slot_allocations(backup_path: str, dry_run: bool = False):
             session.commit()
 
         # Print summary
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print(f"{'DRY RUN - ' if dry_run else ''}SLOT ALLOCATION RESTORATION")
-        print("="*60)
+        print("=" * 60)
         print(f"Slot allocations in backup: {len(backup_slot_allocations)}")
         print(f"Successfully {'would be ' if dry_run else ''}restored: {restored}")
         print(f"Parts not found: {not_found_parts}")
         print(f"Slots not found: {not_found_slots}")
-        print("="*60)
+        print("=" * 60)
 
 
 if __name__ == "__main__":
@@ -125,7 +123,7 @@ if __name__ == "__main__":
         print(f"This will move parts back to their slot locations\n")
 
         response = input("Continue? (yes/no): ")
-        if response.lower() in ['yes', 'y']:
+        if response.lower() in ["yes", "y"]:
             restore_slot_allocations(backup_path, dry_run=False)
         else:
             print("Restoration cancelled")

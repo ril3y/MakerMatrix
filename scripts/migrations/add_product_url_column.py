@@ -16,6 +16,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+
 def migrate():
     """Add product_url column to partmodel table"""
 
@@ -36,16 +37,18 @@ def migrate():
         cursor.execute("PRAGMA table_info(partmodel)")
         columns = [column[1] for column in cursor.fetchall()]
 
-        if 'product_url' in columns:
+        if "product_url" in columns:
             print("✅ Column 'product_url' already exists. Migration not needed.")
             return
 
         # Add the new column
         print("➕ Adding 'product_url' column to partmodel table...")
-        cursor.execute("""
+        cursor.execute(
+            """
             ALTER TABLE partmodel
             ADD COLUMN product_url TEXT
-        """)
+        """
+        )
 
         conn.commit()
         print("✅ Migration completed successfully!")
@@ -53,7 +56,7 @@ def migrate():
         # Verify the column was added
         cursor.execute("PRAGMA table_info(partmodel)")
         columns = [column[1] for column in cursor.fetchall()]
-        if 'product_url' in columns:
+        if "product_url" in columns:
             print("✅ Verified: 'product_url' column exists in partmodel table")
         else:
             print("❌ Warning: Could not verify column was added")
@@ -65,6 +68,7 @@ def migrate():
 
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     print("=" * 60)

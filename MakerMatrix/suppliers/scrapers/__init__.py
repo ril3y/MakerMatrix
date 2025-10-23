@@ -7,4 +7,4 @@ when API access is not available or not configured.
 
 from .web_scraper import WebScraper
 
-__all__ = ['WebScraper']
+__all__ = ["WebScraper"]

@@ -29,10 +29,7 @@ class TestAPIKeyAutoRevoke:
         """
 
         # Get role IDs
-        response = client.get(
-            "/api/users/roles",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/roles", headers={"X-API-Key": ADMIN_API_KEY})
         assert response.status_code == 200
 
         roles = {role["name"]: role["id"] for role in response.json()["data"]}
@@ -42,10 +39,7 @@ class TestAPIKeyAutoRevoke:
         assert admin_role_id and user_role_id, "Admin and user roles must exist"
 
         # Find a user with admin role (use the sectest999 we created earlier)
-        response = client.get(
-            "/api/users/all",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/users/all", headers={"X-API-Key": ADMIN_API_KEY})
 
         test_user = None
         for user in response.json()["data"]:
@@ -61,19 +55,14 @@ class TestAPIKeyAutoRevoke:
         print(f"\n✅ Found test user: {test_user['username']} (ID: {test_user_id})")
 
         # Get current API keys count
-        response = client.get(
-            "/api/api-keys/",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/api-keys/", headers={"X-API-Key": ADMIN_API_KEY})
 
         initial_keys = [k for k in response.json()["data"] if k["user_id"] == test_user_id]
         print(f"   User has {len(initial_keys)} API key(s)")
 
         # Downgrade user from admin to user role
         response = client.put(
-            f"/api/users/{test_user_id}/roles",
-            headers={"X-API-Key": ADMIN_API_KEY},
-            json={"role_ids": [user_role_id]}
+            f"/api/users/{test_user_id}/roles", headers={"X-API-Key": ADMIN_API_KEY}, json={"role_ids": [user_role_id]}
         )
 
         assert response.status_code == 200
@@ -83,10 +72,10 @@ class TestAPIKeyAutoRevoke:
 
         # Check if warning message is present
         if len(initial_keys) > 0:
-            assert "API key(s) were automatically revoked" in response_data["message"], \
-                "Expected warning about API key revocation"
-            assert "⚠️" in response_data["message"], \
-                "Expected warning emoji in message"
+            assert (
+                "API key(s) were automatically revoked" in response_data["message"]
+            ), "Expected warning about API key revocation"
+            assert "⚠️" in response_data["message"], "Expected warning emoji in message"
 
             print(f"✅ WARNING MESSAGE RECEIVED:")
             print(f"   {response_data['message']}")
@@ -99,18 +88,13 @@ class TestAPIKeyAutoRevoke:
         print(f"✅ User successfully downgraded to 'user' role")
 
         # Verify all API keys were revoked
-        response = client.get(
-            "/api/api-keys/",
-            headers={"X-API-Key": ADMIN_API_KEY}
-        )
+        response = client.get("/api/api-keys/", headers={"X-API-Key": ADMIN_API_KEY})
 
-        remaining_active_keys = [
-            k for k in response.json()["data"]
-            if k["user_id"] == test_user_id and k["is_active"]
-        ]
+        remaining_active_keys = [k for k in response.json()["data"] if k["user_id"] == test_user_id and k["is_active"]]
 
-        assert len(remaining_active_keys) == 0, \
-            f"Expected all API keys to be revoked, but found {len(remaining_active_keys)} active keys"
+        assert (
+            len(remaining_active_keys) == 0
+        ), f"Expected all API keys to be revoked, but found {len(remaining_active_keys)} active keys"
 
         print(f"✅ ALL API KEYS REVOKED: User now has 0 active API keys")
         print(f"\n🔒 SECURITY TEST PASSED: Auto-revoke on downgrade works correctly!")

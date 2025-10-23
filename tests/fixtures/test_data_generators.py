@@ -33,10 +33,7 @@ def create_test_roles(session: Session) -> Tuple[RoleModel, RoleModel]:
         Tuple of (admin_role, user_role)
     """
     admin_role = RoleModel(
-        id=str(uuid.uuid4()),
-        name="admin",
-        description="Administrator role for testing",
-        permissions=["all"]
+        id=str(uuid.uuid4()), name="admin", description="Administrator role for testing", permissions=["all"]
     )
     session.add(admin_role)
 
@@ -44,7 +41,7 @@ def create_test_roles(session: Session) -> Tuple[RoleModel, RoleModel]:
         id=str(uuid.uuid4()),
         name="user",
         description="Regular user role for testing",
-        permissions=["parts:read", "parts:write", "locations:read"]
+        permissions=["parts:read", "parts:write", "locations:read"],
     )
     session.add(user_role)
 
@@ -52,11 +49,7 @@ def create_test_roles(session: Session) -> Tuple[RoleModel, RoleModel]:
     return admin_role, user_role
 
 
-def create_test_users(
-    session: Session,
-    admin_role: RoleModel,
-    user_role: RoleModel
-) -> Tuple[UserModel, UserModel]:
+def create_test_users(session: Session, admin_role: RoleModel, user_role: RoleModel) -> Tuple[UserModel, UserModel]:
     """
     Create test users: admin and regular user.
 
@@ -76,7 +69,7 @@ def create_test_users(
         hashed_password=pbkdf2_sha256.hash("AdminPass123!"),
         is_active=True,
         password_change_required=False,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
     admin_user.roles = [admin_role]
     session.add(admin_user)
@@ -89,7 +82,7 @@ def create_test_users(
         hashed_password=pbkdf2_sha256.hash("UserPass123!"),
         is_active=True,
         password_change_required=False,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
     regular_user.roles = [user_role]
     session.add(regular_user)
@@ -98,11 +91,7 @@ def create_test_users(
     return admin_user, regular_user
 
 
-def create_test_api_keys(
-    session: Session,
-    admin_user: UserModel,
-    regular_user: UserModel
-) -> Tuple[str, str]:
+def create_test_api_keys(session: Session, admin_user: UserModel, regular_user: UserModel) -> Tuple[str, str]:
     """
     Create test API keys for admin and regular user.
 
@@ -129,7 +118,7 @@ def create_test_api_keys(
         role_names=["admin"],
         is_active=True,
         created_at=datetime.utcnow(),
-        usage_count=0
+        usage_count=0,
     )
     session.add(admin_key_model)
 
@@ -148,7 +137,7 @@ def create_test_api_keys(
         role_names=["user"],
         is_active=True,
         created_at=datetime.utcnow(),
-        usage_count=0
+        usage_count=0,
     )
     session.add(user_key_model)
 
@@ -179,72 +168,40 @@ def create_test_categories(session: Session) -> List[CategoryModel]:
     categories = []
 
     # Top level: Electronics
-    electronics = CategoryModel(
-        id="cat_electronics",
-        name="Electronics",
-        description="Electronic components"
-    )
+    electronics = CategoryModel(id="cat_electronics", name="Electronics", description="Electronic components")
     session.add(electronics)
     categories.append(electronics)
 
     # Second level: Resistors, Capacitors
-    resistors = CategoryModel(
-        id="cat_resistors",
-        name="Resistors",
-        description="Resistive components"
-    )
+    resistors = CategoryModel(id="cat_resistors", name="Resistors", description="Resistive components")
     session.add(resistors)
     categories.append(resistors)
 
-    capacitors = CategoryModel(
-        id="cat_capacitors",
-        name="Capacitors",
-        description="Capacitive components"
-    )
+    capacitors = CategoryModel(id="cat_capacitors", name="Capacitors", description="Capacitive components")
     session.add(capacitors)
     categories.append(capacitors)
 
     # Third level: SMD Resistors, Ceramic Capacitors
-    smd_resistors = CategoryModel(
-        id="cat_smd_resistors",
-        name="SMD Resistors",
-        description="Surface mount resistors"
-    )
+    smd_resistors = CategoryModel(id="cat_smd_resistors", name="SMD Resistors", description="Surface mount resistors")
     session.add(smd_resistors)
     categories.append(smd_resistors)
 
-    ceramic_caps = CategoryModel(
-        id="cat_ceramic_caps",
-        name="Ceramic Capacitors",
-        description="Ceramic capacitors"
-    )
+    ceramic_caps = CategoryModel(id="cat_ceramic_caps", name="Ceramic Capacitors", description="Ceramic capacitors")
     session.add(ceramic_caps)
     categories.append(ceramic_caps)
 
     # Top level: Hardware
-    hardware = CategoryModel(
-        id="cat_hardware",
-        name="Hardware",
-        description="Mechanical hardware"
-    )
+    hardware = CategoryModel(id="cat_hardware", name="Hardware", description="Mechanical hardware")
     session.add(hardware)
     categories.append(hardware)
 
     # Second level: Fasteners
-    fasteners = CategoryModel(
-        id="cat_fasteners",
-        name="Fasteners",
-        description="Screws, bolts, nuts"
-    )
+    fasteners = CategoryModel(id="cat_fasteners", name="Fasteners", description="Screws, bolts, nuts")
     session.add(fasteners)
     categories.append(fasteners)
 
     # Third level: Screws
-    screws = CategoryModel(
-        id="cat_screws",
-        name="Screws",
-        description="Screw fasteners"
-    )
+    screws = CategoryModel(id="cat_screws", name="Screws", description="Screw fasteners")
     session.add(screws)
     categories.append(screws)
 
@@ -283,7 +240,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         description="Main warehouse storage",
         parent_id=None,
         location_type="warehouse",
-        is_mobile=False
+        is_mobile=False,
     )
     session.add(warehouse_a)
     locations.append(warehouse_a)
@@ -295,7 +252,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         description="First shelf in warehouse",
         parent_id="loc_warehouse_a",
         location_type="shelf",
-        is_mobile=False
+        is_mobile=False,
     )
     session.add(shelf_1)
     locations.append(shelf_1)
@@ -306,7 +263,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         description="Second shelf in warehouse",
         parent_id="loc_warehouse_a",
         location_type="shelf",
-        is_mobile=False
+        is_mobile=False,
     )
     session.add(shelf_2)
     locations.append(shelf_2)
@@ -319,7 +276,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         parent_id="loc_shelf_1",
         location_type="bin",
         is_mobile=False,
-        container_capacity=1000
+        container_capacity=1000,
     )
     session.add(bin_a1)
     locations.append(bin_a1)
@@ -331,7 +288,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         parent_id="loc_shelf_1",
         location_type="bin",
         is_mobile=False,
-        container_capacity=1000
+        container_capacity=1000,
     )
     session.add(bin_a2)
     locations.append(bin_a2)
@@ -343,7 +300,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         parent_id="loc_shelf_2",
         location_type="bin",
         is_mobile=False,
-        container_capacity=500
+        container_capacity=500,
     )
     session.add(bin_b1)
     locations.append(bin_b1)
@@ -355,7 +312,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         description="Surface mount component storage",
         parent_id=None,
         location_type="storage_area",
-        is_mobile=False
+        is_mobile=False,
     )
     session.add(smd_storage)
     locations.append(smd_storage)
@@ -366,7 +323,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         description="Rack for SMD cassettes",
         parent_id="loc_smd_storage",
         location_type="rack",
-        is_mobile=False
+        is_mobile=False,
     )
     session.add(cassette_rack)
     locations.append(cassette_rack)
@@ -379,7 +336,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         parent_id="loc_cassette_rack",
         location_type="cassette",
         is_mobile=True,
-        container_capacity=100
+        container_capacity=100,
     )
     session.add(cassette_01)
     locations.append(cassette_01)
@@ -391,7 +348,7 @@ def create_test_locations(session: Session) -> List[LocationModel]:
         parent_id="loc_cassette_rack",
         location_type="cassette",
         is_mobile=True,
-        container_capacity=100
+        container_capacity=100,
     )
     session.add(cassette_02)
     locations.append(cassette_02)
@@ -424,7 +381,7 @@ def create_test_parts(session: Session, categories: List[CategoryModel]) -> List
         component_type="resistor",
         supplier="DigiKey",
         supplier_part_number="311-100KHRCT-ND",
-        emoji="⚡"
+        emoji="⚡",
     )
     # Link to SMD Resistors category
     if len(categories) > 3:
@@ -443,7 +400,7 @@ def create_test_parts(session: Session, categories: List[CategoryModel]) -> List
         component_type="capacitor",
         supplier="LCSC",
         supplier_part_number="C15850",
-        emoji="🔋"
+        emoji="🔋",
     )
     # Link to Ceramic Capacitors category
     if len(categories) > 4:
@@ -461,7 +418,7 @@ def create_test_parts(session: Session, categories: List[CategoryModel]) -> List
         component_type="screw",
         supplier="McMaster-Carr",
         supplier_part_number="91290A115",
-        emoji="🔩"
+        emoji="🔩",
     )
     # Link to Screws category
     if len(categories) > 7:
@@ -480,7 +437,7 @@ def create_test_parts(session: Session, categories: List[CategoryModel]) -> List
         component_type="microcontroller",
         supplier="Mouser",
         supplier_part_number="556-ATMEGA328P-AU",
-        emoji="🧠"
+        emoji="🧠",
     )
     session.add(part4)
     parts.append(part4)
@@ -494,7 +451,7 @@ def create_test_parts(session: Session, categories: List[CategoryModel]) -> List
         manufacturer="Kingbright",
         component_type="led",
         supplier="DigiKey",
-        emoji="💡"
+        emoji="💡",
     )
     session.add(part5)
     parts.append(part5)
@@ -504,9 +461,7 @@ def create_test_parts(session: Session, categories: List[CategoryModel]) -> List
 
 
 def create_test_allocations(
-    session: Session,
-    parts: List[PartModel],
-    locations: List[LocationModel]
+    session: Session, parts: List[PartModel], locations: List[LocationModel]
 ) -> List[PartLocationAllocation]:
     """
     Create test part allocations across locations.
@@ -528,7 +483,7 @@ def create_test_allocations(
             part_id=parts[0].id,
             location_id=locations[3].id,  # Bin A1
             quantity_at_location=5000,
-            is_primary_storage=True
+            is_primary_storage=True,
         )
         session.add(alloc1)
         allocations.append(alloc1)
@@ -539,7 +494,7 @@ def create_test_allocations(
                 part_id=parts[0].id,
                 location_id=locations[8].id,  # Cassette 01
                 quantity_at_location=100,
-                is_primary_storage=False
+                is_primary_storage=False,
             )
             session.add(alloc2)
             allocations.append(alloc2)
@@ -551,7 +506,7 @@ def create_test_allocations(
             part_id=parts[1].id,
             location_id=locations[4].id,  # Bin A2
             quantity_at_location=3000,
-            is_primary_storage=True
+            is_primary_storage=True,
         )
         session.add(alloc3)
         allocations.append(alloc3)
@@ -563,7 +518,7 @@ def create_test_allocations(
             part_id=parts[2].id,
             location_id=locations[5].id,  # Bin B1
             quantity_at_location=1000,
-            is_primary_storage=True
+            is_primary_storage=True,
         )
         session.add(alloc4)
         allocations.append(alloc4)
@@ -683,9 +638,9 @@ def create_test_image_files(static_files_dir: Path) -> List[Path]:
     # Create minimal 1x1 PNG files
     # PNG header + 1x1 red pixel
     png_content = bytes.fromhex(
-        '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4'
-        '89000000d49444154789c62f8cf400000000000ffff030000060005a4a2b4dd'
-        '00000000049454e44ae426082'
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+        "89000000d49444154789c62f8cf400000000000ffff030000060005a4a2b4dd"
+        "00000000049454e44ae426082"
     )
 
     # Create test images
@@ -700,10 +655,7 @@ def create_test_image_files(static_files_dir: Path) -> List[Path]:
     return image_files
 
 
-def populate_test_database(
-    session: Session,
-    static_files_dir: Path = None
-) -> dict:
+def populate_test_database(session: Session, static_files_dir: Path = None) -> dict:
     """
     Populate a test database with complete test data.
 
@@ -756,7 +708,7 @@ def populate_test_database(
         "categories": categories,
         "locations": locations,
         "parts": parts,
-        "allocations": allocations
+        "allocations": allocations,
     }
 
     # Create static files if directory provided

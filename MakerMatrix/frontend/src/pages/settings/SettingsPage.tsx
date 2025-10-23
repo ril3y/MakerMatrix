@@ -16,7 +16,6 @@ import {
   Monitor,
   Sun,
   Moon,
-  AlertTriangle,
   FileText,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'

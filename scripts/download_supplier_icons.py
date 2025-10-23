@@ -10,15 +10,15 @@ from pathlib import Path
 
 # Built-in suppliers with their website URLs
 BUILTIN_SUPPLIERS = {
-    'lcsc': 'https://www.lcsc.com',
-    'digikey': 'https://www.digikey.com',
-    'mouser': 'https://www.mouser.com',
-    'mcmaster-carr': 'https://www.mcmaster.com',
-    'bolt-depot': 'https://www.boltdepot.com',
-    'adafruit': 'https://www.adafruit.com',
-    'alibaba': 'https://www.alibaba.com',
-    'homedepot': 'https://www.homedepot.com',
-    'temu': 'https://www.temu.com',
+    "lcsc": "https://www.lcsc.com",
+    "digikey": "https://www.digikey.com",
+    "mouser": "https://www.mouser.com",
+    "mcmaster-carr": "https://www.mcmaster.com",
+    "bolt-depot": "https://www.boltdepot.com",
+    "adafruit": "https://www.adafruit.com",
+    "alibaba": "https://www.alibaba.com",
+    "homedepot": "https://www.homedepot.com",
+    "temu": "https://www.temu.com",
 }
 
 
@@ -26,7 +26,7 @@ async def download_favicon(session, supplier_name: str, website_url: str, output
     """Download favicon for a supplier"""
     from urllib.parse import urlparse
 
-    parsed = urlparse(website_url if website_url.startswith('http') else f'https://{website_url}')
+    parsed = urlparse(website_url if website_url.startswith("http") else f"https://{website_url}")
     domain = parsed.netloc or parsed.path
     base_url = f"{parsed.scheme}://{domain}" if parsed.scheme else f"https://{domain}"
 
@@ -52,21 +52,21 @@ async def download_favicon(session, supplier_name: str, website_url: str, output
                         continue
 
                     # Determine file extension
-                    content_type = response.headers.get('content-type', '')
-                    if 'png' in content_type or favicon_url.endswith('.png'):
-                        ext = 'png'
-                    elif 'svg' in content_type or favicon_url.endswith('.svg'):
-                        ext = 'svg'
-                    elif 'jpeg' in content_type or 'jpg' in content_type:
-                        ext = 'jpg'
+                    content_type = response.headers.get("content-type", "")
+                    if "png" in content_type or favicon_url.endswith(".png"):
+                        ext = "png"
+                    elif "svg" in content_type or favicon_url.endswith(".svg"):
+                        ext = "svg"
+                    elif "jpeg" in content_type or "jpg" in content_type:
+                        ext = "jpg"
                     else:
-                        ext = 'ico'
+                        ext = "ico"
 
                     # Save with supplier name
                     filename = f"{supplier_name}.{ext}"
                     filepath = output_dir / filename
 
-                    with open(filepath, 'wb') as f:
+                    with open(filepath, "wb") as f:
                         f.write(content)
 
                     print(f"  ✓ Saved to {filename} ({len(content)} bytes)")
@@ -95,13 +95,13 @@ async def main():
 
         results = await asyncio.gather(*tasks)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY:")
-    print("="*60)
+    print("=" * 60)
     for supplier_name, filename in zip(BUILTIN_SUPPLIERS.keys(), results):
         status = f"✓ {filename}" if filename else "✗ Failed"
         print(f"{supplier_name:20s} {status}")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

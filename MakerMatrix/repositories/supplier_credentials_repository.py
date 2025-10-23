@@ -22,11 +22,7 @@ class SupplierCredentialsRepository:
         self.logger = logging.getLogger(f"{__name__}.SupplierCredentialsRepository")
 
     def create_credentials(
-        self,
-        session: Session,
-        supplier_config_id: str,
-        credentials: Dict[str, str],
-        user_id: Optional[str] = None
+        self, session: Session, supplier_config_id: str, credentials: Dict[str, str], user_id: Optional[str] = None
     ) -> SupplierCredentialsModel:
         """
         Create credentials for a supplier
@@ -43,10 +39,7 @@ class SupplierCredentialsRepository:
         self.logger.info(f"Creating credentials for supplier config {supplier_config_id}")
 
         # Create credentials model
-        credentials_model = SupplierCredentialsModel(
-            supplier_config_id=supplier_config_id,
-            created_by_user_id=user_id
-        )
+        credentials_model = SupplierCredentialsModel(supplier_config_id=supplier_config_id, created_by_user_id=user_id)
 
         # Map common credential fields
         if "api_key" in credentials:
@@ -76,11 +69,24 @@ class SupplierCredentialsRepository:
             credentials_model.refresh_token = credentials["refresh_token"]
 
         # Handle additional custom credentials
-        additional_creds = {k: v for k, v in credentials.items()
-                           if k not in ["api_key", "secret_key", "client_id", "client_secret",
-                                       "username", "password", "oauth_token", "refresh_token"]}
+        additional_creds = {
+            k: v
+            for k, v in credentials.items()
+            if k
+            not in [
+                "api_key",
+                "secret_key",
+                "client_id",
+                "client_secret",
+                "username",
+                "password",
+                "oauth_token",
+                "refresh_token",
+            ]
+        }
         if additional_creds:
             import json
+
             credentials_model.additional_data = json.dumps(additional_creds)
 
         # Save to database
@@ -91,11 +97,7 @@ class SupplierCredentialsRepository:
         self.logger.info(f"Created credentials for supplier config {supplier_config_id}")
         return credentials_model
 
-    def get_credentials(
-        self,
-        session: Session,
-        supplier_config_id: str
-    ) -> Optional[SupplierCredentialsModel]:
+    def get_credentials(self, session: Session, supplier_config_id: str) -> Optional[SupplierCredentialsModel]:
         """
         Get credentials for a supplier configuration
 
@@ -112,9 +114,7 @@ class SupplierCredentialsRepository:
         return session.exec(statement).first()
 
     def get_credentials_by_supplier_name(
-        self,
-        session: Session,
-        supplier_name: str
+        self, session: Session, supplier_name: str
     ) -> Optional[SupplierCredentialsModel]:
         """
         Get credentials for a supplier by supplier name
@@ -134,10 +134,7 @@ class SupplierCredentialsRepository:
         )
         return session.exec(statement).first()
 
-    def get_credentials_as_dict(
-        self,
-        credentials_model: SupplierCredentialsModel
-    ) -> Dict[str, str]:
+    def get_credentials_as_dict(self, credentials_model: SupplierCredentialsModel) -> Dict[str, str]:
         """
         Convert credentials model to dictionary
 
@@ -176,6 +173,7 @@ class SupplierCredentialsRepository:
 
         if credentials_model.additional_data:
             import json
+
             try:
                 additional = json.loads(credentials_model.additional_data)
                 creds.update(additional)
@@ -185,11 +183,7 @@ class SupplierCredentialsRepository:
         return creds
 
     def update_credentials(
-        self,
-        session: Session,
-        supplier_config_id: str,
-        credentials: Dict[str, str],
-        user_id: Optional[str] = None
+        self, session: Session, supplier_config_id: str, credentials: Dict[str, str], user_id: Optional[str] = None
     ) -> SupplierCredentialsModel:
         """
         Update credentials for a supplier
@@ -216,11 +210,7 @@ class SupplierCredentialsRepository:
         # Create new credentials
         return self.create_credentials(session, supplier_config_id, credentials, user_id)
 
-    def delete_credentials(
-        self,
-        session: Session,
-        supplier_config_id: str
-    ) -> bool:
+    def delete_credentials(self, session: Session, supplier_config_id: str) -> bool:
         """
         Delete credentials for a supplier
 
@@ -242,11 +232,7 @@ class SupplierCredentialsRepository:
         self.logger.info(f"Deleted credentials for supplier config {supplier_config_id}")
         return True
 
-    def has_credentials(
-        self,
-        session: Session,
-        supplier_config_id: str
-    ) -> bool:
+    def has_credentials(self, session: Session, supplier_config_id: str) -> bool:
         """
         Check if credentials exist for a supplier
 

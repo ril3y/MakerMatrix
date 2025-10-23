@@ -96,11 +96,7 @@ export class TagsService {
     throw new Error(response.message || 'Failed to get part tags')
   }
 
-  async getPartsWithTag(
-    tagId: string,
-    page = 1,
-    pageSize = 20
-  ): Promise<PaginatedResponse<any>> {
+  async getPartsWithTag(tagId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<any>> {
     const response = await apiClient.get<ApiResponse<any>>(`/api/tags/${tagId}/parts`, {
       params: { page, page_size: pageSize },
     })
@@ -142,11 +138,7 @@ export class TagsService {
     throw new Error(response.message || 'Failed to get tool tags')
   }
 
-  async getToolsWithTag(
-    tagId: string,
-    page = 1,
-    pageSize = 20
-  ): Promise<PaginatedResponse<any>> {
+  async getToolsWithTag(tagId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<any>> {
     const response = await apiClient.get<ApiResponse<any>>(`/api/tags/${tagId}/tools`, {
       params: { page, page_size: pageSize },
     })

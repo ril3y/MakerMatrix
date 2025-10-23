@@ -189,7 +189,10 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
       setPartsAtLocation(partsWithAllocations)
     } catch (error) {
-      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
+      const err = error as {
+        response?: { data?: { message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       console.error('Failed to load location data:', error)
       toast.error('Failed to load location details')
     } finally {
@@ -258,7 +261,10 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       loadLocationData()
       if (onRefresh) onRefresh()
     } catch (error) {
-      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
+      const err = error as {
+        response?: { data?: { message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       console.error('Failed to return part:', error)
       toast.error(error.message || 'Failed to return part to original location')
     }
@@ -357,7 +363,9 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
             </div>
             <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
               <div className="text-sm text-theme-muted">
-                {location.location_type === 'container' && location.slot_count ? 'Slots' : 'Child Locations'}
+                {location.location_type === 'container' && location.slot_count
+                  ? 'Slots'
+                  : 'Child Locations'}
               </div>
               <div className="text-2xl font-bold text-theme-primary">
                 {locationDetails?.children.length || 0}

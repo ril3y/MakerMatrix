@@ -17,6 +17,7 @@ try:
     from langchain_experimental.sql import SQLDatabaseChain
     from langchain_community.utilities.sql_database import SQLDatabase
     from sqlalchemy import create_engine
+
     LANGCHAIN_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"LangChain not available for Ollama provider: {e}")
@@ -25,18 +26,18 @@ except ImportError as e:
 
 class OllamaProvider(BaseAIProvider):
     """Ollama AI Provider with LangChain SQL Database Chain support"""
-    
+
     def __init__(self, config: AIConfig):
         super().__init__(config)
         self.db_path = DATABASE_URL.replace("sqlite:///", "")
         self._sql_engine = None
         self._sql_database = None
         self._sql_chain = None
-    
+
     def supports_sql_queries(self) -> bool:
         """Ollama supports SQL queries via LangChain"""
         return LANGCHAIN_AVAILABLE and os.path.exists(self.db_path)
-    
+
     async def chat(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
         """Send chat message to Ollama"""
         try:
@@ -45,98 +46,92 @@ class OllamaProvider(BaseAIProvider):
                 sql_result = await self.query_database(message)
                 if sql_result:
                     return sql_result
-            
+
             # Fallback to regular chat
             return await self._regular_chat(message, conversation_history)
-            
+
         except Exception as e:
             logger.error(f"Ollama chat error: {e}")
             return {"error": f"Ollama chat failed: {str(e)}"}
-    
+
     async def _regular_chat(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
         """Regular chat without SQL processing"""
         try:
             # Prepare messages
             messages = []
-            
+
             # Add conversation history
             if conversation_history:
                 messages.extend(conversation_history)
-            
+
             # Add current message
-            messages.append({
-                "role": "user", 
-                "content": message
-            })
-            
+            messages.append({"role": "user", "content": message})
+
             response = requests.post(
                 f"{self.config.api_url}/api/chat",
                 json={
                     "model": self.config.model_name,
                     "messages": messages,
-                    "options": {
-                        "temperature": self.config.temperature,
-                        "num_predict": self.config.max_tokens
-                    },
-                    "stream": False
+                    "options": {"temperature": self.config.temperature, "num_predict": self.config.max_tokens},
+                    "stream": False,
                 },
-                timeout=30
+                timeout=30,
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 return {
                     "success": True,
                     "response": result.get("message", {}).get("content", ""),
                     "model": self.config.model_name,
-                    "provider": "ollama"
+                    "provider": "ollama",
                 }
             else:
                 return {"error": f"Ollama API error: {response.status_code}"}
-                
+
         except requests.RequestException as e:
             raise AIProviderConnectionError(f"Failed to connect to Ollama: {str(e)}")
-    
+
     async def query_database(self, message: str) -> Optional[Dict[str, Any]]:
         """Query database using LangChain SQL Database Chain"""
         if not self.supports_sql_queries():
             return None
-        
+
         try:
             # Get or create SQL chain
             sql_chain = self._get_sql_chain()
             if not sql_chain:
                 logger.warning("SQL chain not available")
                 return None
-            
+
             # Get SQL database for execution
             sql_db = self._get_sql_database()
             if not sql_db:
                 logger.warning("SQL database not available")
                 return None
-            
+
             # Generate SQL query using the chain
             sql_query = sql_chain.invoke({"question": message})
-            
+
             # Clean up the SQL query (remove any extra text)
             if isinstance(sql_query, str):
                 # Extract just the SQL if there's extra text
-                lines = sql_query.strip().split('\n')
+                lines = sql_query.strip().split("\n")
                 sql_query = lines[-1] if lines else sql_query
                 sql_query = sql_query.strip()
-                
+
                 # Remove common prefixes that might be added
-                if sql_query.lower().startswith('sql query:'):
+                if sql_query.lower().startswith("sql query:"):
                     sql_query = sql_query[10:].strip()
-                elif sql_query.lower().startswith('query:'):
+                elif sql_query.lower().startswith("query:"):
                     sql_query = sql_query[6:].strip()
-            
+
             logger.info(f"Generated SQL: {sql_query}")
-            
+
             # Execute the SQL query
             try:
                 query_result = sql_db.run(sql_query)
-                
+
                 # Create a natural language response from the SQL results
                 if query_result:
                     # Create context for the LLM to generate a natural response
@@ -144,23 +139,22 @@ class OllamaProvider(BaseAIProvider):
 Results: {query_result}
 
 Question: {message}"""
-                    
+
                     # Use the LLM to create a natural language response
                     from langchain_ollama import OllamaLLM
+
                     response_llm = OllamaLLM(
-                        model=self.config.model_name,
-                        base_url=self.config.api_url,
-                        temperature=0.3
+                        model=self.config.model_name, base_url=self.config.api_url, temperature=0.3
                     )
-                    
+
                     response_prompt = f"""You are a helpful database assistant. Based on the SQL query results below, provide a clear, natural language answer to the user's question.
 
 {context}
 
 Provide a helpful response based on the data:"""
-                    
+
                     natural_response = response_llm.invoke(response_prompt)
-                    
+
                     return {
                         "success": True,
                         "response": natural_response,
@@ -168,7 +162,7 @@ Provide a helpful response based on the data:"""
                         "provider": "ollama-langchain",
                         "sql_used": True,
                         "sql_query": sql_query,
-                        "raw_results": query_result
+                        "raw_results": query_result,
                     }
                 else:
                     return {
@@ -177,9 +171,9 @@ Provide a helpful response based on the data:"""
                         "model": self.config.model_name,
                         "provider": "ollama-langchain",
                         "sql_used": True,
-                        "sql_query": sql_query
+                        "sql_query": sql_query,
                     }
-                    
+
             except Exception as exec_error:
                 logger.error(f"SQL execution failed: {exec_error}")
                 return {
@@ -188,34 +182,34 @@ Provide a helpful response based on the data:"""
                     "model": self.config.model_name,
                     "provider": "ollama-langchain",
                     "sql_used": True,
-                    "sql_query": sql_query
+                    "sql_query": sql_query,
                 }
-            
+
         except Exception as e:
             logger.error(f"LangChain SQL query failed: {e}")
             return None
-    
+
     def _get_sql_chain(self):
         """Get or create LangChain SQL Database Chain"""
         if not LANGCHAIN_AVAILABLE:
             return None
-            
+
         if not self._sql_chain:
             try:
                 # Create Ollama LLM instance
                 ollama_llm = OllamaLLM(
                     model=self.config.model_name,
                     base_url=self.config.api_url,
-                    temperature=0  # Deterministic for SQL generation
+                    temperature=0,  # Deterministic for SQL generation
                 )
-                
+
                 # Get SQL database instance
                 sql_db = self._get_sql_database()
                 if sql_db:
                     # Import required classes for latest LangChain pattern
                     from langchain.chains import create_sql_query_chain
                     from langchain_core.prompts import PromptTemplate
-                    
+
                     # Domain-specific prefix exactly as shown in user's example
                     domain_prefix = """You are a database assistant for an inventory management system.
 
@@ -231,7 +225,7 @@ IMPORTANT SCHEMA NOTES:
 - Location names are stored in locationmodel.name column
 
 Always query the database for actual inventory data and answer based strictly on the SQL results."""
-                    
+
                     # Create custom prompt with domain context
                     custom_prompt = PromptTemplate(
                         input_variables=["input", "table_info", "top_k"],
@@ -254,36 +248,30 @@ Only return the SQL query, nothing else.
 Look at at most {{top_k}} results unless the user specifies otherwise.
 
 Question: {{input}}
-SQL Query:"""
+SQL Query:""",
                     )
-                    
+
                     # Create SQL query chain with custom prompt
-                    self._sql_chain = create_sql_query_chain(
-                        llm=ollama_llm,
-                        db=sql_db,
-                        prompt=custom_prompt
-                    )
-                    
+                    self._sql_chain = create_sql_query_chain(llm=ollama_llm, db=sql_db, prompt=custom_prompt)
+
                     logger.info("Successfully created SQL chain with domain-specific prompt")
-                
+
             except Exception as e:
                 logger.error(f"Error creating SQL chain: {e}")
                 # Fallback to old method if new pattern fails
                 try:
                     from langchain_experimental.sql import SQLDatabaseChain
+
                     self._sql_chain = SQLDatabaseChain.from_llm(
-                        ollama_llm,
-                        sql_db,
-                        verbose=True,
-                        return_intermediate_steps=True
+                        ollama_llm, sql_db, verbose=True, return_intermediate_steps=True
                     )
                     logger.info("Created SQL chain using fallback method")
                 except Exception as fallback_error:
                     logger.error(f"Fallback SQL chain creation failed: {fallback_error}")
                     self._sql_chain = None
-                
+
         return self._sql_chain
-    
+
     def _get_sql_database(self):
         """Get or create LangChain SQLDatabase instance"""
         if not self._sql_database:
@@ -291,33 +279,34 @@ SQL Query:"""
             if engine:
                 self._sql_database = SQLDatabase(engine)
         return self._sql_database
-    
+
     def _get_sql_engine(self):
         """Get or create SQLAlchemy engine"""
         if not self._sql_engine and os.path.exists(self.db_path):
             self._sql_engine = create_engine(DATABASE_URL, echo=False)
         return self._sql_engine
-    
+
     def _get_schema_context(self) -> str:
         """Get formatted database schema context"""
         if not os.path.exists(self.db_path):
             return "No database found."
-        
+
         try:
             import sqlite3
+
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
+
             # Get all tables
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
             tables = cursor.fetchall()
-            
+
             schema_text = ""
             for (table_name,) in tables:
                 # Get column info for each table
                 cursor.execute(f"PRAGMA table_info({table_name})")
                 columns = cursor.fetchall()
-                
+
                 schema_text += f"\nTable: {table_name}\n"
                 schema_text += "Columns:\n"
                 for col in columns:
@@ -325,7 +314,7 @@ SQL Query:"""
                     pk_marker = " (PRIMARY KEY)" if pk else ""
                     nn_marker = " NOT NULL" if not_null else ""
                     schema_text += f"  - {col_name}: {col_type}{pk_marker}{nn_marker}\n"
-                
+
                 # Get sample data (first 2 rows)
                 cursor.execute(f"SELECT * FROM {table_name} LIMIT 2")
                 sample_data = cursor.fetchall()
@@ -340,13 +329,13 @@ SQL Query:"""
                                 row_dict[k] = v[:47] + "..."
                         schema_text += f"  {row_dict}\n"
                 schema_text += "\n"
-            
+
             conn.close()
             return schema_text
-            
+
         except Exception as e:
             return f"Error getting schema: {e}"
-    
+
     async def test_connection(self) -> Dict[str, Any]:
         """Test connection to Ollama"""
         try:
@@ -354,10 +343,10 @@ SQL Query:"""
             if response.status_code == 200:
                 models = response.json().get("models", [])
                 model_names = [model.get("name", "") for model in models]
-                
+
                 # Check SQL support
                 sql_support = self.supports_sql_queries()
-                
+
                 if self.config.model_name in model_names:
                     return {
                         "success": True,
@@ -365,17 +354,17 @@ SQL Query:"""
                         "available_models": model_names,
                         "current_model": self.config.model_name,
                         "sql_support": sql_support,
-                        "langchain_available": LANGCHAIN_AVAILABLE
+                        "langchain_available": LANGCHAIN_AVAILABLE,
                     }
                 else:
                     return {
                         "warning": f"Model '{self.config.model_name}' not found",
                         "available_models": model_names,
                         "suggestion": f"Try pulling the model: ollama pull {self.config.model_name}",
-                        "sql_support": sql_support
+                        "sql_support": sql_support,
                     }
             else:
                 return {"error": f"Ollama connection failed: HTTP {response.status_code}"}
-                
+
         except Exception as e:
             raise AIProviderConnectionError(f"Ollama connection test failed: {str(e)}")

@@ -19,10 +19,7 @@ def test_client():
 @pytest.fixture
 def admin_headers(test_client):
     """Login as admin and get authorization headers."""
-    login_data = {
-        "username": "admin",
-        "password": "Admin123!"
-    }
+    login_data = {"username": "admin", "password": "Admin123!"}
     response = test_client.post("/auth/login", data=login_data)
     assert response.status_code == 200
     token = response.json()["access_token"]
@@ -55,10 +52,10 @@ def test_clear_endpoints_require_auth(test_client):
     # Test without auth headers
     response = test_client.delete("/api/parts/clear_all")
     assert response.status_code == 401
-    
+
     response = test_client.delete("/api/utility/clear_suppliers")
     assert response.status_code == 401
-    
+
     response = test_client.delete("/api/categories/delete_all_categories")
     assert response.status_code == 401
 
@@ -66,7 +63,7 @@ def test_clear_endpoints_require_auth(test_client):
 def test_clear_parts_response_format(test_client, admin_headers):
     """Test that clear parts returns proper response format."""
     response = test_client.delete("/api/parts/clear_all", headers=admin_headers)
-    
+
     if response.status_code == 200:
         data = response.json()
         assert "status" in data
@@ -77,7 +74,7 @@ def test_clear_parts_response_format(test_client, admin_headers):
 def test_clear_suppliers_response_format(test_client, admin_headers):
     """Test that clear suppliers returns proper response format."""
     response = test_client.delete("/api/utility/clear_suppliers", headers=admin_headers)
-    
+
     if response.status_code == 200:
         data = response.json()
         assert "status" in data
@@ -89,7 +86,7 @@ def test_clear_suppliers_response_format(test_client, admin_headers):
 def test_clear_categories_response_format(test_client, admin_headers):
     """Test that clear categories returns proper response format."""
     response = test_client.delete("/api/categories/delete_all_categories", headers=admin_headers)
-    
+
     if response.status_code == 200:
         data = response.json()
         assert "status" in data

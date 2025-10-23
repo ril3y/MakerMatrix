@@ -13,8 +13,11 @@ from sqlalchemy import Engine
 
 from MakerMatrix.models.part_models import PartModel
 from MakerMatrix.models.enrichment_requirement_models import (
-    EnrichmentRequirements, FieldRequirement, RequirementSeverity,
-    FieldCheck, EnrichmentRequirementCheck
+    EnrichmentRequirements,
+    FieldRequirement,
+    RequirementSeverity,
+    FieldCheck,
+    EnrichmentRequirementCheck,
 )
 from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
 
@@ -57,7 +60,7 @@ class EnrichmentRequirementValidator:
                 return None
 
             # Check if supplier implements get_enrichment_requirements
-            if not hasattr(supplier, 'get_enrichment_requirements'):
+            if not hasattr(supplier, "get_enrichment_requirements"):
                 self.logger.warning(f"Supplier '{supplier_name}' does not implement enrichment requirements")
                 return None
 
@@ -67,11 +70,7 @@ class EnrichmentRequirementValidator:
             self.logger.error(f"Error getting requirements for supplier '{supplier_name}': {e}")
             return None
 
-    def validate_part_for_enrichment(
-        self,
-        part,
-        supplier_name: str
-    ) -> EnrichmentRequirementCheck:
+    def validate_part_for_enrichment(self, part, supplier_name: str) -> EnrichmentRequirementCheck:
         """
         Validate that a part has the necessary data for enrichment.
 
@@ -83,7 +82,7 @@ class EnrichmentRequirementValidator:
             EnrichmentRequirementCheck with validation results
         """
         # Get part ID (handle both dict and object)
-        part_id = part.get('id') if isinstance(part, dict) else part.id
+        part_id = part.get("id") if isinstance(part, dict) else part.id
 
         # Get supplier requirements
         requirements = self.get_supplier_requirements(supplier_name)
@@ -92,17 +91,17 @@ class EnrichmentRequirementValidator:
             # Check if supplier supports scraping (like McMaster-Carr)
             try:
                 supplier = get_supplier(supplier_name)
-                if supplier and hasattr(supplier, 'supports_scraping') and supplier.supports_scraping():
+                if supplier and hasattr(supplier, "supports_scraping") and supplier.supports_scraping():
                     # For scraping suppliers, check if we have a URL or part number
                     has_url = False
                     has_part_number = False
 
                     if isinstance(part, dict):
-                        has_url = bool(part.get('product_url') or part.get('supplier_url'))
-                        has_part_number = bool(part.get('supplier_part_number'))
+                        has_url = bool(part.get("product_url") or part.get("supplier_url"))
+                        has_part_number = bool(part.get("supplier_part_number"))
                     else:
-                        has_url = bool(getattr(part, 'product_url', None) or getattr(part, 'supplier_url', None))
-                        has_part_number = bool(getattr(part, 'supplier_part_number', None))
+                        has_url = bool(getattr(part, "product_url", None) or getattr(part, "supplier_url", None))
+                        has_part_number = bool(getattr(part, "supplier_part_number", None))
 
                     can_enrich_via_scraping = has_url or has_part_number
 
@@ -110,7 +109,9 @@ class EnrichmentRequirementValidator:
                     suggestions = []
 
                     if not can_enrich_via_scraping:
-                        warnings.append(f"Supplier '{supplier_name}' requires a product URL or part number for enrichment")
+                        warnings.append(
+                            f"Supplier '{supplier_name}' requires a product URL or part number for enrichment"
+                        )
                         suggestions.append(f"Add a product URL from {supplier_name} website")
                         suggestions.append(f"Or add the {supplier_name} part number")
 
@@ -119,7 +120,7 @@ class EnrichmentRequirementValidator:
                         part_id=part_id,
                         can_enrich=can_enrich_via_scraping,
                         warnings=warnings,
-                        suggestions=suggestions
+                        suggestions=suggestions,
                     )
             except Exception as e:
                 self.logger.error(f"Error checking scraping support for '{supplier_name}': {e}")
@@ -129,7 +130,7 @@ class EnrichmentRequirementValidator:
                 supplier_name=supplier_name,
                 part_id=part_id,
                 can_enrich=False,
-                warnings=[f"Supplier '{supplier_name}' does not support enrichment or requirements not defined"]
+                warnings=[f"Supplier '{supplier_name}' does not support enrichment or requirements not defined"],
             )
 
         # Validate required fields
@@ -181,7 +182,9 @@ class EnrichmentRequirementValidator:
                     suggestions.append(suggestion)
 
         if missing_recommended:
-            warnings.append(f"Missing recommended fields: {', '.join(missing_recommended)}. Enrichment may work but results will be limited.")
+            warnings.append(
+                f"Missing recommended fields: {', '.join(missing_recommended)}. Enrichment may work but results will be limited."
+            )
 
             for field_req in requirements.recommended_fields:
                 if field_req.field_name in missing_recommended:
@@ -201,7 +204,7 @@ class EnrichmentRequirementValidator:
             missing_required=missing_required,
             missing_recommended=missing_recommended,
             warnings=warnings,
-            suggestions=suggestions
+            suggestions=suggestions,
         )
 
     def _check_field(self, part, field_req: FieldRequirement) -> FieldCheck:
@@ -222,9 +225,7 @@ class EnrichmentRequirementValidator:
             field_value = getattr(part, field_req.field_name, None)
 
         # Check if field is present (not None and not empty string)
-        is_present = field_value is not None and (
-            not isinstance(field_value, str) or field_value.strip() != ""
-        )
+        is_present = field_value is not None and (not isinstance(field_value, str) or field_value.strip() != "")
 
         # Validate the field if present and validation pattern is defined
         validation_passed = True
@@ -248,7 +249,11 @@ class EnrichmentRequirementValidator:
 
         # Generate validation message for missing fields
         if not is_present:
-            validation_message = f"{field_req.display_name} is required" if field_req.severity == RequirementSeverity.REQUIRED else f"{field_req.display_name} is recommended"
+            validation_message = (
+                f"{field_req.display_name} is required"
+                if field_req.severity == RequirementSeverity.REQUIRED
+                else f"{field_req.display_name} is recommended"
+            )
 
         return FieldCheck(
             field_name=field_req.field_name,
@@ -257,7 +262,7 @@ class EnrichmentRequirementValidator:
             is_present=is_present,
             current_value=field_value if is_present else None,
             validation_passed=validation_passed,
-            validation_message=validation_message
+            validation_message=validation_message,
         )
 
     def can_part_be_enriched(self, part, supplier_name: str) -> bool:

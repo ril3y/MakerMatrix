@@ -19,7 +19,12 @@ interface GlobalSearchPanelProps {
   onSearchChange?: (value: string) => void
 }
 
-const GlobalSearchPanel = ({ isOpen, onClose, initialSearchTerm = '', onSearchChange }: GlobalSearchPanelProps) => {
+const GlobalSearchPanel = ({
+  isOpen,
+  onClose,
+  initialSearchTerm = '',
+  onSearchChange,
+}: GlobalSearchPanelProps) => {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm)
   const [results, setResults] = useState<Part[]>([])
@@ -218,7 +223,8 @@ const GlobalSearchPanel = ({ isOpen, onClose, initialSearchTerm = '', onSearchCh
                   <h2 className="text-xl font-semibold text-theme-primary">Search Results</h2>
                   {searchTerm && (
                     <p className="text-sm text-theme-secondary">
-                      Searching for: <span className="text-theme-primary font-medium">{searchTerm}</span>
+                      Searching for:{' '}
+                      <span className="text-theme-primary font-medium">{searchTerm}</span>
                     </p>
                   )}
                 </div>
@@ -244,7 +250,11 @@ const GlobalSearchPanel = ({ isOpen, onClose, initialSearchTerm = '', onSearchCh
                     Start typing to search by part name, number, or description
                   </p>
                   <div className="mt-4 text-xs text-theme-muted">
-                    Press <kbd className="px-2 py-1 bg-theme-tertiary border border-theme-primary rounded">ESC</kbd> to close
+                    Press{' '}
+                    <kbd className="px-2 py-1 bg-theme-tertiary border border-theme-primary rounded">
+                      ESC
+                    </kbd>{' '}
+                    to close
                   </div>
                 </div>
               ) : loading ? (
@@ -313,19 +323,26 @@ const GlobalSearchPanel = ({ isOpen, onClose, initialSearchTerm = '', onSearchCh
                             <div className="flex items-center gap-2">
                               <Package className="w-4 h-4 text-theme-muted flex-shrink-0" />
                               <span className="text-theme-secondary">
-                                <span className="font-semibold text-theme-primary">{part.quantity}</span> in stock
+                                <span className="font-semibold text-theme-primary">
+                                  {part.quantity}
+                                </span>{' '}
+                                in stock
                               </span>
                             </div>
                             {part.location && (
                               <div className="flex items-center gap-2">
                                 <MapPin className="w-4 h-4 text-theme-muted flex-shrink-0" />
-                                <span className="text-theme-secondary truncate">{part.location.name}</span>
+                                <span className="text-theme-secondary truncate">
+                                  {part.location.name}
+                                </span>
                               </div>
                             )}
                             {part.categories && part.categories.length > 0 && (
                               <div className="flex items-center gap-2">
                                 <Hash className="w-4 h-4 text-theme-muted flex-shrink-0" />
-                                <span className="text-theme-secondary truncate">{part.categories[0].name}</span>
+                                <span className="text-theme-secondary truncate">
+                                  {part.categories[0].name}
+                                </span>
                               </div>
                             )}
                           </div>

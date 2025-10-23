@@ -20,6 +20,7 @@ from MakerMatrix.services.system.websocket_service import websocket_manager
 
 class LocationCreateRequest(BaseModel):
     """Request model for creating locations with required name."""
+
     # Existing fields
     name: str  # Required
     description: Optional[str] = None
@@ -39,6 +40,7 @@ class LocationCreateRequest(BaseModel):
 
     # Custom layout (Phase 2+ ready)
     slot_layout: Optional[Dict[str, Any]] = Field(None, description="Custom layout JSON (Phase 2+)")
+
 
 router = APIRouter()
 base_router = BaseRouter()
@@ -72,7 +74,6 @@ async def get_all_locations(
             "image_url": location.get("image_url"),
             "emoji": location.get("emoji"),
             "parts_count": 0,  # Set to 0 since we don't have parts loaded in basic fetch
-
             # Container slot generation fields
             "slot_count": location.get("slot_count"),
             "slot_naming_pattern": location.get("slot_naming_pattern"),
@@ -80,7 +81,6 @@ async def get_all_locations(
             "grid_rows": location.get("grid_rows"),
             "grid_columns": location.get("grid_columns"),
             "slot_layout": location.get("slot_layout"),
-
             # Per-slot identification
             "is_auto_generated_slot": location.get("is_auto_generated_slot", False),
             "slot_number": location.get("slot_number"),
@@ -88,30 +88,23 @@ async def get_all_locations(
         }
         location_data.append(location_dict)
 
-    return base_router.build_success_response(
-        message=service_response.message,
-        data=location_data
-    )
+    return base_router.build_success_response(message=service_response.message, data=location_data)
 
 
 @router.get("/get_location")
 @standard_error_handling
-async def get_location(
-    location_id: Optional[str] = None, 
-    name: Optional[str] = None
-) -> ResponseSchema[Dict[str, Any]]:
+async def get_location(location_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[Dict[str, Any]]:
     if not location_id and not name:
         raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
-    
+
     location_service = LocationService()
     location_query = LocationQueryModel(id=location_id, name=name)
     service_response = location_service.get_location(location_query)
-    
+
     validate_service_response(service_response)
-    
+
     return base_router.build_success_response(
-        message=service_response.message,
-        data=service_response.data  # Already a dictionary from service
+        message=service_response.message, data=service_response.data  # Already a dictionary from service
     )
 
 
@@ -122,17 +115,17 @@ async def update_location(
     location_id: str,
     location_data: LocationUpdate,
     request: Request,
-    current_user: UserModel = Depends(require_permission("locations:update"))
+    current_user: UserModel = Depends(require_permission("locations:update")),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Update a location's fields. This endpoint can update any combination of name, description, parent_id, and location_type.
-    
+
     Args:
         location_id: The ID of the location to update
         location_data: The fields to update (name, description, parent_id, location_type)
         request: FastAPI request object for activity logging
         current_user: Current authenticated user for activity logging
-        
+
     Returns:
         ResponseSchema: A response containing the updated location data
     """
@@ -143,14 +136,15 @@ async def update_location(
 
     location_service = LocationService()
     service_response = location_service.update_location(location_id, update_data)
-    
+
     validate_service_response(service_response)
-    
+
     updated_location = service_response.data
-    
+
     # Log activity to database for recent activity widget
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
 
         # Create changes dict from the update data
@@ -158,10 +152,10 @@ async def update_location(
 
         await activity_service.log_location_updated(
             location_id=location_id,
-            location_name=updated_location['name'],
+            location_name=updated_location["name"],
             changes=changes,
             user=current_user,
-            request=request
+            request=request,
         )
     except Exception as activity_error:
         print(f"Failed to log location update activity: {activity_error}")
@@ -176,18 +170,17 @@ async def update_location(
             action="updated",
             entity_type="location",
             entity_id=location_id,
-            entity_name=updated_location['name'],
+            entity_name=updated_location["name"],
             user_id=current_user.id,
             username=current_user.username,
             changes=changes_dict,
-            entity_data=updated_location
+            entity_data=updated_location,
         )
     except Exception as e:
         print(f"Failed to broadcast location update: {e}")
 
     return base_router.build_success_response(
-        message="Location updated successfully",
-        data=updated_location  # Already a dictionary from service
+        message="Location updated successfully", data=updated_location  # Already a dictionary from service
     )
 
 
@@ -197,16 +190,14 @@ async def update_location(
 async def add_location(
     location_data: LocationCreateRequest,
     request: Request,
-    current_user: UserModel = Depends(require_permission("locations:create"))
+    current_user: UserModel = Depends(require_permission("locations:create")),
 ) -> ResponseSchema[Dict[str, Any]]:
     location_service = LocationService()
 
     # Check if this is a container creation with slots
     if location_data.slot_count is not None and location_data.slot_count > 0:
         # Use container creation method
-        service_response = location_service.create_container_with_slots(
-            location_data.model_dump()
-        )
+        service_response = location_service.create_container_with_slots(location_data.model_dump())
     else:
         # Use regular location creation
         service_response = location_service.add_location(location_data.model_dump())
@@ -232,12 +223,10 @@ async def add_location(
     # Log activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_location_created(
-            location_id=location['id'],
-            location_name=location['name'],
-            user=current_user,
-            request=request
+            location_id=location["id"], location_name=location["name"], user=current_user, request=request
         )
     except Exception as e:
         print(f"Failed to log location creation activity: {e}")
@@ -247,24 +236,21 @@ async def add_location(
         # Include slot count in entity_data for container creation
         broadcast_data = location.copy()
         if location_data.slot_count is not None and location_data.slot_count > 0:
-            broadcast_data['slots_created'] = service_response.data.get("slots_created", 0)
+            broadcast_data["slots_created"] = service_response.data.get("slots_created", 0)
 
         await websocket_manager.broadcast_crud_event(
             action="created",
             entity_type="location",
-            entity_id=location['id'],
-            entity_name=location['name'],
+            entity_id=location["id"],
+            entity_name=location["name"],
             user_id=current_user.id,
             username=current_user.username,
-            entity_data=broadcast_data
+            entity_data=broadcast_data,
         )
     except Exception as e:
         print(f"Failed to broadcast location creation: {e}")
 
-    return base_router.build_success_response(
-        message=success_message,
-        data=response_data
-    )
+    return base_router.build_success_response(message=success_message, data=response_data)
 
 
 @router.get("/get_location_details/{location_id}")
@@ -281,13 +267,10 @@ async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any
     """
     location_service = LocationService()
     service_response = location_service.get_location_details(location_id)
-    
+
     validate_service_response(service_response)
-    
-    return base_router.build_success_response(
-        message=service_response.message,
-        data=service_response.data
-    )
+
+    return base_router.build_success_response(message=service_response.message, data=service_response.data)
 
 
 @router.get("/get_location_path/{location_id}", response_model=ResponseSchema)
@@ -306,17 +289,13 @@ async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, A
 
     validate_service_response(service_response)
 
-    return base_router.build_success_response(
-        message=service_response.message,
-        data=service_response.data
-    )
+    return base_router.build_success_response(message=service_response.message, data=service_response.data)
 
 
 @router.get("/get_container_slots/{container_id}")
 @standard_error_handling
 async def get_container_slots(
-    container_id: str,
-    include_occupancy: bool = Query(True, description="Include occupancy information for each slot")
+    container_id: str, include_occupancy: bool = Query(True, description="Include occupancy information for each slot")
 ) -> ResponseSchema[List[Dict[str, Any]]]:
     """
     Get all slots for a container with optional occupancy information.
@@ -342,54 +321,48 @@ async def get_container_slots(
 
     validate_service_response(service_response)
 
-    return base_router.build_success_response(
-        message=service_response.message,
-        data=service_response.data
-    )
+    return base_router.build_success_response(message=service_response.message, data=service_response.data)
+
 
 @router.get("/preview-location-delete/{location_id}")
 @standard_error_handling
 async def preview_location_delete(location_id: str) -> ResponseSchema:
     """
     Preview what will be affected when deleting a location.
-    
+
     Args:
         location_id: The ID of the location to preview deletion for
-        
+
     Returns:
         ResponseSchema: A response containing the preview information
     """
     location_service = LocationService()
     service_response = location_service.preview_location_delete(location_id)
-    
+
     validate_service_response(service_response)
-    
-    return base_router.build_success_response(
-        message=service_response.message,
-        data=service_response.data
-    )
+
+    return base_router.build_success_response(message=service_response.message, data=service_response.data)
 
 
 @router.delete("/delete_location/{location_id}")
 @standard_error_handling
 @log_activity("location_deleted", "User {username} deleted location")
 async def delete_location(
-    location_id: str,
-    request: Request,
-    current_user: UserModel = Depends(require_permission("locations:delete"))
+    location_id: str, request: Request, current_user: UserModel = Depends(require_permission("locations:delete"))
 ) -> ResponseSchema:
     response = LocationService.delete_location(location_id)
-    
+
     # Log activity to database for recent activity widget
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
 
         await activity_service.log_location_deleted(
             location_id=location_id,
-            location_name=response['data']['deleted_location_name'],
+            location_name=response["data"]["deleted_location_name"],
             user=current_user,
-            request=request
+            request=request,
         )
     except Exception as activity_error:
         print(f"Failed to log location deletion activity: {activity_error}")
@@ -401,42 +374,33 @@ async def delete_location(
             action="deleted",
             entity_type="location",
             entity_id=location_id,
-            entity_name=response['data']['deleted_location_name'],
+            entity_name=response["data"]["deleted_location_name"],
             user_id=current_user.id,
             username=current_user.username,
-            details=response['data']  # Include details about what was affected
+            details=response["data"],  # Include details about what was affected
         )
     except Exception as e:
         print(f"Failed to broadcast location deletion: {e}")
 
-    return base_router.build_success_response(
-        message=response['message'],
-        data=response['data']
-    )
+    return base_router.build_success_response(message=response["message"], data=response["data"])
 
 
 @router.delete("/cleanup-locations")
 @standard_error_handling
-async def cleanup_locations(
-    current_user: UserModel = Depends(require_admin)
-) -> ResponseSchema[Dict[str, Any]]:
+async def cleanup_locations(current_user: UserModel = Depends(require_admin)) -> ResponseSchema[Dict[str, Any]]:
     """
     Clean up locations by removing those with invalid parent IDs and their descendants.
-    
+
     Returns:
         ResponseSchema: A response containing the cleanup results.
     """
     response = LocationService.cleanup_locations()
     if response["status"] == "success":
         return base_router.build_success_response(
-            message=response.get("message", "Locations cleaned up successfully"),
-            data=response.get("data")
+            message=response.get("message", "Locations cleaned up successfully"), data=response.get("data")
         )
     else:
-        raise HTTPException(
-            status_code=500,
-            detail=response.get("message", "Failed to clean up locations")
-        )
+        raise HTTPException(status_code=500, detail=response.get("message", "Failed to clean up locations"))
 
 
 # Deprecated endpoint removed - use /preview-location-delete/{location_id} instead

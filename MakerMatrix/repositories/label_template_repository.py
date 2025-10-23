@@ -17,7 +17,7 @@ from MakerMatrix.models.label_template_models import (
     TemplateCategory,
     LayoutType,
     TextRotation,
-    QRPosition
+    QRPosition,
 )
 
 
@@ -29,58 +29,55 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
 
     def get_by_name(self, session: Session, name: str) -> Optional[LabelTemplateModel]:
         """Get template by name"""
-        return session.exec(
-            select(LabelTemplateModel).where(LabelTemplateModel.name == name)
-        ).first()
+        return session.exec(select(LabelTemplateModel).where(LabelTemplateModel.name == name)).first()
 
     def get_by_user(self, session: Session, user_id: str, include_public: bool = True) -> List[LabelTemplateModel]:
         """Get templates for a specific user"""
         if include_public:
             return session.exec(
-                select(LabelTemplateModel).where(
+                select(LabelTemplateModel)
+                .where(
                     or_(
                         LabelTemplateModel.created_by_user_id == user_id,
                         LabelTemplateModel.is_public == True,
-                        LabelTemplateModel.is_system_template == True
+                        LabelTemplateModel.is_system_template == True,
                     )
-                ).where(LabelTemplateModel.is_active == True)
+                )
+                .where(LabelTemplateModel.is_active == True)
                 .order_by(LabelTemplateModel.is_system_template.desc(), LabelTemplateModel.name)
             ).all()
         else:
             return session.exec(
-                select(LabelTemplateModel).where(
-                    LabelTemplateModel.created_by_user_id == user_id
-                ).where(LabelTemplateModel.is_active == True)
+                select(LabelTemplateModel)
+                .where(LabelTemplateModel.created_by_user_id == user_id)
+                .where(LabelTemplateModel.is_active == True)
                 .order_by(LabelTemplateModel.name)
             ).all()
 
     def get_by_category(self, session: Session, category: TemplateCategory) -> List[LabelTemplateModel]:
         """Get templates by category"""
         return session.exec(
-            select(LabelTemplateModel).where(
-                LabelTemplateModel.category == category
-            ).where(LabelTemplateModel.is_active == True)
+            select(LabelTemplateModel)
+            .where(LabelTemplateModel.category == category)
+            .where(LabelTemplateModel.is_active == True)
             .order_by(LabelTemplateModel.name)
         ).all()
 
     def get_public_templates(self, session: Session) -> List[LabelTemplateModel]:
         """Get all public and system templates"""
         return session.exec(
-            select(LabelTemplateModel).where(
-                or_(
-                    LabelTemplateModel.is_public == True,
-                    LabelTemplateModel.is_system_template == True
-                )
-            ).where(LabelTemplateModel.is_active == True)
+            select(LabelTemplateModel)
+            .where(or_(LabelTemplateModel.is_public == True, LabelTemplateModel.is_system_template == True))
+            .where(LabelTemplateModel.is_active == True)
             .order_by(LabelTemplateModel.is_system_template.desc(), LabelTemplateModel.name)
         ).all()
 
     def get_system_templates(self, session: Session) -> List[LabelTemplateModel]:
         """Get only system templates"""
         return session.exec(
-            select(LabelTemplateModel).where(
-                LabelTemplateModel.is_system_template == True
-            ).where(LabelTemplateModel.is_active == True)
+            select(LabelTemplateModel)
+            .where(LabelTemplateModel.is_system_template == True)
+            .where(LabelTemplateModel.is_active == True)
             .order_by(LabelTemplateModel.name)
         ).all()
 
@@ -92,7 +89,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
         layout_type: Optional[LayoutType] = None,
         user_id: Optional[str] = None,
         include_public: bool = True,
-        label_size_range: Optional[tuple[float, float]] = None
+        label_size_range: Optional[tuple[float, float]] = None,
     ) -> List[LabelTemplateModel]:
         """Search templates with multiple filters"""
 
@@ -105,7 +102,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
                 or_(
                     LabelTemplateModel.name.ilike(search_term),
                     LabelTemplateModel.display_name.ilike(search_term),
-                    LabelTemplateModel.description.ilike(search_term)
+                    LabelTemplateModel.description.ilike(search_term),
                 )
             )
 
@@ -123,7 +120,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
                 or_(
                     LabelTemplateModel.created_by_user_id == user_id,
                     LabelTemplateModel.is_public == True,
-                    LabelTemplateModel.is_system_template == True
+                    LabelTemplateModel.is_system_template == True,
                 )
             )
         elif user_id:
@@ -133,32 +130,24 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
         if label_size_range:
             min_size, max_size = label_size_range
             query = query.where(
-                and_(
-                    LabelTemplateModel.label_height_mm >= min_size,
-                    LabelTemplateModel.label_height_mm <= max_size
-                )
+                and_(LabelTemplateModel.label_height_mm >= min_size, LabelTemplateModel.label_height_mm <= max_size)
             )
 
         return session.exec(query.order_by(LabelTemplateModel.name)).all()
 
     def get_compatible_templates(
-        self,
-        session: Session,
-        label_height_mm: float,
-        label_width_mm: Optional[float] = None
+        self, session: Session, label_height_mm: float, label_width_mm: Optional[float] = None
     ) -> List[LabelTemplateModel]:
         """Get templates compatible with specific label dimensions"""
 
-        query = select(LabelTemplateModel).where(
-            LabelTemplateModel.is_active == True
-        )
+        query = select(LabelTemplateModel).where(LabelTemplateModel.is_active == True)
 
         # Match label height (exact or within tolerance)
         height_tolerance = 1.0  # 1mm tolerance
         query = query.where(
             and_(
                 LabelTemplateModel.label_height_mm >= label_height_mm - height_tolerance,
-                LabelTemplateModel.label_height_mm <= label_height_mm + height_tolerance
+                LabelTemplateModel.label_height_mm <= label_height_mm + height_tolerance,
             )
         )
 
@@ -168,7 +157,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
             query = query.where(
                 and_(
                     LabelTemplateModel.label_width_mm >= label_width_mm - width_tolerance,
-                    LabelTemplateModel.label_width_mm <= label_width_mm + width_tolerance
+                    LabelTemplateModel.label_width_mm <= label_width_mm + width_tolerance,
                 )
             )
 
@@ -179,9 +168,9 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
     def get_popular_templates(self, session: Session, limit: int = 10) -> List[LabelTemplateModel]:
         """Get most popular templates by usage count"""
         return session.exec(
-            select(LabelTemplateModel).where(
-                LabelTemplateModel.is_active == True
-            ).order_by(LabelTemplateModel.usage_count.desc())
+            select(LabelTemplateModel)
+            .where(LabelTemplateModel.is_active == True)
+            .order_by(LabelTemplateModel.usage_count.desc())
             .limit(limit)
         ).all()
 
@@ -230,13 +219,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
             session.add(template)
             session.commit()
 
-    def duplicate_template(
-        self,
-        session: Session,
-        template_id: str,
-        new_name: str,
-        user_id: str
-    ) -> LabelTemplateModel:
+    def duplicate_template(self, session: Session, template_id: str, new_name: str, user_id: str) -> LabelTemplateModel:
         """Duplicate an existing template with new name and owner"""
 
         original = self.get_by_id(session, template_id)
@@ -257,31 +240,28 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
             is_system_template=False,  # User copies are never system templates
             is_public=False,  # User copies default to private
             created_by_user_id=user_id,
-
             # Copy all configuration
             label_width_mm=original.label_width_mm,
             label_height_mm=original.label_height_mm,
             layout_type=original.layout_type,
             layout_config=original.layout_config.copy(),
-
             qr_enabled=original.qr_enabled,
             qr_position=original.qr_position,
             qr_scale=original.qr_scale,
             qr_min_size_mm=original.qr_min_size_mm,
             qr_max_margin_mm=original.qr_max_margin_mm,
-
             text_template=original.text_template,
             text_rotation=original.text_rotation,
             text_alignment=original.text_alignment,
             enable_multiline=original.enable_multiline,
             enable_auto_sizing=original.enable_auto_sizing,
-
             font_config=original.font_config.copy(),
             spacing_config=original.spacing_config.copy(),
-
             supports_rotation=original.supports_rotation,
             supports_vertical_text=original.supports_vertical_text,
-            custom_processing_rules=original.custom_processing_rules.copy() if original.custom_processing_rules else None
+            custom_processing_rules=(
+                original.custom_processing_rules.copy() if original.custom_processing_rules else None
+            ),
         )
 
         return self.create(session, duplicate)
@@ -294,27 +274,29 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
         ).first()
 
         system_templates = session.exec(
-            select(func.count()).select_from(LabelTemplateModel).where(
-                and_(LabelTemplateModel.is_system_template == True, LabelTemplateModel.is_active == True)
-            )
+            select(func.count())
+            .select_from(LabelTemplateModel)
+            .where(and_(LabelTemplateModel.is_system_template == True, LabelTemplateModel.is_active == True))
         ).first()
 
         public_templates = session.exec(
-            select(func.count()).select_from(LabelTemplateModel).where(
-                and_(LabelTemplateModel.is_public == True, LabelTemplateModel.is_active == True)
-            )
+            select(func.count())
+            .select_from(LabelTemplateModel)
+            .where(and_(LabelTemplateModel.is_public == True, LabelTemplateModel.is_active == True))
         ).first()
 
         # Category distribution
         category_stats = session.exec(
-            select(LabelTemplateModel.category, func.count()).select_from(LabelTemplateModel)
+            select(LabelTemplateModel.category, func.count())
+            .select_from(LabelTemplateModel)
             .where(LabelTemplateModel.is_active == True)
             .group_by(LabelTemplateModel.category)
         ).all()
 
         # Layout type distribution
         layout_stats = session.exec(
-            select(LabelTemplateModel.layout_type, func.count()).select_from(LabelTemplateModel)
+            select(LabelTemplateModel.layout_type, func.count())
+            .select_from(LabelTemplateModel)
             .where(LabelTemplateModel.is_active == True)
             .group_by(LabelTemplateModel.layout_type)
         ).all()
@@ -325,7 +307,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
             "public_templates": public_templates or 0,
             "user_templates": (total_templates or 0) - (system_templates or 0),
             "category_distribution": {category: count for category, count in category_stats},
-            "layout_distribution": {layout: count for layout, count in layout_stats}
+            "layout_distribution": {layout: count for layout, count in layout_stats},
         }
 
 
@@ -337,25 +319,23 @@ class LabelTemplatePresetRepository(BaseRepository[LabelTemplatePresetModel]):
 
     def get_by_name(self, session: Session, name: str) -> Optional[LabelTemplatePresetModel]:
         """Get preset by name"""
-        return session.exec(
-            select(LabelTemplatePresetModel).where(LabelTemplatePresetModel.name == name)
-        ).first()
+        return session.exec(select(LabelTemplatePresetModel).where(LabelTemplatePresetModel.name == name)).first()
 
     def get_by_category(self, session: Session, category: TemplateCategory) -> List[LabelTemplatePresetModel]:
         """Get presets by category"""
         return session.exec(
-            select(LabelTemplatePresetModel).where(
-                LabelTemplatePresetModel.category == category
-            ).where(LabelTemplatePresetModel.is_active == True)
+            select(LabelTemplatePresetModel)
+            .where(LabelTemplatePresetModel.category == category)
+            .where(LabelTemplatePresetModel.is_active == True)
             .order_by(LabelTemplatePresetModel.sort_order, LabelTemplatePresetModel.name)
         ).all()
 
     def get_active_presets(self, session: Session) -> List[LabelTemplatePresetModel]:
         """Get all active presets ordered by sort order"""
         return session.exec(
-            select(LabelTemplatePresetModel).where(
-                LabelTemplatePresetModel.is_active == True
-            ).order_by(LabelTemplatePresetModel.sort_order, LabelTemplatePresetModel.name)
+            select(LabelTemplatePresetModel)
+            .where(LabelTemplatePresetModel.is_active == True)
+            .order_by(LabelTemplatePresetModel.sort_order, LabelTemplatePresetModel.name)
         ).all()
 
     def increment_usage(self, session: Session, preset_id: str) -> None:
@@ -367,11 +347,7 @@ class LabelTemplatePresetRepository(BaseRepository[LabelTemplatePresetModel]):
             session.commit()
 
     def create_template_from_preset(
-        self,
-        session: Session,
-        preset_id: str,
-        template_name: str,
-        user_id: str
+        self, session: Session, preset_id: str, template_name: str, user_id: str
     ) -> LabelTemplateModel:
         """Create a new template from a preset"""
 
@@ -390,9 +366,8 @@ class LabelTemplatePresetRepository(BaseRepository[LabelTemplatePresetModel]):
             description=config.get("description", f"Template created from {preset.display_name} preset"),
             category=preset.category,
             created_by_user_id=user_id,
-
             # Apply preset configuration
-            **{k: v for k, v in config.items() if k not in ["display_name", "description"]}
+            **{k: v for k, v in config.items() if k not in ["display_name", "description"]},
         )
 
         # Use template repository to create with validation

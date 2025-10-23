@@ -22,6 +22,7 @@ from pydantic import ConfigDict
 
 class ToolCategoryLink(SQLModel, table=True):
     """Link table for many-to-many relationship between tools and categories"""
+
     __tablename__ = "tool_category_links"
 
     tool_id: str = Field(foreign_key="toolmodel.id", primary_key=True)
@@ -40,6 +41,7 @@ class ToolModel(SQLModel, table=True):
     - Maintenance and usage tracking
     - Supplier information
     """
+
     __tablename__ = "toolmodel"
 
     # === CORE IDENTIFICATION ===
@@ -54,7 +56,7 @@ class ToolModel(SQLModel, table=True):
     tool_type: Optional[str] = Field(
         default=None,
         index=True,
-        description="Tool category: hand_tool, power_tool, measuring_instrument, consumable, etc."
+        description="Tool category: hand_tool, power_tool, measuring_instrument, consumable, etc.",
     )
 
     # === CURRENT INVENTORY ===
@@ -70,9 +72,7 @@ class ToolModel(SQLModel, table=True):
     # === MEDIA ===
     image_url: Optional[str] = Field(default=None, description="URL to tool image")
     emoji: Optional[str] = Field(
-        default=None,
-        max_length=50,
-        description="Unicode emoji character or shortcode (e.g., '🔧' or ':wrench:')"
+        default=None, max_length=50, description="Unicode emoji character or shortcode (e.g., '🔧' or ':wrench:')"
     )
 
     # === TOOL-SPECIFIC PROPERTIES ===
@@ -84,75 +84,40 @@ class ToolModel(SQLModel, table=True):
     additional_properties: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
         sa_column=Column(JSON),
-        description="Tool-specific properties as FLAT key-value pairs (size, voltage, capacity, etc.)"
+        description="Tool-specific properties as FLAT key-value pairs (size, voltage, capacity, etc.)",
     )
 
     # === MAINTENANCE & STATUS ===
     condition: Optional[str] = Field(
-        default="good",
-        description="Tool condition: excellent, good, fair, poor, needs_repair, out_of_service"
+        default="good", description="Tool condition: excellent, good, fair, poor, needs_repair, out_of_service"
     )
-    last_maintenance_date: Optional[datetime] = Field(
-        default=None,
-        description="Last maintenance/calibration date"
-    )
-    next_maintenance_date: Optional[datetime] = Field(
-        default=None,
-        description="Scheduled next maintenance date"
-    )
-    maintenance_notes: Optional[str] = Field(
-        default=None,
-        description="Maintenance history and notes"
-    )
+    last_maintenance_date: Optional[datetime] = Field(default=None, description="Last maintenance/calibration date")
+    next_maintenance_date: Optional[datetime] = Field(default=None, description="Scheduled next maintenance date")
+    maintenance_notes: Optional[str] = Field(default=None, description="Maintenance history and notes")
 
     # === USAGE TRACKING ===
-    is_checked_out: bool = Field(
-        default=False,
-        description="True if tool is currently checked out/in use"
-    )
-    checked_out_by: Optional[str] = Field(
-        default=None,
-        description="User ID who has checked out the tool"
-    )
-    checked_out_at: Optional[datetime] = Field(
-        default=None,
-        description="When tool was checked out"
-    )
+    is_checked_out: bool = Field(default=False, description="True if tool is currently checked out/in use")
+    checked_out_by: Optional[str] = Field(default=None, description="User ID who has checked out the tool")
+    checked_out_at: Optional[datetime] = Field(default=None, description="When tool was checked out")
     expected_return_date: Optional[datetime] = Field(
-        default=None,
-        description="Expected return date for checked out tool"
+        default=None, description="Expected return date for checked out tool"
     )
 
     # === PURCHASE & VALUE ===
-    purchase_date: Optional[datetime] = Field(
-        default=None,
-        description="Date tool was purchased"
-    )
-    purchase_price: Optional[float] = Field(
-        default=None,
-        description="Original purchase price"
-    )
-    current_value: Optional[float] = Field(
-        default=None,
-        description="Current estimated value"
-    )
+    purchase_date: Optional[datetime] = Field(default=None, description="Date tool was purchased")
+    purchase_price: Optional[float] = Field(default=None, description="Original purchase price")
+    current_value: Optional[float] = Field(default=None, description="Current estimated value")
 
     # === FLAGS ===
     is_checkable: bool = Field(
-        default=True,
-        description="True if tool can be checked out (False for large/stationary equipment)"
+        default=True, description="True if tool can be checked out (False for large/stationary equipment)"
     )
     is_calibrated_tool: bool = Field(
-        default=False,
-        description="True if tool requires regular calibration (e.g., measuring instruments)"
+        default=False, description="True if tool requires regular calibration (e.g., measuring instruments)"
     )
-    is_consumable: bool = Field(
-        default=False,
-        description="True if tool is consumable (drill bits, blades, etc.)"
-    )
+    is_consumable: bool = Field(default=False, description="True if tool is consumable (drill bits, blades, etc.)")
     exclude_from_analytics: bool = Field(
-        default=True,
-        description="Exclude from low stock and other part-specific analytics"
+        default=True, description="Exclude from low stock and other part-specific analytics"
     )
 
     # === TIMESTAMPS ===
@@ -161,28 +126,23 @@ class ToolModel(SQLModel, table=True):
 
     # === CORE RELATIONSHIPS ===
     categories: List["CategoryModel"] = Relationship(
-        back_populates="tools",
-        link_model=ToolCategoryLink,
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="tools", link_model=ToolCategoryLink, sa_relationship_kwargs={"lazy": "selectin"}
     )
 
     # Tags (many-to-many relationship through link table)
     # Note: link_model is imported later to avoid circular imports
     tags: List["TagModel"] = Relationship(
-        back_populates="tools",
-        sa_relationship_kwargs={"lazy": "selectin", "secondary": "tool_tag_links"}
+        back_populates="tools", sa_relationship_kwargs={"lazy": "selectin", "secondary": "tool_tag_links"}
     )
 
     # === MULTI-LOCATION ALLOCATIONS ===
     allocations: List["ToolLocationAllocation"] = Relationship(
-        back_populates="tool",
-        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+        back_populates="tool", sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
     # === MAINTENANCE RECORDS ===
     maintenance_records: List["ToolMaintenanceRecord"] = Relationship(
-        back_populates="tool",
-        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
+        back_populates="tool", sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -198,7 +158,7 @@ class ToolModel(SQLModel, table=True):
         For most tools, this will be 1 (single item).
         For consumables, this may be higher.
         """
-        if not hasattr(self, 'allocations') or not self.allocations:
+        if not hasattr(self, "allocations") or not self.allocations:
             return 0
 
         return sum(alloc.quantity_at_location for alloc in self.allocations)
@@ -211,14 +171,11 @@ class ToolModel(SQLModel, table=True):
         Returns the location marked as primary storage, or the first allocation if none marked.
         Returns None if no allocations exist.
         """
-        if not hasattr(self, 'allocations') or not self.allocations:
+        if not hasattr(self, "allocations") or not self.allocations:
             return None
 
         # Find primary storage allocation
-        primary_alloc = next(
-            (alloc for alloc in self.allocations if alloc.is_primary_storage),
-            None
-        )
+        primary_alloc = next((alloc for alloc in self.allocations if alloc.is_primary_storage), None)
 
         if primary_alloc:
             return primary_alloc.location
@@ -241,19 +198,14 @@ class ToolModel(SQLModel, table=True):
                 "allocations": [...]
             }
         """
-        if not hasattr(self, 'allocations') or not self.allocations:
-            return {
-                "total_quantity": 0,
-                "location_count": 0,
-                "primary_location": None,
-                "allocations": []
-            }
+        if not hasattr(self, "allocations") or not self.allocations:
+            return {"total_quantity": 0, "location_count": 0, "primary_location": None, "allocations": []}
 
         return {
             "total_quantity": self.total_quantity,
             "location_count": len(self.allocations),
             "primary_location": self.primary_location.to_dict() if self.primary_location else None,
-            "allocations": [alloc.to_dict() for alloc in self.allocations]
+            "allocations": [alloc.to_dict() for alloc in self.allocations],
         }
 
     def to_dict(self) -> Dict[str, Any]:
@@ -262,16 +214,21 @@ class ToolModel(SQLModel, table=True):
         base_dict = self.model_dump(exclude={"allocations"})
 
         # Always include categories
-        base_dict["categories"] = [
-            {"id": category.id, "name": category.name, "description": category.description}
-            for category in self.categories
-        ] if self.categories else []
+        base_dict["categories"] = (
+            [
+                {"id": category.id, "name": category.name, "description": category.description}
+                for category in self.categories
+            ]
+            if self.categories
+            else []
+        )
 
         # Always include tags (core tool data)
-        base_dict["tags"] = [
-            {"id": tag.id, "name": tag.name, "color": tag.color, "icon": tag.icon}
-            for tag in self.tags
-        ] if hasattr(self, 'tags') and self.tags else []
+        base_dict["tags"] = (
+            [{"id": tag.id, "name": tag.name, "color": tag.color, "icon": tag.icon} for tag in self.tags]
+            if hasattr(self, "tags") and self.tags
+            else []
+        )
 
         # Always include primary location from allocations
         primary_loc = self.primary_location
@@ -287,8 +244,13 @@ class ToolModel(SQLModel, table=True):
 
         # Convert datetime fields to ISO strings for JSON serialization
         datetime_fields = [
-            'last_maintenance_date', 'next_maintenance_date', 'checked_out_at',
-            'expected_return_date', 'purchase_date', 'created_at', 'updated_at'
+            "last_maintenance_date",
+            "next_maintenance_date",
+            "checked_out_at",
+            "expected_return_date",
+            "purchase_date",
+            "created_at",
+            "updated_at",
         ]
         for field in datetime_fields:
             if field in base_dict and base_dict[field]:
@@ -298,7 +260,7 @@ class ToolModel(SQLModel, table=True):
 
     def is_available(self) -> bool:
         """Check if tool is available (not checked out and in good condition)"""
-        return not self.is_checked_out and self.condition not in ['needs_repair', 'out_of_service']
+        return not self.is_checked_out and self.condition not in ["needs_repair", "out_of_service"]
 
     def needs_maintenance(self) -> bool:
         """Check if tool needs maintenance"""
@@ -326,58 +288,39 @@ class ToolLocationAllocation(SQLModel, table=True):
     Most tools will have quantity=1 at a single location.
     Consumable tools may have higher quantities or multiple locations.
     """
+
     __tablename__ = "tool_location_allocations"
 
     # === IDENTITY ===
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     tool_id: str = Field(
         sa_column=Column(String, ForeignKey("toolmodel.id", ondelete="CASCADE"), index=True),
-        description="Tool that is allocated"
+        description="Tool that is allocated",
     )
     location_id: str = Field(
         sa_column=Column(String, ForeignKey("locationmodel.id", ondelete="CASCADE"), index=True),
-        description="Location where tool is allocated"
+        description="Location where tool is allocated",
     )
 
     # === QUANTITY TRACKING ===
-    quantity_at_location: int = Field(
-        default=1,
-        ge=0,
-        description="Quantity at this location (typically 1 for tools)"
-    )
-    is_primary_storage: bool = Field(
-        default=True,
-        description="True for primary storage location"
-    )
+    quantity_at_location: int = Field(default=1, ge=0, description="Quantity at this location (typically 1 for tools)")
+    is_primary_storage: bool = Field(default=True, description="True for primary storage location")
 
     # === METADATA ===
-    allocated_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When this allocation was created"
-    )
-    last_updated: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Last quantity change timestamp"
-    )
-    notes: Optional[str] = Field(
-        default=None,
-        description="Allocation notes"
-    )
+    allocated_at: datetime = Field(default_factory=datetime.utcnow, description="When this allocation was created")
+    last_updated: datetime = Field(default_factory=datetime.utcnow, description="Last quantity change timestamp")
+    notes: Optional[str] = Field(default=None, description="Allocation notes")
 
     # === RELATIONSHIPS ===
     tool: Optional["ToolModel"] = Relationship(
-        back_populates="allocations",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="allocations", sa_relationship_kwargs={"lazy": "selectin"}
     )
     location: Optional["LocationModel"] = Relationship(
-        back_populates="tool_allocations",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="tool_allocations", sa_relationship_kwargs={"lazy": "selectin"}
     )
 
     # === CONSTRAINTS ===
-    __table_args__ = (
-        UniqueConstraint('tool_id', 'location_id', name='uix_tool_location'),
-    )
+    __table_args__ = (UniqueConstraint("tool_id", "location_id", name="uix_tool_location"),)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -391,26 +334,26 @@ class ToolLocationAllocation(SQLModel, table=True):
             "is_primary_storage": self.is_primary_storage,
             "notes": self.notes,
             "allocated_at": self.allocated_at.isoformat() if self.allocated_at else None,
-            "last_updated": self.last_updated.isoformat() if self.last_updated else None
+            "last_updated": self.last_updated.isoformat() if self.last_updated else None,
         }
 
         # Include location details if loaded
-        if hasattr(self, 'location') and self.location is not None:
+        if hasattr(self, "location") and self.location is not None:
             base_dict["location"] = self.location.to_dict()
 
             # Add location path if available
             try:
-                if hasattr(self.location, 'get_full_path'):
+                if hasattr(self.location, "get_full_path"):
                     base_dict["location_path"] = self.location.get_full_path()
             except Exception:
                 pass
 
         # Include tool details if loaded
-        if hasattr(self, 'tool') and self.tool is not None:
+        if hasattr(self, "tool") and self.tool is not None:
             base_dict["tool"] = {
                 "id": self.tool.id,
                 "tool_name": self.tool.tool_name,
-                "tool_number": self.tool.tool_number
+                "tool_number": self.tool.tool_number,
             }
 
         return base_dict
@@ -418,8 +361,10 @@ class ToolLocationAllocation(SQLModel, table=True):
 
 # === REQUEST/RESPONSE MODELS ===
 
+
 class ToolCreate(SQLModel):
     """Request model for creating a new tool"""
+
     tool_name: str
     tool_number: Optional[str] = None
     description: Optional[str] = None
@@ -454,6 +399,7 @@ class ToolCreate(SQLModel):
 
 class ToolUpdate(SQLModel):
     """Request model for updating a tool"""
+
     tool_name: Optional[str] = None
     tool_number: Optional[str] = None
     description: Optional[str] = None
@@ -489,6 +435,7 @@ class ToolUpdate(SQLModel):
 
 class ToolCheckout(SQLModel):
     """Request model for checking out a tool"""
+
     user_id: str
     expected_return_date: Optional[datetime] = None
     notes: Optional[str] = None
@@ -496,6 +443,7 @@ class ToolCheckout(SQLModel):
 
 class ToolReturn(SQLModel):
     """Request model for returning a tool"""
+
     condition: Optional[str] = None
     notes: Optional[str] = None
 
@@ -507,27 +455,24 @@ class ToolMaintenanceRecord(SQLModel, table=True):
     Tracks all maintenance, repairs, calibrations, and inspections performed on tools.
     Each record includes who performed the work, when, what was done, and any associated costs.
     """
+
     __tablename__ = "tool_maintenance_records"
 
     # === IDENTITY ===
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     tool_id: str = Field(
         sa_column=Column(String, ForeignKey("toolmodel.id", ondelete="CASCADE"), index=True),
-        description="Tool that was maintained"
+        description="Tool that was maintained",
     )
 
     # === MAINTENANCE DETAILS ===
     maintenance_date: datetime = Field(..., description="Date maintenance was performed")
     maintenance_type: str = Field(
-        ...,
-        description="Type of maintenance: calibration, repair, inspection, cleaning, other"
+        ..., description="Type of maintenance: calibration, repair, inspection, cleaning, other"
     )
     performed_by: str = Field(..., description="Username of user who performed maintenance")
     notes: Optional[str] = Field(default=None, description="Maintenance notes and details")
-    next_maintenance_date: Optional[datetime] = Field(
-        default=None,
-        description="Next scheduled maintenance date"
-    )
+    next_maintenance_date: Optional[datetime] = Field(default=None, description="Next scheduled maintenance date")
     cost: Optional[float] = Field(default=None, ge=0, description="Maintenance cost")
 
     # === TIMESTAMPS ===
@@ -535,8 +480,7 @@ class ToolMaintenanceRecord(SQLModel, table=True):
 
     # === RELATIONSHIPS ===
     tool: Optional["ToolModel"] = Relationship(
-        back_populates="maintenance_records",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        back_populates="maintenance_records", sa_relationship_kwargs={"lazy": "selectin"}
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -552,7 +496,7 @@ class ToolMaintenanceRecord(SQLModel, table=True):
             "notes": self.notes,
             "next_maintenance_date": self.next_maintenance_date.isoformat() if self.next_maintenance_date else None,
             "cost": self.cost,
-            "created_at": self.created_at.isoformat() if self.created_at else None
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

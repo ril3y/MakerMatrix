@@ -5,22 +5,26 @@ Creates parts directly in the database using SQLModel.
 """
 
 import sys
-sys.path.append('.')
+
+sys.path.append(".")
 
 from sqlmodel import Session, select
 from MakerMatrix.models.models import engine, PartModel, CategoryModel, LocationModel, PartCategoryLink
 from MakerMatrix.database.db import create_db_and_tables
 import uuid
 
+
 def get_category_by_name(session: Session, name: str):
     """Get category by name"""
     statement = select(CategoryModel).where(CategoryModel.name == name)
     return session.exec(statement).first()
 
+
 def get_location_by_name(session: Session, name: str):
     """Get location by name"""
     statement = select(LocationModel).where(LocationModel.name == name)
     return session.exec(statement).first()
+
 
 def create_part_manual(session: Session, part_data):
     """Create a part manually with direct database operations"""
@@ -29,7 +33,7 @@ def create_part_manual(session: Session, part_data):
         location = None
         if part_data.get("location_name"):
             location = get_location_by_name(session, part_data["location_name"])
-        
+
         # Create the part
         part = PartModel(
             id=str(uuid.uuid4()),
@@ -39,12 +43,12 @@ def create_part_manual(session: Session, part_data):
             quantity=part_data["quantity"],
             minimum_quantity=part_data.get("minimum_quantity"),
             supplier=part_data.get("supplier"),
-            location_id=location.id if location else None
+            location_id=location.id if location else None,
         )
-        
+
         session.add(part)
         session.flush()  # Get the ID
-        
+
         # Add categories
         for category_name in part_data.get("category_names", []):
             category = get_category_by_name(session, category_name)
@@ -52,22 +56,23 @@ def create_part_manual(session: Session, part_data):
                 # Create the many-to-many link
                 link = PartCategoryLink(part_id=part.id, category_id=category.id)
                 session.add(link)
-        
+
         session.commit()
         return part
-        
+
     except Exception as e:
         session.rollback()
         print(f"Failed to create {part_data['part_name']}: {e}")
         return None
 
+
 def main():
     """Create parts manually"""
     print("🔧 Manual Parts Creation Script")
     print("===============================")
-    
+
     create_db_and_tables()
-    
+
     # Simple parts data (fewer parts to start)
     parts_data = [
         {
@@ -78,7 +83,7 @@ def main():
             "minimum_quantity": 2,
             "supplier": "Arduino",
             "location_name": "Components Drawer 2",
-            "category_names": ["Electronics", "Microcontrollers"]
+            "category_names": ["Electronics", "Microcontrollers"],
         },
         {
             "part_name": "10kΩ Resistor (1/4W)",
@@ -88,7 +93,7 @@ def main():
             "minimum_quantity": 50,
             "supplier": "Vishay",
             "location_name": "Components Drawer 1",
-            "category_names": ["Electronics", "Passive Components"]
+            "category_names": ["Electronics", "Passive Components"],
         },
         {
             "part_name": "ESP32 Development Board",
@@ -98,7 +103,7 @@ def main():
             "minimum_quantity": 2,
             "supplier": "Espressif",
             "location_name": "Components Drawer 2",
-            "category_names": ["Electronics", "Microcontrollers", "Communication"]
+            "category_names": ["Electronics", "Microcontrollers", "Communication"],
         },
         {
             "part_name": "M3 x 10mm Socket Head Screw",
@@ -108,7 +113,7 @@ def main():
             "minimum_quantity": 100,
             "supplier": "McMaster-Carr",
             "location_name": "Bin 001",
-            "category_names": ["Mechanical", "Fasteners", "Hardware"]
+            "category_names": ["Mechanical", "Fasteners", "Hardware"],
         },
         {
             "part_name": "PLA Filament - Black",
@@ -118,7 +123,7 @@ def main():
             "minimum_quantity": 1,
             "supplier": "eSUN",
             "location_name": "Filament Storage",
-            "category_names": ["3D Printing", "Filament", "Consumables"]
+            "category_names": ["3D Printing", "Filament", "Consumables"],
         },
         {
             "part_name": "Digital Multimeter",
@@ -128,13 +133,13 @@ def main():
             "minimum_quantity": 1,
             "supplier": "Fluke",
             "location_name": "Tool Cabinet",
-            "category_names": ["Tools", "Measuring Tools", "Electronics"]
-        }
+            "category_names": ["Tools", "Measuring Tools", "Electronics"],
+        },
     ]
-    
+
     with Session(engine) as session:
         created_count = 0
-        
+
         for part_data in parts_data:
             part = create_part_manual(session, part_data)
             if part:
@@ -143,14 +148,15 @@ def main():
                 print(f"  ✅ Created: {part_data['part_name']} ({categories_str})")
             else:
                 print(f"  ❌ Failed: {part_data['part_name']}")
-    
+
     print(f"\n📊 Summary:")
     print(f"  • Successfully created: {created_count} parts")
     print(f"  • Parts will appear in the web interface!")
     print(f"  • Categories and locations are already assigned!")
-    
+
     print(f"\n✅ Manual part creation completed!")
     print(f"🌐 Refresh your browser at: http://localhost:57891")
+
 
 if __name__ == "__main__":
     main()

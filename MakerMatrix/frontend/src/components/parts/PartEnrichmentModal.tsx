@@ -16,7 +16,6 @@ import {
   Search,
   Clock,
   CheckCircle,
-  AlertTriangle,
 } from 'lucide-react'
 import type { Task } from '@/services/tasks.service'
 import { tasksService } from '@/services/tasks.service'
@@ -242,7 +241,7 @@ const PartEnrichmentModal = ({
 
       // Initialize missing field values object
       const initialValues: Record<string, string> = {}
-      check.required_checks.forEach(reqCheck => {
+      check.required_checks.forEach((reqCheck) => {
         if (!reqCheck.is_present) {
           initialValues[reqCheck.field_name] = ''
         }
@@ -297,7 +296,7 @@ const PartEnrichmentModal = ({
       // Update the part
       await partsService.updatePart({
         id: part.id,
-        ...updateData
+        ...updateData,
       })
 
       // Notify parent of updated part
@@ -577,8 +576,9 @@ const PartEnrichmentModal = ({
                         <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-3">
                           {requirementCheck.supplier_name === 'mcmaster-carr' ? (
                             <>
-                              McMaster-Carr requires either a <strong>product URL</strong> or <strong>part number</strong> to fetch part details.
-                              Please edit the part to add one of these:
+                              McMaster-Carr requires either a <strong>product URL</strong> or{' '}
+                              <strong>part number</strong> to fetch part details. Please edit the
+                              part to add one of these:
                               <ul className="mt-2 ml-4 list-disc">
                                 <li>Product URL (e.g., https://www.mcmaster.com/92095A212/)</li>
                                 <li>McMaster Part Number (e.g., 92095A212)</li>
@@ -597,7 +597,8 @@ const PartEnrichmentModal = ({
                           {requirementCheck.required_checks
                             .filter((check) => !check.is_present)
                             .map((check) => {
-                              const isFilled = missingFieldValues[check.field_name]?.trim().length > 0
+                              const isFilled =
+                                missingFieldValues[check.field_name]?.trim().length > 0
                               return (
                                 <div key={check.field_name}>
                                   <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
@@ -642,7 +643,10 @@ const PartEnrichmentModal = ({
                               </p>
                               <ul className="space-y-1">
                                 {requirementCheck.suggestions.map((suggestion, idx) => (
-                                  <li key={idx} className="text-sm text-yellow-700 dark:text-yellow-400">
+                                  <li
+                                    key={idx}
+                                    className="text-sm text-yellow-700 dark:text-yellow-400"
+                                  >
                                     • {suggestion}
                                   </li>
                                 ))}

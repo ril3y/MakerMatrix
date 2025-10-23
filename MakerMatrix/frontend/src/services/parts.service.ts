@@ -243,7 +243,7 @@ export class PartsService {
           display_name: supplier,
           description: '',
           required_fields: [],
-          optional_fields: []
+          optional_fields: [],
         }
       }
       throw error

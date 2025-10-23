@@ -21,22 +21,22 @@ from MakerMatrix.exceptions import (
     LabelSizeError,
     UnsupportedOperationError,
     PreviewGenerationError,
-    PrinterDriverError
+    PrinterDriverError,
 )
 
 # Re-export for backward compatibility
 __all__ = [
-    'PrinterError',
-    'PrinterNotFoundError',
-    'PrinterOfflineError',
-    'PrinterConnectionError',
-    'InvalidLabelSizeError',
-    'PrintJobError',
-    'LabelTooLargeError',
-    'PrinterBusyError',
-    'UnsupportedOperationError',
-    'PrinterConfigurationError',
-    'PreviewGenerationError',
-    'PrinterDriverError',
-    'LabelSizeError'  # Legacy
+    "PrinterError",
+    "PrinterNotFoundError",
+    "PrinterOfflineError",
+    "PrinterConnectionError",
+    "InvalidLabelSizeError",
+    "PrintJobError",
+    "LabelTooLargeError",
+    "PrinterBusyError",
+    "UnsupportedOperationError",
+    "PrinterConfigurationError",
+    "PreviewGenerationError",
+    "PrinterDriverError",
+    "LabelSizeError",  # Legacy
 ]

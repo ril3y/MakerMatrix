@@ -203,12 +203,24 @@ const UsersPage = () => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                 <tr>
-                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">User</th>
-                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Email</th>
-                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Roles</th>
-                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Status</th>
-                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Created</th>
-                  <th className="text-center py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">Actions</th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">
+                    Roles
+                  </th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="text-left py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th className="text-center py-3 px-4 font-bold text-primary text-xs uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">

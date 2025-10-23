@@ -14,7 +14,7 @@ import os
 from datetime import datetime
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import sqlite3
 from sqlmodel import Session, select
@@ -30,7 +30,8 @@ def restore_quantities_from_backup(backup_path: str, dry_run: bool = False):
     backup_cursor = backup_conn.cursor()
 
     # Get all allocations from backup with quantity > 0, including part identifiers and location name
-    backup_cursor.execute("""
+    backup_cursor.execute(
+        """
         SELECT pla.part_id, pla.location_id, pla.quantity_at_location,
                pla.is_primary_storage, pla.notes, p.part_name,
                p.manufacturer_part_number, p.part_number, p.supplier,
@@ -39,7 +40,8 @@ def restore_quantities_from_backup(backup_path: str, dry_run: bool = False):
         JOIN partmodel p ON pla.part_id = p.id
         JOIN locationmodel l ON pla.location_id = l.id
         WHERE pla.quantity_at_location > 0
-    """)
+    """
+    )
     backup_allocations = backup_cursor.fetchall()
     backup_conn.close()
 
@@ -59,29 +61,33 @@ def restore_quantities_from_backup(backup_path: str, dry_run: bool = False):
         not_found = 0
         examples = []
 
-        for part_id, location_id, quantity, is_primary, notes, part_name, mpn, pn, supplier, backup_location_name in backup_allocations:
+        for (
+            part_id,
+            location_id,
+            quantity,
+            is_primary,
+            notes,
+            part_name,
+            mpn,
+            pn,
+            supplier,
+            backup_location_name,
+        ) in backup_allocations:
             # Try to find matching part in current DB by multiple criteria
             current_part = None
 
             # First try: exact match by manufacturer part number (most reliable)
             if mpn:
-                current_part = session.exec(
-                    select(PartModel).where(PartModel.manufacturer_part_number == mpn)
-                ).first()
+                current_part = session.exec(select(PartModel).where(PartModel.manufacturer_part_number == mpn)).first()
 
             # Second try: match by part_number if we didn't find it
             if not current_part and pn:
-                current_part = session.exec(
-                    select(PartModel).where(PartModel.part_number == pn)
-                ).first()
+                current_part = session.exec(select(PartModel).where(PartModel.part_number == pn)).first()
 
             # Third try: match by part_name and supplier
             if not current_part and part_name and supplier:
                 current_part = session.exec(
-                    select(PartModel).where(
-                        PartModel.part_name == part_name,
-                        PartModel.supplier == supplier
-                    )
+                    select(PartModel).where(PartModel.part_name == part_name, PartModel.supplier == supplier)
                 ).first()
 
             if not current_part:
@@ -90,9 +96,7 @@ def restore_quantities_from_backup(backup_path: str, dry_run: bool = False):
 
             # Find the allocation for this part
             current_alloc = session.exec(
-                select(PartLocationAllocation).where(
-                    PartLocationAllocation.part_id == current_part.id
-                )
+                select(PartLocationAllocation).where(PartLocationAllocation.part_id == current_part.id)
             ).first()
 
             if current_alloc:
@@ -102,6 +106,7 @@ def restore_quantities_from_backup(backup_path: str, dry_run: bool = False):
 
                 # Try to find matching location by name from backup
                 from MakerMatrix.models.location_models import LocationModel
+
                 location_changed = False
                 target_location = None
 
@@ -132,7 +137,9 @@ def restore_quantities_from_backup(backup_path: str, dry_run: bool = False):
                     # Save first 10 examples
                     if len(examples) < 10:
                         if location_changed:
-                            examples.append(f"  {part_name}: {old_qty} → {quantity}, Location: {old_location_name} → {backup_location_name}")
+                            examples.append(
+                                f"  {part_name}: {old_qty} → {quantity}, Location: {old_location_name} → {backup_location_name}"
+                            )
                         else:
                             examples.append(f"  {part_name}: {old_qty} → {quantity}")
 
@@ -150,14 +157,14 @@ def restore_quantities_from_backup(backup_path: str, dry_run: bool = False):
                 print(ex)
 
         # Print summary
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("QUANTITY RESTORATION COMPLETE")
-        print("="*60)
+        print("=" * 60)
         print(f"Backup allocations found: {len(backup_allocations)}")
         print(f"Matched in current DB: {matched}")
         print(f"Updated with new quantity: {updated}")
         print(f"Not found in current DB: {not_found}")
-        print("="*60)
+        print("=" * 60)
 
 
 if __name__ == "__main__":
@@ -177,7 +184,7 @@ if __name__ == "__main__":
     backup_path = os.path.join(temp_dir, "makers_matrix.db")
 
     print(f"Extracting backup from: {backup_zip}")
-    with zipfile.ZipFile(backup_zip, 'r') as zip_ref:
+    with zipfile.ZipFile(backup_zip, "r") as zip_ref:
         zip_ref.extract("makers_matrix.db", temp_dir)
 
     if args.dry_run:
@@ -190,7 +197,7 @@ if __name__ == "__main__":
         print(f"Your new parts added after the backup will NOT be affected\n")
 
         response = input("Continue? (yes/no): ")
-        if response.lower() in ['yes', 'y']:
+        if response.lower() in ["yes", "y"]:
             restore_quantities_from_backup(backup_path, dry_run=False)
         else:
             print("Restoration cancelled")

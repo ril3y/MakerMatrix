@@ -45,12 +45,7 @@ class BackupRetentionTask(BaseTask):
 
         if retention_count <= 0:
             self.log_info("Retention policy disabled (retention_count <= 0), skipping cleanup", task)
-            return {
-                'retention_count': retention_count,
-                'backups_deleted': 0,
-                'space_freed_mb': 0,
-                'status': 'skipped'
-            }
+            return {"retention_count": retention_count, "backups_deleted": 0, "space_freed_mb": 0, "status": "skipped"}
 
         self.log_info(f"Retention policy: keep {retention_count} most recent backups", task)
         await self.update_progress(task, 20, "Scanning backup directory")
@@ -62,10 +57,10 @@ class BackupRetentionTask(BaseTask):
         if not backup_dir.exists():
             self.log_info("Backup directory does not exist, nothing to clean up", task)
             return {
-                'retention_count': retention_count,
-                'backups_deleted': 0,
-                'space_freed_mb': 0,
-                'status': 'no_backups'
+                "retention_count": retention_count,
+                "backups_deleted": 0,
+                "space_freed_mb": 0,
+                "status": "no_backups",
             }
 
         # Get all backup files
@@ -74,10 +69,10 @@ class BackupRetentionTask(BaseTask):
         if not backup_files:
             self.log_info("No backup files found, nothing to clean up", task)
             return {
-                'retention_count': retention_count,
-                'backups_deleted': 0,
-                'space_freed_mb': 0,
-                'status': 'no_backups'
+                "retention_count": retention_count,
+                "backups_deleted": 0,
+                "space_freed_mb": 0,
+                "status": "no_backups",
             }
 
         total_backups = len(backup_files)
@@ -94,11 +89,11 @@ class BackupRetentionTask(BaseTask):
         if not backups_to_delete:
             self.log_info(f"All {total_backups} backups are within retention policy, nothing to delete", task)
             return {
-                'retention_count': retention_count,
-                'total_backups': total_backups,
-                'backups_deleted': 0,
-                'space_freed_mb': 0,
-                'status': 'within_policy'
+                "retention_count": retention_count,
+                "total_backups": total_backups,
+                "backups_deleted": 0,
+                "space_freed_mb": 0,
+                "status": "within_policy",
             }
 
         # Delete old backups
@@ -137,17 +132,17 @@ class BackupRetentionTask(BaseTask):
         self.log_info(
             f"Retention cleanup complete. Deleted {deleted_count} backups, freed {space_freed_mb} MB. "
             f"Retained {len(backups_to_keep)} most recent backups.",
-            task
+            task,
         )
 
         return {
-            'retention_count': retention_count,
-            'total_backups_found': total_backups,
-            'backups_kept': len(backups_to_keep),
-            'backups_deleted': deleted_count,
-            'space_freed_mb': space_freed_mb,
-            'deleted_files': deleted_files,
-            'status': 'success'
+            "retention_count": retention_count,
+            "total_backups_found": total_backups,
+            "backups_kept": len(backups_to_keep),
+            "backups_deleted": deleted_count,
+            "space_freed_mb": space_freed_mb,
+            "deleted_files": deleted_files,
+            "status": "success",
         }
 
     async def _get_retention_count(self) -> int:

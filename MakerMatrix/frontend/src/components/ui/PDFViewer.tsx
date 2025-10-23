@@ -34,7 +34,11 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
     const fetchPdf = async () => {
       // Check if this is a local API URL that needs authentication
       // Also handle /static/ URLs (like proxy-pdf) that need auth
-      if (fileUrl.startsWith('/api/') || fileUrl.startsWith('/utility/') || fileUrl.startsWith('/static/')) {
+      if (
+        fileUrl.startsWith('/api/') ||
+        fileUrl.startsWith('/utility/') ||
+        fileUrl.startsWith('/static/')
+      ) {
         try {
           setLoading(true)
           setError(null)
@@ -122,7 +126,11 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
 
       // If it's a local API URL, we need to handle authentication
       // Also handle /static/ URLs (like proxy-pdf) that need auth
-      if (fileUrl.startsWith('/api/') || fileUrl.startsWith('/utility/') || fileUrl.startsWith('/static/')) {
+      if (
+        fileUrl.startsWith('/api/') ||
+        fileUrl.startsWith('/utility/') ||
+        fileUrl.startsWith('/static/')
+      ) {
         const response = await fetch(fileUrl, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('auth_token')}`,

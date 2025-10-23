@@ -33,7 +33,6 @@ import AddCategoryModal from '../../components/categories/AddCategoryModal'
 import AddLocationModal from '../../components/locations/AddLocationModal'
 import ContainerSlotPickerModal from '../../components/locations/ContainerSlotPickerModal'
 import CategorySelector from '../../components/ui/CategorySelector'
-import ProjectSelector from '../../components/ui/ProjectSelector'
 import AddProjectModal from '../../components/projects/AddProjectModal'
 import { HierarchicalLocationPicker } from '../../components/locations/HierarchicalLocationPicker'
 import SupplierSelector from '../../components/ui/SupplierSelector'
@@ -53,9 +52,9 @@ const partSchema = z.object({
   product_url: z.string().optional(),
   image_url: z.string().optional(),
   emoji: z.string().optional(),
-  manufacturer: z.string().optional(),  // Enriched field
-  manufacturer_part_number: z.string().optional(),  // Enriched field
-  component_type: z.string().optional(),  // Enriched field
+  manufacturer: z.string().optional(), // Enriched field
+  manufacturer_part_number: z.string().optional(), // Enriched field
+  component_type: z.string().optional(), // Enriched field
   category_ids: z.array(z.string()).optional(),
 })
 
@@ -156,7 +155,7 @@ const EditPartPage: React.FC = () => {
         const projectIds = partData.projects?.map((proj) => proj.id) || []
         console.log('Initial projects loaded:', {
           partDataProjects: partData.projects,
-          projectIds
+          projectIds,
         })
         setSelectedProjects(projectIds)
 
@@ -174,9 +173,9 @@ const EditPartPage: React.FC = () => {
           product_url: partData.product_url || '',
           image_url: partData.image_url || '',
           emoji: partData.emoji || '',
-          manufacturer: partData.manufacturer || '',  // CRITICAL: Preserve enriched data
-          manufacturer_part_number: partData.manufacturer_part_number || '',  // CRITICAL: Preserve enriched data
-          component_type: partData.component_type || '',  // CRITICAL: Preserve enriched data
+          manufacturer: partData.manufacturer || '', // CRITICAL: Preserve enriched data
+          manufacturer_part_number: partData.manufacturer_part_number || '', // CRITICAL: Preserve enriched data
+          component_type: partData.component_type || '', // CRITICAL: Preserve enriched data
           category_ids: categoryIds,
         })
       } catch (error) {
@@ -303,7 +302,7 @@ const EditPartPage: React.FC = () => {
       console.log('Project assignment debug:', {
         selectedProjects,
         currentProjectIds,
-        part_projects: part.projects
+        part_projects: part.projects,
       })
       const projectsToAdd = selectedProjects.filter((pid) => !currentProjectIds.includes(pid))
       const projectsToRemove = currentProjectIds.filter((pid) => !selectedProjects.includes(pid))
@@ -613,10 +612,7 @@ const EditPartPage: React.FC = () => {
 
         {/* Projects */}
         <div className="card p-6">
-          <FormField
-            label="Projects"
-            description="Assign this part to one or more projects"
-          >
+          <FormField label="Projects" description="Assign this part to one or more projects">
             <CustomSelect
               multiSelect={true}
               selectedValues={selectedProjects}

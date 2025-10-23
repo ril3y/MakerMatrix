@@ -35,11 +35,9 @@ def test_create_part(session):
 
     # Create allocation (replaces old location_id and quantity)
     from MakerMatrix.models.part_allocation_models import PartLocationAllocation
+
     allocation = PartLocationAllocation(
-        part_id=part.id,
-        location_id=location.id,
-        quantity_at_location=100,
-        is_primary_storage=True
+        part_id=part.id, location_id=location.id, quantity_at_location=100, is_primary_storage=True
     )
     session.add(allocation)
     session.commit()
@@ -109,10 +107,7 @@ def test_update_part_quantity(session):
 
     # Create allocation with initial quantity
     allocation = PartLocationAllocation(
-        part_id=part.id,
-        location_id=location.id,
-        quantity_at_location=50,
-        is_primary_storage=True
+        part_id=part.id, location_id=location.id, quantity_at_location=50, is_primary_storage=True
     )
     session.add(allocation)
     session.commit()
@@ -193,14 +188,14 @@ def test_create_nested_locations(session):
     statement = select(LocationModel).where(LocationModel.parent_id == building.id)
     rooms = session.exec(statement).all()
     assert len(rooms) == 2
-    
+
     # Check that Room 102 has a desk
     room_102 = next(room for room in rooms if room.name == "Room 102")
     desk_statement = select(LocationModel).where(LocationModel.parent_id == room_102.id)
     desks = session.exec(desk_statement).all()
     assert len(desks) == 1
     assert desks[0].name == "Desk A"
-    
+
     # Check that the desk has drawers
     drawer_statement = select(LocationModel).where(LocationModel.parent_id == desks[0].id)
     drawers = session.exec(drawer_statement).all()
@@ -240,8 +235,9 @@ def test_create_nested_locations_with_categories_and_parts(session):
 
     # Create Categories
     hardware_category = CategoryModel(name="Hardware", description="Mechanical parts like screws, bolts, etc.")
-    electronic_components_category = CategoryModel(name="Electronic Components",
-                                                   description="Electronic components like resistors and microcontrollers")
+    electronic_components_category = CategoryModel(
+        name="Electronic Components", description="Electronic components like resistors and microcontrollers"
+    )
     session.add_all([hardware_category, electronic_components_category])
     session.commit()
     session.refresh(hardware_category)
@@ -252,7 +248,9 @@ def test_create_nested_locations_with_categories_and_parts(session):
 
     screw = PartModel(part_number="S1234", part_name="Screw", categories=[hardware_category])
     resistor = PartModel(part_number="R5678", part_name="Resistor", categories=[electronic_components_category])
-    microcontroller = PartModel(part_number="MCU910", part_name="Microcontroller", categories=[electronic_components_category])
+    microcontroller = PartModel(
+        part_number="MCU910", part_name="Microcontroller", categories=[electronic_components_category]
+    )
     session.add_all([screw, resistor, microcontroller])
     session.commit()
     session.refresh(screw)
@@ -260,9 +258,15 @@ def test_create_nested_locations_with_categories_and_parts(session):
     session.refresh(microcontroller)
 
     # Create allocations for parts
-    screw_alloc = PartLocationAllocation(part_id=screw.id, location_id=drawer_1.id, quantity_at_location=500, is_primary_storage=True)
-    resistor_alloc = PartLocationAllocation(part_id=resistor.id, location_id=drawer_2.id, quantity_at_location=1000, is_primary_storage=True)
-    micro_alloc = PartLocationAllocation(part_id=microcontroller.id, location_id=desk.id, quantity_at_location=50, is_primary_storage=True)
+    screw_alloc = PartLocationAllocation(
+        part_id=screw.id, location_id=drawer_1.id, quantity_at_location=500, is_primary_storage=True
+    )
+    resistor_alloc = PartLocationAllocation(
+        part_id=resistor.id, location_id=drawer_2.id, quantity_at_location=1000, is_primary_storage=True
+    )
+    micro_alloc = PartLocationAllocation(
+        part_id=microcontroller.id, location_id=desk.id, quantity_at_location=50, is_primary_storage=True
+    )
     session.add_all([screw_alloc, resistor_alloc, micro_alloc])
     session.commit()
     session.refresh(screw)
@@ -274,16 +278,25 @@ def test_create_nested_locations_with_categories_and_parts(session):
 
     assert fetched_building is not None
     assert fetched_building.name == "Building A"
-    
+
     # Verify that the structure is properly created
     assert len(fetched_building.children) == 2
     assert any(room.name == "Room 101" for room in fetched_building.children)
     assert any(room.name == "Room 102" for room in fetched_building.children)
-    
+
     # Check that parts are properly assigned to locations via allocations
     all_parts = session.exec(select(PartModel)).all()
     assert len(all_parts) == 3
     # Check using primary_location computed property instead of location_id
-    assert any(part.part_name == "Screw" and part.primary_location and part.primary_location.id == drawer_1.id for part in all_parts)
-    assert any(part.part_name == "Resistor" and part.primary_location and part.primary_location.id == drawer_2.id for part in all_parts)
-    assert any(part.part_name == "Microcontroller" and part.primary_location and part.primary_location.id == desk.id for part in all_parts)
+    assert any(
+        part.part_name == "Screw" and part.primary_location and part.primary_location.id == drawer_1.id
+        for part in all_parts
+    )
+    assert any(
+        part.part_name == "Resistor" and part.primary_location and part.primary_location.id == drawer_2.id
+        for part in all_parts
+    )
+    assert any(
+        part.part_name == "Microcontroller" and part.primary_location and part.primary_location.id == desk.id
+        for part in all_parts
+    )

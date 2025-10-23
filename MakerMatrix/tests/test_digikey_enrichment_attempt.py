@@ -27,8 +27,8 @@ async def test_enrichment_without_credentials():
     print("=" * 80)
 
     # Get the specific part
-    part_id = 'bdb16d83-3ff4-44ba-9834-2994652e4e96'
-    part_number = '296-14248-1-ND'
+    part_id = "bdb16d83-3ff4-44ba-9834-2994652e4e96"
+    part_number = "296-14248-1-ND"
 
     with Session(engine) as session:
         part = session.get(PartModel, part_id)
@@ -58,7 +58,7 @@ async def test_enrichment_without_credentials():
         connection_result = await supplier.test_connection()
         print(f"   Result: {connection_result}")
 
-        if not connection_result.get('success'):
+        if not connection_result.get("success"):
             print(f"   ❌ Connection failed: {connection_result.get('message')}")
             print(f"   🔧 Details: {connection_result.get('details', {})}")
         else:
@@ -78,7 +78,7 @@ async def test_enrichment_without_credentials():
             print(f"   📝 Description: {part_details.description}")
             print(f"   🏭 Manufacturer: {part_details.manufacturer}")
 
-            if hasattr(part_details, 'additional_data') and part_details.additional_data:
+            if hasattr(part_details, "additional_data") and part_details.additional_data:
                 print(f"   📊 Additional Data Fields: {len(part_details.additional_data)}")
                 print("   🔍 Sample Fields:")
                 for i, (key, value) in enumerate(part_details.additional_data.items()):
@@ -102,6 +102,7 @@ async def test_enrichment_without_credentials():
     except Exception as e:
         print(f"   ❌ Unexpected Error: {e}")
         import traceback
+
         traceback.print_exc()
 
     print()
@@ -164,7 +165,7 @@ async def simulate_successful_enrichment():
         ("stock_quantity", "20000"),
         ("rohs_status", "RoHS Compliant"),
         ("lifecycle_status", "Active"),
-        ("package_case", "16-TSSOP (0.173\", 4.40mm Width)"),
+        ("package_case", '16-TSSOP (0.173", 4.40mm Width)'),
         ("mounting_type", "Surface Mount"),
         ("operating_temperature", "-55°C ~ 125°C"),
         ("voltage_supply", "3 V ~ 18 V"),
@@ -182,7 +183,7 @@ async def simulate_successful_enrichment():
         ("input_type", "CMOS"),
         ("output_type", "CMOS"),
         ("enrichment_source", "digikey_api_v4"),
-        ("data_quality_score", "0.95")
+        ("data_quality_score", "0.95"),
     ]
 
     for i, (key, value) in enumerate(expected_fields):

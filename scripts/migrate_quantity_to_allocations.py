@@ -13,24 +13,29 @@ import os
 from datetime import datetime
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from sqlalchemy import text
 from sqlmodel import Session
 from MakerMatrix.models.models import engine
+
 
 def migrate_quantities():
     """Migrate quantities from partmodel.quantity to allocations"""
 
     with Session(engine) as session:
         # Check if we have any parts with quantities
-        result = session.execute(text("""
+        result = session.execute(
+            text(
+                """
             SELECT
                 COUNT(*) as total_parts,
                 SUM(quantity) as total_quantity,
                 COUNT(CASE WHEN quantity > 0 THEN 1 END) as parts_with_quantity
             FROM partmodel
-        """))
+        """
+            )
+        )
         stats = result.fetchone()
 
         print(f"\n=== Migration Statistics ===")
@@ -39,7 +44,9 @@ def migrate_quantities():
         print(f"Parts with quantity > 0: {stats.parts_with_quantity}")
 
         # Get parts that need migration (have quantity but no allocations)
-        result = session.execute(text("""
+        result = session.execute(
+            text(
+                """
             SELECT
                 p.id,
                 p.part_name,
@@ -52,7 +59,9 @@ def migrate_quantities():
                 WHERE a.part_id = p.id
             )
             ORDER BY p.quantity DESC
-        """))
+        """
+            )
+        )
         parts_to_migrate = result.fetchall()
 
         print(f"\nParts needing migration: {len(parts_to_migrate)}")
@@ -68,11 +77,17 @@ def migrate_quantities():
         if not default_location:
             print("\nERROR: No locations exist in database. Creating a default 'Unallocated' location...")
             import uuid
+
             location_id = str(uuid.uuid4())
-            session.execute(text("""
+            session.execute(
+                text(
+                    """
                 INSERT INTO locationmodel (id, name, description, created_at, updated_at, is_container)
                 VALUES (:id, 'Unallocated', 'Parts migrated from old quantity system', :now, :now, 0)
-            """), {"id": location_id, "now": datetime.utcnow()})
+            """
+                ),
+                {"id": location_id, "now": datetime.utcnow()},
+            )
             session.commit()
             print(f"Created default location: {location_id}")
         else:
@@ -85,24 +100,30 @@ def migrate_quantities():
         print("\nMigrating parts...")
         for part in parts_to_migrate:
             import uuid
+
             allocation_id = str(uuid.uuid4())
             location_id = part.location_id or (default_location.id if default_location else location_id)
 
             # Create allocation
-            session.execute(text("""
+            session.execute(
+                text(
+                    """
                 INSERT INTO part_location_allocations
                 (id, part_id, location_id, quantity_at_location, is_primary_storage,
                  allocated_at, last_updated, auto_synced)
                 VALUES
                 (:id, :part_id, :location_id, :quantity, 1,
                  :now, :now, 0)
-            """), {
-                "id": allocation_id,
-                "part_id": part.id,
-                "location_id": location_id,
-                "quantity": part.old_quantity,
-                "now": datetime.utcnow()
-            })
+            """
+                ),
+                {
+                    "id": allocation_id,
+                    "part_id": part.id,
+                    "location_id": location_id,
+                    "quantity": part.old_quantity,
+                    "now": datetime.utcnow(),
+                },
+            )
 
             migrated_count += 1
             total_qty_migrated += part.old_quantity
@@ -118,17 +139,22 @@ def migrate_quantities():
         print(f"\nAllocations created successfully!")
 
         # Verify migration
-        result = session.execute(text("""
+        result = session.execute(
+            text(
+                """
             SELECT
                 COUNT(*) as total_allocations,
                 SUM(quantity_at_location) as total_allocated_qty
             FROM part_location_allocations
-        """))
+        """
+            )
+        )
         verify = result.fetchone()
 
         print(f"\n=== Verification ===")
         print(f"Total allocations in database: {verify.total_allocations}")
         print(f"Total allocated quantity: {verify.total_allocated_qty}")
+
 
 if __name__ == "__main__":
     print("Starting quantity → allocation migration...")

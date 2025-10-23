@@ -41,16 +41,18 @@ def add_emoji_column():
         cursor.execute("PRAGMA table_info(partmodel)")
         columns = [row[1] for row in cursor.fetchall()]
 
-        if 'emoji' in columns:
+        if "emoji" in columns:
             print("✓ emoji column already exists, skipping migration")
             return
 
         # Add the column
         print("Adding emoji column to partmodel table...")
-        cursor.execute("""
+        cursor.execute(
+            """
             ALTER TABLE partmodel
             ADD COLUMN emoji VARCHAR(50)
-        """)
+        """
+        )
 
         conn.commit()
         print("✓ Successfully added emoji column")
@@ -59,7 +61,7 @@ def add_emoji_column():
         cursor.execute("PRAGMA table_info(partmodel)")
         columns = [row[1] for row in cursor.fetchall()]
 
-        if 'emoji' in columns:
+        if "emoji" in columns:
             print("✓ Verified emoji column exists in table")
         else:
             raise Exception("Failed to add emoji column")

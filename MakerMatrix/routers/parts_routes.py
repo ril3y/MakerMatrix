@@ -40,15 +40,15 @@ async def add_part(
     part: PartCreate,
     request: Request,
     current_user: UserModel = Depends(require_permission("parts:create")),
-    part_service: PartService = Depends(get_part_service)
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[PartResponse]:
     # Convert PartCreate to dict and include category_names
     part_data = part.model_dump()
 
     # Extract enrichment parameters before processing
-    auto_enrich = part_data.pop('auto_enrich', False)
-    enrichment_supplier = part_data.pop('enrichment_supplier', None)
-    enrichment_capabilities = part_data.pop('enrichment_capabilities', [])
+    auto_enrich = part_data.pop("auto_enrich", False)
+    enrichment_supplier = part_data.pop("enrichment_supplier", None)
+    enrichment_capabilities = part_data.pop("enrichment_capabilities", [])
 
     # Process to add part
     service_response = part_service.add_part(part_data)
@@ -58,12 +58,10 @@ async def add_part(
     # Log part creation activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_part_created(
-            part_id=created_part["id"],
-            part_name=created_part["part_name"],
-            user=current_user,
-            request=request
+            part_id=created_part["id"], part_name=created_part["part_name"], user=current_user, request=request
         )
     except Exception as e:
         logger.warning(f"Failed to log part creation activity: {e}")
@@ -77,7 +75,7 @@ async def add_part(
             entity_name=created_part["part_name"],
             user_id=current_user.id,
             username=current_user.username,
-            entity_data=created_part
+            entity_data=created_part,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast part creation: {e}")
@@ -90,8 +88,7 @@ async def add_part(
         )
 
     return BaseRouter.build_success_response(
-        data=PartResponse.model_validate(created_part),
-        message=service_response.message + enrichment_message
+        data=PartResponse.model_validate(created_part), message=service_response.message + enrichment_message
     )
 
 
@@ -101,10 +98,7 @@ async def get_part_counts() -> ResponseSchema[int]:
     part_service = PartService()
     service_response = part_service.get_part_counts()
     data = validate_service_response(service_response)
-    return BaseRouter.build_success_response(
-        data=data["total_parts"],
-        message=service_response.message
-    )
+    return BaseRouter.build_success_response(data=data["total_parts"], message=service_response.message)
 
 
 ###
@@ -113,11 +107,11 @@ async def get_part_counts() -> ResponseSchema[int]:
 @router.delete("/delete_part", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
 async def delete_part(
-        request: Request,
-        current_user: UserModel = Depends(require_permission("parts:delete")),
-        part_id: Optional[str] = Query(None, description="Part ID"),
-        part_name: Optional[str] = Query(None, description="Part Name"),
-        part_number: Optional[str] = Query(None, description="Part Number")
+    request: Request,
+    current_user: UserModel = Depends(require_permission("parts:delete")),
+    part_id: Optional[str] = Query(None, description="Part ID"),
+    part_name: Optional[str] = Query(None, description="Part Name"),
+    part_number: Optional[str] = Query(None, description="Part Number"),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Delete a part based on ID, part name, or part number.
@@ -134,18 +128,16 @@ async def delete_part(
     part = validate_service_response(service_response)
 
     # Perform the deletion using the actual part ID
-    delete_response = part_service.delete_part(part['id'])
+    delete_response = part_service.delete_part(part["id"])
     deleted_part = validate_service_response(delete_response)
 
     # Log deletion activity
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+
         activity_service = get_activity_service()
         await activity_service.log_part_deleted(
-            part_id=deleted_part["id"],
-            part_name=deleted_part["part_name"],
-            user=current_user,
-            request=request
+            part_id=deleted_part["id"], part_name=deleted_part["part_name"], user=current_user, request=request
         )
     except Exception as e:
         logger.warning(f"Failed to log part deletion activity: {e}")
@@ -158,27 +150,25 @@ async def delete_part(
             entity_id=deleted_part["id"],
             entity_name=deleted_part["part_name"],
             user_id=current_user.id,
-            username=current_user.username
+            username=current_user.username,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast part deletion: {e}")
 
     # Convert PartResponse to dict for the response
     part_response_obj = PartResponse.model_validate(deleted_part)
-    return BaseRouter.build_success_response(
-        data=part_response_obj.model_dump(),
-        message=delete_response.message
-    )
+    return BaseRouter.build_success_response(data=part_response_obj.model_dump(), message=delete_response.message)
 
 
 ###
 
+
 @router.get("/get_all_parts", response_model=ResponseSchema[List[PartResponse]])
 @standard_error_handling
 async def get_all_parts(
-        page: int = Query(default=1, ge=1),
-        page_size: int = Query(default=10, ge=1),
-        part_service: PartService = Depends(get_part_service)
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1),
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[List[PartResponse]]:
     service_response = part_service.get_all_parts(page, page_size)
     data = validate_service_response(service_response)
@@ -188,18 +178,20 @@ async def get_all_parts(
         message=service_response.message,
         page=data["page"],
         page_size=data["page_size"],
-        total_parts=data["total"]
+        total_parts=data["total"],
     )
 
 
 @router.get("/get_part")
 @standard_error_handling
 async def get_part(
-        part_id: Optional[str] = Query(None),
-        part_number: Optional[str] = Query(None),
-        part_name: Optional[str] = Query(None),
-        include: Optional[str] = Query(None, description="Comma-separated list of additional data to include (orders, datasheets, all)"),
-        part_service: PartService = Depends(get_part_service)
+    part_id: Optional[str] = Query(None),
+    part_number: Optional[str] = Query(None),
+    part_name: Optional[str] = Query(None),
+    include: Optional[str] = Query(
+        None, description="Comma-separated list of additional data to include (orders, datasheets, all)"
+    ),
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[PartResponse]:
     # Parse include parameter
     include_list = []
@@ -217,12 +209,9 @@ async def get_part(
         service_response = part_service.get_part_by_part_number(part_number, include=include_list)
     else:  # part_name
         service_response = part_service.get_part_by_part_name(part_name, include=include_list)
-    
+
     data = validate_service_response(service_response)
-    return BaseRouter.build_success_response(
-        data=PartResponse.model_validate(data),
-        message=service_response.message
-    )
+    return BaseRouter.build_success_response(data=PartResponse.model_validate(data), message=service_response.message)
 
 
 # Duplicate endpoint removed - use /get_all_parts instead
@@ -235,12 +224,12 @@ async def update_part(
     part_data: PartUpdate,
     request: Request,
     current_user: UserModel = Depends(require_permission("parts:update")),
-    part_service: PartService = Depends(get_part_service)
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[PartResponse]:
     # Capture original data for change tracking
     original_part_response = part_service.get_part_by_id(part_id)
     original_part = validate_service_response(original_part_response)
-    
+
     # Update the part
     service_response = part_service.update_part(part_id, part_data)
     updated_part = validate_service_response(service_response)
@@ -249,6 +238,7 @@ async def update_part(
     try:
         from MakerMatrix.services.activity_service import get_activity_service
         from MakerMatrix.services.data.location_service import LocationService
+
         activity_service = get_activity_service()
         location_service = LocationService()
 
@@ -273,20 +263,17 @@ async def update_part(
                 if key == "location_id":
                     changes[key] = {
                         "from": resolve_location_name(original_part[key]),
-                        "to": resolve_location_name(new_value)
+                        "to": resolve_location_name(new_value),
                     }
                 else:
-                    changes[key] = {
-                        "from": original_part[key],
-                        "to": new_value
-                    }
+                    changes[key] = {"from": original_part[key], "to": new_value}
 
         await activity_service.log_part_updated(
             part_id=updated_part["id"],
             part_name=updated_part["part_name"],
             changes=changes,
             user=current_user,
-            request=request
+            request=request,
         )
     except Exception as e:
         logger.warning(f"Failed to log part update activity: {e}")
@@ -298,10 +285,7 @@ async def update_part(
         update_dict = part_data.model_dump(exclude_unset=True)
         for key, new_value in update_dict.items():
             if key in original_part and original_part[key] != new_value:
-                changes_dict[key] = {
-                    "from": original_part[key],
-                    "to": new_value
-                }
+                changes_dict[key] = {"from": original_part[key], "to": new_value}
 
         await websocket_manager.broadcast_crud_event(
             action="updated",
@@ -311,32 +295,28 @@ async def update_part(
             user_id=current_user.id,
             username=current_user.username,
             changes=changes_dict,
-            entity_data=updated_part
+            entity_data=updated_part,
         )
     except Exception as e:
         logger.warning(f"Failed to broadcast part update: {e}")
 
     return BaseRouter.build_success_response(
-        data=PartResponse.model_validate(updated_part),
-        message="Part updated successfully."
+        data=PartResponse.model_validate(updated_part), message="Part updated successfully."
     )
+
 
 @router.post("/search", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
 async def advanced_search(
-    search_params: AdvancedPartSearch,
-    part_service: PartService = Depends(get_part_service)
+    search_params: AdvancedPartSearch, part_service: PartService = Depends(get_part_service)
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Perform an advanced search on parts with multiple filters and sorting options.
     """
     service_response = part_service.advanced_search(search_params)
     data = validate_service_response(service_response)
-    
-    return BaseRouter.build_success_response(
-        data=data,
-        message=service_response.message
-    )
+
+    return BaseRouter.build_success_response(data=data, message=service_response.message)
 
 
 @router.get("/search_text", response_model=ResponseSchema[List[PartResponse]])
@@ -344,7 +324,7 @@ async def advanced_search(
 async def search_parts_text(
     query: str = Query(..., min_length=1, description="Search term"),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100)
+    page_size: int = Query(default=20, ge=1, le=100),
 ) -> ResponseSchema[List[PartResponse]]:
     """
     Simple text search across part names, numbers, and descriptions.
@@ -352,13 +332,13 @@ async def search_parts_text(
     part_service = PartService()
     service_response = part_service.search_parts_text(query, page, page_size)
     data = validate_service_response(service_response)
-    
+
     return BaseRouter.build_success_response(
         data=[PartResponse.model_validate(part) for part in data["items"]],
         message=service_response.message,
         page=data["page"],
         page_size=data["page_size"],
-        total_parts=data["total"]
+        total_parts=data["total"],
     )
 
 
@@ -366,7 +346,7 @@ async def search_parts_text(
 @standard_error_handling
 async def get_part_suggestions(
     query: str = Query(..., min_length=3, description="Search term for suggestions"),
-    limit: int = Query(default=10, ge=1, le=20)
+    limit: int = Query(default=10, ge=1, le=20),
 ) -> ResponseSchema[List[str]]:
     """
     Get autocomplete suggestions for part names based on search query.
@@ -375,41 +355,34 @@ async def get_part_suggestions(
     part_service = PartService()
     service_response = part_service.get_part_suggestions(query, limit)
     data = validate_service_response(service_response)
-    
-    return BaseRouter.build_success_response(
-        data=data,
-        message=service_response.message
-    )
 
+    return BaseRouter.build_success_response(data=data, message=service_response.message)
 
 
 @router.delete("/clear_all", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
 @log_activity("parts_cleared", "User {username} cleared all parts")
 async def clear_all_parts(
-    current_user: UserModel = Depends(require_permission("admin"))
+    current_user: UserModel = Depends(require_permission("admin")),
 ) -> ResponseSchema[Dict[str, Any]]:
     """Clear all parts from the database - USE WITH CAUTION! (Admin only)"""
     part_service = PartService()
     service_response = part_service.clear_all_parts()
     data = validate_service_response(service_response)
-    
-    return BaseRouter.build_success_response(
-        data=data,
-        message="All parts have been cleared successfully"
-    )
+
+    return BaseRouter.build_success_response(data=data, message="All parts have been cleared successfully")
 
 
 async def _handle_enrichment(
-    part_id: str, 
-    created_part: dict, 
-    enrichment_supplier: str, 
-    enrichment_capabilities: List[str], 
-    current_user: UserModel
+    part_id: str,
+    created_part: dict,
+    enrichment_supplier: str,
+    enrichment_capabilities: List[str],
+    current_user: UserModel,
 ) -> str:
     """
     Handle automatic enrichment for a newly created part.
-    
+
     Returns:
         String message about enrichment status
     """
@@ -418,7 +391,7 @@ async def _handle_enrichment(
         available_suppliers = get_available_suppliers()
         if enrichment_supplier not in available_suppliers:
             return f" Warning: Supplier '{enrichment_supplier}' not configured on backend."
-        
+
         # Check if supplier is properly configured
         supplier_config_service = SupplierConfigService()
         try:
@@ -428,14 +401,14 @@ async def _handle_enrichment(
             except ResourceNotFoundError:
                 # Try uppercase version for backward compatibility
                 supplier_config_service.get_supplier_config(enrichment_supplier.upper())
-            
+
             # Create enrichment task
             enrichment_data = {
-                'part_id': part_id,
-                'supplier': enrichment_supplier,
-                'capabilities': enrichment_capabilities or ['fetch_datasheet', 'fetch_image', 'fetch_pricing']
+                "part_id": part_id,
+                "supplier": enrichment_supplier,
+                "capabilities": enrichment_capabilities or ["fetch_datasheet", "fetch_image", "fetch_pricing"],
             }
-            
+
             task_request = CreateTaskRequest(
                 task_type=TaskType.PART_ENRICHMENT,
                 name=f"QR Part Enrichment - {created_part.get('part_name', 'Unknown')}",
@@ -443,28 +416,29 @@ async def _handle_enrichment(
                 priority=TaskPriority.HIGH,
                 input_data=enrichment_data,
                 related_entity_type="part",
-                related_entity_id=part_id
+                related_entity_id=part_id,
             )
-            
+
             enrichment_task = await task_service.create_task(task_request, user_id=current_user.id)
             enrichment_message = f" Enrichment task created (ID: {enrichment_task.id})."
-            
+
             # Wait for enrichment to complete and return enriched part
             # Note: This is a simplified approach - in production you might want to use WebSocket or polling
             import asyncio
+
             enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task.id, timeout=30)
             if enriched_part:
                 created_part.update(enriched_part)
                 return f" Part successfully enriched from {enrichment_supplier}."
             else:
                 return f" Enrichment task started but did not complete within timeout."
-                
+
         except ResourceNotFoundError:
             return f" Warning: Supplier '{enrichment_supplier}' not properly configured."
         except Exception as e:
             logger.error(f"Enrichment task creation failed: {e}")
             return f" Warning: Enrichment failed - {str(e)}"
-            
+
     except Exception as e:
         logger.error(f"Enrichment process failed: {e}")
         return f" Warning: Enrichment failed - {str(e)}"
@@ -473,25 +447,25 @@ async def _handle_enrichment(
 async def _wait_for_enrichment_completion(part_id: str, task_id: str, timeout: int = 30) -> Optional[Dict[str, Any]]:
     """
     Wait for enrichment task to complete and return the enriched part data.
-    
+
     Args:
         part_id: The part ID to check for enrichment
         task_id: The enrichment task ID to monitor
         timeout: Maximum time to wait in seconds
-        
+
     Returns:
         Enriched part data if successful, None if timeout or failure
     """
     import asyncio
     from MakerMatrix.models.task_models import TaskStatus
-    
+
     start_time = asyncio.get_event_loop().time()
-    
+
     while (asyncio.get_event_loop().time() - start_time) < timeout:
         try:
             # Check task status
             task = await task_service.get_task(task_id)
-            
+
             if task.status == TaskStatus.COMPLETED:
                 # Task completed, fetch the enriched part
                 response = PartService.get_part_by_id(part_id)
@@ -500,24 +474,25 @@ async def _wait_for_enrichment_completion(part_id: str, task_id: str, timeout: i
                 else:
                     logger.error(f"Failed to fetch enriched part {part_id}: {response.get('message')}")
                     return None
-                    
+
             elif task.status in [TaskStatus.FAILED, TaskStatus.CANCELLED]:
                 logger.warning(f"Enrichment task {task_id} failed or was cancelled")
                 return None
-                
+
             # Task still running, wait a bit
             await asyncio.sleep(1)
-            
+
         except Exception as e:
             logger.error(f"Error checking enrichment task status: {e}")
             return None
-            
+
     # Timeout reached
     logger.warning(f"Enrichment task {task_id} did not complete within {timeout} seconds")
     return None
 
 
 # === ALLOCATION TRANSFER ENDPOINTS ===
+
 
 @router.post("/parts/{part_id}/transfer", response_model=ResponseSchema[PartResponse])
 @standard_error_handling
@@ -528,7 +503,7 @@ async def transfer_part_quantity(
     quantity: int = Query(..., gt=0, description="Quantity to transfer"),
     notes: Optional[str] = Query(None, description="Transfer notes"),
     current_user: UserModel = Depends(require_permission("parts:update")),
-    part_service: PartService = Depends(get_part_service)
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[PartResponse]:
     """
     Transfer quantity from one location to another for a part.
@@ -547,15 +522,14 @@ async def transfer_part_quantity(
             from_location_id=from_location_id,
             to_location_id=to_location_id,
             quantity=quantity,
-            notes=notes
+            notes=notes,
         )
 
         if not response.success:
             raise HTTPException(status_code=400, detail=response.message)
 
         return BaseRouter.build_success_response(
-            data=PartResponse.model_validate(response.data),
-            message=response.message
+            data=PartResponse.model_validate(response.data), message=response.message
         )
 
     except HTTPException:
@@ -565,12 +539,15 @@ async def transfer_part_quantity(
         raise HTTPException(status_code=500, detail=f"Transfer failed: {str(e)}")
 
 
-@router.get("/parts/{part_id}/enrichment-requirements/{supplier}", response_model=ResponseSchema[EnrichmentRequirementCheckResponse])
+@router.get(
+    "/parts/{part_id}/enrichment-requirements/{supplier}",
+    response_model=ResponseSchema[EnrichmentRequirementCheckResponse],
+)
 async def check_enrichment_requirements(
     part_id: str,
     supplier: str,
     current_user: UserModel = Depends(get_current_user),
-    part_service: PartService = Depends(get_part_service)
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[EnrichmentRequirementCheckResponse]:
     """
     Check if a part meets the requirements for enrichment from a specific supplier.
@@ -612,10 +589,7 @@ async def check_enrichment_requirements(
         part_response = part_service.get_part_by_details(part_id=part_id)
 
         if not part_response.success:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Part not found: {part_response.message}"
-            )
+            raise HTTPException(status_code=404, detail=f"Part not found: {part_response.message}")
 
         part = part_response.data
 
@@ -635,7 +609,7 @@ async def check_enrichment_requirements(
                     "is_present": check.is_present,
                     "current_value": check.current_value,
                     "validation_passed": check.validation_passed,
-                    "validation_message": check.validation_message
+                    "validation_message": check.validation_message,
                 }
                 for check in check_result.required_checks
             ],
@@ -644,37 +618,32 @@ async def check_enrichment_requirements(
                     "field_name": check.field_name,
                     "display_name": check.display_name,
                     "is_present": check.is_present,
-                    "current_value": check.current_value
+                    "current_value": check.current_value,
                 }
                 for check in check_result.recommended_checks
             ],
             missing_required=check_result.missing_required,
             missing_recommended=check_result.missing_recommended,
             warnings=check_result.warnings,
-            suggestions=check_result.suggestions
+            suggestions=check_result.suggestions,
         )
 
-        message = "Part can be enriched" if check_result.can_enrich else "Part is missing required fields for enrichment"
-
-        return BaseRouter.build_success_response(
-            data=response_data,
-            message=message
+        message = (
+            "Part can be enriched" if check_result.can_enrich else "Part is missing required fields for enrichment"
         )
+
+        return BaseRouter.build_success_response(data=response_data, message=message)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error checking enrichment requirements: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to check enrichment requirements: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to check enrichment requirements: {str(e)}")
 
 
 @router.get("/enrichment-requirements/{supplier}", response_model=ResponseSchema[Dict[str, Any]])
 async def get_supplier_enrichment_requirements(
-    supplier: str,
-    current_user: UserModel = Depends(get_current_user)
+    supplier: str, current_user: UserModel = Depends(get_current_user)
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Get enrichment requirements for a specific supplier.
@@ -715,10 +684,7 @@ async def get_supplier_enrichment_requirements(
         requirements = validator.get_supplier_requirements(supplier)
 
         if not requirements:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Enrichment requirements not found for supplier '{supplier}'"
-            )
+            raise HTTPException(status_code=404, detail=f"Enrichment requirements not found for supplier '{supplier}'")
 
         # Convert to dict for response
         response_data = {
@@ -731,7 +697,7 @@ async def get_supplier_enrichment_requirements(
                     "display_name": field.display_name,
                     "description": field.description,
                     "example": field.example,
-                    "validation_pattern": field.validation_pattern
+                    "validation_pattern": field.validation_pattern,
                 }
                 for field in requirements.required_fields
             ],
@@ -740,25 +706,21 @@ async def get_supplier_enrichment_requirements(
                     "field_name": field.field_name,
                     "display_name": field.display_name,
                     "description": field.description,
-                    "example": field.example
+                    "example": field.example,
                 }
                 for field in requirements.recommended_fields
-            ]
+            ],
         }
 
         return BaseRouter.build_success_response(
-            data=response_data,
-            message=f"Retrieved enrichment requirements for {supplier}"
+            data=response_data, message=f"Retrieved enrichment requirements for {supplier}"
         )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting enrichment requirements for {supplier}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get enrichment requirements: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get enrichment requirements: {str(e)}")
 
 
 @router.post("/enrich-from-supplier", response_model=ResponseSchema[Dict[str, Any]])
@@ -767,7 +729,7 @@ async def enrich_part_from_supplier(
     supplier_name: str,
     part_identifier: str,
     force_refresh: bool = False,
-    current_user: UserModel = Depends(require_permission("parts:update"))
+    current_user: UserModel = Depends(require_permission("parts:update")),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Instant Enrichment endpoint - enrich part data immediately from supplier.
@@ -820,8 +782,7 @@ async def enrich_part_from_supplier(
             supplier = get_supplier(supplier_name)
         except Exception as e:
             raise HTTPException(
-                status_code=404,
-                detail=f"Supplier '{supplier_name}' not configured or available: {str(e)}"
+                status_code=404, detail=f"Supplier '{supplier_name}' not configured or available: {str(e)}"
             )
 
         # Configure supplier with credentials from database/env
@@ -834,14 +795,14 @@ async def enrich_part_from_supplier(
 
             # Build config dict
             config_dict = {
-                'base_url': supplier_config.get('base_url', ''),
-                'request_timeout': supplier_config.get('timeout_seconds', 30),
-                'max_retries': supplier_config.get('max_retries', 3),
-                'rate_limit_per_minute': supplier_config.get('rate_limit_per_minute', 60),
+                "base_url": supplier_config.get("base_url", ""),
+                "request_timeout": supplier_config.get("timeout_seconds", 30),
+                "max_retries": supplier_config.get("max_retries", 3),
+                "rate_limit_per_minute": supplier_config.get("rate_limit_per_minute", 60),
             }
 
             # Add custom parameters if available
-            custom_params = supplier_config.get('custom_parameters', {})
+            custom_params = supplier_config.get("custom_parameters", {})
             if custom_params:
                 config_dict.update(custom_params)
 
@@ -855,7 +816,7 @@ async def enrich_part_from_supplier(
 
         # Check if part_identifier is a URL and extract part identifier if needed
         extracted_identifier = part_identifier
-        if part_identifier.startswith('http'):
+        if part_identifier.startswith("http"):
             # Try to extract part identifier from URL using enrichment field mappings
             field_mappings = supplier.get_enrichment_field_mappings()
 
@@ -877,37 +838,30 @@ async def enrich_part_from_supplier(
         # Use EnrichmentEngine for unified enrichment logic
         # This is the SAME code path used by background enrichment
         enrichment_result = await enrichment_engine.enrich_part(
-            supplier_name=supplier_name,
-            part_identifier=extracted_identifier,
-            force_refresh=force_refresh
+            supplier_name=supplier_name, part_identifier=extracted_identifier, force_refresh=force_refresh
         )
 
-        if not enrichment_result['success']:
-            error_msg = enrichment_result.get('error', 'Unknown error')
+        if not enrichment_result["success"]:
+            error_msg = enrichment_result.get("error", "Unknown error")
             logger.error(f"Enrichment failed: {error_msg}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to enrich part: {error_msg}"
-            )
+            raise HTTPException(status_code=500, detail=f"Failed to enrich part: {error_msg}")
 
-        standardized_data = enrichment_result['data']
-        enrichment_method = enrichment_result.get('enrichment_method', 'unknown')
+        standardized_data = enrichment_result["data"]
+        enrichment_method = enrichment_result.get("enrichment_method", "unknown")
 
-        logger.info(f"✓ Instant enrichment successful via {enrichment_method}: {standardized_data.get('part_name', 'Unknown')}")
+        logger.info(
+            f"✓ Instant enrichment successful via {enrichment_method}: {standardized_data.get('part_name', 'Unknown')}"
+        )
 
         return BaseRouter.build_success_response(
-            data=standardized_data,
-            message=f"Part data enriched from {supplier_name} via {enrichment_method}"
+            data=standardized_data, message=f"Part data enriched from {supplier_name} via {enrichment_method}"
         )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error enriching part from supplier: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to enrich part data: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to enrich part data: {str(e)}")
 
 
 @router.post("/bulk_update", response_model=ResponseSchema[BulkUpdateResponse])
@@ -915,7 +869,7 @@ async def enrich_part_from_supplier(
 async def bulk_update_parts(
     request: BulkUpdateRequest,
     current_user: UserModel = Depends(require_permission("parts:update")),
-    part_service: PartService = Depends(get_part_service)
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[BulkUpdateResponse]:
     """
     Bulk update multiple parts with shared field values.
@@ -930,24 +884,20 @@ async def bulk_update_parts(
     try:
         # Validate that at least one update field is provided
         has_updates = (
-            request.supplier is not None or
-            request.location_id is not None or
-            request.minimum_quantity is not None or
-            (request.add_categories and len(request.add_categories) > 0) or
-            (request.remove_categories and len(request.remove_categories) > 0)
+            request.supplier is not None
+            or request.location_id is not None
+            or request.minimum_quantity is not None
+            or (request.add_categories and len(request.add_categories) > 0)
+            or (request.remove_categories and len(request.remove_categories) > 0)
         )
 
         if not has_updates:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="At least one field must be provided for update"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="At least one field must be provided for update"
             )
 
         if not request.part_ids or len(request.part_ids) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Part IDs list cannot be empty"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Part IDs list cannot be empty")
 
         # Call service layer for bulk update
         service_response = part_service.bulk_update_parts(request.model_dump())
@@ -977,27 +927,23 @@ async def bulk_update_parts(
                 username=current_user.username,
                 details={
                     "part_ids": request.part_ids,
-                    "updated_count": result['updated_count'],
-                    "failed_count": result['failed_count'],
-                    "changes": changes_info
-                }
+                    "updated_count": result["updated_count"],
+                    "failed_count": result["failed_count"],
+                    "changes": changes_info,
+                },
             )
         except Exception as e:
             logger.warning(f"Failed to broadcast bulk update: {e}")
 
         return BaseRouter.build_success_response(
-            data=result,
-            message=f"Successfully updated {result['updated_count']} part(s)"
+            data=result, message=f"Successfully updated {result['updated_count']} part(s)"
         )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in bulk update: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Bulk update failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Bulk update failed: {str(e)}")
 
 
 @router.post("/bulk_delete", response_model=ResponseSchema[BulkDeleteResponse])
@@ -1005,7 +951,7 @@ async def bulk_update_parts(
 async def bulk_delete_parts(
     request: BulkDeleteRequest,
     current_user: UserModel = Depends(require_permission("parts:delete")),
-    part_service: PartService = Depends(get_part_service)
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[BulkDeleteResponse]:
     """
     Bulk delete multiple parts with associated file cleanup.
@@ -1018,10 +964,7 @@ async def bulk_delete_parts(
     """
     try:
         if not request.part_ids or len(request.part_ids) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Part IDs list cannot be empty"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Part IDs list cannot be empty")
 
         # Call service layer for bulk delete
         service_response = part_service.bulk_delete_parts(request.part_ids)
@@ -1038,24 +981,21 @@ async def bulk_delete_parts(
                 username=current_user.username,
                 details={
                     "part_ids": request.part_ids,
-                    "deleted_count": result['deleted_count'],
-                    "files_deleted": result['files_deleted'],
-                    "failed_count": result['failed_count']
-                }
+                    "deleted_count": result["deleted_count"],
+                    "files_deleted": result["files_deleted"],
+                    "failed_count": result["failed_count"],
+                },
             )
         except Exception as e:
             logger.warning(f"Failed to broadcast bulk delete: {e}")
 
         return BaseRouter.build_success_response(
             data=result,
-            message=f"Successfully deleted {result['deleted_count']} part(s) and {result['files_deleted']} file(s)"
+            message=f"Successfully deleted {result['deleted_count']} part(s) and {result['files_deleted']} file(s)",
         )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in bulk delete: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Bulk delete failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Bulk delete failed: {str(e)}")

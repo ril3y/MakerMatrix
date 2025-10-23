@@ -16,16 +16,13 @@ from MakerMatrix.models.part_allocation_models import (
     AllocationCreate,
     AllocationUpdate,
     TransferRequest,
-    SplitToCassetteRequest
+    SplitToCassetteRequest,
 )
 from MakerMatrix.models.part_models import PartModel
 from MakerMatrix.models.location_models import LocationModel
 from MakerMatrix.repositories.part_allocation_repository import PartAllocationRepository
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
-from MakerMatrix.repositories.custom_exceptions import (
-    ResourceNotFoundError,
-    InvalidReferenceError
-)
+from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError, InvalidReferenceError
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +34,7 @@ class PartAllocationService(BaseService):
         super().__init__()
         self.entity_name = "PartAllocation"
 
-    def get_allocations_for_part(
-        self,
-        part_id: str
-    ) -> ServiceResponse[Dict[str, Any]]:
+    def get_allocations_for_part(self, part_id: str) -> ServiceResponse[Dict[str, Any]]:
         """
         Get all location allocations for a part.
 
@@ -53,7 +47,9 @@ class PartAllocationService(BaseService):
                 # Get part to verify it exists
                 part = session.get(PartModel, part_id)
                 if not part:
-                    raise ResourceNotFoundError(message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id)
+                    raise ResourceNotFoundError(
+                        message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id
+                    )
 
                 # Get all allocations
                 allocations = PartAllocationRepository.get_all_allocations_for_part(
@@ -67,7 +63,7 @@ class PartAllocationService(BaseService):
                 # Find primary location
                 primary_alloc = next(
                     (alloc for alloc in allocations if alloc.is_primary_storage),
-                    allocations[0] if allocations else None
+                    allocations[0] if allocations else None,
                 )
 
                 response_data = {
@@ -77,22 +73,17 @@ class PartAllocationService(BaseService):
                     "total_quantity": total_quantity,
                     "location_count": location_count,
                     "primary_location": primary_alloc.location.to_dict() if primary_alloc else None,
-                    "allocations": [alloc.to_dict() for alloc in allocations]
+                    "allocations": [alloc.to_dict() for alloc in allocations],
                 }
 
                 return self.success_response(
-                    f"Retrieved {location_count} allocations for part {part.part_name}",
-                    response_data
+                    f"Retrieved {location_count} allocations for part {part.part_name}", response_data
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"get allocations for part {part_id}")
 
-    def create_allocation(
-        self,
-        part_id: str,
-        allocation_data: AllocationCreate
-    ) -> ServiceResponse[Dict[str, Any]]:
+    def create_allocation(self, part_id: str, allocation_data: AllocationCreate) -> ServiceResponse[Dict[str, Any]]:
         """
         Create a new part-location allocation.
 
@@ -126,8 +117,8 @@ class PartAllocationService(BaseService):
                                     "location_name": location.name,
                                     "location_type": "single_part",
                                     "existing_part_id": existing.part_id,
-                                    "existing_part_name": existing.part.part_name
-                                }
+                                    "existing_part_name": existing.part.part_name,
+                                },
                             )
 
                 allocation = PartAllocationRepository.create_allocation(
@@ -136,43 +127,30 @@ class PartAllocationService(BaseService):
                     location_id=allocation_data.location_id,
                     quantity=allocation_data.quantity,
                     is_primary=allocation_data.is_primary,
-                    notes=allocation_data.notes
+                    notes=allocation_data.notes,
                 )
 
                 return self.success_response(
-                    f"Created allocation of {allocation.quantity_at_location} units",
-                    allocation.to_dict()
+                    f"Created allocation of {allocation.quantity_at_location} units", allocation.to_dict()
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"create allocation for part {part_id}")
 
-    def update_allocation(
-        self,
-        allocation_id: str,
-        update_data: AllocationUpdate
-    ) -> ServiceResponse[Dict[str, Any]]:
+    def update_allocation(self, allocation_id: str, update_data: AllocationUpdate) -> ServiceResponse[Dict[str, Any]]:
         """Update an existing allocation"""
         try:
             self.log_operation("update_allocation", "Allocation", allocation_id)
 
             with self.get_session() as session:
-                allocation = PartAllocationRepository.update_allocation(
-                    session, allocation_id, update_data
-                )
+                allocation = PartAllocationRepository.update_allocation(session, allocation_id, update_data)
 
-                return self.success_response(
-                    "Allocation updated successfully",
-                    allocation.to_dict()
-                )
+                return self.success_response("Allocation updated successfully", allocation.to_dict())
 
         except Exception as e:
             return self.handle_exception(e, f"update allocation {allocation_id}")
 
-    def delete_allocation(
-        self,
-        allocation_id: str
-    ) -> ServiceResponse[Dict[str, Any]]:
+    def delete_allocation(self, allocation_id: str) -> ServiceResponse[Dict[str, Any]]:
         """Delete an allocation"""
         try:
             self.log_operation("delete_allocation", "Allocation", allocation_id)
@@ -181,18 +159,13 @@ class PartAllocationService(BaseService):
                 PartAllocationRepository.delete_allocation(session, allocation_id)
 
                 return self.success_response(
-                    "Allocation deleted successfully",
-                    {"allocation_id": allocation_id, "deleted": True}
+                    "Allocation deleted successfully", {"allocation_id": allocation_id, "deleted": True}
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"delete allocation {allocation_id}")
 
-    def return_to_primary_storage(
-        self,
-        part_id: str,
-        allocation_id: str
-    ) -> ServiceResponse[Dict[str, Any]]:
+    def return_to_primary_storage(self, part_id: str, allocation_id: str) -> ServiceResponse[Dict[str, Any]]:
         """
         Return all quantity from a non-primary allocation back to primary storage.
 
@@ -208,9 +181,7 @@ class PartAllocationService(BaseService):
                 allocation = PartAllocationRepository.get_allocation_by_id(session, allocation_id)
                 if not allocation:
                     raise InvalidReferenceError(
-                        status="error",
-                        message=f"Allocation not found",
-                        data={"allocation_id": allocation_id}
+                        status="error", message=f"Allocation not found", data={"allocation_id": allocation_id}
                     )
 
                 # Verify it's not already primary storage
@@ -218,7 +189,7 @@ class PartAllocationService(BaseService):
                     raise InvalidReferenceError(
                         status="error",
                         message="Cannot return primary storage allocation to itself",
-                        data={"allocation_id": allocation_id}
+                        data={"allocation_id": allocation_id},
                     )
 
                 quantity_to_return = allocation.quantity_at_location
@@ -229,7 +200,7 @@ class PartAllocationService(BaseService):
                     raise InvalidReferenceError(
                         status="error",
                         message="No primary storage location found for this part",
-                        data={"part_id": part_id}
+                        data={"part_id": part_id},
                     )
 
                 # Add quantity back to primary storage
@@ -248,18 +219,14 @@ class PartAllocationService(BaseService):
                         "allocation_id": allocation_id,
                         "quantity_returned": quantity_to_return,
                         "primary_location_id": primary_alloc.location_id,
-                        "deleted": True
-                    }
+                        "deleted": True,
+                    },
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"return allocation {allocation_id} to primary storage")
 
-    def transfer_quantity(
-        self,
-        part_id: str,
-        transfer_data: TransferRequest
-    ) -> ServiceResponse[Dict[str, Any]]:
+    def transfer_quantity(self, part_id: str, transfer_data: TransferRequest) -> ServiceResponse[Dict[str, Any]]:
         """
         Transfer quantity between two locations.
 
@@ -281,14 +248,16 @@ class PartAllocationService(BaseService):
             self.log_operation(
                 "transfer_quantity",
                 "Part",
-                f"{part_id}: {transfer_data.quantity} from {transfer_data.from_location_id} to {transfer_data.to_location_id}"
+                f"{part_id}: {transfer_data.quantity} from {transfer_data.from_location_id} to {transfer_data.to_location_id}",
             )
 
             with self.get_session() as session:
                 # Verify part exists
                 part = session.get(PartModel, part_id)
                 if not part:
-                    raise ResourceNotFoundError(message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id)
+                    raise ResourceNotFoundError(
+                        message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id
+                    )
 
                 # Get source allocation
                 from_alloc = PartAllocationRepository.get_allocation_by_part_and_location(
@@ -298,7 +267,7 @@ class PartAllocationService(BaseService):
                     raise InvalidReferenceError(
                         status="error",
                         message=f"No allocation found at source location",
-                        data={"location_id": transfer_data.from_location_id}
+                        data={"location_id": transfer_data.from_location_id},
                     )
 
                 # Verify sufficient quantity
@@ -306,10 +275,7 @@ class PartAllocationService(BaseService):
                     raise InvalidReferenceError(
                         status="error",
                         message=f"Insufficient quantity at source. Available: {from_alloc.quantity_at_location}, Requested: {transfer_data.quantity}",
-                        data={
-                            "available": from_alloc.quantity_at_location,
-                            "requested": transfer_data.quantity
-                        }
+                        data={"available": from_alloc.quantity_at_location, "requested": transfer_data.quantity},
                     )
 
                 # Decrement source
@@ -347,8 +313,8 @@ class PartAllocationService(BaseService):
                                         "location_name": to_location.name,
                                         "location_type": "single_part",
                                         "existing_part_id": existing.part_id,
-                                        "existing_part_name": existing.part.part_name
-                                    }
+                                        "existing_part_name": existing.part.part_name,
+                                    },
                                 )
 
                     # Create new allocation
@@ -357,7 +323,7 @@ class PartAllocationService(BaseService):
                         location_id=transfer_data.to_location_id,
                         quantity_at_location=transfer_data.quantity,
                         is_primary_storage=False,  # Transfers are not primary
-                        notes=transfer_data.notes
+                        notes=transfer_data.notes,
                     )
                     session.add(to_alloc)
 
@@ -378,22 +344,18 @@ class PartAllocationService(BaseService):
                     "transferred_quantity": transfer_data.quantity,
                     "from_allocation": from_alloc.to_dict() if new_from_quantity > 0 else None,
                     "to_allocation": to_alloc.to_dict(),
-                    "from_deleted": new_from_quantity == 0
+                    "from_deleted": new_from_quantity == 0,
                 }
 
                 return self.success_response(
                     f"Transferred {transfer_data.quantity} units from {from_alloc.location.name} to {to_alloc.location.name}",
-                    response_data
+                    response_data,
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"transfer quantity for part {part_id}")
 
-    def split_to_cassette(
-        self,
-        part_id: str,
-        split_data: SplitToCassetteRequest
-    ) -> ServiceResponse[Dict[str, Any]]:
+    def split_to_cassette(self, part_id: str, split_data: SplitToCassetteRequest) -> ServiceResponse[Dict[str, Any]]:
         """
         Quick split to cassette operation.
 
@@ -410,17 +372,15 @@ class PartAllocationService(BaseService):
             Created cassette and allocation details
         """
         try:
-            self.log_operation(
-                "split_to_cassette",
-                "Part",
-                f"{part_id}: {split_data.quantity} to cassette"
-            )
+            self.log_operation("split_to_cassette", "Part", f"{part_id}: {split_data.quantity} to cassette")
 
             with self.get_session() as session:
                 # Verify part exists
                 part = session.get(PartModel, part_id)
                 if not part:
-                    raise ResourceNotFoundError(message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id)
+                    raise ResourceNotFoundError(
+                        message=f"Part not found: {part_id}", resource_type="Part", resource_id=part_id
+                    )
 
                 cassette_id = split_data.cassette_id
                 cassette = None
@@ -431,7 +391,7 @@ class PartAllocationService(BaseService):
                         raise InvalidReferenceError(
                             status="error",
                             message="cassette_name is required when create_new_cassette is true",
-                            data=None
+                            data=None,
                         )
 
                     # Create cassette location
@@ -442,7 +402,7 @@ class PartAllocationService(BaseService):
                         is_mobile=True,
                         container_capacity=split_data.cassette_capacity,
                         emoji=split_data.cassette_emoji,
-                        description=f"Container for {part.part_name}"
+                        description=f"Container for {part.part_name}",
                     )
                     session.add(cassette)
                     session.flush()  # Get ID without committing
@@ -453,18 +413,22 @@ class PartAllocationService(BaseService):
                         raise InvalidReferenceError(
                             status="error",
                             message="cassette_id is required when create_new_cassette is false",
-                            data=None
+                            data=None,
                         )
                     cassette = session.get(LocationModel, cassette_id)
                     if not cassette:
-                        raise ResourceNotFoundError(message=f"Cassette not found: {cassette_id}", resource_type="Cassette", resource_id=cassette_id)
+                        raise ResourceNotFoundError(
+                            message=f"Cassette not found: {cassette_id}",
+                            resource_type="Cassette",
+                            resource_id=cassette_id,
+                        )
 
                 # Perform transfer to cassette
                 transfer_request = TransferRequest(
                     from_location_id=split_data.from_location_id,
                     to_location_id=cassette_id,
                     quantity=split_data.quantity,
-                    notes=split_data.notes
+                    notes=split_data.notes,
                 )
 
                 # Use existing transfer logic (without calling self.transfer_quantity to avoid double session)
@@ -475,14 +439,14 @@ class PartAllocationService(BaseService):
                     raise InvalidReferenceError(
                         status="error",
                         message="No allocation found at source location",
-                        data={"location_id": split_data.from_location_id}
+                        data={"location_id": split_data.from_location_id},
                     )
 
                 if from_alloc.quantity_at_location < split_data.quantity:
                     raise InvalidReferenceError(
                         status="error",
                         message=f"Insufficient quantity. Available: {from_alloc.quantity_at_location}",
-                        data={"available": from_alloc.quantity_at_location}
+                        data={"available": from_alloc.quantity_at_location},
                     )
 
                 # Decrement source
@@ -497,7 +461,7 @@ class PartAllocationService(BaseService):
                     location_id=cassette_id,
                     quantity_at_location=split_data.quantity,
                     is_primary_storage=False,
-                    notes=split_data.notes
+                    notes=split_data.notes,
                 )
                 session.add(cassette_alloc)
 
@@ -516,12 +480,11 @@ class PartAllocationService(BaseService):
                     "cassette": cassette.to_dict(),
                     "allocation": cassette_alloc.to_dict(),
                     "cassette_created": split_data.create_new_cassette,
-                    "transferred_quantity": split_data.quantity
+                    "transferred_quantity": split_data.quantity,
                 }
 
                 return self.success_response(
-                    f"Split {split_data.quantity} units to cassette {cassette.name}",
-                    response_data
+                    f"Split {split_data.quantity} units to cassette {cassette.name}", response_data
                 )
 
         except Exception as e:

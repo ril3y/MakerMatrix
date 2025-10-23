@@ -24,7 +24,6 @@ import TagBadge from '@/components/tags/TagBadge'
 import { toolsService } from '@/services/tools.service'
 import { useAuthStore } from '@/store/authStore'
 import type { Tool } from '@/types/tools'
-import type { Tag as TagType } from '@/types/tags'
 import toast from 'react-hot-toast'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
@@ -37,7 +36,14 @@ interface ToolDetailModalProps {
   onStatusChange?: () => void
 }
 
-const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusChange }: ToolDetailModalProps) => {
+const ToolDetailModal = ({
+  isOpen,
+  onClose,
+  toolId,
+  onEdit,
+  onDelete,
+  onStatusChange,
+}: ToolDetailModalProps) => {
   const [tool, setTool] = useState<Tool | null>(null)
   const [loading, setLoading] = useState(true)
   const [checkoutNotes, setCheckoutNotes] = useState('')
@@ -256,22 +262,30 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
               {/* Status Badge - Only show for checkable tools */}
               <div className="flex flex-col items-end gap-2">
                 {tool.is_checkable && (
-                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${tool.is_checked_out ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${tool.is_checked_out ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}
+                  >
                     {tool.is_checked_out ? (
                       <>
                         <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                        <span className="text-sm font-medium text-red-600 dark:text-red-400">Checked Out</span>
+                        <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                          Checked Out
+                        </span>
                       </>
                     ) : (
                       <>
                         <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <span className="text-sm font-medium text-green-600 dark:text-green-400">Available</span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          Available
+                        </span>
                       </>
                     )}
                   </div>
                 )}
                 {/* Condition Badge */}
-                <div className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getConditionColor(tool.condition)}`}>
+                <div
+                  className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getConditionColor(tool.condition)}`}
+                >
                   {tool.condition.replace(/_/g, ' ')}
                 </div>
               </div>
@@ -323,12 +337,16 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                   {tool.is_checkable ? (
                     <>
                       <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      <span className="text-sm font-medium text-green-600 dark:text-green-400">Can be checked out</span>
+                      <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                        Can be checked out
+                      </span>
                     </>
                   ) : (
                     <>
                       <XCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Not available for checkout</span>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Not available for checkout
+                      </span>
                     </>
                   )}
                 </div>
@@ -366,11 +384,7 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                   <p className="text-xs text-theme-muted mb-1">Tags</p>
                   <div className="flex flex-wrap gap-2">
                     {(tool as any).tags.map((tag: Tag) => (
-                      <TagBadge
-                        key={tag.id}
-                        tag={tag}
-                        size="sm"
-                      />
+                      <TagBadge key={tag.id} tag={tag} size="sm" />
                     ))}
                   </div>
                 </div>
@@ -443,41 +457,38 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                     Tool is available for checkout
                   </span>
                 </div>
-                <button
-                  onClick={() => setIsCheckoutMode(true)}
-                  className="btn btn-primary btn-sm"
-                >
+                <button onClick={() => setIsCheckoutMode(true)} className="btn btn-primary btn-sm">
                   Checkout Tool
                 </button>
               </div>
             </div>
           )}
 
-          {tool.is_checkable && tool.is_checked_out && tool.checked_out_by === user?.username && !isCheckinMode && (
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <User className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                    <span className="font-medium text-yellow-900 dark:text-yellow-100">
-                      You have this tool checked out
-                    </span>
+          {tool.is_checkable &&
+            tool.is_checked_out &&
+            tool.checked_out_by === user?.username &&
+            !isCheckinMode && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <User className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                      <span className="font-medium text-yellow-900 dark:text-yellow-100">
+                        You have this tool checked out
+                      </span>
+                    </div>
+                    {tool.checked_out_at && (
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300 ml-8">
+                        Since {formatDate(tool.checked_out_at)}
+                      </p>
+                    )}
                   </div>
-                  {tool.checked_out_at && (
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 ml-8">
-                      Since {formatDate(tool.checked_out_at)}
-                    </p>
-                  )}
+                  <button onClick={() => setIsCheckinMode(true)} className="btn btn-primary btn-sm">
+                    Check In Tool
+                  </button>
                 </div>
-                <button
-                  onClick={() => setIsCheckinMode(true)}
-                  className="btn btn-primary btn-sm"
-                >
-                  Check In Tool
-                </button>
               </div>
-            </div>
-          )}
+            )}
 
           {tool.is_checkable && tool.is_checked_out && tool.checked_out_by !== user?.username && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
@@ -594,7 +605,10 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {Object.entries(tool.additional_properties).map(([key, value]) => (
-                  <div key={key} className="p-2 bg-theme-elevated rounded border border-theme-primary">
+                  <div
+                    key={key}
+                    className="p-2 bg-theme-elevated rounded border border-theme-primary"
+                  >
                     <p className="text-xs text-theme-muted mb-1">{key}</p>
                     <p className="text-sm font-medium text-theme-primary">{String(value)}</p>
                   </div>
@@ -626,20 +640,28 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
               <div className="mb-4 p-4 bg-theme-elevated rounded-lg border border-theme-primary space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-theme-muted mb-1">Maintenance Date *</label>
+                    <label className="block text-xs text-theme-muted mb-1">
+                      Maintenance Date *
+                    </label>
                     <input
                       type="date"
                       className="input w-full"
                       value={maintenanceForm.maintenance_date}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, maintenance_date: e.target.value })}
+                      onChange={(e) =>
+                        setMaintenanceForm({ ...maintenanceForm, maintenance_date: e.target.value })
+                      }
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-theme-muted mb-1">Maintenance Type *</label>
+                    <label className="block text-xs text-theme-muted mb-1">
+                      Maintenance Type *
+                    </label>
                     <select
                       className="input w-full"
                       value={maintenanceForm.maintenance_type}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, maintenance_type: e.target.value })}
+                      onChange={(e) =>
+                        setMaintenanceForm({ ...maintenanceForm, maintenance_type: e.target.value })
+                      }
                     >
                       <option value="inspection">Inspection</option>
                       <option value="calibration">Calibration</option>
@@ -649,12 +671,19 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-theme-muted mb-1">Next Maintenance Date</label>
+                    <label className="block text-xs text-theme-muted mb-1">
+                      Next Maintenance Date
+                    </label>
                     <input
                       type="date"
                       className="input w-full"
                       value={maintenanceForm.next_maintenance_date}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, next_maintenance_date: e.target.value })}
+                      onChange={(e) =>
+                        setMaintenanceForm({
+                          ...maintenanceForm,
+                          next_maintenance_date: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div>
@@ -664,7 +693,9 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                       step="0.01"
                       className="input w-full"
                       value={maintenanceForm.cost}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, cost: e.target.value })}
+                      onChange={(e) =>
+                        setMaintenanceForm({ ...maintenanceForm, cost: e.target.value })
+                      }
                       placeholder="0.00"
                     />
                   </div>
@@ -675,7 +706,9 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
                     className="input w-full"
                     rows={3}
                     value={maintenanceForm.notes}
-                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, notes: e.target.value })}
+                    onChange={(e) =>
+                      setMaintenanceForm({ ...maintenanceForm, notes: e.target.value })
+                    }
                     placeholder="Maintenance details and observations..."
                   />
                 </div>
@@ -709,11 +742,16 @@ const ToolDetailModal = ({ isOpen, onClose, toolId, onEdit, onDelete, onStatusCh
 
             {/* Maintenance Records List */}
             {maintenanceRecords.length === 0 ? (
-              <p className="text-sm text-theme-muted text-center py-4">No maintenance records yet</p>
+              <p className="text-sm text-theme-muted text-center py-4">
+                No maintenance records yet
+              </p>
             ) : (
               <div className="space-y-3">
                 {maintenanceRecords.map((record) => (
-                  <div key={record.id} className="p-3 bg-theme-elevated rounded-lg border border-theme-primary">
+                  <div
+                    key={record.id}
+                    className="p-3 bg-theme-elevated rounded-lg border border-theme-primary"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">

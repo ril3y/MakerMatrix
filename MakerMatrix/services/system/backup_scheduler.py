@@ -75,14 +75,14 @@ class BackupScheduler:
                             trigger=trigger,
                             id=self.backup_job_id,
                             name="Scheduled Backup",
-                            replace_existing=True
+                            replace_existing=True,
                         )
 
                         # Update next backup time (try to get next_run_time if available)
                         try:
                             job = self.scheduler.get_job(self.backup_job_id)
                             # APScheduler 3.x uses next_run_time, 4.x may use different API
-                            next_run = getattr(job, 'next_run_time', None)
+                            next_run = getattr(job, "next_run_time", None)
                             if next_run:
                                 config.next_backup_at = next_run
                                 session.add(config)
@@ -91,7 +91,9 @@ class BackupScheduler:
                             else:
                                 logger.info(f"Scheduled backup configured: {trigger} (next run time unavailable)")
                         except AttributeError:
-                            logger.info(f"Scheduled backup configured: {trigger} (next_run_time not available in this APScheduler version)")
+                            logger.info(
+                                f"Scheduled backup configured: {trigger} (next_run_time not available in this APScheduler version)"
+                            )
                     else:
                         logger.warning("Invalid backup schedule configuration")
 
@@ -102,7 +104,7 @@ class BackupScheduler:
                         trigger=CronTrigger(hour=3, minute=0),
                         id=self.retention_job_id,
                         name="Daily Retention Cleanup",
-                        replace_existing=True
+                        replace_existing=True,
                     )
                     logger.info("Retention cleanup scheduled for daily 3:00 AM")
 
@@ -127,11 +129,7 @@ class BackupScheduler:
 
                 if len(parts) == 5:
                     return CronTrigger(
-                        minute=parts[0],
-                        hour=parts[1],
-                        day=parts[2],
-                        month=parts[3],
-                        day_of_week=parts[4]
+                        minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4]
                     )
                 else:
                     logger.error(f"Invalid cron expression: {config.schedule_cron}")
@@ -175,7 +173,9 @@ class BackupScheduler:
                     input_data["password"] = config.encryption_password
                     logger.info("Scheduled backup will use encryption password from configuration")
                 elif config.encryption_required:
-                    logger.warning("Encryption required but no password configured - backup will proceed without encryption")
+                    logger.warning(
+                        "Encryption required but no password configured - backup will proceed without encryption"
+                    )
 
                 # Create backup task
                 task_request = CreateTaskRequest(
@@ -185,7 +185,7 @@ class BackupScheduler:
                     priority=TaskPriority.HIGH,
                     input_data=input_data,
                     related_entity_type="system",
-                    related_entity_id="scheduled_backup"
+                    related_entity_id="scheduled_backup",
                 )
 
                 task = await task_service.create_task(task_request)
@@ -197,7 +197,7 @@ class BackupScheduler:
                 # Calculate next backup time (if available)
                 try:
                     job = self.scheduler.get_job(self.backup_job_id)
-                    next_run = getattr(job, 'next_run_time', None)
+                    next_run = getattr(job, "next_run_time", None)
                     if next_run:
                         config.next_backup_at = next_run
                 except (AttributeError, Exception) as e:
@@ -224,7 +224,7 @@ class BackupScheduler:
                 priority=TaskPriority.NORMAL,
                 input_data={},
                 related_entity_type="system",
-                related_entity_id="retention_cleanup"
+                related_entity_id="retention_cleanup",
             )
 
             task = await task_service.create_task(task_request)

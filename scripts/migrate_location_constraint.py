@@ -35,10 +35,7 @@ from sqlalchemy import create_engine, text, inspect
 import logging
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -71,20 +68,16 @@ def check_current_constraints(engine):
 
     try:
         # Get table info
-        columns = inspector.get_columns('locationmodel')
-        indexes = inspector.get_indexes('locationmodel')
-        unique_constraints = inspector.get_unique_constraints('locationmodel')
+        columns = inspector.get_columns("locationmodel")
+        indexes = inspector.get_indexes("locationmodel")
+        unique_constraints = inspector.get_unique_constraints("locationmodel")
 
         logger.info("Current locationmodel table structure:")
         logger.info(f"  Columns: {len(columns)}")
         logger.info(f"  Indexes: {indexes}")
         logger.info(f"  Unique constraints: {unique_constraints}")
 
-        return {
-            'columns': columns,
-            'indexes': indexes,
-            'unique_constraints': unique_constraints
-        }
+        return {"columns": columns, "indexes": indexes, "unique_constraints": unique_constraints}
     except Exception as e:
         logger.error(f"Error inspecting table: {e}")
         return None
@@ -116,15 +109,9 @@ def migrate_constraint(engine, dry_run=False):
             return False
 
         # Check if migration is needed
-        has_old_constraint = any(
-            uc.get('name') == 'uix_location_name_parent'
-            for uc in current['unique_constraints']
-        )
+        has_old_constraint = any(uc.get("name") == "uix_location_name_parent" for uc in current["unique_constraints"])
 
-        has_new_index = any(
-            idx.get('name') == 'idx_location_name_parent_unique'
-            for idx in current['indexes']
-        )
+        has_new_index = any(idx.get("name") == "idx_location_name_parent_unique" for idx in current["indexes"])
 
         if has_new_index:
             logger.info("✓ New partial index already exists - migration not needed")
@@ -149,13 +136,15 @@ def migrate_constraint(engine, dry_run=False):
         try:
             # Check if any duplicate slot names would violate the constraint
             # (for regular locations, not slots)
-            check_query = text("""
+            check_query = text(
+                """
                 SELECT name, parent_id, COUNT(*) as count
                 FROM locationmodel
                 WHERE is_auto_generated_slot = 0 OR is_auto_generated_slot IS NULL
                 GROUP BY name, parent_id
                 HAVING COUNT(*) > 1
-            """)
+            """
+            )
 
             result = conn.execute(check_query)
             duplicates = result.fetchall()
@@ -171,11 +160,13 @@ def migrate_constraint(engine, dry_run=False):
 
             # Create the new partial index
             # Note: SQLite syntax for partial indexes
-            create_index_sql = text("""
+            create_index_sql = text(
+                """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_location_name_parent_unique
                 ON locationmodel (name, parent_id)
                 WHERE is_auto_generated_slot = 0 OR is_auto_generated_slot IS NULL
-            """)
+            """
+            )
 
             conn.execute(create_index_sql)
             conn.commit()
@@ -186,9 +177,9 @@ def migrate_constraint(engine, dry_run=False):
 
             # Verify the index was created
             inspector = inspect(engine)
-            new_indexes = inspector.get_indexes('locationmodel')
+            new_indexes = inspector.get_indexes("locationmodel")
 
-            if any(idx.get('name') == 'idx_location_name_parent_unique' for idx in new_indexes):
+            if any(idx.get("name") == "idx_location_name_parent_unique" for idx in new_indexes):
                 logger.info("✓ Migration completed successfully!")
                 return True
             else:
@@ -202,24 +193,14 @@ def migrate_constraint(engine, dry_run=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Migrate location name constraint to allow duplicate slot names'
-    )
+    parser = argparse.ArgumentParser(description="Migrate location name constraint to allow duplicate slot names")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be done without making changes")
+    parser.add_argument("--backup", action="store_true", help="Create a backup before migration (recommended)")
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what would be done without making changes'
-    )
-    parser.add_argument(
-        '--backup',
-        action='store_true',
-        help='Create a backup before migration (recommended)'
-    )
-    parser.add_argument(
-        '--database-url',
+        "--database-url",
         type=str,
         default=None,
-        help='Database URL (default: from DATABASE_URL env var or sqlite:///makermatrix.db)'
+        help="Database URL (default: from DATABASE_URL env var or sqlite:///makermatrix.db)",
     )
 
     args = parser.parse_args()
@@ -230,8 +211,8 @@ def main():
 
     # Create backup if requested
     if args.backup and not args.dry_run:
-        if db_url.startswith('sqlite:///'):
-            db_path = db_url.replace('sqlite:///', '')
+        if db_url.startswith("sqlite:///"):
+            db_path = db_url.replace("sqlite:///", "")
             backup_database(db_path)
         else:
             logger.warning("Backup only supported for SQLite databases")
@@ -243,21 +224,21 @@ def main():
     success = migrate_constraint(engine, dry_run=args.dry_run)
 
     if success:
-        logger.info("\n" + "="*60)
+        logger.info("\n" + "=" * 60)
         logger.info("Migration completed successfully!")
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info("\nNext steps:")
         logger.info("1. Deploy updated code with new LocationModel")
         logger.info("2. Test creating containers with duplicate slot names")
         logger.info("3. Verify existing locations still work correctly")
         sys.exit(0)
     else:
-        logger.error("\n" + "="*60)
+        logger.error("\n" + "=" * 60)
         logger.error("Migration failed!")
-        logger.error("="*60)
+        logger.error("=" * 60)
         logger.error("\nPlease review errors above and try again")
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -8,9 +8,9 @@ from .system.image_handler_service import ImageHandlerService
 from .system.bulk_enrichment_service import BulkEnrichmentService
 
 __all__ = [
-    'EnrichmentCoordinatorService',
-    'PartEnrichmentService',
-    'DatasheetHandlerService',
-    'ImageHandlerService',
-    'BulkEnrichmentService'
+    "EnrichmentCoordinatorService",
+    "PartEnrichmentService",
+    "DatasheetHandlerService",
+    "ImageHandlerService",
+    "BulkEnrichmentService",
 ]

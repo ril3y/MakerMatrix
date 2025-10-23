@@ -10,19 +10,16 @@ from sqlalchemy.orm import Session
 
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
 from MakerMatrix.models.supplier_config_models import SupplierConfigModel
-from MakerMatrix.repositories.custom_exceptions import (
-    SupplierConfigAlreadyExistsError,
-    ResourceNotFoundError
-)
+from MakerMatrix.repositories.custom_exceptions import SupplierConfigAlreadyExistsError, ResourceNotFoundError
 
 
 class TestSupplierConfigService:
-    
+
     @pytest.fixture
     def service(self):
         """Create a SupplierConfigService instance for testing"""
         return SupplierConfigService()
-    
+
     @pytest.fixture
     def sample_supplier_data(self):
         """Sample supplier configuration data for testing"""
@@ -44,10 +41,10 @@ class TestSupplierConfigService:
             "supports_stock": True,
             "supports_specifications": False,
             "custom_headers": {"Accept": "application/json"},
-            "custom_parameters": {"format": "json"}
+            "custom_parameters": {"format": "json"},
         }
-    
-    @patch('MakerMatrix.services.system.supplier_config_service.Session')
+
+    @patch("MakerMatrix.services.system.supplier_config_service.Session")
     def test_create_supplier_config_success(self, mock_session_class, service, sample_supplier_data):
         """Test successful creation of a new supplier configuration"""
         # Setup mocks
@@ -57,31 +54,31 @@ class TestSupplierConfigService:
         exec_result = MagicMock()
         exec_result.first.return_value = None  # No existing supplier
         mock_session.exec.return_value = exec_result
-        
+
         # Create mock supplier model
         mock_supplier = MagicMock(spec=SupplierConfigModel)
         mock_supplier.id = "test-supplier-id"
         mock_supplier.supplier_name = "TESTSUPPLIER"
-        
+
         # Mock the model creation
-        with patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigModel') as mock_model_class:
+        with patch("MakerMatrix.services.system.supplier_config_service.SupplierConfigModel") as mock_model_class:
             mock_model_class.return_value = mock_supplier
-            
+
             # Execute
             result = service.create_supplier_config(sample_supplier_data, user_id="test-user")
-            
+
             # Verify
             assert result == mock_supplier
             mock_session.add.assert_called_once_with(mock_supplier)
             mock_session.commit.assert_called_once()
             mock_session.refresh.assert_called_once_with(mock_supplier)
-            
+
             # Verify supplier name was normalized to uppercase
             mock_model_class.assert_called_once()
             call_args = mock_model_class.call_args[1]
-            assert call_args['supplier_name'] == 'TESTSUPPLIER'
-    
-    @patch('MakerMatrix.services.system.supplier_config_service.Session')
+            assert call_args["supplier_name"] == "TESTSUPPLIER"
+
+    @patch("MakerMatrix.services.system.supplier_config_service.Session")
     def test_create_supplier_config_duplicate_error(self, mock_session_class, service, sample_supplier_data):
         """Test creating supplier when one already exists raises error"""
         # Setup mocks
@@ -93,17 +90,17 @@ class TestSupplierConfigService:
         exec_result = MagicMock()
         exec_result.first.return_value = existing_supplier
         mock_session.exec.return_value = exec_result
-        
+
         # Execute and verify exception
         with pytest.raises(SupplierConfigAlreadyExistsError) as exc_info:
             service.create_supplier_config(sample_supplier_data, user_id="test-user")
-        
+
         assert "TESTSUPPLIER" in str(exc_info.value)
         assert "Only one configuration per supplier type is allowed" in str(exc_info.value)
         mock_session.add.assert_not_called()
         mock_session.commit.assert_not_called()
-    
-    @patch('MakerMatrix.services.system.supplier_config_service.Session')
+
+    @patch("MakerMatrix.services.system.supplier_config_service.Session")
     def test_create_supplier_config_case_insensitive_duplicate(self, mock_session_class, service):
         """Test that duplicate check is case-insensitive"""
         # Setup mocks
@@ -115,22 +112,22 @@ class TestSupplierConfigService:
         exec_result = MagicMock()
         exec_result.first.return_value = existing_supplier
         mock_session.exec.return_value = exec_result
-        
+
         # Test data with lowercase supplier name
         supplier_data = {
             "supplier_name": "lcsc",  # lowercase
             "display_name": "LCSC Electronics",
-            "base_url": "https://lcsc.com"
+            "base_url": "https://lcsc.com",
         }
-        
+
         # Execute and verify exception
         with pytest.raises(SupplierConfigAlreadyExistsError):
             service.create_supplier_config(supplier_data, user_id="test-user")
-        
+
         # Verify the query used ilike for case-insensitive comparison
         mock_session.exec.assert_called()
-    
-    @patch('MakerMatrix.services.system.supplier_config_service.Session')
+
+    @patch("MakerMatrix.services.system.supplier_config_service.Session")
     def test_delete_supplier_config_success(self, mock_session_class, service):
         """Test successful deletion of supplier configuration"""
         # Setup mocks
@@ -143,15 +140,15 @@ class TestSupplierConfigService:
         exec_result = MagicMock()
         exec_result.first.return_value = mock_supplier
         mock_session.exec.return_value = exec_result
-        
+
         # Execute
         service.delete_supplier_config("TestSupplier")
-        
+
         # Verify
         mock_session.delete.assert_called_once_with(mock_supplier)
         mock_session.commit.assert_called_once()
-    
-    @patch('MakerMatrix.services.system.supplier_config_service.Session')
+
+    @patch("MakerMatrix.services.system.supplier_config_service.Session")
     def test_delete_supplier_config_not_found(self, mock_session_class, service):
         """Test deleting non-existent supplier raises error"""
         # Setup mocks
@@ -160,22 +157,20 @@ class TestSupplierConfigService:
         exec_result = MagicMock()
         exec_result.first.return_value = None  # No supplier found
         mock_session.exec.return_value = exec_result
-        
+
         # Execute and verify exception
         with pytest.raises(ResourceNotFoundError) as exc_info:
             service.delete_supplier_config("NonExistentSupplier")
-        
+
         assert "NonExistentSupplier" in str(exc_info.value)
         mock_session.delete.assert_not_called()
         mock_session.commit.assert_not_called()
-    
-    @pytest.mark.parametrize("supplier_name,expected_normalized", [
-        ("lcsc", "LCSC"),
-        ("DigiKey", "DIGIKEY"),
-        ("MOUSER", "MOUSER"),
-        ("test_supplier", "TEST_SUPPLIER")
-    ])
-    @patch('MakerMatrix.services.system.supplier_config_service.Session')
+
+    @pytest.mark.parametrize(
+        "supplier_name,expected_normalized",
+        [("lcsc", "LCSC"), ("DigiKey", "DIGIKEY"), ("MOUSER", "MOUSER"), ("test_supplier", "TEST_SUPPLIER")],
+    )
+    @patch("MakerMatrix.services.system.supplier_config_service.Session")
     def test_supplier_name_normalization(self, mock_session_class, service, supplier_name, expected_normalized):
         """Test that supplier names are normalized to uppercase"""
         # Setup mocks
@@ -184,25 +179,25 @@ class TestSupplierConfigService:
         exec_result = MagicMock()
         exec_result.first.return_value = None
         mock_session.exec.return_value = exec_result
-        
+
         mock_supplier = MagicMock(spec=SupplierConfigModel)
-        
+
         supplier_data = {
             "supplier_name": supplier_name,
             "display_name": "Test Supplier",
-            "base_url": "https://example.com"
+            "base_url": "https://example.com",
         }
-        
-        with patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigModel') as mock_model_class:
+
+        with patch("MakerMatrix.services.system.supplier_config_service.SupplierConfigModel") as mock_model_class:
             mock_model_class.return_value = mock_supplier
-            
+
             service.create_supplier_config(supplier_data)
-            
+
             # Verify normalized name was used
             call_args = mock_model_class.call_args[1]
-            assert call_args['supplier_name'] == expected_normalized
-    
-    @patch('MakerMatrix.services.system.supplier_config_service.Session')
+            assert call_args["supplier_name"] == expected_normalized
+
+    @patch("MakerMatrix.services.system.supplier_config_service.Session")
     def test_supplier_validation_edge_cases(self, mock_session_class, service):
         """Test validation of edge cases in supplier data"""
         # Setup mocks
@@ -211,23 +206,22 @@ class TestSupplierConfigService:
         exec_result = MagicMock()
         exec_result.first.return_value = None
         mock_session.exec.return_value = exec_result
-        
+
         # Test empty supplier name - should normalize to empty string and succeed in our current implementation
         # (The actual validation happens at the API/Pydantic level, not service level)
-        with patch('MakerMatrix.services.system.supplier_config_service.SupplierConfigModel') as mock_model_class:
+        with patch("MakerMatrix.services.system.supplier_config_service.SupplierConfigModel") as mock_model_class:
             mock_supplier = MagicMock(spec=SupplierConfigModel)
             mock_model_class.return_value = mock_supplier
-            
+
             # This should pass at service level since validation is done at API level
-            result = service.create_supplier_config({
-                "supplier_name": "",
-                "base_url": "https://example.com"
-            })
+            result = service.create_supplier_config({"supplier_name": "", "base_url": "https://example.com"})
             assert result == mock_supplier
-        
+
         # Test missing required fields - should fail due to KeyError for missing base_url
         with pytest.raises(KeyError):  # Missing base_url will cause KeyError
-            service.create_supplier_config({
-                "supplier_name": "TestSupplier"
-                # Missing base_url
-            })
+            service.create_supplier_config(
+                {
+                    "supplier_name": "TestSupplier"
+                    # Missing base_url
+                }
+            )

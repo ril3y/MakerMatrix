@@ -27,14 +27,12 @@ export const extractDomain = (url: string): string | null => {
  */
 export const extractDisplayName = (domain: string): string => {
   // Remove common TLDs and www
-  const name = domain
-    .replace(/^www\./, '')
-    .replace(/\.(com|org|net|io|dev|co|uk|us)$/, '')
+  const name = domain.replace(/^www\./, '').replace(/\.(com|org|net|io|dev|co|uk|us)$/, '')
 
   // Capitalize first letter of each word (handle domains like "github" -> "GitHub")
   return name
     .split(/[.-]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
 
@@ -62,7 +60,7 @@ export const parseUrl = (url: string): { domain: string; displayName: string } |
 
   return {
     domain,
-    displayName: extractDisplayName(domain)
+    displayName: extractDisplayName(domain),
   }
 }
 

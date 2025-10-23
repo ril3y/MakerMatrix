@@ -88,9 +88,7 @@ def test_engine(test_db_path: Path):
     sqlite_url = f"sqlite:///{test_db_path}"
 
     engine = create_engine(
-        sqlite_url,
-        echo=False,  # Set to True for SQL debugging
-        connect_args={"check_same_thread": False}
+        sqlite_url, echo=False, connect_args={"check_same_thread": False}  # Set to True for SQL debugging
     )
 
     # Enable foreign key constraints (important for data integrity tests)
@@ -153,6 +151,7 @@ def cleanup_test_databases(older_than_hours: int = 24):
         return
 
     from datetime import timedelta
+
     cutoff_time = datetime.now() - timedelta(hours=older_than_hours)
 
     for db_file in TEST_DB_DIR.glob("test_backup_*.db"):

@@ -23,7 +23,7 @@ class TestModularSupplierDetection:
         supplier = McMasterCarrSupplier()
 
         # Check that the method exists
-        assert hasattr(supplier, 'get_url_patterns')
+        assert hasattr(supplier, "get_url_patterns")
 
         # Get the patterns
         patterns = supplier.get_url_patterns()
@@ -70,37 +70,31 @@ class TestModularSupplierDetection:
             url_lower = url.lower().strip()
 
             # Check all registered suppliers
-            for supplier_name in ['mcmaster-carr']:  # Simplified for test
+            for supplier_name in ["mcmaster-carr"]:  # Simplified for test
                 supplier = SupplierRegistry.get_supplier(supplier_name)
                 info = supplier.get_supplier_info()
 
                 # Check if supplier has URL detection patterns
-                if hasattr(supplier, 'get_url_patterns'):
+                if hasattr(supplier, "get_url_patterns"):
                     patterns = supplier.get_url_patterns()
                     for pattern in patterns:
                         if re.search(pattern, url, re.IGNORECASE):
                             # Found a match with URL pattern
-                            return {
-                                "supplier_name": supplier_name,
-                                "display_name": info.name,
-                                "confidence": 1.0
-                            }
+                            return {"supplier_name": supplier_name, "display_name": info.name, "confidence": 1.0}
 
                 # Fallback to domain matching
                 if info.website_url:
                     from urllib.parse import urlparse
 
                     website_domain = urlparse(info.website_url).netloc.lower()
-                    url_domain = urlparse(url_lower if url_lower.startswith('http') else f'https://{url_lower}').netloc.lower()
+                    url_domain = urlparse(
+                        url_lower if url_lower.startswith("http") else f"https://{url_lower}"
+                    ).netloc.lower()
 
                     if website_domain and url_domain:
                         # Check for domain match
-                        if website_domain == url_domain or url_domain.endswith(f'.{website_domain}'):
-                            return {
-                                "supplier_name": supplier_name,
-                                "display_name": info.name,
-                                "confidence": 0.8
-                            }
+                        if website_domain == url_domain or url_domain.endswith(f".{website_domain}"):
+                            return {"supplier_name": supplier_name, "display_name": info.name, "confidence": 0.8}
 
             return None
 
@@ -127,7 +121,7 @@ class TestModularSupplierDetection:
             url_lower = url.lower().strip()
 
             # Get all suppliers from registry
-            suppliers_to_check = ['mcmaster-carr']  # Simplified for test
+            suppliers_to_check = ["mcmaster-carr"]  # Simplified for test
 
             for supplier_name in suppliers_to_check:
                 try:
@@ -135,7 +129,7 @@ class TestModularSupplierDetection:
                     info = supplier.get_supplier_info()
 
                     # Check URL patterns if available
-                    if hasattr(supplier, 'get_url_patterns'):
+                    if hasattr(supplier, "get_url_patterns"):
                         patterns = supplier.get_url_patterns()
                         for pattern in patterns:
                             if re.search(pattern, url, re.IGNORECASE):
@@ -144,18 +138,15 @@ class TestModularSupplierDetection:
                                     "data": {
                                         "supplier_name": supplier_name,
                                         "display_name": info.name,
-                                        "confidence": 1.0
-                                    }
+                                        "confidence": 1.0,
+                                    },
                                 }
                 except Exception as e:
                     print(f"Error checking supplier {supplier_name}: {e}")
                     continue
 
             # No match found
-            return {
-                "status": "success",
-                "data": None
-            }
+            return {"status": "success", "data": None}
 
         # Test with McMaster URL
         result = await detect_from_url("https://www.mcmaster.com/91253A194/")
@@ -174,16 +165,10 @@ class TestModularSupplierDetection:
         # Mock a new supplier with different patterns
         class CustomSupplier:
             def get_supplier_info(self):
-                return Mock(
-                    name="Custom Supplier",
-                    website_url="https://custom.com"
-                )
+                return Mock(name="Custom Supplier", website_url="https://custom.com")
 
             def get_url_patterns(self):
-                return [
-                    r'custom\.com/parts/',
-                    r'customsupplier\.io'
-                ]
+                return [r"custom\.com/parts/", r"customsupplier\.io"]
 
         # Test that custom patterns work
         supplier = CustomSupplier()
@@ -219,7 +204,7 @@ class TestIntegrationWithRegistry:
         assert isinstance(supplier, McMasterCarrSupplier)
 
         # Check it has URL patterns
-        assert hasattr(supplier, 'get_url_patterns')
+        assert hasattr(supplier, "get_url_patterns")
         patterns = supplier.get_url_patterns()
         assert len(patterns) > 0
 
@@ -235,7 +220,7 @@ class TestIntegrationWithRegistry:
         for supplier_name in all_suppliers:
             supplier = SupplierRegistry.get_supplier(supplier_name)
             # Check if supplier has the optional get_url_patterns method
-            if hasattr(supplier, 'get_url_patterns'):
+            if hasattr(supplier, "get_url_patterns"):
                 patterns = supplier.get_url_patterns()
                 assert isinstance(patterns, list)
 

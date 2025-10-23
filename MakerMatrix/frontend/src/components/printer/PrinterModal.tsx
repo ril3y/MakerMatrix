@@ -279,7 +279,10 @@ const PrinterModal = ({
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
     } catch (error) {
-      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
+      const err = error as {
+        response?: { data?: { message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       console.error('Preview error:', error)
 
       // Extract user-friendly error message
@@ -389,7 +392,10 @@ const PrinterModal = ({
         toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
       }
     } catch (error) {
-      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
+      const err = error as {
+        response?: { data?: { message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       console.error('Print error:', error)
 
       // Extract user-friendly error message
@@ -512,7 +518,10 @@ const PrinterModal = ({
         await reloadTemplatesRef.current()
       }
     } catch (error) {
-      const err = error as { response?: { data?: { message?: string; detail?: string }; status?: number }; message?: string }
+      const err = error as {
+        response?: { data?: { message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       console.error('Failed to save template:', error)
       toast.error(error.message || 'Failed to save template')
     }
@@ -721,9 +730,7 @@ const PrinterModal = ({
 
               {/* Font Size Override - Advanced Option */}
               <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  Font Size
-                </label>
+                <label className="block text-sm font-medium text-primary mb-2">Font Size</label>
                 <CustomSelect
                   options={[
                     { value: 'auto', label: 'Auto (Smart Sizing)' },

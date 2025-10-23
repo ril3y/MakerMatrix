@@ -27,6 +27,7 @@ def hash_api_key(api_key: str) -> str:
 
 class APIKeyModel(SQLModel, table=True):
     """Model for API key authentication"""
+
     __tablename__ = "api_keys"
 
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -54,7 +55,9 @@ class APIKeyModel(SQLModel, table=True):
     usage_count: int = Field(default=0, description="Number of times key has been used")
 
     # IP restrictions (optional)
-    allowed_ips: Optional[List[str]] = Field(default=None, sa_column=Column(JSON), description="IP whitelist (None = all)")
+    allowed_ips: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON), description="IP whitelist (None = all)"
+    )
 
     # Relationships
     user: Optional["UserModel"] = Relationship(back_populates="api_keys")
@@ -99,7 +102,7 @@ class APIKeyModel(SQLModel, table=True):
             "usage_count": self.usage_count,
             "allowed_ips": self.allowed_ips or [],
             "is_expired": self.is_expired(),
-            "is_valid": self.is_valid()
+            "is_valid": self.is_valid(),
         }
         return data
 
@@ -107,6 +110,7 @@ class APIKeyModel(SQLModel, table=True):
 # Request/Response schemas
 class APIKeyCreate(SQLModel):
     """Schema for creating a new API key"""
+
     name: str = Field(description="Name for the API key")
     description: Optional[str] = None
     role_names: List[str] = Field(default_factory=list, description="Roles to assign to this key")
@@ -117,6 +121,7 @@ class APIKeyCreate(SQLModel):
 
 class APIKeyUpdate(SQLModel):
     """Schema for updating an API key"""
+
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
@@ -128,6 +133,7 @@ class APIKeyUpdate(SQLModel):
 
 class APIKeyResponse(SQLModel):
     """Schema for API key responses"""
+
     id: str
     name: str
     description: Optional[str]
@@ -147,6 +153,7 @@ class APIKeyResponse(SQLModel):
 
 class APIKeyCreateResponse(APIKeyResponse):
     """Response when creating a new API key - includes the actual key"""
+
     api_key: str = Field(description="The actual API key - save this, it won't be shown again!")
 
 

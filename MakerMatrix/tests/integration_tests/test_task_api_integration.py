@@ -57,57 +57,43 @@ def auth_token(test_user):
 
 def test_part_enrichment_api_endpoint(auth_token):
     """Test that the part enrichment API endpoint works"""
-    
+
     # Create a test part first
     with Session(engine) as session:
-        test_part = PartModel(
-            part_name="API Test Resistor",
-            part_number="RES-API-TEST",
-            part_vendor="LCSC"
-        )
+        test_part = PartModel(part_name="API Test Resistor", part_number="RES-API-TEST", part_vendor="LCSC")
         session.add(test_part)
         session.commit()
         session.refresh(test_part)
         test_part_id = test_part.id
-    
+
     try:
         headers = {"Authorization": f"Bearer {auth_token}"}
-        
+
         # Test part enrichment task creation
-        enrichment_data = {
-            "part_id": test_part_id,
-            "supplier": "LCSC"
-        }
-        
-        response = client.post(
-            "/api/tasks/quick/part_enrichment",
-            json=enrichment_data,
-            headers=headers
-        )
-        
+        enrichment_data = {"part_id": test_part_id, "supplier": "LCSC"}
+
+        response = client.post("/api/tasks/quick/part_enrichment", json=enrichment_data, headers=headers)
+
         assert response.status_code == 200
         result = response.json()
         assert result["status"] == "success"
         assert "data" in result
         assert result["data"]["task_type"] == "part_enrichment"
-        
+
         task_id = result["data"]["id"]
-        
+
         # Check task status
-        task_response = client.get(
-            f"/api/tasks/{task_id}",
-            headers=headers
-        )
-        
+        task_response = client.get(f"/api/tasks/{task_id}", headers=headers)
+
         assert task_response.status_code == 200
         task_data = task_response.json()
         assert task_data["status"] == "success"
         assert task_data["data"]["id"] == task_id
-        
+
         # Task should be created successfully
         task_status = task_data["data"]["status"]
         assert task_status in ["pending", "running", "completed"]
-        
+
     finally:
         # Clean up test part
         with Session(engine) as session:
@@ -119,17 +105,17 @@ def test_part_enrichment_api_endpoint(auth_token):
 
 def test_task_stats_endpoint(auth_token):
     """Test that task stats endpoint works"""
-    
+
     headers = {"Authorization": f"Bearer {auth_token}"}
-    
+
     # Get task stats
     response = client.get("/api/tasks/stats/summary", headers=headers)
-    
+
     assert response.status_code == 200
     result = response.json()
     assert result["status"] == "success"
     assert "data" in result
-    
+
     stats = result["data"]
     assert "total_tasks" in stats
     assert "by_status" in stats
@@ -140,17 +126,17 @@ def test_task_stats_endpoint(auth_token):
 
 def test_worker_status_endpoint(auth_token):
     """Test that worker status endpoint works"""
-    
+
     headers = {"Authorization": f"Bearer {auth_token}"}
-    
+
     # Get worker status
     response = client.get("/api/tasks/worker/status", headers=headers)
-    
+
     assert response.status_code == 200
     result = response.json()
     assert result["status"] == "success"
     assert "data" in result
-    
+
     worker_data = result["data"]
     assert "is_running" in worker_data
     assert "running_tasks_count" in worker_data
@@ -162,20 +148,20 @@ def test_worker_status_endpoint(auth_token):
 
 def test_task_types_endpoint(auth_token):
     """Test that available task types endpoint works"""
-    
+
     headers = {"Authorization": f"Bearer {auth_token}"}
-    
+
     # Get available task types
     response = client.get("/api/tasks/types/available", headers=headers)
-    
+
     assert response.status_code == 200
     result = response.json()
     assert result["status"] == "success"
     assert "data" in result
-    
+
     task_types = result["data"]
     assert isinstance(task_types, list)
-    
+
     # Should include our part enrichment task
     task_type_names = [task["type"] for task in task_types]
     assert "part_enrichment" in task_type_names
@@ -184,50 +170,50 @@ def test_task_types_endpoint(auth_token):
 def test_get_tasks_endpoint(auth_token):
     """Test the main GET /api/tasks endpoint that was returning 404"""
     headers = {"Authorization": f"Bearer {auth_token}"}
-    
+
     # Test the main tasks endpoint that was showing 404 in logs
     response = client.get("/api/tasks", headers=headers, allow_redirects=True)
-    
+
     print(f"Response status: {response.status_code}")
     print(f"Response URL: {response.url}")
-    
+
     # Should work now with our redirect fix
     assert response.status_code == 200
-    
+
     data = response.json()
     assert data["status"] == "success"
     assert "data" in data
     assert isinstance(data["data"], list)
-    
+
     # Should have pagination info
     assert "total" in data
     assert "limit" in data
     assert "offset" in data
-    
+
     print(f"GET /api/tasks working correctly: {len(data['data'])} tasks returned")
 
 
 def test_get_tasks_with_filters(auth_token):
     """Test the tasks endpoint with various query parameters"""
     headers = {"Authorization": f"Bearer {auth_token}"}
-    
+
     # Test with various query parameters that might be used by frontend
     test_params = [
         {"limit": 10},
         {"offset": 0},
         {"order_by": "created_at"},
         {"order_desc": True},
-        {"limit": 5, "offset": 0}
+        {"limit": 5, "offset": 0},
     ]
-    
+
     for params in test_params:
         response = client.get("/api/tasks", headers=headers, params=params)
         assert response.status_code == 200, f"Failed with params: {params}"
-        
+
         data = response.json()
         assert data["status"] == "success"
         assert "data" in data
-        
+
     print("All task filter variations working correctly")
 
 

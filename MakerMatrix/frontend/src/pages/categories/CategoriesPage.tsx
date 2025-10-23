@@ -62,7 +62,10 @@ const CategoriesPage = () => {
       await categoriesService.deleteCategory({ id: category.id.toString() })
       loadCategories()
     } catch (err) {
-      const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
+      const error = err as {
+        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
+        message?: string
+      }
       alert(error.response?.data?.error || 'Failed to delete category')
     }
   }
@@ -235,10 +238,18 @@ const CategoriesPage = () => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
                 <tr>
-                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Name</th>
-                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Description</th>
-                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Parts Count</th>
-                  <th className="text-right px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Actions</th>
+                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">
+                    Parts Count
+                  </th>
+                  <th className="text-right px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-theme-elevated/50">

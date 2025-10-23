@@ -13,7 +13,8 @@ from sqlmodel import Session, select
 # Import test fixtures and utilities
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from MakerMatrix.main import app
 from MakerMatrix.models.part_models import PartModel
@@ -37,9 +38,7 @@ class TestPartEmojiPersistence:
         # Clean up before test
         with Session(engine) as session:
             # Delete all test parts
-            test_parts = session.exec(
-                select(PartModel).where(PartModel.part_number.like("TEST_EMOJI_%"))
-            ).all()
+            test_parts = session.exec(select(PartModel).where(PartModel.part_number.like("TEST_EMOJI_%"))).all()
             for part in test_parts:
                 session.delete(part)
             session.commit()
@@ -49,9 +48,7 @@ class TestPartEmojiPersistence:
         # Clean up after test
         with Session(engine) as session:
             # Delete test parts
-            test_parts = session.exec(
-                select(PartModel).where(PartModel.part_number.like("TEST_EMOJI_%"))
-            ).all()
+            test_parts = session.exec(select(PartModel).where(PartModel.part_number.like("TEST_EMOJI_%"))).all()
             for part in test_parts:
                 session.delete(part)
             session.commit()
@@ -67,17 +64,16 @@ class TestPartEmojiPersistence:
                     "part_name": "Test Resistor with Emoji",
                     "description": "Test part with emoji",
                     "emoji": "⚡",
-                    "quantity": 100
+                    "quantity": 100,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_data = part_response.json()
             part_id = part_data["data"]["id"]
             created_emoji = part_data["data"]["emoji"]
 
-            assert created_emoji == "⚡", \
-                f"Emoji was not saved on creation! Expected '⚡', got '{created_emoji}'"
+            assert created_emoji == "⚡", f"Emoji was not saved on creation! Expected '⚡', got '{created_emoji}'"
 
             print(f"✓ Part created with emoji: {created_emoji}")
 
@@ -85,8 +81,7 @@ class TestPartEmojiPersistence:
             with Session(engine) as session:
                 part_from_db = session.get(PartModel, part_id)
                 assert part_from_db is not None
-                assert part_from_db.emoji == "⚡", \
-                    f"Emoji not in database! Expected '⚡', got '{part_from_db.emoji}'"
+                assert part_from_db.emoji == "⚡", f"Emoji not in database! Expected '⚡', got '{part_from_db.emoji}'"
 
             print("✓ Emoji persisted to database")
 
@@ -101,9 +96,9 @@ class TestPartEmojiPersistence:
                     "part_name": "Test Capacitor",
                     "description": "Test capacitor with emoji",
                     "emoji": "🔋",
-                    "quantity": 50
+                    "quantity": 50,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_id = part_response.json()["data"]["id"]
@@ -116,15 +111,16 @@ class TestPartEmojiPersistence:
             update_response = client.put(
                 f"/api/parts/update_part/{part_id}",
                 json={"description": "Updated description without emoji change"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert update_response.status_code == 200
             updated_data = update_response.json()
 
             # Step 3: Verify the emoji is still present
             assert updated_data["data"]["description"] == "Updated description without emoji change"
-            assert updated_data["data"]["emoji"] == original_emoji, \
-                f"Emoji was lost! Expected '{original_emoji}', got '{updated_data['data'].get('emoji')}'"
+            assert (
+                updated_data["data"]["emoji"] == original_emoji
+            ), f"Emoji was lost! Expected '{original_emoji}', got '{updated_data['data'].get('emoji')}'"
 
             print(f"✓ Emoji preserved after description update: {updated_data['data']['emoji']}")
 
@@ -139,25 +135,24 @@ class TestPartEmojiPersistence:
                     "part_name": "Test LED",
                     "description": "Test LED part",
                     "emoji": "💡",
-                    "quantity": 25
+                    "quantity": 25,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_id = part_response.json()["data"]["id"]
 
             # Step 2: Change the emoji
             update_response = client.put(
-                f"/api/parts/update_part/{part_id}",
-                json={"emoji": "🌟"},
-                headers=auth_headers
+                f"/api/parts/update_part/{part_id}", json={"emoji": "🌟"}, headers=auth_headers
             )
             assert update_response.status_code == 200
             updated_data = update_response.json()
 
             # Step 3: Verify the emoji was changed
-            assert updated_data["data"]["emoji"] == "🌟", \
-                f"Emoji was not updated! Expected '🌟', got '{updated_data['data'].get('emoji')}'"
+            assert (
+                updated_data["data"]["emoji"] == "🌟"
+            ), f"Emoji was not updated! Expected '🌟', got '{updated_data['data'].get('emoji')}'"
 
             print("✓ Emoji successfully changed from 💡 to 🌟")
 
@@ -172,25 +167,22 @@ class TestPartEmojiPersistence:
                     "part_name": "Test Diode",
                     "description": "Test diode part",
                     "emoji": "➡️",
-                    "quantity": 75
+                    "quantity": 75,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_id = part_response.json()["data"]["id"]
 
             # Step 2: Explicitly clear the emoji by setting it to null
             update_response = client.put(
-                f"/api/parts/update_part/{part_id}",
-                json={"emoji": None},
-                headers=auth_headers
+                f"/api/parts/update_part/{part_id}", json={"emoji": None}, headers=auth_headers
             )
             assert update_response.status_code == 200
             updated_data = update_response.json()
 
             # Step 3: Verify the emoji was cleared
-            assert updated_data["data"]["emoji"] is None, \
-                "Emoji should be cleared when explicitly set to None"
+            assert updated_data["data"]["emoji"] is None, "Emoji should be cleared when explicitly set to None"
 
             print("✓ Emoji successfully cleared when explicitly set to None")
 
@@ -204,16 +196,17 @@ class TestPartEmojiPersistence:
                     "part_number": "TEST_EMOJI_005",
                     "part_name": "Test IC",
                     "description": "Test IC without emoji",
-                    "quantity": 30
+                    "quantity": 30,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_data = part_response.json()
 
             # Emoji should be None when not provided
-            assert part_data["data"]["emoji"] is None, \
-                f"Emoji should be None when not provided, got '{part_data['data'].get('emoji')}'"
+            assert (
+                part_data["data"]["emoji"] is None
+            ), f"Emoji should be None when not provided, got '{part_data['data'].get('emoji')}'"
 
             print("✓ Part created successfully without emoji (emoji = None)")
 
@@ -228,9 +221,9 @@ class TestPartEmojiPersistence:
                     "part_name": "Test Transistor",
                     "description": "DB test part",
                     "emoji": "🔌",
-                    "quantity": 200
+                    "quantity": 200,
                 },
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert part_response.status_code == 200
             part_id = part_response.json()["data"]["id"]
@@ -243,9 +236,7 @@ class TestPartEmojiPersistence:
 
             # Step 3: Update part name via API
             update_response = client.put(
-                f"/api/parts/update_part/{part_id}",
-                json={"part_name": "Updated Transistor Name"},
-                headers=auth_headers
+                f"/api/parts/update_part/{part_id}", json={"part_name": "Updated Transistor Name"}, headers=auth_headers
             )
             assert update_response.status_code == 200
 
@@ -253,8 +244,7 @@ class TestPartEmojiPersistence:
             with Session(engine) as session:
                 part_after = session.get(PartModel, part_id)
                 assert part_after.part_name == "Updated Transistor Name"
-                assert part_after.emoji == "🔌", \
-                    f"Emoji was lost in database! Expected '🔌', got '{part_after.emoji}'"
+                assert part_after.emoji == "🔌", f"Emoji was lost in database! Expected '🔌', got '{part_after.emoji}'"
 
             print("✓ Database-level verification passed: emoji preserved")
 

@@ -16,14 +16,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.database.db import get_session
 
+
 def main():
     import uuid
+
     test_id = str(uuid.uuid4())[:8]  # Use unique ID for test runs
 
-    print("="*70)
+    print("=" * 70)
     print("Testing Duplicate Slot Names Across Containers")
     print(f"Test Run ID: {test_id}")
-    print("="*70)
+    print("=" * 70)
 
     service = LocationService()
 
@@ -37,14 +39,14 @@ def main():
         "slot_naming_pattern": "R{row}-C{col}",
         "slot_layout_type": "grid",
         "grid_rows": 2,
-        "grid_columns": 2
+        "grid_columns": 2,
     }
 
     result_a = service.create_container_with_slots(container_a_data)
 
     if result_a.success:
-        container_a = result_a.data['container']
-        slots_created_a = result_a.data['slots_created']
+        container_a = result_a.data["container"]
+        slots_created_a = result_a.data["slots_created"]
         print(f"   ✓ Container A created: {container_a['id']}")
         print(f"   ✓ Slots created: {slots_created_a}")
     else:
@@ -63,14 +65,14 @@ def main():
         "slot_naming_pattern": "R{row}-C{col}",  # Same pattern!
         "slot_layout_type": "grid",
         "grid_rows": 2,
-        "grid_columns": 2
+        "grid_columns": 2,
     }
 
     result_b = service.create_container_with_slots(container_b_data)
 
     if result_b.success:
-        container_b = result_b.data['container']
-        slots_created_b = result_b.data['slots_created']
+        container_b = result_b.data["container"]
+        slots_created_b = result_b.data["slots_created"]
         print(f"   ✓ Container B created: {container_b['id']}")
         print(f"   ✓ Slots created: {slots_created_b}")
         print("\n   SUCCESS! Duplicate slot names allowed across containers!")
@@ -88,8 +90,7 @@ def main():
 
         # Get all slots for Container A
         query_a = select(LocationModel).where(
-            LocationModel.parent_id == container_a['id'],
-            LocationModel.is_auto_generated_slot == True
+            LocationModel.parent_id == container_a["id"], LocationModel.is_auto_generated_slot == True
         )
         slots_a = session.exec(query_a).all()
 
@@ -99,8 +100,7 @@ def main():
 
         # Get all slots for Container B
         query_b = select(LocationModel).where(
-            LocationModel.parent_id == container_b['id'],
-            LocationModel.is_auto_generated_slot == True
+            LocationModel.parent_id == container_b["id"], LocationModel.is_auto_generated_slot == True
         )
         slots_b = session.exec(query_b).all()
 
@@ -114,7 +114,7 @@ def main():
     regular_loc_1 = {
         "name": f"Test-Regular-Location-{test_id}",
         "description": "First regular location",
-        "location_type": "standard"
+        "location_type": "standard",
     }
 
     result_reg_1 = service.add_location(regular_loc_1)
@@ -129,7 +129,7 @@ def main():
     regular_loc_2 = {
         "name": f"Test-Regular-Location-{test_id}",  # Same name, no parent
         "description": "Duplicate regular location (should fail)",
-        "location_type": "standard"
+        "location_type": "standard",
     }
 
     result_reg_2 = service.add_location(regular_loc_2)
@@ -144,16 +144,16 @@ def main():
     # Cleanup
     print("\n5. Cleaning up test data...")
     try:
-        service.delete_location(container_a['id'])
-        service.delete_location(container_b['id'])
-        service.delete_location(result_reg_1.data['id'])
+        service.delete_location(container_a["id"])
+        service.delete_location(container_b["id"])
+        service.delete_location(result_reg_1.data["id"])
         print("   ✓ Test locations cleaned up")
     except Exception as e:
         print(f"   Warning: Cleanup error: {e}")
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("ALL TESTS PASSED!")
-    print("="*70)
+    print("=" * 70)
     print("\n✓ Duplicate slot names work across containers")
     print("✓ Regular location uniqueness still enforced")
     print("✓ Schema migration successful")
@@ -161,7 +161,7 @@ def main():
     return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         # Wait a moment for backend to be ready
         print("Waiting 3 seconds for backend to be ready...")
@@ -172,5 +172,6 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"\n✗ Test failed with exception: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

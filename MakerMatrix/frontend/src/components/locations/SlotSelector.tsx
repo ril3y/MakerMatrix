@@ -41,7 +41,9 @@ export function SlotSelector({
     setLoading(true)
     setError(null)
     try {
-      const data = await locationsService.getContainerSlots(container.id, { include_occupancy: true })
+      const data = await locationsService.getContainerSlots(container.id, {
+        include_occupancy: true,
+      })
       setSlots(data)
     } catch (err) {
       console.error('Failed to load slots:', err)
@@ -188,21 +190,12 @@ export function SlotSelector({
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Select Slot in ${container.name}`}
-      size="xl"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={`Select Slot in ${container.name}`} size="xl">
       <div className="space-y-4">
         {/* Header Info */}
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2 text-sm text-secondary">
-            {isGridLayout ? (
-              <Grid3x3 className="w-4 h-4" />
-            ) : (
-              <List className="w-4 h-4" />
-            )}
+            {isGridLayout ? <Grid3x3 className="w-4 h-4" /> : <List className="w-4 h-4" />}
             <span>
               {filteredSlots.length} of {slots.length} slots
             </span>

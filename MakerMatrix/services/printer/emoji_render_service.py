@@ -21,10 +21,7 @@ class EmojiRenderService:
 
     @staticmethod
     def render_emoji(
-        emoji_char: str,
-        size_px: int = 100,
-        background_color: str = "white",
-        convert_shortcode: bool = True
+        emoji_char: str, size_px: int = 100, background_color: str = "white", convert_shortcode: bool = True
     ) -> Image.Image:
         """
         Render an emoji character as a PIL Image using Twemoji SVG assets.
@@ -47,8 +44,8 @@ class EmojiRenderService:
             raise ValueError("Emoji character cannot be empty")
 
         # Convert shortcode to Unicode if needed
-        if convert_shortcode and emoji_char.startswith(':') and emoji_char.endswith(':'):
-            emoji_char = emoji_lib.emojize(emoji_char, language='alias')
+        if convert_shortcode and emoji_char.startswith(":") and emoji_char.endswith(":"):
+            emoji_char = emoji_lib.emojize(emoji_char, language="alias")
 
         # Try to fetch emoji from Twemoji CDN
         try:
@@ -56,7 +53,7 @@ class EmojiRenderService:
             from io import BytesIO
 
             # Get Unicode codepoint in hex format
-            codepoint = '-'.join(f'{ord(c):x}' for c in emoji_char)
+            codepoint = "-".join(f"{ord(c):x}" for c in emoji_char)
             twemoji_url = f"https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/{codepoint}.png"
 
             print(f"[DEBUG] EmojiRenderService: Fetching Twemoji for '{emoji_char}' from {twemoji_url}")
@@ -70,19 +67,20 @@ class EmojiRenderService:
                 emoji_img = emoji_img.resize((size_px, size_px), Image.Resampling.LANCZOS)
 
                 # Convert to RGBA to preserve transparency
-                if emoji_img.mode != 'RGBA':
-                    emoji_img = emoji_img.convert('RGBA')
+                if emoji_img.mode != "RGBA":
+                    emoji_img = emoji_img.convert("RGBA")
 
                 # Extract the alpha channel (transparency)
                 r, g, b, alpha = emoji_img.split()
 
                 # Convert RGB to grayscale
-                gray = emoji_img.convert('L')
+                gray = emoji_img.convert("L")
 
                 # Apply contrast enhancement to make light grays darker
                 # This prevents light areas from appearing white on thermal printers
                 # Thermal printers use threshold ~70/255, so we need to push grays below this
                 from PIL import ImageEnhance
+
                 enhancer = ImageEnhance.Contrast(gray)
                 gray = enhancer.enhance(1.5)  # Increase contrast by 50%
 
@@ -91,10 +89,10 @@ class EmojiRenderService:
                 gray = brightness.enhance(0.6)  # Darken by 40% (pushes light grays below printer threshold)
 
                 # Create a new RGBA image with adjusted grayscale + original alpha
-                bw_emoji = Image.merge('RGBA', (gray, gray, gray, alpha))
+                bw_emoji = Image.merge("RGBA", (gray, gray, gray, alpha))
 
                 # Create white background
-                bg = Image.new('RGB', (size_px, size_px), background_color)
+                bg = Image.new("RGB", (size_px, size_px), background_color)
 
                 # Paste the B&W emoji with transparency
                 bg.paste(bw_emoji, (0, 0), bw_emoji)
@@ -102,20 +100,22 @@ class EmojiRenderService:
                 print(f"[DEBUG] EmojiRenderService: Successfully loaded Twemoji (B&W, enhanced) for '{emoji_char}'")
                 return bg
             else:
-                print(f"[WARN] EmojiRenderService: Twemoji not found (HTTP {response.status_code}), falling back to text rendering")
+                print(
+                    f"[WARN] EmojiRenderService: Twemoji not found (HTTP {response.status_code}), falling back to text rendering"
+                )
         except Exception as e:
             print(f"[WARN] EmojiRenderService: Failed to fetch Twemoji: {e}, falling back to text rendering")
 
         # Fallback: render as text with border (original behavior)
-        img = Image.new('RGB', (size_px, size_px), 'white')
+        img = Image.new("RGB", (size_px, size_px), "white")
         draw = ImageDraw.Draw(img)
 
         # Draw a simple bordered box to make it visible
         border_width = max(2, size_px // 20)
         draw.rectangle(
             [border_width, border_width, size_px - border_width, size_px - border_width],
-            outline='black',
-            width=border_width
+            outline="black",
+            width=border_width,
         )
 
         # Try to render the emoji with available fonts
@@ -148,11 +148,11 @@ class EmojiRenderService:
             text_height = bbox[3] - bbox[1]
             x = (size_px - text_width) // 2
             y = (size_px - text_height) // 2
-            draw.text((x, y), emoji_char, font=font, fill='black')
+            draw.text((x, y), emoji_char, font=font, fill="black")
             print(f"[DEBUG] EmojiRenderService: Rendered emoji '{emoji_char}' as text fallback")
         except Exception as e:
             print(f"[ERROR] EmojiRenderService: Failed to render emoji: {e}")
-            draw.text((size_px // 4, size_px // 3), emoji_char, font=font, fill='black')
+            draw.text((size_px // 4, size_px // 3), emoji_char, font=font, fill="black")
 
         return img
 
@@ -162,7 +162,7 @@ class EmojiRenderService:
         max_width: int,
         max_height: int,
         background_color: str = "white",
-        convert_shortcode: bool = True
+        convert_shortcode: bool = True,
     ) -> Image.Image:
         """
         Render an emoji with automatic sizing to fit within specified dimensions.
@@ -183,10 +183,7 @@ class EmojiRenderService:
         # Use the smaller dimension to ensure the emoji fits
         size = min(max_width, max_height)
         return EmojiRenderService.render_emoji(
-            emoji_char,
-            size_px=size,
-            background_color=background_color,
-            convert_shortcode=convert_shortcode
+            emoji_char, size_px=size, background_color=background_color, convert_shortcode=convert_shortcode
         )
 
     @staticmethod
@@ -208,7 +205,7 @@ class EmojiRenderService:
             return emoji_lib.is_emoji(text) or bool(emoji_lib.emoji_count(text))
         except:
             # Fallback: check for emoji shortcodes
-            if text.startswith(':') and text.endswith(':'):
+            if text.startswith(":") and text.endswith(":"):
                 return True
             return False
 
@@ -228,8 +225,8 @@ class EmojiRenderService:
             return False, "Emoji character cannot be empty"
 
         # Check if it's a valid shortcode
-        if emoji_char.startswith(':') and emoji_char.endswith(':'):
-            converted = emoji_lib.emojize(emoji_char, language='alias')
+        if emoji_char.startswith(":") and emoji_char.endswith(":"):
+            converted = emoji_lib.emojize(emoji_char, language="alias")
             if converted == emoji_char:
                 return False, f"Invalid emoji shortcode: {emoji_char}"
             return True, None

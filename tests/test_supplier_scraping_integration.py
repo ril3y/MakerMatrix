@@ -30,19 +30,19 @@ class TestMcMasterScrapingIntegration:
         config = supplier.get_scraping_config()
 
         # Check required config keys
-        assert 'requires_js' in config
-        assert config['requires_js'] is True  # McMaster uses React
+        assert "requires_js" in config
+        assert config["requires_js"] is True  # McMaster uses React
 
-        assert 'rate_limit_seconds' in config
-        assert config['rate_limit_seconds'] == 2
+        assert "rate_limit_seconds" in config
+        assert config["rate_limit_seconds"] == 2
 
-        assert 'selectors' in config
-        selectors = config['selectors']
+        assert "selectors" in config
+        selectors = config["selectors"]
 
         # Check key selectors are defined (based on actual implementation)
-        assert 'heading' in selectors
-        assert 'price' in selectors
-        assert 'spec_table' in selectors
+        assert "heading" in selectors
+        assert "price" in selectors
+        assert "spec_table" in selectors
 
     @pytest.mark.asyncio
     @pytest.mark.slow
@@ -101,7 +101,7 @@ class TestMcMasterScrapingIntegration:
         """
         supplier = McMasterCarrSupplier()
         config = supplier.get_scraping_config()
-        selectors = config['selectors']
+        selectors = config["selectors"]
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -116,12 +116,14 @@ class TestMcMasterScrapingIntegration:
                     # This helps us detect when McMaster's site changes
 
                     # Check if it's still a React app (we expect client-side rendering)
-                    assert 'react' in html.lower() or '__NEXT_DATA__' in html, \
-                        "McMaster may have changed from React - update 'requires_js' config"
+                    assert (
+                        "react" in html.lower() or "__NEXT_DATA__" in html
+                    ), "McMaster may have changed from React - update 'requires_js' config"
 
                     # Verify page has product data structure
-                    assert 'product' in html.lower() or 'part' in html.lower(), \
-                        "Product data structure not found - site may have changed"
+                    assert (
+                        "product" in html.lower() or "part" in html.lower()
+                    ), "Product data structure not found - site may have changed"
 
                     print(f"\n✓ McMaster HTML structure validation passed")
                     print(f"  Page size: {len(html)} bytes")
@@ -141,7 +143,7 @@ class TestMcMasterScrapingIntegration:
         # Verify that scraping mode is available
         config = supplier.get_scraping_config()
         assert config is not None
-        assert 'selectors' in config
+        assert "selectors" in config
 
 
 class TestAPIEndpointIntegration:
@@ -168,14 +170,12 @@ class TestAPIEndpointIntegration:
         config = supplier.get_scraping_config()
 
         # Validate selector configuration (based on actual implementation)
-        required_selectors = ['heading', 'price', 'spec_table']
-        selectors = config.get('selectors', {})
+        required_selectors = ["heading", "price", "spec_table"]
+        selectors = config.get("selectors", {})
 
         for selector_key in required_selectors:
-            assert selector_key in selectors, \
-                f"Missing required selector: {selector_key}"
-            assert selectors[selector_key], \
-                f"Selector {selector_key} is empty"
+            assert selector_key in selectors, f"Missing required selector: {selector_key}"
+            assert selectors[selector_key], f"Selector {selector_key} is empty"
 
         print(f"\n✓ All {len(required_selectors)} required selectors configured")
 

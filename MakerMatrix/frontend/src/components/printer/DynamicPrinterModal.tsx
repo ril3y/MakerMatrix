@@ -20,10 +20,13 @@ interface DriverInfo {
   name: string
   driver_type: string
   custom_fields: Record<string, CustomFieldConfig>
-  backend_options?: Record<string, {
-    additional_fields?: string[]
-    [key: string]: unknown
-  }>
+  backend_options?: Record<
+    string,
+    {
+      additional_fields?: string[]
+      [key: string]: unknown
+    }
+  >
 }
 
 interface DiscoveredPrinter {

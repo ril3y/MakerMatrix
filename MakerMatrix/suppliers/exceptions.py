@@ -15,17 +15,17 @@ from MakerMatrix.exceptions import (
     SupplierRateLimitError,
     SupplierNotFoundError,
     SupplierCapabilityError,
-    SupplierConfigAlreadyExistsError
+    SupplierConfigAlreadyExistsError,
 )
 
 # Re-export for backward compatibility
 __all__ = [
-    'SupplierError',
-    'SupplierConfigurationError',
-    'SupplierAuthenticationError',
-    'SupplierConnectionError',
-    'SupplierRateLimitError',
-    'SupplierNotFoundError',
-    'SupplierCapabilityError',
-    'SupplierConfigAlreadyExistsError'
+    "SupplierError",
+    "SupplierConfigurationError",
+    "SupplierAuthenticationError",
+    "SupplierConnectionError",
+    "SupplierRateLimitError",
+    "SupplierNotFoundError",
+    "SupplierCapabilityError",
+    "SupplierConfigAlreadyExistsError",
 ]

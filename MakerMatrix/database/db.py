@@ -3,6 +3,7 @@ from typing import Generator
 
 from sqlmodel import Session, SQLModel
 from MakerMatrix.models.models import engine
+
 # Import all model modules to register them with SQLModel metadata
 from MakerMatrix.models.rate_limiting_models import *
 from MakerMatrix.models.supplier_config_models import *
@@ -35,8 +36,6 @@ def get_session() -> Generator[Session, None, None]:
 # Function to create tables in the SQLite database
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
-
-
 
 
 @event.listens_for(engine, "connect")

@@ -21,7 +21,7 @@ from pathlib import Path
 
 def parse_version(version_string):
     """Parse a semantic version string into (major, minor, patch)."""
-    match = re.match(r'(\d+)\.(\d+)\.(\d+)', version_string)
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", version_string)
     if not match:
         raise ValueError(f"Invalid version format: {version_string}")
     return tuple(map(int, match.groups()))
@@ -32,18 +32,18 @@ def format_version(major, minor, patch):
     return f"{major}.{minor}.{patch}"
 
 
-def bump_version(version_string, bump_type='patch'):
+def bump_version(version_string, bump_type="patch"):
     """Bump version based on type (major, minor, or patch)."""
     major, minor, patch = parse_version(version_string)
 
-    if bump_type == 'major':
+    if bump_type == "major":
         major += 1
         minor = 0
         patch = 0
-    elif bump_type == 'minor':
+    elif bump_type == "minor":
         minor += 1
         patch = 0
-    elif bump_type == 'patch':
+    elif bump_type == "patch":
         patch += 1
     else:
         raise ValueError(f"Invalid bump type: {bump_type}. Must be 'major', 'minor', or 'patch'")
@@ -53,17 +53,13 @@ def bump_version(version_string, bump_type='patch'):
 
 def update_python_version(file_path, new_version):
     """Update version in Python __init__.py file."""
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         content = f.read()
 
     # Update __version__
-    content = re.sub(
-        r'__version__\s*=\s*["\']([^"\']+)["\']',
-        f'__version__ = "{new_version}"',
-        content
-    )
+    content = re.sub(r'__version__\s*=\s*["\']([^"\']+)["\']', f'__version__ = "{new_version}"', content)
 
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         f.write(content)
 
     print(f"✅ Updated {file_path}: {new_version}")
@@ -71,21 +67,21 @@ def update_python_version(file_path, new_version):
 
 def update_package_json_version(file_path, new_version):
     """Update version in package.json file."""
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         package_data = json.load(f)
 
-    package_data['version'] = new_version
+    package_data["version"] = new_version
 
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         json.dump(package_data, f, indent=2)
-        f.write('\n')  # Add trailing newline
+        f.write("\n")  # Add trailing newline
 
     print(f"✅ Updated {file_path}: {new_version}")
 
 
 def get_current_version(python_init_path):
     """Get current version from Python __init__.py."""
-    with open(python_init_path, 'r') as f:
+    with open(python_init_path, "r") as f:
         content = f.read()
 
     match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
@@ -97,28 +93,25 @@ def get_current_version(python_init_path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Bump MakerMatrix version numbers',
-        epilog='Example: python scripts/bump_version.py minor'
+        description="Bump MakerMatrix version numbers", epilog="Example: python scripts/bump_version.py minor"
     )
     parser.add_argument(
-        'bump_type',
-        nargs='?',
-        default='patch',
-        choices=['major', 'minor', 'patch'],
-        help='Version component to bump (default: patch)'
+        "bump_type",
+        nargs="?",
+        default="patch",
+        choices=["major", "minor", "patch"],
+        help="Version component to bump (default: patch)",
     )
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what would be changed without actually changing files'
+        "--dry-run", action="store_true", help="Show what would be changed without actually changing files"
     )
 
     args = parser.parse_args()
 
     # Define file paths
     project_root = Path(__file__).parent.parent
-    python_init = project_root / 'MakerMatrix' / '__init__.py'
-    frontend_package = project_root / 'MakerMatrix' / 'frontend' / 'package.json'
+    python_init = project_root / "MakerMatrix" / "__init__.py"
+    frontend_package = project_root / "MakerMatrix" / "frontend" / "package.json"
 
     # Verify files exist
     if not python_init.exists():
@@ -153,5 +146,5 @@ def main():
     print(f"   4. Push changes: git push && git push --tags")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

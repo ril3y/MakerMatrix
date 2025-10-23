@@ -16,6 +16,7 @@ from enum import Enum
 
 class TemplateCategory(str, Enum):
     """Categories for organizing label templates"""
+
     GENERAL = "GENERAL"
     COMPONENT = "COMPONENT"
     STORAGE = "STORAGE"
@@ -27,6 +28,7 @@ class TemplateCategory(str, Enum):
 
 class LayoutType(str, Enum):
     """Layout types for label templates"""
+
     QR_ONLY = "qr_only"
     TEXT_ONLY = "text_only"
     QR_TEXT_HORIZONTAL = "qr_text_horizontal"
@@ -37,6 +39,7 @@ class LayoutType(str, Enum):
 
 class TextRotation(str, Enum):
     """Text rotation options"""
+
     NONE = "NONE"
     QUARTER = "90"
     HALF = "180"
@@ -45,6 +48,7 @@ class TextRotation(str, Enum):
 
 class QRPosition(str, Enum):
     """QR code positioning options"""
+
     LEFT = "LEFT"
     RIGHT = "RIGHT"
     TOP = "TOP"
@@ -58,6 +62,7 @@ class QRPosition(str, Enum):
 
 class TextAlignment(str, Enum):
     """Text alignment options"""
+
     LEFT = "LEFT"
     CENTER = "CENTER"
     RIGHT = "RIGHT"
@@ -65,6 +70,7 @@ class TextAlignment(str, Enum):
 
 class LabelTemplateModel(SQLModel, table=True):
     """Model for storing custom label templates"""
+
     __tablename__ = "label_templates"
 
     # Primary identification
@@ -88,7 +94,9 @@ class LabelTemplateModel(SQLModel, table=True):
 
     # Layout configuration
     layout_type: LayoutType = Field(default=LayoutType.QR_TEXT_HORIZONTAL, description="Overall layout type")
-    layout_config: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON), description="Detailed layout configuration")
+    layout_config: Dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON), description="Detailed layout configuration"
+    )
 
     # QR code configuration
     qr_enabled: bool = Field(default=True, description="Whether QR code is included")
@@ -106,12 +114,18 @@ class LabelTemplateModel(SQLModel, table=True):
 
     # Font and styling
     font_config: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON), description="Font configuration")
-    spacing_config: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON), description="Spacing and margin configuration")
+    spacing_config: Dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON), description="Spacing and margin configuration"
+    )
 
     # Advanced features
     supports_rotation: bool = Field(default=True, description="Whether template supports text rotation")
-    supports_vertical_text: bool = Field(default=False, description="Whether template supports vertical character layout")
-    custom_processing_rules: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON), description="Custom processing rules")
+    supports_vertical_text: bool = Field(
+        default=False, description="Whether template supports vertical character layout"
+    )
+    custom_processing_rules: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON), description="Custom processing rules"
+    )
 
     # Usage tracking
     usage_count: int = Field(default=0, description="Number of times this template has been used")
@@ -123,7 +137,9 @@ class LabelTemplateModel(SQLModel, table=True):
 
     # Template validation
     is_validated: bool = Field(default=False, description="Whether template has been validated")
-    validation_errors: Optional[List[str]] = Field(default=None, sa_column=Column(JSON), description="Validation error messages")
+    validation_errors: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON), description="Validation error messages"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -137,46 +153,46 @@ class LabelTemplateModel(SQLModel, table=True):
                 "layout_type": "qr_text_horizontal",
                 "text_template": "{part_name}",
                 "qr_position": "left",
-                "text_alignment": "center"
+                "text_alignment": "center",
             }
         }
     )
 
-    @field_serializer('layout_config', 'font_config', 'spacing_config', 'custom_processing_rules', 'validation_errors')
+    @field_serializer("layout_config", "font_config", "spacing_config", "custom_processing_rules", "validation_errors")
     def serialize_json_fields(self, value):
         """Serialize JSON fields for API responses"""
         return value or {}
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     def set_defaults(cls, values):
         """Set default values for complex fields"""
         if isinstance(values, dict):
             # Set default layout_config
-            if 'layout_config' not in values or not values['layout_config']:
-                values['layout_config'] = {
+            if "layout_config" not in values or not values["layout_config"]:
+                values["layout_config"] = {
                     "margins": {"top": 1, "bottom": 1, "left": 1, "right": 1},
                     "spacing": {"qr_text_gap": 2, "line_spacing": 1.2},
-                    "alignment": {"horizontal": "center", "vertical": "center"}
+                    "alignment": {"horizontal": "center", "vertical": "center"},
                 }
 
             # Set default font_config
-            if 'font_config' not in values or not values['font_config']:
-                values['font_config'] = {
+            if "font_config" not in values or not values["font_config"]:
+                values["font_config"] = {
                     "family": "DejaVu Sans",
                     "weight": "normal",
                     "style": "normal",
                     "min_size": 8,
                     "max_size": 72,
-                    "auto_size": True
+                    "auto_size": True,
                 }
 
             # Set default spacing_config
-            if 'spacing_config' not in values or not values['spacing_config']:
-                values['spacing_config'] = {
+            if "spacing_config" not in values or not values["spacing_config"]:
+                values["spacing_config"] = {
                     "margin_mm": 1.0,
                     "padding_mm": 0.5,
                     "line_spacing_factor": 1.2,
-                    "character_spacing": 0
+                    "character_spacing": 0,
                 }
 
         return values
@@ -218,6 +234,7 @@ class LabelTemplateModel(SQLModel, table=True):
 
 class LabelTemplatePresetModel(SQLModel, table=True):
     """Model for storing template presets and system templates"""
+
     __tablename__ = "label_template_presets"
 
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -252,8 +269,8 @@ class LabelTemplatePresetModel(SQLModel, table=True):
                     "label_height_mm": 50.0,
                     "layout_type": "qr_text_vertical",
                     "text_rotation": "90",
-                    "text_template": "{part_name}"
-                }
+                    "text_template": "{part_name}",
+                },
             }
         }
     )
@@ -262,6 +279,7 @@ class LabelTemplatePresetModel(SQLModel, table=True):
 # Request/Response models for API
 class LabelTemplateCreate(SQLModel):
     """Schema for creating new label templates"""
+
     name: str
     display_name: str
     description: Optional[str] = None
@@ -287,6 +305,7 @@ class LabelTemplateCreate(SQLModel):
 
 class LabelTemplateUpdate(SQLModel):
     """Schema for updating label templates"""
+
     display_name: Optional[str] = None
     description: Optional[str] = None
     category: Optional[TemplateCategory] = None
@@ -312,6 +331,7 @@ class LabelTemplateUpdate(SQLModel):
 
 class LabelTemplateResponse(SQLModel):
     """Schema for label template API responses"""
+
     id: str
     name: str
     display_name: str
@@ -347,6 +367,7 @@ class LabelTemplateResponse(SQLModel):
 
 class TemplatePreviewRequest(SQLModel):
     """Schema for template preview requests"""
+
     template_id: Optional[str] = None
     template_config: Optional[LabelTemplateCreate] = None
     sample_data: Dict[str, Any] = Field(default_factory=dict, description="Sample data for preview")
@@ -355,11 +376,7 @@ class TemplatePreviewRequest(SQLModel):
         json_schema_extra={
             "example": {
                 "template_id": "template_uuid",
-                "sample_data": {
-                    "part_name": "Sample Part",
-                    "part_number": "SP001",
-                    "id": "sample_id"
-                }
+                "sample_data": {"part_name": "Sample Part", "part_number": "SP001", "id": "sample_id"},
             }
         }
     )

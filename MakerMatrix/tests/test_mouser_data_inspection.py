@@ -36,8 +36,8 @@ def mouser_supplier():
             "base_url": "https://api.mouser.com/api/v1",
             "search_option": "None",
             "search_with_your_signup_language": False,
-            "request_timeout": 30
-        }
+            "request_timeout": 30,
+        },
     )
 
     return supplier
@@ -49,9 +49,9 @@ async def test_inspect_stm32_part_data(mouser_supplier):
 
     test_part_number = "511-STM32F031C6T6TR"
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print(f"Testing Mouser API with part: {test_part_number}")
-    print("="*80)
+    print("=" * 80)
 
     # Authenticate first
     auth_result = await mouser_supplier.authenticate()
@@ -71,9 +71,9 @@ async def test_inspect_stm32_part_data(mouser_supplier):
     print(f"   Category: {part_details.category}")
 
     # Print all fields we're extracting
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("CURRENT EXTRACTED FIELDS")
-    print("="*80)
+    print("=" * 80)
 
     print("\n📦 Core Fields:")
     print(f"  supplier_part_number: {part_details.supplier_part_number}")
@@ -110,9 +110,9 @@ async def test_inspect_stm32_part_data(mouser_supplier):
         print("  No additional_data")
 
     # Now let's examine the RAW API response to see what we're missing
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("RAW API RESPONSE ANALYSIS")
-    print("="*80)
+    print("=" * 80)
 
     # Make a direct API call to see the raw response
     http_client = mouser_supplier._get_http_client()
@@ -126,7 +126,7 @@ async def test_inspect_stm32_part_data(mouser_supplier):
     search_data = {
         "SearchByPartRequest": {
             "mouserPartNumber": test_part_number,
-            "partSearchOptions": config.get("search_option", "None")
+            "partSearchOptions": config.get("search_option", "None"),
         }
     }
 
@@ -194,25 +194,34 @@ async def test_inspect_stm32_part_data(mouser_supplier):
                     print(f"  {key}: {value_preview}")
 
             # Show complete raw data as JSON
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("COMPLETE RAW API RESPONSE (JSON)")
-            print("="*80)
+            print("=" * 80)
             print(json.dumps(raw_part, indent=2, default=str))
 
             # Analyze what we're missing in additional_data
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("ANALYSIS: Fields NOT in additional_data but AVAILABLE in API")
-            print("="*80)
+            print("=" * 80)
 
-            current_additional_data_keys = set(part_details.additional_data.keys()) if part_details.additional_data else set()
+            current_additional_data_keys = (
+                set(part_details.additional_data.keys()) if part_details.additional_data else set()
+            )
             api_keys = set(raw_part.keys())
 
             # Fields that could be added to additional_data
             potentially_useful = []
             for key in api_keys:
                 # Skip fields already in core PartSearchResult
-                if key in ["MouserPartNumber", "Manufacturer", "ManufacturerPartNumber", "Description",
-                          "Category", "DataSheetUrl", "ImagePath"]:
+                if key in [
+                    "MouserPartNumber",
+                    "Manufacturer",
+                    "ManufacturerPartNumber",
+                    "Description",
+                    "Category",
+                    "DataSheetUrl",
+                    "ImagePath",
+                ]:
                     continue
 
                 # Skip pricing (handled separately)
@@ -233,9 +242,9 @@ async def test_inspect_stm32_part_data(mouser_supplier):
                 print(f"  {key} ({type_name}): {preview}")
 
             # Category analysis
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("CATEGORY ANALYSIS")
-            print("="*80)
+            print("=" * 80)
             category = raw_part.get("Category", "")
             print(f"\n📂 Mouser Category: '{category}'")
             print(f"   Expected: ARM Microcontrollers - MCU")
@@ -256,9 +265,9 @@ async def test_inspect_stm32_part_data(mouser_supplier):
     # Cleanup
     await http_client.close()
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST COMPLETE")
-    print("="*80)
+    print("=" * 80)
 
 
 if __name__ == "__main__":

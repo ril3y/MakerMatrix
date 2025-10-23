@@ -42,8 +42,8 @@ class ProjectService(BaseService):
         """
         # Convert to lowercase and replace spaces/special chars with hyphens
         slug = name.lower().strip()
-        slug = re.sub(r'[^\w\s-]', '', slug)
-        slug = re.sub(r'[-\s]+', '-', slug)
+        slug = re.sub(r"[^\w\s-]", "", slug)
+        slug = re.sub(r"[-\s]+", "-", slug)
         return slug
 
     def add_project(self, project_data: Dict[str, Any]) -> ServiceResponse[dict]:
@@ -74,14 +74,15 @@ class ProjectService(BaseService):
                 project_dict = new_project.to_dict()
 
                 return self.success_response(
-                    f"{self.entity_name} '{project_data['name']}' created successfully",
-                    project_dict
+                    f"{self.entity_name} '{project_data['name']}' created successfully", project_dict
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"create {self.entity_name}")
 
-    def get_project(self, project_id: Optional[str] = None, name: Optional[str] = None, slug: Optional[str] = None) -> ServiceResponse[dict]:
+    def get_project(
+        self, project_id: Optional[str] = None, name: Optional[str] = None, slug: Optional[str] = None
+    ) -> ServiceResponse[dict]:
         """
         Get a project by ID, name, or slug.
 
@@ -103,15 +104,12 @@ class ProjectService(BaseService):
             with self.get_session() as session:
                 project = ProjectRepository.get_project(session, project_id=project_id, name=name, slug=slug)
                 if not project:
-                    return self.error_response(
-                        f"{self.entity_name} not found with identifier: {identifier}"
-                    )
+                    return self.error_response(f"{self.entity_name} not found with identifier: {identifier}")
 
                 project_dict = project.to_dict()
 
                 return self.success_response(
-                    f"{self.entity_name} '{project.name}' retrieved successfully",
-                    project_dict
+                    f"{self.entity_name} '{project.name}' retrieved successfully", project_dict
                 )
 
         except Exception as e:
@@ -149,8 +147,7 @@ class ProjectService(BaseService):
                 project_dict = rm_project.to_dict()
 
                 return self.success_response(
-                    f"{self.entity_name} '{rm_project.name}' removed successfully",
-                    project_dict
+                    f"{self.entity_name} '{rm_project.name}' removed successfully", project_dict
                 )
 
         except Exception as e:
@@ -173,7 +170,7 @@ class ProjectService(BaseService):
             return {
                 "status": "success",
                 "message": f"All {count} projects removed successfully",
-                "data": {"deleted_count": count}
+                "data": {"deleted_count": count},
             }
         except Exception as e:
             logger.error(f"Failed to delete all projects: {str(e)}")
@@ -195,10 +192,7 @@ class ProjectService(BaseService):
                 # Convert to list of dictionaries
                 projects_list = [project.to_dict() for project in projects]
 
-                return self.success_response(
-                    "All projects retrieved successfully",
-                    {"projects": projects_list}
-                )
+                return self.success_response("All projects retrieved successfully", {"projects": projects_list})
 
         except Exception as e:
             return self.handle_exception(e, f"retrieve all {self.entity_name}")
@@ -241,8 +235,7 @@ class ProjectService(BaseService):
                 project_dict = updated_project.to_dict()
 
                 return self.success_response(
-                    f"{self.entity_name} '{updated_project.name}' updated successfully",
-                    project_dict
+                    f"{self.entity_name} '{updated_project.name}' updated successfully", project_dict
                 )
 
         except Exception as e:
@@ -282,8 +275,8 @@ class ProjectService(BaseService):
                         "project_name": project.name,
                         "part_id": part_id,
                         "notes": notes,
-                        "parts_count": project.parts_count
-                    }
+                        "parts_count": project.parts_count,
+                    },
                 )
 
         except Exception as e:
@@ -321,8 +314,8 @@ class ProjectService(BaseService):
                         "project_id": project_id,
                         "project_name": project.name,
                         "part_id": part_id,
-                        "parts_count": project.parts_count
-                    }
+                        "parts_count": project.parts_count,
+                    },
                 )
 
         except Exception as e:
@@ -365,11 +358,15 @@ class ProjectService(BaseService):
                         "image_url": part.image_url,
                         "manufacturer": part.manufacturer,
                         "manufacturer_part_number": part.manufacturer_part_number,
-                        "location": {
-                            "id": part.primary_location.id,
-                            "name": part.primary_location.name,
-                            "description": part.primary_location.description
-                        } if part.primary_location else None
+                        "location": (
+                            {
+                                "id": part.primary_location.id,
+                                "name": part.primary_location.name,
+                                "description": part.primary_location.description,
+                            }
+                            if part.primary_location
+                            else None
+                        ),
                     }
                     for part in parts
                 ]
@@ -380,8 +377,8 @@ class ProjectService(BaseService):
                         "project_id": project_id,
                         "project_name": project.name,
                         "parts": parts_list,
-                        "parts_count": len(parts_list)
-                    }
+                        "parts_count": len(parts_list),
+                    },
                 )
 
         except Exception as e:
@@ -411,11 +408,7 @@ class ProjectService(BaseService):
 
                 return self.success_response(
                     f"Retrieved {len(projects)} projects for part",
-                    {
-                        "part_id": part_id,
-                        "projects": projects_list,
-                        "projects_count": len(projects_list)
-                    }
+                    {"part_id": part_id, "projects": projects_list, "projects_count": len(projects_list)},
                 )
 
         except Exception as e:

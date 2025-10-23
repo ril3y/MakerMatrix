@@ -22,30 +22,35 @@ from pydantic import BaseModel
 from MakerMatrix.models.models import engine
 from MakerMatrix.database.db import get_session
 from MakerMatrix.exceptions import (
-    MakerMatrixException, ValidationError, ResourceNotFoundError, 
-    ResourceAlreadyExistsError, map_exception_to_base_service, log_exception
+    MakerMatrixException,
+    ValidationError,
+    ResourceNotFoundError,
+    ResourceAlreadyExistsError,
+    map_exception_to_base_service,
+    log_exception,
 )
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ServiceResponse(BaseModel, Generic[T]):
     """Standardized response format for all service operations."""
+
     success: bool
     message: str
     data: Optional[T] = None
     errors: Optional[list[str]] = None
-    
+
     @classmethod
-    def success_response(cls, message: str, data: T = None) -> 'ServiceResponse[T]':
+    def success_response(cls, message: str, data: T = None) -> "ServiceResponse[T]":
         """Create a success response."""
         return cls(success=True, message=message, data=data)
-    
+
     @classmethod
-    def error_response(cls, message: str, errors: list[str] = None) -> 'ServiceResponse[T]':
+    def error_response(cls, message: str, errors: list[str] = None) -> "ServiceResponse[T]":
         """Create an error response."""
         return cls(success=False, message=message, errors=errors or [])
 
@@ -109,7 +114,7 @@ class BaseService(ABC):
         finally:
             session.close()
             self.logger.debug("Database session closed")
-    
+
     @asynccontextmanager
     async def get_async_session(self):
         """
@@ -136,52 +141,49 @@ class BaseService(ABC):
         finally:
             session.close()
             self.logger.debug("Async database session closed")
-    
+
     def success_response(self, message: str, data: Any = None) -> ServiceResponse:
         """Create a standardized success response."""
         self.logger.info(f"Service operation successful: {message}")
         return ServiceResponse.success_response(message, data)
-    
+
     def error_response(self, message: str, errors: list[str] = None) -> ServiceResponse:
         """Create a standardized error response."""
         self.logger.error(f"Service operation failed: {message}")
         if errors:
             self.logger.error(f"Additional errors: {errors}")
         return ServiceResponse.error_response(message, errors)
-    
+
     def handle_exception(self, e: Exception, operation: str) -> ServiceResponse:
         """
         Centralized exception handling for service operations.
-        
+
         Args:
             e: The exception that occurred
             operation: Description of the operation that failed
-            
+
         Returns:
             ServiceResponse with appropriate error information
         """
         # Log the exception with context
         log_exception(e, context=f"{self.__class__.__name__}.{operation}")
-        
+
         # Map to MakerMatrix exception if needed
         mapped_exception = map_exception_to_base_service(e)
-        
+
         if isinstance(mapped_exception, MakerMatrixException):
             return self.error_response(mapped_exception.message, [str(mapped_exception)])
         else:
-            return self.error_response(
-                f"An unexpected error occurred during {operation}",
-                [str(e)]
-            )
-    
+            return self.error_response(f"An unexpected error occurred during {operation}", [str(e)])
+
     def validate_required_fields(self, data: Dict[str, Any], required_fields: list[str]) -> None:
         """
         Validate that required fields are present in the data.
-        
+
         Args:
             data: The data dictionary to validate
             required_fields: List of required field names
-            
+
         Raises:
             ValidationError: If any required fields are missing
         """
@@ -189,17 +191,16 @@ class BaseService(ABC):
         for field in required_fields:
             if field not in data or data[field] is None or data[field] == "":
                 missing_fields.append(field)
-        
+
         if missing_fields:
             raise ValidationError(
-                f"Missing required fields: {', '.join(missing_fields)}",
-                {"missing_fields": missing_fields}
+                f"Missing required fields: {', '.join(missing_fields)}", {"missing_fields": missing_fields}
             )
-    
+
     def log_operation(self, operation: str, entity_type: str, entity_id: str = None):
         """
         Log service operations for debugging and audit purposes.
-        
+
         Args:
             operation: The operation being performed (create, update, delete, etc.)
             entity_type: The type of entity being operated on
@@ -212,10 +213,10 @@ class BaseService(ABC):
 class BaseCRUDService(BaseService, Generic[T]):
     """
     Base CRUD service class providing common Create, Read, Update, Delete operations.
-    
+
     This further reduces duplication by providing standard CRUD patterns that were
     repeated across multiple service classes in the original codebase.
-    
+
     Usage:
         class PartService(BaseCRUDService[PartModel]):
             def __init__(self):
@@ -223,82 +224,81 @@ class BaseCRUDService(BaseService, Generic[T]):
                 self.repository = PartRepository(engine)
                 self.entity_name = "Part"
     """
-    
+
     def __init__(self):
         super().__init__()
         self.repository = None  # To be set by subclasses
         self.entity_name = "Entity"  # To be set by subclasses
-    
+
     def get_by_id(self, entity_id: str) -> ServiceResponse[T]:
         """
         Standard get by ID operation with consistent error handling.
-        
+
         Args:
             entity_id: The ID of the entity to retrieve
-            
+
         Returns:
             ServiceResponse containing the entity or error information
         """
         try:
             self.log_operation("get", self.entity_name, entity_id)
-            
+
             with self.get_session() as session:
                 entity = self.repository.get_by_id(session, entity_id)
                 if not entity:
                     raise ResourceNotFoundError(f"{self.entity_name} not found with ID: {entity_id}")
-                
+
                 return self.success_response(f"{self.entity_name} retrieved successfully", entity)
-                
+
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name}")
-    
+
     def get_by_name(self, name: str) -> ServiceResponse[T]:
         """
         Standard get by name operation with consistent error handling.
-        
+
         Args:
             name: The name of the entity to retrieve
-            
+
         Returns:
             ServiceResponse containing the entity or error information
         """
         try:
             self.log_operation("get", self.entity_name, name)
-            
+
             with self.get_session() as session:
                 entity = self.repository.get_by_name(session, name)
                 if not entity:
                     raise ResourceNotFoundError(f"{self.entity_name} not found with name: {name}")
-                
+
                 return self.success_response(f"{self.entity_name} retrieved successfully", entity)
-                
+
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name}")
-    
+
     def delete_by_id(self, entity_id: str) -> ServiceResponse[Dict[str, str]]:
         """
         Standard delete operation with consistent error handling.
-        
+
         Args:
             entity_id: The ID of the entity to delete
-            
+
         Returns:
             ServiceResponse with deletion confirmation
         """
         try:
             self.log_operation("delete", self.entity_name, entity_id)
-            
+
             with self.get_session() as session:
                 entity = self.repository.get_by_id(session, entity_id)
                 if not entity:
                     raise ResourceNotFoundError(f"{self.entity_name} not found with ID: {entity_id}")
-                
+
                 self.repository.delete(session, entity_id)
-                
+
                 return self.success_response(
-                    f"{self.entity_name} deleted successfully",
-                    {"id": entity_id, "status": "deleted"}
+                    f"{self.entity_name} deleted successfully", {"id": entity_id, "status": "deleted"}
                 )
-                
+
         except Exception as e:
             return self.handle_exception(e, f"delete {self.entity_name}")

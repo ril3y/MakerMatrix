@@ -38,46 +38,40 @@ class PartService(BaseService):
         self.location_service = LocationService(self.engine)
         self.entity_name = "Part"
 
-    def _load_order_relationships(self, session: Session, part: 'PartModel') -> 'PartModel':
+    def _load_order_relationships(self, session: Session, part: "PartModel") -> "PartModel":
         """
         Load order relationships for a part (order_items and order_summary).
         This centralizes the order loading logic in one place.
-        
+
         TODO: Re-enable order relationship loading once OrderItemModel import is fixed
         """
         # Location relationships should already be loaded by repository joinedload
         # No additional loading needed for now
-        
+
         # Temporarily disabled order relationship loading to fix immediate issue
         # The order relationships are already loaded in the repository methods
         return part
 
-
     #####
     def get_part_by_details(
-            self,
-            part_id: Optional[str] = None,
-            part_number: Optional[str] = None,
-            part_name: Optional[str] = None
+        self, part_id: Optional[str] = None, part_number: Optional[str] = None, part_name: Optional[str] = None
     ) -> ServiceResponse[dict]:
         """
         Determine which parameter is provided and call the appropriate repository method.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: This method previously used manual session
         management. Now uses BaseService session context manager for consistency.
         """
         try:
             # Validate input parameters
             if not any([part_id, part_number, part_name]):
-                return self.error_response(
-                    "At least one of part_id, part_number, or part_name must be provided."
-                )
-            
+                return self.error_response("At least one of part_id, part_number, or part_name must be provided.")
+
             self.log_operation("get", self.entity_name)
-            
+
             with self.get_session() as session:
                 found_part = None
-                
+
                 if part_id:
                     found_part = self.part_repo.get_part_by_id(session, part_id)
                 elif part_number:
@@ -88,42 +82,38 @@ class PartService(BaseService):
                 if found_part:
                     # Load order relationships
                     found_part = self._load_order_relationships(session, found_part)
-                    return self.success_response(
-                        f"{self.entity_name} retrieved successfully",
-                        found_part.to_dict()
-                    )
+                    return self.success_response(f"{self.entity_name} retrieved successfully", found_part.to_dict())
                 else:
                     return self.error_response(f"{self.entity_name} not found")
 
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name} by details")
 
-
     def update_quantity_service(
-            self,
-            new_quantity: int,
-            manufacturer_pn: Optional[str] = None,
-            part_number: Optional[str] = None,
-            part_id: Optional[str] = None
+        self,
+        new_quantity: int,
+        manufacturer_pn: Optional[str] = None,
+        part_number: Optional[str] = None,
+        part_id: Optional[str] = None,
     ) -> ServiceResponse[bool]:
         """
         Update the quantity of a part based on part_id, part_number, or manufacturer_pn.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
         management to BaseService pattern for consistency.
         """
         try:
             self.validate_required_fields({"new_quantity": new_quantity}, ["new_quantity"])
-            
+
             identifier = part_id or part_number or manufacturer_pn
             self.log_operation("update_quantity", self.entity_name, identifier)
-            
+
             with self.get_session() as session:
                 # Attempt to find the part using the provided identifier
                 found_part = None
                 identifier_type = None
                 identifier_value = None
-                
+
                 if part_id:
                     found_part = self.part_repo.get_part_by_id(session, part_id)
                     identifier_type = "ID"
@@ -137,22 +127,28 @@ class PartService(BaseService):
                     identifier_type = "manufacturer part number"
                     identifier_value = manufacturer_pn
                 else:
-                    return self.error_response("At least one of part_id, part_number, or manufacturer_pn must be provided")
+                    return self.error_response(
+                        "At least one of part_id, part_number, or manufacturer_pn must be provided"
+                    )
 
                 if not found_part:
-                    return self.error_response(f"{self.entity_name} not found using {identifier_type} '{identifier_value}'")
+                    return self.error_response(
+                        f"{self.entity_name} not found using {identifier_type} '{identifier_value}'"
+                    )
 
                 # Get old quantity from computed property
                 old_quantity = found_part.total_quantity
 
                 # Update the primary allocation quantity
                 if not found_part.allocations:
-                    return self.error_response(f"Part '{found_part.part_name}' has no allocations. Cannot update quantity.")
+                    return self.error_response(
+                        f"Part '{found_part.part_name}' has no allocations. Cannot update quantity."
+                    )
 
                 # Find primary allocation or use first allocation
                 primary_alloc = next(
                     (alloc for alloc in found_part.allocations if alloc.is_primary_storage),
-                    found_part.allocations[0] if found_part.allocations else None
+                    found_part.allocations[0] if found_part.allocations else None,
                 )
 
                 if not primary_alloc:
@@ -161,13 +157,13 @@ class PartService(BaseService):
                 # Update the allocation quantity
                 primary_alloc.quantity_at_location = new_quantity
                 from datetime import datetime
+
                 primary_alloc.last_updated = datetime.utcnow()
                 session.add(primary_alloc)
                 session.commit()
 
                 return self.success_response(
-                    f"Quantity updated for part '{found_part.part_name}': {old_quantity} → {new_quantity}",
-                    True
+                    f"Quantity updated for part '{found_part.part_name}': {old_quantity} → {new_quantity}", True
                 )
 
         except Exception as e:
@@ -193,7 +189,7 @@ class PartService(BaseService):
 
                 # Log part details before deletion
                 part_name = part.part_name
-                part_categories = [getattr(cat, 'name', str(cat)) for cat in part.categories] if part.categories else []
+                part_categories = [getattr(cat, "name", str(cat)) for cat in part.categories] if part.categories else []
                 self.logger.info(f"Deleting part: '{part_name}' (ID: {part_id}) with categories: {part_categories}")
 
                 # Clean up associated files before deleting the part record
@@ -205,14 +201,13 @@ class PartService(BaseService):
                 deleted_part = self.part_repo.delete_part(session, part_id)
 
                 return self.success_response(
-                    f"{self.entity_name} with ID '{part_id}' was deleted successfully",
-                    deleted_part.to_dict()
+                    f"{self.entity_name} with ID '{part_id}' was deleted successfully", deleted_part.to_dict()
                 )
 
         except Exception as e:
             return self.handle_exception(e, f"delete {self.entity_name}")
 
-    def _cleanup_part_files(self, part: 'PartModel') -> int:
+    def _cleanup_part_files(self, part: "PartModel") -> int:
         """
         Clean up image and datasheet files associated with a part.
 
@@ -232,8 +227,8 @@ class PartService(BaseService):
         if part.image_url:
             try:
                 # Extract filename from URL (handle both full URLs and relative paths)
-                if '/static/images/' in part.image_url:
-                    filename = part.image_url.split('/static/images/')[-1]
+                if "/static/images/" in part.image_url:
+                    filename = part.image_url.split("/static/images/")[-1]
                     image_path = static_dir / "images" / filename
 
                     if image_path.exists() and image_path.is_file():
@@ -244,13 +239,13 @@ class PartService(BaseService):
                 self.logger.warning(f"Failed to delete image file for part {part.part_name}: {e}")
 
         # Clean up datasheet files from PartDatasheet records
-        if hasattr(part, 'datasheets') and part.datasheets:
+        if hasattr(part, "datasheets") and part.datasheets:
             for datasheet in part.datasheets:
                 try:
-                    if hasattr(datasheet, 'file_url') and datasheet.file_url:
+                    if hasattr(datasheet, "file_url") and datasheet.file_url:
                         # Extract filename from URL
-                        if '/static/datasheets/' in datasheet.file_url:
-                            filename = datasheet.file_url.split('/static/datasheets/')[-1]
+                        if "/static/datasheets/" in datasheet.file_url:
+                            filename = datasheet.file_url.split("/static/datasheets/")[-1]
                             datasheet_path = static_dir / "datasheets" / filename
 
                             if datasheet_path.exists() and datasheet_path.is_file():
@@ -261,9 +256,9 @@ class PartService(BaseService):
                     self.logger.warning(f"Failed to delete datasheet file for part {part.part_name}: {e}")
 
         # Clean up enriched datasheet file from additional_properties
-        if part.additional_properties and part.additional_properties.get('datasheet_filename'):
+        if part.additional_properties and part.additional_properties.get("datasheet_filename"):
             try:
-                filename = part.additional_properties['datasheet_filename']
+                filename = part.additional_properties["datasheet_filename"]
                 datasheet_path = static_dir / "datasheets" / filename
 
                 if datasheet_path.exists() and datasheet_path.is_file():
@@ -278,43 +273,36 @@ class PartService(BaseService):
     def dynamic_search(self, search_term: str) -> ServiceResponse[Any]:
         """
         Perform a dynamic search on parts using part_repo.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Eliminates manual session management.
         """
         try:
             self.log_operation("search", self.entity_name)
-            
+
             with self.get_session() as session:
                 results = self.part_repo.dynamic_search(session, search_term)
-                return self.success_response(
-                    f"Search completed for term: {search_term}",
-                    results
-                )
-                
+                return self.success_response(f"Search completed for term: {search_term}", results)
+
         except Exception as e:
             return self.handle_exception(e, f"search {self.entity_name}")
 
     def clear_all_parts(self) -> ServiceResponse[Any]:
         """
         Clear all parts from the database using the part_repo.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
         management to BaseService pattern for consistency.
         """
         try:
             self.log_operation("clear_all", self.entity_name, "all_parts")
-            
+
             with self.get_session() as session:
                 result = self.part_repo.clear_all_parts(session)
-                
-                return self.success_response(
-                    "All parts cleared successfully",
-                    result
-                )
-                
+
+                return self.success_response("All parts cleared successfully", result)
+
         except Exception as e:
             return self.handle_exception(e, f"clear all {self.entity_name}s")
-
 
     #####
 
@@ -322,14 +310,14 @@ class PartService(BaseService):
         """
         Add a new part to the database after ensuring that if a location is provided,
         it exists. Categories are created/retrieved before creating the part.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
         management to BaseService pattern for consistency.
         """
         try:
             part_name = part_data.get("part_name")
             self.log_operation("add", self.entity_name, part_name)
-            
+
             # Validate required fields
             if not part_name:
                 return self.error_response("Part name is required")
@@ -356,7 +344,7 @@ class PartService(BaseService):
                 if location_id == "":
                     part_data["location_id"] = None
                     location_id = None
-                
+
                 # Set default "Unsorted" location if no location specified
                 if location_id is None:
                     try:
@@ -367,11 +355,13 @@ class PartService(BaseService):
                             location_id = unsorted_location["id"]
                             self.logger.debug(f"Assigned part '{part_name}' to 'Unsorted' location (ID: {location_id})")
                         else:
-                            self.logger.warning(f"Could not assign default 'Unsorted' location to part '{part_name}': {unsorted_response.message}")
+                            self.logger.warning(
+                                f"Could not assign default 'Unsorted' location to part '{part_name}': {unsorted_response.message}"
+                            )
                     except Exception as e:
                         self.logger.warning(f"Could not assign default 'Unsorted' location to part '{part_name}': {e}")
                         # Continue without location - don't fail part creation
-                
+
                 # Verify that the location exists, but only if a location_id is provided
                 if location_id:
                     self.logger.debug(f"Validating location_id: {location_id}")
@@ -386,7 +376,9 @@ class PartService(BaseService):
 
                 # Auto-assign "Hardware" category for Bolt Depot parts
                 supplier = (part_data.get("supplier") or "").lower()
-                self.logger.debug(f"Checking hardware category auto-assign: supplier='{supplier}', category_names={category_names}")
+                self.logger.debug(
+                    f"Checking hardware category auto-assign: supplier='{supplier}', category_names={category_names}"
+                )
                 if supplier == "boltdepot" and "hardware" not in [cat.lower() for cat in category_names]:
                     category_names.append("hardware")
                     self.logger.info(f"✅ Auto-assigned 'hardware' category for Bolt Depot part '{part_name}'")
@@ -403,15 +395,21 @@ class PartService(BaseService):
                                 auto_category_name = supplier_category.lower()
                                 if auto_category_name not in category_names:
                                     category_names.append(auto_category_name)
-                                    self.logger.info(f"Auto-assigned category '{auto_category_name}' from {key} '{supplier_category}' for part '{part_name}'")
+                                    self.logger.info(
+                                        f"Auto-assigned category '{auto_category_name}' from {key} '{supplier_category}' for part '{part_name}'"
+                                    )
 
                 if category_names:
-                    self.logger.debug(f"Processing {len(category_names)} categories for part '{part_name}': {category_names}")
+                    self.logger.debug(
+                        f"Processing {len(category_names)} categories for part '{part_name}': {category_names}"
+                    )
                     # Use the handle_categories function from the repository
                     categories = handle_categories(session, category_names)
 
-                    category_names_for_log = [cat.name for cat in categories if hasattr(cat, 'name')]
-                    self.logger.info(f"Assigned {len(categories)} categories to part '{part_name}': {category_names_for_log}")
+                    category_names_for_log = [cat.name for cat in categories if hasattr(cat, "name")]
+                    self.logger.info(
+                        f"Assigned {len(categories)} categories to part '{part_name}': {category_names_for_log}"
+                    )
 
                 # Extract datasheets data before creating the part
                 datasheets_data = part_data.pop("datasheets", [])
@@ -422,53 +420,78 @@ class PartService(BaseService):
                 pricing_tiers_for_history = part_data.pop("pricing_tiers_for_history", None)
                 if pricing_tiers_for_history:
                     self.logger.debug(f"Pricing history data found for part '{part_name}': {pricing_tiers_for_history}")
-                
+
                 # Extract allocation data BEFORE filtering (these are not PartModel fields anymore)
-                allocation_quantity = part_data.pop('quantity', 0)
-                allocation_location_id = part_data.pop('location_id', None)
+                allocation_quantity = part_data.pop("quantity", 0)
+                allocation_location_id = part_data.pop("location_id", None)
 
                 # Filter out only valid PartModel fields (removed 'quantity', 'location_id', and 'pricing_data')
                 valid_part_fields = {
-                    'part_number', 'part_name', 'description',
-                    'supplier', 'supplier_part_number', 'supplier_url', 'product_url', 'image_url', 'emoji', 'additional_properties',
+                    "part_number",
+                    "part_name",
+                    "description",
+                    "supplier",
+                    "supplier_part_number",
+                    "supplier_url",
+                    "product_url",
+                    "image_url",
+                    "emoji",
+                    "additional_properties",
                     # Pricing fields (removed pricing_data - goes to PartPricingHistory instead)
-                    'unit_price', 'currency',
+                    "unit_price",
+                    "currency",
                     # Enhanced fields from PartModel
-                    'manufacturer', 'manufacturer_part_number', 'component_type',
-                    'package', 'mounting_type',
-                    'stock_quantity',
-                    'last_enrichment_date', 'enrichment_source',
-                    'data_quality_score'
+                    "manufacturer",
+                    "manufacturer_part_number",
+                    "component_type",
+                    "package",
+                    "mounting_type",
+                    "stock_quantity",
+                    "last_enrichment_date",
+                    "enrichment_source",
+                    "data_quality_score",
                 }
-                
+
                 # Create part data dict with only valid fields
                 filtered_part_data = {}
                 for key, value in part_data.items():
                     if key in valid_part_fields:
                         # Convert empty strings to None for optional fields (removed location_id - no longer a part field)
-                        if value == "" and key in ['image_url', 'description', 'part_number', 'supplier', 'supplier_part_number', 'supplier_url', 'product_url',
-                                                  'manufacturer', 'manufacturer_part_number', 'component_type',
-                                                  'package', 'mounting_type',
-                                                  'price_source', 'enrichment_source']:
+                        if value == "" and key in [
+                            "image_url",
+                            "description",
+                            "part_number",
+                            "supplier",
+                            "supplier_part_number",
+                            "supplier_url",
+                            "product_url",
+                            "manufacturer",
+                            "manufacturer_part_number",
+                            "component_type",
+                            "package",
+                            "mounting_type",
+                            "price_source",
+                            "enrichment_source",
+                        ]:
                             filtered_part_data[key] = None
                         # Handle additional_properties - convert None/undefined to empty dict
-                        elif key == 'additional_properties' and value is None:
+                        elif key == "additional_properties" and value is None:
                             filtered_part_data[key] = {}
                         # Handle currency field - set default to USD if not provided
-                        elif key == 'currency' and (value is None or value == ""):
+                        elif key == "currency" and (value is None or value == ""):
                             filtered_part_data[key] = "USD"
                         else:
                             filtered_part_data[key] = value
-                
+
                 # Create the part with categories using repository
                 self.logger.debug(f"Creating PartModel with data: {filtered_part_data}")
                 new_part = PartModel(**filtered_part_data)
-                
+
                 # Assign categories to the part before saving
                 if categories:
                     self.logger.debug(f"Assigning {len(categories)} categories to part")
                     new_part.categories = categories
-                
+
                 # Use repository to create the part
                 part_obj = self.part_repo.add_part(session, new_part)
 
@@ -479,20 +502,23 @@ class PartService(BaseService):
                         location_id=allocation_location_id,
                         quantity_at_location=allocation_quantity,
                         is_primary_storage=True,
-                        notes="Initial allocation from part creation"
+                        notes="Initial allocation from part creation",
                     )
                     session.add(allocation)
                     session.commit()
                     session.refresh(part_obj)  # Refresh to load the new allocation
 
-                    self.logger.info(f"Created allocation for part '{part_name}': {allocation_quantity} units at location {allocation_location_id}")
+                    self.logger.info(
+                        f"Created allocation for part '{part_name}': {allocation_quantity} units at location {allocation_location_id}"
+                    )
 
                 # Create datasheet records if any
                 if datasheets_data:
                     from MakerMatrix.repositories.datasheet_repository import DatasheetRepository
+
                     datasheet_repo = DatasheetRepository()
                     for datasheet_data in datasheets_data:
-                        datasheet_data['part_id'] = part_obj.id
+                        datasheet_data["part_id"] = part_obj.id
                         datasheet_repo.create_datasheet(session, datasheet_data)
 
                     self.logger.info(f"Added {len(datasheets_data)} datasheets to part '{part_name}'")
@@ -503,20 +529,24 @@ class PartService(BaseService):
 
                     pricing_history = PartPricingHistory(
                         part_id=part_obj.id,
-                        supplier=pricing_tiers_for_history.get('supplier', part_obj.supplier or 'Unknown'),
+                        supplier=pricing_tiers_for_history.get("supplier", part_obj.supplier or "Unknown"),
                         unit_price=part_obj.unit_price,
-                        currency=pricing_tiers_for_history.get('currency', 'USD'),
+                        currency=pricing_tiers_for_history.get("currency", "USD"),
                         stock_quantity=part_obj.stock_quantity,
-                        pricing_tiers=pricing_tiers_for_history.get('tiers', []),
-                        source=pricing_tiers_for_history.get('source', 'enrichment'),
-                        is_current=True
+                        pricing_tiers=pricing_tiers_for_history.get("tiers", []),
+                        source=pricing_tiers_for_history.get("source", "enrichment"),
+                        is_current=True,
                     )
                     session.add(pricing_history)
                     session.commit()
 
-                    self.logger.info(f"Created pricing history for part '{part_name}' with {len(pricing_tiers_for_history.get('tiers', []))} price tiers")
-                
-                self.logger.info(f"Successfully created part: {part_name} (ID: {part_obj.id}) with {len(categories)} categories")
+                    self.logger.info(
+                        f"Created pricing history for part '{part_name}' with {len(pricing_tiers_for_history.get('tiers', []))} price tiers"
+                    )
+
+                self.logger.info(
+                    f"Successfully created part: {part_name} (ID: {part_obj.id}) with {len(categories)} categories"
+                )
 
                 # Create a safe dict using computed properties for quantity and location
                 safe_part_dict = {
@@ -528,7 +558,7 @@ class PartService(BaseService):
                     "supplier": part_obj.supplier,
                     "image_url": part_obj.image_url,
                     "emoji": part_obj.emoji,
-                    "categories": [{"id": cat.id, "name": cat.name} for cat in categories] if categories else []
+                    "categories": [{"id": cat.id, "name": cat.name} for cat in categories] if categories else [],
                 }
 
                 # Add location from computed property if available
@@ -538,7 +568,7 @@ class PartService(BaseService):
                         "id": primary_loc.id,
                         "name": primary_loc.name,
                         "description": primary_loc.description,
-                        "location_type": primary_loc.location_type
+                        "location_type": primary_loc.location_type,
                     }
                     safe_part_dict["location_id"] = primary_loc.id
                 else:
@@ -566,29 +596,29 @@ class PartService(BaseService):
     def get_part_by_part_number(self, part_number: str, include: List[str] = None) -> ServiceResponse[Dict[str, Any]]:
         """
         Get a part by its part number.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
         management to BaseService pattern for consistency.
         """
         try:
             self.validate_required_fields({"part_number": part_number}, ["part_number"])
             self.log_operation("get_by_part_number", self.entity_name, part_number)
-            
+
             with self.get_session() as session:
                 # Fetch part using the repository layer
                 part = self.part_repo.get_part_by_part_number(session, part_number)
-                
+
                 if not part:
                     return self.error_response(f"{self.entity_name} with part number '{part_number}' not found")
-                
+
                 # Load order relationships
                 part_with_orders = self._load_order_relationships(session, part)
-                
+
                 return self.success_response(
                     f"{self.entity_name} with part number '{part_number}' found",
-                    part_with_orders.to_dict(include=include)
+                    part_with_orders.to_dict(include=include),
                 )
-                
+
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name} by part number")
 
@@ -605,94 +635,93 @@ class PartService(BaseService):
         """
         try:
             self.log_operation("get", self.entity_name, part_name)
-            
+
             with self.get_session() as session:
                 # Fetch part using the repository layer
                 part = self.part_repo.get_part_by_name(session, part_name)
-                
+
                 if not part:
                     raise ResourceNotFoundError(f"Part with name '{part_name}' not found.")
-                
+
                 # Load order relationships
                 part_with_orders = self._load_order_relationships(session, part)
-                
+
                 return self.success_response(
-                    f"Part with name '{part_name}' found.",
-                    part_with_orders.to_dict(include=include)
+                    f"Part with name '{part_name}' found.", part_with_orders.to_dict(include=include)
                 )
-                
+
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name} by part name")
 
     def get_part_by_id(self, part_id: str, include: List[str] = None) -> ServiceResponse[Dict[str, Any]]:
         try:
             self.log_operation("get", self.entity_name, part_id)
-            
+
             with self.get_session() as session:
                 # Fetch part using the repository layer
                 part = self.part_repo.get_part_by_id(session, part_id)
-                
+
                 if not part:
                     raise ResourceNotFoundError(f"Part with ID '{part_id}' not found.")
-                
+
                 # Load order relationships
                 part_with_orders = self._load_order_relationships(session, part)
-                
+
                 return self.success_response(
-                    f"Part with ID '{part_id}' found.",
-                    part_with_orders.to_dict(include=include)
+                    f"Part with ID '{part_id}' found.", part_with_orders.to_dict(include=include)
                 )
-                
+
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name} by ID")
 
     def get_part_counts(self) -> ServiceResponse[Dict[str, int]]:
         """
         Get total part count from the database.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
         management to BaseService pattern for consistency.
         """
         try:
             self.log_operation("get_counts", self.entity_name)
-            
+
             with self.get_session() as session:
                 total_parts = self.part_repo.get_part_counts(session)
-                
-                return self.success_response(
-                    "Total part count retrieved successfully",
-                    {"total_parts": total_parts}
-                )
-                
+
+                return self.success_response("Total part count retrieved successfully", {"total_parts": total_parts})
+
         except Exception as e:
             return self.handle_exception(e, f"get {self.entity_name} counts")
 
     def get_all_parts(self, page: int = 1, page_size: int = 10) -> ServiceResponse[Dict[str, Any]]:
         """
         Get all parts with pagination.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
         management to BaseService pattern for consistency.
         """
         try:
             self.log_operation("get_all", self.entity_name)
-            
+
             with self.get_session() as session:
                 # Fetch parts using the repository
                 parts = self.part_repo.get_all_parts(session=session, page=page, page_size=page_size)
                 total_parts = self.part_repo.get_part_counts(session)
-                
+
                 parts_data = {
                     "items": [part.to_dict() for part in parts],
                     "page": page,
                     "page_size": page_size,
-                    "total": total_parts
+                    "total": total_parts,
                 }
-                
-                message = f"Retrieved {len(parts)} parts (Page {page}/{(total_parts + page_size - 1) // page_size})." if parts else "No parts found."
-                
+
+                message = (
+                    f"Retrieved {len(parts)} parts (Page {page}/{(total_parts + page_size - 1) // page_size})."
+                    if parts
+                    else "No parts found."
+                )
+
                 return self.success_response(message, parts_data)
-                
+
         except Exception as e:
             return self.handle_exception(e, f"get all {self.entity_name}s")
 
@@ -703,20 +732,20 @@ class PartService(BaseService):
     def update_part(self, part_id: str, part_update: PartUpdate) -> ServiceResponse[Dict[str, Any]]:
         """
         Update a part with provided data using BaseService patterns.
-        
+
         CONSOLIDATED SESSION MANAGEMENT: Migrated from static method with manual session
         management to BaseService pattern for consistency.
         """
         try:
             self.log_operation("update", self.entity_name, part_id)
-            
+
             with self.get_session() as session:
                 part = self.part_repo.get_part_by_id(session, part_id)
                 if not part:
                     raise ResourceNotFoundError(f"Part with ID '{part_id}' not found.")
-                
+
                 # Ensure categories are properly loaded
-                if hasattr(part, 'categories') and part.categories:
+                if hasattr(part, "categories") and part.categories:
                     # Force load categories to ensure they're properly populated
                     for category in part.categories:
                         # Access category attributes to ensure they're loaded
@@ -747,7 +776,7 @@ class PartService(BaseService):
                             for cat in part.categories:
                                 try:
                                     # Safely get category name, ensuring it's a proper CategoryModel
-                                    if hasattr(cat, 'name') and cat.name:
+                                    if hasattr(cat, "name") and cat.name:
                                         old_categories.append(cat.name)
                                     else:
                                         self.logger.warning(f"Category object missing name attribute: {cat}")
@@ -763,29 +792,34 @@ class PartService(BaseService):
                             # Use repository to update the part
                             part = self.part_repo.update_part(session, part)
 
-                            new_categories = [cat.name for cat in categories if hasattr(cat, 'name')]
-                            self.logger.info(f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}")
+                            new_categories = [cat.name for cat in categories if hasattr(cat, "name")]
+                            self.logger.info(
+                                f"Updated categories for part '{part.part_name}' (ID: {part_id}): {old_categories} → {new_categories}"
+                            )
                             updated_fields.append(f"categories: {old_categories} → {new_categories}")
                         else:
                             # Empty list provided - preserve existing categories
-                            self.logger.debug(f"Empty category_names provided for part '{part.part_name}' (ID: {part_id}) - preserving existing categories")
+                            self.logger.debug(
+                                f"Empty category_names provided for part '{part.part_name}' (ID: {part_id}) - preserving existing categories"
+                            )
                     elif key == "quantity":
                         # Special handling for quantity - update primary allocation
                         old_quantity = part.total_quantity
 
                         if not part.allocations:
                             # No allocations exist - need location_id to create allocation
-                            location_id_for_allocation = update_data.get('location_id')
+                            location_id_for_allocation = update_data.get("location_id")
 
                             if not location_id_for_allocation:
                                 # Get or create "Unsorted" location as default
                                 from MakerMatrix.models.location_models import LocationModel
+
                                 unsorted_location = session.query(LocationModel).filter_by(name="Unsorted").first()
                                 if not unsorted_location:
                                     unsorted_location = LocationModel(
                                         name="Unsorted",
                                         description="Default location for parts without a specified location",
-                                        location_type="standard"
+                                        location_type="standard",
                                     )
                                     session.add(unsorted_location)
                                     session.flush()
@@ -802,24 +836,29 @@ class PartService(BaseService):
                                 location_id=location_id_for_allocation,
                                 quantity_at_location=value,
                                 is_primary_storage=True,
-                                notes="Allocation created during quantity update"
+                                notes="Allocation created during quantity update",
                             )
                             session.add(allocation)
-                            self.logger.info(f"Created new allocation with quantity {value} at location {location_id_for_allocation} for part '{part.part_name}' (ID: {part_id})")
+                            self.logger.info(
+                                f"Created new allocation with quantity {value} at location {location_id_for_allocation} for part '{part.part_name}' (ID: {part_id})"
+                            )
                             updated_fields.append(f"quantity: {old_quantity} → {value}")
                         else:
                             # Find primary allocation or use first
                             primary_alloc = next(
                                 (alloc for alloc in part.allocations if alloc.is_primary_storage),
-                                part.allocations[0] if part.allocations else None
+                                part.allocations[0] if part.allocations else None,
                             )
 
                             if primary_alloc:
                                 primary_alloc.quantity_at_location = value
                                 from datetime import datetime
+
                                 primary_alloc.last_updated = datetime.utcnow()
                                 session.add(primary_alloc)
-                                self.logger.info(f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_quantity} → {value}")
+                                self.logger.info(
+                                    f"Updated quantity for part '{part.part_name}' (ID: {part_id}): {old_quantity} → {value}"
+                                )
                                 updated_fields.append(f"quantity: {old_quantity} → {value}")
                     elif key == "location_id":
                         # Special handling for location_id - move primary allocation to new location
@@ -833,23 +872,28 @@ class PartService(BaseService):
                                 location_id=value,
                                 quantity_at_location=0,
                                 is_primary_storage=True,
-                                notes="Location updated from part edit"
+                                notes="Location updated from part edit",
                             )
                             session.add(allocation)
-                            self.logger.info(f"Created new allocation at location {value} for part '{part.part_name}' (ID: {part_id})")
+                            self.logger.info(
+                                f"Created new allocation at location {value} for part '{part.part_name}' (ID: {part_id})"
+                            )
                         else:
                             # Update primary allocation location
                             primary_alloc = next(
                                 (alloc for alloc in part.allocations if alloc.is_primary_storage),
-                                part.allocations[0] if part.allocations else None
+                                part.allocations[0] if part.allocations else None,
                             )
 
                             if primary_alloc:
                                 primary_alloc.location_id = value
                                 from datetime import datetime
+
                                 primary_alloc.last_updated = datetime.utcnow()
                                 session.add(primary_alloc)
-                                self.logger.info(f"Updated location for part '{part.part_name}' (ID: {part_id}): {old_location_name} → {value}")
+                                self.logger.info(
+                                    f"Updated location for part '{part.part_name}' (ID: {part_id}): {old_location_name} → {value}"
+                                )
 
                         updated_fields.append(f"location: {old_location_name} → {value}")
                     elif hasattr(part, key):
@@ -862,33 +906,35 @@ class PartService(BaseService):
                                 self.logger.info(f"Updated part name (ID: {part_id}): '{old_value}' → '{value}'")
                                 updated_fields.append(f"name: '{old_value}' → '{value}'")
                             elif key == "supplier":
-                                self.logger.info(f"Updated supplier for part '{part.part_name}' (ID: {part_id}): '{old_value}' → '{value}'")
+                                self.logger.info(
+                                    f"Updated supplier for part '{part.part_name}' (ID: {part_id}): '{old_value}' → '{value}'"
+                                )
                                 updated_fields.append(f"supplier: '{old_value}' → '{value}'")
                             elif key == "description":
                                 self.logger.info(f"Updated description for part '{part.part_name}' (ID: {part_id})")
                                 updated_fields.append(f"description updated")
                             else:
-                                self.logger.info(f"Updated {key} for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}")
+                                self.logger.info(
+                                    f"Updated {key} for part '{part.part_name}' (ID: {part_id}): {old_value} → {value}"
+                                )
                                 updated_fields.append(f"{key}: {old_value} → {value}")
-                                
+
                         except AttributeError as e:
-                            self.logger.warning(f"Skipping read-only or problematic attribute '{key}' for part {part_id}: {e}")
+                            self.logger.warning(
+                                f"Skipping read-only or problematic attribute '{key}' for part {part_id}: {e}"
+                            )
 
                 # Pass the updated part to the repository for the actual update
                 updated_part = self.part_repo.update_part(session, part)
-                
+
                 if update_data:
-                    self.logger.info(f"Successfully updated part '{updated_part.part_name}' (ID: {part_id}). Changes: {', '.join(updated_fields)}")
-                    return self.success_response(
-                        "Part updated successfully", 
-                        updated_part.to_dict()
+                    self.logger.info(
+                        f"Successfully updated part '{updated_part.part_name}' (ID: {part_id}). Changes: {', '.join(updated_fields)}"
                     )
+                    return self.success_response("Part updated successfully", updated_part.to_dict())
                 else:
                     self.logger.info(f"No updates provided for part '{part.part_name}' (ID: {part_id})")
-                    return self.success_response(
-                        "No updates provided", 
-                        updated_part.to_dict()
-                    )
+                    return self.success_response("No updates provided", updated_part.to_dict())
 
         except Exception as e:
             return self.handle_exception(e, f"update {self.entity_name}")
@@ -900,23 +946,20 @@ class PartService(BaseService):
         """
         try:
             self.log_operation("advanced_search", "parts", f"filters: {search_params.search_term}")
-            
+
             with self.get_session() as session:
                 results, total_count = self.part_repo.advanced_search(session, search_params)
-                
+
                 search_data = {
                     "items": [part.to_dict() for part in results],
                     "total": total_count,
                     "page": search_params.page,
                     "page_size": search_params.page_size,
-                    "total_pages": (total_count + search_params.page_size - 1) // search_params.page_size
+                    "total_pages": (total_count + search_params.page_size - 1) // search_params.page_size,
                 }
-                
-                return self.success_response(
-                    "Search completed successfully",
-                    search_data
-                )
-                
+
+                return self.success_response("Search completed successfully", search_data)
+
         except Exception as e:
             return self.handle_exception(e, f"advanced search with filters")
 
@@ -926,23 +969,20 @@ class PartService(BaseService):
         """
         try:
             self.log_operation("search", "parts", f"text query: {query}")
-            
+
             with self.get_session() as session:
                 results, total_count = self.part_repo.search_parts_text(session, query, page, page_size)
-                
+
                 search_data = {
                     "items": [part.to_dict() for part in results],
                     "total": total_count,
                     "page": page,
                     "page_size": page_size,
-                    "total_pages": (total_count + page_size - 1) // page_size
+                    "total_pages": (total_count + page_size - 1) // page_size,
                 }
-                
-                return self.success_response(
-                    f"Found {total_count} parts matching '{query}'",
-                    search_data
-                )
-                
+
+                return self.success_response(f"Found {total_count} parts matching '{query}'", search_data)
+
         except Exception as e:
             return self.handle_exception(e, f"search parts with text query '{query}'")
 
@@ -952,15 +992,12 @@ class PartService(BaseService):
         """
         try:
             self.log_operation("get", "suggestions", f"query: {query}")
-            
+
             with self.get_session() as session:
                 suggestions = self.part_repo.get_part_suggestions(session, query, limit)
-                
-                return self.success_response(
-                    f"Found {len(suggestions)} suggestions for '{query}'",
-                    suggestions
-                )
-                
+
+                return self.success_response(f"Found {len(suggestions)} suggestions for '{query}'", suggestions)
+
         except Exception as e:
             return self.handle_exception(e, f"get part suggestions for query '{query}'")
 
@@ -1122,12 +1159,7 @@ class PartService(BaseService):
     # === ALLOCATION TRANSFER METHODS ===
 
     def transfer_quantity(
-        self,
-        part_id: str,
-        from_location_id: str,
-        to_location_id: str,
-        quantity: int,
-        notes: Optional[str] = None
+        self, part_id: str, from_location_id: str, to_location_id: str, quantity: int, notes: Optional[str] = None
     ) -> ServiceResponse:
         """
         Transfer quantity from one location to another for a part.
@@ -1147,32 +1179,24 @@ class PartService(BaseService):
                 # Get part
                 part = session.get(PartModel, part_id)
                 if not part:
-                    return ServiceResponse(
-                        success=False,
-                        message=f"Part {part_id} not found",
-                        data=None
-                    )
+                    return ServiceResponse(success=False, message=f"Part {part_id} not found", data=None)
 
                 # Get source allocation
                 from_alloc = session.exec(
                     select(PartLocationAllocation).where(
                         PartLocationAllocation.part_id == part_id,
-                        PartLocationAllocation.location_id == from_location_id
+                        PartLocationAllocation.location_id == from_location_id,
                     )
                 ).first()
 
                 if not from_alloc:
-                    return ServiceResponse(
-                        success=False,
-                        message=f"No allocation found at source location",
-                        data=None
-                    )
+                    return ServiceResponse(success=False, message=f"No allocation found at source location", data=None)
 
                 if from_alloc.quantity_at_location < quantity:
                     return ServiceResponse(
                         success=False,
                         message=f"Insufficient quantity at source (have {from_alloc.quantity_at_location}, need {quantity})",
-                        data=None
+                        data=None,
                     )
 
                 # Reduce source quantity
@@ -1188,8 +1212,7 @@ class PartService(BaseService):
                 # Get or create destination allocation
                 to_alloc = session.exec(
                     select(PartLocationAllocation).where(
-                        PartLocationAllocation.part_id == part_id,
-                        PartLocationAllocation.location_id == to_location_id
+                        PartLocationAllocation.part_id == part_id, PartLocationAllocation.location_id == to_location_id
                     )
                 ).first()
 
@@ -1206,7 +1229,7 @@ class PartService(BaseService):
                         location_id=to_location_id,
                         quantity_at_location=quantity,
                         is_primary_storage=False,  # Transfers are typically to working stock
-                        notes=f"Transferred from {from_location_id}: {notes}" if notes else None
+                        notes=f"Transferred from {from_location_id}: {notes}" if notes else None,
                     )
                     session.add(to_alloc)
 
@@ -1217,19 +1240,11 @@ class PartService(BaseService):
                     f"Transferred {quantity} of part {part.part_name} from {from_location_id} to {to_location_id}"
                 )
 
-                return ServiceResponse(
-                    success=True,
-                    message=f"Successfully transferred {quantity} units",
-                    data=part
-                )
+                return ServiceResponse(success=True, message=f"Successfully transferred {quantity} units", data=part)
 
         except Exception as e:
             logger.error(f"Transfer failed: {e}")
-            return ServiceResponse(
-                success=False,
-                message=f"Transfer failed: {str(e)}",
-                data=None
-            )
+            return ServiceResponse(success=False, message=f"Transfer failed: {str(e)}", data=None)
 
     def bulk_update_parts(self, update_request: dict) -> ServiceResponse[Dict[str, Any]]:
         """
@@ -1248,12 +1263,12 @@ class PartService(BaseService):
             ServiceResponse with update summary
         """
         try:
-            part_ids = update_request.get('part_ids', [])
-            supplier = update_request.get('supplier')
-            location_id = update_request.get('location_id')
-            minimum_quantity = update_request.get('minimum_quantity')
-            add_categories = update_request.get('add_categories', [])
-            remove_categories = update_request.get('remove_categories', [])
+            part_ids = update_request.get("part_ids", [])
+            supplier = update_request.get("supplier")
+            location_id = update_request.get("location_id")
+            minimum_quantity = update_request.get("minimum_quantity")
+            add_categories = update_request.get("add_categories", [])
+            remove_categories = update_request.get("remove_categories", [])
 
             updated_count = 0
             failed_count = 0
@@ -1266,10 +1281,7 @@ class PartService(BaseService):
                         part = self.part_repo.get_part_by_id(session, part_id)
                         if not part:
                             failed_count += 1
-                            errors.append({
-                                'part_id': part_id,
-                                'error': 'Part not found'
-                            })
+                            errors.append({"part_id": part_id, "error": "Part not found"})
                             continue
 
                         # Update simple fields
@@ -1287,7 +1299,7 @@ class PartService(BaseService):
                             # Find or create primary allocation
                             primary_alloc = next(
                                 (alloc for alloc in part.allocations if alloc.is_primary_storage),
-                                part.allocations[0] if part.allocations else None
+                                part.allocations[0] if part.allocations else None,
                             )
 
                             if primary_alloc:
@@ -1298,16 +1310,14 @@ class PartService(BaseService):
                         # Handle categories
                         if add_categories:
                             from MakerMatrix.repositories.parts_repositories import handle_categories
+
                             categories_to_add = handle_categories(session, add_categories)
                             for category in categories_to_add:
                                 if category not in part.categories:
                                     part.categories.append(category)
 
                         if remove_categories:
-                            part.categories = [
-                                cat for cat in part.categories
-                                if cat.name not in remove_categories
-                            ]
+                            part.categories = [cat for cat in part.categories if cat.name not in remove_categories]
 
                         # Save the part
                         session.add(part)
@@ -1315,24 +1325,16 @@ class PartService(BaseService):
 
                     except Exception as e:
                         failed_count += 1
-                        errors.append({
-                            'part_id': part_id,
-                            'error': str(e)
-                        })
+                        errors.append({"part_id": part_id, "error": str(e)})
                         logger.error(f"Failed to update part {part_id}: {e}")
 
                 # Commit all updates
                 session.commit()
 
-            result = {
-                'updated_count': updated_count,
-                'failed_count': failed_count,
-                'errors': errors
-            }
+            result = {"updated_count": updated_count, "failed_count": failed_count, "errors": errors}
 
             return self.success_response(
-                f"Bulk update completed: {updated_count} succeeded, {failed_count} failed",
-                result
+                f"Bulk update completed: {updated_count} succeeded, {failed_count} failed", result
             )
 
         except Exception as e:
@@ -1364,10 +1366,7 @@ class PartService(BaseService):
                         part = self.part_repo.get_part_by_id(session, part_id)
                         if not part:
                             failed_count += 1
-                            errors.append({
-                                'part_id': part_id,
-                                'error': 'Part not found'
-                            })
+                            errors.append({"part_id": part_id, "error": "Part not found"})
                             continue
 
                         part_name = part.part_name
@@ -1380,29 +1379,28 @@ class PartService(BaseService):
                         self.part_repo.delete_part(session, part_id)
                         deleted_count += 1
 
-                        self.logger.info(f"Deleted part '{part_name}' (ID: {part_id}) and {files_deleted} associated file(s)")
+                        self.logger.info(
+                            f"Deleted part '{part_name}' (ID: {part_id}) and {files_deleted} associated file(s)"
+                        )
 
                     except Exception as e:
                         failed_count += 1
-                        errors.append({
-                            'part_id': part_id,
-                            'error': str(e)
-                        })
+                        errors.append({"part_id": part_id, "error": str(e)})
                         self.logger.error(f"Failed to delete part {part_id}: {e}")
 
                 # Commit all deletions
                 session.commit()
 
             result = {
-                'deleted_count': deleted_count,
-                'failed_count': failed_count,
-                'files_deleted': total_files_deleted,
-                'errors': errors
+                "deleted_count": deleted_count,
+                "failed_count": failed_count,
+                "files_deleted": total_files_deleted,
+                "errors": errors,
             }
 
             return self.success_response(
                 f"Bulk delete completed: {deleted_count} part(s) deleted, {total_files_deleted} file(s) removed, {failed_count} failed",
-                result
+                result,
             )
 
         except Exception as e:

@@ -24,11 +24,7 @@ from MakerMatrix.auth.dependencies import get_current_user
 def test_user_fixture():
     """Create a mock test user"""
     return UserModel(
-        id="test-user-id",
-        username="testuser",
-        email="test@example.com",
-        hashed_password="fake_hash",
-        is_active=True
+        id="test-user-id", username="testuser", email="test@example.com", hashed_password="fake_hash", is_active=True
     )
 
 
@@ -54,6 +50,7 @@ def test_session_fixture(test_engine):
 @pytest.fixture(name="test_client")
 def test_client_fixture(test_session: Session, test_user: UserModel):
     """Create a test client with overridden dependencies"""
+
     def override_get_session():
         yield test_session
 
@@ -82,7 +79,9 @@ def test_location_fixture(test_session: Session):
 class TestPartsRoutesAddPart:
     """Test POST /parts/add_part endpoint"""
 
-    def test_add_part_creates_allocation(self, test_client: TestClient, test_location: LocationModel, test_session: Session):
+    def test_add_part_creates_allocation(
+        self, test_client: TestClient, test_location: LocationModel, test_session: Session
+    ):
         """Test that adding a part via API creates an allocation"""
         part_data = {
             "part_name": "API Test Resistor",
@@ -90,7 +89,7 @@ class TestPartsRoutesAddPart:
             "quantity": 100,
             "location_id": test_location.id,
             "supplier": "Test Supplier",
-            "description": "Test part via API"
+            "description": "Test part via API",
         }
 
         response = test_client.post("/api/parts/add_part", json=part_data)
@@ -115,7 +114,7 @@ class TestPartsRoutesAddPart:
         part_data = {
             "part_name": "API Test Capacitor",
             "part_number": "API-CAP-001",
-            "description": "Test part without location"
+            "description": "Test part without location",
         }
 
         response = test_client.post("/api/parts/add_part", json=part_data)
@@ -129,7 +128,7 @@ class TestPartsRoutesAddPart:
             "part_name": "API Test LED",
             "part_number": "API-LED-001",
             "quantity": 0,
-            "location_id": test_location.id
+            "location_id": test_location.id,
         }
 
         response = test_client.post("/api/parts/add_part", json=part_data)
@@ -150,10 +149,7 @@ class TestPartsRoutesUpdatePart:
         test_session.refresh(part)
 
         allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=test_location.id,
-            quantity_at_location=50,
-            is_primary_storage=True
+            part_id=part.id, location_id=test_location.id, quantity_at_location=50, is_primary_storage=True
         )
         test_session.add(allocation)
         test_session.commit()
@@ -184,10 +180,7 @@ class TestPartsRoutesUpdatePart:
         test_session.refresh(part)
 
         allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=test_location.id,
-            quantity_at_location=75,
-            is_primary_storage=True
+            part_id=part.id, location_id=test_location.id, quantity_at_location=75, is_primary_storage=True
         )
         test_session.add(allocation)
         test_session.commit()
@@ -207,7 +200,9 @@ class TestPartsRoutesUpdatePart:
 class TestPartsRoutesGetPart:
     """Test GET /parts/get_part endpoint"""
 
-    def test_get_part_returns_computed_quantity(self, test_client: TestClient, test_location: LocationModel, test_session: Session):
+    def test_get_part_returns_computed_quantity(
+        self, test_client: TestClient, test_location: LocationModel, test_session: Session
+    ):
         """Test that getting a part returns quantity from allocations"""
         # Create part with allocation
         part = PartModel(part_name="Get Test Part", part_number="GET-001")
@@ -216,10 +211,7 @@ class TestPartsRoutesGetPart:
         test_session.refresh(part)
 
         allocation = PartLocationAllocation(
-            part_id=part.id,
-            location_id=test_location.id,
-            quantity_at_location=200,
-            is_primary_storage=True
+            part_id=part.id, location_id=test_location.id, quantity_at_location=200, is_primary_storage=True
         )
         test_session.add(allocation)
         test_session.commit()
@@ -236,7 +228,9 @@ class TestPartsRoutesGetPart:
 class TestPartsRoutesGetAllParts:
     """Test GET /parts/get_all_parts endpoint"""
 
-    def test_get_all_parts_includes_allocations(self, test_client: TestClient, test_location: LocationModel, test_session: Session):
+    def test_get_all_parts_includes_allocations(
+        self, test_client: TestClient, test_location: LocationModel, test_session: Session
+    ):
         """Test that get_all_parts returns parts with computed quantities"""
         # Create multiple parts with allocations
         for i in range(3):
@@ -249,7 +243,7 @@ class TestPartsRoutesGetAllParts:
                 part_id=part.id,
                 location_id=test_location.id,
                 quantity_at_location=(i + 1) * 10,
-                is_primary_storage=True
+                is_primary_storage=True,
             )
             test_session.add(allocation)
             test_session.commit()
@@ -285,20 +279,13 @@ class TestPartsRoutesSearch:
             test_session.refresh(part)
 
             allocation = PartLocationAllocation(
-                part_id=part.id,
-                location_id=test_location.id,
-                quantity_at_location=50,
-                is_primary_storage=True
+                part_id=part.id, location_id=test_location.id, quantity_at_location=50, is_primary_storage=True
             )
             test_session.add(allocation)
             test_session.commit()
 
         # Search by location
-        search_data = {
-            "location_id": test_location.id,
-            "page": 1,
-            "page_size": 10
-        }
+        search_data = {"location_id": test_location.id, "page": 1, "page_size": 10}
 
         response = test_client.post("/api/parts/search", json=search_data)
         assert response.status_code == 200

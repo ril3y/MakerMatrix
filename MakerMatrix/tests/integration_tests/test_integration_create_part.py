@@ -6,11 +6,9 @@ from MakerMatrix.main import app
 from MakerMatrix.scripts.setup_admin import DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
 from sqlmodel import SQLModel
 
+
 def get_auth_token(client):
-    login_data = {
-        "username": DEFAULT_ADMIN_USERNAME,
-        "password": DEFAULT_ADMIN_PASSWORD
-    }
+    login_data = {"username": DEFAULT_ADMIN_USERNAME, "password": DEFAULT_ADMIN_PASSWORD}
     # Use mobile login endpoint for cleaner JSON handling
     response = client.post("/auth/mobile-login", json=login_data)
     assert response.status_code == 200
@@ -18,6 +16,7 @@ def get_auth_token(client):
     assert "data" in response_data
     assert "access_token" in response_data["data"]
     return response_data["data"]["access_token"]
+
 
 def test_create_part_integration():
     with TestClient(app) as client:
@@ -32,7 +31,7 @@ def test_create_part_integration():
             "manufacturer": "Test Manufacturer",
             "quantity": 10,
             "location_id": None,  # Add a real location if needed
-            "category_names": ["Test Category"]
+            "category_names": ["Test Category"],
         }
 
         # Create the part

@@ -26,6 +26,7 @@ def session_fixture():
 
     # Create all tables
     from MakerMatrix.models.models import SQLModel
+
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as session:
@@ -59,7 +60,7 @@ class TestPartServiceAddPart:
             "description": "Test resistor",
             "quantity": 100,
             "location_id": test_location.id,
-            "supplier": "Test Supplier"
+            "supplier": "Test Supplier",
         }
 
         response = part_service.add_part(part_data)
@@ -72,10 +73,7 @@ class TestPartServiceAddPart:
 
     def test_add_part_without_quantity_creates_part(self, part_service: PartService, test_location: LocationModel):
         """Test that adding a part without quantity still works"""
-        part_data = {
-            "part_name": "Test Capacitor 100nF",
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test Capacitor 100nF", "location_id": test_location.id}
 
         response = part_service.add_part(part_data)
 
@@ -84,24 +82,18 @@ class TestPartServiceAddPart:
 
     def test_add_part_zero_quantity_no_allocation(self, part_service: PartService, test_location: LocationModel):
         """Test that adding a part with zero quantity doesn't create allocation"""
-        part_data = {
-            "part_name": "Test LED Red",
-            "quantity": 0,
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test LED Red", "quantity": 0, "location_id": test_location.id}
 
         response = part_service.add_part(part_data)
 
         assert response.success is True
         assert response.data["quantity"] == 0
 
-    def test_add_part_allocation_marked_primary(self, part_service: PartService, test_location: LocationModel, session: Session):
+    def test_add_part_allocation_marked_primary(
+        self, part_service: PartService, test_location: LocationModel, session: Session
+    ):
         """Test that initial allocation is marked as primary storage"""
-        part_data = {
-            "part_name": "Test IC 555",
-            "quantity": 50,
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test IC 555", "quantity": 50, "location_id": test_location.id}
 
         response = part_service.add_part(part_data)
         assert response.success is True
@@ -115,13 +107,11 @@ class TestPartServiceAddPart:
         assert part.allocations[0].quantity_at_location == 50
         assert part.allocations[0].location_id == test_location.id
 
-    def test_add_part_computed_properties_work(self, part_service: PartService, test_location: LocationModel, session: Session):
+    def test_add_part_computed_properties_work(
+        self, part_service: PartService, test_location: LocationModel, session: Session
+    ):
         """Test that computed properties return correct values"""
-        part_data = {
-            "part_name": "Test Transistor",
-            "quantity": 200,
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test Transistor", "quantity": 200, "location_id": test_location.id}
 
         response = part_service.add_part(part_data)
         part_id = response.data["id"]
@@ -136,23 +126,18 @@ class TestPartServiceAddPart:
 class TestPartServiceUpdateQuantity:
     """Test PartService.update_quantity_service() with allocations"""
 
-    def test_update_quantity_updates_primary_allocation(self, part_service: PartService, test_location: LocationModel, session: Session):
+    def test_update_quantity_updates_primary_allocation(
+        self, part_service: PartService, test_location: LocationModel, session: Session
+    ):
         """Test that updating quantity updates the primary allocation"""
         # Create part with initial quantity
-        part_data = {
-            "part_name": "Test Diode",
-            "quantity": 100,
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test Diode", "quantity": 100, "location_id": test_location.id}
 
         response = part_service.add_part(part_data)
         part_id = response.data["id"]
 
         # Update quantity
-        update_response = part_service.update_quantity_service(
-            new_quantity=250,
-            part_id=part_id
-        )
+        update_response = part_service.update_quantity_service(new_quantity=250, part_id=part_id)
 
         assert update_response.success is True
 
@@ -168,10 +153,7 @@ class TestPartServiceUpdateQuantity:
         session.add(part)
         session.commit()
 
-        response = part_service.update_quantity_service(
-            new_quantity=100,
-            part_id=part.id
-        )
+        response = part_service.update_quantity_service(new_quantity=100, part_id=part.id)
 
         assert response.success is False
         assert "no allocations" in response.message.lower()
@@ -183,16 +165,13 @@ class TestPartServiceUpdatePart:
     def test_update_part_quantity(self, part_service: PartService, test_location: LocationModel, session: Session):
         """Test updating part quantity through update_part()"""
         # Create part
-        part_data = {
-            "part_name": "Test Component",
-            "quantity": 50,
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test Component", "quantity": 50, "location_id": test_location.id}
         response = part_service.add_part(part_data)
         part_id = response.data["id"]
 
         # Update using PartUpdate schema
         from MakerMatrix.schemas.part_create import PartUpdate
+
         update_data = PartUpdate(quantity=150)
 
         update_response = part_service.update_part(part_id, update_data)
@@ -211,16 +190,13 @@ class TestPartServiceUpdatePart:
         session.commit()
 
         # Create part at first location
-        part_data = {
-            "part_name": "Test Movable Part",
-            "quantity": 75,
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test Movable Part", "quantity": 75, "location_id": test_location.id}
         response = part_service.add_part(part_data)
         part_id = response.data["id"]
 
         # Update location
         from MakerMatrix.schemas.part_create import PartUpdate
+
         update_data = PartUpdate(location_id=new_location.id)
 
         update_response = part_service.update_part(part_id, update_data)
@@ -232,7 +208,9 @@ class TestPartServiceUpdatePart:
         assert part.primary_location.id == new_location.id
         assert part.allocations[0].location_id == new_location.id
 
-    def test_update_part_both_quantity_and_location(self, part_service: PartService, test_location: LocationModel, session: Session):
+    def test_update_part_both_quantity_and_location(
+        self, part_service: PartService, test_location: LocationModel, session: Session
+    ):
         """Test updating both quantity and location"""
         # Create second location
         new_location = LocationModel(name="Another Shelf", location_type="shelf")
@@ -240,16 +218,13 @@ class TestPartServiceUpdatePart:
         session.commit()
 
         # Create part
-        part_data = {
-            "part_name": "Test Multi Update",
-            "quantity": 100,
-            "location_id": test_location.id
-        }
+        part_data = {"part_name": "Test Multi Update", "quantity": 100, "location_id": test_location.id}
         response = part_service.add_part(part_data)
         part_id = response.data["id"]
 
         # Update both
         from MakerMatrix.schemas.part_create import PartUpdate
+
         update_data = PartUpdate(quantity=200, location_id=new_location.id)
 
         update_response = part_service.update_part(part_id, update_data)

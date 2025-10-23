@@ -21,5 +21,5 @@ __all__ = [
     "PrinterRepository",
     "PrinterDatabaseRepository",
     "DatasheetRepository",
-    "CSVImportConfigRepository"
+    "CSVImportConfigRepository",
 ]
