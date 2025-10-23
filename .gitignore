@@ -163,6 +163,9 @@ ENV/
 *.swo
 .DS_Store
 
+# Windows-specific files (Zone.Identifier are alternate data streams)
+*:Zone.Identifier
+
 # Testing
 .coverage
 htmlcov/
