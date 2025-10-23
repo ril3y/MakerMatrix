@@ -37,7 +37,7 @@ const BackupManagement = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [taskProgress, setTaskProgress] = useState<number>(0)
   const [taskStatus, setTaskStatus] = useState<string>('')
-  const [isRestoreCompleted, setIsRestoreCompleted] = useState(false)
+  const [_isRestoreCompleted, setIsRestoreCompleted] = useState(false)
   const [isWaitingForRestart, setIsWaitingForRestart] = useState(false)
 
   // Ref to prevent duplicate completion processing (race condition fix)
@@ -135,7 +135,7 @@ const BackupManagement = () => {
                         window.location.href = '/'
                       }, 1000)
                     }
-                  } catch (error) {
+                  } catch (_error) {
                     console.log('[BackupManagement] Still waiting for application restart...')
                   }
                 }, 2000) // Check every 2 seconds
@@ -211,7 +211,7 @@ const BackupManagement = () => {
                   window.location.href = '/'
                 }, 1000)
               }
-            } catch (error) {
+            } catch (_error) {
               console.log('[BackupManagement] Still waiting for application restart...')
             }
           }, 2000) // Check every 2 seconds
@@ -246,7 +246,7 @@ const BackupManagement = () => {
 
       // Clear the password field when loading
       setSchedulePassword('')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load backup data')
     } finally {
       setLoading(false)
@@ -271,7 +271,7 @@ const BackupManagement = () => {
       setActiveTaskId(task.task_id)
       setTaskProgress(0)
       setTaskStatus('Starting backup...')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to create backup')
     }
   }
@@ -314,7 +314,7 @@ const BackupManagement = () => {
       await backupService.deleteBackup(filename)
       toast.success('Backup deleted successfully')
       loadBackupData()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to delete backup')
     }
   }
@@ -323,7 +323,7 @@ const BackupManagement = () => {
     try {
       await backupService.downloadBackup(filename)
       toast.success('Backup download started')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to download backup')
     }
   }
@@ -341,17 +341,17 @@ const BackupManagement = () => {
       await backupService.updateBackupConfig(configToSave)
       toast.success('Backup configuration updated successfully')
       loadBackupData()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to update configuration')
     }
   }
 
   const handleRunRetention = async () => {
     try {
-      const task = await backupService.runRetentionCleanup()
+      const _task = await backupService.runRetentionCleanup()
       toast.success('Retention cleanup task created')
       setTimeout(loadBackupData, 3000)
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to start retention cleanup')
     }
   }

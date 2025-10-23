@@ -50,10 +50,9 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
   })
 
   // Supplier-specific data (e.g., DigiKey fields)
-  const [supplierSpecificData, setSupplierSpecificData] = useState<Record<string, any>>({})
+  const [supplierSpecificData, setSupplierSpecificData] = useState<Record<string, unknown>>({})
 
   const supplierTypes = supplierService.getAvailableSupplierTypes()
-  const capabilities = supplierService.getSupportedCapabilities()
 
   const handleTypeSelection = (typeName: string) => {
     setSelectedType(typeName)
@@ -114,28 +113,6 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
       setSupplierSpecificData((prev) => ({ ...prev, [field]: value }))
     }
     setErrors([]) // Clear errors when user makes changes
-  }
-
-  const handleCapabilityChange = (capability: string, enabled: boolean) => {
-    const field = `supports_${capability.replace('fetch_', '')}` as keyof SupplierConfigCreate
-    handleConfigChange(field, enabled)
-  }
-
-  const handleCustomHeaderChange = (key: string, value: string) => {
-    const newHeaders = { ...config.custom_headers }
-    if (value.trim()) {
-      newHeaders[key] = value
-    } else {
-      delete newHeaders[key]
-    }
-    handleConfigChange('custom_headers', newHeaders)
-  }
-
-  const addCustomHeader = () => {
-    const key = prompt('Enter header name:')
-    if (key && key.trim()) {
-      handleCustomHeaderChange(key.trim(), '')
-    }
   }
 
   const handleSubmit = async () => {

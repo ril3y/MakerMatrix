@@ -72,7 +72,6 @@ const PartsPage = () => {
   // Bulk edit mode state
   const [bulkEditMode, setBulkEditMode] = useState(false)
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set())
-  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
 
   // Tag filtering state
   const [selectedTags, setSelectedTags] = useState<Tag[]>([])
@@ -148,7 +147,7 @@ const PartsPage = () => {
       // Don't clear parts or set loading - handle that in useEffects
       setError(null)
 
-      let response:
+      const response:
         | {
             items?: Part[]
             total?: number
@@ -253,12 +252,12 @@ const PartsPage = () => {
         setHasMore(false)
       }
     } catch (err) {
-      const error = err as {
+      const _error = err as {
         response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
         message?: string
       }
       console.error('Error loading parts:', err)
-      setError(err.response?.data?.error || err.message || 'Failed to load parts')
+      setError(_error.response?.data?.error || _error.message || 'Failed to load parts')
       // Set empty array on error to prevent map issues
       setParts([])
       setTotalParts(0)
@@ -627,11 +626,9 @@ const PartsPage = () => {
   const exitBulkEditMode = () => {
     setBulkEditMode(false)
     setSelectedPartIds(new Set())
-    setLastClickedIndex(null)
   }
 
   const isAllOnPageSelected = parts.length > 0 && parts.every((p) => selectedPartIds.has(p.id))
-  const isAllMatchingSelected = selectedPartIds.size === totalParts && totalParts > 0
 
   return (
     <div className="max-w-screen-2xl space-y-6">
@@ -1165,7 +1162,7 @@ const PartsPage = () => {
                         <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {part.categories && part.categories.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {part.categories.map((category, index) => (
+                              {part.categories.map((category) => (
                                 <span
                                   key={category.id}
                                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary"
@@ -1203,7 +1200,7 @@ const PartsPage = () => {
                         <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {part.projects && part.projects.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {part.projects.map((project, index) => (
+                              {part.projects.map((project) => (
                                 <span
                                   key={project.id}
                                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-600/20 text-purple-400 border border-purple-600/50"

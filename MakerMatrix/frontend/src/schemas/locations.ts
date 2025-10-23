@@ -184,7 +184,7 @@ export const locationPathSchema = z.object({
 // Validation helpers for location-specific rules
 export const locationValidationRules = {
   // Check if location name is unique within the same parent
-  uniqueNameInParent: (name: string, parentId?: string, excludeId?: string) => {
+  uniqueNameInParent: (_name: string, _parentId?: string, _excludeId?: string) => {
     return z.string().refine(async (value) => {
       // This would typically make an API call to check uniqueness
       // For now, we'll just validate the format

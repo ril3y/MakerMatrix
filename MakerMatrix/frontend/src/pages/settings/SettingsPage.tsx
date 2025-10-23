@@ -21,7 +21,7 @@ import {
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { settingsService } from '@/services/settings.service'
-import type { AIConfig, BackupStatus } from '@/types/settings'
+import type { AIConfig } from '@/types/settings'
 import toast from 'react-hot-toast'
 import ImportSelector from '@/components/import/ImportSelector'
 import TasksManagement from '@/components/tasks/TasksManagement'
@@ -35,21 +35,39 @@ import BackupManagement from '@/components/settings/BackupManagement'
 import { usePermissions } from '@/hooks/usePermissions'
 
 const SettingsPage = () => {
-  const { isDarkMode, toggleDarkMode, currentTheme, setTheme, isCompactMode, toggleCompactMode } =
-    useTheme()
+  const { isDarkMode, toggleDarkMode, isCompactMode, toggleCompactMode } = useTheme()
   const { isAdmin } = usePermissions()
   const isDebugMode = import.meta.env.VITE_DEBUG === 'true'
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'general')
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
-  const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null)
-  const [availableModels, setAvailableModels] = useState<any[]>([])
+  const [availableModels, setAvailableModels] = useState<
+    Array<{ name: string; size?: number; description?: string }>
+  >([])
   const [loading, setLoading] = useState(false)
   const [loadingModels, setLoadingModels] = useState(false)
-  const [availablePrinters, setAvailablePrinters] = useState<any[]>([])
+  const [availablePrinters, setAvailablePrinters] = useState<
+    Array<{
+      printer_id: string
+      name: string
+      model: string
+      status: string
+      driver_type?: string
+      backend?: string
+    }>
+  >([])
   const [showPrinterModal, setShowPrinterModal] = useState(false)
   const [printerModalMode, setPrinterModalMode] = useState<'add' | 'edit'>('add')
-  const [selectedPrinterForEdit, setSelectedPrinterForEdit] = useState<any>(null)
+  const [selectedPrinterForEdit, setSelectedPrinterForEdit] = useState<{
+    printer_id: string
+    name: string
+    model: string
+    driver_type?: string
+    backend?: string
+    identifier?: string
+    dpi?: number
+    scaling_factor?: number
+  } | null>(null)
 
   const loadAvailableModels = useCallback(
     async (configOverride?: AIConfig | null) => {
@@ -72,7 +90,7 @@ const SettingsPage = () => {
           toast.error(response.message || 'Failed to load available models')
           setAvailableModels([])
         }
-      } catch (error) {
+      } catch (_error) {
         toast.error('Failed to load available models')
         setAvailableModels([])
       } finally {
@@ -94,7 +112,7 @@ const SettingsPage = () => {
       } else {
         setAvailableModels([])
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load AI configuration')
     } finally {
       setLoading(false)
@@ -144,9 +162,8 @@ const SettingsPage = () => {
   const loadBackupStatus = async () => {
     try {
       setLoading(true)
-      const status = await settingsService.getBackupStatus()
-      setBackupStatus(status)
-    } catch (error) {
+      await settingsService.getBackupStatus()
+    } catch (_error) {
       toast.error('Failed to load backup status')
     } finally {
       setLoading(false)
@@ -159,7 +176,7 @@ const SettingsPage = () => {
     try {
       await settingsService.updateAIConfig(aiConfig)
       toast.success('AI configuration saved successfully')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to save AI configuration')
     }
   }
@@ -175,7 +192,7 @@ const SettingsPage = () => {
       } else {
         toast.error(response.message || 'AI connection test failed')
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('AI connection test failed')
     }
   }
@@ -656,7 +673,7 @@ const SettingsPage = () => {
                                 } else {
                                   toast.error(`❌ Connection test failed: ${errorMessage}`)
                                 }
-                              } catch (error) {
+                              } catch (_error) {
                                 toast.error('Failed to test printer connection')
                               }
                             }}

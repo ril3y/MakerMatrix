@@ -64,12 +64,12 @@ const EditPartPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [part, setPart] = useState<Part | null>(null)
-  const [locations, setLocations] = useState<Location[]>([])
+  const [_locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjects, setSelectedProjects] = useState<string[]>([])
-  const [additionalProperties, setAdditionalProperties] = useState<Record<string, any>>({})
+  const [additionalProperties, setAdditionalProperties] = useState<Record<string, unknown>>({})
   const [newPropertyKey, setNewPropertyKey] = useState('')
   const [newPropertyValue, setNewPropertyValue] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -79,43 +79,15 @@ const EditPartPage: React.FC = () => {
   const [showAddProjectModal, setShowAddProjectModal] = useState(false)
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
   const [showSlotPickerModal, setShowSlotPickerModal] = useState(false)
-  const [selectedContainer, setSelectedContainer] = useState<Location | null>(null)
+  const [_selectedContainer, _setSelectedContainer] = useState<Location | null>(null)
   const [enrichmentRequirements, setEnrichmentRequirements] =
     useState<SupplierEnrichmentRequirements | null>(null)
   const [loadingRequirements, setLoadingRequirements] = useState(false)
 
-  const buildLocationHierarchy = (
-    locations: Location[]
-  ): Array<{ id: string; name: string; level: number }> => {
-    const result: Array<{ id: string; name: string; level: number }> = []
-
-    const addLocation = (location: Location, level: number = 0) => {
-      result.push({
-        id: location.id,
-        name: location.name,
-        level,
-      })
-
-      // Find children in the flat list
-      const children = locations.filter((loc) => loc.parent_id === location.id)
-      children
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .forEach((child) => addLocation(child, level + 1))
-    }
-
-    // Start with root locations (no parent_id)
-    const rootLocations = locations.filter((loc) => !loc.parent_id)
-    rootLocations
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach((location) => addLocation(location))
-
-    return result
-  }
-
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid, isSubmitting },
+    formState: { errors, isValid },
     setValue,
     watch,
     reset,
@@ -356,15 +328,6 @@ const EditPartPage: React.FC = () => {
     console.log('Category toggled:', { categoryId, newSelected })
     setSelectedCategories(newSelected)
     setValue('category_ids', newSelected)
-  }
-
-  const toggleProject = (projectId: string) => {
-    const newSelected = selectedProjects.includes(projectId)
-      ? selectedProjects.filter((id) => id !== projectId)
-      : [...selectedProjects, projectId]
-
-    console.log('Project toggled:', { projectId, newSelected })
-    setSelectedProjects(newSelected)
   }
 
   const addProperty = () => {
@@ -1125,11 +1088,11 @@ const EditPartPage: React.FC = () => {
         onSuccess={handleLocationAdded}
       />
 
-      {selectedContainer && (
+      {_selectedContainer && (
         <ContainerSlotPickerModal
           isOpen={showSlotPickerModal}
           onClose={() => setShowSlotPickerModal(false)}
-          containerLocation={selectedContainer}
+          containerLocation={_selectedContainer}
           currentSlotId={watch('location_id')}
           onSlotSelect={(slotId) => {
             setValue('location_id', slotId)

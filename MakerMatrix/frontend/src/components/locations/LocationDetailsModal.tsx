@@ -211,10 +211,6 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
       setPartsAtLocation(partsWithAllocations)
     } catch (error) {
-      const err = error as {
-        response?: { data?: { message?: string; detail?: string }; status?: number }
-        message?: string
-      }
       console.error('Failed to load location data:', error)
       toast.error('Failed to load location details')
     } finally {
@@ -272,12 +268,10 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       loadLocationData()
       if (onRefresh) onRefresh()
     } catch (error) {
-      const err = error as {
-        response?: { data?: { message?: string; detail?: string }; status?: number }
-        message?: string
-      }
       console.error('Failed to return part:', error)
-      toast.error(error.message || 'Failed to return part to original location')
+      const errorMessage =
+        (error as { message?: string })?.message || 'Failed to return part to original location'
+      toast.error(errorMessage)
     }
   }
 
@@ -411,7 +405,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {locationDetails.children.map((childLocation: any) => (
+                    {locationDetails.children.map((childLocation: Location) => (
                       <div
                         key={childLocation.id}
                         className="p-4 bg-theme-primary border border-theme-primary rounded-lg hover:border-primary transition-colors cursor-pointer"
@@ -716,7 +710,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
           onClose={() => setShowSlotPickerModal(false)}
           containerLocation={location}
           currentSlotId={undefined}
-          onSlotSelect={(slotId) => {
+          onSlotSelect={(_slotId) => {
             // View-only mode - just close the modal
             // Could optionally navigate to the slot or show its details
             setShowSlotPickerModal(false)

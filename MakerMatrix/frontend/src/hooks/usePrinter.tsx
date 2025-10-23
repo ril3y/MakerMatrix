@@ -58,7 +58,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       if (printers?.length > 0 && !selectedPrinter) {
         setSelectedPrinter(printers[0].printer_id)
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load printers')
       setAvailablePrinters([])
     } finally {
@@ -80,7 +80,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
           info.supported_sizes.find((s: LabelSize) => s.name === '12mm') || info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load printer info')
       setPrinterInfo(null)
     }
@@ -163,7 +163,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       const blob = await settingsService.previewAdvancedLabel(requestData)
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to generate preview')
     }
   }, [labelTemplate, selectedLabelSize, labelLength, fitToLabel, includeQR, qrData, partData])
@@ -215,7 +215,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
         toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
         return false
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to print label')
       return false
     }
@@ -253,7 +253,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
         toast.error(`❌ Connection test failed: ${errorMessage}`)
         return false
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to test printer connection')
       return false
     }

@@ -82,16 +82,16 @@ const AddLocationModal = ({
     successMessage: 'Location created successfully',
     transformData: (data) => {
       // Transform form data to API format
-      const { image_file, ...apiData } = data
+      const { image_file: _image_file, ...apiData } = data
 
       // Only include container slot fields if location_type is 'container'
       if (data.location_type !== 'container') {
         const {
-          slot_count,
-          slot_naming_pattern,
-          slot_layout_type,
-          grid_rows,
-          grid_columns,
+          slot_count: _slot_count,
+          slot_naming_pattern: _slot_naming_pattern,
+          slot_layout_type: _slot_layout_type,
+          grid_rows: _grid_rows,
+          grid_columns: _grid_columns,
           ...nonContainerData
         } = apiData
         return {
@@ -315,7 +315,7 @@ const AddLocationModal = ({
   }
 
   // Wrap the original onSuccess to clear draft on successful creation
-  const handleSuccessWithDraftClear = () => {
+  const _handleSuccessWithDraftClear = () => {
     clearDraft()
     onSuccess()
   }
@@ -354,7 +354,7 @@ const AddLocationModal = ({
     return result
   }
 
-  const hierarchicalLocations = buildLocationHierarchy(parentLocations)
+  const _hierarchicalLocations = buildLocationHierarchy(parentLocations)
 
   return (
     <CrudModal

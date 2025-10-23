@@ -84,7 +84,7 @@ export function useTasksDashboard() {
         ? await configuredResponse.json()
         : { data: [] }
       const configuredNames = new Set(
-        configuredSuppliers.data?.map((supplier: any) => {
+        configuredSuppliers.data?.map((supplier: Record<string, unknown>) => {
           const supplierName = supplier.id || supplier.supplier_name || supplier.name || ''
           return supplierName.toUpperCase()
         }) || []
@@ -277,7 +277,7 @@ export function useTasksDashboard() {
       await tasksService.startWorker()
       toast.success('Task worker started')
       loadWorkerStatus()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to start worker')
     }
   }, [loadWorkerStatus])
@@ -287,7 +287,7 @@ export function useTasksDashboard() {
       await tasksService.stopWorker()
       toast.success('Task worker stopped')
       loadWorkerStatus()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to stop worker')
     }
   }, [loadWorkerStatus])
@@ -298,7 +298,7 @@ export function useTasksDashboard() {
         await tasksService.cancelTask(taskId)
         toast.success('Task cancelled')
         loadTasks()
-      } catch (error) {
+      } catch (_error) {
         toast.error('Failed to cancel task')
       }
     },
@@ -311,7 +311,7 @@ export function useTasksDashboard() {
         await tasksService.retryTask(taskId)
         toast.success('Task retry scheduled')
         loadTasks()
-      } catch (error) {
+      } catch (_error) {
         toast.error('Failed to retry task')
       }
     },
@@ -330,7 +330,7 @@ export function useTasksDashboard() {
         await tasksService.deleteTask(taskId)
         toast.success('Task deleted successfully')
         loadTasks()
-      } catch (error) {
+      } catch (_error) {
         toast.error('Failed to delete task')
       }
     },
@@ -357,7 +357,7 @@ export function useTasksDashboard() {
 
         const configuredSuppliers = await response.json()
         const configuredNames = new Set(
-          configuredSuppliers.data?.map((supplier: any) => {
+          configuredSuppliers.data?.map((supplier: Record<string, unknown>) => {
             const supplierName = supplier.id || supplier.supplier_name || supplier.name || ''
             return supplierName.toUpperCase()
           }) || []

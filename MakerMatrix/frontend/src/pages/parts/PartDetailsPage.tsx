@@ -81,7 +81,7 @@ import { tagsService } from '@/services/tags.service'
 import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 
 // Icon mapping for property explorer
-const getIconForProperty = (propertyKey: string) => {
+const _getIconForProperty = (propertyKey: string) => {
   const iconMapping = {
     specifications: Zap,
     supplier_data: Globe,
@@ -121,7 +121,7 @@ const formatDateTime = (value?: string | null) => {
   if (!isIsoDateString(value)) return null
   try {
     return new Date(value).toLocaleString()
-  } catch (error) {
+  } catch (_error) {
     return null
   }
 }
@@ -138,18 +138,18 @@ const PartDetailsPage = () => {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('')
   const [enrichmentModalOpen, setEnrichmentModalOpen] = useState(false)
   const [printerModalOpen, setPrinterModalOpen] = useState(false)
-  const [priceTrends, setPriceTrends] = useState<Array<{ date: string; price: number }>>([])
-  const [loadingPriceHistory, setLoadingPriceHistory] = useState(false)
+  const [_priceTrends, _setPriceTrends] = useState<Array<{ date: string; price: number }>>([])
+  const [_loadingPriceHistory, _setLoadingPriceHistory] = useState(false)
   const [copiedPartNumber, setCopiedPartNumber] = useState(false)
   const [copiedPartName, setCopiedPartName] = useState(false)
   const [supplierConfig, setSupplierConfig] = useState<SupplierConfig | null>(null)
   const [editingSupplier, setEditingSupplier] = useState(false)
   const [tempSupplier, setTempSupplier] = useState<string>('')
   const [supplierSupportsScraping, setSupplierSupportsScraping] = useState(false)
-  const [availableSuppliers, setAvailableSuppliers] = useState<string[]>([])
+  const [_availableSuppliers, _setAvailableSuppliers] = useState<string[]>([])
   const [partAllocations, setPartAllocations] = useState<PartAllocation[]>([])
   const [allocationTotalQuantity, setAllocationTotalQuantity] = useState<number | null>(null)
-  const [loadingAllocations, setLoadingAllocations] = useState(false)
+  const [_loadingAllocations, _setLoadingAllocations] = useState(false)
 
   // Category management state
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false)
@@ -631,7 +631,7 @@ const PartDetailsPage = () => {
     setAddCategoryModalOpen(true)
   }
 
-  const handleAddCategoryDirect = () => {
+  const _handleAddCategoryDirect = () => {
     // Opened directly from main buttons
     setOpenedFromManagement(false)
     setAddCategoryModalOpen(true)
@@ -765,7 +765,7 @@ const PartDetailsPage = () => {
     }
   }
 
-  const saveProjectChanges = async () => {
+  const _saveProjectChanges = async () => {
     if (!part || !id) return
 
     try {
@@ -818,7 +818,7 @@ const PartDetailsPage = () => {
     setAddProjectModalOpen(true)
   }
 
-  const handleAddProjectDirect = () => {
+  const _handleAddProjectDirect = () => {
     setOpenedFromManagement(false)
     setAddProjectModalOpen(true)
   }
@@ -915,7 +915,7 @@ const PartDetailsPage = () => {
     }
   }
 
-  const handleAddNewLocationFromPicker = () => {
+  const _handleAddNewLocationFromPicker = () => {
     setLocationPickerModalOpen(false)
     setAddLocationModalOpen(true)
   }
@@ -1068,7 +1068,7 @@ const PartDetailsPage = () => {
   }
 
   const additionalProps = part.additional_properties || {}
-  const propertyLeafCount = countPropertyLeaves(additionalProps)
+  const _propertyLeafCount = countPropertyLeaves(additionalProps)
   const lastEnrichmentIso =
     additionalProps?.metadata?.last_enrichment ||
     additionalProps?.last_enrichment ||
@@ -1547,7 +1547,9 @@ const PartDetailsPage = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                copyToClipboard(part.part_number!, 'part_number')
+                                if (part.part_number) {
+                                  copyToClipboard(part.part_number, 'part_number')
+                                }
                               }}
                               className="group hover:bg-primary-10 rounded-lg px-2 py-1 transition-all flex items-center gap-2 min-w-0"
                               title="Click to copy part number"

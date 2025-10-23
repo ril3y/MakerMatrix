@@ -58,7 +58,7 @@ const PrinterModal = ({
   const [labelLength, setLabelLength] = useState(39)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [useTemplateSystem, setUseTemplateSystem] = useState(true)
+  const [_useTemplateSystem, setUseTemplateSystem] = useState(true)
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [editingTemplateName, setEditingTemplateName] = useState<string | null>(null)
   const [showTemplateSyntaxHelp, setShowTemplateSyntaxHelp] = useState(false)
@@ -286,10 +286,6 @@ const PrinterModal = ({
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
     } catch (error) {
-      const err = error as {
-        response?: { data?: { message?: string; detail?: string }; status?: number }
-        message?: string
-      }
       console.error('Preview error:', error)
 
       // Extract user-friendly error message
@@ -353,7 +349,7 @@ const PrinterModal = ({
         additional_properties: {},
       }
 
-      let result: any
+      let result: unknown
 
       // Determine which print method to use:
       // 1. If a saved template is selected, use template system
@@ -388,9 +384,10 @@ const PrinterModal = ({
       }
 
       // Handle API response format: { status, message, data: { success, error, ... } }
-      const printData = result.data || result
-      const success = printData.success || result.status === 'success'
-      const errorMessage = printData.error || printData.message || result.message
+      const printData = (result as any).data || result
+      const success = (printData as any).success || (result as any).status === 'success'
+      const errorMessage =
+        (printData as any).error || (printData as any).message || (result as any).message
 
       if (success) {
         toast.success('✅ Label printed successfully!')
@@ -399,10 +396,6 @@ const PrinterModal = ({
         toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
       }
     } catch (error) {
-      const err = error as {
-        response?: { data?: { message?: string; detail?: string }; status?: number }
-        message?: string
-      }
       console.error('Print error:', error)
 
       // Extract user-friendly error message
@@ -525,12 +518,8 @@ const PrinterModal = ({
         await reloadTemplatesRef.current()
       }
     } catch (error) {
-      const err = error as {
-        response?: { data?: { message?: string; detail?: string }; status?: number }
-        message?: string
-      }
       console.error('Failed to save template:', error)
-      toast.error(error.message || 'Failed to save template')
+      toast.error((error as Error).message || 'Failed to save template')
     }
   }
 
@@ -702,9 +691,9 @@ const PrinterModal = ({
                     onChange={setSelectedLabelSize}
                     options={
                       printerInfo?.supported_sizes?.length > 0
-                        ? printerInfo.supported_sizes.map((size: any) => ({
+                        ? printerInfo.supported_sizes.map((size: LabelSize) => ({
                             value: size.name,
-                            label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`,
+                            label: `${size.name} - ${(size as any).width_mm}mm ${(size as any).height_mm ? `x ${(size as any).height_mm}mm` : '(continuous)'}`,
                           }))
                         : [
                             { value: '12mm', label: '12mm - 12mm (continuous)' },
