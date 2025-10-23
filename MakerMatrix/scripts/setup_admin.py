@@ -30,6 +30,10 @@ def setup_default_roles(user_repo: UserRepository):
                 "categories:create",
                 "categories:update",
                 "categories:delete",
+                "projects:read",
+                "projects:create",
+                "projects:update",
+                "projects:delete",
                 "users:read",
                 "users:create",
                 "users:update",
@@ -91,7 +95,15 @@ def setup_default_roles(user_repo: UserRepository):
         {
             "name": "user",
             "description": "Regular user with read access",
-            "permissions": ["parts:read", "locations:read", "categories:read", "tasks:read", "tools:read", "tools:use"],
+            "permissions": [
+                "parts:read",
+                "locations:read",
+                "categories:read",
+                "projects:read",
+                "tasks:read",
+                "tools:read",
+                "tools:use",
+            ],
         },
         {
             "name": "viewer",
