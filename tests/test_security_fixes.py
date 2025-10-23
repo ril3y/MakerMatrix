@@ -607,7 +607,8 @@ class TestCVE001_AuthorizationBypass:
         api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
         # Connect to database
-        conn = sqlite3.connect("/home/ril3y/MakerMatrix/makermatrix.db")
+        db_path = os.getenv("DATABASE_URL", "sqlite:///./makermatrix.db").replace("sqlite:///", "")
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
         try:
