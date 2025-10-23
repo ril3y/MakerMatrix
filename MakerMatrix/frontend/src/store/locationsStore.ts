@@ -53,10 +53,10 @@ export const useLocationsStore = create<LocationsState>()(
         })
         // Build tree structure
         get().buildLocationTree()
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({
           isLoading: false,
-          error: error.message || 'Failed to load locations',
+          error: error instanceof Error ? error.message : 'Failed to load locations',
         })
       }
     },
@@ -67,10 +67,10 @@ export const useLocationsStore = create<LocationsState>()(
       try {
         const location = await locationsService.getLocation({ id })
         set({ currentLocation: location, isLoadingLocation: false })
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({
           isLoadingLocation: false,
-          error: error.message || 'Failed to load location',
+          error: error instanceof Error ? error.message : 'Failed to load location',
         })
       }
     },
@@ -86,7 +86,7 @@ export const useLocationsStore = create<LocationsState>()(
 
         toast.success('Location created successfully')
         return newLocation
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }
@@ -108,7 +108,7 @@ export const useLocationsStore = create<LocationsState>()(
 
         toast.success('Location updated successfully')
         return updatedLocation
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }
@@ -129,7 +129,7 @@ export const useLocationsStore = create<LocationsState>()(
         await get().loadLocations()
 
         toast.success('Location deleted successfully')
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }

@@ -10,7 +10,10 @@ import { partsService } from '@/services/parts.service'
 // Mock services
 vi.mock('@/services/parts.service')
 // vi.mock('@/services/analytics.service')
-const mockPartsService = partsService as any
+const mockPartsService = partsService as {
+  getPart: ReturnType<typeof vi.fn>
+  deletePart: ReturnType<typeof vi.fn>
+}
 // const mockAnalyticsService = analyticsService as any
 
 // Mock react-router-dom navigation
@@ -25,7 +28,7 @@ vi.mock('react-router-dom', async () => {
 
 // Mock Chart.js components
 vi.mock('react-chartjs-2', () => ({
-  Line: ({ data }: any) => (
+  Line: ({ data }: { data: { datasets?: Array<{ label?: string }> } }) => (
     <div data-testid="price-chart">Price Chart: {data.datasets?.[0]?.label}</div>
   ),
 }))
@@ -36,17 +39,27 @@ vi.mock('@/components/ui/LoadingScreen', () => ({
 }))
 
 vi.mock('@/components/parts/PartPDFViewer', () => ({
-  default: ({ datasheet }: any) => (
+  default: ({ datasheet }: { datasheet?: { filename?: string } }) => (
     <div data-testid="pdf-viewer">PDF Viewer: {datasheet?.filename}</div>
   ),
 }))
 
 vi.mock('@/components/ui/PDFViewer', () => ({
-  default: ({ url }: any) => <div data-testid="pdf-preview">PDF Preview: {url}</div>,
+  default: ({ url }: { url?: string }) => <div data-testid="pdf-preview">PDF Preview: {url}</div>,
 }))
 
 vi.mock('@/components/parts/PartEnrichmentModal', () => ({
-  default: ({ isOpen, onClose, onPartUpdated, part }: any) =>
+  default: ({
+    isOpen,
+    onClose,
+    onPartUpdated,
+    part,
+  }: {
+    isOpen: boolean
+    onClose: () => void
+    onPartUpdated?: (part: unknown) => void
+    part?: { name?: string; [key: string]: unknown }
+  }) =>
     isOpen ? (
       <div data-testid="enrichment-modal">
         <div>Enrichment Modal for: {part?.name}</div>
@@ -64,7 +77,7 @@ vi.mock('@/components/parts/PartEnrichmentModal', () => ({
 }))
 
 vi.mock('@/components/printer/PrinterModal', () => ({
-  default: ({ isOpen, onClose }: any) =>
+  default: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? (
       <div data-testid="printer-modal">
         <div>Printer Modal</div>
@@ -74,7 +87,7 @@ vi.mock('@/components/printer/PrinterModal', () => ({
 }))
 
 vi.mock('@/components/parts/PartImage', () => ({
-  default: ({ partName, imageUrl }: any) => (
+  default: ({ partName, imageUrl }: { partName?: string; imageUrl?: string }) => (
     <img
       alt={`Part image: ${partName}`}
       src={imageUrl || 'placeholder.jpg'}

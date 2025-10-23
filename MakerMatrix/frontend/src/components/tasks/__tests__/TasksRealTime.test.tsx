@@ -10,7 +10,11 @@ vi.setConfig({ testTimeout: 15000 })
 
 // Mock the services
 vi.mock('@/services/tasks.service')
-const mockTasksService = tasksService as any
+const mockTasksService = tasksService as unknown as {
+  getTasks: ReturnType<typeof vi.fn>
+  getWorkerStatus: ReturnType<typeof vi.fn>
+  getTaskStats: ReturnType<typeof vi.fn>
+}
 
 // Mock WebSocket service
 vi.mock('@/services/task-websocket.service', () => ({
@@ -53,8 +57,6 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 )
 
 describe('TasksManagement - Real-time Monitoring', () => {
-  let mockTimer: any
-
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -94,7 +96,7 @@ describe('TasksManagement - Real-time Monitoring', () => {
         completed_today: 5,
       },
     })
-    ;(global as any).fetch = vi.fn((input: any) => {
+    ;(global as unknown as { fetch: typeof fetch }).fetch = vi.fn((input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
 
       if (url.includes('/api/suppliers/configured')) {

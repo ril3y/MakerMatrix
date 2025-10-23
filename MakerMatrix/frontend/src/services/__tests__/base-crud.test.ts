@@ -14,6 +14,25 @@ vi.mock('../api', () => ({
   },
 }))
 
+// Type definitions for backend data structures
+interface BackendCreateData {
+  name: string
+  description: string
+}
+
+interface BackendUpdateData {
+  name: string
+  description: string
+}
+
+interface BackendResponseData {
+  id: string
+  name: string
+  description: string
+  created_at?: string
+  updated_at?: string
+}
+
 // Test implementation of BaseCrudService
 class TestEntity {
   id: string
@@ -59,21 +78,21 @@ class TestCrudService extends BaseNamedCrudService<
   protected baseUrl = '/api/test'
   protected entityName = 'test'
 
-  protected mapCreateRequestToBackend(data: TestCreateRequest): any {
+  protected mapCreateRequestToBackend(data: TestCreateRequest): BackendCreateData {
     return {
       name: data.name,
       description: data.description,
     }
   }
 
-  protected mapUpdateRequestToBackend(data: TestUpdateRequest): any {
+  protected mapUpdateRequestToBackend(data: TestUpdateRequest): BackendUpdateData {
     return {
       name: data.name,
       description: data.description,
     }
   }
 
-  protected mapResponseToEntity(response: any): TestEntity {
+  protected mapResponseToEntity(response: BackendResponseData): TestEntity {
     return new TestEntity(response.id, response.name, response.description)
   }
 }
@@ -406,16 +425,24 @@ describe('Base CRUD Service Tests', () => {
     })
 
     it('should validate create data', () => {
-      expect(() => testService['validateCreateData'](null as any)).toThrow('Invalid test data')
-      expect(() => testService['validateCreateData']({} as any)).not.toThrow()
+      expect(() => testService['validateCreateData'](null as unknown as TestCreateRequest)).toThrow(
+        'Invalid test data'
+      )
+      expect(() =>
+        testService['validateCreateData']({} as unknown as TestCreateRequest)
+      ).not.toThrow()
     })
 
     it('should validate update data', () => {
-      expect(() => testService['validateUpdateData'](null as any)).toThrow('Invalid test data')
-      expect(() => testService['validateUpdateData']({} as any)).toThrow(
+      expect(() => testService['validateUpdateData'](null as unknown as TestUpdateRequest)).toThrow(
+        'Invalid test data'
+      )
+      expect(() => testService['validateUpdateData']({} as unknown as TestUpdateRequest)).toThrow(
         'test ID is required for updates'
       )
-      expect(() => testService['validateUpdateData']({ id: '1' } as any)).not.toThrow()
+      expect(() =>
+        testService['validateUpdateData']({ id: '1' } as unknown as TestUpdateRequest)
+      ).not.toThrow()
     })
   })
 })

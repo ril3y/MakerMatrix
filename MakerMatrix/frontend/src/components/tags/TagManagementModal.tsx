@@ -57,7 +57,7 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
       ])
       setTags(tagsResponse.items || [])
       setStats(statsResponse)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading tags:', error)
       toast.error('Failed to load tags')
     } finally {
@@ -88,8 +88,8 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
       setFormData({ name: '', color: '#3B82F6', icon: '', description: '' })
       loadData()
       onTagsChanged?.()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create tag')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create tag')
     }
   }
 
@@ -113,8 +113,8 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
       setFormData({ name: '', color: '#3B82F6', icon: '', description: '' })
       loadData()
       onTagsChanged?.()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update tag')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update tag')
     }
   }
 
@@ -141,8 +141,8 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
       toast.success('Tag deleted successfully')
       loadData()
       onTagsChanged?.()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete tag')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete tag')
     }
   }
 
@@ -383,7 +383,7 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'name' | 'usage' | 'created_at')}
               className="input w-40"
             >
               <option value="usage">Most Used</option>

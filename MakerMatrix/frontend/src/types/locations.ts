@@ -13,12 +13,12 @@ export interface Location {
   slot_layout_type?: 'simple' | 'grid' | 'custom'
   grid_rows?: number
   grid_columns?: number
-  slot_layout?: Record<string, any>
+  slot_layout?: Record<string, unknown>
 
   // Per-slot identification
   is_auto_generated_slot?: boolean
   slot_number?: number
-  slot_metadata?: Record<string, any>
+  slot_metadata?: Record<string, unknown>
 
   parent?: Location
   children?: Location[]
@@ -39,7 +39,7 @@ export interface CreateLocationRequest {
   slot_layout_type?: 'simple' | 'grid' | 'custom'
   grid_rows?: number
   grid_columns?: number
-  slot_layout?: Record<string, any>
+  slot_layout?: Record<string, unknown>
 }
 
 export interface UpdateLocationRequest {
@@ -57,7 +57,7 @@ export interface UpdateLocationRequest {
   slot_layout_type?: 'simple' | 'grid' | 'custom'
   grid_rows?: number
   grid_columns?: number
-  slot_layout?: Record<string, any>
+  slot_layout?: Record<string, unknown>
 }
 
 export interface LocationPath {

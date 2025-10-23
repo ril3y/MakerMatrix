@@ -1,6 +1,7 @@
 import type { ApiResponse } from './api'
 import { apiClient } from './api'
 import type { Project, ProjectCreate, ProjectUpdate, ProjectsResponse } from '../types/projects'
+import type { Part } from '../types/parts'
 
 export class ProjectsService {
   async createProject(data: ProjectCreate): Promise<Project> {
@@ -55,7 +56,7 @@ export class ProjectsService {
   }
 
   async addPartToProject(projectId: string, partId: string, notes?: string): Promise<void> {
-    const response = await apiClient.post<ApiResponse<any>>(
+    const response = await apiClient.post<ApiResponse<void>>(
       `/api/projects/${projectId}/parts/${partId}`,
       notes ? { notes } : undefined
     )
@@ -65,7 +66,7 @@ export class ProjectsService {
   }
 
   async removePartFromProject(projectId: string, partId: string): Promise<void> {
-    const response = await apiClient.delete<ApiResponse<any>>(
+    const response = await apiClient.delete<ApiResponse<void>>(
       `/api/projects/${projectId}/parts/${partId}`
     )
     if (response.status !== 'success') {
@@ -73,8 +74,10 @@ export class ProjectsService {
     }
   }
 
-  async getProjectParts(projectId: string): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/projects/${projectId}/parts`)
+  async getProjectParts(projectId: string): Promise<Part[]> {
+    const response = await apiClient.get<ApiResponse<{ parts: Part[] }>>(
+      `/api/projects/${projectId}/parts`
+    )
     if (response.status === 'success' && response.data) {
       return response.data.parts || []
     }
@@ -82,7 +85,9 @@ export class ProjectsService {
   }
 
   async getPartProjects(partId: string): Promise<Project[]> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/projects/parts/${partId}/projects`)
+    const response = await apiClient.get<ApiResponse<ProjectsResponse>>(
+      `/api/projects/parts/${partId}/projects`
+    )
     if (response.status === 'success' && response.data) {
       return response.data.projects || []
     }

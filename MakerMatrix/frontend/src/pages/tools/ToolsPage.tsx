@@ -165,7 +165,7 @@ const ToolsPage = () => {
           search_term: search && search.trim() ? search.trim() : undefined,
           status: statusFilter || undefined,
           condition: conditionFilter || undefined,
-          sort_by: (sortBy as any) || 'created_at',
+          sort_by: sortBy || 'created_at',
           sort_order: sortOrder || 'desc',
           page,
           page_size: pageSize,
@@ -176,7 +176,7 @@ const ToolsPage = () => {
         // Apply client-side tag filtering
         let filteredTools = response.items || []
         if (selectedTags.length > 0) {
-          filteredTools = filteredTools.filter((tool: any) => {
+          filteredTools = filteredTools.filter((tool: Tool) => {
             const toolTagIds = tool.tags?.map((t: Tag) => t.id) || []
             if (tagFilterMode === 'AND') {
               // All selected tags must be present
@@ -194,9 +194,10 @@ const ToolsPage = () => {
         setTools(filteredTools)
         setTotalTools(selectedTags.length > 0 ? filteredTools.length : response.total || 0)
         setCurrentPage(page)
-      } catch (err: any) {
+      } catch (err) {
         console.error('Error loading tools:', err)
-        setError(err.message || 'Failed to load tools')
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load tools'
+        setError(errorMessage)
         setTools([])
         setTotalTools(0)
       } finally {
@@ -375,8 +376,9 @@ const ToolsPage = () => {
         await toolsService.deleteTool(toolId)
         toast.success('Tool deleted successfully')
         loadTools(currentPage, searchTerm)
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to delete tool')
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to delete tool'
+        toast.error(errorMessage)
       }
     }
   }
@@ -762,9 +764,9 @@ const ToolsPage = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
-                        {(tool as any).tags && (tool as any).tags.length > 0 ? (
+                        {tool.tags && tool.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {(tool as any).tags.map((tag: Tag) => (
+                            {tool.tags.map((tag) => (
                               <TagBadge
                                 key={tag.id}
                                 tag={tag}

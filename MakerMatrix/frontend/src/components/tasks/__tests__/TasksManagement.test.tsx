@@ -24,8 +24,24 @@ vi.mock('@/services/task-websocket.service', () => ({
   },
 }))
 
-const mockTasksService = tasksService as any
-const mockPartsService = partsService as any
+// Define mock types for services
+type MockedTasksService = {
+  getTasks: ReturnType<typeof vi.fn>
+  getWorkerStatus: ReturnType<typeof vi.fn>
+  getTaskStats: ReturnType<typeof vi.fn>
+  startWorker: ReturnType<typeof vi.fn>
+  stopWorker: ReturnType<typeof vi.fn>
+  createQuickTask: ReturnType<typeof vi.fn>
+  cancelTask: ReturnType<typeof vi.fn>
+  retryTask: ReturnType<typeof vi.fn>
+}
+
+type MockedPartsService = {
+  getAll: ReturnType<typeof vi.fn>
+}
+
+const mockTasksService = tasksService as unknown as MockedTasksService
+const mockPartsService = partsService as unknown as MockedPartsService
 
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({
@@ -117,7 +133,9 @@ describe('TasksManagement', () => {
       { id: 'part1', name: 'Arduino Uno', supplier: 'digikey' },
       { id: 'part2', name: 'Resistor 10K', supplier: 'digikey' },
     ])
-    ;(global as any).fetch = vi.fn((input: any) => {
+    // Mock global fetch with proper typing
+    type FetchInput = string | URL | Request
+    ;(global as unknown as { fetch: typeof fetch }).fetch = vi.fn((input: FetchInput) => {
       const url = typeof input === 'string' ? input : input.toString()
 
       if (url.includes('/api/suppliers/configured')) {

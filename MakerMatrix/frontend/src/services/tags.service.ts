@@ -9,6 +9,8 @@ import type {
   TagStats,
   SearchTagsRequest,
 } from '@/types/tags'
+import type { Part } from '@/types/parts'
+import type { Tool } from '@/types/tools'
 
 export class TagsService {
   // === CRUD OPERATIONS ===
@@ -46,7 +48,15 @@ export class TagsService {
   }
 
   async getAllTags(params?: SearchTagsRequest): Promise<PaginatedResponse<Tag>> {
-    const response = await apiClient.get<ApiResponse<any>>('/api/tags', {
+    const response = await apiClient.get<
+      ApiResponse<{
+        tags: Tag[]
+        total: number
+        page: number
+        page_size: number
+        total_pages: number
+      }>
+    >('/api/tags', {
       params: {
         search: params?.search,
         is_system_tag: params?.is_system_tag,
@@ -96,8 +106,16 @@ export class TagsService {
     throw new Error(response.message || 'Failed to get part tags')
   }
 
-  async getPartsWithTag(tagId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<any>> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/tags/${tagId}/parts`, {
+  async getPartsWithTag(tagId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<Part>> {
+    const response = await apiClient.get<
+      ApiResponse<{
+        parts: Part[]
+        total: number
+        page: number
+        page_size: number
+        total_pages: number
+      }>
+    >(`/api/tags/${tagId}/parts`, {
       params: { page, page_size: pageSize },
     })
 
@@ -138,8 +156,16 @@ export class TagsService {
     throw new Error(response.message || 'Failed to get tool tags')
   }
 
-  async getToolsWithTag(tagId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<any>> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/tags/${tagId}/tools`, {
+  async getToolsWithTag(tagId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<Tool>> {
+    const response = await apiClient.get<
+      ApiResponse<{
+        tools: Tool[]
+        total: number
+        page: number
+        page_size: number
+        total_pages: number
+      }>
+    >(`/api/tags/${tagId}/tools`, {
       params: { page, page_size: pageSize },
     })
 
