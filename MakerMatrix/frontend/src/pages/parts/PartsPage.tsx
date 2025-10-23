@@ -148,7 +148,14 @@ const PartsPage = () => {
       // Don't clear parts or set loading - handle that in useEffects
       setError(null)
 
-      let response: any
+      let response:
+        | {
+            items?: Part[]
+            total?: number
+            data?: Part[] | { items: Part[]; total: number }
+            total_parts?: number
+          }
+        | Part[]
 
       // Always use advanced search API for sorting support
       const searchParamsObj = {
@@ -196,7 +203,7 @@ const PartsPage = () => {
       }
 
       // Map backend fields to frontend format if needed
-      const mappedParts = partsData.map((part: any) => ({
+      const mappedParts = partsData.map((part: Part) => ({
         ...part,
         name: part.part_name || part.name,
         categories: part.categories || [],
@@ -209,8 +216,8 @@ const PartsPage = () => {
       // Apply client-side tag filtering
       let filteredParts = mappedParts
       if (selectedTags.length > 0) {
-        filteredParts = mappedParts.filter((part: any) => {
-          const partTagIds = part.tags?.map((t: Tag) => t.id) || []
+        filteredParts = mappedParts.filter((part: Part) => {
+          const partTagIds = (part as Part & { tags?: Tag[] }).tags?.map((t: Tag) => t.id) || []
           if (tagFilterMode === 'AND') {
             // All selected tags must be present
             return selectedTags.every((tag) => partTagIds.includes(tag.id))
@@ -1172,9 +1179,10 @@ const PartsPage = () => {
                           )}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
-                          {(part as any).tags && (part as any).tags.length > 0 ? (
+                          {(part as Part & { tags?: Tag[] }).tags &&
+                          (part as Part & { tags?: Tag[] }).tags.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {(part as any).tags.map((tag: Tag) => (
+                              {(part as Part & { tags?: Tag[] }).tags.map((tag: Tag) => (
                                 <TagBadge
                                   key={tag.id}
                                   tag={tag}

@@ -21,7 +21,8 @@ import {
   Plus,
 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
-import type { Location, LocationDetails } from '@/types/locations'
+import type { Location, LocationDetails, LocationPath } from '@/types/locations'
+import type { Part } from '@/types/parts'
 import { locationsService } from '@/services/locations.service'
 import { partsService } from '@/services/parts.service'
 import { partAllocationService } from '@/services/part-allocation.service'
@@ -51,6 +52,11 @@ interface PartAtLocation {
   category?: string
   manufacturer?: string
   image_url?: string
+  slot_location?: Location
+}
+
+interface PartWithSlot extends Part {
+  _slotLocation?: Location
 }
 
 const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
@@ -88,10 +94,10 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         const pathData = await locationsService.getLocationPath(locationId)
         const pathParts: string[] = []
 
-        let current = pathData
+        let current: LocationPath | undefined = pathData
         while (current) {
           pathParts.unshift(current.name)
-          current = current.parent as any
+          current = current.parent
         }
 
         return pathParts.join(' > ')
@@ -115,7 +121,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       setLocationPath(path)
 
       // Search for parts at this location
-      let partsData: any[] = []
+      let partsData: PartWithSlot[] = []
 
       // For containers with slots, get parts from all child slots
       if (location.location_type === 'container' && location.slot_count && details.children) {
@@ -124,7 +130,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         )
         // Get parts from each child slot and tag with slot info
         const allSlotParts = await Promise.all(
-          details.children.map(async (childSlot: any) => {
+          details.children.map(async (childSlot: Location) => {
             try {
               const response = await partsService.searchParts({
                 location_id: childSlot.id,
@@ -134,7 +140,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               const items = response?.data?.items || response?.items || []
               console.log(`[LocationDetailsModal] Slot ${childSlot.name} has ${items.length} parts`)
               // Tag each part with its slot location
-              return items.map((part: any) => ({
+              return items.map((part: Part): PartWithSlot => ({
                 ...part,
                 _slotLocation: childSlot, // Store slot info for display
               }))
@@ -159,7 +165,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
       // Fetch allocation data for each part to get accurate quantity at this location
       const partsWithAllocations = await Promise.all(
-        partsData.map(async (part: any) => {
+        partsData.map(async (part: PartWithSlot): Promise<PartAtLocation> => {
           try {
             const allocations = await partAllocationService.getPartAllocations(part.id)
             // For container slots, look up allocation at the slot's location, not the container

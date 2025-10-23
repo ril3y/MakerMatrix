@@ -67,10 +67,10 @@ export const usePartsStore = create<PartsState>()(
           totalPages: totalPages,
           isLoading: false,
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({
           isLoading: false,
-          error: error.response?.data?.error || 'Failed to load parts',
+          error: (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to load parts',
         })
       }
     },
@@ -94,10 +94,10 @@ export const usePartsStore = create<PartsState>()(
           totalPages: response.total_pages,
           isLoading: false,
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({
           isLoading: false,
-          error: error.response?.data?.error || 'Search failed',
+          error: (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Search failed',
         })
       }
     },
@@ -108,10 +108,10 @@ export const usePartsStore = create<PartsState>()(
       try {
         const part = await partsService.getPart(id)
         set({ currentPart: part, isLoadingPart: false })
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({
           isLoadingPart: false,
-          error: error.response?.data?.error || 'Failed to load part',
+          error: (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to load part',
         })
       }
     },
@@ -127,7 +127,7 @@ export const usePartsStore = create<PartsState>()(
 
         toast.success('Part created successfully')
         return newPart
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }
@@ -149,7 +149,7 @@ export const usePartsStore = create<PartsState>()(
 
         toast.success('Part updated successfully')
         return updatedPart
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }
@@ -170,7 +170,7 @@ export const usePartsStore = create<PartsState>()(
         await get().loadParts(get().currentPage)
 
         toast.success('Part deleted successfully')
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }

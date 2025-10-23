@@ -126,3 +126,25 @@ export interface ToolHistory {
   previous_value?: string
   new_value?: string
 }
+
+// Maintenance record
+export interface ToolMaintenanceRecord {
+  id: string
+  tool_id: string
+  maintenance_date: string
+  maintenance_type: string
+  notes?: string
+  next_maintenance_date?: string
+  cost?: number
+  created_at: string
+  updated_at: string
+}
+
+// Paginated response for tools
+export interface ToolsPaginatedResponse {
+  tools: Tool[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}

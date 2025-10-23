@@ -26,7 +26,7 @@ export interface SupplierConfig {
   enabled: boolean
   capabilities: string[]
   custom_headers: Record<string, string>
-  custom_parameters: Record<string, any>
+  custom_parameters: Record<string, unknown>
   created_at: string
   updated_at: string
   last_tested_at?: string
@@ -53,7 +53,7 @@ export interface SupplierConfigCreate {
   supports_stock?: boolean
   supports_specifications?: boolean
   custom_headers?: Record<string, string>
-  custom_parameters?: Record<string, any>
+  custom_parameters?: Record<string, unknown>
 }
 
 export interface SupplierConfigUpdate {
@@ -66,7 +66,7 @@ export interface SupplierConfigUpdate {
   // Modern capabilities array - backend driven
   capabilities?: string[]
   custom_headers?: Record<string, string>
-  custom_parameters?: Record<string, any>
+  custom_parameters?: Record<string, unknown>
   // Legacy fields - DEPRECATED (kept for API compatibility but not used in UI)
   api_type?: 'rest' | 'graphql' | 'scraping'
   base_url?: string
@@ -100,7 +100,7 @@ export interface ConnectionTestResult {
     install_command?: string
     api_reachable?: boolean
     credentials_valid?: boolean
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
@@ -230,15 +230,27 @@ export class SupplierService {
   /**
    * Get credential status for a supplier
    */
-  async getCredentialStatus(supplierName: string): Promise<any> {
+  async getCredentialStatus(supplierName: string): Promise<{
+    supplier_name: string
+    is_configured: boolean
+    connection_status?: {
+      success: boolean
+      message: string
+    }
+    credential_fields: Record<string, unknown>
+    missing_credentials: string[]
+    total_fields: number
+    configured_fields: string[]
+    configured_fields_count: number
+  }> {
     try {
       // Add timeout to prevent infinite loading when supplier connection tests hang
-      const response = (await Promise.race([
+      const response = await Promise.race([
         apiClient.get(`/api/suppliers/${supplierName}/credentials/status`),
-        new Promise((_, reject) =>
+        new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Credential status check timed out')), 10000)
         ),
-      ])) as any
+      ])
 
       // Check if response follows standard ResponseSchema format
       if (response.data && response.data.data) {
@@ -288,11 +300,14 @@ export class SupplierService {
     try {
       const response = await apiClient.get(`/api/suppliers/${supplierName}/capabilities`)
       return response.data.data
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 404 is expected for simple suppliers without API capabilities
-      if (error.response?.status === 404) {
-        console.log(`Supplier "${supplierName}" has no enrichment capabilities (simple supplier)`)
-        return []
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number } }
+        if (axiosError.response?.status === 404) {
+          console.log(`Supplier "${supplierName}" has no enrichment capabilities (simple supplier)`)
+          return []
+        }
       }
       throw error
     }
@@ -333,7 +348,7 @@ export class SupplierService {
   /**
    * Export supplier configurations
    */
-  async exportConfigurations(): Promise<any> {
+  async exportConfigurations(): Promise<SupplierConfig[]> {
     const response = await apiClient.get('/api/suppliers/config/export')
     return response.data.data
   }

@@ -18,7 +18,7 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   protected entityName = 'category'
 
   // Map frontend create request to backend format
-  protected mapCreateRequestToBackend(data: CreateCategoryRequest): any {
+  protected mapCreateRequestToBackend(data: CreateCategoryRequest): CreateCategoryRequest {
     return {
       name: data.name,
       description: data.description || '',
@@ -26,7 +26,7 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   }
 
   // Map frontend update request to backend format
-  protected mapUpdateRequestToBackend(data: UpdateCategoryRequest): any {
+  protected mapUpdateRequestToBackend(data: UpdateCategoryRequest): Partial<UpdateCategoryRequest> & { parent_id?: string | null } {
     return {
       name: data.name,
       description: data.description || '',
@@ -35,7 +35,7 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   }
 
   // Map backend response to frontend entity
-  protected mapResponseToEntity(response: any): Category {
+  protected mapResponseToEntity(response: Category & { created_at?: string; updated_at?: string }): Category {
     return {
       id: response.id,
       name: response.name,
@@ -56,8 +56,9 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
         return response.data.categories.map((category) => this.mapResponseToEntity(category))
       }
       return []
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to load categories')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load categories'
+      throw new Error(errorMessage)
     }
   }
 
@@ -70,8 +71,9 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
       if (response.status !== 'success') {
         throw new Error(response.message || 'Failed to delete category')
       }
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to delete category')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete category'
+      throw new Error(errorMessage)
     }
   }
 
@@ -84,8 +86,9 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
       if (response.status !== 'success') {
         throw new Error(response.message || 'Failed to delete category')
       }
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to delete category')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete category'
+      throw new Error(errorMessage)
     }
   }
 
@@ -99,8 +102,9 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
         return response.data.deleted_count
       }
       throw new Error(response.message || 'Failed to delete all categories')
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to delete all categories')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete all categories'
+      throw new Error(errorMessage)
     }
   }
 

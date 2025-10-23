@@ -1,5 +1,38 @@
 import { apiClient } from './api'
 
+export interface FontConfig {
+  family?: string
+  size?: number
+  style?: string
+  weight?: string
+  line_height?: number
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface LayoutConfig {
+  orientation?: string
+  padding?: number
+  margin?: number
+  grid?: {
+    rows?: number
+    columns?: number
+  }
+  [key: string]: string | number | boolean | object | undefined
+}
+
+export interface SpacingConfig {
+  top?: number
+  bottom?: number
+  left?: number
+  right?: number
+  between_lines?: number
+  [key: string]: number | undefined
+}
+
+export interface TemplateData {
+  [key: string]: string | number | boolean | null | undefined
+}
+
 export interface LabelTemplate {
   id: string
   name: string
@@ -17,9 +50,9 @@ export interface LabelTemplate {
   qr_enabled: boolean
   enable_multiline: boolean
   enable_auto_sizing: boolean
-  font_config: Record<string, any>
-  layout_config: Record<string, any>
-  spacing_config: Record<string, any>
+  font_config: FontConfig
+  layout_config: LayoutConfig
+  spacing_config: SpacingConfig
   is_system_template: boolean
   is_public: boolean
   usage_count: number
@@ -35,13 +68,13 @@ export interface TemplateCategory {
 
 export interface TemplatePreviewRequest {
   template_id: string
-  data: Record<string, any>
+  data: TemplateData
 }
 
 export interface TemplatePrintRequest {
   printer_id: string
   template_id: string
-  data: Record<string, any>
+  data: TemplateData
   label_size: string
   copies?: number
 }
@@ -98,9 +131,11 @@ class TemplateService {
       // If not success, return empty array instead of throwing
       console.warn('Failed to fetch templates:', response.message, response)
       return []
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching templates:', error)
-      console.error('Error details:', error.response?.data || error.message)
+      if (error instanceof Error) {
+        console.error('Error details:', error.message)
+      }
       // Return empty array on error instead of throwing
       return []
     }
@@ -224,7 +259,11 @@ class TemplateService {
   }
 
   // Print using template
-  async printTemplate(request: TemplatePrintRequest): Promise<any> {
+  async printTemplate(request: TemplatePrintRequest): Promise<{
+    success: boolean
+    message?: string
+    job_id?: string
+  }> {
     const response = await apiClient.post('/api/printer/print/template', request)
 
     if (response.status === 'success') {
@@ -234,10 +273,7 @@ class TemplateService {
   }
 
   // Get template usage suggestions based on part data
-  getTemplateSuggestions(
-    partData: Record<string, any>,
-    templates: LabelTemplate[]
-  ): LabelTemplate[] {
+  getTemplateSuggestions(partData: TemplateData, templates: LabelTemplate[]): LabelTemplate[] {
     // Prioritize system templates that match the use case
     const suggestions = templates.filter((t) => t.is_system_template)
 

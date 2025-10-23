@@ -15,7 +15,13 @@ export interface TaskWebSocketMessage extends WebSocketMessage {
     | 'task_subscription'
     | 'task_unsubscription'
     | 'connection_info'
-  data: any
+  data:
+    | TaskUpdateData
+    | Task
+    | { task_id: string }
+    | WorkerStatusUpdateData
+    | TaskStatsUpdateData
+    | unknown
 }
 
 export interface TaskUpdateData {
@@ -30,7 +36,7 @@ export interface TaskStatsUpdateData {
   task_stats: TaskStats
 }
 
-export type TaskEventHandler = (data: any) => void
+export type TaskEventHandler = (data: TaskWebSocketMessage) => void
 
 export class TaskWebSocketService extends WebSocketService {
   private subscribedTasks: Set<string> = new Set()
@@ -52,7 +58,7 @@ export class TaskWebSocketService extends WebSocketService {
     }
 
     this.on('task_update', wrapped)
-    return () => this.off('task_update', wrapped as any)
+    return () => this.off('task_update', wrapped)
   }
 
   onTaskCreated(handler: (task: Task) => void) {
@@ -66,7 +72,7 @@ export class TaskWebSocketService extends WebSocketService {
     }
 
     this.on('task_created', wrapped)
-    return () => this.off('task_created', wrapped as any)
+    return () => this.off('task_created', wrapped)
   }
 
   onTaskDeleted(handler: (taskId: string) => void) {
@@ -77,7 +83,7 @@ export class TaskWebSocketService extends WebSocketService {
     }
 
     this.on('task_deleted', wrapped)
-    return () => this.off('task_deleted', wrapped as any)
+    return () => this.off('task_deleted', wrapped)
   }
 
   onWorkerStatusUpdate(handler: (status: WorkerStatus) => void) {
@@ -88,7 +94,7 @@ export class TaskWebSocketService extends WebSocketService {
     }
 
     this.on('worker_status_update', wrapped)
-    return () => this.off('worker_status_update', wrapped as any)
+    return () => this.off('worker_status_update', wrapped)
   }
 
   onTaskStatsUpdate(handler: (stats: TaskStats) => void) {
@@ -99,7 +105,7 @@ export class TaskWebSocketService extends WebSocketService {
     }
 
     this.on('task_stats_update', wrapped)
-    return () => this.off('task_stats_update', wrapped as any)
+    return () => this.off('task_stats_update', wrapped)
   }
 
   // Task subscription management

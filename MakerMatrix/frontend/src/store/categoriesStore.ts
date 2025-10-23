@@ -62,10 +62,10 @@ export const useCategoriesStore = create<CategoriesState>()(
           filteredCategories: categories,
           isLoading: false,
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({
           isLoading: false,
-          error: error.message || 'Failed to load categories',
+          error: error instanceof Error ? error.message : 'Failed to load categories',
         })
       }
     },
@@ -76,10 +76,10 @@ export const useCategoriesStore = create<CategoriesState>()(
       try {
         const category = await categoriesService.getCategory({ id })
         set({ currentCategory: category, isLoadingCategory: false })
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({
           isLoadingCategory: false,
-          error: error.message || 'Failed to load category',
+          error: error instanceof Error ? error.message : 'Failed to load category',
         })
       }
     },
@@ -95,7 +95,7 @@ export const useCategoriesStore = create<CategoriesState>()(
 
         toast.success('Category created successfully')
         return newCategory
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }
@@ -117,7 +117,7 @@ export const useCategoriesStore = create<CategoriesState>()(
 
         toast.success('Category updated successfully')
         return updatedCategory
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }
@@ -138,7 +138,7 @@ export const useCategoriesStore = create<CategoriesState>()(
         await get().loadCategories()
 
         toast.success('Category deleted successfully')
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }
@@ -158,7 +158,7 @@ export const useCategoriesStore = create<CategoriesState>()(
         })
 
         toast.success('All categories deleted successfully')
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false })
         throw error
       }

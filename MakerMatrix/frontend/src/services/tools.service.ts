@@ -1,6 +1,13 @@
 import type { ApiResponse, PaginatedResponse } from './api'
 import { apiClient } from './api'
-import type { Tool, CreateToolRequest, UpdateToolRequest, SearchToolsRequest } from '@/types/tools'
+import type {
+  Tool,
+  CreateToolRequest,
+  UpdateToolRequest,
+  SearchToolsRequest,
+  ToolMaintenanceRecord,
+  ToolsPaginatedResponse,
+} from '@/types/tools'
 
 export class ToolsService {
   async createTool(data: CreateToolRequest): Promise<Tool> {
@@ -36,7 +43,7 @@ export class ToolsService {
   }
 
   async getAllTools(page = 1, pageSize = 20): Promise<PaginatedResponse<Tool>> {
-    const response = await apiClient.get<ApiResponse<any>>('/api/tools/', {
+    const response = await apiClient.get<ApiResponse<ToolsPaginatedResponse>>('/api/tools/', {
       params: { page, page_size: pageSize },
     })
 
@@ -55,7 +62,10 @@ export class ToolsService {
   }
 
   async searchTools(params: SearchToolsRequest): Promise<PaginatedResponse<Tool>> {
-    const response = await apiClient.post<ApiResponse<any>>('/api/tools/search', params)
+    const response = await apiClient.post<ApiResponse<ToolsPaginatedResponse>>(
+      '/api/tools/search',
+      params
+    )
 
     if (response.status === 'success' && response.data) {
       // Backend returns data.tools, frontend expects items
@@ -135,8 +145,8 @@ export class ToolsService {
       next_maintenance_date?: string
       cost?: number
     }
-  ): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>(
+  ): Promise<ToolMaintenanceRecord> {
+    const response = await apiClient.post<ApiResponse<ToolMaintenanceRecord>>(
       `/api/tools/${toolId}/maintenance`,
       data
     )
@@ -146,8 +156,10 @@ export class ToolsService {
     throw new Error(response.message || 'Failed to create maintenance record')
   }
 
-  async getMaintenanceRecords(toolId: string): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>(`/api/tools/${toolId}/maintenance`)
+  async getMaintenanceRecords(toolId: string): Promise<ToolMaintenanceRecord[]> {
+    const response = await apiClient.get<ApiResponse<ToolMaintenanceRecord[]>>(
+      `/api/tools/${toolId}/maintenance`
+    )
     if (response.status === 'success' && response.data) {
       return response.data
     }
@@ -164,8 +176,8 @@ export class ToolsService {
       next_maintenance_date?: string
       cost?: number
     }
-  ): Promise<any> {
-    const response = await apiClient.put<ApiResponse<any>>(
+  ): Promise<ToolMaintenanceRecord> {
+    const response = await apiClient.put<ApiResponse<ToolMaintenanceRecord>>(
       `/api/tools/${toolId}/maintenance/${recordId}`,
       data
     )

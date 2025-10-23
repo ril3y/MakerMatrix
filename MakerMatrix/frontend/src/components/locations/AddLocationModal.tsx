@@ -7,7 +7,7 @@ import ImageUpload from '@/components/ui/ImageUpload'
 import { useModalFormWithValidation } from '@/hooks/useFormWithValidation'
 import { locationFormSchema, type LocationFormData } from '@/schemas/locations'
 import { locationsService } from '@/services/locations.service'
-import type { Location } from '@/types/locations'
+import type { Location, CreateLocationRequest } from '@/types/locations'
 import toast from 'react-hot-toast'
 import { AlertCircle, X } from 'lucide-react'
 
@@ -69,7 +69,7 @@ const AddLocationModal = ({
       image_file: undefined,
       slot_count: 10,
       slot_naming_pattern: 'Slot {n}',
-      slot_layout_type: 'simple' as any,
+      slot_layout_type: 'simple' as 'simple' | 'grid' | 'custom',
       grid_rows: 2,
       grid_columns: 5,
     },
@@ -165,7 +165,7 @@ const AddLocationModal = ({
       // Restore form values
       Object.entries(draft.formData).forEach(([key, value]) => {
         if (value !== undefined) {
-          form.setValue(key as any, value as any)
+          form.setValue(key as keyof LocationFormData, value)
         }
       })
 
@@ -281,7 +281,7 @@ const AddLocationModal = ({
     }
 
     // Create location with image URL and container data
-    const locationData: any = {
+    const locationData: CreateLocationRequest & { image_url?: string } = {
       ...data,
       name: data.name.trim(),
       parent_id: data.parent_id || undefined,
@@ -513,8 +513,8 @@ const AddLocationModal = ({
                           type="radio"
                           value="simple"
                           checked={slotLayoutType === 'simple'}
-                          onChange={(e) => {
-                            form.setValue('slot_layout_type', 'simple' as any)
+                          onChange={() => {
+                            form.setValue('slot_layout_type', 'simple' as 'simple' | 'grid' | 'custom')
                             form.setValue('slot_naming_pattern', 'Slot {n}')
                           }}
                           className="w-4 h-4 text-primary focus:ring-primary"
@@ -526,8 +526,8 @@ const AddLocationModal = ({
                           type="radio"
                           value="grid"
                           checked={slotLayoutType === 'grid'}
-                          onChange={(e) => {
-                            form.setValue('slot_layout_type', 'grid' as any)
+                          onChange={() => {
+                            form.setValue('slot_layout_type', 'grid' as 'simple' | 'grid' | 'custom')
                             form.setValue('slot_naming_pattern', 'R{row}-C{col}')
                           }}
                           className="w-4 h-4 text-primary focus:ring-primary"
