@@ -82,3 +82,164 @@ export interface ImportProgress {
   start_time: string
   estimated_completion?: string
 }
+
+// Printer Types
+export interface Printer {
+  printer_id: string
+  name: string
+  driver_type: string
+  model: string
+  backend: string
+  identifier: string
+  dpi: number
+  scaling_factor: number
+  status?: string
+}
+
+export interface PrinterInfo {
+  printer_id: string
+  name: string
+  driver_type: string
+  model: string
+  backend: string
+  identifier: string
+  dpi: number
+  scaling_factor: number
+  capabilities?: Record<string, unknown>
+}
+
+export interface PrinterStatus {
+  printer_id: string
+  status: string
+  is_ready?: boolean
+  error?: string
+}
+
+export interface PrinterTestResult {
+  success: boolean
+  message: string
+  details?: Record<string, unknown>
+}
+
+export interface PrintTestLabelRequest {
+  printer_id: string
+  text: string
+  label_size: string
+  copies: number
+}
+
+export interface PrintAdvancedLabelRequest {
+  printer_id: string
+  template: string
+  text: string
+  label_size: string
+  label_length?: number
+  options: {
+    fit_to_label: boolean
+    include_qr: boolean
+    qr_data?: string
+  }
+  data?: Record<string, unknown>
+}
+
+export interface PreviewAdvancedLabelRequest {
+  template: string
+  text: string
+  label_size: string
+  label_length?: number
+  options: {
+    fit_to_label: boolean
+    include_qr: boolean
+    qr_data?: string
+  }
+  data?: Record<string, unknown>
+}
+
+export interface PreviewResponse {
+  success: boolean
+  preview_data?: string
+  format?: string
+  error?: string
+  message?: string
+}
+
+export interface RegisterPrinterRequest {
+  printer_id: string
+  name: string
+  driver_type: string
+  model: string
+  backend: string
+  identifier: string
+  dpi: number
+  scaling_factor: number
+}
+
+export interface UpdatePrinterRequest {
+  name: string
+  driver_type: string
+  model: string
+  backend: string
+  identifier: string
+  dpi: number
+  scaling_factor: number
+}
+
+export interface PrinterDriver {
+  driver_type: string
+  name: string
+  description?: string
+  supported_models?: string[]
+  capabilities?: Record<string, unknown>
+}
+
+export interface DriverInfo {
+  driver_type: string
+  name: string
+  description?: string
+  supported_backends?: string[]
+  default_dpi?: number
+  capabilities?: Record<string, unknown>
+}
+
+export interface PrinterSetupTest {
+  printer: Printer
+}
+
+export interface DiscoveryStatus {
+  task_id: string
+  status: string
+  progress?: number
+  discovered_printers?: Printer[]
+  error?: string
+}
+
+export interface LatestDiscovery {
+  task_id: string
+  status: string
+  discovered_printers?: Printer[]
+  completed_at?: string
+}
+
+export interface AIModel {
+  id: string
+  name: string
+  provider?: string
+  size?: string
+  description?: string
+}
+
+export interface AvailableModelsResponse {
+  models: AIModel[]
+  provider: string
+  current_model?: string
+}
+
+// Import.meta environment types
+export interface ImportMetaEnv {
+  VITE_API_URL?: string
+  [key: string]: string | undefined
+}
+
+export interface ImportMeta {
+  env: ImportMetaEnv
+}

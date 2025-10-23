@@ -5,7 +5,7 @@ export interface CreateTaskRequest {
   name: string
   description?: string
   priority?: 'low' | 'normal' | 'high' | 'urgent'
-  input_data?: any
+  input_data?: Record<string, unknown>
   max_retries?: number
   timeout_seconds?: number
   scheduled_at?: string
@@ -24,8 +24,8 @@ export interface Task {
   priority: 'low' | 'normal' | 'high' | 'urgent'
   progress_percentage: number
   current_step?: string
-  input_data?: any
-  result_data?: any
+  input_data?: Record<string, unknown>
+  result_data?: Record<string, unknown>
   error_message?: string
   max_retries: number
   retry_count: number
@@ -105,7 +105,7 @@ class TasksService {
       status?: string
       progress_percentage?: number
       current_step?: string
-      result_data?: any
+      result_data?: Record<string, unknown>
       error_message?: string
     }
   ): Promise<{ status: string; data: Task }> {
@@ -147,22 +147,28 @@ class TasksService {
   // Quick task creation methods
   async createQuickTask(
     taskType: 'csv-enrichment' | 'price-update' | 'database-cleanup' | 'bulk-enrichment',
-    data: any
+    data: Record<string, unknown>
   ): Promise<{ status: string; data: Task }> {
     // Convert kebab-case to snake_case for backend
     const backendTaskType = taskType.replace(/-/g, '_')
     return apiClient.post(`${this.baseUrl}/quick/${backendTaskType}`, data)
   }
 
-  async createCSVEnrichmentTask(enrichmentData: any): Promise<{ status: string; data: Task }> {
+  async createCSVEnrichmentTask(
+    enrichmentData: Record<string, unknown>
+  ): Promise<{ status: string; data: Task }> {
     return this.createQuickTask('csv-enrichment', enrichmentData)
   }
 
-  async createPriceUpdateTask(updateData: any): Promise<{ status: string; data: Task }> {
+  async createPriceUpdateTask(
+    updateData: Record<string, unknown>
+  ): Promise<{ status: string; data: Task }> {
     return this.createQuickTask('price-update', updateData)
   }
 
-  async createDatabaseCleanupTask(cleanupOptions: any): Promise<{ status: string; data: Task }> {
+  async createDatabaseCleanupTask(
+    cleanupOptions: Record<string, unknown>
+  ): Promise<{ status: string; data: Task }> {
     return this.createQuickTask('database-cleanup', cleanupOptions)
   }
 
@@ -204,7 +210,7 @@ class TasksService {
   async createFileImportEnrichmentTask(enrichmentData: {
     enrichment_queue: Array<{
       part_id: string
-      part_data: any
+      part_data: Record<string, unknown>
     }>
     file_type?: string
     supplier?: string
@@ -213,11 +219,16 @@ class TasksService {
   }
 
   // Supplier capabilities methods
-  async getSupplierCapabilities(): Promise<{ status: string; data: Record<string, any> }> {
+  async getSupplierCapabilities(): Promise<{
+    status: string
+    data: Record<string, Record<string, unknown>>
+  }> {
     return apiClient.get(`${this.baseUrl}/capabilities/suppliers`)
   }
 
-  async getSupplierCapability(supplierName: string): Promise<{ status: string; data: any }> {
+  async getSupplierCapability(
+    supplierName: string
+  ): Promise<{ status: string; data: Record<string, unknown> }> {
     return apiClient.get(`${this.baseUrl}/capabilities/suppliers/${supplierName}`)
   }
 

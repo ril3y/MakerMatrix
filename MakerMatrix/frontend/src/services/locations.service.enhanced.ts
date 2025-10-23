@@ -78,7 +78,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   }
 
   // Map frontend update request to backend format
-  protected mapUpdateRequestToBackend(data: UpdateLocationRequest): Partial<BackendLocationRequest> {
+  protected mapUpdateRequestToBackend(
+    data: UpdateLocationRequest
+  ): Partial<BackendLocationRequest> {
     return {
       name: data.name,
       description: data.description ?? '',
@@ -172,8 +174,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
         return response.data
       }
       throw new Error('Failed to get location path')
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to get location path')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get location path'
+      throw new Error(message)
     }
   }
 
@@ -186,8 +189,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
         return response.data
       }
       throw new Error('Failed to preview location deletion')
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to preview location deletion')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to preview location deletion'
+      throw new Error(message)
     }
   }
 
@@ -200,8 +204,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
         return response.data
       }
       throw new Error('Failed to cleanup locations')
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to cleanup locations')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to cleanup locations'
+      throw new Error(message)
     }
   }
 
@@ -217,7 +222,8 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
 
     // Second pass: build tree structure
     locations.forEach((location) => {
-      const locationNode = locationMap.get(location.id)!
+      const locationNode = locationMap.get(location.id)
+      if (!locationNode) return // Skip if not found (should not happen)
 
       if (location.parent_id) {
         const parent = locationMap.get(location.parent_id)

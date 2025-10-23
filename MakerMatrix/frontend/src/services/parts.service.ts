@@ -61,7 +61,10 @@ export class PartsService {
       backendData.supplier_url = null
     }
 
-    const response = await apiClient.post<ApiResponse<BackendPart>>('/api/parts/add_part', backendData)
+    const response = await apiClient.post<ApiResponse<BackendPart>>(
+      '/api/parts/add_part',
+      backendData
+    )
 
     if (response.status === 'success' && response.data) {
       return this.mapPartFromBackend(response.data)
@@ -70,7 +73,9 @@ export class PartsService {
   }
 
   async getPart(id: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<BackendPart>>(`/api/parts/get_part?part_id=${id}`)
+    const response = await apiClient.get<ApiResponse<BackendPart>>(
+      `/api/parts/get_part?part_id=${id}`
+    )
     if (response.status === 'success' && response.data) {
       return this.mapPartFromBackend(response.data)
     }
@@ -78,7 +83,9 @@ export class PartsService {
   }
 
   async getPartByName(name: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<BackendPart>>(`/api/parts/get_part?part_name=${name}`)
+    const response = await apiClient.get<ApiResponse<BackendPart>>(
+      `/api/parts/get_part?part_name=${name}`
+    )
     if (response.status === 'success' && response.data) {
       return this.mapPartFromBackend(response.data)
     }
@@ -163,7 +170,7 @@ export class PartsService {
     return this.getPart(id.toString())
   }
 
-  async update(id: number, data: any): Promise<Part> {
+  async update(id: number, data: Partial<CreatePartRequest>): Promise<Part> {
     return this.updatePart({ id: id.toString(), ...data })
   }
 
@@ -181,7 +188,7 @@ export class PartsService {
     page = 1,
     pageSize = 20
   ): Promise<{ data: Part[]; total_parts: number }> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/api/parts/search_text', {
+    const response = await apiClient.get<ApiResponse<BackendPart[]>>('/api/parts/search_text', {
       params: { query, page, page_size: pageSize },
     })
 
@@ -265,9 +272,14 @@ export class PartsService {
         return response.data
       }
       throw new Error(response.message || 'Failed to get enrichment requirements')
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 404 is expected for new-style suppliers that use field mappings instead of enrichment requirements
-      if (error.response?.status === 404) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        (error as { response?: { status?: number } }).response?.status === 404
+      ) {
         // Return empty requirements object to indicate no legacy requirements
         return {
           supplier_name: supplier,
@@ -313,8 +325,8 @@ export class PartsService {
    * Enrich part data from supplier using unified backend endpoint
    * This uses SupplierDataMapper on the backend to ensure consistent data mapping
    */
-  async enrichFromSupplier(supplierName: string, partIdentifier: string): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>(
+  async enrichFromSupplier(supplierName: string, partIdentifier: string): Promise<Partial<Part>> {
+    const response = await apiClient.post<ApiResponse<Partial<Part>>>(
       '/api/parts/enrich-from-supplier',
       null,
       {
@@ -370,7 +382,7 @@ export interface FieldCheck {
   field_name: string
   display_name: string
   is_present: boolean
-  current_value?: any
+  current_value?: unknown
   validation_passed: boolean
   validation_message?: string
 }

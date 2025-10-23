@@ -2,8 +2,8 @@ export interface WebSocketMessage {
   type: string
   timestamp: string
   correlation_id?: string
-  data: any
-  metadata?: any
+  data: unknown
+  metadata?: Record<string, unknown>
 }
 
 export interface EntityEventData {
@@ -14,9 +14,9 @@ export interface EntityEventData {
   user_id?: string
   username?: string
   timestamp: string
-  changes?: Record<string, any>
-  details: Record<string, any>
-  entity_data?: Record<string, any>
+  changes?: Record<string, unknown>
+  details: Record<string, unknown>
+  entity_data?: Record<string, unknown>
 }
 
 export type WebSocketEventHandler = (message: WebSocketMessage) => void
@@ -41,7 +41,7 @@ export class WebSocketService {
       this.isConnecting = true
       const token = localStorage.getItem('auth_token')
 
-      const envApiUrl = (import.meta as any).env?.VITE_API_URL as string | undefined
+      const envApiUrl = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL
       const currentPort = window.location.port
       const currentProtocol = window.location.protocol
       console.log(`🔍 Current port: ${currentPort}`)
@@ -136,7 +136,7 @@ export class WebSocketService {
     }
   }
 
-  sendMessage(message: any) {
+  sendMessage(message: Record<string, unknown>) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message))
     } else {
@@ -149,7 +149,10 @@ export class WebSocketService {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, [])
     }
-    this.eventHandlers.get(eventType)!.push(handler)
+    const handlers = this.eventHandlers.get(eventType)
+    if (handlers) {
+      handlers.push(handler)
+    }
   }
 
   off(eventType: string, handler: WebSocketEventHandler) {
@@ -239,11 +242,11 @@ export class WebSocketService {
   }
 
   // Toast and notification handlers
-  onToast(handler: (data: any) => void) {
+  onToast(handler: (data: unknown) => void) {
     this.on('toast', (message) => handler(message.data))
   }
 
-  onNotification(handler: (data: any) => void) {
+  onNotification(handler: (data: unknown) => void) {
     this.on('notification', (message) => handler(message.data))
   }
 

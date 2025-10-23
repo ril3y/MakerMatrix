@@ -2858,7 +2858,7 @@ const PartDetailsPage = () => {
 //   value: any
 // }
 
-function CleanPropertiesDisplay({ properties }: { properties: Record<string, any> }) {
+function CleanPropertiesDisplay({ properties }: { properties: Record<string, unknown> }) {
   const entries = Object.entries(properties)
   if (!entries.length) return null
 
@@ -2877,7 +2877,7 @@ function SpecificationCard({
   small = false,
 }: {
   label: string
-  value: any
+  value: unknown
   small?: boolean
 }) {
   const isImportant = ['Package', 'Unit Price', 'Minimum Order Quantity'].includes(label)
@@ -2935,7 +2935,7 @@ function SpecificationCard({
   )
 }
 
-function formatSpecValue(value: any): string | JSX.Element {
+function formatSpecValue(value: unknown): string | JSX.Element {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'number') {

@@ -234,7 +234,7 @@ class PartAllocationService {
       }
 
       throw new Error(response.message || 'Failed to create allocation')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating allocation:', error)
       throw error
     }
@@ -263,7 +263,7 @@ class PartAllocationService {
       }
 
       throw new Error(response.message || 'Failed to update allocation')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating allocation:', error)
       throw error
     }
@@ -281,7 +281,7 @@ class PartAllocationService {
       if (response.status !== 'success') {
         throw new Error(response.message || 'Failed to delete allocation')
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting allocation:', error)
       throw error
     }
@@ -299,7 +299,7 @@ class PartAllocationService {
       if (response.status !== 'success') {
         throw new Error(response.message || 'Failed to return to primary storage')
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error returning to primary storage:', error)
       throw error
     }

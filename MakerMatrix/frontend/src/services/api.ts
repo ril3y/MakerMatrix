@@ -4,10 +4,16 @@ import { toast } from 'react-hot-toast'
 
 // In development, use relative URLs to benefit from Vite proxy
 // In production, use relative URLs (served from same origin) or explicit VITE_API_URL
-const isDevelopment = (import.meta as any).env?.DEV
-const API_BASE_URL = isDevelopment ? '' : (import.meta as any).env?.VITE_API_URL || ''
+interface ImportMeta {
+  env?: {
+    DEV?: boolean
+    VITE_API_URL?: string
+  }
+}
+const isDevelopment = (import.meta as ImportMeta).env?.DEV
+const API_BASE_URL = isDevelopment ? '' : (import.meta as ImportMeta).env?.VITE_API_URL || ''
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   status: 'success' | 'error' | 'warning'
   message: string
   data?: T
@@ -102,22 +108,22 @@ class ApiClient {
     localStorage.removeItem('user')
   }
 
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.get<T>(url, config)
     return response.data
   }
 
-  async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.post<T>(url, data, config)
     return response.data
   }
 
-  async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.put<T>(url, data, config)
     return response.data
   }
 
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.delete<T>(url, config)
     return response.data
   }
@@ -126,22 +132,25 @@ class ApiClient {
 export const apiClient = new ApiClient()
 
 // Helper function for handling API errors
-export const handleApiError = (error: any): string => {
-  if (error.response?.data?.message) {
-    return error.response.data.message
-  }
-  if (error.response?.data?.error) {
-    return error.response.data.error
-  }
-  if (error.message) {
-    return error.message
+export const handleApiError = (error: unknown): string => {
+  if (error && typeof error === 'object') {
+    const axiosError = error as AxiosError<{ message?: string; error?: string }>
+    if (axiosError.response?.data?.message) {
+      return axiosError.response.data.message
+    }
+    if (axiosError.response?.data?.error) {
+      return axiosError.response.data.error
+    }
+    if ('message' in axiosError && typeof axiosError.message === 'string') {
+      return axiosError.message
+    }
   }
   return 'An unexpected error occurred'
 }
 
 // Helper function to get PDF proxy URL
 export const getPDFProxyUrl = (externalUrl: string): string => {
-  const isDevelopment = (import.meta as any).env?.DEV
+  const isDevelopment = (import.meta as ImportMeta).env?.DEV
 
   if (isDevelopment) {
     // Use relative URL so it goes through Vite proxy

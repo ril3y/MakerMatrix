@@ -6,11 +6,15 @@
 import * as XLSX from 'xlsx'
 import { extractFilenameInfo } from './filenameExtractor'
 
+export interface PreviewRow {
+  [key: string]: string
+}
+
 export interface FilePreviewData {
   detected_parser: string | null
   file_type: string
   headers: string[]
-  preview_rows: any[]
+  preview_rows: PreviewRow[]
   total_rows: number
   is_supported: boolean
   validation_errors: string[]
@@ -20,7 +24,7 @@ export interface FilePreviewData {
 /**
  * Parse CSV content
  */
-function parseCSV(text: string): { headers: string[]; rows: any[]; totalRows: number } {
+function parseCSV(text: string): { headers: string[]; rows: PreviewRow[]; totalRows: number } {
   // Remove BOM if present
   const csvContent = text.replace(/^\uFEFF/, '')
 
@@ -35,12 +39,12 @@ function parseCSV(text: string): { headers: string[]; rows: any[]; totalRows: nu
   const headers = lines[0].split(',').map((header) => header.trim().replace(/^"|"$/g, ''))
 
   // Parse preview rows (next few lines, up to 5)
-  const previewRows: any[] = []
+  const previewRows: PreviewRow[] = []
   const maxPreviewRows = Math.min(5, lines.length - 1)
 
   for (let i = 1; i <= maxPreviewRows; i++) {
     const cells = lines[i].split(',').map((cell) => cell.trim().replace(/^"|"$/g, ''))
-    const row: any = {}
+    const row: PreviewRow = {}
 
     headers.forEach((header, index) => {
       row[header] = cells[index] || ''
@@ -61,7 +65,7 @@ function parseCSV(text: string): { headers: string[]; rows: any[]; totalRows: nu
  */
 async function parseExcel(
   file: File
-): Promise<{ headers: string[]; rows: any[]; totalRows: number }> {
+): Promise<{ headers: string[]; rows: PreviewRow[]; totalRows: number }> {
   const arrayBuffer = await file.arrayBuffer()
   const workbook = XLSX.read(arrayBuffer, { type: 'array' })
 
@@ -74,7 +78,7 @@ async function parseExcel(
   const worksheet = workbook.Sheets[firstSheetName]
 
   // Convert to JSON with header row
-  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][]
+  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as unknown[][]
 
   if (jsonData.length === 0) {
     return { headers: [], rows: [], totalRows: 0 }
@@ -84,11 +88,11 @@ async function parseExcel(
   const headers = jsonData[0].map((h) => String(h || '').trim())
 
   // Convert remaining rows to objects
-  const previewRows: any[] = []
+  const previewRows: PreviewRow[] = []
   const maxPreviewRows = Math.min(5, jsonData.length - 1)
 
   for (let i = 1; i <= maxPreviewRows; i++) {
-    const row: any = {}
+    const row: PreviewRow = {}
     headers.forEach((header, index) => {
       row[header] = jsonData[i][index] !== undefined ? String(jsonData[i][index]) : ''
     })
@@ -116,7 +120,7 @@ export async function previewFile(file: File): Promise<FilePreviewData> {
 
   try {
     let headers: string[] = []
-    let previewRows: any[] = []
+    let previewRows: PreviewRow[] = []
     let totalRows = 0
     let parseError: string | null = null
 

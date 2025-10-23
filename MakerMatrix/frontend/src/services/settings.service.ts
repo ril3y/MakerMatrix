@@ -1,31 +1,58 @@
 import type { ApiResponse } from './api'
 import { apiClient } from './api'
-import type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
+import type {
+  AIConfig,
+  AIConfigUpdate,
+  BackupStatus,
+  Printer,
+  PrinterInfo,
+  PrinterStatus,
+  PrinterTestResult,
+  PrintAdvancedLabelRequest,
+  PreviewAdvancedLabelRequest,
+  PreviewResponse,
+  RegisterPrinterRequest,
+  UpdatePrinterRequest,
+  PrinterDriver,
+  DriverInfo,
+  DiscoveryStatus,
+  LatestDiscovery,
+  AvailableModelsResponse,
+} from '@/types/settings'
+import type { User, Role } from '@/types/users'
 
 // Re-export types for convenience
 export type { AIConfig, AIConfigUpdate, BackupStatus } from '@/types/settings'
 
+// Helper function to get API base URL
+function getApiBaseUrl(): string {
+  return (
+    (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
+    'http://localhost:8080'
+  )
+}
+
 export class SettingsService {
   // Modern Printer Configuration
-  async getAvailablePrinters(): Promise<any[]> {
-    const response = await apiClient.get<{ data: any[] }>('/api/printer/printers')
+  async getAvailablePrinters(): Promise<Printer[]> {
+    const response = await apiClient.get<{ data: Printer[] }>('/api/printer/printers')
     return response.data || []
   }
 
-  async getPrinterInfo(printerId: string): Promise<any> {
-    const response = await apiClient.get<any>(`/api/printer/printers/${printerId}`)
+  async getPrinterInfo(printerId: string): Promise<PrinterInfo> {
+    const response = await apiClient.get<PrinterInfo>(`/api/printer/printers/${printerId}`)
     return response
   }
 
-  async getPrinterStatus(printerId: string): Promise<{ printer_id: string; status: string }> {
-    const response = await apiClient.get<{ printer_id: string; status: string }>(
-      `/api/printer/printers/${printerId}/status`
+  async getPrinterStatus(printerId: string): Promise<PrinterStatus> {
+    const response = await apiClient.get<PrinterStatus>(`/api/printer/printers/${printerId}/status`)
+    return response
+  }
+
+  async testPrinterConnection(printerId: string): Promise<PrinterTestResult> {
+    const response = await apiClient.post<PrinterTestResult>(
+      `/api/printer/printers/${printerId}/test`
     )
-    return response
-  }
-
-  async testPrinterConnection(printerId: string): Promise<any> {
-    const response = await apiClient.post<any>(`/api/printer/printers/${printerId}/test`)
     return response
   }
 
@@ -33,8 +60,8 @@ export class SettingsService {
     printerId: string,
     text: string = 'Test Label',
     labelSize: string = '12'
-  ): Promise<any> {
-    const response = await apiClient.post<any>('/api/printer/print/text', {
+  ): Promise<ApiResponse> {
+    const response = await apiClient.post<ApiResponse>('/api/printer/print/text', {
       printer_id: printerId,
       text,
       label_size: labelSize,
@@ -44,20 +71,17 @@ export class SettingsService {
   }
 
   async previewLabel(text: string, labelSize: string = '12'): Promise<Blob> {
-    const response = await fetch(
-      `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/text`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: JSON.stringify({
-          text,
-          label_size: labelSize,
-        }),
-      }
-    )
+    const response = await fetch(`${getApiBaseUrl()}/api/preview/text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+      },
+      body: JSON.stringify({
+        text,
+        label_size: labelSize,
+      }),
+    })
 
     if (!response.ok) {
       throw new Error('Failed to generate preview')
@@ -66,55 +90,29 @@ export class SettingsService {
     return await response.blob()
   }
 
-  async printAdvancedLabel(requestData: {
-    printer_id: string
-    template: string
-    text: string
-    label_size: string
-    label_length?: number
-    options: {
-      fit_to_label: boolean
-      include_qr: boolean
-      qr_data?: string
-    }
-    data?: any
-  }): Promise<any> {
-    const response = await apiClient.post<any>('/api/printer/print/advanced', requestData)
+  async printAdvancedLabel(requestData: PrintAdvancedLabelRequest): Promise<ApiResponse> {
+    const response = await apiClient.post<ApiResponse>('/api/printer/print/advanced', requestData)
     return response
   }
 
-  async previewAdvancedLabel(requestData: {
-    template: string
-    text: string
-    label_size: string
-    label_length?: number
-    options: {
-      fit_to_label: boolean
-      include_qr: boolean
-      qr_data?: string
-    }
-    data?: any
-  }): Promise<Blob> {
+  async previewAdvancedLabel(requestData: PreviewAdvancedLabelRequest): Promise<Blob> {
     console.log('[DEBUG] previewAdvancedLabel called with:', requestData)
 
-    const response = await fetch(
-      `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'}/api/preview/advanced`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: JSON.stringify(requestData),
-      }
-    )
+    const response = await fetch(`${getApiBaseUrl()}/api/preview/advanced`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+      },
+      body: JSON.stringify(requestData),
+    })
 
     console.log('[DEBUG] Preview response status:', response.status, response.statusText)
 
     if (!response.ok) {
       // Try to parse error response as JSON to get detailed error message
       try {
-        const errorData = await response.json()
+        const errorData = (await response.json()) as PreviewResponse
         console.error('[ERROR] Preview API error response:', errorData)
 
         // Extract meaningful error message
@@ -135,7 +133,7 @@ export class SettingsService {
     if (contentType && contentType.includes('application/json')) {
       // Parse the JSON response which contains base64 image data
       try {
-        const responseData = await response.json()
+        const responseData = (await response.json()) as PreviewResponse
         console.log('[DEBUG] Received JSON preview response:', responseData)
 
         // Check if this is an error response
@@ -175,77 +173,90 @@ export class SettingsService {
     return await response.blob()
   }
 
-  async registerPrinter(printerData: {
-    printer_id: string
-    name: string
-    driver_type: string
-    model: string
-    backend: string
-    identifier: string
-    dpi: number
-    scaling_factor: number
-  }): Promise<any> {
-    const response = await apiClient.post<any>('/api/printer/register', printerData)
+  async registerPrinter(printerData: RegisterPrinterRequest): Promise<ApiResponse> {
+    const response = await apiClient.post<ApiResponse>('/api/printer/register', printerData)
     return response
   }
 
-  async updatePrinter(
-    printerId: string,
-    printerData: {
-      name: string
-      driver_type: string
-      model: string
-      backend: string
-      identifier: string
-      dpi: number
-      scaling_factor: number
-    }
-  ): Promise<any> {
-    const response = await apiClient.put<any>(`/api/printer/printers/${printerId}`, printerData)
+  async updatePrinter(printerId: string, printerData: UpdatePrinterRequest): Promise<ApiResponse> {
+    const response = await apiClient.put<ApiResponse>(
+      `/api/printer/printers/${printerId}`,
+      printerData
+    )
     return response
   }
 
-  async deletePrinter(printerId: string): Promise<any> {
-    const response = await apiClient.delete<any>(`/api/printer/printers/${printerId}`)
+  async deletePrinter(printerId: string): Promise<ApiResponse> {
+    const response = await apiClient.delete<ApiResponse>(`/api/printer/printers/${printerId}`)
     return response
   }
 
-  async getSupportedDrivers(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<{ drivers: any[] }>>('/api/printer/drivers')
+  async getSupportedDrivers(): Promise<PrinterDriver[]> {
+    const response =
+      await apiClient.get<ApiResponse<{ drivers: PrinterDriver[] }>>('/api/printer/drivers')
     return response.data?.drivers || []
   }
 
-  async getDriverInfo(driverType: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/printer/drivers/${driverType}`)
-    return response.data!
+  async getDriverInfo(driverType: string): Promise<DriverInfo> {
+    const response = await apiClient.get<ApiResponse<DriverInfo>>(
+      `/api/printer/drivers/${driverType}`
+    )
+    if (!response.data) {
+      throw new Error('Driver info not found')
+    }
+    return response.data
   }
 
-  async testPrinterSetup(printerData: any): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/api/printer/test-setup', {
-      printer: printerData,
-    })
-    return response.data!
+  async testPrinterSetup(printerData: Printer): Promise<PrinterTestResult> {
+    const response = await apiClient.post<ApiResponse<PrinterTestResult>>(
+      '/api/printer/test-setup',
+      {
+        printer: printerData,
+      }
+    )
+    if (!response.data) {
+      throw new Error('Test setup failed')
+    }
+    return response.data
   }
 
-  async startPrinterDiscovery(): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/api/printer/discover/start')
-    return response.data!
+  async startPrinterDiscovery(): Promise<DiscoveryStatus> {
+    const response = await apiClient.post<ApiResponse<DiscoveryStatus>>(
+      '/api/printer/discover/start'
+    )
+    if (!response.data) {
+      throw new Error('Failed to start printer discovery')
+    }
+    return response.data
   }
 
-  async getPrinterDiscoveryStatus(taskId: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/printer/discover/status/${taskId}`)
-    return response.data!
+  async getPrinterDiscoveryStatus(taskId: string): Promise<DiscoveryStatus> {
+    const response = await apiClient.get<ApiResponse<DiscoveryStatus>>(
+      `/api/printer/discover/status/${taskId}`
+    )
+    if (!response.data) {
+      throw new Error('Discovery status not found')
+    }
+    return response.data
   }
 
-  async getLatestPrinterDiscovery(): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>('/api/printer/discover/latest')
-    return response.data!
+  async getLatestPrinterDiscovery(): Promise<LatestDiscovery> {
+    const response = await apiClient.get<ApiResponse<LatestDiscovery>>(
+      '/api/printer/discover/latest'
+    )
+    if (!response.data) {
+      throw new Error('No discovery results found')
+    }
+    return response.data
   }
 
   // AI Configuration
   async getAIConfig(): Promise<AIConfig> {
     const response = await apiClient.get<ApiResponse<AIConfig>>('/api/ai/config')
-    return response.data!
+    if (!response.data) {
+      throw new Error('AI config not found')
+    }
+    return response.data
   }
 
   async updateAIConfig(config: AIConfigUpdate): Promise<ApiResponse> {
@@ -260,23 +271,22 @@ export class SettingsService {
     return await apiClient.post<ApiResponse>('/api/ai/reset')
   }
 
-  async getAvailableModels(): Promise<
-    ApiResponse<{ models: any[]; provider: string; current_model?: string }>
-  > {
-    return await apiClient.get<
-      ApiResponse<{ models: any[]; provider: string; current_model?: string }>
-    >('/api/ai/models')
+  async getAvailableModels(): Promise<ApiResponse<AvailableModelsResponse>> {
+    return await apiClient.get<ApiResponse<AvailableModelsResponse>>('/api/ai/models')
   }
 
   // Backup & Export
   async getBackupStatus(): Promise<BackupStatus> {
     const response = await apiClient.get<ApiResponse<BackupStatus>>('/api/utility/backup/status')
-    return response.data!
+    if (!response.data) {
+      throw new Error('Backup status not found')
+    }
+    return response.data
   }
 
   async downloadDatabaseBackup(): Promise<void> {
     // This will trigger a file download
-    const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
+    const baseURL = getApiBaseUrl()
     const response = await fetch(`${baseURL}/api/utility/backup/download`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
@@ -300,7 +310,7 @@ export class SettingsService {
 
   async exportDataJSON(): Promise<void> {
     // This will trigger a file download
-    const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080'
+    const baseURL = getApiBaseUrl()
     const response = await fetch(`${baseURL}/api/utility/backup/export`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
@@ -348,8 +358,8 @@ export class SettingsService {
     return await apiClient.post<ApiResponse>('/api/users/register', userData)
   }
 
-  async getAllUsers(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/api/users/all')
+  async getAllUsers(): Promise<User[]> {
+    const response = await apiClient.get<ApiResponse<User[]>>('/api/users/all')
     return response.data || []
   }
 
@@ -362,8 +372,8 @@ export class SettingsService {
   }
 
   // Roles Management
-  async getAllRoles(): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/api/users/roles/all')
+  async getAllRoles(): Promise<Role[]> {
+    const response = await apiClient.get<ApiResponse<Role[]>>('/api/users/roles/all')
     return response.data || []
   }
 

@@ -50,11 +50,14 @@ export abstract class BaseCrudService<
         `${this.baseUrl}/get_all_${this.entityName}s`
       )
       if (response.status === 'success' && response.data) {
-        return response.data.map((item) => this.mapResponseToEntity(item as Record<string, unknown>))
+        return response.data.map((item) =>
+          this.mapResponseToEntity(item as Record<string, unknown>)
+        )
       }
       return []
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to load ${this.entityName}s`
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to load ${this.entityName}s`
       throw new Error(errorMessage)
     }
   }
@@ -70,7 +73,9 @@ export abstract class BaseCrudService<
       )
 
       if (response.status === 'success' && response.data) {
-        const mappedData = response.data.map((item) => this.mapResponseToEntity(item as Record<string, unknown>))
+        const mappedData = response.data.map((item) =>
+          this.mapResponseToEntity(item as Record<string, unknown>)
+        )
         const totalPages = Math.ceil((response.total_parts || 0) / pageSize)
 
         return {
@@ -90,7 +95,8 @@ export abstract class BaseCrudService<
         totalPages: 0,
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to load ${this.entityName}s`
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to load ${this.entityName}s`
       throw new Error(errorMessage)
     }
   }
@@ -105,7 +111,8 @@ export abstract class BaseCrudService<
       }
       throw new Error(`${this.entityName} not found`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to get ${this.entityName}`
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to get ${this.entityName}`
       throw new Error(errorMessage)
     }
   }
@@ -123,7 +130,8 @@ export abstract class BaseCrudService<
       }
       throw new Error(response.message || `Failed to create ${this.entityName}`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to create ${this.entityName}`
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to create ${this.entityName}`
       throw new Error(errorMessage)
     }
   }
@@ -142,7 +150,8 @@ export abstract class BaseCrudService<
       }
       throw new Error(response.message || `Failed to update ${this.entityName}`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to update ${this.entityName}`
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to update ${this.entityName}`
       throw new Error(errorMessage)
     }
   }
@@ -155,13 +164,15 @@ export abstract class BaseCrudService<
       if (response.status !== 'success') {
         throw new Error(response.message || `Failed to delete ${this.entityName}`)
       }
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to delete ${this.entityName}`)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to delete ${this.entityName}`
+      throw new Error(errorMessage)
     }
   }
 
   // Helper methods for common operations
-  protected buildQueryParams(params: Record<string, any>): string {
+  protected buildQueryParams(params: Record<string, unknown>): string {
     const searchParams = new URLSearchParams()
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -213,11 +224,13 @@ export abstract class BaseNamedCrudService<
         `${this.baseUrl}/get_${this.entityName}?name=${encodeURIComponent(name)}`
       )
       if (response.status === 'success' && response.data) {
-        return this.mapResponseToEntity(response.data)
+        return this.mapResponseToEntity(response.data as Record<string, unknown>)
       }
       throw new Error(`${this.entityName} not found`)
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to get ${this.entityName}`)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to get ${this.entityName}`
+      throw new Error(errorMessage)
     }
   }
 
@@ -239,8 +252,10 @@ export abstract class BaseNamedCrudService<
       if (response.status !== 'success') {
         throw new Error(response.message || `Failed to delete ${this.entityName}`)
       }
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to delete ${this.entityName}`)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to delete ${this.entityName}`
+      throw new Error(errorMessage)
     }
   }
 }

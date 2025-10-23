@@ -8,6 +8,8 @@
 import { apiClient } from './api'
 
 // Types for dynamic supplier system
+export type FieldValue = string | number | boolean | null
+
 export interface FieldDefinition {
   name: string
   label: string
@@ -16,7 +18,7 @@ export interface FieldDefinition {
   description?: string
   placeholder?: string
   help_text?: string
-  default_value?: any
+  default_value?: FieldValue
   options?: Array<{ value: string; label: string }>
   validation?: {
     min_length?: number
@@ -36,6 +38,8 @@ export interface SupplierInfo {
   capabilities: string[]
 }
 
+export type SpecificationValue = string | number | boolean | null | string[]
+
 export interface PartSearchResult {
   supplier_part_number: string
   part_name?: string // Product name (e.g., "Adafruit Feather M4 CAN Express")
@@ -47,19 +51,21 @@ export interface PartSearchResult {
   image_url?: string
   stock_quantity?: number
   pricing?: Array<{ quantity: number; price: number; currency: string }>
-  specifications?: Record<string, any>
-  additional_data?: Record<string, any>
+  specifications?: Record<string, SpecificationValue>
+  additional_data?: Record<string, unknown>
 }
 
+export type CredentialValue = string | number | boolean | null
+
 export interface SupplierCredentialsConfig {
-  credentials: Record<string, any>
-  config?: Record<string, any>
+  credentials: Record<string, CredentialValue>
+  config?: Record<string, CredentialValue>
 }
 
 export interface TestConnectionResult {
   success: boolean
   message: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 export interface EnrichmentFieldMapping {
@@ -228,8 +234,8 @@ export class DynamicSupplierService {
    */
   async getCredentialSchemaWithConfig(
     supplierName: string,
-    credentials: Record<string, any>,
-    config: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config: Record<string, CredentialValue>
   ): Promise<FieldDefinition[]> {
     try {
       const response = await apiClient.post(
@@ -257,8 +263,8 @@ export class DynamicSupplierService {
    */
   async getConfigurationSchemaWithConfig(
     supplierName: string,
-    credentials: Record<string, any>,
-    config: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config: Record<string, CredentialValue>
   ): Promise<FieldDefinition[]> {
     try {
       const response = await apiClient.post(
@@ -312,7 +318,7 @@ export class DynamicSupplierService {
   /**
    * Get environment variable defaults for supplier credentials
    */
-  async getSupplierEnvDefaults(supplierName: string): Promise<Record<string, any>> {
+  async getSupplierEnvDefaults(supplierName: string): Promise<Record<string, CredentialValue>> {
     try {
       const response = await apiClient.get(`/api/suppliers/${supplierName}/env-defaults`)
       console.log(`getSupplierEnvDefaults(${supplierName}) response:`, response)
@@ -333,8 +339,8 @@ export class DynamicSupplierService {
    */
   async testConnection(
     supplierName: string,
-    credentials: Record<string, any>,
-    config?: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config?: Record<string, CredentialValue>
   ): Promise<TestConnectionResult> {
     try {
       console.log(`Testing connection for ${supplierName} with:`, { credentials, config })
@@ -367,8 +373,8 @@ export class DynamicSupplierService {
    */
   async getOAuthAuthorizationUrl(
     supplierName: string,
-    credentials: Record<string, any>,
-    config?: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config?: Record<string, CredentialValue>
   ): Promise<string> {
     const response = await apiClient.post(
       `/api/suppliers/${supplierName}/oauth/authorization-url`,
@@ -386,8 +392,8 @@ export class DynamicSupplierService {
   async exchangeOAuthCode(
     supplierName: string,
     authorizationCode: string,
-    credentials: Record<string, any>,
-    config?: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config?: Record<string, CredentialValue>
   ): Promise<{ authenticated: boolean }> {
     const response = await apiClient.post(`/api/suppliers/${supplierName}/oauth/exchange`, {
       authorization_code: authorizationCode,
@@ -403,8 +409,8 @@ export class DynamicSupplierService {
   async getPartDetails(
     supplierName: string,
     partNumber: string,
-    credentials: Record<string, any>,
-    config?: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config?: Record<string, CredentialValue>
   ): Promise<PartSearchResult> {
     const response = await apiClient.post(`/api/suppliers/${supplierName}/part/${partNumber}`, {
       credentials,
@@ -421,7 +427,7 @@ export class DynamicSupplierService {
     }
 
     console.error('Unexpected response format from getPartDetails:', response)
-    return null as any
+    throw new Error('Invalid response format from getPartDetails')
   }
 
   /**
@@ -430,8 +436,8 @@ export class DynamicSupplierService {
   async getPartDatasheet(
     supplierName: string,
     partNumber: string,
-    credentials: Record<string, any>,
-    config?: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config?: Record<string, CredentialValue>
   ): Promise<string> {
     const response = await apiClient.post(
       `/api/suppliers/${supplierName}/part/${partNumber}/datasheet`,
@@ -449,8 +455,8 @@ export class DynamicSupplierService {
   async getPartPricing(
     supplierName: string,
     partNumber: string,
-    credentials: Record<string, any>,
-    config?: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config?: Record<string, CredentialValue>
   ): Promise<Array<{ quantity: number; price: number; currency: string }>> {
     const response = await apiClient.post(
       `/api/suppliers/${supplierName}/part/${partNumber}/pricing`,
@@ -468,8 +474,8 @@ export class DynamicSupplierService {
   async getPartStock(
     supplierName: string,
     partNumber: string,
-    credentials: Record<string, any>,
-    config?: Record<string, any>
+    credentials: Record<string, CredentialValue>,
+    config?: Record<string, CredentialValue>
   ): Promise<number> {
     const response = await apiClient.post(
       `/api/suppliers/${supplierName}/part/${partNumber}/stock`,

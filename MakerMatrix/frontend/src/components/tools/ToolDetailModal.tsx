@@ -24,8 +24,22 @@ import TagBadge from '@/components/tags/TagBadge'
 import { toolsService } from '@/services/tools.service'
 import { useAuthStore } from '@/store/authStore'
 import type { Tool } from '@/types/tools'
+import type { Tag } from '@/types/tags'
 import toast from 'react-hot-toast'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
+
+// Maintenance record interface (matches backend response)
+interface MaintenanceRecord {
+  id: string
+  tool_id: string
+  maintenance_date: string
+  maintenance_type: string
+  notes?: string
+  next_maintenance_date?: string
+  cost?: number
+  performed_by: string
+  created_at: string
+}
 
 interface ToolDetailModalProps {
   isOpen: boolean
@@ -53,7 +67,7 @@ const ToolDetailModal = ({
   const [processingCheckout, setProcessingCheckout] = useState(false)
 
   // Maintenance record state
-  const [maintenanceRecords, setMaintenanceRecords] = useState<any[]>([])
+  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([])
   const [showAddMaintenance, setShowAddMaintenance] = useState(false)
   const [maintenanceForm, setMaintenanceForm] = useState({
     maintenance_date: new Date().toISOString().split('T')[0],
@@ -71,7 +85,7 @@ const ToolDetailModal = ({
       setLoading(true)
       const data = await toolsService.getTool(toolId)
       setTool(data)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load tool:', error)
       toast.error('Failed to load tool details')
     } finally {
@@ -83,7 +97,7 @@ const ToolDetailModal = ({
     try {
       const records = await toolsService.getMaintenanceRecords(toolId)
       setMaintenanceRecords(records)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load maintenance records:', error)
     }
   }, [toolId])
@@ -122,9 +136,10 @@ const ToolDetailModal = ({
       })
       await loadMaintenanceRecords()
       await loadTool() // Reload tool to update maintenance dates
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to add maintenance record:', error)
-      toast.error(error.message || 'Failed to add maintenance record')
+      const message = error instanceof Error ? error.message : 'Failed to add maintenance record'
+      toast.error(message)
     } finally {
       setProcessingMaintenance(false)
     }
@@ -140,9 +155,10 @@ const ToolDetailModal = ({
       toast.success('Maintenance record deleted successfully')
       await loadMaintenanceRecords()
       await loadTool()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to delete maintenance record:', error)
-      toast.error(error.message || 'Failed to delete maintenance record')
+      const message = error instanceof Error ? error.message : 'Failed to delete maintenance record'
+      toast.error(message)
     }
   }
 
@@ -159,9 +175,10 @@ const ToolDetailModal = ({
       if (onStatusChange) {
         onStatusChange()
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to checkout tool:', error)
-      toast.error(error.message || 'Failed to checkout tool')
+      const message = error instanceof Error ? error.message : 'Failed to checkout tool'
+      toast.error(message)
     } finally {
       setProcessingCheckout(false)
     }
@@ -180,9 +197,10 @@ const ToolDetailModal = ({
       if (onStatusChange) {
         onStatusChange()
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to checkin tool:', error)
-      toast.error(error.message || 'Failed to checkin tool')
+      const message = error instanceof Error ? error.message : 'Failed to checkin tool'
+      toast.error(message)
     } finally {
       setProcessingCheckout(false)
     }
@@ -379,16 +397,22 @@ const ToolDetailModal = ({
                 </div>
               )}
 
-              {(tool as any).tags && (tool as any).tags.length > 0 && (
-                <div>
-                  <p className="text-xs text-theme-muted mb-1">Tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(tool as any).tags.map((tag: Tag) => (
-                      <TagBadge key={tag.id} tag={tag} size="sm" />
-                    ))}
-                  </div>
-                </div>
-              )}
+              {(() => {
+                const toolWithTags = tool as Tool & { tags?: Tag[] }
+                return (
+                  toolWithTags.tags &&
+                  toolWithTags.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs text-theme-muted mb-1">Tags</p>
+                      <div className="flex flex-wrap gap-2">
+                        {toolWithTags.tags.map((tag: Tag) => (
+                          <TagBadge key={tag.id} tag={tag} size="sm" />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )
+              })()}
             </div>
 
             {/* Purchase & Maintenance Information */}
