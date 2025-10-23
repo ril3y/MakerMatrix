@@ -262,7 +262,7 @@ python dev_manager.py
 docker pull ghcr.io/ril3y/makermatrix:latest
 
 # Specific version
-docker pull ghcr.io/ril3y/makermatrix:v1.0.0
+docker pull ghcr.io/ril3y/makermatrix:1.0.0
 
 # Run
 docker run -d -p 8080:8080 -v makermatrix-data:/data ghcr.io/ril3y/makermatrix:latest
@@ -270,10 +270,10 @@ docker run -d -p 8080:8080 -v makermatrix-data:/data ghcr.io/ril3y/makermatrix:l
 
 ### Available Tags
 
-- `latest` - Latest stable release
-- `main` - Latest development build
-- `v1.0.0` - Specific version tags
-- `sha-abc1234` - Commit-specific builds
+- `latest` - Latest from main branch or version tags
+- `main` - Latest development build from main branch
+- `1.0.0`, `1.0`, `1` - Version-specific tags (semver)
+- `sha-abc1234` - Commit-specific builds (main branch only)
 
 **[Complete Docker Guide →](DOCKER.md)**
 
