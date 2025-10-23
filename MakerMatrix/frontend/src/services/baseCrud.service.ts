@@ -8,18 +8,18 @@ export interface BaseEntity {
 }
 
 export interface CreateRequest {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface UpdateRequest {
   id: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface PaginatedParams {
   page?: number
   pageSize?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface PaginatedResponse<T> {
@@ -39,9 +39,9 @@ export abstract class BaseCrudService<
   protected abstract entityName: string // For error messages
 
   // Abstract methods that must be implemented by subclasses
-  protected abstract mapCreateRequestToBackend(data: TCreateRequest): any
-  protected abstract mapUpdateRequestToBackend(data: TUpdateRequest): any
-  protected abstract mapResponseToEntity(response: any): TEntity
+  protected abstract mapCreateRequestToBackend(data: TCreateRequest): Record<string, unknown>
+  protected abstract mapUpdateRequestToBackend(data: TUpdateRequest): Record<string, unknown>
+  protected abstract mapResponseToEntity(response: Record<string, unknown>): TEntity
 
   // Generic CRUD operations
   async getAll(): Promise<TEntity[]> {
@@ -50,11 +50,12 @@ export abstract class BaseCrudService<
         `${this.baseUrl}/get_all_${this.entityName}s`
       )
       if (response.status === 'success' && response.data) {
-        return response.data.map((item) => this.mapResponseToEntity(item))
+        return response.data.map((item) => this.mapResponseToEntity(item as Record<string, unknown>))
       }
       return []
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to load ${this.entityName}s`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to load ${this.entityName}s`
+      throw new Error(errorMessage)
     }
   }
 
@@ -69,7 +70,7 @@ export abstract class BaseCrudService<
       )
 
       if (response.status === 'success' && response.data) {
-        const mappedData = response.data.map((item) => this.mapResponseToEntity(item))
+        const mappedData = response.data.map((item) => this.mapResponseToEntity(item as Record<string, unknown>))
         const totalPages = Math.ceil((response.total_parts || 0) / pageSize)
 
         return {
@@ -88,8 +89,9 @@ export abstract class BaseCrudService<
         pageSize: 20,
         totalPages: 0,
       }
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to load ${this.entityName}s`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to load ${this.entityName}s`
+      throw new Error(errorMessage)
     }
   }
 
@@ -99,11 +101,12 @@ export abstract class BaseCrudService<
         `${this.baseUrl}/get_${this.entityName}?${this.entityName}_id=${id}`
       )
       if (response.status === 'success' && response.data) {
-        return this.mapResponseToEntity(response.data)
+        return this.mapResponseToEntity(response.data as Record<string, unknown>)
       }
       throw new Error(`${this.entityName} not found`)
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to get ${this.entityName}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to get ${this.entityName}`
+      throw new Error(errorMessage)
     }
   }
 
@@ -116,11 +119,12 @@ export abstract class BaseCrudService<
       )
 
       if (response.status === 'success' && response.data) {
-        return this.mapResponseToEntity(response.data)
+        return this.mapResponseToEntity(response.data as Record<string, unknown>)
       }
       throw new Error(response.message || `Failed to create ${this.entityName}`)
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to create ${this.entityName}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to create ${this.entityName}`
+      throw new Error(errorMessage)
     }
   }
 
@@ -134,11 +138,12 @@ export abstract class BaseCrudService<
       )
 
       if (response.status === 'success' && response.data) {
-        return this.mapResponseToEntity(response.data)
+        return this.mapResponseToEntity(response.data as Record<string, unknown>)
       }
       throw new Error(response.message || `Failed to update ${this.entityName}`)
-    } catch (error: any) {
-      throw new Error(error.message || `Failed to update ${this.entityName}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to update ${this.entityName}`
+      throw new Error(errorMessage)
     }
   }
 

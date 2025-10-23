@@ -12,6 +12,45 @@ import type {
 import type { ApiResponse } from './api'
 import { apiClient } from './api'
 
+// Backend API request/response types
+interface BackendLocationRequest {
+  name: string
+  description: string
+  parent_id: string | null
+  location_type: string
+  image_url: string | null
+  emoji?: string
+  slot_count?: number
+  slot_naming_pattern?: string
+  slot_layout_type?: 'simple' | 'grid' | 'custom'
+  grid_rows?: number
+  grid_columns?: number
+  slot_layout?: Record<string, unknown>
+}
+
+interface BackendLocationResponse {
+  id: string
+  name: string
+  description?: string
+  parent_id?: string | null
+  location_type?: string
+  image_url?: string | null
+  emoji?: string
+  created_at: string
+  updated_at: string
+  children?: Location[]
+  parts?: unknown[]
+  slot_count?: number
+  slot_naming_pattern?: string
+  slot_layout_type?: 'simple' | 'grid' | 'custom'
+  grid_rows?: number
+  grid_columns?: number
+  slot_layout?: Record<string, unknown>
+  is_auto_generated_slot?: boolean
+  slot_number?: number
+  slot_metadata?: Record<string, unknown>
+}
+
 export class EnhancedLocationsService extends BaseNamedCrudService<
   Location,
   CreateLocationRequest,
@@ -21,40 +60,61 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   protected entityName = 'location'
 
   // Map frontend create request to backend format
-  protected mapCreateRequestToBackend(data: CreateLocationRequest): any {
+  protected mapCreateRequestToBackend(data: CreateLocationRequest): BackendLocationRequest {
     return {
       name: data.name,
       description: data.description || '',
       parent_id: data.parent_id || null,
       location_type: data.location_type || 'standard',
       image_url: data.image_url || null,
+      emoji: data.emoji,
+      slot_count: data.slot_count,
+      slot_naming_pattern: data.slot_naming_pattern,
+      slot_layout_type: data.slot_layout_type,
+      grid_rows: data.grid_rows,
+      grid_columns: data.grid_columns,
+      slot_layout: data.slot_layout,
     }
   }
 
   // Map frontend update request to backend format
-  protected mapUpdateRequestToBackend(data: UpdateLocationRequest): any {
+  protected mapUpdateRequestToBackend(data: UpdateLocationRequest): Partial<BackendLocationRequest> {
     return {
       name: data.name,
-      description: data.description || '',
-      parent_id: data.parent_id || null,
-      location_type: data.location_type || 'standard',
-      image_url: data.image_url || null,
+      description: data.description ?? '',
+      parent_id: data.parent_id ?? null,
+      location_type: data.location_type ?? 'standard',
+      image_url: data.image_url ?? null,
+      emoji: data.emoji,
+      slot_count: data.slot_count,
+      slot_naming_pattern: data.slot_naming_pattern,
+      slot_layout_type: data.slot_layout_type,
+      grid_rows: data.grid_rows,
+      grid_columns: data.grid_columns,
+      slot_layout: data.slot_layout,
     }
   }
 
   // Map backend response to frontend entity
-  protected mapResponseToEntity(response: any): Location {
+  protected mapResponseToEntity(response: BackendLocationResponse): Location {
     return {
       id: response.id,
       name: response.name,
       description: response.description || '',
-      parent_id: response.parent_id || null,
+      parent_id: response.parent_id || undefined,
       location_type: response.location_type || 'standard',
-      image_url: response.image_url || null,
-      created_at: response.created_at,
-      updated_at: response.updated_at,
+      image_url: response.image_url || undefined,
+      emoji: response.emoji,
+      slot_count: response.slot_count,
+      slot_naming_pattern: response.slot_naming_pattern,
+      slot_layout_type: response.slot_layout_type,
+      grid_rows: response.grid_rows,
+      grid_columns: response.grid_columns,
+      slot_layout: response.slot_layout,
+      is_auto_generated_slot: response.is_auto_generated_slot,
+      slot_number: response.slot_number,
+      slot_metadata: response.slot_metadata,
       children: response.children || [],
-      parts: response.parts || [],
     }
   }
 
@@ -68,8 +128,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
         return response.data.map((location) => this.mapResponseToEntity(location))
       }
       return []
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to load locations')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load locations'
+      throw new Error(message)
     }
   }
 
@@ -80,8 +141,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
       if (response.status !== 'success') {
         throw new Error(response.message || 'Failed to delete location')
       }
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to delete location')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete location'
+      throw new Error(message)
     }
   }
 
@@ -95,8 +157,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
         return response.data
       }
       throw new Error('Failed to get location details')
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to get location details')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get location details'
+      throw new Error(message)
     }
   }
 

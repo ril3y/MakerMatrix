@@ -97,7 +97,7 @@ const getIconForProperty = (propertyKey: string) => {
 }
 
 // Property leaf counting function
-const countPropertyLeaves = (value: any): number => {
+const countPropertyLeaves = (value: unknown): number => {
   if (value === null || value === undefined) return 1
   if (typeof value !== 'object') return 1
   if (Array.isArray(value)) {
@@ -138,7 +138,7 @@ const PartDetailsPage = () => {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('')
   const [enrichmentModalOpen, setEnrichmentModalOpen] = useState(false)
   const [printerModalOpen, setPrinterModalOpen] = useState(false)
-  const [priceTrends, setPriceTrends] = useState<any[]>([])
+  const [priceTrends, setPriceTrends] = useState<Array<{ date: string; price: number }>>([])
   const [loadingPriceHistory, setLoadingPriceHistory] = useState(false)
   const [copiedPartNumber, setCopiedPartNumber] = useState(false)
   const [copiedPartName, setCopiedPartName] = useState(false)
@@ -899,9 +899,10 @@ const PartDetailsPage = () => {
         await loadPart(id)
       }
       setLocationPickerModalOpen(false)
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Failed to update location:', error)
-      toast.error('Failed to update location: ' + (error.message || 'Unknown error'))
+      toast.error('Failed to update location: ' + errorMessage)
     } finally {
       setSaving(false)
     }
@@ -924,9 +925,10 @@ const PartDetailsPage = () => {
       }
       setShowSlotPickerModal(false)
       setSelectedContainer(null)
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Failed to update location:', error)
-      alert('Failed to update location: ' + (error.message || 'Unknown error'))
+      alert('Failed to update location: ' + errorMessage)
     } finally {
       setSaving(false)
     }
@@ -956,9 +958,10 @@ const PartDetailsPage = () => {
         await loadPart(id)
       }
       setEditingSupplier(false)
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Failed to update supplier:', error)
-      alert('Failed to update supplier: ' + (error.message || 'Unknown error'))
+      alert('Failed to update supplier: ' + errorMessage)
     } finally {
       setSaving(false)
     }
@@ -985,7 +988,7 @@ const PartDetailsPage = () => {
   }
 
   // Helper to build location display name (container → slot if applicable)
-  const getLocationDisplayName = (location: any): string => {
+  const getLocationDisplayName = (location: Location | null | undefined): string => {
     if (!location) return ''
 
     // If this is an auto-generated slot with a parent, show "Parent → Slot"
@@ -1453,10 +1456,9 @@ const PartDetailsPage = () => {
                                           loadPart(id)
                                           loadAllocations(id)
                                         }
-                                      } catch (error: any) {
-                                        toast.error(
-                                          error.message || 'Failed to return to primary storage'
-                                        )
+                                      } catch (error) {
+                                        const errorMessage = error instanceof Error ? error.message : 'Failed to return to primary storage'
+                                        toast.error(errorMessage)
                                       }
                                     }}
                                     className="text-orange-500 hover:text-orange-600 transition-colors"
@@ -2318,7 +2320,7 @@ const PartDetailsPage = () => {
                               y: {
                                 beginAtZero: false,
                                 ticks: {
-                                  callback: function (value: any) {
+                                  callback: function (value: string | number) {
                                     return '$' + Number(value).toFixed(2)
                                   },
                                 },

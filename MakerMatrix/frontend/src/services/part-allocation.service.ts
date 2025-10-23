@@ -82,6 +82,28 @@ export interface TransferResponse {
   }
 }
 
+export interface TransferApiResponse {
+  id: string
+  part_name: string
+  total_quantity?: number
+}
+
+export interface SplitToCassetteApiResponse {
+  part_id: string
+  part_name: string
+  total_quantity?: number
+  from_allocation?: {
+    location_id: string
+    location_name: string
+    new_quantity: number
+  }
+  to_allocation?: {
+    location_id: string
+    location_name: string
+    new_quantity: number
+  }
+}
+
 class PartAllocationService {
   /**
    * Get all location allocations for a specific part
@@ -97,7 +119,7 @@ class PartAllocationService {
       }
 
       throw new Error(response.message || 'Failed to get part allocations')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error getting part allocations:', error)
       throw error
     }
@@ -119,7 +141,7 @@ class PartAllocationService {
         params.append('notes', request.notes)
       }
 
-      const response = await apiClient.post<ApiResponse<any>>(
+      const response = await apiClient.post<ApiResponse<TransferApiResponse>>(
         `/api/parts/${partId}/transfer?${params.toString()}`
       )
 
@@ -142,7 +164,7 @@ class PartAllocationService {
       }
 
       throw new Error(response.message || 'Failed to transfer quantity')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error transferring quantity:', error)
       throw error
     }
@@ -156,7 +178,7 @@ class PartAllocationService {
     request: SplitToCassetteRequest
   ): Promise<TransferResponse> {
     try {
-      const response = await apiClient.post<ApiResponse<any>>(
+      const response = await apiClient.post<ApiResponse<SplitToCassetteApiResponse>>(
         `/api/parts/${partId}/allocations/split_to_cassette`,
         request
       )
@@ -180,7 +202,7 @@ class PartAllocationService {
       }
 
       throw new Error(response.message || 'Failed to split to cassette')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error splitting to cassette:', error)
       throw error
     }

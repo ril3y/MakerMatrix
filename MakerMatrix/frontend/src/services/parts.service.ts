@@ -2,9 +2,40 @@ import type { ApiResponse, PaginatedResponse } from './api'
 import { apiClient } from './api'
 import type { Part, CreatePartRequest, UpdatePartRequest, SearchPartsRequest } from '@/types/parts'
 
+// Backend part format (snake_case fields)
+interface BackendPart {
+  id: string
+  part_name: string
+  part_number?: string
+  supplier_part_number?: string
+  description?: string
+  quantity: number
+  minimum_quantity?: number
+  supplier?: string
+  supplier_url?: string
+  product_url?: string
+  image_url?: string
+  emoji?: string
+  manufacturer?: string
+  manufacturer_part_number?: string
+  component_type?: string
+  additional_properties?: Record<string, unknown>
+  location_id?: string
+  location?: unknown
+  categories?: unknown[]
+  projects?: unknown[]
+  datasheets?: unknown[]
+  created_at: string
+  updated_at: string
+  total_quantity?: number
+  location_count?: number
+  primary_location?: unknown
+  lifecycle_status?: string
+}
+
 export class PartsService {
   // Helper function to map backend part format to frontend format
-  private mapPartFromBackend(backendPart: any): Part {
+  private mapPartFromBackend(backendPart: BackendPart): Part {
     return {
       ...backendPart,
       name: backendPart.part_name, // Map part_name to name
@@ -30,7 +61,7 @@ export class PartsService {
       backendData.supplier_url = null
     }
 
-    const response = await apiClient.post<ApiResponse<any>>('/api/parts/add_part', backendData)
+    const response = await apiClient.post<ApiResponse<BackendPart>>('/api/parts/add_part', backendData)
 
     if (response.status === 'success' && response.data) {
       return this.mapPartFromBackend(response.data)
@@ -39,7 +70,7 @@ export class PartsService {
   }
 
   async getPart(id: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_id=${id}`)
+    const response = await apiClient.get<ApiResponse<BackendPart>>(`/api/parts/get_part?part_id=${id}`)
     if (response.status === 'success' && response.data) {
       return this.mapPartFromBackend(response.data)
     }
@@ -47,7 +78,7 @@ export class PartsService {
   }
 
   async getPartByName(name: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(`/api/parts/get_part?part_name=${name}`)
+    const response = await apiClient.get<ApiResponse<BackendPart>>(`/api/parts/get_part?part_name=${name}`)
     if (response.status === 'success' && response.data) {
       return this.mapPartFromBackend(response.data)
     }
@@ -55,7 +86,7 @@ export class PartsService {
   }
 
   async getPartByNumber(partNumber: string): Promise<Part> {
-    const response = await apiClient.get<ApiResponse<any>>(
+    const response = await apiClient.get<ApiResponse<BackendPart>>(
       `/api/parts/get_part?part_number=${partNumber}`
     )
     if (response.status === 'success' && response.data) {
@@ -86,7 +117,7 @@ export class PartsService {
       backendData.supplier_url = null
     }
 
-    const response = await apiClient.put<ApiResponse<any>>(
+    const response = await apiClient.put<ApiResponse<BackendPart>>(
       `/api/parts/update_part/${id}`,
       backendData
     )
@@ -104,7 +135,7 @@ export class PartsService {
   }
 
   async getAllParts(page = 1, pageSize = 20): Promise<{ data: Part[]; total_parts: number }> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/api/parts/get_all_parts', {
+    const response = await apiClient.get<ApiResponse<BackendPart[]>>('/api/parts/get_all_parts', {
       params: { page, page_size: pageSize },
     })
 
@@ -119,7 +150,7 @@ export class PartsService {
   }
 
   async getAll(): Promise<Part[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/api/parts/get_all_parts')
+    const response = await apiClient.get<ApiResponse<BackendPart[]>>('/api/parts/get_all_parts')
 
     if (response.status === 'success' && response.data) {
       return response.data.map((part) => this.mapPartFromBackend(part))
