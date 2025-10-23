@@ -229,6 +229,16 @@ MakerMatrix/frontend/.env.production.local
 # AI Configuration (user-specific)
 ai_config.json
 
+# AI Models (large files, should never be committed)
+MakerMatrix/ai-model/models/
+ai-model/models/
+*.safetensors
+*.pt
+*.pth
+*.onnx
+*.pb
+*.h5
+
 # Virtual environments
 venv_test/
 
