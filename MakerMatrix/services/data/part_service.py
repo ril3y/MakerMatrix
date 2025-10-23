@@ -334,6 +334,11 @@ class PartService(BaseService):
             if not part_name:
                 return self.error_response("Part name is required")
 
+            # Normalize supplier name to lowercase for consistency
+            if "supplier" in part_data and part_data["supplier"]:
+                part_data["supplier"] = part_data["supplier"].lower()
+                self.logger.debug(f"Normalized supplier name to lowercase: {part_data['supplier']}")
+
             with self.get_session() as session:
                 # Check if the part already exists by its name
                 try:
@@ -722,8 +727,14 @@ class PartService(BaseService):
 
                 # Update only the provided fields
                 update_data = part_update.model_dump(exclude_unset=True)
+
+                # Normalize supplier name to lowercase for consistency
+                if "supplier" in update_data and update_data["supplier"]:
+                    update_data["supplier"] = update_data["supplier"].lower()
+                    self.logger.debug(f"Normalized supplier name to lowercase: {update_data['supplier']}")
+
                 updated_fields = []
-                
+
                 for key, value in update_data.items():
                     if key == "category_names":
                         # Skip if None or if empty list (preserve existing categories)
