@@ -248,18 +248,39 @@ async def update_part(
     # Log activity with changes
     try:
         from MakerMatrix.services.activity_service import get_activity_service
+        from MakerMatrix.services.data.location_service import LocationService
         activity_service = get_activity_service()
-        
+        location_service = LocationService()
+
+        # Helper function to resolve location UUIDs to names
+        def resolve_location_name(location_id: str) -> str:
+            if not location_id:
+                return "No Location"
+            try:
+                location_response = location_service.get_location_by_id(location_id)
+                if location_response and location_response.get("data"):
+                    return location_response["data"].get("name", location_id)
+                return location_id
+            except:
+                return location_id
+
         # Track what changed
         changes = {}
         update_dict = part_data.model_dump(exclude_unset=True)
         for key, new_value in update_dict.items():
             if key in original_part and original_part[key] != new_value:
-                changes[key] = {
-                    "from": original_part[key],
-                    "to": new_value
-                }
-        
+                # Special handling for location_id to show human-readable names
+                if key == "location_id":
+                    changes[key] = {
+                        "from": resolve_location_name(original_part[key]),
+                        "to": resolve_location_name(new_value)
+                    }
+                else:
+                    changes[key] = {
+                        "from": original_part[key],
+                        "to": new_value
+                    }
+
         await activity_service.log_part_updated(
             part_id=updated_part["id"],
             part_name=updated_part["part_name"],

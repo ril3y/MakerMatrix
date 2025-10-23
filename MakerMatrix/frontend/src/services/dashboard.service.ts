@@ -1,62 +1,74 @@
+/**
+ * Dashboard Service - Fetches dashboard analytics data
+ */
+
 import type { ApiResponse } from './api'
 import { apiClient } from './api'
 
-export interface DashboardCounts {
-  parts: number
-  locations: number
-  categories: number
+interface InventorySummary {
+  total_parts: number
+  total_units: number
+  total_categories: number
+  total_locations: number
+  parts_with_location: number
+  parts_without_location: number
+  low_stock_count: number
+  zero_stock_count: number
 }
 
-export interface DashboardStats {
-  totalParts: number
-  totalLocations: number
-  totalCategories: number
-  activeUsers: number
+interface CategoryDistribution {
+  category: string
+  part_count: number
+  total_quantity: number
+}
+
+interface LocationDistribution {
+  location: string
+  part_count: number
+  total_quantity: number
+}
+
+interface SupplierDistribution {
+  supplier: string
+  part_count: number
+  total_quantity: number
+}
+
+interface StockedPart {
+  id: string
+  part_name: string
+  part_number: string
+  quantity: number
+  supplier: string
+  location: string
+}
+
+interface LowStockPart {
+  id: string
+  part_name: string
+  part_number: string
+  quantity: number
+  supplier: string
+  location_name: string
+}
+
+export interface DashboardData {
+  summary: InventorySummary
+  parts_by_category: CategoryDistribution[]
+  parts_by_location: LocationDistribution[]
+  parts_by_supplier: SupplierDistribution[]
+  most_stocked_parts: StockedPart[]
+  least_stocked_parts: StockedPart[]
+  low_stock_parts: LowStockPart[]
 }
 
 export class DashboardService {
-  async getCounts(): Promise<DashboardCounts> {
-    const response = await apiClient.get<ApiResponse<DashboardCounts>>('/api/utility/get_counts')
+  /**
+   * Get complete dashboard summary with all analytics
+   */
+  async getDashboardSummary(): Promise<DashboardData> {
+    const response = await apiClient.get<ApiResponse<DashboardData>>('/api/dashboard/summary')
     return response.data!
-  }
-
-  async getPartCounts(): Promise<number> {
-    const response = await apiClient.get<ApiResponse<number>>('/api/parts/get_part_counts')
-    return response.data!
-  }
-
-  async getAllUsers(): Promise<any[]> {
-    try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/api/users/all')
-      return response.data || []
-    } catch (error) {
-      // If not admin, return empty array
-      return []
-    }
-  }
-
-  async getDashboardStats(): Promise<DashboardStats> {
-    try {
-      const [counts, users] = await Promise.all([this.getCounts(), this.getAllUsers()])
-
-      return {
-        totalParts: counts.parts,
-        totalLocations: counts.locations,
-        totalCategories: counts.categories,
-        activeUsers: users.filter((user) => user.is_active).length,
-      }
-    } catch (error) {
-      // Fallback to individual calls if utility endpoint fails
-      const partCount = await this.getPartCounts()
-      const users = await this.getAllUsers()
-
-      return {
-        totalParts: partCount,
-        totalLocations: 0,
-        totalCategories: 0,
-        activeUsers: users.filter((user) => user.is_active).length,
-      }
-    }
   }
 }
 

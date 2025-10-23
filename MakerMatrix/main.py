@@ -39,6 +39,7 @@ from MakerMatrix.routers import (
     tool_routes,
     tag_routes,
     backup_routes,
+    dashboard_routes,
 )
 from MakerMatrix.database.db import create_db_and_tables
 from MakerMatrix.handlers.exception_handlers import register_exception_handlers
@@ -499,6 +500,7 @@ secure_all_routes(backup_routes.router, permissions=backup_permissions)
 public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
 
 # Include routers
+app.include_router(dashboard_routes.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(parts_routes.router, prefix="/api/parts", tags=["parts"])
 app.include_router(part_allocation_routes.router, prefix="/api", tags=["Part Allocations"])
 app.include_router(tool_routes.router, prefix="/api/tools", tags=["tools"])

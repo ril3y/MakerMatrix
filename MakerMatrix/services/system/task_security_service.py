@@ -119,6 +119,13 @@ class TaskSecurityService(BaseService):
                             "backup:restore",
                             "backup:manage",
                             "reports:generate",
+                            "dashboard:view",
+                            "locations:read",
+                            "categories:read",
+                            "projects:read",
+                            "tools:read",
+                            "tasks:read",
+                            "users:read",
                         ]
                     )
                 elif role.name == "power_user":

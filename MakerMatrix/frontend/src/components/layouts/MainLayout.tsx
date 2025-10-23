@@ -50,7 +50,7 @@ const MainLayout: React.FC = () => {
       label: 'Dashboard',
       path: '/',
       icon: <Home className="w-5 h-5" />,
-      requiredPermission: 'dashboard:view',
+      // No permission required - Dashboard is accessible to all users
     },
     {
       label: 'Parts',

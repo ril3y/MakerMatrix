@@ -207,7 +207,9 @@ class TaskValidators:
                 "fetch_stock",
                 "fetch_specifications",
                 "fetch_description",
-                "fetch_all"
+                "fetch_all",
+                "get_part_details",  # McMaster-Carr and other suppliers use this for comprehensive enrichment
+                "scrape_part_details",  # Web scraping fallback capability
             ]
             for cap in capabilities:
                 if cap not in valid_capabilities:

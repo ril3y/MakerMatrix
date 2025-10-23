@@ -15,8 +15,6 @@ import {
   Activity,
   Clock,
 } from 'lucide-react'
-// Analytics service removed - dashboard analytics disabled
-// import { analyticsService } from '@/services/analytics.service'
 import { activityService, type Activity as ActivityType } from '@/services/activity.service'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import {
@@ -30,66 +28,10 @@ import {
   Legend,
 } from 'chart.js'
 import toast from 'react-hot-toast'
+import { dashboardService, type DashboardData } from '@/services/dashboard.service'
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
-
-interface InventorySummary {
-  total_parts: number
-  total_units: number
-  total_categories: number
-  total_locations: number
-  parts_with_location: number
-  parts_without_location: number
-  low_stock_count: number
-  zero_stock_count: number
-}
-
-interface CategoryDistribution {
-  category: string
-  part_count: number
-  total_quantity: number
-}
-
-interface LocationDistribution {
-  location: string
-  part_count: number
-  total_quantity: number
-}
-
-interface SupplierDistribution {
-  supplier: string
-  part_count: number
-  total_quantity: number
-}
-
-interface StockedPart {
-  id: string
-  part_name: string
-  part_number: string
-  quantity: number
-  supplier: string
-  location: string
-}
-
-interface LowStockPart {
-  id: string
-  part_name: string
-  part_number: string
-  quantity: number
-  supplier: string
-  location_name: string
-}
-
-interface DashboardData {
-  summary: InventorySummary
-  parts_by_category: CategoryDistribution[]
-  parts_by_location: LocationDistribution[]
-  parts_by_supplier: SupplierDistribution[]
-  most_stocked_parts: StockedPart[]
-  least_stocked_parts: StockedPart[]
-  low_stock_parts: LowStockPart[]
-}
 
 const DashboardPage = () => {
   const navigate = useNavigate()
@@ -112,16 +54,12 @@ const DashboardPage = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
-      // TODO: Analytics service removed - need alternative data source for dashboard
-      // const response = await analyticsService.getDashboardSummary()
-      // setData(response)
-
-      // For now, set loading to false without data
-      // This will show "No dashboard data available" message
-      setData(null)
+      const response = await dashboardService.getDashboardSummary()
+      setData(response)
     } catch (error) {
       toast.error('Failed to load dashboard data')
       console.error('Dashboard error:', error)
+      setData(null)
     } finally {
       setLoading(false)
     }
@@ -541,128 +479,11 @@ const DashboardPage = () => {
         )}
       </motion.div>
 
-      {/* Top Parts Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
-        className="card"
-      >
-        <div
-          className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
-          onClick={() => toggleSection('topParts')}
-        >
-          <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-            <Package className="w-5 h-5" />
-            Stock Levels
-          </h2>
-          {expandedSections.topParts ? <ChevronUp /> : <ChevronDown />}
-        </div>
-
-        {expandedSections.topParts && (
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Most Stocked */}
-            <div>
-              <h3 className="text-md font-medium text-primary mb-4 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-success" />
-                Most Stocked Parts
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Part Name</th>
-                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Quantity</th>
-                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Location</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-theme-elevated/50">
-                    {data.most_stocked_parts.length > 0 ? (
-                      data.most_stocked_parts.map((part) => (
-                        <tr
-                          key={part.id}
-                          onClick={() => navigate(`/parts/${part.id}`)}
-                          className="border-b border-purple-500/10 cursor-pointer hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
-                        >
-                          <td className="px-4 py-3">
-                            <div>
-                              <div className="font-medium text-primary hover:text-primary-dark">{part.part_name}</div>
-                              <div className="text-xs text-muted">{part.part_number}</div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-success">
-                            {part.quantity.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-secondary text-sm">{part.location}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="text-center text-muted py-4">
-                          No parts available
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Least Stocked */}
-            <div>
-              <h3 className="text-md font-medium text-primary mb-4 flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-warning" />
-                Least Stocked Parts
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Part Name</th>
-                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Quantity</th>
-                      <th className="text-left px-4 py-3 font-bold text-primary text-sm uppercase tracking-wider">Location</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-theme-elevated/50">
-                    {data.least_stocked_parts.length > 0 ? (
-                      data.least_stocked_parts.map((part) => (
-                        <tr
-                          key={part.id}
-                          onClick={() => navigate(`/parts/${part.id}`)}
-                          className="border-b border-purple-500/10 cursor-pointer hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
-                        >
-                          <td className="px-4 py-3">
-                            <div>
-                              <div className="font-medium text-primary hover:text-primary-dark">{part.part_name}</div>
-                              <div className="text-xs text-muted">{part.part_number}</div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-warning">
-                            {part.quantity.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-secondary text-sm">{part.location}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="text-center text-muted py-4">
-                          No parts available
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-      </motion.div>
-
       {/* Recent Activity Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.35 }}
         className="card"
       >
         <div
@@ -729,6 +550,99 @@ const DashboardPage = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+      </motion.div>
+
+      {/* Stock Levels Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="card"
+      >
+        <div
+          className="p-4 border-b border-border flex items-center justify-between cursor-pointer"
+          onClick={() => toggleSection('stocks')}
+        >
+          <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            Stock Levels
+          </h2>
+          {expandedSections.stocks ? <ChevronUp /> : <ChevronDown />}
+        </div>
+
+        {expandedSections.stocks && (
+          <div className="p-6 space-y-6">
+            {/* Most Stocked Parts */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4">Most Stocked Parts</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Name</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Number</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Supplier</th>
+                      <th className="text-right py-2 px-4 text-sm font-medium text-primary">Quantity</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Location</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.most_stocked_parts.map((part) => (
+                      <tr
+                        key={part.id}
+                        onClick={() => navigate(`/parts/${part.id}`)}
+                        className="border-b border-border hover:bg-background-hover cursor-pointer transition-colors"
+                      >
+                        <td className="py-2 px-4 text-sm text-primary">{part.part_name}</td>
+                        <td className="py-2 px-4 text-sm text-secondary">{part.part_number}</td>
+                        <td className="py-2 px-4 text-sm text-secondary">{part.supplier}</td>
+                        <td className="py-2 px-4 text-sm text-right font-medium text-success">
+                          {part.quantity}
+                        </td>
+                        <td className="py-2 px-4 text-sm text-secondary">{part.location}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Least Stocked Parts */}
+            <div>
+              <h3 className="text-md font-medium text-primary mb-4">Least Stocked Parts</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Name</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Part Number</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Supplier</th>
+                      <th className="text-right py-2 px-4 text-sm font-medium text-primary">Quantity</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-primary">Location</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.least_stocked_parts.map((part) => (
+                      <tr
+                        key={part.id}
+                        onClick={() => navigate(`/parts/${part.id}`)}
+                        className="border-b border-border hover:bg-background-hover cursor-pointer transition-colors"
+                      >
+                        <td className="py-2 px-4 text-sm text-primary">{part.part_name}</td>
+                        <td className="py-2 px-4 text-sm text-secondary">{part.part_number}</td>
+                        <td className="py-2 px-4 text-sm text-secondary">{part.supplier}</td>
+                        <td className="py-2 px-4 text-sm text-right font-medium text-warning">
+                          {part.quantity}
+                        </td>
+                        <td className="py-2 px-4 text-sm text-secondary">{part.location}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </motion.div>

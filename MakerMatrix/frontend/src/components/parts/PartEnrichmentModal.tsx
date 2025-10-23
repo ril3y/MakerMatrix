@@ -216,7 +216,7 @@ const PartEnrichmentModal = ({
 
       // Auto-select most common/useful capabilities
       const recommended = caps.filter((cap: string) =>
-        ['fetch_datasheet', 'fetch_image'].includes(cap)
+        ['fetch_datasheet', 'fetch_image', 'get_part_details'].includes(cap)
       )
       console.log('Available capabilities:', caps)
       console.log('Auto-selected capabilities:', recommended)
