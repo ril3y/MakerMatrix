@@ -424,7 +424,7 @@ class EnhancedServerManager:
         try:
             for proc in psutil.process_iter(['pid', 'name']):
                 try:
-                    for conn in proc.connections(kind='inet'):
+                    for conn in proc.net_connections(kind='inet'):
                         if conn.laddr.port == port and conn.status == psutil.CONN_LISTEN:
                             processes.append(proc)
                             break
