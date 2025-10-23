@@ -390,10 +390,13 @@ class PartRepository:
             count_query = count_query.join(PartLocationAllocation, PartModel.id == PartLocationAllocation.part_id)\
                                      .where(PartLocationAllocation.location_id == search_params.location_id)
 
-        # Apply supplier filter (case-insensitive)
+        # Apply supplier filter (exact match, case-insensitive)
         if search_params.supplier:
-            query = query.where(PartModel.supplier.ilike(search_params.supplier))
-            count_query = count_query.where(PartModel.supplier.ilike(search_params.supplier))
+            # Use exact match with lowercase comparison instead of LIKE
+            # This prevents wildcards in supplier names (e.g., underscore in "mcmaster-carr")
+            # from matching unintended results
+            query = query.where(func.lower(PartModel.supplier) == search_params.supplier.lower())
+            count_query = count_query.where(func.lower(PartModel.supplier) == search_params.supplier.lower())
 
         # Apply sorting
         if search_params.sort_by:
