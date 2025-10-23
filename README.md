@@ -295,7 +295,7 @@ DATABASE_URL=sqlite:///./makermatrix.db
 DIGIKEY_CLIENT_ID=your-client-id
 DIGIKEY_CLIENT_SECRET=your-client-secret
 MOUSER_API_KEY=your-api-key
-LCSC_API_KEY=your-api-key
+# Note: LCSC does not require an API key
 ```
 
 **[Full Configuration Guide →](docs/CONFIGURATION.md)**
