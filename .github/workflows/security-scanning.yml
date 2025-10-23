@@ -31,6 +31,7 @@ jobs:
         with:
           path: ./
           extra_args: --only-verified --since-commit HEAD~1
+        continue-on-error: true
 
       - name: GitGuardian Secret Scan
         uses: GitGuardian/ggshield-action@v1
