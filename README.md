@@ -61,17 +61,23 @@ cd MakerMatrix
 
 # Set up Python environment
 python3 -m venv venv_test
-source venv_test/bin/activate
+source venv_test/bin/activate  # On Windows: venv_test\Scripts\activate
 pip install -r requirements.txt
 
 # Set up frontend
 cd MakerMatrix/frontend && npm install && cd ../..
 
+# Configure environment (optional - defaults are fine for development)
+cp .env.example .env
+# Edit .env if needed - HTTPS_ENABLED=false by default (no certificates required)
+
 # Start with development manager
 python dev_manager.py
 ```
 
-**Access at:** http://localhost:5173
+**Access at:** http://localhost:5173 (HTTP mode, default) or https://localhost:8443 (HTTPS mode)
+
+**HTTPS Mode:** To enable HTTPS, set `HTTPS_ENABLED=true` in `.env` and generate certificates using `python scripts/setup_https.py`. See [HTTPS Setup Guide](scripts/HTTPS_SETUP.md) for details.
 
 ### Default Credentials
 
