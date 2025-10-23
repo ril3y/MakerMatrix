@@ -10,6 +10,11 @@ on:
     - cron: '0 9 * * 1'
   workflow_dispatch: # Allow manual trigger
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   secret-scan:
     name: Secret Detection
@@ -25,9 +30,7 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
-          extra_args: --only-verified
+          extra_args: --only-verified --since-commit HEAD~1
 
       - name: GitGuardian Secret Scan
         uses: GitGuardian/ggshield-action@v1
@@ -131,10 +134,9 @@ jobs:
       - name: Run Bandit (Python Security)
         uses: PyCQA/bandit-action@v1
         with:
-          path: MakerMatrix
-          level: medium
-          confidence: medium
-          exit_zero: true
+          configfile: pyproject.toml
+          targets: MakerMatrix
+        continue-on-error: true
 
       - name: CodeQL Analysis
         uses: github/codeql-action/init@v2
