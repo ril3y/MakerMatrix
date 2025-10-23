@@ -4,8 +4,6 @@ import {
   Plus,
   Search,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   X,
   Copy,
   Check,
@@ -51,6 +49,10 @@ const PartsPage = () => {
 
   const [isSearching, setIsSearching] = useState(false)
   const isFirstRender = useRef(true)
+
+  // Infinite scroll state
+  const [hasMore, setHasMore] = useState(true)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
 
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -141,7 +143,8 @@ const PartsPage = () => {
 
   // Load parts using appropriate API based on search and sort requirements
   // Simplified like global search - no complex parameters
-  const loadParts = async (page = 1) => {
+  // append=true for infinite scroll, false for new searches/filters
+  const loadParts = async (page = 1, append = false) => {
     try {
       // Don't clear parts or set loading - handle that in useEffects
       setError(null)
@@ -158,7 +161,7 @@ const PartsPage = () => {
         page_size: pageSize,
       }
 
-      console.log('Loading parts with:', { searchTerm, supplierFilter, sortBy, sortOrder, page })
+      console.log('Loading parts with:', { searchTerm, supplierFilter, sortBy, sortOrder, page, append })
       response = await partsService.searchParts(searchParamsObj)
 
       // Debug logging to understand response structure
@@ -213,9 +216,27 @@ const PartsPage = () => {
         console.log(`Filtered ${mappedParts.length} parts to ${filteredParts.length} based on tags`)
       }
 
-      setParts(filteredParts)
+      // Append vs replace logic for infinite scroll
+      if (append) {
+        setParts(prev => [...prev, ...filteredParts])
+      } else {
+        setParts(filteredParts)
+      }
+
+      // Update total and page state
       setTotalParts(selectedTags.length > 0 ? filteredParts.length : totalCount)
       setCurrentPage(page)
+
+      // Update hasMore flag for infinite scroll
+      // Only use infinite scroll when not doing client-side tag filtering
+      if (selectedTags.length === 0) {
+        const totalLoaded = append ? parts.length + filteredParts.length : filteredParts.length
+        setHasMore(totalLoaded < totalCount)
+        console.log(`Infinite scroll: loaded ${totalLoaded}/${totalCount}, hasMore: ${totalLoaded < totalCount}`)
+      } else {
+        // All results already loaded when tag filtering
+        setHasMore(false)
+      }
     } catch (err) {
       const error = err as { response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }; message?: string }
       console.error('Error loading parts:', err)
@@ -255,7 +276,11 @@ const PartsPage = () => {
   useEffect(() => {
     if (isFirstRender.current) return
 
+    // Reset pagination when search changes
+    setCurrentPage(1)
+    setHasMore(true)
     setIsSearching(true)
+
     const timeoutId = setTimeout(() => {
       loadParts(1).finally(() => setIsSearching(false))
     }, 300) // 300ms debounce like global search
@@ -286,7 +311,11 @@ const PartsPage = () => {
   useEffect(() => {
     if (isFirstRender.current) return
 
+    // Reset pagination when supplier filter changes
+    setCurrentPage(1)
+    setHasMore(true)
     setLoading(true)
+
     loadParts(1).finally(() => setLoading(false))
   }, [supplierFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -294,21 +323,60 @@ const PartsPage = () => {
   useEffect(() => {
     if (isFirstRender.current) return
 
+    // Reset pagination when tags change (though tags use client-side filtering)
+    setCurrentPage(1)
+    setHasMore(false) // No pagination when filtering by tags
     setLoading(true)
-    loadParts(currentPage).finally(() => setLoading(false))
+
+    loadParts(1).finally(() => setLoading(false))
   }, [selectedTags, tagFilterMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reload when sorting changes (with loading state)
   useEffect(() => {
     if (isFirstRender.current) return
 
+    // Reset pagination when sorting changes
+    setCurrentPage(1)
+    setHasMore(true)
     setLoading(true)
-    loadParts(currentPage).finally(() => setLoading(false))
+
+    loadParts(1).finally(() => setLoading(false))
   }, [sortBy, sortOrder]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Infinite scroll: load more when user scrolls to bottom
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore || loading || selectedTags.length > 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting && hasMore && !loading) {
+          console.log('Loading more parts, current page:', currentPage)
+          loadParts(currentPage + 1, true) // append=true for infinite scroll
+        }
+      },
+      {
+        root: null, // viewport
+        rootMargin: '100px', // trigger 100px before reaching bottom
+        threshold: 0.1,
+      }
+    )
+
+    observer.observe(loadMoreRef.current)
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current)
+      }
+    }
+  }, [hasMore, loading, currentPage, selectedTags.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handlePartAdded = () => {
+    // Reset to first page and reload when a new part is added
+    setCurrentPage(1)
+    setHasMore(true)
     setLoading(true)
-    loadParts(currentPage).finally(() => setLoading(false))
+    loadParts(1).finally(() => setLoading(false))
   }
 
   // Fetch suggestions with debouncing
@@ -452,14 +520,6 @@ const PartsPage = () => {
     return () => document.removeEventListener('keydown', handleEscape)
   }, [bulkEditMode, selectedPartIds.size, showBulkEditModal])
 
-  const totalPages = Math.ceil(totalParts / pageSize)
-
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      loadParts(page, filters)
-    }
-  }
-
   const handlePartClick = (partId: string, event?: React.MouseEvent) => {
     // In bulk edit mode, regular click toggles selection
     if (bulkEditMode) {
@@ -527,19 +587,19 @@ const PartsPage = () => {
       console.log('Fetching all part IDs with params:', searchParamsObj)
       const response = await partsService.searchParts(searchParamsObj)
 
-      // Extract all part IDs from response
+      // Extract all part IDs from response using same pattern as loadParts
       let allPartIds: string[] = []
       if (response.items && Array.isArray(response.items)) {
         allPartIds = response.items.map((p: Part) => p.id)
-      } else if (response.data && response.data.items && Array.isArray(response.data.items)) {
-        allPartIds = response.data.items.map((p: Part) => p.id)
+      } else if (Array.isArray(response)) {
+        allPartIds = response.map((p: Part) => p.id)
       }
 
       console.log(`Selected all ${allPartIds.length} matching parts`)
       setSelectedPartIds(new Set(allPartIds))
     } catch (error) {
       console.error('Failed to select all parts:', error)
-      toast.error('Failed to select all parts')
+      // Note: toast is not imported, using console.error instead
     }
   }
 
@@ -960,7 +1020,7 @@ const PartsPage = () => {
                           </div>
                           {part.additional_properties?.description && (
                             <div className="text-sm text-muted truncate max-w-xs">
-                              {part.additional_properties.description}
+                              {String(part.additional_properties.description)}
                             </div>
                           )}
                         </td>
@@ -1186,52 +1246,22 @@ const PartsPage = () => {
           </motion.div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
+        {/* Infinite scroll load more indicator */}
+        {parts.length > 0 && (
           <div className="card-footer border-t border-border">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-muted">
-                Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                {Math.min(currentPage * pageSize, totalParts)} of {totalParts} parts
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="btn btn-secondary btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const page = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
-                    if (page > totalPages) return null
-
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`btn btn-sm ${
-                          page === currentPage ? 'btn-primary' : 'btn-secondary'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    )
-                  })}
+            <div className="flex items-center justify-center py-4">
+              {hasMore ? (
+                <div ref={loadMoreRef} className="flex items-center gap-2 text-sm text-muted">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading more parts...</span>
                 </div>
-
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="btn btn-secondary btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+              ) : (
+                <div className="text-sm text-muted">
+                  {selectedTags.length > 0
+                    ? `Showing all ${totalParts} matching parts`
+                    : `Showing all ${parts.length} parts`}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1249,7 +1279,10 @@ const PartsPage = () => {
         isOpen={showBulkEditModal}
         onClose={() => setShowBulkEditModal(false)}
         onSuccess={() => {
-          loadParts(currentPage, filters)
+          // Reset to first page and reload after bulk edit
+          setCurrentPage(1)
+          setHasMore(true)
+          loadParts(1)
           setSelectedPartIds(new Set())
           setBulkEditMode(false)
         }}
