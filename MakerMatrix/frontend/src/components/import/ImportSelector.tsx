@@ -273,140 +273,146 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
   }, [selectedParser, selectedParserInfo, enableAutoEnrichment])
 
   // File upload functions
-  const handleFileSelect = async (file: File) => {
-    if (!file) return
+  const handleFileSelect = useCallback(
+    async (file: File) => {
+      if (!file) return
 
-    const fileExtension = file.name.toLowerCase().split('.').pop()
-    const allowedExtensions = ['csv', 'xls', 'xlsx']
-
-    if (!allowedExtensions.includes(fileExtension || '')) {
-      toast.error('Please upload a CSV or XLS file')
-      return
-    }
-
-    setIsProcessing(true)
-    setUploadedFile(file)
-
-    try {
-      // Get file preview using frontend-only processing
-      const previewData = await previewFile(file)
-
-      // Auto-detect parser from preview data
-      const suggestedParser = previewData.detected_parser || ''
-
-      if (suggestedParser) {
-        setDetectedParser(suggestedParser)
-        setSelectedParser(suggestedParser)
-        setAutoDetected(true)
-        toast.success(
-          `Auto-detected: ${parsers.find((p) => p.id === suggestedParser)?.name || suggestedParser}`
-        )
-      } else {
-        toast('File uploaded successfully, please select a parser type')
-      }
-
-      // Set preview data from frontend processing
       const fileExtension = file.name.toLowerCase().split('.').pop()
-      setFilePreview({
-        filename: file.name,
-        size: file.size,
-        type: file.type,
-        detected_parser: suggestedParser,
-        file_format: fileExtension?.toUpperCase() || 'Unknown',
-        total_rows: previewData.total_rows || 0,
-        headers: previewData.headers || [],
-        is_supported: previewData.is_supported !== false,
-        validation_errors: previewData.validation_errors || [],
-        preview_rows: previewData.preview_rows || [],
-      })
+      const allowedExtensions = ['csv', 'xls', 'xlsx']
 
-      if (previewData.validation_errors && previewData.validation_errors.length > 0) {
-        toast.error(`Validation issues: ${previewData.validation_errors[0]}`)
-      }
-    } catch (error) {
-      console.error('File preview error:', error)
-
-      // Check if this is a backend connectivity issue
-      const isNetworkError =
-        error instanceof Error &&
-        (error.message.includes('fetch') ||
-          error.message.includes('Network') ||
-          error.message.includes('Failed to fetch') ||
-          error.message.includes('ERR_NETWORK') ||
-          error.message.includes('ERR_INTERNET_DISCONNECTED'))
-
-      const isBackendDown =
-        error instanceof Error &&
-        (error.message.includes('500') ||
-          error.message.includes('502') ||
-          error.message.includes('503') ||
-          error.message.includes('504'))
-
-      if (isNetworkError || isBackendDown) {
-        toast.error('Backend not connected - please check if the server is running')
-      } else {
-        toast.error('Failed to preview file')
+      if (!allowedExtensions.includes(fileExtension || '')) {
+        toast.error('Please upload a CSV or XLS file')
+        return
       }
 
-      // Fallback to basic file info if preview fails
-      const filename = file.name.toLowerCase()
-      let suggestedParser = ''
+      setIsProcessing(true)
+      setUploadedFile(file)
 
-      if (filename.includes('lcsc')) {
-        suggestedParser = 'lcsc'
-      } else if (filename.includes('digikey') || filename.includes('dk_')) {
-        suggestedParser = 'digikey'
-      } else if (filename.includes('mouser')) {
-        suggestedParser = 'mouser'
+      try {
+        // Get file preview using frontend-only processing
+        const previewData = await previewFile(file)
+
+        // Auto-detect parser from preview data
+        const suggestedParser = previewData.detected_parser || ''
+
+        if (suggestedParser) {
+          setDetectedParser(suggestedParser)
+          setSelectedParser(suggestedParser)
+          setAutoDetected(true)
+          toast.success(
+            `Auto-detected: ${parsers.find((p) => p.id === suggestedParser)?.name || suggestedParser}`
+          )
+        } else {
+          toast('File uploaded successfully, please select a parser type')
+        }
+
+        // Set preview data from frontend processing
+        const fileExtension = file.name.toLowerCase().split('.').pop()
+        setFilePreview({
+          filename: file.name,
+          size: file.size,
+          type: file.type,
+          detected_parser: suggestedParser,
+          file_format: fileExtension?.toUpperCase() || 'Unknown',
+          total_rows: previewData.total_rows || 0,
+          headers: previewData.headers || [],
+          is_supported: previewData.is_supported !== false,
+          validation_errors: previewData.validation_errors || [],
+          preview_rows: previewData.preview_rows || [],
+        })
+
+        if (previewData.validation_errors && previewData.validation_errors.length > 0) {
+          toast.error(`Validation issues: ${previewData.validation_errors[0]}`)
+        }
+      } catch (error) {
+        console.error('File preview error:', error)
+
+        // Check if this is a backend connectivity issue
+        const isNetworkError =
+          error instanceof Error &&
+          (error.message.includes('fetch') ||
+            error.message.includes('Network') ||
+            error.message.includes('Failed to fetch') ||
+            error.message.includes('ERR_NETWORK') ||
+            error.message.includes('ERR_INTERNET_DISCONNECTED'))
+
+        const isBackendDown =
+          error instanceof Error &&
+          (error.message.includes('500') ||
+            error.message.includes('502') ||
+            error.message.includes('503') ||
+            error.message.includes('504'))
+
+        if (isNetworkError || isBackendDown) {
+          toast.error('Backend not connected - please check if the server is running')
+        } else {
+          toast.error('Failed to preview file')
+        }
+
+        // Fallback to basic file info if preview fails
+        const filename = file.name.toLowerCase()
+        let suggestedParser = ''
+
+        if (filename.includes('lcsc')) {
+          suggestedParser = 'lcsc'
+        } else if (filename.includes('digikey') || filename.includes('dk_')) {
+          suggestedParser = 'digikey'
+        } else if (filename.includes('mouser')) {
+          suggestedParser = 'mouser'
+        }
+
+        if (suggestedParser) {
+          setDetectedParser(suggestedParser)
+          setSelectedParser(suggestedParser)
+          setAutoDetected(true)
+        }
+
+        // Set basic file info for preview
+        const fileExtension = file.name.toLowerCase().split('.').pop()
+        const isValidFileFormat = ['csv', 'xls', 'xlsx'].includes(fileExtension || '')
+
+        let errorMessage = 'Could not preview file content'
+        let supportedStatus = !!suggestedParser && isValidFileFormat
+
+        if (isNetworkError || isBackendDown) {
+          errorMessage = 'Backend not connected - cannot validate file format'
+          // For backend connectivity issues, assume the file might be supported if format is valid
+          supportedStatus = isValidFileFormat
+        } else if (!isValidFileFormat) {
+          errorMessage = 'File format not supported. Please use CSV or XLS files.'
+          supportedStatus = false
+        }
+
+        setFilePreview({
+          filename: file.name,
+          size: file.size,
+          type: file.type,
+          detected_parser: suggestedParser,
+          file_format: fileExtension?.toUpperCase() || 'Unknown',
+          total_rows: 'Error loading preview',
+          headers: [],
+          is_supported: supportedStatus,
+          validation_errors: [errorMessage],
+        })
+      } finally {
+        setIsProcessing(false)
       }
+    },
+    [parsers]
+  )
 
-      if (suggestedParser) {
-        setDetectedParser(suggestedParser)
-        setSelectedParser(suggestedParser)
-        setAutoDetected(true)
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setDragActive(false)
+
+      const files = Array.from(e.dataTransfer.files)
+      if (files.length > 0) {
+        handleFileSelect(files[0])
       }
-
-      // Set basic file info for preview
-      const fileExtension = file.name.toLowerCase().split('.').pop()
-      const isValidFileFormat = ['csv', 'xls', 'xlsx'].includes(fileExtension || '')
-
-      let errorMessage = 'Could not preview file content'
-      let supportedStatus = !!suggestedParser && isValidFileFormat
-
-      if (isNetworkError || isBackendDown) {
-        errorMessage = 'Backend not connected - cannot validate file format'
-        // For backend connectivity issues, assume the file might be supported if format is valid
-        supportedStatus = isValidFileFormat
-      } else if (!isValidFileFormat) {
-        errorMessage = 'File format not supported. Please use CSV or XLS files.'
-        supportedStatus = false
-      }
-
-      setFilePreview({
-        filename: file.name,
-        size: file.size,
-        type: file.type,
-        detected_parser: suggestedParser,
-        file_format: fileExtension?.toUpperCase() || 'Unknown',
-        total_rows: 'Error loading preview',
-        headers: [],
-        is_supported: supportedStatus,
-        validation_errors: [errorMessage],
-      })
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragActive(false)
-
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      handleFileSelect(files[0])
-    }
-  }, [])
+    },
+    [handleFileSelect]
+  )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -571,7 +577,7 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                         value: '',
                         label: isLoadingParsers ? 'Loading suppliers...' : 'Select a parser...',
                       },
-                      ...parsers.map((parser, index) => ({
+                      ...parsers.map((parser) => ({
                         value: parser.id,
                         label: `${parser.name}${!parser.import_available ? ' (Configuration required)' : ''}`,
                       })),

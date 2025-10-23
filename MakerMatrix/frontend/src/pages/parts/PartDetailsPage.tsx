@@ -35,7 +35,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -202,69 +202,22 @@ const PartDetailsPage = () => {
   // Permissions
   const { canUpdate } = usePermissions()
 
-  useEffect(() => {
-    if (id) {
-      loadPart(id)
+  const loadAllocations = useCallback(async (partId: string) => {
+    try {
+      setLoadingAllocations(true)
+      const data = await partAllocationService.getPartAllocations(partId)
+      setPartAllocations(data.allocations || [])
+      setAllocationTotalQuantity(data.total_quantity)
+    } catch (err) {
+      console.error('Failed to load allocations:', err)
+      setPartAllocations([])
+      setAllocationTotalQuantity(null)
+    } finally {
+      setLoadingAllocations(false)
     }
-  }, [id])
-
-  // Load all categories for category management
-  useEffect(() => {
-    loadAllCategories()
   }, [])
 
-  // Load all projects on mount
-  useEffect(() => {
-    loadAllProjects()
-  }, [])
-
-  // Load tags when part is loaded
-  useEffect(() => {
-    if (part?.id) {
-      loadPartTags(part.id)
-    }
-  }, [part?.id])
-
-  // Load all locations on mount (for container detection)
-  useEffect(() => {
-    const loadLocations = async () => {
-      try {
-        const locations = await locationsService.getAllLocations({ hide_auto_slots: false })
-        setAllLocations(locations)
-      } catch (error) {
-        console.error('Failed to load locations:', error)
-      }
-    }
-    loadLocations()
-  }, [])
-
-  // Update selected projects when part changes
-  useEffect(() => {
-    if (part?.projects) {
-      setSelectedProjectIds(part.projects.map((proj) => proj.id))
-    }
-  }, [part?.projects])
-
-  // Update selected categories when part changes
-  useEffect(() => {
-    if (part?.categories) {
-      setSelectedCategoryIds(part.categories.map((cat) => cat.id))
-    }
-  }, [part?.categories])
-
-  // Handle Escape key to cancel supplier editing
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && editingSupplier) {
-        handleSupplierCancel()
-      }
-    }
-
-    window.addEventListener('keydown', handleEscape)
-    return () => window.removeEventListener('keydown', handleEscape)
-  }, [editingSupplier])
-
-  const loadPart = async (partId: string) => {
+  const loadPart = useCallback(async (partId: string) => {
     try {
       setLoading(true)
       setError(null)
@@ -330,22 +283,69 @@ const PartDetailsPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [loadAllocations])
 
-  const loadAllocations = async (partId: string) => {
-    try {
-      setLoadingAllocations(true)
-      const data = await partAllocationService.getPartAllocations(partId)
-      setPartAllocations(data.allocations || [])
-      setAllocationTotalQuantity(data.total_quantity)
-    } catch (err) {
-      console.error('Failed to load allocations:', err)
-      setPartAllocations([])
-      setAllocationTotalQuantity(null)
-    } finally {
-      setLoadingAllocations(false)
+  useEffect(() => {
+    if (id) {
+      loadPart(id)
     }
-  }
+  }, [id, loadPart])
+
+  // Load all categories for category management
+  useEffect(() => {
+    loadAllCategories()
+  }, [])
+
+  // Load all projects on mount
+  useEffect(() => {
+    loadAllProjects()
+  }, [])
+
+  // Load tags when part is loaded
+  useEffect(() => {
+    if (part?.id) {
+      loadPartTags(part.id)
+    }
+  }, [part?.id])
+
+  // Load all locations on mount (for container detection)
+  useEffect(() => {
+    const loadLocations = async () => {
+      try {
+        const locations = await locationsService.getAllLocations({ hide_auto_slots: false })
+        setAllLocations(locations)
+      } catch (error) {
+        console.error('Failed to load locations:', error)
+      }
+    }
+    loadLocations()
+  }, [])
+
+  // Update selected projects when part changes
+  useEffect(() => {
+    if (part?.projects) {
+      setSelectedProjectIds(part.projects.map((proj) => proj.id))
+    }
+  }, [part?.projects])
+
+  // Update selected categories when part changes
+  useEffect(() => {
+    if (part?.categories) {
+      setSelectedCategoryIds(part.categories.map((cat) => cat.id))
+    }
+  }, [part?.categories])
+
+  // Handle Escape key to cancel supplier editing
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editingSupplier) {
+        handleSupplierCancel()
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [editingSupplier])
 
   // Generate consistent color from tag name (same tag always gets same color)
   const generateTagColor = (tagName: string): string => {

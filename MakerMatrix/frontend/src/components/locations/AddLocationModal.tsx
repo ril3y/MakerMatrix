@@ -201,9 +201,12 @@ const AddLocationModal = ({
         setShowDraftBanner(true)
       }
     }
-  }, [isOpen, defaultParentId, loadDraft])
+  }, [isOpen, defaultParentId, loadDraft, form])
 
   // Auto-save draft when form changes (debounced)
+  // Extract form.watch() to a separate variable for static checking
+  const formWatchValues = form.watch()
+
   useEffect(() => {
     if (!isOpen) return
 
@@ -217,7 +220,7 @@ const AddLocationModal = ({
 
       return () => clearTimeout(timeoutId)
     }
-  }, [isOpen, form.watch(), saveDraft])
+  }, [isOpen, formWatchValues, saveDraft, form])
 
   const loadParentLocations = async () => {
     try {

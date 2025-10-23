@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 
 interface AuthenticatedImageProps {
   src: string
@@ -17,7 +17,14 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  // Wrap onError in useCallback to stabilize the reference
+  const handleError = useCallback(() => {
+    onError?.()
+  }, [onError])
+
   useEffect(() => {
+    let objectUrl: string | null = null
+
     const fetchImage = async () => {
       try {
         setLoading(true)
@@ -30,12 +37,12 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
         const blob = await apiClient.get(src, {
           responseType: 'blob',
         })
-        const objectUrl = URL.createObjectURL(blob)
+        objectUrl = URL.createObjectURL(blob)
         setImageSrc(objectUrl)
       } catch (error) {
         console.error('Error loading authenticated image:', error)
         setError(true)
-        onError?.()
+        handleError()
       } finally {
         setLoading(false)
       }
@@ -47,11 +54,11 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
 
     // Cleanup function to revoke object URL
     return () => {
-      if (imageSrc) {
-        URL.revokeObjectURL(imageSrc)
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
       }
     }
-  }, [src])
+  }, [src, handleError])
 
   if (loading) {
     return (
@@ -76,7 +83,7 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
       className={className}
       onError={() => {
         setError(true)
-        onError?.()
+        handleError()
       }}
     />
   )

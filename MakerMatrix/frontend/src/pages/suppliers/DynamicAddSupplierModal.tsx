@@ -5,7 +5,7 @@
  * based on their schemas. Works with the new modular supplier system.
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
 import type { SupplierInfo } from '../../services/dynamic-supplier.service'
 import { dynamicSupplierService } from '../../services/dynamic-supplier.service'
@@ -38,9 +38,30 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
     details?: any
   } | null>(null)
 
+  const loadAvailableSuppliers = useCallback(async () => {
+    try {
+      setLoading(true)
+      setErrors([])
+      const suppliersInfo = await dynamicSupplierService.getAllSuppliersInfo()
+      console.log('API call successful - suppliersInfo:', suppliersInfo)
+      console.log('Type of suppliersInfo:', typeof suppliersInfo)
+      console.log('Object.keys length:', Object.keys(suppliersInfo || {}).length)
+
+      setAvailableSuppliers(suppliersInfo || {})
+    } catch (error) {
+      console.error('Failed to load suppliers:', error)
+      setAvailableSuppliers({})
+      setErrors([
+        `Failed to load available suppliers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadAvailableSuppliers()
-  }, [])
+  }, [loadAvailableSuppliers])
 
   // Handle Escape key to close modal
   useEffect(() => {
@@ -53,33 +74,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
   }, [onClose])
-
-  const loadAvailableSuppliers = async () => {
-    try {
-      setLoading(true)
-      setErrors([])
-      const suppliersInfo = await dynamicSupplierService.getAllSuppliersInfo()
-      console.log('API call successful - suppliersInfo:', suppliersInfo)
-      console.log('Type of suppliersInfo:', typeof suppliersInfo)
-      console.log('Object.keys length:', Object.keys(suppliersInfo || {}).length)
-
-      setAvailableSuppliers(suppliersInfo || {})
-
-      // Verify state was set correctly
-      console.log('State should be set now. Checking in next tick...')
-      setTimeout(() => {
-        console.log('Current availableSuppliers state:', availableSuppliers)
-      }, 100)
-    } catch (error) {
-      console.error('Failed to load suppliers:', error)
-      setAvailableSuppliers({})
-      setErrors([
-        `Failed to load available suppliers: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleSupplierSelection = (supplierName: string) => {
     setSelectedSupplier(supplierName)

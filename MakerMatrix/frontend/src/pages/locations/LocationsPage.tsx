@@ -13,8 +13,7 @@ import {
   Eye,
   Package,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import EditLocationModal from '@/components/locations/EditLocationModal'
 import LocationDetailsModal from '@/components/locations/LocationDetailsModal'
@@ -41,9 +40,8 @@ const LocationsPage = () => {
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('tree')
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [hideAutoSlots, setHideAutoSlots] = useState(true)
-  const navigate = useNavigate()
 
-  const loadLocations = async () => {
+  const loadLocations = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -60,11 +58,11 @@ const LocationsPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [hideAutoSlots])
 
   useEffect(() => {
     loadLocations()
-  }, [hideAutoSlots])
+  }, [loadLocations])
 
   const handleLocationAdded = () => {
     loadLocations()
@@ -120,19 +118,6 @@ const LocationsPage = () => {
       newExpanded.add(locationId)
     }
     setExpandedNodes(newExpanded)
-  }
-
-  // Calculate total parts for a location, including parts in child slots for containers
-  const getTotalPartsCount = (location: Location): number => {
-    // For containers with slots, sum parts from all child slot locations
-    if (location.location_type === 'container' && location.slot_count) {
-      const childSlots = locations.filter(
-        (loc) => loc.parent_id === location.id && loc.is_auto_generated_slot
-      )
-      return childSlots.reduce((sum, slot) => sum + (slot.parts_count || 0), 0)
-    }
-    // For regular locations, just return the parts_count
-    return location.parts_count || 0
   }
 
   const filteredLocations = locations.filter(
@@ -451,7 +436,7 @@ const LocationsPage = () => {
             setSelectedContainer(null)
           }}
           containerLocation={selectedContainer}
-          onSlotSelect={(slotId) => {
+          onSlotSelect={(_slotId) => {
             // Just close the modal - we're just viewing slots, not selecting
             setShowSlotPickerModal(false)
             setSelectedContainer(null)
@@ -604,9 +589,9 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                 </PermissionGuard>
               </div>
             </div>
-            {hasChildren && isExpanded && (
+            {hasChildren && isExpanded && location.children && (
               <LocationTreeNode
-                locations={location.children!}
+                locations={location.children}
                 allLocations={allLocations}
                 expandedNodes={expandedNodes}
                 toggleExpanded={toggleExpanded}

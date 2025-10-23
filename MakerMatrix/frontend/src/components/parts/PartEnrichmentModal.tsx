@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X,
@@ -42,6 +42,70 @@ interface EnrichmentResult {
   description: string
 }
 
+// Capability definitions with icons and descriptions
+const capabilityDefinitions = {
+  enrich_basic_info: {
+    icon: Info,
+    label: 'Basic Info',
+    description: 'Enrich basic part information (description, manufacturer, etc.)',
+  },
+  fetch_datasheet: {
+    icon: FileText,
+    label: 'Datasheet',
+    description: 'Download and attach datasheet PDF',
+  },
+  fetch_image: {
+    icon: Image,
+    label: 'Product Image',
+    description: 'Fetch high-quality product image',
+  },
+  fetch_pricing: {
+    icon: DollarSign,
+    label: 'Pricing',
+    description: 'Get current pricing information',
+  },
+  fetch_stock: {
+    icon: Package,
+    label: 'Stock Information',
+    description: 'Check availability and stock levels',
+  },
+  fetch_specifications: {
+    icon: RefreshCw,
+    label: 'Technical Specifications',
+    description: 'Retrieve detailed component specifications',
+  },
+  fetch_alternatives: {
+    icon: Search,
+    label: 'Alternative Parts',
+    description: 'Find alternative/substitute parts',
+  },
+  fetch_lifecycle_status: {
+    icon: Clock,
+    label: 'Lifecycle Status',
+    description: 'Get part lifecycle and availability status',
+  },
+  validate_part_number: {
+    icon: CheckCircle,
+    label: 'Part Validation',
+    description: 'Validate part numbers and existence',
+  },
+  search_parts: {
+    icon: Search,
+    label: 'Search Parts',
+    description: 'Search for parts using supplier databases',
+  },
+  get_part_details: {
+    icon: Info,
+    label: 'Part Details',
+    description: 'Get detailed part information from supplier',
+  },
+  import_orders: {
+    icon: Download,
+    label: 'Import Orders',
+    description: 'Import order data from supplier systems',
+  },
+}
+
 const PartEnrichmentModal = ({
   isOpen,
   onClose,
@@ -62,70 +126,6 @@ const PartEnrichmentModal = ({
   const [isCheckingRequirements, setIsCheckingRequirements] = useState(false)
   const [missingFieldValues, setMissingFieldValues] = useState<Record<string, string>>({})
   const [isSavingFields, setIsSavingFields] = useState(false)
-
-  // Capability definitions with icons and descriptions
-  const capabilityDefinitions = {
-    enrich_basic_info: {
-      icon: Info,
-      label: 'Basic Info',
-      description: 'Enrich basic part information (description, manufacturer, etc.)',
-    },
-    fetch_datasheet: {
-      icon: FileText,
-      label: 'Datasheet',
-      description: 'Download and attach datasheet PDF',
-    },
-    fetch_image: {
-      icon: Image,
-      label: 'Product Image',
-      description: 'Fetch high-quality product image',
-    },
-    fetch_pricing: {
-      icon: DollarSign,
-      label: 'Pricing',
-      description: 'Get current pricing information',
-    },
-    fetch_stock: {
-      icon: Package,
-      label: 'Stock Information',
-      description: 'Check availability and stock levels',
-    },
-    fetch_specifications: {
-      icon: RefreshCw,
-      label: 'Technical Specifications',
-      description: 'Retrieve detailed component specifications',
-    },
-    fetch_alternatives: {
-      icon: Search,
-      label: 'Alternative Parts',
-      description: 'Find alternative/substitute parts',
-    },
-    fetch_lifecycle_status: {
-      icon: Clock,
-      label: 'Lifecycle Status',
-      description: 'Get part lifecycle and availability status',
-    },
-    validate_part_number: {
-      icon: CheckCircle,
-      label: 'Part Validation',
-      description: 'Validate part numbers and existence',
-    },
-    search_parts: {
-      icon: Search,
-      label: 'Search Parts',
-      description: 'Search for parts using supplier databases',
-    },
-    get_part_details: {
-      icon: Info,
-      label: 'Part Details',
-      description: 'Get detailed part information from supplier',
-    },
-    import_orders: {
-      icon: Download,
-      label: 'Import Orders',
-      description: 'Import order data from supplier systems',
-    },
-  }
 
   // Intelligently detect supplier from part data
   const detectSupplierFromPart = (part: Part): string => {
@@ -176,6 +176,34 @@ const PartEnrichmentModal = ({
     return ''
   }
 
+  // Check enrichment requirements
+  const checkEnrichmentRequirements = useCallback(async () => {
+    if (!selectedSupplier || !part.id) {
+      return
+    }
+
+    setIsCheckingRequirements(true)
+    try {
+      const check = await partsService.checkEnrichmentRequirements(part.id, selectedSupplier)
+      setRequirementCheck(check)
+      console.log('Enrichment requirement check:', check)
+
+      // Initialize missing field values object
+      const initialValues: Record<string, string> = {}
+      check.required_checks.forEach((reqCheck) => {
+        if (!reqCheck.is_present) {
+          initialValues[reqCheck.field_name] = ''
+        }
+      })
+      setMissingFieldValues(initialValues)
+    } catch (error) {
+      console.error('Failed to check enrichment requirements:', error)
+      setRequirementCheck(null)
+    } finally {
+      setIsCheckingRequirements(false)
+    }
+  }, [selectedSupplier, part.id])
+
   useEffect(() => {
     if (isOpen) {
       loadSupplierCapabilities()
@@ -225,35 +253,7 @@ const PartEnrichmentModal = ({
       // Check enrichment requirements for selected supplier
       checkEnrichmentRequirements()
     }
-  }, [selectedSupplier, supplierCapabilities])
-
-  // Check enrichment requirements
-  const checkEnrichmentRequirements = async () => {
-    if (!selectedSupplier || !part.id) {
-      return
-    }
-
-    setIsCheckingRequirements(true)
-    try {
-      const check = await partsService.checkEnrichmentRequirements(part.id, selectedSupplier)
-      setRequirementCheck(check)
-      console.log('Enrichment requirement check:', check)
-
-      // Initialize missing field values object
-      const initialValues: Record<string, string> = {}
-      check.required_checks.forEach((reqCheck) => {
-        if (!reqCheck.is_present) {
-          initialValues[reqCheck.field_name] = ''
-        }
-      })
-      setMissingFieldValues(initialValues)
-    } catch (error) {
-      console.error('Failed to check enrichment requirements:', error)
-      setRequirementCheck(null)
-    } finally {
-      setIsCheckingRequirements(false)
-    }
-  }
+  }, [selectedSupplier, supplierCapabilities, checkEnrichmentRequirements])
 
   // Check if all required fields are filled
   const areAllRequiredFieldsFilled = (): boolean => {

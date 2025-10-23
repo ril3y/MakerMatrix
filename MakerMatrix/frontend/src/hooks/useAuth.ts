@@ -6,11 +6,16 @@ export const useAuth = (requireAuth = true) => {
   const navigate = useNavigate()
   const { user, isAuthenticated, isLoading, checkAuth, hasRole, hasPermission } = useAuthStore()
 
-  useEffect(() => {
-    if (!user && !isLoading) {
-      checkAuth()
-    }
-  }, [])
+  // Check authentication status on mount only
+  useEffect(
+    () => {
+      if (!user && !isLoading) {
+        checkAuth()
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
 
   useEffect(() => {
     if (requireAuth && !isLoading && !isAuthenticated) {

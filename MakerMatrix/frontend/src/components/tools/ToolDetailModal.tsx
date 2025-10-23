@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Wrench,
   Edit3,
@@ -66,14 +66,7 @@ const ToolDetailModal = ({
 
   const { user } = useAuthStore()
 
-  useEffect(() => {
-    if (isOpen && toolId) {
-      loadTool()
-      loadMaintenanceRecords()
-    }
-  }, [isOpen, toolId])
-
-  const loadTool = async () => {
+  const loadTool = useCallback(async () => {
     try {
       setLoading(true)
       const data = await toolsService.getTool(toolId)
@@ -84,16 +77,23 @@ const ToolDetailModal = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [toolId])
 
-  const loadMaintenanceRecords = async () => {
+  const loadMaintenanceRecords = useCallback(async () => {
     try {
       const records = await toolsService.getMaintenanceRecords(toolId)
       setMaintenanceRecords(records)
     } catch (error: any) {
       console.error('Failed to load maintenance records:', error)
     }
-  }
+  }, [toolId])
+
+  useEffect(() => {
+    if (isOpen && toolId) {
+      loadTool()
+      loadMaintenanceRecords()
+    }
+  }, [isOpen, toolId, loadTool, loadMaintenanceRecords])
 
   const handleAddMaintenance = async () => {
     if (!maintenanceForm.maintenance_date || !maintenanceForm.maintenance_type) {

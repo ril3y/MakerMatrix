@@ -17,7 +17,7 @@ import {
   XCircle,
   Tag as TagIcon,
 } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toolsService } from '@/services/tools.service'
 import type { Tool } from '@/types/tools'
@@ -154,64 +154,67 @@ const ToolsPage = () => {
   }
 
   // Load tools
-  const loadTools = async (page = 1, search = '') => {
-    try {
-      setLoading(true)
-      setError(null)
-      setIsSearching(search && search.trim().length > 0)
+  const loadTools = useCallback(
+    async (page = 1, search = '') => {
+      try {
+        setLoading(true)
+        setError(null)
+        setIsSearching(search && search.trim().length > 0)
 
-      const searchParams = {
-        search_term: search && search.trim() ? search.trim() : undefined,
-        status: statusFilter || undefined,
-        condition: conditionFilter || undefined,
-        sort_by: (sortBy as any) || 'created_at',
-        sort_order: sortOrder || 'desc',
-        page,
-        page_size: pageSize,
+        const searchParams = {
+          search_term: search && search.trim() ? search.trim() : undefined,
+          status: statusFilter || undefined,
+          condition: conditionFilter || undefined,
+          sort_by: (sortBy as any) || 'created_at',
+          sort_order: sortOrder || 'desc',
+          page,
+          page_size: pageSize,
+        }
+
+        const response = await toolsService.searchTools(searchParams)
+
+        // Apply client-side tag filtering
+        let filteredTools = response.items || []
+        if (selectedTags.length > 0) {
+          filteredTools = filteredTools.filter((tool: any) => {
+            const toolTagIds = tool.tags?.map((t: Tag) => t.id) || []
+            if (tagFilterMode === 'AND') {
+              // All selected tags must be present
+              return selectedTags.every((tag) => toolTagIds.includes(tag.id))
+            } else {
+              // At least one selected tag must be present
+              return selectedTags.some((tag) => toolTagIds.includes(tag.id))
+            }
+          })
+          console.log(
+            `Filtered ${response.items?.length || 0} tools to ${filteredTools.length} based on tags`
+          )
+        }
+
+        setTools(filteredTools)
+        setTotalTools(selectedTags.length > 0 ? filteredTools.length : response.total || 0)
+        setCurrentPage(page)
+      } catch (err: any) {
+        console.error('Error loading tools:', err)
+        setError(err.message || 'Failed to load tools')
+        setTools([])
+        setTotalTools(0)
+      } finally {
+        setLoading(false)
       }
-
-      const response = await toolsService.searchTools(searchParams)
-
-      // Apply client-side tag filtering
-      let filteredTools = response.items || []
-      if (selectedTags.length > 0) {
-        filteredTools = filteredTools.filter((tool: any) => {
-          const toolTagIds = tool.tags?.map((t: Tag) => t.id) || []
-          if (tagFilterMode === 'AND') {
-            // All selected tags must be present
-            return selectedTags.every((tag) => toolTagIds.includes(tag.id))
-          } else {
-            // At least one selected tag must be present
-            return selectedTags.some((tag) => toolTagIds.includes(tag.id))
-          }
-        })
-        console.log(
-          `Filtered ${response.items?.length || 0} tools to ${filteredTools.length} based on tags`
-        )
-      }
-
-      setTools(filteredTools)
-      setTotalTools(selectedTags.length > 0 ? filteredTools.length : response.total || 0)
-      setCurrentPage(page)
-    } catch (err: any) {
-      console.error('Error loading tools:', err)
-      setError(err.message || 'Failed to load tools')
-      setTools([])
-      setTotalTools(0)
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    [statusFilter, conditionFilter, sortBy, sortOrder, selectedTags, tagFilterMode]
+  )
 
   // Initial load
   useEffect(() => {
     loadTools(1, '')
-  }, [])
+  }, [loadTools])
 
   // Reload when filters or tags change
   useEffect(() => {
     loadTools(1, searchTerm)
-  }, [statusFilter, conditionFilter, sortBy, sortOrder, selectedTags, tagFilterMode])
+  }, [loadTools, searchTerm])
 
   const handleToolAdded = () => {
     loadTools(currentPage, searchTerm)

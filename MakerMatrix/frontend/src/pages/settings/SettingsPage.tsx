@@ -18,7 +18,7 @@ import {
   Moon,
   FileText,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { settingsService } from '@/services/settings.service'
 import type { AIConfig, BackupStatus } from '@/types/settings'
@@ -51,17 +51,38 @@ const SettingsPage = () => {
   const [printerModalMode, setPrinterModalMode] = useState<'add' | 'edit'>('add')
   const [selectedPrinterForEdit, setSelectedPrinterForEdit] = useState<any>(null)
 
-  useEffect(() => {
-    if (activeTab === 'ai') {
-      loadAIConfig()
-    } else if (activeTab === 'printer') {
-      loadPrinters()
-    } else if (activeTab === 'database') {
-      loadBackupStatus()
-    }
-  }, [activeTab])
+  const loadAvailableModels = useCallback(
+    async (configOverride?: AIConfig | null) => {
+      const targetConfig = configOverride ?? aiConfig
 
-  const loadAIConfig = async () => {
+      if (!targetConfig?.enabled) {
+        setAvailableModels([])
+        return
+      }
+
+      try {
+        setLoadingModels(true)
+        const response = await settingsService.getAvailableModels()
+        const models = response.data?.models || []
+        setAvailableModels(models)
+
+        if (response.status === 'warning') {
+          toast(response.message || 'AI models loaded with warnings', { icon: '⚠️' })
+        } else if (response.status === 'error') {
+          toast.error(response.message || 'Failed to load available models')
+          setAvailableModels([])
+        }
+      } catch (error) {
+        toast.error('Failed to load available models')
+        setAvailableModels([])
+      } finally {
+        setLoadingModels(false)
+      }
+    },
+    [aiConfig]
+  )
+
+  const loadAIConfig = useCallback(async () => {
     try {
       setLoading(true)
       const config = await settingsService.getAIConfig()
@@ -78,35 +99,17 @@ const SettingsPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [loadAvailableModels])
 
-  const loadAvailableModels = async (configOverride?: AIConfig | null) => {
-    const targetConfig = configOverride ?? aiConfig
-
-    if (!targetConfig?.enabled) {
-      setAvailableModels([])
-      return
+  useEffect(() => {
+    if (activeTab === 'ai') {
+      loadAIConfig()
+    } else if (activeTab === 'printer') {
+      loadPrinters()
+    } else if (activeTab === 'database') {
+      loadBackupStatus()
     }
-
-    try {
-      setLoadingModels(true)
-      const response = await settingsService.getAvailableModels()
-      const models = response.data?.models || []
-      setAvailableModels(models)
-
-      if (response.status === 'warning') {
-        toast(response.message || 'AI models loaded with warnings', { icon: '⚠️' })
-      } else if (response.status === 'error') {
-        toast.error(response.message || 'Failed to load available models')
-        setAvailableModels([])
-      }
-    } catch (error) {
-      toast.error('Failed to load available models')
-      setAvailableModels([])
-    } finally {
-      setLoadingModels(false)
-    }
-  }
+  }, [activeTab, loadAIConfig])
 
   const handleProviderChange = async (newProvider: string) => {
     if (!aiConfig) return

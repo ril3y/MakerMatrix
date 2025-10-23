@@ -358,6 +358,9 @@ const PartsPage = () => {
   useEffect(() => {
     if (!loadMoreRef.current || !hasMore || loading || selectedTags.length > 0) return
 
+    // Copy ref to local variable for cleanup
+    const currentElement = loadMoreRef.current
+
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries
@@ -373,11 +376,11 @@ const PartsPage = () => {
       }
     )
 
-    observer.observe(loadMoreRef.current)
+    observer.observe(currentElement)
 
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current)
+      if (currentElement) {
+        observer.unobserve(currentElement)
       }
     }
   }, [hasMore, loading, currentPage, selectedTags.length]) // eslint-disable-line react-hooks/exhaustive-deps

@@ -227,7 +227,7 @@ const BackupManagement = () => {
       console.log('[BackupManagement] Stopping monitor for task:', activeTaskId)
       clearInterval(interval)
     }
-  }, [activeTaskId])
+  }, [activeTaskId, isWaitingForRestart])
 
   const loadBackupData = async () => {
     setLoading(true)

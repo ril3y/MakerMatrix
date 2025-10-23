@@ -37,22 +37,25 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     setPreviewUrl(currentImageUrl || null)
   }, [currentImageUrl])
 
-  const validateFile = (file: File): boolean => {
-    // Check file type
-    if (!acceptedTypes.includes(file.type)) {
-      toast.error(`Invalid file type. Accepted types: ${acceptedTypes.join(', ')}`)
-      return false
-    }
+  const validateFile = useCallback(
+    (file: File): boolean => {
+      // Check file type
+      if (!acceptedTypes.includes(file.type)) {
+        toast.error(`Invalid file type. Accepted types: ${acceptedTypes.join(', ')}`)
+        return false
+      }
 
-    // Check file size (5MB limit)
-    const maxFileSize = maxSize * 1024 * 1024 // Convert MB to bytes
-    if (file.size > maxFileSize) {
-      toast.error(`File too large. Maximum size: ${maxSize}MB`)
-      return false
-    }
+      // Check file size (5MB limit)
+      const maxFileSize = maxSize * 1024 * 1024 // Convert MB to bytes
+      if (file.size > maxFileSize) {
+        toast.error(`File too large. Maximum size: ${maxSize}MB`)
+        return false
+      }
 
-    return true
-  }
+      return true
+    },
+    [acceptedTypes, maxSize]
+  )
 
   const handleFileUpload = useCallback(
     async (file: File) => {
@@ -93,7 +96,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         setUploading(false)
       }
     },
-    [currentImageUrl, onImageUploaded]
+    [currentImageUrl, onImageUploaded, validateFile]
   )
 
   // Handle paste events - works globally when component is mounted

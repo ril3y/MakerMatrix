@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -83,9 +83,6 @@ const EditPartPage: React.FC = () => {
   const [enrichmentRequirements, setEnrichmentRequirements] =
     useState<SupplierEnrichmentRequirements | null>(null)
   const [loadingRequirements, setLoadingRequirements] = useState(false)
-
-  // Known API suppliers with enrichment capabilities
-  const knownApiSuppliers = ['lcsc', 'digikey', 'mouser', 'octopart', 'arrow', 'newark']
 
   const buildLocationHierarchy = (
     locations: Location[]
@@ -198,18 +195,12 @@ const EditPartPage: React.FC = () => {
     console.log('selectedProjects state changed:', selectedProjects)
   }, [selectedProjects])
 
-  // Load enrichment requirements when supplier changes
-  useEffect(() => {
-    if (supplierValue && supplierValue.trim()) {
-      loadEnrichmentRequirements(supplierValue)
-    } else {
-      setEnrichmentRequirements(null)
-    }
-  }, [supplierValue])
-
-  const loadEnrichmentRequirements = async (supplier: string) => {
+  const loadEnrichmentRequirements = useCallback(async (supplier: string) => {
     try {
       setLoadingRequirements(true)
+
+      // Known API suppliers with enrichment capabilities
+      const knownApiSuppliers = ['lcsc', 'digikey', 'mouser', 'octopart', 'arrow', 'newark']
 
       // Check if this is a known API supplier before making the request
       const isKnownApiSupplier = knownApiSuppliers.includes(supplier.toLowerCase())
@@ -249,7 +240,16 @@ const EditPartPage: React.FC = () => {
     } finally {
       setLoadingRequirements(false)
     }
-  }
+  }, [])
+
+  // Load enrichment requirements when supplier changes
+  useEffect(() => {
+    if (supplierValue && supplierValue.trim()) {
+      loadEnrichmentRequirements(supplierValue)
+    } else {
+      setEnrichmentRequirements(null)
+    }
+  }, [supplierValue, loadEnrichmentRequirements])
 
   const onSubmit = async (data: PartFormData) => {
     console.log('🚀 onSubmit called!')

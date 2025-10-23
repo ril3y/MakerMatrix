@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Filter, X, ChevronDown } from 'lucide-react'
 import { tagsService } from '@/services/tags.service'
 import type { Tag } from '@/types/tags'
@@ -27,7 +27,7 @@ const TagFilter = ({
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Load available tags
-  const loadTags = async () => {
+  const loadTags = useCallback(async () => {
     try {
       setLoading(true)
       const response = await tagsService.getAllTags({
@@ -43,13 +43,13 @@ const TagFilter = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [entityType])
 
   useEffect(() => {
     if (isOpen && availableTags.length === 0) {
       loadTags()
     }
-  }, [isOpen])
+  }, [isOpen, availableTags.length, loadTags])
 
   // Filter tags based on search
   const filteredTags = availableTags.filter((tag) =>

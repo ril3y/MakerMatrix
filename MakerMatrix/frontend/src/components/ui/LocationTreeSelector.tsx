@@ -116,9 +116,9 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
               {isSelected && <div className="w-2 h-2 bg-primary rounded-full" />}
             </div>
 
-            {hasChildren && isExpanded && (
+            {hasChildren && isExpanded && location.children && (
               <LocationTreeNode
-                locations={location.children!}
+                locations={location.children}
                 selectedLocationId={selectedLocationId}
                 expandedNodes={expandedNodes}
                 toggleExpanded={toggleExpanded}
@@ -146,7 +146,6 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
   className = '',
   compact = false,
 }) => {
-  const [locations, setLocations] = useState<Location[]>([])
   const [locationTree, setLocationTree] = useState<Location[]>([])
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -156,30 +155,31 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
       try {
         setLoading(true)
         const data = await locationsService.getAllLocations()
-        setLocations(data)
         const tree = locationsService.buildLocationTree(data)
         setLocationTree(tree)
 
         // Auto-expand nodes to show selected location
         if (selectedLocationId) {
-          const newExpanded = new Set(expandedNodes)
-          // Find path to selected location and expand all parent nodes
-          const findAndExpandPath = (locs: Location[], targetId: string): boolean => {
-            for (const loc of locs) {
-              if (loc.id === targetId) {
-                return true
-              }
-              if (loc.children && loc.children.length > 0) {
-                if (findAndExpandPath(loc.children, targetId)) {
-                  newExpanded.add(loc.id)
+          setExpandedNodes((prevExpanded) => {
+            const newExpanded = new Set(prevExpanded)
+            // Find path to selected location and expand all parent nodes
+            const findAndExpandPath = (locs: Location[], targetId: string): boolean => {
+              for (const loc of locs) {
+                if (loc.id === targetId) {
                   return true
                 }
+                if (loc.children && loc.children.length > 0) {
+                  if (findAndExpandPath(loc.children, targetId)) {
+                    newExpanded.add(loc.id)
+                    return true
+                  }
+                }
               }
+              return false
             }
-            return false
-          }
-          findAndExpandPath(tree, selectedLocationId)
-          setExpandedNodes(newExpanded)
+            findAndExpandPath(tree, selectedLocationId)
+            return newExpanded
+          })
         }
       } catch (error) {
         console.error('Error loading locations:', error)
@@ -199,10 +199,6 @@ const LocationTreeSelector: React.FC<LocationTreeSelectorProps> = ({
       newExpanded.add(locationId)
     }
     setExpandedNodes(newExpanded)
-  }
-
-  const handleClearSelection = () => {
-    onLocationSelect(undefined)
   }
 
   if (loading) {

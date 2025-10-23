@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Package, Image as ImageIcon } from 'lucide-react'
 import { normalizeImageUrl } from '@/utils/image.utils'
 import { apiClient } from '@/services/api'
@@ -30,6 +30,30 @@ const PartImage: React.FC<PartImageProps> = ({
   const [loading, setLoading] = useState(false)
   const normalizedUrl = normalizeImageUrl(imageUrl)
 
+  const fetchAuthenticatedImage = useCallback(
+    async (url: string) => {
+      try {
+        setLoading(true)
+        setImageError(false)
+
+        // Use the API client to make authenticated request
+        const response = await apiClient.get(url, {
+          responseType: 'blob',
+        })
+
+        // Create blob URL for the image
+        const blobUrl = URL.createObjectURL(response)
+        setImageBlob(blobUrl)
+      } catch (error) {
+        console.warn(`Failed to load authenticated image for part: ${partName}, URL: ${url}`, error)
+        setImageError(true)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [partName]
+  )
+
   useEffect(() => {
     if (!normalizedUrl) return
 
@@ -43,28 +67,7 @@ const PartImage: React.FC<PartImageProps> = ({
       // For external URLs or legacy static URLs, use direct loading
       setImageBlob(normalizedUrl)
     }
-  }, [normalizedUrl])
-
-  const fetchAuthenticatedImage = async (url: string) => {
-    try {
-      setLoading(true)
-      setImageError(false)
-
-      // Use the API client to make authenticated request
-      const response = await apiClient.get(url, {
-        responseType: 'blob',
-      })
-
-      // Create blob URL for the image
-      const blobUrl = URL.createObjectURL(response)
-      setImageBlob(blobUrl)
-    } catch (error) {
-      console.warn(`Failed to load authenticated image for part: ${partName}, URL: ${url}`, error)
-      setImageError(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [normalizedUrl, fetchAuthenticatedImage])
 
   // Cleanup blob URL on unmount
   useEffect(() => {

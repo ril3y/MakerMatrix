@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Printer, TestTube, FileText, HelpCircle } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
@@ -98,7 +98,7 @@ const PrinterModal = ({
       // Clear preview when modal opens
       setPreviewUrl(null)
     }
-  }, [isOpen, partData])
+  }, [isOpen, partData, loadPrinters])
 
   // Auto-generate preview when template configuration changes
   useEffect(() => {
@@ -114,8 +114,15 @@ const PrinterModal = ({
     }, 800) // 800ms delay after last change
 
     return () => clearTimeout(timeoutId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTemplate, labelTemplate, selectedLabelSize, labelLength, fontSizeOverride, isOpen])
+  }, [
+    selectedTemplate,
+    labelTemplate,
+    selectedLabelSize,
+    labelLength,
+    fontSizeOverride,
+    isOpen,
+    generatePreview,
+  ])
 
   const handleTemplateSelect = (template: LabelTemplate | null) => {
     setSelectedTemplate(template)
@@ -133,7 +140,7 @@ const PrinterModal = ({
     setPreviewUrl(null)
   }
 
-  const loadPrinters = async () => {
+  const loadPrinters = useCallback(async () => {
     try {
       setLoading(true)
       const printers = await settingsService.getAvailablePrinters()
@@ -148,9 +155,9 @@ const PrinterModal = ({
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedPrinter, loadPrinterInfo])
 
-  const loadPrinterInfo = async (printerId: string) => {
+  const loadPrinterInfo = useCallback(async (printerId: string) => {
     try {
       const info = await settingsService.getPrinterInfo(printerId)
       setPrinterInfo(info)
@@ -165,7 +172,7 @@ const PrinterModal = ({
     } catch {
       toast.error('Failed to load printer information')
     }
-  }
+  }, [])
 
   const handlePrinterChange = async (printerId: string) => {
     setSelectedPrinter(printerId)
@@ -234,7 +241,7 @@ const PrinterModal = ({
     return null
   }
 
-  const generatePreview = async () => {
+  const generatePreview = useCallback(async () => {
     try {
       const testData = partData || {
         id: 'test-part-id-12345',
@@ -320,7 +327,7 @@ const PrinterModal = ({
 
       toast.error(errorMessage)
     }
-  }
+  }, [partData, selectedTemplate, labelTemplate, selectedLabelSize, labelLength, fontSizeOverride])
 
   const printLabel = async () => {
     if (!selectedPrinter) {

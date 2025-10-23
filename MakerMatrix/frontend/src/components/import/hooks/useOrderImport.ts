@@ -53,7 +53,7 @@ export interface UseOrderImportProps {
 
 export const useOrderImport = ({
   parserType,
-  parserName,
+  parserName: _parserName,
   onImportComplete,
   validateFile,
   extractOrderInfoFromFilename,
@@ -112,7 +112,7 @@ export const useOrderImport = ({
       }
     }
     extractInitialFileInfo()
-  }, [initialFile, extractOrderInfoFromFilename, parserName])
+  }, [initialFile, extractOrderInfoFromFilename])
 
   const handleFileSelect = useCallback(
     async (selectedFile: File) => {
@@ -182,7 +182,7 @@ export const useOrderImport = ({
         setLoading(false)
       }
     },
-    [parserName, validateFile, extractOrderInfoFromFilename]
+    [validateFile, extractOrderInfoFromFilename]
   )
 
   const handleFileChange = useCallback(
@@ -288,6 +288,21 @@ export const useOrderImport = ({
     }
   }, [])
 
+  const clearFile = useCallback(() => {
+    setFile(null)
+    setPreviewData(null)
+    setShowPreview(false)
+    setImportProgress(null)
+    setOrderInfo({
+      order_number: '',
+      order_date: new Date().toISOString().split('T')[0],
+      notes: '',
+    })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [])
+
   const handleImport = useCallback(async () => {
     if (!file || !previewData || !previewData.is_supported) {
       toast.error('Please select a valid file')
@@ -309,9 +324,6 @@ export const useOrderImport = ({
 
       // Progress polling will be started after response if task ID is available
 
-      let response
-      const fileName = file.name.toLowerCase()
-
       // Use unified import endpoint for all file types (CSV, XLS, XLSX)
       const formData = new FormData()
       formData.append('file', file)
@@ -329,7 +341,7 @@ export const useOrderImport = ({
         formData.append('enrichment_capabilities', selectedEnrichmentCapabilities.join(','))
       }
 
-      response = await apiClient.post('/api/import/file', formData, {
+      const response = await apiClient.post('/api/import/file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -442,22 +454,9 @@ export const useOrderImport = ({
     onImportComplete,
     startProgressPolling,
     stopProgressPolling,
+    clearFile,
+    selectedEnrichmentCapabilities,
   ])
-
-  const clearFile = useCallback(() => {
-    setFile(null)
-    setPreviewData(null)
-    setShowPreview(false)
-    setImportProgress(null)
-    setOrderInfo({
-      order_number: '',
-      order_date: new Date().toISOString().split('T')[0],
-      notes: '',
-    })
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }, [])
 
   const updateOrderInfo = useCallback((updates: Partial<OrderInfo>) => {
     setOrderInfo((prev) => ({ ...prev, ...updates }))

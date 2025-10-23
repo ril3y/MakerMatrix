@@ -113,7 +113,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
     }
 
     initializeCredentials()
-  }, [credentialSchema, credentialStatus, supplierName])
+  }, [credentialSchema, credentialStatus, supplierName, form])
 
   // Watch form values and notify parent of changes
   const currentCredentials = form.watch()
@@ -132,7 +132,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
         onCredentialsReady?.(currentCredentials)
       }
     }
-  }, [currentCredentials])
+  }, [currentCredentials, onCredentialChange, onCredentialsReady])
 
   const toggleShowValue = (fieldName: string) => {
     setShowValues((prev) => ({ ...prev, [fieldName]: !prev[fieldName] }))

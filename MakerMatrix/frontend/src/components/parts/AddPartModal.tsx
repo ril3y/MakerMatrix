@@ -18,7 +18,7 @@ import { categoriesService } from '@/services/categories.service'
 import { projectsService } from '@/services/projects.service'
 import { tasksService } from '@/services/tasks.service'
 import { tagsService } from '@/services/tags.service'
-import supplierService from '@/services/supplier.service'
+import supplierService, { type CredentialFieldDefinition } from '@/services/supplier.service'
 import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 import { apiClient } from '@/services/api'
 import type { CreatePartRequest } from '@/types/parts'
@@ -96,13 +96,15 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       if (cachedData) {
         try {
           const parsed = JSON.parse(cachedData)
-          setFormData(parsed.formData || formData)
-          setSelectedCategories(parsed.selectedCategories || [])
-          setSelectedProjects(parsed.selectedProjects || [])
-          setSelectedTags(parsed.selectedTags || [])
-          setCustomProperties(parsed.customProperties || [])
-          setImageUrl(parsed.imageUrl || '')
-          setEmoji(parsed.emoji || null)
+          // Use the parsed data directly instead of fallback to current state
+          // to avoid circular dependency with formData
+          if (parsed.formData) setFormData(parsed.formData)
+          if (parsed.selectedCategories) setSelectedCategories(parsed.selectedCategories)
+          if (parsed.selectedProjects) setSelectedProjects(parsed.selectedProjects)
+          if (parsed.selectedTags) setSelectedTags(parsed.selectedTags)
+          if (parsed.customProperties) setCustomProperties(parsed.customProperties)
+          if (parsed.imageUrl) setImageUrl(parsed.imageUrl)
+          if (parsed.emoji !== undefined) setEmoji(parsed.emoji)
           toast.success('Restored previous form data')
         } catch (error) {
           console.error('Failed to restore cached form data:', error)
@@ -223,18 +225,20 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         example?: string
         validation_pattern?: string
       }
-      const requiredFields = response.required_fields.map((field: EnrichmentFieldResponse) => ({
-        field: field.field_name,
-        label: field.display_name,
-        type: 'text', // Enrichment fields are typically text inputs
-        required: true,
-        description: field.description,
-        placeholder: field.example
-          ? `e.g., ${field.example}`
-          : `Enter ${field.display_name.toLowerCase()}`,
-        help_text: field.description,
-        validation: field.validation_pattern ? { pattern: field.validation_pattern } : undefined,
-      }))
+      const requiredFields: CredentialFieldDefinition[] = response.required_fields.map(
+        (field: EnrichmentFieldResponse) => ({
+          field: field.field_name,
+          label: field.display_name,
+          type: 'text' as const, // Enrichment fields are typically text inputs
+          required: true,
+          description: field.description,
+          placeholder: field.example
+            ? `e.g., ${field.example}`
+            : `Enter ${field.display_name.toLowerCase()}`,
+          help_text: field.description,
+          validation: field.validation_pattern ? { pattern: field.validation_pattern } : undefined,
+        })
+      )
 
       if (requiredFields.length > 0) {
         console.log('Converted required fields:', requiredFields)
@@ -873,7 +877,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       // Step 2: Extract field values from URL using patterns
       const extractedFields: Record<string, string> = {}
       let primaryFieldValue: string | null = null
-      let primaryFieldName: string | null = null
 
       for (const mapping of mappings) {
         const value = extractFieldFromUrl(url, mapping.url_patterns)
@@ -884,7 +887,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           // Track the primary field (usually supplier_part_number)
           if (mapping.required_for_enrichment && !primaryFieldValue) {
             primaryFieldValue = value
-            primaryFieldName = mapping.field_name
           }
         } else {
           console.log(`  ✗ Could not extract ${mapping.display_name} from URL`)
