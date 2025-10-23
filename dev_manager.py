@@ -10,6 +10,7 @@ for automated agents or LLMs to start, stop, and monitor the dev services.
 import asyncio
 import json
 import os
+import platform
 import psutil
 import re
 import signal
@@ -501,7 +502,11 @@ class EnhancedServerManager:
         self._kill_stale_processes(self.backend_port, "backend")
         self.log_message("backend", "Starting FastAPI backend server...", "INFO")
 
-        venv_python = self.project_root / "venv_test" / "bin" / "python"
+        # Cross-platform venv Python path
+        if platform.system() == "Windows":
+            venv_python = self.project_root / "venv_test" / "Scripts" / "python.exe"
+        else:
+            venv_python = self.project_root / "venv_test" / "bin" / "python"
         python_exe = str(venv_python) if venv_python.exists() else sys.executable
 
         env = os.environ.copy()
@@ -535,8 +540,11 @@ class EnhancedServerManager:
         self._kill_stale_processes(5173, "frontend")
         self.log_message("frontend", "Starting React development server...", "INFO")
 
+        # Cross-platform npm command
+        npm_cmd = "npm.cmd" if platform.system() == "Windows" else "npm"
+
         self.frontend_process = subprocess.Popen(
-            ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
+            [npm_cmd, "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
             cwd=self.frontend_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             universal_newlines=True, bufsize=1
         )
