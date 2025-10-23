@@ -178,6 +178,11 @@ htmlcov/
 makermatrix.db
 *.db
 *.db-journal
+*.db.backup*
+*.db_backup*
+*.backup
+makermatrix*.db*
+MakerMatrix.db*
 
 # Generated files
 *.png

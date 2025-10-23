@@ -71,6 +71,12 @@ jobs:
             FOUND=1
           fi
 
+          # Check for database files and backups
+          if git ls-files | grep -E "(\.db$|\.db\.|\.sqlite|\.backup)"; then
+            echo "::error::Database or backup file found in git! These contain sensitive data!"
+            FOUND=1
+          fi
+
           if [ $FOUND -eq 1 ]; then
             echo "::error::Secrets detected! See logs above."
             exit 1

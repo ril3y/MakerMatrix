@@ -35,10 +35,20 @@ EOF
 echo "Removing API keys from git history..."
 git filter-repo --replace-text /tmp/api_keys_to_remove.txt --force
 
+# Remove database backup files from history
+echo "Removing sensitive database files from git history..."
+git filter-repo --invert-paths --path makermatrix.db.backup_20251012_175714 --force
+
 # Verify removal
-echo "Verifying removal..."
+echo "Verifying API key removal..."
 if git log --all -S "mm_Z8p_" | grep -q "commit" || git log --all -S "mm_hwV" | grep -q "commit"; then
     echo "❌ Keys still found in history!"
+    exit 1
+fi
+
+echo "Verifying database backup removal..."
+if git log --all --name-only --pretty=format: | grep -q "makermatrix.db.backup"; then
+    echo "❌ Database backup still found in history!"
     exit 1
 fi
 
