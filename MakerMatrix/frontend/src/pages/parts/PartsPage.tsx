@@ -19,6 +19,7 @@ import {
   Hash,
   Tag as TagIcon,
   HelpCircle,
+  Loader2,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -28,7 +29,6 @@ import type { Part } from '@/types/parts'
 import type { Tag } from '@/types/tags'
 import AddPartModal from '@/components/parts/AddPartModal'
 import BulkEditModal from '@/components/parts/BulkEditModal'
-import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartImage from '@/components/parts/PartImage'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import TagBadge from '@/components/tags/TagBadge'
@@ -44,19 +44,19 @@ const PartsPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalParts, setTotalParts] = useState(0)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [supplierFilter, setSupplierFilter] = useState<string>('')
+
+  // Simplified state - separate concerns like global search
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  const [supplierFilter, setSupplierFilter] = useState(searchParams.get('supplier') || '')
+
   const [isSearching, setIsSearching] = useState(false)
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+  const isFirstRender = useRef(true)
 
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
   const [suggestionTimeout, setSuggestionTimeout] = useState<NodeJS.Timeout | null>(null)
-
-  // Auto-search debounce timeout
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
 
   // Sorting state
   const [sortBy, setSortBy] = useState<string>('created_at')
@@ -140,18 +140,17 @@ const PartsPage = () => {
   }
 
   // Load parts using appropriate API based on search and sort requirements
-  const loadParts = async (page = 1, search = '') => {
+  // Simplified like global search - no complex parameters
+  const loadParts = async (page = 1) => {
     try {
-      setLoading(true)
+      // Don't clear parts or set loading - handle that in useEffects
       setError(null)
-
-      setIsSearching(search && search.trim().length > 0)
 
       let response: any
 
       // Always use advanced search API for sorting support
       const searchParamsObj = {
-        search_term: search && search.trim() ? search.trim() : undefined,
+        search_term: searchTerm && searchTerm.trim() ? searchTerm.trim() : undefined,
         supplier: supplierFilter || undefined,
         sort_by: sortBy || 'created_at',
         sort_order: sortOrder || 'desc',
@@ -159,9 +158,7 @@ const PartsPage = () => {
         page_size: pageSize,
       }
 
-      console.log('Current state - sortBy:', sortBy, 'sortOrder:', sortOrder)
-      console.log('Supplier filter:', supplierFilter)
-      console.log('Using advanced search with params:', searchParamsObj)
+      console.log('Loading parts with:', { searchTerm, supplierFilter, sortBy, sortOrder, page })
       response = await partsService.searchParts(searchParamsObj)
 
       // Debug logging to understand response structure
@@ -231,29 +228,40 @@ const PartsPage = () => {
     }
   }
 
+  // Load suppliers on mount
   useEffect(() => {
-    // Read supplier filter and search term from URL params on mount
-    const supplier = searchParams.get('supplier')
-    const search = searchParams.get('search')
-    if (supplier) {
-      setSupplierFilter(supplier)
-    }
-    if (search) {
-      setSearchTerm(search)
-    }
-    // Mark that initial URL params have been processed
-    setInitialLoadComplete(true)
-    // Load initial data
     loadSuppliers()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load parts when supplier filter changes OR on initial load
+  // Sync with URL params (browser back/forward navigation)
   useEffect(() => {
-    // Only load parts after initial URL params have been processed
-    if (initialLoadComplete) {
-      loadParts(1, searchTerm)
-    }
-  }, [supplierFilter, initialLoadComplete]) // eslint-disable-line react-hooks/exhaustive-deps
+    const supplier = searchParams.get('supplier') || ''
+    const search = searchParams.get('search') || ''
+
+    setSearchTerm(search)
+    setSupplierFilter(supplier)
+  }, [searchParams])
+
+  // Initial load
+  useEffect(() => {
+    setLoading(true)
+    loadParts().finally(() => {
+      setLoading(false)
+      isFirstRender.current = false
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Search with debounce (like global search - 300ms)
+  useEffect(() => {
+    if (isFirstRender.current) return
+
+    setIsSearching(true)
+    const timeoutId = setTimeout(() => {
+      loadParts(1).finally(() => setIsSearching(false))
+    }, 300) // 300ms debounce like global search
+
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load suppliers for image display
   const loadSuppliers = async () => {
@@ -274,15 +282,33 @@ const PartsPage = () => {
     }
   }
 
-  // Reload parts when sorting or tag filter changes
+  // Reload when supplier filter changes (with loading state)
   useEffect(() => {
-    // Always reload when sort or tags change, even if current results are empty
-    // This fixes the issue where clearing tags from an empty state doesn't reload
-    loadParts(currentPage, searchTerm)
-  }, [sortBy, sortOrder, selectedTags, tagFilterMode]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (isFirstRender.current) return
+
+    setLoading(true)
+    loadParts(1).finally(() => setLoading(false))
+  }, [supplierFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload when tags change (client-side filtering, with loading state)
+  useEffect(() => {
+    if (isFirstRender.current) return
+
+    setLoading(true)
+    loadParts(currentPage).finally(() => setLoading(false))
+  }, [selectedTags, tagFilterMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload when sorting changes (with loading state)
+  useEffect(() => {
+    if (isFirstRender.current) return
+
+    setLoading(true)
+    loadParts(currentPage).finally(() => setLoading(false))
+  }, [sortBy, sortOrder]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePartAdded = () => {
-    loadParts(currentPage)
+    setLoading(true)
+    loadParts(currentPage).finally(() => setLoading(false))
   }
 
   // Fetch suggestions with debouncing
@@ -305,19 +331,14 @@ const PartsPage = () => {
     }
   }
 
-  // Handle search input change with debounced suggestions and auto-search
+  // Handle search input change - simplified like global search
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    setSearchTerm(value)
+    setSearchTerm(value) // Just update state - useEffect handles debounced search
 
     // Clear existing suggestion timeout
     if (suggestionTimeout) {
       clearTimeout(suggestionTimeout)
-    }
-
-    // Clear existing search timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout)
     }
 
     // Set new timeout for suggestions (only if 3+ chars)
@@ -330,27 +351,19 @@ const PartsPage = () => {
       setSuggestions([])
       setShowSuggestions(false)
     }
-
-    // Set new timeout for auto-search (any length, including empty to show all)
-    const searchTimer = setTimeout(() => {
-      setShowSuggestions(false) // Hide suggestions when auto-searching
-      loadParts(1, value)
-    }, 500) // 500ms debounce for search
-    setSearchTimeout(searchTimer)
   }
 
   // Handle search form submission
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setShowSuggestions(false)
-    loadParts(1, searchTerm)
+    // No need to call loadParts - useEffect handles it
   }
 
   // Handle suggestion selection
   const handleSuggestionClick = (suggestion: string) => {
     setSearchTerm(suggestion)
     setShowSuggestions(false)
-    loadParts(1, suggestion)
   }
 
   // Handle keyboard navigation in suggestions
@@ -386,7 +399,6 @@ const PartsPage = () => {
     setSearchTerm('')
     setShowSuggestions(false)
     setSuggestions([])
-    loadParts(1, '')
   }
 
   // Click outside to close suggestions
@@ -412,11 +424,8 @@ const PartsPage = () => {
       if (suggestionTimeout) {
         clearTimeout(suggestionTimeout)
       }
-      if (searchTimeout) {
-        clearTimeout(searchTimeout)
-      }
     }
-  }, [suggestionTimeout, searchTimeout])
+  }, [suggestionTimeout])
 
   // Handle Escape key to deselect or exit bulk edit mode
   useEffect(() => {
@@ -447,7 +456,7 @@ const PartsPage = () => {
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
-      loadParts(page, searchTerm)
+      loadParts(page, filters)
     }
   }
 
@@ -542,10 +551,6 @@ const PartsPage = () => {
 
   const isAllOnPageSelected = parts.length > 0 && parts.every((p) => selectedPartIds.has(p.id))
   const isAllMatchingSelected = selectedPartIds.size === totalParts && totalParts > 0
-
-  if (loading && parts.length === 0) {
-    return <LoadingScreen />
-  }
 
   return (
     <div className="max-w-screen-2xl space-y-6">
@@ -717,7 +722,6 @@ const PartsPage = () => {
                   type="button"
                   onClick={() => {
                     setSupplierFilter('')
-                    loadParts(1, searchTerm)
                   }}
                   className="text-accent hover:text-accent-hover"
                   title="Clear supplier filter"
@@ -765,12 +769,23 @@ const PartsPage = () => {
         <div className="card-header">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-primary">Parts ({totalParts})</h2>
-            {loading && <div className="text-sm text-muted">Loading...</div>}
+            {isSearching ? (
+              <div className="flex items-center gap-2 text-sm text-muted">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Searching...</span>
+              </div>
+            ) : loading && (
+              <div className="text-sm text-muted">Loading...</div>
+            )}
           </div>
         </div>
 
         <div className="card-content p-0">
-          {parts.length === 0 && !loading ? (
+          {loading && parts.length === 0 ? (
+            <div className="flex items-center justify-center py-32">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+          ) : parts.length === 0 ? (
             <div className="text-center py-12">
               <Package className="w-16 h-16 text-muted mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-primary mb-2">
@@ -796,7 +811,17 @@ const PartsPage = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto relative">
+              {/* Loading overlay when fetching new data with existing parts displayed */}
+              {/* Don't show overlay during search typing - it blocks typing */}
+              {loading && parts.length > 0 && !isSearching && (
+                <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="bg-background-primary/90 rounded-lg p-4 shadow-lg flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    <span className="text-sm text-secondary">Updating results...</span>
+                  </div>
+                </div>
+              )}
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-b border-purple-500/10">
                   <tr>
@@ -1224,7 +1249,7 @@ const PartsPage = () => {
         isOpen={showBulkEditModal}
         onClose={() => setShowBulkEditModal(false)}
         onSuccess={() => {
-          loadParts(currentPage, searchTerm)
+          loadParts(currentPage, filters)
           setSelectedPartIds(new Set())
           setBulkEditMode(false)
         }}

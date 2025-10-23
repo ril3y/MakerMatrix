@@ -108,14 +108,6 @@ const TasksManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-          <Activity className="w-6 h-6" />
-          Background Tasks
-        </h1>
-        <p className="text-secondary mt-1">Monitor and manage background tasks and processes</p>
-      </div>
-
       {/* Worker Status and Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

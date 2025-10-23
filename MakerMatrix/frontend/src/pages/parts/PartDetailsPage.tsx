@@ -1080,19 +1080,19 @@ const PartDetailsPage = () => {
                     </div>
                     <button
                       onClick={() => copyToClipboard(part.name, 'part_name')}
-                      className="group hover:bg-primary-10 rounded-lg px-3 py-2 transition-all duration-200 flex items-center gap-2 min-w-0"
-                      title="Click to copy part name"
+                      className="group hover:bg-primary-10 rounded-lg px-3 py-2 transition-all duration-200 flex items-center gap-2 min-w-0 max-w-full"
+                      title={`Click to copy part name: ${part.name}`}
                     >
                       {part.emoji && (
-                        <span className="text-2xl">{part.emoji}</span>
+                        <span className="text-2xl flex-shrink-0">{part.emoji}</span>
                       )}
-                      <h1 className="text-2xl font-theme-display font-bold text-theme-primary truncate">
+                      <h1 className="text-2xl font-theme-display font-bold text-theme-primary truncate max-w-lg">
                         {part.name}
                       </h1>
                       {copiedPartName ? (
-                        <Check className="w-5 h-5 text-success shrink-0" />
+                        <Check className="w-5 h-5 text-success flex-shrink-0" />
                       ) : (
-                        <Copy className="w-5 h-5 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                        <Copy className="w-5 h-5 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                       )}
                     </button>
                   </div>
@@ -1995,25 +1995,25 @@ const PartDetailsPage = () => {
                   {part.datasheets?.map((datasheet) => (
                     <div
                       key={datasheet.id}
-                      className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors"
+                      className="border border-green-500/30 rounded-lg p-4 bg-black hover:bg-black/80 transition-colors"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                          <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
                           <div className="min-w-0">
-                            <h3 className="font-medium text-primary truncate">
+                            <h3 className="font-medium text-green-400 truncate">
                               {datasheet.title || datasheet.original_filename || datasheet.filename}
                             </h3>
                             {datasheet.supplier && (
-                              <p className="text-xs text-secondary">{datasheet.supplier}</p>
+                              <p className="text-xs text-green-300/80">{datasheet.supplier}</p>
                             )}
                           </div>
                         </div>
                         <div
                           className={`px-2 py-1 rounded text-xs ${
                             datasheet.is_downloaded
-                              ? 'bg-green-500/10 text-green-400'
-                              : 'bg-yellow-500/10 text-yellow-400'
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-yellow-500/20 text-yellow-400'
                           }`}
                         >
                           {datasheet.is_downloaded ? 'Downloaded' : 'Pending'}
@@ -2021,28 +2021,28 @@ const PartDetailsPage = () => {
                       </div>
 
                       {datasheet.description && (
-                        <p className="text-sm text-secondary mb-3 line-clamp-2">
+                        <p className="text-sm text-green-200/70 mb-3 line-clamp-2">
                           {datasheet.description}
                         </p>
                       )}
 
                       <div className="space-y-2 mb-4">
-                        <div className="flex justify-between text-xs text-muted">
+                        <div className="flex justify-between text-xs text-green-300/60">
                           <span>Size:</span>
                           <span>{formatFileSize(datasheet.file_size)}</span>
                         </div>
-                        <div className="flex justify-between text-xs text-muted">
+                        <div className="flex justify-between text-xs text-green-300/60">
                           <span>Added:</span>
                           <span>{formatDate(datasheet.created_at)}</span>
                         </div>
                         {datasheet.source_url && (
-                          <div className="flex justify-between text-xs text-muted">
+                          <div className="flex justify-between text-xs text-green-300/60">
                             <span>Source:</span>
                             <a
                               href={datasheet.source_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-primary hover:text-primary-dark flex items-center gap-1"
+                              className="text-green-400 hover:text-green-300 flex items-center gap-1"
                             >
                               <span className="truncate max-w-20">Original</span>
                               <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -2083,37 +2083,37 @@ const PartDetailsPage = () => {
                   {/* Downloaded datasheet from additional_properties */}
                   {part.additional_properties?.datasheet_downloaded &&
                     part.additional_properties?.datasheet_filename && (
-                      <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
+                      <div className="border border-green-500/30 rounded-lg p-4 bg-black hover:bg-black/80 transition-colors">
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
                             <div className="min-w-0 flex-1">
-                              <h3 className="font-medium text-primary truncate">
+                              <h3 className="font-medium text-green-400 truncate">
                                 Downloaded Datasheet
                               </h3>
-                              <p className="text-xs text-secondary truncate">
+                              <p className="text-xs text-green-300/80 truncate">
                                 {part.supplier || 'Unknown Supplier'}
                               </p>
                             </div>
                           </div>
-                          <div className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-400 whitespace-nowrap flex-shrink-0">
+                          <div className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400 whitespace-nowrap flex-shrink-0">
                             Local
                           </div>
                         </div>
 
-                        <p className="text-sm text-secondary mb-3 line-clamp-2">
+                        <p className="text-sm text-green-200/70 mb-3 line-clamp-2">
                           Datasheet downloaded during enrichment
                         </p>
 
                         <div className="space-y-2 mb-4">
-                          <div className="flex justify-between text-xs text-muted">
+                          <div className="flex justify-between text-xs text-green-300/60">
                             <span>Size:</span>
                             <span>
                               {((part.additional_properties.datasheet_size || 0) / 1024).toFixed(1)}{' '}
                               KB
                             </span>
                           </div>
-                          <div className="flex justify-between text-xs text-muted">
+                          <div className="flex justify-between text-xs text-green-300/60">
                             <span>Status:</span>
                             <span>Downloaded</span>
                           </div>
@@ -2152,34 +2152,34 @@ const PartDetailsPage = () => {
                   {/* Enriched datasheet URL from additional_properties - only show if NOT downloaded locally */}
                   {part.additional_properties?.datasheet_url &&
                     !part.additional_properties?.datasheet_downloaded && (
-                    <div className="border border-border/50 rounded-lg p-4 bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors">
+                    <div className="border border-green-500/30 rounded-lg p-4 bg-black hover:bg-black/80 transition-colors">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                          <FileText className="w-5 h-5 text-green-400 flex-shrink-0" />
                           <div className="min-w-0">
-                            <h3 className="font-medium text-primary truncate">
+                            <h3 className="font-medium text-green-400 truncate">
                               Supplier Datasheet
                             </h3>
-                            <p className="text-xs text-secondary">
+                            <p className="text-xs text-green-300/80">
                               {part.supplier || 'Unknown Supplier'}
                             </p>
                           </div>
                         </div>
-                        <div className="px-2 py-1 rounded text-xs bg-blue-500/10 text-blue-400">
+                        <div className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400">
                           Online
                         </div>
                       </div>
 
-                      <p className="text-sm text-secondary mb-3 line-clamp-2">
+                      <p className="text-sm text-green-200/70 mb-3 line-clamp-2">
                         Official datasheet from supplier website
                       </p>
 
                       <div className="space-y-2 mb-4">
-                        <div className="flex justify-between text-xs text-muted">
+                        <div className="flex justify-between text-xs text-green-300/60">
                           <span>Source:</span>
                           <span>Supplier API</span>
                         </div>
-                        <div className="flex justify-between text-xs text-muted">
+                        <div className="flex justify-between text-xs text-green-300/60">
                           <span>Type:</span>
                           <span>External Link</span>
                         </div>
@@ -2888,11 +2888,11 @@ function SpecificationCard({
             </button>
           )}
         </dt>
-        <dd className={`font-semibold text-theme-primary ${small ? 'text-sm' : 'text-base'}`}>
+        <dd className={`font-semibold text-theme-primary ${small ? 'text-sm' : 'text-base'} break-all overflow-hidden`}>
           {isExpanded && isComplexObject ? (
             <div className="space-y-1">
               {Object.entries(value).map(([key, val]) => (
-                <div key={key} className="text-sm">
+                <div key={key} className="text-sm break-all">
                   <span className="text-theme-secondary">{formatEnumValue(key)}:</span>{' '}
                   <span className="text-theme-primary">{formatSpecValue(val)}</span>
                 </div>
@@ -3027,11 +3027,12 @@ function formatSpecValue(value: any): string | JSX.Element {
         href={stringValue}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-primary-accent hover:underline flex items-center gap-1"
+        className="text-primary-accent hover:underline flex items-center gap-1 min-w-0"
         onClick={(e) => e.stopPropagation()}
+        title={stringValue}
       >
-        {stringValue}
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className="truncate">{stringValue}</span>
+        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
