@@ -201,11 +201,12 @@ class PartRepository:
 
     @staticmethod
     def get_part_by_id(session: Session, part_id: str) -> Optional[PartModel]:
+        from MakerMatrix.models.location_models import LocationModel
         part = session.exec(
             select(PartModel)
             .options(
                 joinedload(PartModel.categories),
-                selectinload(PartModel.allocations),
+                selectinload(PartModel.allocations).joinedload(PartLocationAllocation.location),
                 selectinload(PartModel.datasheets),
                 selectinload(PartModel.order_items),
                 selectinload(PartModel.order_summary)

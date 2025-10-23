@@ -35,6 +35,7 @@ class PartResponse(BaseModel):
     quantity: Optional[int] = None
     location_id: Optional[str] = None
     location: Optional[Dict[str, Any]] = None  # Use generic dict for location data
+    allocations: Optional[List[Dict[str, Any]]] = []  # All location allocations for this part
     supplier: Optional[str] = None
     supplier_url: Optional[str] = None
     product_url: Optional[str] = None

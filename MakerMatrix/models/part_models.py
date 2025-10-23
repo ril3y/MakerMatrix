@@ -350,7 +350,24 @@ class PartModel(SQLModel, table=True):
 
         # Include total quantity from allocations
         base_dict["quantity"] = self.total_quantity
-        
+
+        # Always include allocations (core part data for inventory management)
+        if hasattr(self, 'allocations') and self.allocations:
+            base_dict["allocations"] = [
+                {
+                    "id": alloc.id,
+                    "location_id": alloc.location_id,
+                    "location_name": getattr(alloc.location, 'name', None) if hasattr(alloc, 'location') and alloc.location else None,
+                    "quantity_at_location": alloc.quantity_at_location,
+                    "is_primary_storage": alloc.is_primary_storage,
+                    "notes": alloc.notes,
+                    "last_updated": alloc.last_updated.isoformat() if alloc.last_updated else None
+                }
+                for alloc in self.allocations
+            ]
+        else:
+            base_dict["allocations"] = []
+
         # Always include datasheets (core part data)
         if hasattr(self, 'datasheets') and self.datasheets:
             base_dict["datasheets"] = [datasheet.to_dict() for datasheet in self.datasheets]
