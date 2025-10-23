@@ -174,8 +174,8 @@ python dev_manager.py
 - Template-based printing with 7 pre-designed templates
 - QR code generation with 8 positioning options
 - Real-time preview before printing
-- Brother QL printer support (QL-800, QL-700, QL-570)
-- 12mm, 29mm, 62mm, 102mm label sizes
+- Brother QL-800 printer support (other QL models may work but are untested)
+- 12mm label support (tested and verified)
 - Custom template creation
 
 ![Label Printer](docs/screenshots/labelprinter.png)
