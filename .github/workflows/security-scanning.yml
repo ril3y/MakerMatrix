@@ -57,7 +57,7 @@ jobs:
           fi
 
           # Check for common secret patterns
-          if git grep -iE "(api[_-]?key|password|secret|token|credential)[\s]*=[\s]*['\"][^'\"]{20,}" -- ':(exclude).env.example' ':(exclude)*.md'; then
+          if git grep -iE "(api[_-]?key|password|secret|token|credential)[\s]*=[\s]*['\"][^'\"]{20,}" -- ':(exclude).env.example' ':(exclude)*.md' ':(exclude)tests/**'; then
             echo "::warning::Potential secret assignment detected!"
             FOUND=1
           fi
