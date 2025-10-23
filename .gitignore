@@ -261,3 +261,4 @@ MakerMatrix/services/static/images/
 MakerMatrix/backups/
 *.zip
 .env
+venv_ci_test/

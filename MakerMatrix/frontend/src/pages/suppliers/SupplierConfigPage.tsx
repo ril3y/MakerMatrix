@@ -42,7 +42,9 @@ export const SupplierConfigPage: React.FC = () => {
   const [credentialRequirements, setCredentialRequirements] = useState<Record<string, boolean>>({})
 
   // Cache for actual credential status
-  const [credentialStatuses, setCredentialStatuses] = useState<Record<string, any>>({})
+  const [credentialStatuses, setCredentialStatuses] = useState<
+    Record<string, { is_configured: boolean; configured_fields: string[]; supplier_type?: string }>
+  >({})
 
   // Loading state for each supplier's credential status
   const [loadingCredentialStatus, setLoadingCredentialStatus] = useState<Record<string, boolean>>(
@@ -78,7 +80,10 @@ export const SupplierConfigPage: React.FC = () => {
       // Set initial loading states
       const loadingStates: Record<string, boolean> = {}
       const requirements: Record<string, boolean> = {}
-      const statuses: Record<string, any> = {}
+      const statuses: Record<
+        string,
+        { is_configured: boolean; configured_fields: string[]; supplier_type?: string }
+      > = {}
 
       // Handle simple suppliers (no API calls needed)
       for (const supplier of simpleSuppliers) {
@@ -135,7 +140,10 @@ export const SupplierConfigPage: React.FC = () => {
 
       // Batch update all states at once
       const newRequirements: Record<string, boolean> = { ...requirements }
-      const newStatuses: Record<string, any> = { ...statuses }
+      const newStatuses: Record<
+        string,
+        { is_configured: boolean; configured_fields: string[]; supplier_type?: string }
+      > = { ...statuses }
       const newLoadingStates: Record<string, boolean> = { ...loadingStates }
 
       results.forEach(({ supplierName, requiresCredentials, credentialStatus }) => {
@@ -175,10 +183,6 @@ export const SupplierConfigPage: React.FC = () => {
 
       setRateLimitData(rateLimitMap)
     } catch (err) {
-      const error = err as {
-        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
-        message?: string
-      }
       console.error('Error loading rate limit data:', err)
       // Don't show error for rate limits as it's supplementary data
     } finally {

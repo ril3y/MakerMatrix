@@ -282,11 +282,11 @@ describe('BackupService', () => {
         download: '',
         click: vi.fn(),
         remove: vi.fn(),
-      }
-      const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any)
+      } as unknown as HTMLAnchorElement
+      const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink)
       const appendChildSpy = vi
         .spyOn(document.body, 'appendChild')
-        .mockImplementation(() => mockLink as any)
+        .mockImplementation(() => mockLink)
 
       await backupService.downloadBackup('test_backup.zip')
 

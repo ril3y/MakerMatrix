@@ -9,7 +9,12 @@ import { tasksService } from '@/services/tasks.service'
 vi.mock('@/services/tasks.service')
 vi.mock('@/services/parts.service')
 
-const mockTasksService = tasksService as any
+const mockTasksService = tasksService as unknown as {
+  getTasks: ReturnType<typeof vi.fn>
+  getWorkerStatus: ReturnType<typeof vi.fn>
+  getTaskStats: ReturnType<typeof vi.fn>
+  createQuickTask: ReturnType<typeof vi.fn>
+}
 
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({

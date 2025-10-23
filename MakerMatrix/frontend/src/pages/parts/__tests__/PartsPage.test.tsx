@@ -1,13 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from 'vitest'
 import PartsPage from '../PartsPage'
 import { partsService } from '@/services/parts.service'
 
 // Mock the parts service
 vi.mock('@/services/parts.service')
-const mockPartsService = partsService as any
+const mockPartsService = partsService as unknown as {
+  getAllParts: Mock
+  searchPartsText: Mock
+  getPartSuggestions: Mock
+}
 
 // Mock react-router-dom navigation
 const mockNavigate = vi.fn()
@@ -21,7 +25,15 @@ vi.mock('react-router-dom', async () => {
 
 // Mock components
 vi.mock('@/components/parts/AddPartModal', () => ({
-  default: ({ isOpen, onClose, onSuccess }: any) =>
+  default: ({
+    isOpen,
+    onClose,
+    onSuccess,
+  }: {
+    isOpen: boolean
+    onClose: () => void
+    onSuccess: () => void
+  }) =>
     isOpen ? (
       <div data-testid="add-part-modal">
         <button
@@ -42,7 +54,9 @@ vi.mock('@/components/ui/LoadingScreen', () => ({
 }))
 
 vi.mock('@/components/parts/PartImage', () => ({
-  default: ({ partName }: any) => <img alt={`Part image: ${partName}`} data-testid="part-image" />,
+  default: ({ partName }: { partName: string }) => (
+    <img alt={`Part image: ${partName}`} data-testid="part-image" />
+  ),
 }))
 
 // Mock data

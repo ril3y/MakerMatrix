@@ -99,7 +99,9 @@ class APIKeyService {
    * Dynamically fetched from backend based on role definitions
    */
   async getAvailablePermissions(): Promise<AvailablePermission[]> {
-    const response = await apiClient.get<AvailablePermission[]>('/api/api-keys/permissions/available')
+    const response = await apiClient.get<AvailablePermission[]>(
+      '/api/api-keys/permissions/available'
+    )
     return response || []
   }
 }

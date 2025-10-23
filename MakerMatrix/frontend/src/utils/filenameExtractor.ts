@@ -198,7 +198,7 @@ export function extractFilenameInfo(filename: string): ExtractedFileInfo {
  */
 export async function extractOrderInfoFromFilename(
   filename: string,
-  parserType?: string
+  _parserType?: string
 ): Promise<{ order_number?: string; order_date?: string; notes?: string }> {
   const result = extractFilenameInfo(filename)
   return result.order_info

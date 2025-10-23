@@ -2,7 +2,13 @@ import { motion } from 'framer-motion'
 import { Users, Plus, Search, Filter, UserCheck, UserX, Shield, Edit, Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { usersService } from '@/services/users.service'
-import type { User, UserStats, Role } from '@/types/users'
+import type {
+  User,
+  UserStats,
+  Role,
+  CreateUserRequest,
+  UpdateUserRolesRequest,
+} from '@/types/users'
 import toast from 'react-hot-toast'
 import CreateUserModal from '@/components/users/CreateUserModal'
 import EditUserModal from '@/components/users/EditUserModal'
@@ -53,7 +59,7 @@ const UsersPage = () => {
       await usersService.deleteUser(userId)
       toast.success('User deleted successfully')
       loadData()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to delete user')
     }
   }
@@ -63,22 +69,21 @@ const UsersPage = () => {
       await usersService.toggleUserStatus(userId, !isActive)
       toast.success(`User ${isActive ? 'deactivated' : 'activated'} successfully`)
       loadData()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to update user status')
     }
   }
 
-  const handleCreateUser = async (userData: any) => {
+  const handleCreateUser = async (userData: CreateUserRequest) => {
     await usersService.createUser(userData)
     await loadData()
     setShowCreateModal(false)
   }
 
-  const handleUpdateUserRoles = async (userId: string, roleData: any) => {
-    const response = await usersService.updateUserRoles(userId, roleData)
+  const handleUpdateUserRoles = async (userId: string, roleData: UpdateUserRolesRequest) => {
+    await usersService.updateUserRoles(userId, roleData)
     await loadData()
     setSelectedUser(null)
-    return response // Return response so modal can display warning messages
   }
 
   return (

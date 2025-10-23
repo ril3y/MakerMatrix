@@ -137,7 +137,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                 page: 1,
                 page_size: 1000,
               })
-              const items = response?.data?.items || response?.items || []
+              const items = response.items || []
               console.log(`[LocationDetailsModal] Slot ${childSlot.name} has ${items.length} parts`)
               // Tag each part with its slot location
               return items.map(
@@ -162,7 +162,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
           page: 1,
           page_size: 1000,
         })
-        partsData = searchResponse?.data?.items || searchResponse?.items || []
+        partsData = searchResponse.items || []
       }
 
       // Fetch allocation data for each part to get accurate quantity at this location

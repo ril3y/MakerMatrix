@@ -107,7 +107,7 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
   const handleConfigChange = (field: string, value: unknown) => {
     // Check if this is a base config field or supplier-specific
     if (field in config) {
-      setConfig((prev) => ({ ...prev, [field]: value }))
+      setConfig((prev) => ({ ...prev, [field]: value }) as SupplierConfigCreate)
     } else {
       // Store supplier-specific fields separately
       setSupplierSpecificData((prev) => ({ ...prev, [field]: value }))
@@ -236,14 +236,14 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
               )}
               {selectedType === 'lcsc' && (
                 <LCSCConfigForm
-                  config={config as unknown as Record<string, unknown>}
+                  config={config}
                   onConfigChange={handleConfigChange}
                   errors={errors}
                 />
               )}
               {selectedType === 'mouser' && (
                 <MouserConfigForm
-                  config={config as unknown as Record<string, unknown>}
+                  config={config}
                   onConfigChange={handleConfigChange}
                   errors={errors}
                 />

@@ -134,29 +134,28 @@ describe('TasksManagement', () => {
       { id: 'part2', name: 'Resistor 10K', supplier: 'digikey' },
     ])
     // Mock global fetch with proper typing
-    type FetchInput = string | URL | Request
-    ;(global as unknown as { fetch: typeof fetch }).fetch = vi.fn((input: FetchInput) => {
+    global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
 
       if (url.includes('/api/suppliers/configured')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: 'digikey' }] }),
-        })
+        } as Response)
       }
 
       if (url.includes('/api/tasks/capabilities/suppliers')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { digikey: { capabilities: ['fetch_pricing'] } } }),
-        })
+        } as Response)
       }
 
       return Promise.resolve({
         ok: true,
         json: async () => ({}),
-      })
-    })
+      } as Response)
+    }) as typeof fetch
   })
 
   afterEach(() => {

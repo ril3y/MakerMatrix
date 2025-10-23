@@ -37,7 +37,7 @@ const PartImage: React.FC<PartImageProps> = ({
         setImageError(false)
 
         // Use the API client to make authenticated request
-        const response = await apiClient.get(url, {
+        const response = await apiClient.get<Blob>(url, {
           responseType: 'blob',
         })
 
@@ -92,7 +92,7 @@ const PartImage: React.FC<PartImageProps> = ({
         ) : (
           <div className="text-center text-muted">
             <ImageIcon className={`mx-auto mb-1 ${size === 'md' ? 'w-4 h-4' : 'w-6 h-6'}`} />
-            {size !== 'sm' && <p className="text-xs">No image</p>}
+            <p className="text-xs">No image</p>
           </div>
         )}
       </div>

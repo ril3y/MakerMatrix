@@ -92,7 +92,7 @@ export const handlers = [
 
   http.put(`${API_BASE}/api/parts/update_part/:id`, async ({ params, request }) => {
     const { id } = params
-    const body = await request.json()
+    const body = (await request.json()) as Record<string, unknown>
     const updatedPart = createMockPart({ id, ...body })
 
     return HttpResponse.json({
@@ -268,7 +268,7 @@ export const handlers = [
   // CSV Import handlers (preview removed - now frontend-only)
 
   http.post(`${API_BASE}/api/import/import`, async ({ request }) => {
-    const body = await request.json()
+    const _body = await request.json()
 
     return HttpResponse.json({
       status: 'success',

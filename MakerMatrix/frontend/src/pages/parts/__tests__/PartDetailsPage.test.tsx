@@ -10,10 +10,7 @@ import { partsService } from '@/services/parts.service'
 // Mock services
 vi.mock('@/services/parts.service')
 // vi.mock('@/services/analytics.service')
-const mockPartsService = partsService as {
-  getPart: ReturnType<typeof vi.fn>
-  deletePart: ReturnType<typeof vi.fn>
-}
+const mockPartsService = vi.mocked(partsService)
 // const mockAnalyticsService = analyticsService as any
 
 // Mock react-router-dom navigation
@@ -117,10 +114,16 @@ const mockPart = {
   datasheets: [
     {
       id: 'ds1',
+      part_id: '1',
+      file_uuid: 'uuid-123',
       filename: 'arduino_uno_datasheet.pdf',
-      url: 'http://example.com/datasheet.pdf',
+      original_filename: 'arduino_uno_datasheet.pdf',
+      file_extension: 'pdf',
       file_size: 1024000,
-      upload_date: '2024-01-15T10:00:00Z',
+      source_url: 'http://example.com/datasheet.pdf',
+      is_downloaded: true,
+      created_at: '2024-01-15T10:00:00Z',
+      updated_at: '2024-01-15T10:00:00Z',
     },
   ],
   additional_properties: {
@@ -135,11 +138,12 @@ const mockPart = {
   updated_at: '2024-01-15T10:00:00Z',
 }
 
-const mockPriceTrends = [
-  { date: '2024-01-01', price: 24.99 },
-  { date: '2024-01-15', price: 25.99 },
-  { date: '2024-02-01', price: 25.49 },
-]
+// Analytics service removed - price trends data no longer needed
+// const mockPriceTrends = [
+//   { date: '2024-01-01', price: 24.99 },
+//   { date: '2024-01-15', price: 25.99 },
+//   { date: '2024-02-01', price: 25.49 },
+// ]
 
 const TestWrapper = ({
   children,
@@ -153,7 +157,7 @@ describe('PartDetailsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPartsService.getPart.mockResolvedValue(mockPart)
-    mockPartsService.deletePart.mockResolvedValue({ status: 'success' })
+    mockPartsService.deletePart.mockResolvedValue(undefined)
     // Analytics service removed - price trends disabled
     // mockAnalyticsService.getPriceTrends.mockResolvedValue(mockPriceTrends)
 

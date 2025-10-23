@@ -803,7 +803,7 @@ const BackupManagement = () => {
                         onChange={(e) =>
                           setBackupConfig({
                             ...backupConfig,
-                            schedule_type: e.target.value,
+                            schedule_type: e.target.value as 'nightly' | 'weekly' | 'custom',
                           })
                         }
                       >

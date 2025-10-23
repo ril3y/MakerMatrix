@@ -30,23 +30,28 @@ export const createCredentialFormSchema = (
 
     switch (field.field_type) {
       case 'email':
-        fieldSchema = z.string().email('Invalid email format')
+        if (field.required) {
+          fieldSchema = z.string().email('Invalid email format')
+        } else {
+          fieldSchema = z.string().email('Invalid email format').optional().or(z.literal(''))
+        }
         break
       case 'url':
-        fieldSchema = z.string().url('Invalid URL format')
+        if (field.required) {
+          fieldSchema = z.string().url('Invalid URL format')
+        } else {
+          fieldSchema = z.string().url('Invalid URL format').optional().or(z.literal(''))
+        }
         break
       case 'password':
       case 'text':
       default:
-        fieldSchema = z.string()
+        if (field.required) {
+          fieldSchema = z.string().min(1, `${field.label} is required`)
+        } else {
+          fieldSchema = z.string().optional().or(z.literal(''))
+        }
         break
-    }
-
-    // Apply required validation
-    if (field.required) {
-      fieldSchema = fieldSchema.min(1, `${field.label} is required`)
-    } else {
-      fieldSchema = fieldSchema.optional().or(z.literal(''))
     }
 
     schemaFields[field.name] = fieldSchema

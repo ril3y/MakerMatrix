@@ -15,7 +15,7 @@ import { tagsService } from '@/services/tags.service'
 import { partsService } from '@/services/parts.service'
 import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 import type { Tool, CreateToolRequest, UpdateToolRequest, ToolCondition } from '@/types/tools'
-import type { Location, Category } from '@/types/parts'
+import type { Category } from '@/types/parts'
 import type { Tag as TagType } from '@/types/tags'
 import toast from 'react-hot-toast'
 
@@ -44,7 +44,6 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
     additional_properties: {},
   })
 
-  const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedTags, setSelectedTags] = useState<TagType[]>([])
   const [customProperties, setCustomProperties] = useState<Array<{ key: string; value: string }>>(
@@ -116,16 +115,11 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
   const loadData = async () => {
     try {
       setLoadingData(true)
-      const [locationsData, categoriesData] = await Promise.all([
-        locationsService.getAllLocations(),
-        categoriesService.getAllCategories(),
-      ])
-      setLocations(locationsData || [])
+      const categoriesData = await categoriesService.getAllCategories()
       setCategories(categoriesData || [])
     } catch (error) {
       console.error('Failed to load data:', error)
       toast.error('Failed to load data')
-      setLocations([])
       setCategories([])
     } finally {
       setLoadingData(false)
@@ -246,15 +240,6 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
     return Object.keys(newErrors).length === 0
   }
 
-  const isValidUrl = (url: string): boolean => {
-    try {
-      new URL(url)
-      return true
-    } catch {
-      return false
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -347,7 +332,10 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       handleClose()
     } catch (error: unknown) {
       console.error('Failed to save tool:', error)
-      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
+      const err = error as {
+        response?: { data?: { detail?: string; message?: string } }
+        message?: string
+      }
       console.error('Full error response:', err.response?.data)
       const errorMessage =
         err.response?.data?.detail ||
@@ -431,7 +419,6 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
   const handleLocationCreated = async () => {
     try {
       const locationsData = await locationsService.getAllLocations()
-      setLocations(locationsData || [])
 
       if (locationsData && locationsData.length > 0) {
         const sortedLocations = locationsData.sort((a, b) => {

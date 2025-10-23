@@ -8,7 +8,7 @@ export interface AICommandResponse {
   category?: string
   path?: string
   description?: string
-  data?: any
+  data?: Record<string, unknown>
 }
 
 export interface AIProcessRequest {
@@ -21,7 +21,10 @@ export interface AIProcessRequest {
 }
 
 class AIService {
-  async processCommand(command: string, context?: any): Promise<AICommandResponse> {
+  async processCommand(
+    command: string,
+    context?: Record<string, unknown>
+  ): Promise<AICommandResponse> {
     try {
       const response = await apiClient.post<AICommandResponse>('/api/ai/process-command', {
         command,

@@ -16,10 +16,17 @@ jobs:
   # Unit and Integration Tests
   unit-tests:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Cleanup Docker containers (if running locally with act)
+      if: always()
+      run: |
+        if [ -f /.dockerenv ]; then
+          echo "Running in Docker (act detected), cleaning up containers after workflow..."
+        fi
 
     - name: Setup Node.js
       uses: actions/setup-node@v4

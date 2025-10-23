@@ -1,7 +1,6 @@
 import { renderHook, act } from '@testing-library/react'
 import { vi } from 'vitest'
 import { useModalForm } from '../useModalForm'
-import type { FormEvent } from 'react'
 
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({
@@ -14,7 +13,6 @@ vi.mock('react-hot-toast', () => ({
 describe('useModalForm', () => {
   const mockOnSubmit = vi.fn()
   const mockOnSuccess = vi.fn()
-  const mockValidate = vi.fn()
 
   const initialData = {
     name: '',
@@ -88,10 +86,10 @@ describe('useModalForm', () => {
       })
     )
 
-    const mockEvent = { preventDefault: vi.fn() }
+    const mockEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
 
     await act(async () => {
-      await result.current.handleSubmit(mockEvent as any)
+      await result.current.handleSubmit(mockEvent)
     })
 
     expect(validate).toHaveBeenCalledWith(initialData)
@@ -110,10 +108,10 @@ describe('useModalForm', () => {
       })
     )
 
-    const mockEvent = { preventDefault: vi.fn() }
+    const mockEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
 
     await act(async () => {
-      await result.current.handleSubmit(mockEvent as any)
+      await result.current.handleSubmit(mockEvent)
     })
 
     expect(validate).toHaveBeenCalledWith(initialData)
@@ -132,7 +130,7 @@ describe('useModalForm', () => {
       })
     )
 
-    const mockEvent = { preventDefault: vi.fn() } as FormEvent
+    const mockEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
 
     await act(async () => {
       await result.current.handleSubmit(mockEvent)
@@ -152,7 +150,7 @@ describe('useModalForm', () => {
       })
     )
 
-    const mockEvent = { preventDefault: vi.fn() } as FormEvent
+    const mockEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
 
     await act(async () => {
       await result.current.handleSubmit(mockEvent)

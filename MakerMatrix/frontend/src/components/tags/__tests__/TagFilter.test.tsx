@@ -142,7 +142,8 @@ describe('TagFilter', () => {
     })
 
     const tagButton = screen.getByText('#testing').closest('button')
-    await userEvent.click(tagButton!)
+    if (!tagButton) throw new Error('Tag button not found')
+    await userEvent.click(tagButton)
 
     expect(mockOnFilterChange).toHaveBeenCalledWith([mockTags[0]], 'OR')
   })
@@ -165,7 +166,8 @@ describe('TagFilter', () => {
 
     const tagButtons = screen.getAllByText('#testing')
     const availableTagButton = tagButtons[1].closest('button')
-    await userEvent.click(availableTagButton!)
+    if (!availableTagButton) throw new Error('Available tag button not found')
+    await userEvent.click(availableTagButton)
 
     expect(mockOnFilterChange).toHaveBeenCalledWith([], 'OR')
   })

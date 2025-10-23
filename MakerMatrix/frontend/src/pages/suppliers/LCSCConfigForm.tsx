@@ -7,17 +7,35 @@
 import React from 'react'
 import { HelpCircle, AlertTriangle } from 'lucide-react'
 
+interface LCSCConfig {
+  supplier_name?: string
+  display_name?: string
+  description?: string
+  base_url?: string
+  rate_limit_per_minute?: number
+  timeout_seconds?: number
+  max_retries?: number
+  supports_datasheet?: boolean
+  supports_image?: boolean
+  supports_pricing?: boolean
+  supports_stock?: boolean
+  supports_specifications?: boolean
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | Record<string, string>
+    | Record<string, unknown>
+    | undefined
+}
+
 interface LCSCConfigFormProps {
-  config: any
-  onConfigChange: (field: string, value: any) => void
+  config: LCSCConfig
+  onConfigChange: (field: string, value: string | number | boolean) => void
   errors: string[]
 }
 
-export const LCSCConfigForm: React.FC<LCSCConfigFormProps> = ({
-  config,
-  onConfigChange,
-  errors,
-}) => {
+export const LCSCConfigForm: React.FC<LCSCConfigFormProps> = ({ config, onConfigChange }) => {
   return (
     <div className="space-y-6">
       {/* LCSC Setup Instructions */}

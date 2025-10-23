@@ -8,7 +8,7 @@
 import { apiClient } from './api'
 
 // API Response wrapper type
-interface ApiResponse<T = any> {
+interface ApiResponse<T = unknown> {
   status: string
   data?: T
   message?: string
@@ -61,6 +61,13 @@ export interface SupplierConfigCreate {
   supports_specifications?: boolean
   custom_headers?: Record<string, string>
   custom_parameters?: Record<string, unknown>
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | Record<string, string>
+    | Record<string, unknown>
+    | undefined
 }
 
 export interface SupplierConfigUpdate {
@@ -158,16 +165,27 @@ export class SupplierService {
    * Get specific supplier configuration
    */
   async getSupplier(supplierName: string): Promise<SupplierConfig> {
-    const response = (await apiClient.get(`/api/suppliers/config/suppliers/${supplierName}`)) as ApiResponse<SupplierConfig>
-    return response.data!
+    const response = (await apiClient.get(
+      `/api/suppliers/config/suppliers/${supplierName}`
+    )) as ApiResponse<SupplierConfig>
+    if (!response.data) {
+      throw new Error(`Supplier "${supplierName}" not found`)
+    }
+    return response.data
   }
 
   /**
    * Create new supplier configuration
    */
   async createSupplier(config: SupplierConfigCreate): Promise<SupplierConfig> {
-    const response = (await apiClient.post('/api/suppliers/config/suppliers', config)) as ApiResponse<SupplierConfig>
-    return response.data!
+    const response = (await apiClient.post(
+      '/api/suppliers/config/suppliers',
+      config
+    )) as ApiResponse<SupplierConfig>
+    if (!response.data) {
+      throw new Error('Failed to create supplier - no data returned')
+    }
+    return response.data
   }
 
   /**
@@ -177,8 +195,14 @@ export class SupplierService {
     supplierName: string,
     updates: SupplierConfigUpdate
   ): Promise<SupplierConfig> {
-    const response = (await apiClient.put(`/api/suppliers/config/suppliers/${supplierName}`, updates)) as ApiResponse<SupplierConfig>
-    return response.data!
+    const response = (await apiClient.put(
+      `/api/suppliers/config/suppliers/${supplierName}`,
+      updates
+    )) as ApiResponse<SupplierConfig>
+    if (!response.data) {
+      throw new Error(`Failed to update supplier "${supplierName}" - no data returned`)
+    }
+    return response.data
   }
 
   /**
@@ -204,15 +228,17 @@ export class SupplierService {
       config: {}, // Required for supplier test endpoint
     })) as ApiResponse<ConnectionTestResult>
     console.log('Raw API response:', response.data)
-    return response.data || {} as ConnectionTestResult
+    return response.data || ({} as ConnectionTestResult)
   }
 
   /**
    * Test existing stored credentials
    */
   async testExistingCredentials(supplierName: string): Promise<ConnectionTestResult> {
-    const response = (await apiClient.get(`/api/suppliers/${supplierName}/credentials/test-existing`)) as ApiResponse<ConnectionTestResult>
-    return response.data || {} as ConnectionTestResult
+    const response = (await apiClient.get(
+      `/api/suppliers/${supplierName}/credentials/test-existing`
+    )) as ApiResponse<ConnectionTestResult>
+    return response.data || ({} as ConnectionTestResult)
   }
 
   /**
@@ -262,11 +288,39 @@ export class SupplierService {
       // Cast response to ApiResponse type
       const apiResponse = response as unknown as ApiResponse
       // Check if response follows standard ResponseSchema format
-      if (apiResponse.data && typeof apiResponse.data === 'object' && 'is_configured' in apiResponse.data) {
-        return apiResponse.data as any
+      if (
+        apiResponse.data &&
+        typeof apiResponse.data === 'object' &&
+        'is_configured' in apiResponse.data
+      ) {
+        return apiResponse.data as {
+          supplier_name: string
+          is_configured: boolean
+          connection_status?: {
+            success: boolean
+            message: string
+          }
+          credential_fields: Record<string, unknown>
+          missing_credentials: string[]
+          total_fields: number
+          configured_fields: string[]
+          configured_fields_count: number
+        }
       }
       // Fallback to direct data if not wrapped
-      return apiResponse.data as any
+      return apiResponse.data as {
+        supplier_name: string
+        is_configured: boolean
+        connection_status?: {
+          success: boolean
+          message: string
+        }
+        credential_fields: Record<string, unknown>
+        missing_credentials: string[]
+        total_fields: number
+        configured_fields: string[]
+        configured_fields_count: number
+      }
     } catch (error) {
       // If timeout or other error, return a default "not configured" status
       console.warn(`Credential status check failed for ${supplierName}:`, error)
@@ -290,7 +344,9 @@ export class SupplierService {
    * Get actual credentials for editing (unmasked values)
    */
   async getCredentials(supplierName: string): Promise<Record<string, string>> {
-    const response = (await apiClient.get(`/api/suppliers/${supplierName}/credentials`)) as ApiResponse<Record<string, string>>
+    const response = (await apiClient.get(
+      `/api/suppliers/${supplierName}/credentials`
+    )) as ApiResponse<Record<string, string>>
     return response.data || {}
   }
 
@@ -298,7 +354,9 @@ export class SupplierService {
    * Get masked credentials for display (shows ••••• for set fields)
    */
   async getCredentialsForDisplay(supplierName: string): Promise<Record<string, string>> {
-    const response = (await apiClient.get(`/api/suppliers/${supplierName}/credentials`)) as ApiResponse<Record<string, string>>
+    const response = (await apiClient.get(
+      `/api/suppliers/${supplierName}/credentials`
+    )) as ApiResponse<Record<string, string>>
     return response.data || {}
   }
 
@@ -307,7 +365,9 @@ export class SupplierService {
    */
   async getSupplierCapabilities(supplierName: string): Promise<string[]> {
     try {
-      const response = (await apiClient.get(`/api/suppliers/${supplierName}/capabilities`)) as ApiResponse<string[]>
+      const response = (await apiClient.get(
+        `/api/suppliers/${supplierName}/capabilities`
+      )) as ApiResponse<string[]>
       return response.data || []
     } catch (error: unknown) {
       // 404 is expected for simple suppliers without API capabilities
@@ -347,14 +407,19 @@ export class SupplierService {
       has_custom_fields: boolean
       supplier_name: string
     }>
-    return response.data!
+    if (!response.data) {
+      throw new Error(`Failed to get config fields for supplier "${supplierName}"`)
+    }
+    return response.data
   }
 
   /**
    * Initialize default supplier configurations
    */
   async initializeDefaults(): Promise<string[]> {
-    const response = (await apiClient.post('/api/suppliers/config/initialize-defaults')) as ApiResponse<string[]>
+    const response = (await apiClient.post(
+      '/api/suppliers/config/initialize-defaults'
+    )) as ApiResponse<string[]>
     return response.data || []
   }
 
@@ -362,7 +427,9 @@ export class SupplierService {
    * Export supplier configurations
    */
   async exportConfigurations(): Promise<SupplierConfig[]> {
-    const response = (await apiClient.get('/api/suppliers/config/export')) as ApiResponse<SupplierConfig[]>
+    const response = (await apiClient.get('/api/suppliers/config/export')) as ApiResponse<
+      SupplierConfig[]
+    >
     return response.data || []
   }
 

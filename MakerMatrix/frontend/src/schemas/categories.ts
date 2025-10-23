@@ -54,7 +54,7 @@ export const updateCategorySchema = baseCategorySchema
   .refine(
     (data) => {
       // Prevent setting parent_id to self (when updating)
-      if (data.parent_id && data.parent_id === (data as any).id) {
+      if (data.parent_id && data.parent_id === (data as { id?: string }).id) {
         return false
       }
       return true
@@ -164,7 +164,7 @@ export const categoryStatsSchema = z.object({
 // Validation helpers for category-specific rules
 export const categoryValidationRules = {
   // Check if category name is unique (case-insensitive)
-  uniqueName: (name: string, excludeId?: string) => {
+  uniqueName: (_name: string, _excludeId?: string) => {
     return z.string().refine(async (value) => {
       // This would typically make an API call to check uniqueness
       // For now, we'll just validate the format

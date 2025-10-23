@@ -34,8 +34,8 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
     const errors: Record<string, string> = {}
 
     const validation = categoriesService.validateCategoryName(data.name)
-    if (!validation.valid) {
-      errors.name = validation.error!
+    if (!validation.valid && validation.error) {
+      errors.name = validation.error
     }
 
     // Check for duplicate names (excluding current category)

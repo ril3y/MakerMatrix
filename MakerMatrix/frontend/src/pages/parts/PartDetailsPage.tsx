@@ -2135,7 +2135,9 @@ const PartDetailsPage = () => {
                           <div className="flex justify-between text-xs text-green-300/60">
                             <span>Size:</span>
                             <span>
-                              {((Number(part.additional_properties.datasheet_size) || 0) / 1024).toFixed(1)}{' '}
+                              {(
+                                (Number(part.additional_properties.datasheet_size) || 0) / 1024
+                              ).toFixed(1)}{' '}
                               KB
                             </span>
                           </div>
@@ -2160,7 +2162,8 @@ const PartDetailsPage = () => {
                                 const link = document.createElement('a')
                                 link.href = url
                                 link.download =
-                                  String(part.additional_properties.datasheet_filename) || 'datasheet.pdf'
+                                  String(part.additional_properties.datasheet_filename) ||
+                                  'datasheet.pdf'
                                 document.body.appendChild(link)
                                 link.click()
                                 document.body.removeChild(link)
@@ -2383,7 +2386,9 @@ const PartDetailsPage = () => {
                                   <td className="px-4 py-3 text-primary">
                                     {new Date(trend.date).toLocaleDateString()}
                                   </td>
-                                  <td className="px-4 py-3 text-secondary">{part.supplier || 'N/A'}</td>
+                                  <td className="px-4 py-3 text-secondary">
+                                    {part.supplier || 'N/A'}
+                                  </td>
                                   <td className="px-4 py-3 text-secondary">
                                     ${trend.price.toFixed(2)}
                                   </td>

@@ -54,7 +54,8 @@ const ContainerSlotPickerModal = ({
               page_size: 100, // Get up to 100 parts per slot
             })
             // Response is wrapped in ApiResponse, so data contains the paginated response
-            const items = (response as any).data?.items || (response as any).items || []
+            const responseData = response as { data?: { items?: Part[] }; items?: Part[] }
+            const items = responseData.data?.items || responseData.items || []
             console.log(`[ContainerSlotPicker] Slot ${slot.name} has ${items.length} parts:`, items)
             return {
               ...slot,

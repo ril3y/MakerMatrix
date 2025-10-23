@@ -16,7 +16,7 @@ export interface MouserFormData {}
  */
 export function prepareMouserConfig(
   baseConfig: SupplierConfigCreate,
-  mouserData: MouserFormData
+  _mouserData: MouserFormData
 ): SupplierConfigCreate {
   const config = { ...baseConfig }
 

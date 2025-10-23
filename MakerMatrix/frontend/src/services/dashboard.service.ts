@@ -68,7 +68,10 @@ export class DashboardService {
    */
   async getDashboardSummary(): Promise<DashboardData> {
     const response = await apiClient.get<ApiResponse<DashboardData>>('/api/dashboard/summary')
-    return response.data!
+    if (!response.data) {
+      throw new Error('Dashboard data is missing from API response')
+    }
+    return response.data
   }
 }
 

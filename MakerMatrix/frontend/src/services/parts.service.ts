@@ -1,6 +1,15 @@
 import type { ApiResponse, PaginatedResponse } from './api'
 import { apiClient } from './api'
-import type { Part, CreatePartRequest, UpdatePartRequest, SearchPartsRequest } from '@/types/parts'
+import type {
+  Part,
+  CreatePartRequest,
+  UpdatePartRequest,
+  SearchPartsRequest,
+  Location,
+  Category,
+  Project,
+  Datasheet,
+} from '@/types/parts'
 
 // Backend part format (snake_case fields)
 interface BackendPart {
@@ -36,9 +45,16 @@ interface BackendPart {
 export class PartsService {
   // Helper function to map backend part format to frontend format
   private mapPartFromBackend(backendPart: BackendPart): Part {
+    // Destructure to exclude fields with unknown types, then reconstruct with proper type assertions
+    const { location, primary_location, categories, projects, datasheets, ...rest } = backendPart
     return {
-      ...backendPart,
+      ...rest,
       name: backendPart.part_name, // Map part_name to name
+      location: location as Location | undefined, // Type assertion for location from backend
+      primary_location: primary_location as Location | undefined, // Type assertion for primary_location
+      categories: categories as Category[] | undefined, // Type assertion for categories
+      projects: projects as Project[] | undefined, // Type assertion for projects
+      datasheets: datasheets as Datasheet[] | undefined, // Type assertion for datasheets
     }
   }
   async createPart(data: CreatePartRequest): Promise<Part> {
@@ -286,7 +302,7 @@ export class PartsService {
           display_name: supplier,
           description: '',
           required_fields: [],
-          optional_fields: [],
+          recommended_fields: [],
         }
       }
       throw error

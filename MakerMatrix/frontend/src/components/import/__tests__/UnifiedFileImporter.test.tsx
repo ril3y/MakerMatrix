@@ -24,12 +24,19 @@ describe('UnifiedFileImporter', () => {
     onImportComplete: vi.fn(),
     uploadedFile: mockFile,
     filePreview: {
+      filename: 'test.csv',
+      size: mockFile.size,
+      type: mockFile.type,
+      detected_parser: 'lcsc',
       headers: ['part_number', 'quantity'],
       preview_rows: [{ part_number: 'TP-001', quantity: '100' }],
       total_rows: 1,
       is_supported: true,
       validation_errors: [],
+      file_format: 'csv',
     },
+    selectedEnrichmentCapabilities: [],
+    supplierCapabilities: {},
   }
 
   beforeEach(() => {

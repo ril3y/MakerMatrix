@@ -19,7 +19,7 @@ const TemplateSelector = ({
   onTemplateSelect,
   onEditTemplate,
   onTemplatesLoaded,
-  partData,
+  partData: _partData,
   labelSize = '12mm',
   showCustomOption = true,
 }: TemplateSelectorProps) => {
@@ -149,11 +149,6 @@ const TemplateSelector = ({
       template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       template.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  // Get suggested templates based on part data
-  const suggestedTemplates = partData
-    ? templateService.getTemplateSuggestions(partData, filteredTemplates)
-    : filteredTemplates
 
   const getTemplateIcon = (template: LabelTemplate) => {
     if (template.is_system_template) {

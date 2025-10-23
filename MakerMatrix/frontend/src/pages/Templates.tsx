@@ -87,7 +87,7 @@ const Templates = () => {
       await templateService.duplicateTemplate(template.id)
       toast.success(`Template "${template.display_name}" duplicated successfully`)
       loadTemplates()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to duplicate template')
     }
   }
@@ -107,7 +107,7 @@ const Templates = () => {
       await templateService.deleteTemplate(template.id)
       toast.success(`Template "${template.display_name}" deleted successfully`)
       loadTemplates()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to delete template')
     }
   }

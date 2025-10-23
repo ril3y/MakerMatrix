@@ -699,7 +699,8 @@ const EditPartPage: React.FC = () => {
                               if (field.field_name === 'supplier_part_number')
                                 return part.supplier_part_number || ''
                               if (field.field_name === 'manufacturer') {
-                                const manufacturer = part.additional_properties?.manufacturer ||
+                                const manufacturer =
+                                  part.additional_properties?.manufacturer ||
                                   part.additional_properties?.Manufacturer
                                 return String(manufacturer || '')
                               }
@@ -820,7 +821,8 @@ const EditPartPage: React.FC = () => {
                               if (field.field_name === 'description') return part.description || ''
                               if (field.field_name === 'part_number') return part.part_number || ''
                               if (field.field_name === 'manufacturer') {
-                                const manufacturer = part.additional_properties?.manufacturer ||
+                                const manufacturer =
+                                  part.additional_properties?.manufacturer ||
                                   part.additional_properties?.Manufacturer
                                 return String(manufacturer || '')
                               }

@@ -131,18 +131,6 @@ export const Tooltip = ({
     }
   }
 
-  const getTooltipBgClass = () => {
-    switch (variant) {
-      case 'help':
-        return 'bg-gray-800 border-gray-700'
-      case 'warning':
-        return 'bg-orange-600 border-orange-700'
-      case 'info':
-      default:
-        return 'bg-gray-800 border-gray-700'
-    }
-  }
-
   // Position classes
   const getPositionClasses = () => {
     switch (adjustedPosition) {

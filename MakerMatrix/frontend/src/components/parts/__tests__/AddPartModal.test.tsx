@@ -6,6 +6,7 @@ import AddPartModal from '../AddPartModal'
 import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
+import type { Part } from '@/types/parts'
 
 // Mock dependencies
 vi.mock('react-hot-toast')
@@ -48,7 +49,10 @@ describe('AddPartModal - Core Functionality', () => {
       id: 'new-part-id',
       name: 'Test Part',
       part_number: 'TEST-001',
-    } as any)
+      quantity: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as Part)
   })
 
   describe('Basic Rendering', () => {

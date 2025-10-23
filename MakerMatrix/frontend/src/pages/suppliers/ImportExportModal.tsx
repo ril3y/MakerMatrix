@@ -14,6 +14,12 @@ interface ImportExportModalProps {
   onSuccess: () => void
 }
 
+interface ExportData {
+  suppliers?: Array<Record<string, unknown>>
+  export_date?: string
+  includes_credentials?: boolean
+}
+
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, onSuccess }) => {
   const [activeTab, setActiveTab] = useState<'import' | 'export'>('import')
   const [loading, setLoading] = useState(false)
@@ -26,7 +32,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
 
   // Export state
   const [includeCredentials, setIncludeCredentials] = useState(false)
-  const [exportData, setExportData] = useState<any>(null)
+  const [exportData, setExportData] = useState<ExportData | null>(null)
 
   const handleFileSelect = (file: File) => {
     if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
@@ -80,8 +86,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
       setTimeout(() => {
         onSuccess()
       }, 2000)
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to import supplier configurations'
+    } catch (err: unknown) {
+      const errorMessage =
+        err && typeof err === 'object' && 'response' in err
+          ? (err.response as { data?: { detail?: string } })?.data?.detail ||
+            'Failed to import supplier configurations'
+          : 'Failed to import supplier configurations'
       setErrors([errorMessage])
     } finally {
       setLoading(false)
@@ -93,11 +103,21 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
       setLoading(true)
       setErrors([])
 
-      const data = await supplierService.exportConfigurations(includeCredentials)
-      setExportData(data)
+      const suppliers = await supplierService.exportConfigurations()
+
+      // Create export data wrapper with metadata
+      const exportDataWrapper: ExportData = {
+        suppliers: suppliers as unknown as Array<Record<string, unknown>>,
+        export_date: new Date().toISOString(),
+        includes_credentials: includeCredentials,
+      }
+
+      setExportData(exportDataWrapper)
 
       // Create and download file
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const blob = new Blob([JSON.stringify(exportDataWrapper, null, 2)], {
+        type: 'application/json',
+      })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -111,9 +131,13 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ onClose, o
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      setSuccess(`Successfully exported ${data.suppliers?.length || 0} supplier configurations`)
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to export supplier configurations'
+      setSuccess(`Successfully exported ${suppliers.length} supplier configurations`)
+    } catch (err: unknown) {
+      const errorMessage =
+        err && typeof err === 'object' && 'response' in err
+          ? (err.response as { data?: { detail?: string } })?.data?.detail ||
+            'Failed to export supplier configurations'
+          : 'Failed to export supplier configurations'
       setErrors([errorMessage])
     } finally {
       setLoading(false)

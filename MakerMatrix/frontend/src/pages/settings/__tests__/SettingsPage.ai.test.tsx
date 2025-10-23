@@ -7,7 +7,10 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { settingsService } from '@/services/settings.service'
 
 const toastMock = vi.hoisted(() => {
-  const fn: any = vi.fn()
+  const fn = vi.fn() as ReturnType<typeof vi.fn> & {
+    success: ReturnType<typeof vi.fn>
+    error: ReturnType<typeof vi.fn>
+  }
   fn.success = vi.fn()
   fn.error = vi.fn()
   return fn
@@ -18,7 +21,7 @@ vi.mock('react-hot-toast', () => ({
 }))
 
 vi.mock('@/contexts/ThemeContext')
-const mockUseTheme = useTheme as any
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 vi.mock('@/services/settings.service', () => ({
   settingsService: {
@@ -48,7 +51,7 @@ vi.mock('@/pages/suppliers/SupplierConfigPage', () => ({
 }))
 
 vi.mock('@/components/printer/DynamicPrinterModal', () => ({
-  default: ({ isOpen }: any) =>
+  default: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="printer-modal">Printer Modal</div> : null,
 }))
 
@@ -102,9 +105,9 @@ describe('SettingsPage - AI Helper Tab', () => {
     settingsServiceMock.getBackupStatus = vi.fn()
     settingsServiceMock.getAvailablePrinters = vi.fn()
 
-    toastMock.mockClear()
-    toastMock.success.mockClear()
-    toastMock.error.mockClear()
+    toastMock.mockClear?.()
+    toastMock.success.mockClear?.()
+    toastMock.error.mockClear?.()
   })
 
   const openAiTab = async (options: { expectModelFetch?: boolean } = {}) => {

@@ -16,7 +16,7 @@ export interface LCSCFormData {}
  */
 export function prepareLCSCConfig(
   baseConfig: SupplierConfigCreate,
-  lcscData: LCSCFormData
+  _lcscData: LCSCFormData
 ): SupplierConfigCreate {
   const config = { ...baseConfig }
 

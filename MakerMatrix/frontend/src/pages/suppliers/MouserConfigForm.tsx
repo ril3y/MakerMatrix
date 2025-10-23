@@ -7,17 +7,36 @@
 import React from 'react'
 import { HelpCircle, AlertTriangle } from 'lucide-react'
 
+interface MouserConfig {
+  supplier_name?: string
+  display_name?: string
+  description?: string
+  base_url?: string
+  api_version?: string
+  rate_limit_per_minute?: number
+  timeout_seconds?: number
+  max_retries?: number
+  supports_datasheet?: boolean
+  supports_image?: boolean
+  supports_pricing?: boolean
+  supports_stock?: boolean
+  supports_specifications?: boolean
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | Record<string, string>
+    | Record<string, unknown>
+    | undefined
+}
+
 interface MouserConfigFormProps {
-  config: any
-  onConfigChange: (field: string, value: any) => void
+  config: MouserConfig
+  onConfigChange: (field: string, value: string | number | boolean) => void
   errors: string[]
 }
 
-export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({
-  config,
-  onConfigChange,
-  errors,
-}) => {
+export const MouserConfigForm: React.FC<MouserConfigFormProps> = ({ config, onConfigChange }) => {
   return (
     <div className="space-y-6">
       {/* Mouser Setup Instructions */}

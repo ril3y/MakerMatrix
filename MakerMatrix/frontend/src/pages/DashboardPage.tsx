@@ -183,29 +183,6 @@ const DashboardPage = () => {
     ],
   }
 
-  // Helper function to get supplier icon URL
-  const getSupplierIcon = (supplierName: string) => {
-    const normalizedName = supplierName
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/_/g, '-') // Replace underscores with hyphens
-
-    // Map supplier names to their icon filenames (handles variations)
-    const iconMap: Record<string, string> = {
-      lcsc: 'lcsc.ico',
-      digikey: 'digikey.png',
-      'digi-key': 'digikey.png',
-      mouser: 'mouser.png',
-      'mcmaster-carr': 'mcmaster-carr.ico',
-      mcmaster: 'mcmaster-carr.ico',
-      boltdepot: 'bolt-depot.png',
-      'bolt-depot': 'bolt-depot.png', // Legacy support
-    }
-
-    return iconMap[normalizedName] || null
-  }
-
   return (
     <div className="max-w-screen-2xl space-y-6">
       {/* Header */}
@@ -540,7 +517,8 @@ const DashboardPage = () => {
                             .slice(0, 2)
                             .map(([key, value]) => (
                               <span key={key} className="mr-3">
-                                {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                {key}:{' '}
+                                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                               </span>
                             ))}
                         </div>

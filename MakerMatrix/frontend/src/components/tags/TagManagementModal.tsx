@@ -18,7 +18,7 @@ const TagManagementModal = ({ isOpen, onClose, onTagsChanged }: TagManagementMod
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'usage' | 'created_at'>('usage')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [sortOrder, _setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // Edit/create state
   const [editingTag, setEditingTag] = useState<Tag | null>(null)

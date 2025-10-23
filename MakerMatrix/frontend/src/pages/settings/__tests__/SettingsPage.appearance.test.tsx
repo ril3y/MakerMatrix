@@ -7,7 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 
 // Mock the theme context
 vi.mock('@/contexts/ThemeContext')
-const mockUseTheme = useTheme as any
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 // Mock components
 vi.mock('@/components/ui/ThemeSelector', () => ({
@@ -27,7 +27,7 @@ vi.mock('@/pages/suppliers/SupplierConfigPage', () => ({
 }))
 
 vi.mock('@/components/printer/DynamicPrinterModal', () => ({
-  default: ({ isOpen }: any) =>
+  default: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="printer-modal">Printer Modal</div> : null,
 }))
 
@@ -45,7 +45,10 @@ vi.mock('@/services/settings.service', () => ({
 
 // Mock react-hot-toast
 const toastMock = vi.hoisted(() => {
-  const fn: any = vi.fn()
+  const fn = vi.fn() as ReturnType<typeof vi.fn> & {
+    success: ReturnType<typeof vi.fn>
+    error: ReturnType<typeof vi.fn>
+  }
   fn.success = vi.fn()
   fn.error = vi.fn()
   return fn
@@ -153,8 +156,9 @@ describe('SettingsPage - Appearance Tab', () => {
       const user = userEvent.setup()
 
       const darkButtons = screen.getAllByText('Dark')
-      const darkButton = darkButtons[darkButtons.length - 1].closest('button')!
-      await user.click(darkButton)
+      const darkButton = darkButtons[darkButtons.length - 1].closest('button')
+      expect(darkButton).toBeTruthy()
+      await user.click(darkButton as HTMLButtonElement)
 
       expect(mockThemeContext.toggleDarkMode).toHaveBeenCalled()
     })
@@ -169,8 +173,9 @@ describe('SettingsPage - Appearance Tab', () => {
       await user.click(appearanceTab)
 
       const lightButtons = screen.getAllByText('Light')
-      const lightButton = lightButtons[lightButtons.length - 1].closest('button')!
-      await user.click(lightButton)
+      const lightButton = lightButtons[lightButtons.length - 1].closest('button')
+      expect(lightButton).toBeTruthy()
+      await user.click(lightButton as HTMLButtonElement)
 
       expect(mockThemeContext.toggleDarkMode).toHaveBeenCalled()
     })
@@ -180,8 +185,9 @@ describe('SettingsPage - Appearance Tab', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
       const autoButtons = screen.getAllByText('Auto')
-      const autoButton = autoButtons[autoButtons.length - 1].closest('button')!
-      await user.click(autoButton)
+      const autoButton = autoButtons[autoButtons.length - 1].closest('button')
+      expect(autoButton).toBeTruthy()
+      await user.click(autoButton as HTMLButtonElement)
 
       expect(consoleSpy).toHaveBeenCalledWith('Auto mode selected')
       consoleSpy.mockRestore()
@@ -420,8 +426,9 @@ describe('SettingsPage - Appearance Tab', () => {
 
       // Click dark mode
       const darkButtons = screen.getAllByText('Dark')
-      const darkButton = darkButtons[darkButtons.length - 1].closest('button')!
-      await user.click(darkButton)
+      const darkButton = darkButtons[darkButtons.length - 1].closest('button')
+      expect(darkButton).toBeTruthy()
+      await user.click(darkButton as HTMLButtonElement)
 
       expect(customTheme.toggleDarkMode).toHaveBeenCalledTimes(1)
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, User, Mail, Shield, Lock, Eye, EyeOff, Key } from 'lucide-react'
 import type { User as UserType, UpdateUserRolesRequest } from '@/types/users'
 import toast from 'react-hot-toast'
-import { apiClient } from '@/services/api'
+import { apiClient, type ApiResponse } from '@/services/api'
 import { useAuth } from '@/hooks/useAuth'
 
 interface EditUserModalProps {
@@ -81,25 +81,10 @@ const EditUserModal = ({
 
     try {
       setLoading(true)
-      const response = await onUpdateRoles(user.id, { role_ids: selectedRoleIds })
+      await onUpdateRoles(user.id, { role_ids: selectedRoleIds })
 
-      // Check if response contains warning about revoked API keys
-      const message = response?.message || 'User roles updated successfully'
-
-      if (message.includes('⚠️') || message.includes('API key')) {
-        // Show warning toast for API key revocation
-        toast(message, {
-          icon: '⚠️',
-          duration: 8000, // Show longer for important security message
-          style: {
-            background: '#FEF3C7',
-            color: '#92400E',
-            border: '1px solid #FCD34D',
-          },
-        })
-      } else {
-        toast.success(message)
-      }
+      // Show success message
+      toast.success('User roles updated successfully')
 
       onClose()
     } catch (error) {
@@ -162,7 +147,7 @@ const EditUserModal = ({
 
     try {
       setLoading(true)
-      const payload: any = {
+      const payload: { new_password: string; current_password?: string } = {
         new_password: newPassword,
       }
 
@@ -171,7 +156,7 @@ const EditUserModal = ({
         payload.current_password = currentPassword
       }
 
-      const response = await apiClient.put(`/api/users/${user.id}/password`, payload)
+      const response = await apiClient.put<ApiResponse>(`/api/users/${user.id}/password`, payload)
 
       if (response.status === 'success') {
         toast.success('Password changed successfully!')
@@ -182,8 +167,9 @@ const EditUserModal = ({
       } else {
         toast.error(response.message || 'Failed to change password')
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || 'Failed to change password')
+    } catch (error) {
+      const err = error as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Failed to change password')
     } finally {
       setLoading(false)
     }

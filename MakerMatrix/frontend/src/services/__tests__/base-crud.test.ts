@@ -14,25 +14,6 @@ vi.mock('../api', () => ({
   },
 }))
 
-// Type definitions for backend data structures
-interface BackendCreateData {
-  name: string
-  description: string
-}
-
-interface BackendUpdateData {
-  name: string
-  description: string
-}
-
-interface BackendResponseData {
-  id: string
-  name: string
-  description: string
-  created_at?: string
-  updated_at?: string
-}
-
 // Test implementation of BaseCrudService
 class TestEntity {
   id: string

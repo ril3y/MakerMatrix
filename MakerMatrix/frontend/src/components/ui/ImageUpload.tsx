@@ -28,8 +28,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl || null)
-  const [isHovered, setIsHovered] = useState(false)
-  const [isFocused, setIsFocused] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
@@ -206,10 +204,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       {/* Main Upload Area */}
       <div
         ref={dropZoneRef}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}

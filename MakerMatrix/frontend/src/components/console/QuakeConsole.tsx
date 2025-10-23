@@ -5,12 +5,26 @@ import { partsService } from '../../services/parts.service'
 import { locationsService } from '../../services/locations.service'
 import { categoriesService } from '../../services/categories.service'
 import { usePartsStore } from '../../store/partsStore'
-import { apiClient } from '../../services/api'
+import { apiClient, type ApiResponse } from '../../services/api'
 
 interface CommandResult {
   message: string
   data?: unknown
   action?: 'navigate' | 'update-view' | 'show-results'
+}
+
+interface AIChatResponse {
+  response: string
+}
+
+// Type guard to check if response is a valid ApiResponse
+function isApiResponse(value: unknown): value is ApiResponse<AIChatResponse> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'status' in value &&
+    typeof (value as ApiResponse).status === 'string'
+  )
 }
 
 const QuakeConsole: React.FC = () => {
@@ -27,8 +41,7 @@ const QuakeConsole: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [commandHistory, setCommandHistory] = useState<string[]>([])
   const navigate = useNavigate()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { setSearchQuery, setFilters } = usePartsStore()
+  const { setSearchQuery: _setSearchQuery, setFilters: _setFilters } = usePartsStore()
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -58,13 +71,23 @@ const QuakeConsole: React.FC = () => {
       setIsProcessing(true)
 
       // Send command to real AI service using apiClient (handles auth automatically)
-      const aiResult = await apiClient.post('/api/ai/chat', {
+      const aiResult = await apiClient.post<ApiResponse<AIChatResponse>>('/api/ai/chat', {
         message: input,
         conversation_history: [],
       })
 
+      // Validate response structure with type guard
+      if (!isApiResponse(aiResult)) {
+        throw new Error('Invalid response format from AI service')
+      }
+
       if (aiResult.status !== 'success') {
         throw new Error(aiResult.message || 'AI request failed')
+      }
+
+      // Safely access data with null check
+      if (!aiResult.data || typeof aiResult.data.response !== 'string') {
+        throw new Error('Invalid AI response data')
       }
 
       const aiResponse = aiResult.data.response

@@ -19,6 +19,7 @@ interface EditSupplierModalProps {
   supplier: SupplierConfig
   onClose: () => void
   onSuccess: () => void
+  onDelete?: (supplierName: string) => void
 }
 
 export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
@@ -34,12 +35,18 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
 
   // Backend-driven capabilities and credential schema
   const [availableCapabilities, setAvailableCapabilities] = useState<string[]>([])
-  const [credentialSchema, setCredentialSchema] = useState<any[]>([])
+  const [credentialSchema, setCredentialSchema] = useState<
+    Array<{ name: string; type: string; required: boolean; description?: string }>
+  >([])
   const [loadingCapabilities, setLoadingCapabilities] = useState(true)
 
   // Track current credentials for testing and credential status
   const [currentCredentials, setCurrentCredentials] = useState<Record<string, string>>({})
-  const [credentialStatus, setCredentialStatus] = useState<any>(null)
+  const [credentialStatus, setCredentialStatus] = useState<{
+    fully_configured?: boolean
+    configured_fields?: string[]
+    missing_fields?: string[]
+  } | null>(null)
 
   const [config, setConfig] = useState<SupplierConfigUpdate>({
     display_name: supplier.display_name,
@@ -143,23 +150,6 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     setErrors([]) // Clear errors when user makes changes
   }
 
-  const handleCapabilityChange = (capability: string, enabled: boolean) => {
-    const currentCapabilities = config.capabilities || []
-    let updatedCapabilities: string[]
-
-    if (enabled) {
-      // Add capability if not already present
-      updatedCapabilities = currentCapabilities.includes(capability)
-        ? currentCapabilities
-        : [...currentCapabilities, capability]
-    } else {
-      // Remove capability
-      updatedCapabilities = currentCapabilities.filter((cap) => cap !== capability)
-    }
-
-    handleConfigChange('capabilities', updatedCapabilities)
-  }
-
   const handleCustomHeaderChange = (key: string, value: string) => {
     const newHeaders = { ...config.custom_headers }
     if (value.trim()) {
@@ -216,7 +206,8 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
           setCredentialStatus(newStatus)
         } catch (credError) {
           console.error('Failed to save credentials before testing:', credError)
-          const errorMsg = 'Failed to save credentials before testing: ' + (credError as Error).message
+          const errorMsg =
+            'Failed to save credentials before testing: ' + (credError as Error).message
           setTestResult({
             supplier_name: supplier.supplier_name,
             success: false,
@@ -239,7 +230,11 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
         response?: { data?: { detail?: string; message?: string } }
         message?: string
       }
-      const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || 'Connection test failed'
+      const errorMsg =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        error.message ||
+        'Connection test failed'
       setTestResult({
         supplier_name: supplier.supplier_name,
         success: false,

@@ -40,6 +40,16 @@ export interface ImportProgress {
   progress_percentage?: number
 }
 
+export interface ImportApiResponse {
+  imported_count?: number
+  failed_count?: number
+  skipped_count?: number
+  warnings?: string[]
+  imported_parts?: string[]
+  failed_parts?: string[]
+  order_id?: string
+}
+
 export interface UseOrderImportProps {
   parserType: string
   parserName: string
@@ -233,7 +243,12 @@ export const useOrderImport = ({
         }
 
         // Try to extract part counts from task data if available
-        if (task.input_data && task.input_data.part_ids) {
+        if (
+          task.input_data &&
+          typeof task.input_data === 'object' &&
+          'part_ids' in task.input_data &&
+          Array.isArray(task.input_data.part_ids)
+        ) {
           progress.total_parts = task.input_data.part_ids.length
           progress.processed_parts = Math.round(
             ((task.progress_percentage || 0) * progress.total_parts) / 100
@@ -347,7 +362,11 @@ export const useOrderImport = ({
         },
       })
 
-      const result = response.data || response
+      // Type guard for response data
+      const result: ImportApiResponse =
+        response && typeof response === 'object' && 'data' in response
+          ? (response.data as ImportApiResponse)
+          : (response as ImportApiResponse)
 
       toast.success(`Imported ${result.imported_count || 0} parts successfully`)
 

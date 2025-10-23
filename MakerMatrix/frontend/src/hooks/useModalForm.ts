@@ -25,7 +25,7 @@ interface UseModalFormReturn<T> {
   resetForm: () => void
 }
 
-export const useModalForm = <T extends Record<string, any>>({
+export const useModalForm = <T extends Record<string, unknown>>({
   initialData,
   validate,
   onSubmit,

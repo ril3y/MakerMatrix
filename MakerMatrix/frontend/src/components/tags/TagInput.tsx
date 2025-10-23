@@ -17,7 +17,7 @@ interface TagInputProps {
 const TagInput = ({
   selectedTags,
   onTagsChange,
-  entityType,
+  entityType: _entityType,
   placeholder = 'Add tags (e.g., #todo, #testing)...',
   disabled = false,
 }: TagInputProps) => {
@@ -105,8 +105,9 @@ const TagInput = ({
       const newTag = await tagsService.createTag(newTagData)
       toast.success(`Tag "#${tagName}" created`)
       return newTag
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create tag')
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create tag'
+      toast.error(errorMessage)
       return null
     } finally {
       setIsCreatingTag(false)

@@ -107,11 +107,11 @@ export const errorMessages = {
 export const createValidationMessage = (
   type: keyof typeof errorMessages,
   field: string,
-  ...args: any[]
+  ...args: unknown[]
 ): string => {
   const messageFunc = errorMessages[type]
   if (typeof messageFunc === 'function') {
-    return messageFunc(field, ...args)
+    return messageFunc(field, ...(args as [number]))
   }
   return messageFunc
 }

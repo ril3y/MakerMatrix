@@ -13,11 +13,7 @@ interface CredentialsModalProps {
   onSuccess: () => void
 }
 
-export const CredentialsModal: React.FC<CredentialsModalProps> = ({
-  supplierName,
-  onClose,
-  onSuccess,
-}) => {
+export const CredentialsModal: React.FC<CredentialsModalProps> = ({ supplierName, onClose }) => {
   const getEnvironmentVariables = (supplier: string) => {
     const upperSupplier = supplier.toUpperCase()
     switch (upperSupplier) {

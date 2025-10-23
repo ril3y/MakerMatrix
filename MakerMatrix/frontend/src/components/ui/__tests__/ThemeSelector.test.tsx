@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 
 // Mock the theme context
 vi.mock('@/contexts/ThemeContext')
-const mockUseTheme = useTheme as any
+const mockUseTheme = vi.mocked(useTheme)
 
 describe('ThemeSelector', () => {
   const mockThemeContext = {
@@ -75,8 +75,9 @@ describe('ThemeSelector', () => {
       const user = userEvent.setup()
       render(<ThemeSelector />)
 
-      const blueTheme = screen.getByText('Arctic').closest('button')!
-      await user.click(blueTheme)
+      const blueTheme = screen.getByText('Arctic').closest('button')
+      expect(blueTheme).toBeTruthy()
+      await user.click(blueTheme as HTMLElement)
 
       expect(mockThemeContext.setTheme).toHaveBeenCalledWith('blue')
     })
@@ -86,12 +87,14 @@ describe('ThemeSelector', () => {
       render(<ThemeSelector />)
 
       // Test multiple theme selections
-      const purpleTheme = screen.getByText('Nebula').closest('button')!
-      await user.click(purpleTheme)
+      const purpleTheme = screen.getByText('Nebula').closest('button')
+      expect(purpleTheme).toBeTruthy()
+      await user.click(purpleTheme as HTMLElement)
       expect(mockThemeContext.setTheme).toHaveBeenCalledWith('purple')
 
-      const orangeTheme = screen.getByText('Sunset').closest('button')!
-      await user.click(orangeTheme)
+      const orangeTheme = screen.getByText('Sunset').closest('button')
+      expect(orangeTheme).toBeTruthy()
+      await user.click(orangeTheme as HTMLElement)
       expect(mockThemeContext.setTheme).toHaveBeenCalledWith('orange')
     })
 
@@ -100,8 +103,9 @@ describe('ThemeSelector', () => {
       mockUseTheme.mockReturnValue({ ...mockThemeContext, currentTheme: 'default' })
       render(<ThemeSelector />)
 
-      const defaultTheme = screen.getByText('Matrix').closest('button')!
-      await user.click(defaultTheme)
+      const defaultTheme = screen.getByText('Matrix').closest('button')
+      expect(defaultTheme).toBeTruthy()
+      await user.click(defaultTheme as HTMLElement)
 
       // Should still be called (component doesn't prevent re-selection)
       expect(mockThemeContext.setTheme).toHaveBeenCalledWith('default')
@@ -183,8 +187,9 @@ describe('ThemeSelector', () => {
     it('supports keyboard navigation', () => {
       render(<ThemeSelector />)
 
-      const firstButton = screen.getByText('Matrix').closest('button')!
-      firstButton.focus()
+      const firstButton = screen.getByText('Matrix').closest('button')
+      expect(firstButton).toBeTruthy()
+      ;(firstButton as HTMLElement).focus()
       expect(firstButton).toHaveFocus()
     })
 

@@ -206,7 +206,7 @@ const MainLayout: React.FC = () => {
         </div>
 
         <AnimatePresence>
-          {hasChildren && isExpanded && isSidebarOpen && (
+          {hasChildren && isExpanded && isSidebarOpen && item.children && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -214,7 +214,7 @@ const MainLayout: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              {item.children!.map((child) => renderNavItem(child, depth + 1))}
+              {item.children.map((child) => renderNavItem(child, depth + 1))}
             </motion.div>
           )}
         </AnimatePresence>

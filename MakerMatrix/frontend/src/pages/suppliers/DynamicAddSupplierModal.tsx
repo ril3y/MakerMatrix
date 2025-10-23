@@ -29,13 +29,13 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
   const [configuring, setConfiguring] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
 
-  const [credentials, setCredentials] = useState<Record<string, any>>({})
-  const [config, setConfig] = useState<Record<string, any>>({})
+  const [credentials, setCredentials] = useState<Record<string, string | number | boolean>>({})
+  const [config, setConfig] = useState<Record<string, string | number | boolean>>({})
   const [testLoading, setTestLoading] = useState(false)
   const [testResult, setTestResult] = useState<{
     success: boolean
     message: string
-    details?: any
+    details?: Record<string, unknown>
   } | null>(null)
 
   const loadAvailableSuppliers = useCallback(async () => {
@@ -142,11 +142,11 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
           supplier_name: selectedSupplier.toUpperCase(), // Use uppercase for consistency
           display_name: supplierInfo.display_name,
           description: supplierInfo.description,
-          api_type: 'rest', // Default API type
+          api_type: 'rest' as const, // Default API type with proper type assertion
           base_url: supplierInfo.website_url || '',
           enabled: true,
           ...capabilityFields, // Spread the individual capability fields
-          configuration: config,
+          custom_parameters: config, // Use custom_parameters instead of configuration
         }
 
         console.log('Creating supplier configuration:', supplierConfig)
@@ -164,7 +164,7 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
               description: supplierConfig.description,
               enabled: supplierConfig.enabled,
               ...capabilityFields, // Use the converted capability fields
-              configuration: config,
+              custom_parameters: config, // Use custom_parameters instead of configuration
             })
           } else {
             throw error // Re-throw if it's not a conflict error
@@ -174,7 +174,12 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
         // Save credentials if any
         if (needsCredentials) {
           console.log('Saving supplier credentials:', credentials)
-          await supplierService.updateCredentials(supplierConfig.supplier_name, credentials)
+          // Convert credentials to Record<string, string> format
+          const stringCredentials: Record<string, string> = {}
+          for (const [key, value] of Object.entries(credentials)) {
+            stringCredentials[key] = String(value)
+          }
+          await supplierService.updateCredentials(supplierConfig.supplier_name, stringCredentials)
         }
       }
 

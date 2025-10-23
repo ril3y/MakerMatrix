@@ -103,20 +103,20 @@ describe('TasksManagement - Real-time Monitoring', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: 'digikey' }] }),
-        })
+        } as Response)
       }
 
       if (url.includes('/api/tasks/capabilities/suppliers')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { digikey: { capabilities: ['fetch_pricing'] } } }),
-        })
+        } as Response)
       }
 
       return Promise.resolve({
         ok: true,
         json: async () => ({}),
-      })
+      } as Response)
     })
   })
 

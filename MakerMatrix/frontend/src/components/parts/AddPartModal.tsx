@@ -22,7 +22,7 @@ import supplierService, { type CredentialFieldDefinition } from '@/services/supp
 import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 import { apiClient } from '@/services/api'
 import type { CreatePartRequest } from '@/types/parts'
-import type { Location, Category } from '@/types/parts'
+import type { Category } from '@/types/parts'
 import type { Project } from '@/types/projects'
 import type { Tag as TagType } from '@/types/tags'
 import toast from 'react-hot-toast'
@@ -49,7 +49,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     additional_properties: {},
   })
 
-  const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -142,21 +141,18 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     try {
       setLoadingData(true)
       const [
-        locationsData,
         categoriesData,
         projectsData,
         suppliersData,
         availableSuppliersData,
         importSuppliersData,
       ] = await Promise.all([
-        locationsService.getAllLocations(),
         categoriesService.getAllCategories(),
         projectsService.getAllProjects(),
         supplierService.getSuppliers(true), // Get only enabled/configured suppliers
         dynamicSupplierService.getAvailableSuppliers(), // Get all available suppliers from registry
         apiClient.get('/api/import/suppliers').catch(() => ({ data: [] })), // Get enrichment capabilities
       ])
-      setLocations(locationsData || [])
       setCategories(categoriesData || [])
       setProjects(projectsData || [])
 
@@ -189,7 +185,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       console.error('Failed to load data:', error)
       toast.error('Failed to load data')
       // Set empty arrays as fallbacks
-      setLocations([])
       setCategories([])
       setProjects([])
       setConfiguredSuppliers([])
@@ -1142,7 +1137,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     // Reload locations and auto-select the new one
     try {
       const locationsData = await locationsService.getAllLocations()
-      setLocations(locationsData || [])
 
       // Find the newest location
       if (locationsData && locationsData.length > 0) {

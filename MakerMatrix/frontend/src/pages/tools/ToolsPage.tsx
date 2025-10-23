@@ -18,7 +18,6 @@ import {
   Tag as TagIcon,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { toolsService } from '@/services/tools.service'
 import type { Tool, ToolCondition, ToolStatus, SearchToolsRequest } from '@/types/tools'
 import type { Tag } from '@/types/tags'
@@ -71,7 +70,6 @@ const ToolsPage = () => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const pageSize = 20
-  const navigate = useNavigate()
 
   // Condition color mapping
   const getConditionColor = (condition: string) => {
@@ -728,7 +726,9 @@ const ToolsPage = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                copyToClipboard(tool.tool_number!, tool.id, 'tool_number')
+                                if (tool.tool_number) {
+                                  copyToClipboard(tool.tool_number, tool.id, 'tool_number')
+                                }
                               }}
                               className="text-muted hover:text-primary transition-colors flex-shrink-0"
                               title="Copy tool number"

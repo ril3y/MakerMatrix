@@ -451,9 +451,7 @@ const SettingsPage = () => {
                       {availableModels.map((model) => (
                         <option key={model.name} value={model.name}>
                           {model.name}
-                          {model.size && typeof model.size === 'string'
-                            ? ` (${model.size})`
-                            : ''}
+                          {model.size && typeof model.size === 'string' ? ` (${model.size})` : ''}
                         </option>
                       ))}
                     </select>

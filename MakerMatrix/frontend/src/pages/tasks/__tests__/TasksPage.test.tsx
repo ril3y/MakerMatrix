@@ -2,15 +2,10 @@ import { render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import TasksPage from '../TasksPage'
-import { tasksService } from '@/services/tasks.service'
-import { partsService } from '@/services/parts.service'
 
 // Mock the services
 vi.mock('@/services/tasks.service')
 vi.mock('@/services/parts.service')
-
-const mockTasksService = tasksService as any
-const mockPartsService = partsService as any
 
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({

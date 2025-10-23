@@ -39,10 +39,23 @@ export const useDashboardStore = create<DashboardState>()(
           isLoading: false,
           lastUpdated: new Date(),
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage =
+          error &&
+          typeof error === 'object' &&
+          'response' in error &&
+          error.response &&
+          typeof error.response === 'object' &&
+          'data' in error.response &&
+          error.response.data &&
+          typeof error.response.data === 'object' &&
+          'error' in error.response.data &&
+          typeof error.response.data.error === 'string'
+            ? error.response.data.error
+            : 'Failed to load dashboard data'
         set({
           isLoading: false,
-          error: error.response?.data?.error || 'Failed to load dashboard data',
+          error: errorMessage,
         })
       }
     },
@@ -57,10 +70,23 @@ export const useDashboardStore = create<DashboardState>()(
           isLoading: false,
           lastUpdated: new Date(),
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage =
+          error &&
+          typeof error === 'object' &&
+          'response' in error &&
+          error.response &&
+          typeof error.response === 'object' &&
+          'data' in error.response &&
+          error.response.data &&
+          typeof error.response.data === 'object' &&
+          'error' in error.response.data &&
+          typeof error.response.data.error === 'string'
+            ? error.response.data.error
+            : 'Failed to refresh dashboard data'
         set({
           isLoading: false,
-          error: error.response?.data?.error || 'Failed to refresh dashboard data',
+          error: errorMessage,
         })
       }
     },

@@ -33,7 +33,7 @@ interface CredentialEditorProps {
 export const CredentialEditor: React.FC<CredentialEditorProps> = ({
   supplierName,
   credentialSchema,
-  currentlyConfigured = false,
+  currentlyConfigured: _currentlyConfigured = false,
   credentialStatus,
   onCredentialChange,
   onTest,
@@ -44,20 +44,21 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
   const [showValues, setShowValues] = useState<Record<string, boolean>>({})
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<CredentialTestResult | null>(null)
-  const [initialCredentials, setInitialCredentials] = useState<CredentialFormData>({})
 
   // Create dynamic form schema based on credential fields
   const formSchema = useMemo(() => {
     // Type assertion: credentialSchema comes from API with unknown types
-    return createCredentialFormSchema(credentialSchema as Array<{
-      name: string
-      label: string
-      field_type: string
-      required: boolean
-      description?: string
-      placeholder?: string
-      help_text?: string
-    }>)
+    return createCredentialFormSchema(
+      credentialSchema as Array<{
+        name: string
+        label: string
+        field_type: string
+        required: boolean
+        description?: string
+        placeholder?: string
+        help_text?: string
+      }>
+    )
   }, [credentialSchema])
 
   // Form with validation
@@ -114,7 +115,6 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
         showValuesState[field.name] = field.field_type !== 'password'
       })
 
-      setInitialCredentials(credentials)
       setShowValues(showValuesState)
 
       // Reset form with initial data (using setValue for each field instead of reset)

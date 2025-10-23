@@ -138,7 +138,10 @@ export class DynamicSupplierService {
       }
 
       // Handle different response formats
-      const data = response.data as { data: ConfiguredSupplier[] } | ConfiguredSupplier[] | undefined
+      const data = response.data as
+        | { data: ConfiguredSupplier[] }
+        | ConfiguredSupplier[]
+        | undefined
       if (data && Array.isArray(data)) {
         return data
       } else if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
@@ -452,17 +455,18 @@ export class DynamicSupplierService {
     const response = (await apiClient.post(`/api/suppliers/${supplierName}/part/${partNumber}`, {
       credentials,
       config: config || {},
-    })) as
-      | { data: { data: PartSearchResult } }
-      | { data: PartSearchResult }
-      | PartSearchResult
+    })) as { data: { data: PartSearchResult } } | { data: PartSearchResult } | PartSearchResult
 
     // Handle different response formats (apiClient.post may return different structures)
     if (response && typeof response === 'object' && 'data' in response) {
       const dataWrapper = response.data as { data: PartSearchResult } | PartSearchResult
       if (dataWrapper && typeof dataWrapper === 'object' && 'data' in dataWrapper) {
         return dataWrapper.data
-      } else if (dataWrapper && typeof dataWrapper === 'object' && 'supplier_part_number' in dataWrapper) {
+      } else if (
+        dataWrapper &&
+        typeof dataWrapper === 'object' &&
+        'supplier_part_number' in dataWrapper
+      ) {
         return dataWrapper as PartSearchResult
       }
     } else if (response && typeof response === 'object' && 'supplier_part_number' in response) {

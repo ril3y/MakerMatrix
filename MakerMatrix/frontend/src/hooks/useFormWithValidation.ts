@@ -54,7 +54,7 @@ export const useFormWithValidation = <T extends FieldValues>({
         const submitData = transformData ? transformData(data) : data
 
         // Call the submit function
-        const result = await onSubmit(submitData)
+        const result = await onSubmit(submitData as T)
 
         // Handle success
         if (successMessage) {
@@ -151,8 +151,8 @@ export const useFormWithValidation = <T extends FieldValues>({
 
   // Set field value programmatically
   const setValue = useCallback(
-    (name: Path<T>, value: unknown, options?: SetValueConfig) => {
-      form.setValue(name, value, options)
+    <K extends Path<T>>(name: K, value: unknown, options?: SetValueConfig) => {
+      form.setValue(name, value as T[K], options)
     },
     [form]
   )
@@ -168,6 +168,9 @@ export const useFormWithValidation = <T extends FieldValues>({
   // Watch field changes
   const watch = useCallback(
     (name?: Path<T> | Path<T>[]) => {
+      if (Array.isArray(name)) {
+        return form.watch(name as readonly Path<T>[])
+      }
       return form.watch(name)
     },
     [form]

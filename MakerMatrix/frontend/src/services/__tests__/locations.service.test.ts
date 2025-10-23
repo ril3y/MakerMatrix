@@ -398,7 +398,7 @@ describe('LocationsService', () => {
       expect(tree).toHaveLength(1)
       expect(tree[0].id).toBe('loc-123')
       expect(tree[0].children).toHaveLength(1)
-      expect(tree[0].children![0].id).toBe('loc-456')
+      expect(tree[0].children?.[0].id).toBe('loc-456')
     })
 
     it('should handle orphaned children', () => {

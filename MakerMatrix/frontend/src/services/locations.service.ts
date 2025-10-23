@@ -59,7 +59,10 @@ export class LocationsService {
     const response = await apiClient.delete<ApiResponse<LocationDeleteResponse>>(
       `/api/locations/delete_location/${id}`
     )
-    return response.data!
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to delete location')
   }
 
   async getAllLocations(params?: { hide_auto_slots?: boolean }): Promise<Location[]> {
@@ -83,28 +86,40 @@ export class LocationsService {
     const response = await apiClient.get<ApiResponse<LocationDetails>>(
       `/api/locations/get_location_details/${id}`
     )
-    return response.data!
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to get location details')
   }
 
   async getLocationPath(id: string): Promise<LocationPath> {
     const response = await apiClient.get<ApiResponse<LocationPath>>(
       `/api/locations/get_location_path/${id}`
     )
-    return response.data!
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to get location path')
   }
 
   async previewLocationDelete(id: string): Promise<LocationDeletePreview> {
     const response = await apiClient.get<ApiResponse<LocationDeletePreview>>(
       `/api/locations/preview-location-delete/${id}`
     )
-    return response.data!
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to preview location delete')
   }
 
   async cleanupLocations(): Promise<LocationCleanupResponse> {
     const response = await apiClient.delete<ApiResponse<LocationCleanupResponse>>(
       '/api/locations/cleanup-locations'
     )
-    return response.data!
+    if (response.status === 'success' && response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to cleanup locations')
   }
 
   async getContainerSlots(
@@ -160,7 +175,8 @@ export class LocationsService {
 
     // Second pass: build tree structure
     locations.forEach((location) => {
-      const locationNode = locationMap.get(location.id)!
+      const locationNode = locationMap.get(location.id)
+      if (!locationNode) return
 
       if (location.parent_id) {
         const parent = locationMap.get(location.parent_id)

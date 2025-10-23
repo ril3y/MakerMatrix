@@ -40,10 +40,15 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
             })
             toast.success('Login successful!')
-          } catch (error: any) {
+          } catch (error: unknown) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : (error as { response?: { data?: { detail?: string } } })?.response?.data
+                    ?.detail || 'Login failed'
             set({
               isLoading: false,
-              error: error.response?.data?.detail || 'Login failed',
+              error: errorMessage,
             })
             throw error
           }
@@ -59,10 +64,15 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
             })
             toast.success('Viewing as guest - read-only access')
-          } catch (error: any) {
+          } catch (error: unknown) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : (error as { response?: { data?: { detail?: string } } })?.response?.data
+                    ?.detail || 'Guest login failed'
             set({
               isLoading: false,
-              error: error.response?.data?.detail || 'Guest login failed',
+              error: errorMessage,
             })
             throw error
           }
@@ -95,7 +105,7 @@ export const useAuthStore = create<AuthState>()(
                 isAuthenticated: true,
                 isLoading: false,
               })
-            } catch (error) {
+            } catch (_error) {
               // Token is invalid, clear auth state
               authService.clearAuth()
               set({
@@ -116,10 +126,15 @@ export const useAuthStore = create<AuthState>()(
             await authService.updatePassword(currentPassword, newPassword)
             toast.success('Password updated successfully')
             set({ isLoading: false })
-          } catch (error: any) {
+          } catch (error: unknown) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : (error as { response?: { data?: { detail?: string } } })?.response?.data
+                    ?.detail || 'Failed to update password'
             set({
               isLoading: false,
-              error: error.response?.data?.detail || 'Failed to update password',
+              error: errorMessage,
             })
             throw error
           }

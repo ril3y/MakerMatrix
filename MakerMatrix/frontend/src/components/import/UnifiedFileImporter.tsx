@@ -48,7 +48,7 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
   uploadedFile,
   filePreview,
   selectedEnrichmentCapabilities,
-  supplierCapabilities,
+  supplierCapabilities: _supplierCapabilities,
 }) => {
   const validateFile = (file: File): boolean => {
     const fileName = file.name.toLowerCase()

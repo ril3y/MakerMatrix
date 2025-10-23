@@ -12,7 +12,7 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
 
 const AllTheProviders = ({
   children,
-  route = '/',
+  route: _route = '/',
 }: {
   children: React.ReactNode
   route?: string

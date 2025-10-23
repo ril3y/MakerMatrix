@@ -14,11 +14,7 @@ interface DigiKeyConfigFormProps {
   errors: string[]
 }
 
-export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
-  config,
-  onConfigChange,
-  errors,
-}) => {
+export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({ config, onConfigChange }) => {
   return (
     <div className="space-y-6">
       {/* DigiKey Setup Instructions */}

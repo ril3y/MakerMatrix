@@ -158,7 +158,7 @@ test.describe('Authentication Flow', () => {
     try {
       await expect(submitButton).toBeDisabled({ timeout: 500 })
       await expect(submitButton).toContainText('Signing in', { timeout: 500 })
-    } catch (error) {
+    } catch {
       // If loading was too fast, that's okay - just verify the request was sent
       // and we eventually reached the dashboard
       await clickPromise

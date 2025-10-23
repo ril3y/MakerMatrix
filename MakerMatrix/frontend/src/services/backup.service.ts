@@ -154,7 +154,7 @@ class BackupService {
    * Delete a backup file
    */
   async deleteBackup(filename: string): Promise<void> {
-    const response = await apiClient.delete<ApiResponse<any>>(`/api/backup/delete/${filename}`)
+    const response = await apiClient.delete<ApiResponse<void>>(`/api/backup/delete/${filename}`)
     if (response.status !== 'success') {
       throw new Error(response.message || 'Failed to delete backup')
     }

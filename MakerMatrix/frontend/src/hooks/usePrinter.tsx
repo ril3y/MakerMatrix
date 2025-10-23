@@ -224,7 +224,11 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       const result = await settingsService.printAdvancedLabel(requestData)
 
       // Handle API response format: { status, message, data: { success, error, ... } }
-      const printData = (result.data || {}) as { success?: boolean; error?: string; message?: string }
+      const printData = (result.data || {}) as {
+        success?: boolean
+        error?: string
+        message?: string
+      }
       const success = printData.success || result.status === 'success'
       const errorMessage = printData.error || printData.message || result.message
 

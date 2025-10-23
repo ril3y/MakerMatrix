@@ -20,8 +20,8 @@ vi.stubGlobal('localStorage', localStorageMock)
 
 // Mock zustand persist middleware to make it pass-through for testing
 vi.mock('zustand/middleware', () => ({
-  devtools: (fn: any) => fn,
-  persist: (fn: any, config: any) => {
+  devtools: <T>(fn: T) => fn,
+  persist: <T>(fn: T, _config: unknown) => {
     // Return the function directly, bypassing persistence for tests
     return fn
   },
@@ -122,7 +122,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         try {
           await result.current.login(mockCredentials)
-        } catch (error) {
+        } catch (_error) {
           // Expected to throw
         }
       })
@@ -143,7 +143,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         try {
           await result.current.login(mockCredentials)
-        } catch (error) {
+        } catch (_error) {
           // Expected to throw
         }
       })
@@ -152,7 +152,7 @@ describe('useAuthStore', () => {
     })
 
     it('should set loading state during login', async () => {
-      let resolveLogin: (value: LoginResponse) => void
+      let resolveLogin: ((value: LoginResponse) => void) | undefined
       const loginPromise = new Promise<LoginResponse>((resolve) => {
         resolveLogin = resolve
       })
@@ -161,7 +161,7 @@ describe('useAuthStore', () => {
       const { result } = renderHook(() => useAuthStore())
 
       // Start login and immediately check state
-      let loginCall: Promise<void>
+      let loginCall: Promise<void> | undefined
       act(() => {
         loginCall = result.current.login(mockCredentials)
       })
@@ -171,10 +171,14 @@ describe('useAuthStore', () => {
       expect(result.current.error).toBeNull()
 
       // Resolve login and await completion
-      resolveLogin!(mockLoginResponse)
-      await act(async () => {
-        await loginCall!
-      })
+      if (resolveLogin) {
+        resolveLogin(mockLoginResponse)
+      }
+      if (loginCall) {
+        await act(async () => {
+          await loginCall
+        })
+      }
 
       expect(result.current.isLoading).toBe(false)
     })
@@ -316,7 +320,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         try {
           await result.current.updatePassword('wrongpass', 'newpass')
-        } catch (error) {
+        } catch (_error) {
           // Expected to throw
         }
       })

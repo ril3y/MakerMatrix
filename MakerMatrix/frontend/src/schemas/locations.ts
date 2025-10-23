@@ -52,12 +52,14 @@ const baseUpdateLocationSchema = baseLocationSchema.partial().extend({
       fieldConstraints.name.maxLength,
       `Location name must be no more than ${fieldConstraints.name.maxLength} characters`
     ),
+  // Include id field for update validation
+  id: commonValidation.uuid.optional(),
 })
 
 export const updateLocationSchema = baseUpdateLocationSchema.refine(
   (data) => {
     // Prevent setting parent_id to self (when updating)
-    if (data.parent_id && data.parent_id === (data as any).id) {
+    if (data.parent_id && data.id && data.parent_id === data.id) {
       return false
     }
     return true
@@ -121,7 +123,7 @@ export const updateLocationFormSchema = baseUpdateLocationSchema
   .refine(
     (data) => {
       // Prevent setting parent_id to self (when updating)
-      if (data.parent_id && data.parent_id === (data as any).id) {
+      if (data.parent_id && data.id && data.parent_id === data.id) {
         return false
       }
       return true

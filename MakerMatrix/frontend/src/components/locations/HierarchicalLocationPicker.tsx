@@ -31,20 +31,6 @@ export function HierarchicalLocationPicker({
   const [slotSelectorOpen, setSlotSelectorOpen] = useState(false)
   const [containerForSlotSelection, setContainerForSlotSelection] = useState<Location | null>(null)
 
-  useEffect(() => {
-    loadLocations()
-  }, [])
-
-  useEffect(() => {
-    // When value changes externally, load the selected location/slot details
-    if (value && locations.length > 0) {
-      loadSelectedLocationDetails(value)
-    } else if (!value) {
-      setSelectedLocation(null)
-      setSelectedSlot(null)
-    }
-  }, [value, locations, loadSelectedLocationDetails])
-
   const loadLocations = async () => {
     setLoading(true)
     try {
@@ -87,6 +73,20 @@ export function HierarchicalLocationPicker({
     [locations]
   )
 
+  useEffect(() => {
+    loadLocations()
+  }, [])
+
+  useEffect(() => {
+    // When value changes externally, load the selected location/slot details
+    if (value && locations.length > 0) {
+      loadSelectedLocationDetails(value)
+    } else if (!value) {
+      setSelectedLocation(null)
+      setSelectedSlot(null)
+    }
+  }, [value, locations, loadSelectedLocationDetails])
+
   const handleLocationSelect = (locationId: string) => {
     const location = locations.find((loc) => loc.id === locationId)
     if (!location) return
@@ -127,17 +127,6 @@ export function HierarchicalLocationPicker({
 
   // Get current display value for CustomSelect
   const currentValue = selectedSlot?.id || selectedLocation?.id || ''
-
-  // Display label showing selected location/slot
-  const displayLabel = (() => {
-    if (selectedSlot && selectedLocation) {
-      return `${selectedLocation.name} → ${selectedSlot.name}`
-    }
-    if (selectedLocation) {
-      return selectedLocation.name
-    }
-    return ''
-  })()
 
   return (
     <div className={className}>

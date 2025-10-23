@@ -3,12 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, TestTube } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
-import type {
-  Printer,
-  PrinterDriver,
-  DiscoveryStatus,
-  PrinterTestResult,
-} from '@/types/settings'
+import type { Printer, PrinterDriver, DiscoveryStatus, PrinterTestResult } from '@/types/settings'
 import toast from 'react-hot-toast'
 
 interface CustomFieldConfig {
@@ -98,7 +93,8 @@ const DynamicPrinterModal = ({
               : prev.scaling_factor,
           model:
             mode === 'add' || !prev.model ? extendedInfo.supported_models?.[0] || '' : prev.model,
-          backend: mode === 'add' || !prev.backend ? extendedInfo.backends?.[0] || '' : prev.backend,
+          backend:
+            mode === 'add' || !prev.backend ? extendedInfo.backends?.[0] || '' : prev.backend,
           // Initialize custom fields with defaults only for new fields or add mode
           custom_fields: {
             ...prev.custom_fields,
@@ -190,7 +186,7 @@ const DynamicPrinterModal = ({
 
     // Update identifier placeholder based on backend
     if (selectedDriverInfo?.backend_options?.[backend]) {
-      const backendInfo = selectedDriverInfo.backend_options[backend]
+      const _backendInfo = selectedDriverInfo.backend_options[backend]
       // You could also auto-update the identifier format hint here
     }
   }

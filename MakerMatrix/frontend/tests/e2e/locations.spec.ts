@@ -55,11 +55,6 @@ test.describe('Locations Management', () => {
     await page.goto('/locations')
     await page.waitForLoadState('networkidle')
 
-    // Look for hierarchical structure indicators (expand/collapse buttons, tree)
-    const hierarchyIndicators = page.locator(
-      'button[aria-label*="expand"], button[aria-label*="collapse"], .tree-node, [data-testid*="tree"]'
-    )
-
     // Locations page should show some structure
     await expect(page.locator('body')).toContainText(/location/i)
   })

@@ -22,7 +22,7 @@ export function prepareDigiKeyConfig(
   const config = { ...baseConfig }
 
   // Build custom_parameters from DigiKey-specific fields
-  const customParams: Record<string, any> = {}
+  const customParams: Record<string, unknown> = {}
 
   if (digikeyData.sandbox_mode !== undefined) {
     customParams.sandbox_mode = digikeyData.sandbox_mode

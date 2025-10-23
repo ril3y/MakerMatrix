@@ -13,7 +13,7 @@ import type { ApiResponse } from './api'
 import { apiClient } from './api'
 
 // Backend API request/response types
-interface BackendLocationRequest {
+interface _BackendLocationRequest {
   name: string
   description: string
   parent_id: string | null
@@ -78,9 +78,7 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   }
 
   // Map frontend update request to backend format
-  protected mapUpdateRequestToBackend(
-    data: UpdateLocationRequest
-  ): Record<string, unknown> {
+  protected mapUpdateRequestToBackend(data: UpdateLocationRequest): Record<string, unknown> {
     return {
       name: data.name,
       description: data.description ?? '',
@@ -128,7 +126,9 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
         '/api/locations/get_all_locations'
       )
       if (response.status === 'success' && response.data) {
-        return response.data.map((location) => this.mapResponseToEntity(location as unknown as Record<string, unknown>))
+        return response.data.map((location) =>
+          this.mapResponseToEntity(location as unknown as Record<string, unknown>)
+        )
       }
       return []
     } catch (error) {

@@ -75,7 +75,8 @@ describe('TagBadge', () => {
     const onClick = vi.fn()
     render(<TagBadge tag={mockTag} onClick={onClick} />)
     const badge = screen.getByText('#testing').closest('span')
-    fireEvent.click(badge!)
+    expect(badge).toBeTruthy()
+    fireEvent.click(badge as HTMLElement)
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 

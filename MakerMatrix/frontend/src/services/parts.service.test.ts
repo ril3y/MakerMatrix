@@ -167,6 +167,7 @@ describe('PartsService', () => {
       const createRequest = {
         name: 'New Part',
         part_number: 'NP001',
+        quantity: 0,
       }
 
       vi.mocked(apiClient.post).mockResolvedValue({})

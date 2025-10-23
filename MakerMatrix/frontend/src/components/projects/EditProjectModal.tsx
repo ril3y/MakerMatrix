@@ -189,7 +189,12 @@ const EditProjectModal = ({
               <select
                 className="input w-full"
                 value={formData.status || 'planning'}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    status: e.target.value as 'planning' | 'active' | 'completed' | 'archived',
+                  })
+                }
               >
                 <option value="planning">📋 Planning</option>
                 <option value="active">🚀 Active</option>

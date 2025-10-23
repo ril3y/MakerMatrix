@@ -1108,7 +1108,9 @@ const PartsPage = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  copyToClipboard(part.part_number!, part.id, 'part_number')
+                                  if (part.part_number) {
+                                    copyToClipboard(part.part_number, part.id, 'part_number')
+                                  }
                                 }}
                                 className="text-muted hover:text-primary transition-colors flex-shrink-0"
                                 title="Copy part number"

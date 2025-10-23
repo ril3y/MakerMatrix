@@ -8,8 +8,15 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, CheckCircle, HelpCircle, ExternalLink, Info } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
-import type { FieldDefinition, SupplierInfo, CredentialValue } from '../../services/dynamic-supplier.service'
-import { SupplierTestResult } from '../../components/suppliers/SupplierTestResult'
+import type {
+  FieldDefinition,
+  SupplierInfo,
+  CredentialValue,
+} from '../../services/dynamic-supplier.service'
+import {
+  SupplierTestResult,
+  type SupplierTestResultData,
+} from '../../components/suppliers/SupplierTestResult'
 
 interface DynamicSupplierConfigFormProps {
   supplierName: string
@@ -18,7 +25,7 @@ interface DynamicSupplierConfigFormProps {
   errors: string[]
   onTest?: () => void
   isTestLoading?: boolean
-  testResult?: { success: boolean; message: string; details?: any } | null
+  testResult?: SupplierTestResultData | null
 }
 
 export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps> = ({

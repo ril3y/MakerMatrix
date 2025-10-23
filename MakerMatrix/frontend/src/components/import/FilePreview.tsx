@@ -93,12 +93,21 @@ const FilePreview: React.FC<FilePreviewProps> = ({ showPreview, previewData }) =
                         key={index}
                         className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
                       >
-                        <td className="px-4 py-3 text-primary">{(part.name as string | number | null | undefined) || '-'}</td>
-                        <td className="px-4 py-3 text-primary">{(part.part_number as string | number | null | undefined) || '-'}</td>
-                        <td className="px-4 py-3 text-primary">{(part.quantity as string | number | null | undefined) || '-'}</td>
-                        <td className="px-4 py-3 text-primary">{(part.supplier as string | number | null | undefined) || '-'}</td>
+                        <td className="px-4 py-3 text-primary">
+                          {(part.name as string | number | null | undefined) || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-primary">
+                          {(part.part_number as string | number | null | undefined) || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-primary">
+                          {(part.quantity as string | number | null | undefined) || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-primary">
+                          {(part.supplier as string | number | null | undefined) || '-'}
+                        </td>
                         <td className="px-4 py-3 text-primary truncate max-w-48">
-                          {((part.additional_properties as Record<string, unknown> | undefined)?.description as string | number | null | undefined) || '-'}
+                          {((part.additional_properties as Record<string, unknown> | undefined)
+                            ?.description as string | number | null | undefined) || '-'}
                         </td>
                       </tr>
                     ))}

@@ -12,7 +12,9 @@ vi.mock('@/store/authStore')
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    ),
   },
 }))
 
@@ -20,27 +22,37 @@ describe('ToolsPage', () => {
   const mockTools = [
     {
       id: '1',
-      name: 'Drill',
+      tool_name: 'Drill',
       tool_number: 'T001',
       description: 'Cordless drill',
       manufacturer: 'DeWalt',
-      model: 'DCD791D2',
+      model_number: 'DCD791D2',
       condition: 'good' as const,
-      status: 'available' as const,
+      is_checked_out: false,
+      is_checkable: true,
+      is_calibrated_tool: false,
+      is_consumable: false,
+      exclude_from_analytics: false,
+      quantity: 1,
       created_at: '2024-01-01',
       updated_at: '2024-01-01',
     },
     {
       id: '2',
-      name: 'Saw',
+      tool_name: 'Saw',
       tool_number: 'T002',
       description: 'Circular saw',
       manufacturer: 'Makita',
-      model: 'HS7601J',
+      model_number: 'HS7601J',
       condition: 'fair' as const,
-      status: 'checked_out' as const,
+      is_checked_out: true,
       checked_out_by: 'john.doe',
-      checkout_date: '2024-01-15',
+      checked_out_at: '2024-01-15',
+      is_checkable: true,
+      is_calibrated_tool: false,
+      is_consumable: false,
+      exclude_from_analytics: false,
+      quantity: 1,
       created_at: '2024-01-01',
       updated_at: '2024-01-01',
     },
@@ -52,7 +64,17 @@ describe('ToolsPage', () => {
     vi.mocked(useAuthStore).mockReturnValue({
       user: { id: '1', username: 'testuser', roles: [] },
       isAuthenticated: true,
-    } as any)
+      isLoading: false,
+      error: null,
+      login: vi.fn(),
+      guestLogin: vi.fn(),
+      logout: vi.fn(),
+      checkAuth: vi.fn(),
+      updatePassword: vi.fn(),
+      clearError: vi.fn(),
+      hasRole: vi.fn(),
+      hasPermission: vi.fn(),
+    })
 
     // Mock search tools response
     vi.mocked(toolsService.searchTools).mockResolvedValue({
@@ -60,6 +82,7 @@ describe('ToolsPage', () => {
       total: mockTools.length,
       page: 1,
       page_size: 20,
+      total_pages: 1,
     })
 
     vi.mocked(toolsService.getToolSuggestions).mockResolvedValue([])
@@ -252,6 +275,7 @@ describe('ToolsPage', () => {
       total: 0,
       page: 1,
       page_size: 20,
+      total_pages: 0,
     })
 
     render(

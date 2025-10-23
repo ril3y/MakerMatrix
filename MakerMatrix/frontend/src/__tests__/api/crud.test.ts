@@ -120,7 +120,7 @@ describe('CRUD Operations API Tests', () => {
         quantity: -10, // Negative quantity should fail
       }
 
-      await expect(partsService.createPart(invalidPart as any)).rejects.toThrow()
+      await expect(partsService.createPart(invalidPart as never)).rejects.toThrow()
     })
 
     it('should delete a part', async () => {
@@ -287,7 +287,9 @@ describe('CRUD Operations API Tests', () => {
   describe('API Response Validation', () => {
     it('should handle API response format correctly', async () => {
       // Test that all responses follow the expected format
-      const partResponse = await apiClient.get<ApiResponse<unknown>>('/api/parts/get_all_parts?page=1&page_size=1')
+      const partResponse = await apiClient.get<ApiResponse<unknown>>(
+        '/api/parts/get_all_parts?page=1&page_size=1'
+      )
 
       expect(partResponse).toHaveProperty('status')
       expect(partResponse).toHaveProperty('message')
@@ -312,9 +314,10 @@ describe('CRUD Operations API Tests', () => {
       try {
         await partsService.getPart('non-existent-id')
         expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.response?.status).toBe(404)
-        expect(error.response?.data).toHaveProperty('detail')
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number; data?: { detail?: string } } }
+        expect(axiosError.response?.status).toBe(404)
+        expect(axiosError.response?.data).toHaveProperty('detail')
       }
     })
   })

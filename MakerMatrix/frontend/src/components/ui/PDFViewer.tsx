@@ -256,7 +256,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
 
         {/* PDF Content */}
         <div className="flex-1 overflow-auto bg-gray-700 flex items-center justify-center p-4">
-          {console.log('PDFViewer render state:', { loading, error: !!error, pdfData: !!pdfData })}
           {loading && (
             <div className="text-center text-gray-300">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
@@ -280,11 +279,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
 
           {!loading && !error && pdfData && (
             <div className="pdf-container">
-              {console.log(
-                'PDFViewer: Rendering Document component with data:',
-                typeof pdfData,
-                pdfData instanceof ArrayBuffer ? `ArrayBuffer(${pdfData.byteLength})` : 'string'
-              )}
               <Document
                 file={pdfData}
                 onLoadSuccess={onDocumentLoadSuccess}

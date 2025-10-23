@@ -36,7 +36,7 @@ const LoginPage = () => {
       await login(data as LoginRequest)
       // Force a page reload to ensure proper state initialization
       window.location.href = '/dashboard'
-    } catch (error) {
+    } catch (_error) {
       setIsLoading(false)
       // Error is handled in the store
     }
@@ -50,7 +50,7 @@ const LoginPage = () => {
       await guestLogin()
       // Force a page reload to ensure proper state initialization
       window.location.href = '/dashboard'
-    } catch (error) {
+    } catch (_error) {
       setIsGuestLoading(false)
       // Error is handled in the store
     }

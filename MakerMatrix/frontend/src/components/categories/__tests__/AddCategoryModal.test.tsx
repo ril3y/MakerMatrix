@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { toast } from 'react-hot-toast'
 import AddCategoryModal from '../AddCategoryModal'
 import { categoriesService } from '@/services/categories.service'
-import type { Category } from '@/types/parts'
+import type { Category } from '@/types/categories'
 
 // Mock dependencies
 vi.mock('react-hot-toast')

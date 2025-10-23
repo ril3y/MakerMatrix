@@ -9,8 +9,8 @@ import { partsService } from '@/services/parts.service'
 vi.mock('@/services/tasks.service')
 vi.mock('@/services/parts.service')
 
-const mockTasksService = tasksService as any
-const mockPartsService = partsService as any
+const mockTasksService = vi.mocked(tasksService)
+const mockPartsService = vi.mocked(partsService)
 
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({
@@ -28,12 +28,15 @@ const mockTasks = [
     task_type: 'part_enrichment',
     name: 'Part Enrichment',
     description: 'Enriching part data',
-    status: 'running',
-    priority: 'normal',
+    status: 'running' as const,
+    priority: 'normal' as const,
     progress_percentage: 50,
     current_step: 'Fetching specifications',
     created_at: new Date().toISOString(),
     started_at: new Date().toISOString(),
+    max_retries: 3,
+    retry_count: 0,
+    depends_on_task_ids: [],
   },
 ]
 
@@ -58,6 +61,12 @@ const mockTaskStats = {
     csv_enrichment: 8,
     price_update: 7,
   },
+  by_priority: {
+    low: 8,
+    normal: 12,
+    high: 4,
+    urgent: 1,
+  },
   running_tasks: 1,
   failed_tasks: 3,
   completed_today: 12,
@@ -72,12 +81,27 @@ describe('TasksManagement - Basic Tests', () => {
     vi.clearAllMocks()
 
     // Default mock responses
-    mockTasksService.getTasks.mockResolvedValue({ data: mockTasks })
-    mockTasksService.getWorkerStatus.mockResolvedValue({ data: mockWorkerStatus })
-    mockTasksService.getTaskStats.mockResolvedValue({ data: mockTaskStats })
+    mockTasksService.getTasks.mockResolvedValue({ status: 'success', data: mockTasks, total: 1 })
+    mockTasksService.getWorkerStatus.mockResolvedValue({
+      status: 'success',
+      data: mockWorkerStatus,
+    })
+    mockTasksService.getTaskStats.mockResolvedValue({ status: 'success', data: mockTaskStats })
     mockPartsService.getAll.mockResolvedValue([
-      { id: 'part1', name: 'Arduino Uno' },
-      { id: 'part2', name: 'Resistor 10K' },
+      {
+        id: 'part1',
+        name: 'Arduino Uno',
+        quantity: 10,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'part2',
+        name: 'Resistor 10K',
+        quantity: 100,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
     ])
   })
 

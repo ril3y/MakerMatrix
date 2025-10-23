@@ -26,8 +26,10 @@ describe('AddProjectModal - Core Functionality', () => {
   const mockCreatedProject: Project = {
     id: 'proj-123',
     name: 'test-project',
+    slug: 'test-project',
     description: 'Test project description',
     status: 'planning',
+    parts_count: 0,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   }

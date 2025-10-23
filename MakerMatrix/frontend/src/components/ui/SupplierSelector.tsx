@@ -100,7 +100,7 @@ export const SupplierSelector = ({
       }
 
       return domain
-    } catch (err) {
+    } catch (_err) {
       return null
     }
   }

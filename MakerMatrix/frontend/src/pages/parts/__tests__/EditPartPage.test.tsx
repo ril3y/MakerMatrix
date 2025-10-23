@@ -7,7 +7,8 @@ import EditPartPage from '../EditPartPage'
 import { partsService } from '@/services/parts.service'
 import { locationsService } from '@/services/locations.service'
 import { categoriesService } from '@/services/categories.service'
-import type { Part, Location, Category } from '@/types/parts'
+import type { Part, Location } from '@/types/parts'
+import type { Category } from '@/types/categories'
 
 // Mock dependencies
 vi.mock('react-hot-toast')

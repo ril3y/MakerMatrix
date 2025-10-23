@@ -28,7 +28,7 @@ export interface Tool {
   image_url?: string
   emoji?: string
 
-  additional_properties?: Record<string, any>
+  additional_properties?: Record<string, unknown>
 
   condition: ToolCondition
   last_maintenance_date?: string
@@ -85,7 +85,7 @@ export interface CreateToolRequest {
   product_url?: string
   image_url?: string
   emoji?: string
-  additional_properties?: Record<string, any>
+  additional_properties?: Record<string, unknown>
   condition?: ToolCondition
   is_checkable?: boolean
   is_calibrated_tool?: boolean

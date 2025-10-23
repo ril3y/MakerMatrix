@@ -251,7 +251,8 @@ describe('PDFViewer with Proxy Integration', () => {
       )
 
       const closeButton = screen.getByTestId('close').parentElement
-      fireEvent.click(closeButton!)
+      expect(closeButton).toBeTruthy()
+      fireEvent.click(closeButton as HTMLElement)
 
       expect(mockOnClose).toHaveBeenCalled()
     })
@@ -288,7 +289,8 @@ describe('PDFViewer with Proxy Integration', () => {
       render(<PDFViewer fileUrl={proxyUrl} fileName="Test Datasheet.pdf" onClose={mockOnClose} />)
 
       const downloadButton = screen.getByTestId('download').parentElement
-      fireEvent.click(downloadButton!)
+      expect(downloadButton).toBeTruthy()
+      fireEvent.click(downloadButton as HTMLElement)
 
       expect(mockCreateElement).toHaveBeenCalledWith('a')
       expect(mockLink.href).toBe(proxyUrl)

@@ -33,7 +33,6 @@ export class TestServerManager {
     try {
       // Use venv_test Python if available
       const pythonPath = join(this.projectRoot, 'venv_test', 'bin', 'python')
-      const devManagerPath = join(this.projectRoot, 'dev_manager.py')
 
       // Check if we can use the dev manager directly
       const { stdout } = await execAsync(`${pythonPath} -c "import sys; print(sys.executable)"`)
@@ -208,7 +207,7 @@ export class TestServerManager {
         if (response.status < 500) {
           return // Server is responding
         }
-      } catch (error) {
+      } catch (_error) {
         // Server not ready yet, continue waiting
       }
 
@@ -295,7 +294,7 @@ export class TestServerManager {
           headers,
           body: JSON.stringify(category),
         })
-      } catch (error) {
+      } catch (_error) {
         console.log(`Category ${category.name} may already exist`)
       }
     }
@@ -314,7 +313,7 @@ export class TestServerManager {
           headers,
           body: JSON.stringify(location),
         })
-      } catch (error) {
+      } catch (_error) {
         console.log(`Location ${location.name} may already exist`)
       }
     }
@@ -344,7 +343,7 @@ export class TestServerManager {
           headers,
           body: JSON.stringify(part),
         })
-      } catch (error) {
+      } catch (_error) {
         console.log(`Part ${part.part_name} may already exist`)
       }
     }

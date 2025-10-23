@@ -10,6 +10,7 @@ interface APIKey {
   name: string
   description: string | null
   key_prefix: string
+  user_id: string
   permissions: string[]
   role_names: string[]
   is_active: boolean
@@ -103,8 +104,8 @@ const ApiKeyManagement = () => {
       const result = await apiKeyService.createApiKey(newKeyData)
       console.log('Create API key result:', result)
 
-      // Handle different response formats
-      const apiKey = result?.api_key || result?.data?.api_key
+      // Extract the API key from the response
+      const apiKey = result.api_key
 
       if (!apiKey) {
         console.error('No API key in response:', result)
@@ -140,7 +141,7 @@ const ApiKeyManagement = () => {
       await apiKeyService.revokeApiKey(keyId)
       await loadApiKeys()
       toast.success('API key revoked successfully')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to revoke API key')
     }
   }
@@ -157,7 +158,7 @@ const ApiKeyManagement = () => {
       await apiKeyService.deleteApiKey(keyId)
       await loadApiKeys()
       toast.success('API key deleted successfully')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to delete API key')
     }
   }

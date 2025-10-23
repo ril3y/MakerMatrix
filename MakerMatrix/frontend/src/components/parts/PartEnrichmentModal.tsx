@@ -116,7 +116,7 @@ const PartEnrichmentModal = ({
   const [availableCapabilities, setAvailableCapabilities] = useState<string[]>([])
   const [enrichmentResults, setEnrichmentResults] = useState<EnrichmentResult[]>([])
   const [isEnriching, setIsEnriching] = useState(false)
-  const [currentTask, setCurrentTask] = useState<Task | null>(null)
+  const [_currentTask, setCurrentTask] = useState<Task | null>(null)
   const [taskProgress, setTaskProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState('')
   const [supplierCapabilities, setSupplierCapabilities] = useState<Record<string, string[]>>({})
@@ -140,7 +140,10 @@ const PartEnrichmentModal = ({
     })
 
     // First check enrichment_source
-    if (additionalProps.enrichment_source && typeof additionalProps.enrichment_source === 'string') {
+    if (
+      additionalProps.enrichment_source &&
+      typeof additionalProps.enrichment_source === 'string'
+    ) {
       console.log('Using enrichment_source:', additionalProps.enrichment_source)
       return additionalProps.enrichment_source.toLowerCase()
     }
@@ -282,7 +285,7 @@ const PartEnrichmentModal = ({
       setIsSavingFields(true)
 
       // Build update payload
-      const updateData: any = {}
+      const updateData: Record<string, string> = {}
       Object.entries(missingFieldValues).forEach(([fieldName, value]) => {
         if (value && value.trim()) {
           updateData[fieldName] = value.trim()
@@ -327,7 +330,9 @@ const PartEnrichmentModal = ({
       if (capabilitiesData && typeof capabilitiesData === 'object') {
         Object.entries(capabilitiesData as Record<string, unknown>).forEach(([key, value]) => {
           if (Array.isArray(value)) {
-            validCapabilities[key] = value.filter((item): item is string => typeof item === 'string')
+            validCapabilities[key] = value.filter(
+              (item): item is string => typeof item === 'string'
+            )
           }
         })
       }
@@ -405,7 +410,9 @@ const PartEnrichmentModal = ({
     const results = (enrichmentSummary?.results as Record<string, unknown>) || {}
 
     const enrichmentResults: EnrichmentResult[] = selectedCapabilities.map((capability) => {
-      const result = results[capability] as { success?: boolean; data?: unknown; error?: string } | undefined
+      const result = results[capability] as
+        | { success?: boolean; data?: unknown; error?: string }
+        | undefined
       const definition = capabilityDefinitions[capability as keyof typeof capabilityDefinitions]
 
       return {

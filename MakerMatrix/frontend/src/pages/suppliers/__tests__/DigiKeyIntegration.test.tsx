@@ -118,10 +118,13 @@ describe('DigiKey Frontend Integration', () => {
 
       vi.mocked(supplierService.testConnection).mockResolvedValue(mockTestResult)
       vi.mocked(supplierService.getCredentialStatus).mockResolvedValue({
-        has_credentials: true,
-        credential_count: 2,
-        required_credentials: ['client_id', 'client_secret'],
+        supplier_name: 'digikey',
+        is_configured: true,
+        credential_fields: {},
         missing_credentials: [],
+        total_fields: 2,
+        configured_fields: ['client_id', 'client_secret'],
+        configured_fields_count: 2,
       })
 
       const onClose = vi.fn()
@@ -154,6 +157,7 @@ describe('DigiKey Frontend Integration', () => {
       const mockTestResult = {
         supplier_name: 'digikey',
         success: false,
+        message: 'Connection test failed',
         test_duration_seconds: 0.5,
         tested_at: new Date().toISOString(),
         error_message: 'DigiKey not configured - missing client_id and client_secret',
@@ -161,10 +165,13 @@ describe('DigiKey Frontend Integration', () => {
 
       vi.mocked(supplierService.testConnection).mockResolvedValue(mockTestResult)
       vi.mocked(supplierService.getCredentialStatus).mockResolvedValue({
-        has_credentials: false,
-        credential_count: 0,
-        required_credentials: ['client_id', 'client_secret'],
+        supplier_name: 'digikey',
+        is_configured: false,
+        credential_fields: {},
         missing_credentials: ['client_id', 'client_secret'],
+        total_fields: 2,
+        configured_fields: [],
+        configured_fields_count: 0,
       })
 
       const onClose = vi.fn()
@@ -325,6 +332,7 @@ describe('DigiKey Frontend Integration', () => {
       const mockTestResult = {
         supplier_name: 'digikey',
         success: false,
+        message: 'Library not available',
         test_duration_seconds: 0,
         tested_at: new Date().toISOString(),
         error_message: 'DigiKey API library not available. Install with: pip install digikey-api',

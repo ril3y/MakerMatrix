@@ -4,7 +4,7 @@ import CrudModal from '@/components/ui/CrudModal'
 import FormField from '@/components/ui/FormField'
 import { useModalForm } from '@/hooks/useModalForm'
 import { categoriesService } from '@/services/categories.service'
-import type { CreateCategoryRequest } from '@/types/parts'
+import type { CreateCategoryRequest } from '@/types/categories'
 
 interface AddCategoryModalProps {
   isOpen: boolean
@@ -30,21 +30,24 @@ const AddCategoryModal = ({
   const validate = (data: CreateCategoryRequest): Record<string, string> => {
     const errors: Record<string, string> = {}
 
-    if (!data.name.trim()) {
+    // Type guard to ensure name is a string
+    const name = typeof data.name === 'string' ? data.name : ''
+
+    if (!name.trim()) {
       errors.name = 'Category name is required'
-    } else if (data.name.trim().length < 2) {
+    } else if (name.trim().length < 2) {
       errors.name = 'Category name must be at least 2 characters'
-    } else if (data.name.trim().length > 50) {
+    } else if (name.trim().length > 50) {
       errors.name = 'Category name must be less than 50 characters'
     }
 
     // Check for duplicate names
-    if (existingCategories.some((cat) => cat.toLowerCase() === data.name.toLowerCase().trim())) {
+    if (existingCategories.some((cat) => cat.toLowerCase() === name.toLowerCase().trim())) {
       errors.name = 'A category with this name already exists'
     }
 
     // Basic validation for category name format
-    if (data.name.trim() && !/^[a-zA-Z0-9\s\-_&()]+$/.test(data.name.trim())) {
+    if (name.trim() && !/^[a-zA-Z0-9\s\-_&()]+$/.test(name.trim())) {
       errors.name = 'Category name contains invalid characters'
     }
 
@@ -52,9 +55,14 @@ const AddCategoryModal = ({
   }
 
   const handleSubmit = async (data: CreateCategoryRequest) => {
+    // Type guards to ensure proper types
+    const name = typeof data.name === 'string' ? data.name.trim() : ''
+    const description =
+      typeof data.description === 'string' ? data.description.trim() || undefined : undefined
+
     const submitData: CreateCategoryRequest = {
-      name: data.name.trim(),
-      description: data.description?.trim() || undefined,
+      name,
+      description,
     }
 
     await categoriesService.createCategory(submitData)
@@ -116,7 +124,7 @@ const AddCategoryModal = ({
         <input
           type="text"
           className="input w-full"
-          value={formData.name}
+          value={typeof formData.name === 'string' ? formData.name : ''}
           onChange={(e) => updateField('name', e.target.value)}
           placeholder="Enter category name"
           maxLength={50}
@@ -126,9 +134,9 @@ const AddCategoryModal = ({
       {/* Character count */}
       <div className="text-right">
         <span
-          className={`text-xs ${formData.name.length > 40 ? 'text-warning' : 'text-theme-secondary'}`}
+          className={`text-xs ${typeof formData.name === 'string' && formData.name.length > 40 ? 'text-warning' : 'text-theme-secondary'}`}
         >
-          {formData.name.length}/50 characters
+          {typeof formData.name === 'string' ? formData.name.length : 0}/50 characters
         </span>
       </div>
 
@@ -139,7 +147,7 @@ const AddCategoryModal = ({
       >
         <textarea
           className="input w-full min-h-[80px] resize-y"
-          value={formData.description || ''}
+          value={typeof formData.description === 'string' ? formData.description : ''}
           onChange={(e) => updateField('description', e.target.value)}
           placeholder="Enter category description (optional)"
           rows={3}
@@ -169,7 +177,7 @@ const AddCategoryModal = ({
       )}
 
       {/* Preview */}
-      {formData.name.trim() && (
+      {typeof formData.name === 'string' && formData.name.trim() && (
         <div className="p-3 bg-theme-secondary rounded-md border border-theme-primary">
           <p className="text-sm text-theme-muted mb-1">Preview:</p>
           <div className="flex items-center gap-2">

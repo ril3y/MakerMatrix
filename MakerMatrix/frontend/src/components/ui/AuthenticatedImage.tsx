@@ -34,7 +34,7 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
         const { apiClient } = await import('@/services/api')
 
         // Use apiClient.get with blob response type
-        const blob = await apiClient.get(src, {
+        const blob = await apiClient.get<Blob>(src, {
           responseType: 'blob',
         })
         objectUrl = URL.createObjectURL(blob)

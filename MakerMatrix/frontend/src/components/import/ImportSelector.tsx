@@ -132,7 +132,9 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       // First check if there are any configured suppliers
       let configuredSuppliers: ConfiguredSupplier[] = []
       try {
-        const configResponse = (await apiClient.get('/api/suppliers/config/suppliers')) as { data?: { data?: ConfiguredSupplier[] } }
+        const configResponse = (await apiClient.get('/api/suppliers/config/suppliers')) as {
+          data?: { data?: ConfiguredSupplier[] }
+        }
         const configData = configResponse.data as { data?: ConfiguredSupplier[] } | undefined
         configuredSuppliers = (configData?.data || []) as ConfiguredSupplier[]
         console.log('Configured suppliers from DB:', configuredSuppliers)
@@ -144,12 +146,19 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       }
 
       // Get import capabilities
-      const response = (await apiClient.get('/api/import/suppliers')) as { data?: { data?: ImportSupplier[] } | ImportSupplier[] }
+      const response = (await apiClient.get('/api/import/suppliers')) as {
+        data?: { data?: ImportSupplier[] } | ImportSupplier[]
+      }
       console.log('Import suppliers response:', response)
 
-      const responseData = response.data as { data?: ImportSupplier[] } | ImportSupplier[] | undefined
+      const responseData = response.data as
+        | { data?: ImportSupplier[] }
+        | ImportSupplier[]
+        | undefined
       if ((responseData && 'data' in responseData) || responseData) {
-        const importSuppliers = (responseData && 'data' in responseData ? (responseData.data || []) : (responseData || [])) as ImportSupplier[]
+        const importSuppliers = (
+          responseData && 'data' in responseData ? responseData.data || [] : responseData || []
+        ) as ImportSupplier[]
         console.log('Available import suppliers:', importSuppliers)
 
         let availableSuppliers: ImportSupplier[] = []

@@ -715,7 +715,8 @@ const PrinterModal = ({
                     value={selectedLabelSize}
                     onChange={setSelectedLabelSize}
                     options={
-                      (printerInfo as { supported_sizes?: LabelSize[] })?.supported_sizes?.length > 0
+                      (printerInfo as { supported_sizes?: LabelSize[] })?.supported_sizes?.length >
+                      0
                         ? (printerInfo as { supported_sizes?: LabelSize[] }).supported_sizes.map(
                             (size: LabelSize) => ({
                               value: size.name,

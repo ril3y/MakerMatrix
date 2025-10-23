@@ -282,7 +282,9 @@ const TransferQuantityModal = ({
                 <div className="flex justify-between">
                   <span className="text-theme-muted">Remaining at source:</span>
                   <span className="font-semibold text-theme-primary">
-                    {(maxQuantity - ((form.watch('quantity') as unknown as number) || 0)).toLocaleString()}
+                    {(
+                      maxQuantity - ((form.watch('quantity') as unknown as number) || 0)
+                    ).toLocaleString()}
                   </span>
                 </div>
               </div>

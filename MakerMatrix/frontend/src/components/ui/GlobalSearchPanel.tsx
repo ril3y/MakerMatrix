@@ -23,7 +23,7 @@ const GlobalSearchPanel = ({
   isOpen,
   onClose,
   initialSearchTerm = '',
-  onSearchChange,
+  onSearchChange: _onSearchChange,
 }: GlobalSearchPanelProps) => {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm)
