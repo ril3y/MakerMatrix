@@ -501,7 +501,9 @@ class ToolMaintenanceRecord(SQLModel, table=True):
 
 
 # Forward reference updates (resolved when all model files are imported)
-if False:  # Type checking only - prevents circular imports at runtime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from .location_models import LocationModel
     from .category_models import CategoryModel
     from .tag_models import TagModel, ToolTagLink

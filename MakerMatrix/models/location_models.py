@@ -306,7 +306,9 @@ class LocationUpdate(SQLModel):
 
 
 # Forward reference updates (resolved when all model files are imported)
-if False:  # Type checking only - prevents circular imports at runtime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from .part_models import PartModel
     from .part_allocation_models import PartLocationAllocation
     from .tool_models import ToolLocationAllocation

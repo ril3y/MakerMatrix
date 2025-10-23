@@ -124,5 +124,7 @@ class PasswordUpdate(SQLModel):
 
 
 # Forward reference for APIKeyModel
-if False:  # Type checking only
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from .api_key_models import APIKeyModel

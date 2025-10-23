@@ -723,7 +723,9 @@ class AdvancedPartSearch(SQLModel):
 
 # Forward reference updates (these will be resolved when all model files are imported)
 # These imports will be added to the main models __init__.py
-if False:  # Type checking only - prevents circular imports at runtime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from .location_models import LocationModel
     from .category_models import CategoryModel
     from .order_models import OrderItemModel

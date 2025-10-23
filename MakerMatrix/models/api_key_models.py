@@ -85,7 +85,7 @@ class APIKeyModel(SQLModel, table=True):
         self.last_used_at = datetime.utcnow()
         self.usage_count += 1
 
-    def to_dict(self, include_key: bool = False) -> dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for API responses"""
         data = {
             "id": self.id,
@@ -158,5 +158,7 @@ class APIKeyCreateResponse(APIKeyResponse):
 
 
 # Forward reference for UserModel
-if False:  # Type checking only
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from .user_models import UserModel
