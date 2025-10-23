@@ -217,73 +217,80 @@ const PartDetailsPage = () => {
     }
   }, [])
 
-  const loadPart = useCallback(async (partId: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await partsService.getPart(partId)
-      setPart(response)
+  const loadPart = useCallback(
+    async (partId: string) => {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await partsService.getPart(partId)
+        setPart(response)
 
-      // Load supplier config if part has a supplier
-      if (response.supplier) {
-        try {
-          // Get available suppliers from registry
-          const availableSuppliersData = await dynamicSupplierService.getAvailableSuppliers()
-          setAvailableSuppliers(availableSuppliersData.map((s) => s.toLowerCase()))
+        // Load supplier config if part has a supplier
+        if (response.supplier) {
+          try {
+            // Get available suppliers from registry
+            const availableSuppliersData = await dynamicSupplierService.getAvailableSuppliers()
+            setAvailableSuppliers(availableSuppliersData.map((s) => s.toLowerCase()))
 
-          // Get configured suppliers
-          const suppliers = await supplierService.getSuppliers()
-          const config = suppliers.find(
-            (s) =>
-              s.supplier_name.toLowerCase() === response.supplier?.toLowerCase() ||
-              s.display_name.toLowerCase() === response.supplier?.toLowerCase()
-          )
-          setSupplierConfig(config || null)
+            // Get configured suppliers
+            const suppliers = await supplierService.getSuppliers()
+            const config = suppliers.find(
+              (s) =>
+                s.supplier_name.toLowerCase() === response.supplier?.toLowerCase() ||
+                s.display_name.toLowerCase() === response.supplier?.toLowerCase()
+            )
+            setSupplierConfig(config || null)
 
-          // Check if supplier supports scraping (for unconfigured suppliers)
-          const supplierLower = response.supplier.toLowerCase()
-          const isInRegistry = availableSuppliersData
-            .map((s) => s.toLowerCase())
-            .includes(supplierLower)
-          const isConfigured = config !== undefined && config !== null
+            // Check if supplier supports scraping (for unconfigured suppliers)
+            const supplierLower = response.supplier.toLowerCase()
+            const isInRegistry = availableSuppliersData
+              .map((s) => s.toLowerCase())
+              .includes(supplierLower)
+            const isConfigured = config !== undefined && config !== null
 
-          // If supplier is in registry but not configured, check scraping support
-          if (isInRegistry && !isConfigured) {
-            try {
-              const scrapingInfo = await dynamicSupplierService.checkScrapingSupport(supplierLower)
-              setSupplierSupportsScraping(scrapingInfo.supports_scraping)
-              console.log(`Supplier ${response.supplier} scraping support:`, scrapingInfo)
-            } catch (error) {
-              console.error('Failed to check scraping support:', error)
+            // If supplier is in registry but not configured, check scraping support
+            if (isInRegistry && !isConfigured) {
+              try {
+                const scrapingInfo =
+                  await dynamicSupplierService.checkScrapingSupport(supplierLower)
+                setSupplierSupportsScraping(scrapingInfo.supports_scraping)
+                console.log(`Supplier ${response.supplier} scraping support:`, scrapingInfo)
+              } catch (error) {
+                console.error('Failed to check scraping support:', error)
+                setSupplierSupportsScraping(false)
+              }
+            } else {
               setSupplierSupportsScraping(false)
             }
-          } else {
+          } catch (err) {
+            console.error('Failed to load supplier config:', err)
+            setSupplierConfig(null)
             setSupplierSupportsScraping(false)
           }
-        } catch (err) {
-          console.error('Failed to load supplier config:', err)
+        } else {
           setSupplierConfig(null)
           setSupplierSupportsScraping(false)
         }
-      } else {
-        setSupplierConfig(null)
-        setSupplierSupportsScraping(false)
-      }
 
-      // Load price history and allocations after part is loaded
-      // Price history disabled - analytics service removed
-      // loadPriceHistory(partId)
-      loadAllocations(partId)
-    } catch (err) {
-      const error = err as {
-        response?: { data?: { error?: string; message?: string; detail?: string }; status?: number }
-        message?: string
+        // Load price history and allocations after part is loaded
+        // Price history disabled - analytics service removed
+        // loadPriceHistory(partId)
+        loadAllocations(partId)
+      } catch (err) {
+        const error = err as {
+          response?: {
+            data?: { error?: string; message?: string; detail?: string }
+            status?: number
+          }
+          message?: string
+        }
+        setError(error.response?.data?.error || 'Failed to load part details')
+      } finally {
+        setLoading(false)
       }
-      setError(error.response?.data?.error || 'Failed to load part details')
-    } finally {
-      setLoading(false)
-    }
-  }, [loadAllocations])
+    },
+    [loadAllocations]
+  )
 
   useEffect(() => {
     if (id) {
@@ -1457,7 +1464,10 @@ const PartDetailsPage = () => {
                                           loadAllocations(id)
                                         }
                                       } catch (error) {
-                                        const errorMessage = error instanceof Error ? error.message : 'Failed to return to primary storage'
+                                        const errorMessage =
+                                          error instanceof Error
+                                            ? error.message
+                                            : 'Failed to return to primary storage'
                                         toast.error(errorMessage)
                                       }
                                     }}

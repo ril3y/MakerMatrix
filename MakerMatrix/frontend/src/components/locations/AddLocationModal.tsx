@@ -514,7 +514,10 @@ const AddLocationModal = ({
                           value="simple"
                           checked={slotLayoutType === 'simple'}
                           onChange={() => {
-                            form.setValue('slot_layout_type', 'simple' as 'simple' | 'grid' | 'custom')
+                            form.setValue(
+                              'slot_layout_type',
+                              'simple' as 'simple' | 'grid' | 'custom'
+                            )
                             form.setValue('slot_naming_pattern', 'Slot {n}')
                           }}
                           className="w-4 h-4 text-primary focus:ring-primary"
@@ -527,7 +530,10 @@ const AddLocationModal = ({
                           value="grid"
                           checked={slotLayoutType === 'grid'}
                           onChange={() => {
-                            form.setValue('slot_layout_type', 'grid' as 'simple' | 'grid' | 'custom')
+                            form.setValue(
+                              'slot_layout_type',
+                              'grid' as 'simple' | 'grid' | 'custom'
+                            )
                             form.setValue('slot_naming_pattern', 'R{row}-C{col}')
                           }}
                           className="w-4 h-4 text-primary focus:ring-primary"

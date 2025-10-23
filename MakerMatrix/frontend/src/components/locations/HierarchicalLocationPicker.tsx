@@ -58,31 +58,34 @@ export function HierarchicalLocationPicker({
     }
   }
 
-  const loadSelectedLocationDetails = useCallback(async (locationId: string) => {
-    // Check if it's a regular location or a slot
-    const regularLocation = locations.find((loc) => loc.id === locationId)
+  const loadSelectedLocationDetails = useCallback(
+    async (locationId: string) => {
+      // Check if it's a regular location or a slot
+      const regularLocation = locations.find((loc) => loc.id === locationId)
 
-    if (regularLocation) {
-      setSelectedLocation(regularLocation)
-      setSelectedSlot(null)
-    } else {
-      // It might be a slot - we need to load all slots to find it
-      try {
-        const allLocations = await locationsService.getAllLocations({ hide_auto_slots: false })
-        const slotLocation = allLocations.find((loc) => loc.id === locationId)
+      if (regularLocation) {
+        setSelectedLocation(regularLocation)
+        setSelectedSlot(null)
+      } else {
+        // It might be a slot - we need to load all slots to find it
+        try {
+          const allLocations = await locationsService.getAllLocations({ hide_auto_slots: false })
+          const slotLocation = allLocations.find((loc) => loc.id === locationId)
 
-        if (slotLocation && slotLocation.is_auto_generated_slot && slotLocation.parent_id) {
-          const container = locations.find((loc) => loc.id === slotLocation.parent_id)
-          if (container) {
-            setSelectedLocation(container)
-            setSelectedSlot(slotLocation as SlotWithOccupancy)
+          if (slotLocation && slotLocation.is_auto_generated_slot && slotLocation.parent_id) {
+            const container = locations.find((loc) => loc.id === slotLocation.parent_id)
+            if (container) {
+              setSelectedLocation(container)
+              setSelectedSlot(slotLocation as SlotWithOccupancy)
+            }
           }
+        } catch (err) {
+          console.error('Failed to load slot details:', err)
         }
-      } catch (err) {
-        console.error('Failed to load slot details:', err)
       }
-    }
-  }, [locations])
+    },
+    [locations]
+  )
 
   const handleLocationSelect = (locationId: string) => {
     const location = locations.find((loc) => loc.id === locationId)

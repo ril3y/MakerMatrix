@@ -36,7 +36,9 @@ export class ActivityService {
     if (params?.entity_type) queryParams.append('entity_type', params.entity_type)
     if (params?.hours) queryParams.append('hours', params.hours.toString())
 
-    const response = await apiClient.get<ActivityListResponse>(`/api/activity/recent?${queryParams.toString()}`)
+    const response = await apiClient.get<ActivityListResponse>(
+      `/api/activity/recent?${queryParams.toString()}`
+    )
 
     // Handle wrapped response format
     if (response.data && response.data.activities) {
@@ -60,7 +62,9 @@ export class ActivityService {
   }
 
   async cleanupOldActivities(keepDays: number = 90): Promise<{ deleted_count: number }> {
-    const response = await apiClient.post<{ deleted_count: number }>(`/api/activity/cleanup?keep_days=${keepDays}`)
+    const response = await apiClient.post<{ deleted_count: number }>(
+      `/api/activity/cleanup?keep_days=${keepDays}`
+    )
 
     // Handle wrapped response format
     if (response.data) {

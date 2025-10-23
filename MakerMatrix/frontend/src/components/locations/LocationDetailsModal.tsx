@@ -140,10 +140,12 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
               const items = response?.data?.items || response?.items || []
               console.log(`[LocationDetailsModal] Slot ${childSlot.name} has ${items.length} parts`)
               // Tag each part with its slot location
-              return items.map((part: Part): PartWithSlot => ({
-                ...part,
-                _slotLocation: childSlot, // Store slot info for display
-              }))
+              return items.map(
+                (part: Part): PartWithSlot => ({
+                  ...part,
+                  _slotLocation: childSlot, // Store slot info for display
+                })
+              )
             } catch (error) {
               console.error(`Failed to load parts for slot ${childSlot.name}:`, error)
               return []

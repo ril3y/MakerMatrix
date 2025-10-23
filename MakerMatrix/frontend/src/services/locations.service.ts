@@ -14,7 +14,10 @@ import type {
 
 export class LocationsService {
   async createLocation(data: CreateLocationRequest): Promise<Location> {
-    const response = await apiClient.post<ApiResponse<Location>>('/api/locations/add_location', data)
+    const response = await apiClient.post<ApiResponse<Location>>(
+      '/api/locations/add_location',
+      data
+    )
     // Backend returns ResponseSchema format: { status, message, data }
     if (response.status === 'success' && response.data) {
       return response.data
@@ -31,7 +34,9 @@ export class LocationsService {
     if (params.id) queryParams.append('location_id', params.id)
     if (params.name) queryParams.append('name', params.name)
 
-    const response = await apiClient.get<ApiResponse<Location>>(`/api/locations/get_location?${queryParams}`)
+    const response = await apiClient.get<ApiResponse<Location>>(
+      `/api/locations/get_location?${queryParams}`
+    )
     if (response.status === 'success' && response.data) {
       return response.data
     }
@@ -40,7 +45,10 @@ export class LocationsService {
 
   async updateLocation(data: UpdateLocationRequest): Promise<Location> {
     const { id, ...updateData } = data
-    const response = await apiClient.put<ApiResponse<Location>>(`/api/locations/update_location/${id}`, updateData)
+    const response = await apiClient.put<ApiResponse<Location>>(
+      `/api/locations/update_location/${id}`,
+      updateData
+    )
     if (response.status === 'success' && response.data) {
       return response.data
     }

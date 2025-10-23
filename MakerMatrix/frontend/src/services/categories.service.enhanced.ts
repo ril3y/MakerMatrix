@@ -26,7 +26,9 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   }
 
   // Map frontend update request to backend format
-  protected mapUpdateRequestToBackend(data: UpdateCategoryRequest): Partial<UpdateCategoryRequest> & { parent_id?: string | null } {
+  protected mapUpdateRequestToBackend(
+    data: UpdateCategoryRequest
+  ): Partial<UpdateCategoryRequest> & { parent_id?: string | null } {
     return {
       name: data.name,
       description: data.description || '',
@@ -35,7 +37,9 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   }
 
   // Map backend response to frontend entity
-  protected mapResponseToEntity(response: Category & { created_at?: string; updated_at?: string }): Category {
+  protected mapResponseToEntity(
+    response: Category & { created_at?: string; updated_at?: string }
+  ): Category {
     return {
       id: response.id,
       name: response.name,
@@ -103,7 +107,8 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
       }
       throw new Error(response.message || 'Failed to delete all categories')
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete all categories'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to delete all categories'
       throw new Error(errorMessage)
     }
   }

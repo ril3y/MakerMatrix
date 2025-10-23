@@ -70,7 +70,9 @@ export const usePartsStore = create<PartsState>()(
       } catch (error: unknown) {
         set({
           isLoading: false,
-          error: (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to load parts',
+          error:
+            (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to load parts',
         })
       }
     },
@@ -97,7 +99,9 @@ export const usePartsStore = create<PartsState>()(
       } catch (error: unknown) {
         set({
           isLoading: false,
-          error: (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Search failed',
+          error:
+            (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Search failed',
         })
       }
     },
@@ -111,7 +115,9 @@ export const usePartsStore = create<PartsState>()(
       } catch (error: unknown) {
         set({
           isLoadingPart: false,
-          error: (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to load part',
+          error:
+            (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to load part',
         })
       }
     },
