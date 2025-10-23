@@ -11,7 +11,7 @@ from typing import Dict, Any
 
 # Configuration
 API_BASE = "https://localhost:8443/api"
-API_KEY = "REDACTED_API_KEY"
+API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 HEADERS = {
     "X-API-Key": API_KEY,
     "Content-Type": "application/json"

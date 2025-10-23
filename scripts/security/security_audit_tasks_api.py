@@ -12,7 +12,7 @@ Comprehensive security testing of the Tasks API to verify:
 6. WebSocket security
 7. File operation security
 
-Test API Key: REDACTED_API_KEY
+Test API Key: YOUR_API_KEY_HERE
 """
 
 import requests
@@ -28,7 +28,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuration
 BASE_URL = "https://10.2.0.2:8443"
-API_KEY = "REDACTED_API_KEY"
+API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 VERIFY_SSL = False
 
 # Test results tracking

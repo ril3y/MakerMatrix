@@ -15,7 +15,7 @@ from MakerMatrix.models.models import engine
 client = TestClient(app)
 
 # Test API key for admin user (202fd1b2-d7d1-4b4b-bd26-7165a012c93d)
-ADMIN_API_KEY = "REDACTED_API_KEY"
+ADMIN_API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
 # Generate unique timestamp for test usernames
 TEST_TIMESTAMP = str(int(time.time()))

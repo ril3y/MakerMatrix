@@ -20,7 +20,7 @@ from datetime import datetime
 # Configuration
 BACKEND_URL = "https://192.168.1.58:8443"
 WS_URL = "wss://192.168.1.58:8443"
-API_KEY = "REDACTED_API_KEY"
+API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
 
 async def test_websocket_broadcasts():

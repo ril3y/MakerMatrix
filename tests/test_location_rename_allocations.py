@@ -26,7 +26,7 @@ from sqlalchemy.orm import selectinload
 class TestLocationRenameAllocations:
     """Test suite for location rename and allocation integrity."""
 
-    API_KEY = "REDACTED_API_KEY"
+    API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
     @pytest.fixture
     def auth_headers(self):

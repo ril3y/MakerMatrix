@@ -23,7 +23,7 @@ from MakerMatrix.database.db import get_session
 class TestLocationImagePersistence:
     """Test suite for location image persistence during updates."""
 
-    API_KEY = "REDACTED_API_KEY"
+    API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
     @pytest.fixture
     def auth_headers(self):

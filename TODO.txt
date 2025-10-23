@@ -45,14 +45,14 @@ cd /home/ril3y/MakerMatrix
 
 ### 3. Manual API Key Testing:
 
-The test API key is: REDACTED_API_KEY
+The test API key is: YOUR_API_KEY_HERE
 
 Test that this key CANNOT create admin-only backups:
 
 ```bash
 # This should return 403 Forbidden (not 200 OK)
 curl -X POST https://10.2.0.2:8443/api/tasks/quick/database_backup \
-  -H "X-API-Key: REDACTED_API_KEY" \
+  -H "X-API-Key: YOUR_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "backup_name": "test_backup",

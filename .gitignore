@@ -245,3 +245,4 @@ MakerMatrix/services/static/images/
 # Backup files (system backups, not individual file backups)
 MakerMatrix/backups/
 *.zip
+.env

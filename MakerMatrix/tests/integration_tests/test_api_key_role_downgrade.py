@@ -10,7 +10,7 @@ from MakerMatrix.main import app
 client = TestClient(app)
 
 # Admin API key for setup
-ADMIN_API_KEY = "REDACTED_API_KEY"
+ADMIN_API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
 
 class TestAPIKeyRoleDowngrade:

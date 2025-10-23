@@ -24,7 +24,7 @@ from MakerMatrix.models.tool_models import ToolModel
 class TestTagAssignment:
     """Test suite for tag assignment operations."""
 
-    API_KEY = "REDACTED_API_KEY"
+    API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
     @pytest.fixture
     def auth_headers(self):

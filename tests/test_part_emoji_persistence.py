@@ -24,7 +24,7 @@ from MakerMatrix.database.db import get_session
 class TestPartEmojiPersistence:
     """Test suite for part emoji persistence during creation and updates."""
 
-    API_KEY = "REDACTED_API_KEY"
+    API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
     @pytest.fixture
     def auth_headers(self):

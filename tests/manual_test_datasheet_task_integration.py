@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # API configuration
 API_BASE_URL = "http://localhost:3000/api"
-API_KEY = "REDACTED_API_KEY"  # Development API key
+API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env  # Development API key
 
 
 async def test_datasheet_download_task():

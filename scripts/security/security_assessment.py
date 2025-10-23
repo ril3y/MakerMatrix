@@ -712,7 +712,7 @@ class SecurityAssessment:
 
 if __name__ == '__main__':
     BASE_URL = 'https://10.2.0.2:8443'
-    API_KEY = 'REDACTED_API_KEY'
+    API_KEY = os.getenv('MAKERMATRIX_API_KEY', '')  # Set in .env
 
     assessment = SecurityAssessment(BASE_URL, API_KEY)
     findings = assessment.run_all_tests()

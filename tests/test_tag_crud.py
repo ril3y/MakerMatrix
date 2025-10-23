@@ -23,7 +23,7 @@ from MakerMatrix.models.tag_models import TagModel
 class TestTagCRUD:
     """Test suite for tag CRUD operations."""
 
-    API_KEY = "REDACTED_API_KEY"
+    API_KEY = os.getenv("MAKERMATRIX_API_KEY", "")  # Set in .env
 
     @pytest.fixture
     def auth_headers(self):
