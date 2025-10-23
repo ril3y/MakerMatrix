@@ -16,7 +16,7 @@ interface FilePreviewData {
   detected_parser: string | null
   preview_rows: Record<string, unknown>[]
   headers: string[]
-  total_rows: number | string
+  total_rows: number
   is_supported: boolean
   validation_errors: string[]
   file_format: string

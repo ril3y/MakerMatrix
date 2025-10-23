@@ -42,7 +42,7 @@ const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'general')
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
   const [availableModels, setAvailableModels] = useState<
-    Array<{ name: string; size?: number; description?: string }>
+    Array<{ name: string; size?: string; description?: string }>
   >([])
   const [loading, setLoading] = useState(false)
   const [loadingModels, setLoadingModels] = useState(false)
@@ -51,7 +51,7 @@ const SettingsPage = () => {
       printer_id: string
       name: string
       model: string
-      status: string
+      status?: string
       driver_type?: string
       backend?: string
     }>
@@ -62,11 +62,11 @@ const SettingsPage = () => {
     printer_id: string
     name: string
     model: string
-    driver_type?: string
-    backend?: string
-    identifier?: string
-    dpi?: number
-    scaling_factor?: number
+    driver_type: string
+    backend: string
+    identifier: string
+    dpi: number
+    scaling_factor: number
   } | null>(null)
 
   const loadAvailableModels = useCallback(
@@ -351,7 +351,7 @@ const SettingsPage = () => {
               </h3>
               <div className="flex gap-2">
                 <button
-                  onClick={loadAvailableModels}
+                  onClick={() => loadAvailableModels()}
                   className="btn btn-secondary flex items-center gap-2"
                   disabled={loadingModels || !aiConfig?.enabled}
                 >
@@ -451,7 +451,9 @@ const SettingsPage = () => {
                       {availableModels.map((model) => (
                         <option key={model.name} value={model.name}>
                           {model.name}
-                          {model.size && ` (${(model.size / 1024 / 1024 / 1024).toFixed(1)}GB)`}
+                          {model.size && typeof model.size === 'string'
+                            ? ` (${model.size})`
+                            : ''}
                         </option>
                       ))}
                     </select>
@@ -659,19 +661,10 @@ const SettingsPage = () => {
                                   printer.printer_id
                                 )
 
-                                // Check both the data.success field and top-level status
-                                const isSuccess =
-                                  result.data?.success || result.status === 'success'
-                                const errorMessage =
-                                  result.data?.error ||
-                                  result.data?.message ||
-                                  result.message ||
-                                  'Unknown error'
-
-                                if (isSuccess) {
+                                if (result.success) {
                                   toast.success('✅ Printer connection successful!')
                                 } else {
-                                  toast.error(`❌ Connection test failed: ${errorMessage}`)
+                                  toast.error(`❌ Connection test failed: ${result.message}`)
                                 }
                               } catch (_error) {
                                 toast.error('Failed to test printer connection')
@@ -684,7 +677,17 @@ const SettingsPage = () => {
                           <button
                             onClick={() => {
                               setPrinterModalMode('edit')
-                              setSelectedPrinterForEdit(printer)
+                              // Ensure all required fields are present
+                              setSelectedPrinterForEdit({
+                                printer_id: printer.printer_id,
+                                name: printer.name,
+                                model: printer.model,
+                                driver_type: printer.driver_type || 'brother_ql',
+                                backend: printer.backend || 'network',
+                                identifier: '',
+                                dpi: 300,
+                                scaling_factor: 1.0,
+                              })
                               setShowPrinterModal(true)
                             }}
                             className="btn btn-secondary btn-sm"

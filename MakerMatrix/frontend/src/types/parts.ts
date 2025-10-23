@@ -20,6 +20,7 @@ export interface Datasheet {
 export interface Part {
   id: string
   name: string
+  part_name?: string // Backend API alias for name
   part_number?: string
   supplier_part_number?: string // Supplier's part number (different from our internal part_number)
   description?: string
@@ -34,6 +35,9 @@ export interface Part {
   manufacturer_part_number?: string
   component_type?: string
   additional_properties?: Record<string, unknown>
+  specifications?: Record<string, unknown> // Specifications from supplier enrichment
+  unit_price?: number | string // Price per unit
+  currency?: string // Currency code (e.g., "USD")
   location_id?: string
   location?: Location
   categories?: Category[]
@@ -60,11 +64,15 @@ export interface Location {
   part_count?: number
   created_at?: string
   updated_at?: string
+  emoji?: string
+  is_auto_generated_slot?: boolean
 }
 
 export interface Category {
   id: string
   name: string
+  description?: string
+  part_count?: number
   created_at?: string
   updated_at?: string
 }
@@ -96,8 +104,12 @@ export interface CreatePartRequest {
   manufacturer_part_number?: string
   component_type?: string
   additional_properties?: Record<string, unknown>
+  specifications?: Record<string, unknown> // Specifications from supplier enrichment
+  unit_price?: number | string // Price per unit
+  currency?: string // Currency code (e.g., "USD")
   location_id?: string
   categories?: string[]
+  category_names?: string[] // Backend API alias for categories
 }
 
 export interface UpdatePartRequest extends Partial<CreatePartRequest> {
@@ -130,6 +142,7 @@ export interface UpdateLocationRequest extends Partial<CreateLocationRequest> {
 
 export interface CreateCategoryRequest {
   name: string
+  description?: string
 }
 
 export interface UpdateCategoryRequest {

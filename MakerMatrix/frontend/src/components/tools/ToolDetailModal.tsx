@@ -11,7 +11,7 @@ import {
   CheckCircle,
   XCircle,
   ExternalLink,
-  Tag,
+  Tag as TagIcon,
   Settings,
   AlertCircle,
   Clock,
@@ -23,23 +23,10 @@ import PartImage from '@/components/parts/PartImage'
 import TagBadge from '@/components/tags/TagBadge'
 import { toolsService } from '@/services/tools.service'
 import { useAuthStore } from '@/store/authStore'
-import type { Tool } from '@/types/tools'
+import type { Tool, ToolMaintenanceRecord } from '@/types/tools'
 import type { Tag } from '@/types/tags'
 import toast from 'react-hot-toast'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
-
-// Maintenance record interface (matches backend response)
-interface MaintenanceRecord {
-  id: string
-  tool_id: string
-  maintenance_date: string
-  maintenance_type: string
-  notes?: string
-  next_maintenance_date?: string
-  cost?: number
-  performed_by: string
-  created_at: string
-}
 
 interface ToolDetailModalProps {
   isOpen: boolean
@@ -67,7 +54,7 @@ const ToolDetailModal = ({
   const [processingCheckout, setProcessingCheckout] = useState(false)
 
   // Maintenance record state
-  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([])
+  const [maintenanceRecords, setMaintenanceRecords] = useState<ToolMaintenanceRecord[]>([])
   const [showAddMaintenance, setShowAddMaintenance] = useState(false)
   const [maintenanceForm, setMaintenanceForm] = useState({
     maintenance_date: new Date().toISOString().split('T')[0],
@@ -389,7 +376,7 @@ const ToolDetailModal = ({
                         key={category.id}
                         className="inline-flex items-center gap-1 px-2 py-1 bg-theme-elevated border border-theme-primary text-theme-primary text-xs rounded-md"
                       >
-                        <Tag className="w-3 h-3" />
+                        <TagIcon className="w-3 h-3" />
                         {category.name}
                       </span>
                     ))}
@@ -624,7 +611,7 @@ const ToolDetailModal = ({
           {tool.additional_properties && Object.keys(tool.additional_properties).length > 0 && (
             <div className="p-4 bg-theme-secondary rounded-lg border border-theme-primary">
               <h3 className="text-sm font-semibold text-theme-primary uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Tag className="w-4 h-4" />
+                <TagIcon className="w-4 h-4" />
                 Additional Properties
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

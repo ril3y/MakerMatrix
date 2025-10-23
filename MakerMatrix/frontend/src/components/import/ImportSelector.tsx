@@ -34,10 +34,28 @@ interface FilePreviewData {
   detected_parser: string | null
   preview_rows: Record<string, unknown>[]
   headers: string[]
-  total_rows: number | string
+  total_rows: number
   is_supported: boolean
   validation_errors: string[]
   file_format: string
+}
+
+interface ConfiguredSupplier {
+  enabled: boolean
+  supplier_name: string
+}
+
+interface ImportSupplier {
+  name: string
+  display_name: string
+  supported_file_types: string[]
+  import_available: boolean
+  missing_credentials?: string[]
+  is_configured?: boolean
+  configuration_status?: string
+  enrichment_capabilities?: string[]
+  enrichment_available?: boolean
+  enrichment_missing_credentials?: string[]
 }
 
 const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => {
@@ -112,10 +130,11 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       setIsLoadingParsers(true)
 
       // First check if there are any configured suppliers
-      let configuredSuppliers = []
+      let configuredSuppliers: ConfiguredSupplier[] = []
       try {
-        const configResponse = await apiClient.get('/api/suppliers/config/suppliers')
-        configuredSuppliers = configResponse.data?.data || []
+        const configResponse = (await apiClient.get('/api/suppliers/config/suppliers')) as { data?: { data?: ConfiguredSupplier[] } }
+        const configData = configResponse.data as { data?: ConfiguredSupplier[] } | undefined
+        configuredSuppliers = (configData?.data || []) as ConfiguredSupplier[]
         console.log('Configured suppliers from DB:', configuredSuppliers)
       } catch (configError) {
         console.warn(
@@ -125,14 +144,15 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       }
 
       // Get import capabilities
-      const response = await apiClient.get('/api/import/suppliers')
+      const response = (await apiClient.get('/api/import/suppliers')) as { data?: { data?: ImportSupplier[] } | ImportSupplier[] }
       console.log('Import suppliers response:', response)
 
-      if (response.data?.data || response.data) {
-        const importSuppliers = response.data?.data || response.data || []
+      const responseData = response.data as { data?: ImportSupplier[] } | ImportSupplier[] | undefined
+      if ((responseData && 'data' in responseData) || responseData) {
+        const importSuppliers = (responseData && 'data' in responseData ? (responseData.data || []) : (responseData || [])) as ImportSupplier[]
         console.log('Available import suppliers:', importSuppliers)
 
-        let availableSuppliers = []
+        let availableSuppliers: ImportSupplier[] = []
 
         if (configuredSuppliers.length > 0) {
           // Filter by configured suppliers if we have any
@@ -201,7 +221,8 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
           }
         }
       } else {
-        console.error('Failed to load suppliers:', response.message)
+        const responseWithMessage = response as { message?: string }
+        console.error('Failed to load suppliers:', responseWithMessage.message)
         toast.error('Failed to load available suppliers')
       }
     } catch (error) {
@@ -227,8 +248,16 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         {
           id: 'lcsc',
           name: 'LCSC Electronics',
-          supported_file_types: ['csv'],
-          component: UnifiedFileImporter,
+          description: 'LCSC Electronics (CSV)',
+          color: 'bg-blue-500',
+          supported: true,
+          import_available: true,
+          missing_credentials: [],
+          is_configured: false,
+          configuration_status: 'not_configured',
+          enrichment_capabilities: [],
+          enrichment_available: false,
+          enrichment_missing_credentials: [],
         },
       ])
     } finally {
@@ -389,10 +418,11 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
           type: file.type,
           detected_parser: suggestedParser,
           file_format: fileExtension?.toUpperCase() || 'Unknown',
-          total_rows: 'Error loading preview',
+          total_rows: 0,
           headers: [],
           is_supported: supportedStatus,
           validation_errors: [errorMessage],
+          preview_rows: [],
         })
       } finally {
         setIsProcessing(false)

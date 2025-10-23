@@ -11,9 +11,27 @@ import LocationsPage from '../../pages/locations/LocationsPage'
 import CategoriesPage from '../../pages/categories/CategoriesPage'
 
 // Mock services
-vi.mock('../../services/parts.service')
-vi.mock('../../services/locations.service')
-vi.mock('../../services/categories.service')
+vi.mock('../../services/parts.service', () => ({
+  partsService: {
+    getAllParts: vi.fn(),
+    createPart: vi.fn(),
+    updatePart: vi.fn(),
+    deletePart: vi.fn(),
+    getPart: vi.fn(),
+  },
+}))
+vi.mock('../../services/locations.service', () => ({
+  locationsService: {
+    getAllLocations: vi.fn(),
+    createLocation: vi.fn(),
+  },
+}))
+vi.mock('../../services/categories.service', () => ({
+  categoriesService: {
+    getAllCategories: vi.fn(),
+    createCategory: vi.fn(),
+  },
+}))
 vi.mock('../../store/authStore', () => ({
   authStore: {
     getState: () => ({
@@ -50,30 +68,29 @@ describe('CRUD Flow Integration Tests', () => {
 
   describe('Parts CRUD Flow', () => {
     it('should complete full CRUD cycle for parts', async () => {
-      const { partService } = await import('../../services/parts.service')
+      const { partsService } = await import('../../services/parts.service')
 
       // Mock service responses
-      vi.mocked(partService.getAllParts).mockResolvedValueOnce({
-        parts: [],
-        total: 0,
-        page: 1,
-        pageSize: 10,
+      vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
+        data: [],
+        total_parts: 0,
       })
 
       const mockPart = {
         id: 'test-id',
         part_name: 'Test Resistor',
+        name: 'Test Resistor',
         part_number: 'RES-001',
         quantity: 100,
         description: 'Test resistor',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
       }
 
-      vi.mocked(partService.addPart).mockResolvedValueOnce(mockPart)
-      vi.mocked(partService.getAllParts).mockResolvedValueOnce({
-        parts: [mockPart],
-        total: 1,
-        page: 1,
-        pageSize: 10,
+      vi.mocked(partsService.createPart).mockResolvedValueOnce(mockPart)
+      vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
+        data: [mockPart],
+        total_parts: 1,
       })
 
       render(<PartsPage />, { wrapper: createWrapper() })
@@ -108,7 +125,7 @@ describe('CRUD Flow Integration Tests', () => {
       })
 
       // Test edit
-      vi.mocked(partService.updatePart).mockResolvedValueOnce({
+      vi.mocked(partsService.updatePart).mockResolvedValueOnce({
         ...mockPart,
         quantity: 150,
       })
@@ -125,21 +142,19 @@ describe('CRUD Flow Integration Tests', () => {
 
       // Verify update
       await waitFor(() => {
-        expect(partService.updatePart).toHaveBeenCalledWith(
-          'test-id',
+        expect(partsService.updatePart).toHaveBeenCalledWith(
           expect.objectContaining({
+            id: 'test-id',
             quantity: 150,
           })
         )
       })
 
       // Test delete
-      vi.mocked(partService.deletePart).mockResolvedValueOnce({ success: true })
-      vi.mocked(partService.getAllParts).mockResolvedValueOnce({
-        parts: [],
-        total: 0,
-        page: 1,
-        pageSize: 10,
+      vi.mocked(partsService.deletePart).mockResolvedValueOnce(undefined)
+      vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
+        data: [],
+        total_parts: 0,
       })
 
       const deleteButton = screen.getByRole('button', { name: /delete/i })
@@ -156,10 +171,10 @@ describe('CRUD Flow Integration Tests', () => {
     })
 
     it('should handle API errors gracefully', async () => {
-      const { partService } = await import('../../services/parts.service')
+      const { partsService } = await import('../../services/parts.service')
 
       // Mock error response
-      vi.mocked(partService.getAllParts).mockRejectedValueOnce(new Error('Failed to fetch parts'))
+      vi.mocked(partsService.getAllParts).mockRejectedValueOnce(new Error('Failed to fetch parts'))
 
       render(<PartsPage />, { wrapper: createWrapper() })
 
@@ -170,13 +185,11 @@ describe('CRUD Flow Integration Tests', () => {
     })
 
     it('should validate form inputs', async () => {
-      const { partService } = await import('../../services/parts.service')
+      const { partsService } = await import('../../services/parts.service')
 
-      vi.mocked(partService.getAllParts).mockResolvedValueOnce({
-        parts: [],
-        total: 0,
-        page: 1,
-        pageSize: 10,
+      vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
+        data: [],
+        total_parts: 0,
       })
 
       render(<PartsPage />, { wrapper: createWrapper() })
@@ -206,7 +219,7 @@ describe('CRUD Flow Integration Tests', () => {
 
   describe('Locations CRUD Flow', () => {
     it('should handle location hierarchy correctly', async () => {
-      const { locationService } = await import('../../services/location.service')
+      const { locationsService } = await import('../../services/locations.service')
 
       const parentLocation = {
         id: 'parent-id',
@@ -223,7 +236,7 @@ describe('CRUD Flow Integration Tests', () => {
         parent: parentLocation,
       }
 
-      vi.mocked(locationService.getAllLocations).mockResolvedValueOnce([parentLocation])
+      vi.mocked(locationsService.getAllLocations).mockResolvedValueOnce([parentLocation])
 
       render(<LocationsPage />, { wrapper: createWrapper() })
 
@@ -233,8 +246,8 @@ describe('CRUD Flow Integration Tests', () => {
       })
 
       // Add child location
-      vi.mocked(locationService.addLocation).mockResolvedValueOnce(childLocation)
-      vi.mocked(locationService.getAllLocations).mockResolvedValueOnce([
+      vi.mocked(locationsService.createLocation).mockResolvedValueOnce(childLocation)
+      vi.mocked(locationsService.getAllLocations).mockResolvedValueOnce([
         { ...parentLocation, children: [childLocation] },
       ])
 
@@ -263,7 +276,7 @@ describe('CRUD Flow Integration Tests', () => {
 
   describe('Categories CRUD Flow', () => {
     it('should prevent duplicate category names', async () => {
-      const { categoryService } = await import('../../services/category.service')
+      const { categoriesService } = await import('../../services/categories.service')
 
       const existingCategory = {
         id: 'cat-1',
@@ -271,8 +284,8 @@ describe('CRUD Flow Integration Tests', () => {
         description: 'All resistor types',
       }
 
-      vi.mocked(categoryService.getAllCategories).mockResolvedValueOnce([existingCategory])
-      vi.mocked(categoryService.addCategory).mockRejectedValueOnce(
+      vi.mocked(categoriesService.getAllCategories).mockResolvedValueOnce([existingCategory])
+      vi.mocked(categoriesService.createCategory).mockRejectedValueOnce(
         new Error('Category with name "Resistors" already exists')
       )
 
@@ -301,9 +314,9 @@ describe('CRUD Flow Integration Tests', () => {
 
   describe('Cross-Entity Integration', () => {
     it('should update part location and categories', async () => {
-      const { partService } = await import('../../services/parts.service')
-      const { locationService } = await import('../../services/location.service')
-      const { categoryService } = await import('../../services/category.service')
+      const { partsService } = await import('../../services/parts.service')
+      const { locationsService } = await import('../../services/locations.service')
+      const { categoriesService } = await import('../../services/categories.service')
 
       // Mock data
       const locations = [
@@ -319,19 +332,23 @@ describe('CRUD Flow Integration Tests', () => {
       const part = {
         id: 'part-1',
         part_name: 'Test Part',
+        name: 'Test Part',
+        quantity: 10,
         location: locations[0],
         categories: [categories[0]],
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
       }
 
-      vi.mocked(locationService.getAllLocations).mockResolvedValue(locations)
-      vi.mocked(categoryService.getAllCategories).mockResolvedValue(categories)
-      vi.mocked(partService.getPartById).mockResolvedValue(part)
+      vi.mocked(locationsService.getAllLocations).mockResolvedValue(locations)
+      vi.mocked(categoriesService.getAllCategories).mockResolvedValue(categories)
+      vi.mocked(partsService.getPart).mockResolvedValue(part)
 
       // Render part edit form
       render(<PartsPage />, { wrapper: createWrapper() })
 
       // Update location and category
-      vi.mocked(partService.updatePart).mockResolvedValueOnce({
+      vi.mocked(partsService.updatePart).mockResolvedValueOnce({
         ...part,
         location: locations[1],
         categories: [categories[1]],
@@ -341,11 +358,11 @@ describe('CRUD Flow Integration Tests', () => {
 
       // Verify cross-entity update
       await waitFor(() => {
-        expect(partService.updatePart).toHaveBeenCalledWith(
-          'part-1',
+        expect(partsService.updatePart).toHaveBeenCalledWith(
           expect.objectContaining({
+            id: 'part-1',
             location_id: 'loc-2',
-            category_names: ['Capacitors'],
+            categories: ['Capacitors'],
           })
         )
       })

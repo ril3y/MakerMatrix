@@ -1,4 +1,4 @@
-import { apiClient } from './api'
+import { apiClient, type ApiResponse } from './api'
 
 export interface Activity {
   id: string
@@ -36,42 +36,36 @@ export class ActivityService {
     if (params?.entity_type) queryParams.append('entity_type', params.entity_type)
     if (params?.hours) queryParams.append('hours', params.hours.toString())
 
-    const response = await apiClient.get<ActivityListResponse>(
+    const response = await apiClient.get<ApiResponse<ActivityListResponse>>(
       `/api/activity/recent?${queryParams.toString()}`
     )
 
-    // Handle wrapped response format
-    if (response.data && response.data.activities) {
+    if (response.status === 'success' && response.data) {
       return response.data.activities
-    } else if (response.activities) {
-      return response.activities
-    } else {
-      return []
     }
+    throw new Error(response.message || 'Failed to get recent activities')
   }
 
   async getActivityStats(hours: number = 24): Promise<ActivityStats> {
-    const response = await apiClient.get<ActivityStats>(`/api/activity/stats?hours=${hours}`)
+    const response = await apiClient.get<ApiResponse<ActivityStats>>(
+      `/api/activity/stats?hours=${hours}`
+    )
 
-    // Handle wrapped response format
-    if (response.data) {
+    if (response.status === 'success' && response.data) {
       return response.data
-    } else {
-      return response
     }
+    throw new Error(response.message || 'Failed to get activity stats')
   }
 
   async cleanupOldActivities(keepDays: number = 90): Promise<{ deleted_count: number }> {
-    const response = await apiClient.post<{ deleted_count: number }>(
+    const response = await apiClient.post<ApiResponse<{ deleted_count: number }>>(
       `/api/activity/cleanup?keep_days=${keepDays}`
     )
 
-    // Handle wrapped response format
-    if (response.data) {
+    if (response.status === 'success' && response.data) {
       return response.data
-    } else {
-      return response
     }
+    throw new Error(response.message || 'Failed to cleanup old activities')
   }
 
   // Utility methods for formatting

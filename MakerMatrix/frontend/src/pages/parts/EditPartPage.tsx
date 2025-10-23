@@ -255,6 +255,8 @@ const EditPartPage: React.FC = () => {
       })
 
       const updateData: CreatePartRequest = {
+        name: data.name,
+        quantity: data.quantity,
         ...data,
         image_url: currentImageUrl,
         categories: categoryNames,
@@ -577,6 +579,8 @@ const EditPartPage: React.FC = () => {
         <div className="card p-6">
           <FormField label="Projects" description="Assign this part to one or more projects">
             <CustomSelect
+              value=""
+              onChange={() => {}}
               multiSelect={true}
               selectedValues={selectedProjects}
               onMultiSelectChange={(values) => {
@@ -688,24 +692,24 @@ const EditPartPage: React.FC = () => {
                         <div className="space-y-4">
                           {enrichmentRequirements.required_fields.map((field) => {
                             // Get current value from part data or additional_properties
-                            const getCurrentValue = () => {
+                            const getCurrentValue = (): string => {
                               if (!part) return ''
                               // Check top-level fields first
                               if (field.field_name === 'part_number') return part.part_number || ''
                               if (field.field_name === 'supplier_part_number')
                                 return part.supplier_part_number || ''
-                              if (field.field_name === 'manufacturer')
-                                return (
-                                  part.additional_properties?.manufacturer ||
-                                  part.additional_properties?.Manufacturer ||
-                                  ''
-                                )
+                              if (field.field_name === 'manufacturer') {
+                                const manufacturer = part.additional_properties?.manufacturer ||
+                                  part.additional_properties?.Manufacturer
+                                return String(manufacturer || '')
+                              }
                               if (field.field_name === 'supplier') return part.supplier || ''
                               // Check additional_properties
-                              return part.additional_properties?.[field.field_name] || ''
+                              const value = part.additional_properties?.[field.field_name]
+                              return String(value || '')
                             }
 
-                            const currentValue = getCurrentValue()
+                            const currentValue: string = getCurrentValue()
                             const hasValue = !!currentValue
 
                             return (
@@ -766,7 +770,7 @@ const EditPartPage: React.FC = () => {
                                     </div>
                                     <input
                                       type="text"
-                                      value={additionalProperties[field.field_name] || ''}
+                                      value={String(additionalProperties[field.field_name] || '')}
                                       onChange={(e) =>
                                         setAdditionalProperties((prev) => ({
                                           ...prev,
@@ -810,22 +814,22 @@ const EditPartPage: React.FC = () => {
                         <div className="space-y-4">
                           {enrichmentRequirements.recommended_fields.map((field) => {
                             // Get current value from part data or additional_properties
-                            const getCurrentValue = () => {
+                            const getCurrentValue = (): string => {
                               if (!part) return ''
                               // Check top-level fields first
                               if (field.field_name === 'description') return part.description || ''
                               if (field.field_name === 'part_number') return part.part_number || ''
-                              if (field.field_name === 'manufacturer')
-                                return (
-                                  part.additional_properties?.manufacturer ||
-                                  part.additional_properties?.Manufacturer ||
-                                  ''
-                                )
+                              if (field.field_name === 'manufacturer') {
+                                const manufacturer = part.additional_properties?.manufacturer ||
+                                  part.additional_properties?.Manufacturer
+                                return String(manufacturer || '')
+                              }
                               // Check additional_properties
-                              return part.additional_properties?.[field.field_name] || ''
+                              const value = part.additional_properties?.[field.field_name]
+                              return String(value || '')
                             }
 
-                            const currentValue = getCurrentValue()
+                            const currentValue: string = getCurrentValue()
                             const hasValue = !!currentValue
 
                             return (
@@ -876,7 +880,7 @@ const EditPartPage: React.FC = () => {
                                     </div>
                                     <input
                                       type="text"
-                                      value={additionalProperties[field.field_name] || ''}
+                                      value={String(additionalProperties[field.field_name] || '')}
                                       onChange={(e) =>
                                         setAdditionalProperties((prev) => ({
                                           ...prev,

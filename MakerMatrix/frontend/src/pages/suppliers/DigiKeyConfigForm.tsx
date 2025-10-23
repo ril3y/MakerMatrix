@@ -68,7 +68,7 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             </label>
             <input
               type="text"
-              value={config.supplier_name || 'digikey'}
+              value={(config.supplier_name as string) || 'digikey'}
               onChange={(e) => onConfigChange('supplier_name', e.target.value)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               disabled
@@ -83,7 +83,7 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             </label>
             <input
               type="text"
-              value={config.display_name || 'DigiKey Electronics'}
+              value={(config.display_name as string) || 'DigiKey Electronics'}
               onChange={(e) => onConfigChange('display_name', e.target.value)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
@@ -93,7 +93,7 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
               Description
             </label>
             <textarea
-              value={config.description || 'Global electronic components distributor'}
+              value={(config.description as string) || 'Global electronic components distributor'}
               onChange={(e) => onConfigChange('description', e.target.value)}
               rows={2}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -159,7 +159,7 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             <input
               type="url"
               value={
-                config.oauth_callback_url ||
+                (config.oauth_callback_url as string) ||
                 'https://localhost:8443/api/suppliers/digikey/oauth/callback'
               }
               onChange={(e) => onConfigChange('oauth_callback_url', e.target.value)}
@@ -188,7 +188,7 @@ export const DigiKeyConfigForm: React.FC<DigiKeyConfigFormProps> = ({
             </div>
             <input
               type="text"
-              value={config.storage_path || '/tmp/digikey_cache'}
+              value={(config.storage_path as string) || '/tmp/digikey_cache'}
               onChange={(e) => onConfigChange('storage_path', e.target.value)}
               placeholder="/path/to/digikey/cache"
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"

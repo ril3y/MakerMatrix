@@ -237,19 +237,19 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
     // Subscribe to all CRUD events
     const handleEntityCreated = (message: WebSocketMessage) => {
-      handleCrudEvent(message.data)
+      handleCrudEvent(message.data as EntityEventData)
     }
 
     const handleEntityUpdated = (message: WebSocketMessage) => {
-      handleCrudEvent(message.data)
+      handleCrudEvent(message.data as EntityEventData)
     }
 
     const handleEntityDeleted = (message: WebSocketMessage) => {
-      handleCrudEvent(message.data)
+      handleCrudEvent(message.data as EntityEventData)
     }
 
     const handleEntityBulkUpdated = (message: WebSocketMessage) => {
-      handleCrudEvent(message.data)
+      handleCrudEvent(message.data as EntityEventData)
     }
 
     generalWebSocket.on('entity_created', handleEntityCreated)
@@ -323,21 +323,21 @@ export const useEntityEvents = (
 
   useEffect(() => {
     const createHandler = (message: WebSocketMessage) => {
-      const data: EntityEventData = message.data
+      const data = message.data as EntityEventData
       if (data.entity_type === entityType && handlers.onCreate) {
         handlers.onCreate(data)
       }
     }
 
     const updateHandler = (message: WebSocketMessage) => {
-      const data: EntityEventData = message.data
+      const data = message.data as EntityEventData
       if (data.entity_type === entityType && handlers.onUpdate) {
         handlers.onUpdate(data)
       }
     }
 
     const deleteHandler = (message: WebSocketMessage) => {
-      const data: EntityEventData = message.data
+      const data = message.data as EntityEventData
       if (data.entity_type === entityType && handlers.onDelete) {
         handlers.onDelete(data)
       }

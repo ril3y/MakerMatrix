@@ -216,13 +216,14 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
           setCredentialStatus(newStatus)
         } catch (credError) {
           console.error('Failed to save credentials before testing:', credError)
+          const errorMsg = 'Failed to save credentials before testing: ' + (credError as Error).message
           setTestResult({
             supplier_name: supplier.supplier_name,
             success: false,
+            message: errorMsg,
             test_duration_seconds: 0,
             tested_at: new Date().toISOString(),
-            error_message:
-              'Failed to save credentials before testing: ' + (credError as Error).message,
+            error_message: errorMsg,
           })
           return
         }
@@ -238,12 +239,14 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
         response?: { data?: { detail?: string; message?: string } }
         message?: string
       }
+      const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || 'Connection test failed'
       setTestResult({
         supplier_name: supplier.supplier_name,
         success: false,
+        message: errorMsg,
         test_duration_seconds: 0,
         tested_at: new Date().toISOString(),
-        error_message: error.response?.data?.detail || 'Connection test failed',
+        error_message: errorMsg,
       })
     } finally {
       setTesting(false)

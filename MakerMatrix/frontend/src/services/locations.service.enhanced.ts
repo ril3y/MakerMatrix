@@ -60,7 +60,7 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   protected entityName = 'location'
 
   // Map frontend create request to backend format
-  protected mapCreateRequestToBackend(data: CreateLocationRequest): BackendLocationRequest {
+  protected mapCreateRequestToBackend(data: CreateLocationRequest): Record<string, unknown> {
     return {
       name: data.name,
       description: data.description || '',
@@ -80,7 +80,7 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   // Map frontend update request to backend format
   protected mapUpdateRequestToBackend(
     data: UpdateLocationRequest
-  ): Partial<BackendLocationRequest> {
+  ): Record<string, unknown> {
     return {
       name: data.name,
       description: data.description ?? '',
@@ -98,36 +98,37 @@ export class EnhancedLocationsService extends BaseNamedCrudService<
   }
 
   // Map backend response to frontend entity
-  protected mapResponseToEntity(response: BackendLocationResponse): Location {
+  protected mapResponseToEntity(response: Record<string, unknown>): Location {
+    const backendResponse = response as unknown as BackendLocationResponse
     return {
-      id: response.id,
-      name: response.name,
-      description: response.description || '',
-      parent_id: response.parent_id || undefined,
-      location_type: response.location_type || 'standard',
-      image_url: response.image_url || undefined,
-      emoji: response.emoji,
-      slot_count: response.slot_count,
-      slot_naming_pattern: response.slot_naming_pattern,
-      slot_layout_type: response.slot_layout_type,
-      grid_rows: response.grid_rows,
-      grid_columns: response.grid_columns,
-      slot_layout: response.slot_layout,
-      is_auto_generated_slot: response.is_auto_generated_slot,
-      slot_number: response.slot_number,
-      slot_metadata: response.slot_metadata,
-      children: response.children || [],
+      id: backendResponse.id,
+      name: backendResponse.name,
+      description: backendResponse.description || '',
+      parent_id: backendResponse.parent_id || undefined,
+      location_type: backendResponse.location_type || 'standard',
+      image_url: backendResponse.image_url || undefined,
+      emoji: backendResponse.emoji,
+      slot_count: backendResponse.slot_count,
+      slot_naming_pattern: backendResponse.slot_naming_pattern,
+      slot_layout_type: backendResponse.slot_layout_type,
+      grid_rows: backendResponse.grid_rows,
+      grid_columns: backendResponse.grid_columns,
+      slot_layout: backendResponse.slot_layout,
+      is_auto_generated_slot: backendResponse.is_auto_generated_slot,
+      slot_number: backendResponse.slot_number,
+      slot_metadata: backendResponse.slot_metadata,
+      children: backendResponse.children || [],
     }
   }
 
   // Override getAll to handle the specific locations response format
   async getAll(): Promise<Location[]> {
     try {
-      const response = await apiClient.get<ApiResponse<Location[]>>(
+      const response = await apiClient.get<ApiResponse<BackendLocationResponse[]>>(
         '/api/locations/get_all_locations'
       )
       if (response.status === 'success' && response.data) {
-        return response.data.map((location) => this.mapResponseToEntity(location))
+        return response.data.map((location) => this.mapResponseToEntity(location as unknown as Record<string, unknown>))
       }
       return []
     } catch (error) {

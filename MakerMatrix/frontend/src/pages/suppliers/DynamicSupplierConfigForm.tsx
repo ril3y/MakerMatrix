@@ -8,13 +8,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, CheckCircle, HelpCircle, ExternalLink, Info } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
-import type { FieldDefinition, SupplierInfo } from '../../services/dynamic-supplier.service'
+import type { FieldDefinition, SupplierInfo, CredentialValue } from '../../services/dynamic-supplier.service'
 import { SupplierTestResult } from '../../components/suppliers/SupplierTestResult'
 
 interface DynamicSupplierConfigFormProps {
   supplierName: string
-  onCredentialsChange: (credentials: Record<string, unknown>) => void
-  onConfigChange: (config: Record<string, unknown>) => void
+  onCredentialsChange: (credentials: Record<string, CredentialValue>) => void
+  onConfigChange: (config: Record<string, CredentialValue>) => void
   errors: string[]
   onTest?: () => void
   isTestLoading?: boolean
@@ -33,13 +33,13 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
   const [supplierInfo, setSupplierInfo] = useState<SupplierInfo | null>(null)
   const [credentialFields, setCredentialFields] = useState<FieldDefinition[]>([])
   const [configFields, setConfigFields] = useState<FieldDefinition[]>([])
-  const [credentials, setCredentials] = useState<Record<string, unknown>>({})
-  const [config, setConfig] = useState<Record<string, unknown>>({})
+  const [credentials, setCredentials] = useState<Record<string, CredentialValue>>({})
+  const [config, setConfig] = useState<Record<string, CredentialValue>>({})
   const [loading, setLoading] = useState(true)
   const [loadingError, setLoadingError] = useState<string | null>(null)
 
   const reloadSchemasWithConfig = useCallback(
-    async (currentConfig: Record<string, unknown>) => {
+    async (currentConfig: Record<string, CredentialValue>) => {
       try {
         setLoading(true)
         const { dynamicSupplierService } = await import('../../services/dynamic-supplier.service')
@@ -120,14 +120,14 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
       setConfigFields(safeConfigSchema)
 
       // Initialize with default values from schema
-      const defaultCredentials: Record<string, unknown> = {}
+      const defaultCredentials: Record<string, CredentialValue> = {}
       safeCredSchema.forEach((field) => {
         if (field.default_value !== undefined) {
           defaultCredentials[field.name] = field.default_value
         }
       })
 
-      const defaultConfig: Record<string, unknown> = {}
+      const defaultConfig: Record<string, CredentialValue> = {}
       safeConfigSchema.forEach((field) => {
         if (field.default_value !== undefined) {
           defaultConfig[field.name] = field.default_value
@@ -158,7 +158,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
   }, [loadSupplierData])
 
   const handleCredentialChange = useCallback(
-    (fieldName: string, value: unknown) => {
+    (fieldName: string, value: CredentialValue) => {
       const newCredentials = { ...credentials, [fieldName]: value }
       setCredentials(newCredentials)
       onCredentialsChange(newCredentials)
@@ -167,7 +167,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
   )
 
   const handleConfigChange = useCallback(
-    (fieldName: string, value: unknown) => {
+    (fieldName: string, value: CredentialValue) => {
       const newConfig = { ...config, [fieldName]: value }
       setConfig(newConfig)
       onConfigChange(newConfig)
@@ -186,8 +186,8 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
 
   const renderField = (
     field: FieldDefinition,
-    value: unknown,
-    onChange: (value: unknown) => void
+    value: CredentialValue,
+    onChange: (value: CredentialValue) => void
   ) => {
     const fieldId = `field-${field.name}`
 
@@ -197,7 +197,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
           <input
             id={fieldId}
             type="password"
-            value={value || ''}
+            value={typeof value === 'string' || typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -210,7 +210,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
           <input
             id={fieldId}
             type="email"
-            value={value || ''}
+            value={typeof value === 'string' || typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -223,7 +223,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
           <input
             id={fieldId}
             type="url"
-            value={value || ''}
+            value={typeof value === 'string' || typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -236,7 +236,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
           <input
             id={fieldId}
             type="number"
-            value={value || ''}
+            value={typeof value === 'string' || typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
             placeholder={field.placeholder}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -265,7 +265,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
       case 'select':
         return (
           <CustomSelect
-            value={value || ''}
+            value={typeof value === 'string' ? value : ''}
             onChange={onChange}
             options={[
               { value: '', label: 'Select...' },
@@ -282,7 +282,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
         return (
           <textarea
             id={fieldId}
-            value={value || ''}
+            value={typeof value === 'string' || typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             rows={3}
@@ -296,7 +296,7 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
           <input
             id={fieldId}
             type="text"
-            value={value || ''}
+            value={typeof value === 'string' || typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"

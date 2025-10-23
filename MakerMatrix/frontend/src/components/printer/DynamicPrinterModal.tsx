@@ -3,7 +3,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, TestTube } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
-import type { PrinterConfig } from '@/types/settings'
+import type {
+  Printer,
+  PrinterDriver,
+  DiscoveryStatus,
+  PrinterTestResult,
+} from '@/types/settings'
 import toast from 'react-hot-toast'
 
 interface CustomFieldConfig {
@@ -16,44 +21,32 @@ interface CustomFieldConfig {
   description?: string
 }
 
-interface DriverInfo {
+interface ExtendedDriverInfo {
   name: string
   driver_type: string
-  custom_fields: Record<string, CustomFieldConfig>
+  description?: string
+  custom_fields?: Record<string, CustomFieldConfig>
   backend_options?: Record<
     string,
     {
       additional_fields?: string[]
+      identifier_format?: string
+      example?: string
       [key: string]: unknown
     }
   >
-}
-
-interface DiscoveredPrinter {
-  identifier: string
-  name?: string
-  model?: string
-  [key: string]: unknown
-}
-
-interface TestResult {
-  success: boolean
-  message?: string
-  [key: string]: unknown
-}
-
-interface DiscoveryTask {
-  task_id: string
-  status: string
-  progress_percentage?: number
-  [key: string]: unknown
+  supported_models?: string[]
+  backends?: string[]
+  default_dpi?: number
+  recommended_scaling?: number
+  supports_network_discovery?: boolean
 }
 
 interface DynamicPrinterModalProps {
   isOpen: boolean
   onClose: () => void
   mode: 'add' | 'edit'
-  existingPrinter?: PrinterConfig
+  existingPrinter?: Printer
   onSuccess: () => void
 }
 
@@ -64,13 +57,13 @@ const DynamicPrinterModal = ({
   existingPrinter,
   onSuccess,
 }: DynamicPrinterModalProps) => {
-  const [supportedDrivers, setSupportedDrivers] = useState<string[]>([])
-  const [selectedDriverInfo, setSelectedDriverInfo] = useState<DriverInfo | null>(null)
-  const [discoveredPrinters, setDiscoveredPrinters] = useState<DiscoveredPrinter[]>([])
-  const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const [supportedDrivers, setSupportedDrivers] = useState<PrinterDriver[]>([])
+  const [selectedDriverInfo, setSelectedDriverInfo] = useState<ExtendedDriverInfo | null>(null)
+  const [discoveredPrinters, setDiscoveredPrinters] = useState<Printer[]>([])
+  const [testResult, setTestResult] = useState<PrinterTestResult | null>(null)
   const [testingSetup, setTestingSetup] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [discoveryTask, setDiscoveryTask] = useState<DiscoveryTask | null>(null)
+  const [discoveryTask, setDiscoveryTask] = useState<DiscoveryStatus | null>(null)
   const [discoveryProgress, setDiscoveryProgress] = useState(0)
 
   const [printerData, setPrinterData] = useState({
@@ -90,24 +83,26 @@ const DynamicPrinterModal = ({
     async (driverType: string) => {
       try {
         const driverInfo = await settingsService.getDriverInfo(driverType)
-        setSelectedDriverInfo(driverInfo)
+        // Cast to ExtendedDriverInfo to access additional properties
+        const extendedInfo = driverInfo as unknown as ExtendedDriverInfo
+        setSelectedDriverInfo(extendedInfo)
 
         // Only set default values if we're in add mode or the field is empty
         setPrinterData((prev) => ({
           ...prev,
           // Only update these if we're in add mode or they're empty
-          dpi: mode === 'add' || !prev.dpi ? driverInfo.default_dpi || prev.dpi || 300 : prev.dpi,
+          dpi: mode === 'add' || !prev.dpi ? extendedInfo.default_dpi || prev.dpi || 300 : prev.dpi,
           scaling_factor:
             mode === 'add' || !prev.scaling_factor
-              ? driverInfo.recommended_scaling || prev.scaling_factor || 1.1
+              ? extendedInfo.recommended_scaling || prev.scaling_factor || 1.1
               : prev.scaling_factor,
           model:
-            mode === 'add' || !prev.model ? driverInfo.supported_models?.[0] || '' : prev.model,
-          backend: mode === 'add' || !prev.backend ? driverInfo.backends?.[0] || '' : prev.backend,
+            mode === 'add' || !prev.model ? extendedInfo.supported_models?.[0] || '' : prev.model,
+          backend: mode === 'add' || !prev.backend ? extendedInfo.backends?.[0] || '' : prev.backend,
           // Initialize custom fields with defaults only for new fields or add mode
           custom_fields: {
             ...prev.custom_fields,
-            ...Object.entries(driverInfo.custom_fields || {}).reduce(
+            ...Object.entries(extendedInfo.custom_fields || {}).reduce(
               (acc, [key, field]: [string, CustomFieldConfig]) => {
                 // Only set default if we're in add mode or the field doesn't exist
                 if (mode === 'add' || prev.custom_fields[key] === undefined) {
@@ -133,12 +128,8 @@ const DynamicPrinterModal = ({
       loadLatestDiscovery()
 
       if (mode === 'edit' && existingPrinter) {
-        // Extract custom fields from the config object if available
-        const customFields = { ...existingPrinter.custom_fields }
-        if (existingPrinter.config) {
-          // Merge any additional fields from the config object
-          Object.assign(customFields, existingPrinter.config)
-        }
+        // Extract custom fields - Printer type doesn't have custom_fields or config
+        const customFields = {} as Record<string, unknown>
 
         // Populate form with existing printer data
         setPrinterData({
@@ -229,28 +220,26 @@ const DynamicPrinterModal = ({
         console.log('🧪 Add mode: Testing printer setup configuration')
         console.log('🔗 Using endpoint: /printer/test-setup')
         console.log('📋 Configuration:', printerData)
-        result = await settingsService.testPrinterSetup(printerData)
+        result = await settingsService.testPrinterSetup(printerData as unknown as Printer)
       }
 
       setTestResult(result)
 
-      // Check for success based on mode - edit mode returns nested data structure
-      const isSuccess = mode === 'edit' ? result.data?.success : result.success
+      // Check for success - both modes return PrinterTestResult
+      const isSuccess = result.success
 
       if (isSuccess) {
         toast.success('✅ Connection test successful!')
         // Apply recommendations if any (only for setup tests)
-        if (mode === 'add' && result.recommendations) {
+        const resultDetails = result.details as { recommendations?: { scaling_factor?: number } }
+        if (mode === 'add' && resultDetails?.recommendations) {
           setPrinterData((prev) => ({
             ...prev,
-            scaling_factor: result.recommendations.scaling_factor || prev.scaling_factor,
+            scaling_factor: resultDetails.recommendations.scaling_factor || prev.scaling_factor,
           }))
         }
       } else {
-        const errorMessage =
-          mode === 'edit'
-            ? result.data?.error || result.message || 'Connection test failed'
-            : result.message || 'Connection test failed'
+        const errorMessage = result.message || 'Connection test failed'
         toast.error(`❌ Connection test failed: ${errorMessage}`)
       }
     } catch (error) {
@@ -305,7 +294,10 @@ const DynamicPrinterModal = ({
         clearInterval(pollInterval)
         setLoading(false)
         if (discoveryTask && discoveryProgress < 100) {
-          toast.warning('Discovery timeout - check latest results')
+          toast('Discovery timeout - check latest results', {
+            icon: '⚠️',
+            duration: 5000,
+          })
         }
       }, 60000)
     } catch {
@@ -350,7 +342,7 @@ const DynamicPrinterModal = ({
       }
       delete submissionData.custom_fields
 
-      if (mode === 'edit') {
+      if (mode === 'edit' && existingPrinter) {
         await settingsService.updatePrinter(existingPrinter.printer_id, submissionData)
         toast.success('✅ Printer updated successfully!')
       } else {
@@ -383,7 +375,7 @@ const DynamicPrinterModal = ({
       case 'select':
         return (
           <CustomSelect
-            value={value}
+            value={String(value)}
             onChange={(val) => handleCustomFieldChange(fieldName, val)}
             options={(fieldConfig.options || []).map((option: string) => ({
               value: option,
@@ -402,10 +394,10 @@ const DynamicPrinterModal = ({
               max={fieldConfig.max}
               step={1}
               className="w-full"
-              value={value}
+              value={Number(value)}
               onChange={(e) => handleCustomFieldChange(fieldName, Number(e.target.value))}
             />
-            <div className="text-center text-sm text-secondary">Value: {value}</div>
+            <div className="text-center text-sm text-secondary">Value: {String(value)}</div>
           </div>
         )
 
@@ -414,7 +406,7 @@ const DynamicPrinterModal = ({
           <input
             type="text"
             className="input w-full"
-            value={value}
+            value={String(value)}
             onChange={(e) => handleCustomFieldChange(fieldName, e.target.value)}
           />
         )
@@ -498,7 +490,7 @@ const DynamicPrinterModal = ({
               options={[
                 { value: '', label: 'Select a driver...' },
                 ...supportedDrivers.map((driver) => ({
-                  value: driver.id,
+                  value: driver.driver_type,
                   label: driver.name,
                 })),
               ]}
@@ -546,17 +538,19 @@ const DynamicPrinterModal = ({
 
               <div>
                 <label className="block text-sm font-medium text-primary mb-2">
-                  {selectedDriverInfo.backend_options?.[printerData.backend]?.identifier_format ||
-                    'Identifier'}{' '}
+                  {String(
+                    selectedDriverInfo.backend_options?.[printerData.backend]?.identifier_format ||
+                      'Identifier'
+                  )}{' '}
                   *
                 </label>
                 <input
                   type="text"
                   className="input w-full"
-                  placeholder={
+                  placeholder={String(
                     selectedDriverInfo.backend_options?.[printerData.backend]?.example ||
-                    'Enter identifier...'
-                  }
+                      'Enter identifier...'
+                  )}
                   value={printerData.identifier}
                   onChange={(e) =>
                     setPrinterData((prev) => ({ ...prev, identifier: e.target.value }))
@@ -564,7 +558,8 @@ const DynamicPrinterModal = ({
                 />
                 {selectedDriverInfo.backend_options?.[printerData.backend]?.example && (
                   <p className="text-xs text-secondary mt-1">
-                    Example: {selectedDriverInfo.backend_options[printerData.backend].example}
+                    Example:{' '}
+                    {String(selectedDriverInfo.backend_options[printerData.backend].example)}
                   </p>
                 )}
               </div>
@@ -673,37 +668,46 @@ const DynamicPrinterModal = ({
                 {testResult && (
                   <div
                     className={`p-3 rounded-lg text-sm ${
-                      (mode === 'edit' ? testResult.data?.success : testResult.success)
+                      testResult.success
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                         : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     }`}
                   >
                     <p className="font-medium">
-                      {(mode === 'edit' ? testResult.data?.success : testResult.success)
-                        ? '✅ Connection Successful'
-                        : '❌ Connection Failed'}
+                      {testResult.success ? '✅ Connection Successful' : '❌ Connection Failed'}
                     </p>
-                    <p>
-                      {mode === 'edit'
-                        ? testResult.data?.message || testResult.message || 'Test completed'
-                        : testResult.message || 'Test completed'}
-                    </p>
-                    {mode === 'edit' && testResult.data?.response_time_ms && (
-                      <p className="text-xs mt-1">
-                        Response time: {testResult.data.response_time_ms.toFixed(2)}ms
-                      </p>
-                    )}
-                    {testResult.recommendations && (
-                      <div className="mt-2">
-                        <p className="font-medium">Recommendations:</p>
-                        <ul className="list-disc list-inside ml-2">
-                          {testResult.recommendations.scaling_factor && (
-                            <li>
-                              Scaling factor adjusted to {testResult.recommendations.scaling_factor}
-                            </li>
-                          )}
-                        </ul>
-                      </div>
+                    <p>{testResult.message || 'Test completed'}</p>
+                    {testResult.details && (
+                      <>
+                        {(() => {
+                          const details = testResult.details as {
+                            response_time_ms?: number
+                            recommendations?: { scaling_factor?: number }
+                          }
+                          return (
+                            <>
+                              {details.response_time_ms && (
+                                <p className="text-xs mt-1">
+                                  Response time: {details.response_time_ms.toFixed(2)}ms
+                                </p>
+                              )}
+                              {details.recommendations && (
+                                <div className="mt-2">
+                                  <p className="font-medium">Recommendations:</p>
+                                  <ul className="list-disc list-inside ml-2">
+                                    {details.recommendations.scaling_factor && (
+                                      <li>
+                                        Scaling factor adjusted to{' '}
+                                        {details.recommendations.scaling_factor}
+                                      </li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </>
                     )}
                   </div>
                 )}
@@ -715,13 +719,13 @@ const DynamicPrinterModal = ({
                       {discoveredPrinters.map((printer, index) => (
                         <div key={index} className="flex items-center justify-between text-sm">
                           <span>
-                            {printer.name} ({printer.identifier})
+                            {printer.name || 'Unknown'} ({printer.identifier})
                           </span>
                           <button
                             onClick={() => {
                               setPrinterData((prev) => ({
                                 ...prev,
-                                name: printer.name,
+                                name: printer.name || prev.name,
                                 identifier: printer.identifier,
                                 model: printer.model || prev.model,
                               }))

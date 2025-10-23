@@ -3,7 +3,7 @@ export interface Location {
   name: string
   description?: string
   parent_id?: string
-  location_type: string
+  location_type?: string // Optional to match parts.ts Location type
   image_url?: string
   emoji?: string
 
@@ -23,6 +23,8 @@ export interface Location {
   parent?: Location
   children?: Location[]
   parts_count?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export interface CreateLocationRequest {
@@ -40,6 +42,9 @@ export interface CreateLocationRequest {
   grid_rows?: number
   grid_columns?: number
   slot_layout?: Record<string, unknown>
+
+  // Index signature for base CRUD compatibility
+  [key: string]: unknown
 }
 
 export interface UpdateLocationRequest {
@@ -58,6 +63,9 @@ export interface UpdateLocationRequest {
   grid_rows?: number
   grid_columns?: number
   slot_layout?: Record<string, unknown>
+
+  // Index signature for base CRUD compatibility
+  [key: string]: unknown
 }
 
 export interface LocationPath {

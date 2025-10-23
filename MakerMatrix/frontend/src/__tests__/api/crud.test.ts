@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { apiClient } from '../../services/api'
+import { apiClient, type ApiResponse } from '../../services/api'
 import { partsService } from '../../services/parts.service'
 import { locationsService } from '../../services/locations.service'
 import { categoriesService } from '../../services/categories.service'
@@ -59,7 +59,7 @@ describe('CRUD Operations API Tests', () => {
     }
     if (createdCategoryId) {
       try {
-        await categoriesService.deleteCategory(createdCategoryId)
+        await categoriesService.deleteCategory({ id: createdCategoryId })
       } catch (_e) {
         /* ignore cleanup errors */
       }
@@ -101,11 +101,12 @@ describe('CRUD Operations API Tests', () => {
       if (!createdPartId) throw new Error('No part created')
 
       const updateData = {
+        id: createdPartId,
         quantity: 200,
         description: 'Updated test part description',
       }
 
-      const response = await partsService.updatePart(createdPartId, updateData)
+      const response = await partsService.updatePart(updateData)
 
       expect(response).toBeDefined()
       expect(response.quantity).toBe(updateData.quantity)
@@ -209,7 +210,7 @@ describe('CRUD Operations API Tests', () => {
       const response = await locationsService.deleteLocation(createdLocationId)
 
       expect(response).toBeDefined()
-      expect(response.affected_parts).toBeDefined() // LocationDeleteResponse has affected_parts
+      expect(response.updated_parts_count).toBeDefined() // LocationDeleteResponse has updated_parts_count
 
       createdLocationId = undefined
     })
@@ -286,7 +287,7 @@ describe('CRUD Operations API Tests', () => {
   describe('API Response Validation', () => {
     it('should handle API response format correctly', async () => {
       // Test that all responses follow the expected format
-      const partResponse = await apiClient.get('/api/parts/get_all_parts?page=1&page_size=1')
+      const partResponse = await apiClient.get<ApiResponse<unknown>>('/api/parts/get_all_parts?page=1&page_size=1')
 
       expect(partResponse).toHaveProperty('status')
       expect(partResponse).toHaveProperty('message')
@@ -347,7 +348,7 @@ describe('CRUD Operations API Tests', () => {
       // Cleanup
       await partsService.deletePart(part.id)
       await locationsService.deleteLocation(location.id)
-      await categoriesService.deleteCategory(category.id)
+      await categoriesService.deleteCategory({ id: category.id })
     })
   })
 })

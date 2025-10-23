@@ -49,6 +49,7 @@ class TestEntity {
 }
 
 class TestCreateRequest {
+  [key: string]: unknown
   name: string
   description: string
 
@@ -59,6 +60,7 @@ class TestCreateRequest {
 }
 
 class TestUpdateRequest {
+  [key: string]: unknown
   id: string
   name: string
   description: string
@@ -78,22 +80,26 @@ class TestCrudService extends BaseNamedCrudService<
   protected baseUrl = '/api/test'
   protected entityName = 'test'
 
-  protected mapCreateRequestToBackend(data: TestCreateRequest): BackendCreateData {
+  protected mapCreateRequestToBackend(data: TestCreateRequest): Record<string, unknown> {
     return {
       name: data.name,
       description: data.description,
     }
   }
 
-  protected mapUpdateRequestToBackend(data: TestUpdateRequest): BackendUpdateData {
+  protected mapUpdateRequestToBackend(data: TestUpdateRequest): Record<string, unknown> {
     return {
       name: data.name,
       description: data.description,
     }
   }
 
-  protected mapResponseToEntity(response: BackendResponseData): TestEntity {
-    return new TestEntity(response.id, response.name, response.description)
+  protected mapResponseToEntity(response: Record<string, unknown>): TestEntity {
+    return new TestEntity(
+      response.id as string,
+      response.name as string,
+      response.description as string
+    )
   }
 }
 

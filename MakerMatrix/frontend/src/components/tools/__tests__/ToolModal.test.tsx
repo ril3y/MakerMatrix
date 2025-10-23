@@ -35,11 +35,16 @@ describe('ToolModal', () => {
   it('renders edit tool modal with existing data', async () => {
     const mockTool = {
       id: '1',
-      name: 'Test Tool',
+      tool_name: 'Test Tool',
       tool_number: 'T001',
       description: 'Test description',
       condition: 'good' as const,
-      status: 'available' as const,
+      is_checked_out: false,
+      is_checkable: true,
+      is_calibrated_tool: false,
+      is_consumable: false,
+      exclude_from_analytics: false,
+      quantity: 1,
       created_at: '2024-01-01',
       updated_at: '2024-01-01',
     }
@@ -79,10 +84,15 @@ describe('ToolModal', () => {
   it('submits form with valid data', async () => {
     const mockCreatedTool = {
       id: '1',
-      name: 'New Tool',
+      tool_name: 'New Tool',
       tool_number: 'NT001',
-      condition: 'new' as const,
-      status: 'available' as const,
+      condition: 'good' as const,
+      is_checked_out: false,
+      is_checkable: true,
+      is_calibrated_tool: false,
+      is_consumable: false,
+      exclude_from_analytics: false,
+      quantity: 1,
       created_at: '2024-01-01',
       updated_at: '2024-01-01',
     }
@@ -98,7 +108,7 @@ describe('ToolModal', () => {
 
       fireEvent.change(nameInput, { target: { value: 'New Tool' } })
       fireEvent.change(toolNumberInput, { target: { value: 'NT001' } })
-      fireEvent.change(conditionSelect, { target: { value: 'new' } })
+      fireEvent.change(conditionSelect, { target: { value: 'good' } })
 
       const submitButton = screen.getByText('Create Tool')
       fireEvent.click(submitButton)
@@ -107,9 +117,9 @@ describe('ToolModal', () => {
     await waitFor(() => {
       expect(toolsService.createTool).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: 'New Tool',
+          tool_name: 'New Tool',
           tool_number: 'NT001',
-          condition: 'new',
+          condition: 'good',
         })
       )
       expect(mockOnSuccess).toHaveBeenCalled()
@@ -120,15 +130,20 @@ describe('ToolModal', () => {
   it('updates existing tool', async () => {
     const mockTool = {
       id: '1',
-      name: 'Existing Tool',
+      tool_name: 'Existing Tool',
       tool_number: 'ET001',
       condition: 'good' as const,
-      status: 'available' as const,
+      is_checked_out: false,
+      is_checkable: true,
+      is_calibrated_tool: false,
+      is_consumable: false,
+      exclude_from_analytics: false,
+      quantity: 1,
       created_at: '2024-01-01',
       updated_at: '2024-01-01',
     }
 
-    const mockUpdatedTool = { ...mockTool, name: 'Updated Tool' }
+    const mockUpdatedTool = { ...mockTool, tool_name: 'Updated Tool' }
 
     vi.mocked(toolsService.updateTool).mockResolvedValue(mockUpdatedTool)
 
@@ -153,7 +168,7 @@ describe('ToolModal', () => {
       expect(toolsService.updateTool).toHaveBeenCalledWith(
         '1',
         expect.objectContaining({
-          name: 'Updated Tool',
+          tool_name: 'Updated Tool',
         })
       )
       expect(mockOnSuccess).toHaveBeenCalled()

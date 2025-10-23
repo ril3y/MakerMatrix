@@ -147,15 +147,6 @@ const PartsPage = () => {
       // Don't clear parts or set loading - handle that in useEffects
       setError(null)
 
-      const response:
-        | {
-            items?: Part[]
-            total?: number
-            data?: Part[] | { items: Part[]; total: number }
-            total_parts?: number
-          }
-        | Part[]
-
       // Always use advanced search API for sorting support
       const searchParamsObj = {
         search_term: searchTerm && searchTerm.trim() ? searchTerm.trim() : undefined,
@@ -174,7 +165,7 @@ const PartsPage = () => {
         page,
         append,
       })
-      response = await partsService.searchParts(searchParamsObj)
+      const response = (await partsService.searchParts(searchParamsObj)) as unknown
 
       // Debug logging to understand response structure
       console.log('API response:', response)
@@ -183,22 +174,36 @@ const PartsPage = () => {
       let partsData: Part[] = []
       let totalCount = 0
 
-      if (response.items && Array.isArray(response.items)) {
+      // Type assertions for response format checking
+      const hasItems = (obj: unknown): obj is { items: Part[]; total?: number } => {
+        return (
+          typeof obj === 'object' &&
+          obj !== null &&
+          'items' in obj &&
+          Array.isArray((obj as { items: unknown }).items)
+        )
+      }
+
+      const hasData = (obj: unknown): obj is { data: unknown; total_parts?: number } => {
+        return typeof obj === 'object' && obj !== null && 'data' in obj
+      }
+
+      if (hasItems(response)) {
         // Direct PaginatedResponse format (from searchParts)
         partsData = response.items
         totalCount = response.total || 0
-      } else if (response.data && response.data.items && Array.isArray(response.data.items)) {
+      } else if (hasData(response) && hasItems(response.data)) {
         // Wrapped PaginatedResponse format: { data: { items: [...], total: ... } }
         partsData = response.data.items
         totalCount = response.data.total || 0
-      } else if (response.data && Array.isArray(response.data)) {
+      } else if (hasData(response) && Array.isArray(response.data)) {
         // Legacy format (getAllParts): { data: [...], total_parts: ... }
-        partsData = response.data
+        partsData = response.data as Part[]
         totalCount = response.total_parts || 0
       } else if (Array.isArray(response)) {
         // Direct array response
-        partsData = response
-        totalCount = response.length
+        partsData = response as Part[]
+        totalCount = (response as Part[]).length
       }
 
       // Map backend fields to frontend format if needed

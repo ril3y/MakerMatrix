@@ -12,14 +12,18 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import AddPartModal from '../AddPartModal'
-import * as partsService from '@/services/parts.service'
+import { partsService } from '@/services/parts.service'
 
 // Mock the parts service
-vi.mock('@/services/parts.service')
+vi.mock('@/services/parts.service', () => ({
+  partsService: {
+    enrichFromSupplier: vi.fn(),
+  },
+}))
 
 describe('AddPartModal - Auto-Enrichment', () => {
   const mockOnClose = vi.fn()
-  const mockOnPartAdded = vi.fn()
+  const mockOnSuccess = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -29,29 +33,23 @@ describe('AddPartModal - Auto-Enrichment', () => {
     it('should auto-enrich when LCSC URL is pasted', async () => {
       const user = userEvent.setup()
 
-      // Mock enrichment response
+      // Mock enrichment response - enrichFromSupplier returns Partial<Part>
       vi.mocked(partsService.enrichFromSupplier).mockResolvedValue({
-        success: true,
-        supplier: 'lcsc',
-        part_identifier: 'C25804',
-        enrichment_method: 'api',
-        data: {
-          supplier_part_number: 'C25804',
-          part_name: '10K Resistor',
-          manufacturer: 'Test Manufacturer',
-          description: '10K Ohm 0805 Resistor',
-          image_url: 'https://example.com/image.jpg',
-          additional_properties: {
-            Resistance: '10K',
-            Package: '0805',
-            Tolerance: '1%',
-            'Power Rating': '0.125W',
-            'Is Smt': 'True',
-          },
+        supplier_part_number: 'C25804',
+        name: '10K Resistor',
+        manufacturer: 'Test Manufacturer',
+        description: '10K Ohm 0805 Resistor',
+        image_url: 'https://example.com/image.jpg',
+        additional_properties: {
+          Resistance: '10K',
+          Package: '0805',
+          Tolerance: '1%',
+          'Power Rating': '0.125W',
+          'Is Smt': 'True',
         },
       })
 
-      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
       // Find and paste LCSC URL
       const urlInput = screen.getByLabelText(/Product URL/i)
@@ -94,7 +92,7 @@ describe('AddPartModal - Auto-Enrichment', () => {
         new Error('Request failed with status code 500')
       )
 
-      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -116,26 +114,20 @@ describe('AddPartModal - Auto-Enrichment', () => {
       const user = userEvent.setup()
 
       vi.mocked(partsService.enrichFromSupplier).mockResolvedValue({
-        success: true,
-        supplier: 'adafruit',
-        part_identifier: '3571',
-        enrichment_method: 'scraping',
-        data: {
-          supplier_part_number: '3571',
-          part_name: 'LED Strip',
-          manufacturer: 'Adafruit Industries',
-          description: 'NeoPixel Digital RGB LED Strip',
-          image_url: 'https://adafruit.com/image.jpg',
-          additional_properties: {
-            Length: '1m',
-            'LED Count': '60',
-            Voltage: '5V',
-            Type: 'WS2812B',
-          },
+        supplier_part_number: '3571',
+        name: 'LED Strip',
+        manufacturer: 'Adafruit Industries',
+        description: 'NeoPixel Digital RGB LED Strip',
+        image_url: 'https://adafruit.com/image.jpg',
+        additional_properties: {
+          Length: '1m',
+          'LED Count': '60',
+          Voltage: '5V',
+          Type: 'WS2812B',
         },
       })
 
-      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -167,27 +159,21 @@ describe('AddPartModal - Auto-Enrichment', () => {
       const user = userEvent.setup()
 
       vi.mocked(partsService.enrichFromSupplier).mockResolvedValue({
-        success: true,
-        supplier: 'mcmaster-carr',
-        part_identifier: '91253A192',
-        enrichment_method: 'scraping',
-        data: {
-          supplier_part_number: '91253A192',
-          part_name: 'Socket Head Screw',
-          manufacturer: 'McMaster-Carr',
-          description: 'Black-Oxide Alloy Steel Socket Head Screw',
-          image_url: 'https://mcmaster.com/image.jpg',
-          additional_properties: {
-            Material: 'Black-Oxide Alloy Steel',
-            'Thread Size': 'M3 x 0.5mm',
-            Length: '15mm',
-            'Head Type': 'Socket Head',
-            'Drive Style': 'Hex',
-          },
+        supplier_part_number: '91253A192',
+        name: 'Socket Head Screw',
+        manufacturer: 'McMaster-Carr',
+        description: 'Black-Oxide Alloy Steel Socket Head Screw',
+        image_url: 'https://mcmaster.com/image.jpg',
+        additional_properties: {
+          Material: 'Black-Oxide Alloy Steel',
+          'Thread Size': 'M3 x 0.5mm',
+          Length: '15mm',
+          'Head Type': 'Socket Head',
+          'Drive Style': 'Hex',
         },
       })
 
-      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -219,23 +205,17 @@ describe('AddPartModal - Auto-Enrichment', () => {
       const user = userEvent.setup()
 
       vi.mocked(partsService.enrichFromSupplier).mockResolvedValue({
-        success: true,
-        supplier: 'test-supplier',
-        part_identifier: 'TEST-123',
-        enrichment_method: 'api',
-        data: {
-          supplier_part_number: 'TEST-123',
-          part_name: 'Test Part',
-          additional_properties: {
-            'Property 1': 'Value 1',
-            'Property 2': 'Value 2',
-            'Property 3': 'Value 3',
-            // No nested objects should appear
-          },
+        supplier_part_number: 'TEST-123',
+        name: 'Test Part',
+        additional_properties: {
+          'Property 1': 'Value 1',
+          'Property 2': 'Value 2',
+          'Property 3': 'Value 3',
+          // No nested objects should appear
         },
       })
 
-      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)
@@ -258,23 +238,17 @@ describe('AddPartModal - Auto-Enrichment', () => {
       const user = userEvent.setup()
 
       vi.mocked(partsService.enrichFromSupplier).mockResolvedValue({
-        success: true,
-        supplier: 'lcsc',
-        part_identifier: 'C25804',
-        enrichment_method: 'api',
-        data: {
-          supplier_part_number: 'C25804',
-          part_name: 'Resistor',
-          additional_properties: {
-            Resistance: '10K',
-            last_enrichment_date: '2025-01-01T00:00:00', // Should be filtered
-            enrichment_source: 'lcsc', // Should be filtered
-            Package: '0805',
-          },
+        supplier_part_number: 'C25804',
+        name: 'Resistor',
+        additional_properties: {
+          Resistance: '10K',
+          last_enrichment_date: '2025-01-01T00:00:00', // Should be filtered
+          enrichment_source: 'lcsc', // Should be filtered
+          Package: '0805',
         },
       })
 
-      render(<AddPartModal isOpen={true} onClose={mockOnClose} onPartAdded={mockOnPartAdded} />)
+      render(<AddPartModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />)
 
       const urlInput = screen.getByLabelText(/Product URL/i)
       await user.clear(urlInput)

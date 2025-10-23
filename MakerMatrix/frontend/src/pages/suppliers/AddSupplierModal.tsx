@@ -229,21 +229,21 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
               {/* Supplier-Specific Configuration Forms */}
               {selectedType === 'digikey' && (
                 <DigiKeyConfigForm
-                  config={config}
+                  config={config as unknown as Record<string, unknown>}
                   onConfigChange={handleConfigChange}
                   errors={errors}
                 />
               )}
               {selectedType === 'lcsc' && (
                 <LCSCConfigForm
-                  config={config}
+                  config={config as unknown as Record<string, unknown>}
                   onConfigChange={handleConfigChange}
                   errors={errors}
                 />
               )}
               {selectedType === 'mouser' && (
                 <MouserConfigForm
-                  config={config}
+                  config={config as unknown as Record<string, unknown>}
                   onConfigChange={handleConfigChange}
                   errors={errors}
                 />

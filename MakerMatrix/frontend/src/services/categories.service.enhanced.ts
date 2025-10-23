@@ -18,7 +18,7 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   protected entityName = 'category'
 
   // Map frontend create request to backend format
-  protected mapCreateRequestToBackend(data: CreateCategoryRequest): CreateCategoryRequest {
+  protected mapCreateRequestToBackend(data: CreateCategoryRequest): Record<string, unknown> {
     return {
       name: data.name,
       description: data.description || '',
@@ -26,9 +26,7 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   }
 
   // Map frontend update request to backend format
-  protected mapUpdateRequestToBackend(
-    data: UpdateCategoryRequest
-  ): Partial<UpdateCategoryRequest> & { parent_id?: string | null } {
+  protected mapUpdateRequestToBackend(data: UpdateCategoryRequest): Record<string, unknown> {
     return {
       name: data.name,
       description: data.description || '',
@@ -37,16 +35,14 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
   }
 
   // Map backend response to frontend entity
-  protected mapResponseToEntity(
-    response: Category & { created_at?: string; updated_at?: string }
-  ): Category {
+  protected mapResponseToEntity(response: Record<string, unknown>): Category {
     return {
-      id: response.id,
-      name: response.name,
-      description: response.description || '',
-      part_count: response.part_count || 0,
-      created_at: response.created_at,
-      updated_at: response.updated_at,
+      id: response.id as string,
+      name: response.name as string,
+      description: (response.description as string) || '',
+      part_count: (response.part_count as number) || 0,
+      created_at: response.created_at as string | undefined,
+      updated_at: response.updated_at as string | undefined,
     }
   }
 
@@ -57,7 +53,9 @@ export class EnhancedCategoriesService extends BaseNamedCrudService<
         '/api/categories/get_all_categories'
       )
       if (response.status === 'success' && response.data) {
-        return response.data.categories.map((category) => this.mapResponseToEntity(category))
+        return response.data.categories.map((category) =>
+          this.mapResponseToEntity(category as Record<string, unknown>)
+        )
       }
       return []
     } catch (error) {

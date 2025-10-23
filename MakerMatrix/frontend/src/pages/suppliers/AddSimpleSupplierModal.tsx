@@ -107,7 +107,7 @@ export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({
           ? formData.website_url
           : `https://${formData.website_url}`,
         supplier_type: 'simple',
-        api_type: 'rest', // Default to rest but won't be used for simple suppliers
+        api_type: 'rest' as const, // Type assertion for literal type
         base_url: '', // Not needed for simple suppliers
         enabled: true,
         supports_datasheet: false,

@@ -4,7 +4,7 @@
  * Provides API access to rate limiting usage statistics and monitoring.
  */
 
-import { apiClient } from './api'
+import { apiClient, type ApiResponse } from './api'
 
 export interface RateLimitUsage {
   per_minute: number
@@ -71,8 +71,13 @@ class RateLimitService {
    */
   async getAllSupplierUsage(): Promise<SupplierRateLimitData[]> {
     try {
-      const response = await apiClient.get('/api/rate-limits/suppliers')
-      return response.data || []
+      const response = await apiClient.get<ApiResponse<SupplierRateLimitData[]>>(
+        '/api/rate-limits/suppliers'
+      )
+      if (response.status === 'success' && response.data) {
+        return response.data
+      }
+      return []
     } catch (error) {
       console.error('Failed to get supplier usage:', error)
       throw error
@@ -91,10 +96,18 @@ class RateLimitService {
     usage_statistics: SupplierUsageStats
   }> {
     try {
-      const response = await apiClient.get(
-        `/api/rate-limits/suppliers/${supplierName}?time_period=${timePeriod}`
-      )
-      return response.data
+      const response = await apiClient.get<
+        ApiResponse<{
+          supplier_name: string
+          rate_limit_status: RateLimitStatus
+          usage_statistics: SupplierUsageStats
+        }>
+      >(`/api/rate-limits/suppliers/${supplierName}?time_period=${timePeriod}`)
+
+      if (response.status === 'success' && response.data) {
+        return response.data
+      }
+      throw new Error(response.message || 'Failed to get supplier usage')
     } catch (error) {
       console.error(`Failed to get usage for ${supplierName}:`, error)
       throw error
@@ -106,8 +119,14 @@ class RateLimitService {
    */
   async getSupplierRateLimitStatus(supplierName: string): Promise<RateLimitStatus> {
     try {
-      const response = await apiClient.get(`/api/rate-limits/suppliers/${supplierName}/status`)
-      return response.data
+      const response = await apiClient.get<ApiResponse<RateLimitStatus>>(
+        `/api/rate-limits/suppliers/${supplierName}/status`
+      )
+
+      if (response.status === 'success' && response.data) {
+        return response.data
+      }
+      throw new Error(response.message || 'Failed to get rate limit status')
     } catch (error) {
       console.error(`Failed to get rate limit status for ${supplierName}:`, error)
       throw error
@@ -119,8 +138,14 @@ class RateLimitService {
    */
   async getRateLimitSummary(): Promise<RateLimitSummary> {
     try {
-      const response = await apiClient.get('/api/rate-limits/summary')
-      return response.data
+      const response = await apiClient.get<ApiResponse<RateLimitSummary>>(
+        '/api/rate-limits/summary'
+      )
+
+      if (response.status === 'success' && response.data) {
+        return response.data
+      }
+      throw new Error(response.message || 'Failed to get rate limit summary')
     } catch (error) {
       console.error('Failed to get rate limit summary:', error)
       throw error

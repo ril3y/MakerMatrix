@@ -203,20 +203,20 @@ export class WebSocketService {
 
   // Utility methods for common events
   onEntityCreated(handler: (data: EntityEventData) => void) {
-    this.on('entity_created', (message) => handler(message.data))
+    this.on('entity_created', (message) => handler(message.data as EntityEventData))
   }
 
   onEntityUpdated(handler: (data: EntityEventData) => void) {
-    this.on('entity_updated', (message) => handler(message.data))
+    this.on('entity_updated', (message) => handler(message.data as EntityEventData))
   }
 
   onEntityDeleted(handler: (data: EntityEventData) => void) {
-    this.on('entity_deleted', (message) => handler(message.data))
+    this.on('entity_deleted', (message) => handler(message.data as EntityEventData))
   }
 
   onPartCreated(handler: (data: EntityEventData) => void) {
     this.on('entity_created', (message) => {
-      const data: EntityEventData = message.data
+      const data = message.data as EntityEventData
       if (data.entity_type === 'part') {
         handler(data)
       }
@@ -225,7 +225,7 @@ export class WebSocketService {
 
   onPartUpdated(handler: (data: EntityEventData) => void) {
     this.on('entity_updated', (message) => {
-      const data: EntityEventData = message.data
+      const data = message.data as EntityEventData
       if (data.entity_type === 'part') {
         handler(data)
       }
@@ -234,7 +234,7 @@ export class WebSocketService {
 
   onPartDeleted(handler: (data: EntityEventData) => void) {
     this.on('entity_deleted', (message) => {
-      const data: EntityEventData = message.data
+      const data = message.data as EntityEventData
       if (data.entity_type === 'part') {
         handler(data)
       }

@@ -204,7 +204,7 @@ const PartDetailsPage = () => {
 
   const loadAllocations = useCallback(async (partId: string) => {
     try {
-      setLoadingAllocations(true)
+      _setLoadingAllocations(true)
       const data = await partAllocationService.getPartAllocations(partId)
       setPartAllocations(data.allocations || [])
       setAllocationTotalQuantity(data.total_quantity)
@@ -213,7 +213,7 @@ const PartDetailsPage = () => {
       setPartAllocations([])
       setAllocationTotalQuantity(null)
     } finally {
-      setLoadingAllocations(false)
+      _setLoadingAllocations(false)
     }
   }, [])
 
@@ -230,7 +230,7 @@ const PartDetailsPage = () => {
           try {
             // Get available suppliers from registry
             const availableSuppliersData = await dynamicSupplierService.getAvailableSuppliers()
-            setAvailableSuppliers(availableSuppliersData.map((s) => s.toLowerCase()))
+            _setAvailableSuppliers(availableSuppliersData.map((s) => s.toLowerCase()))
 
             // Get configured suppliers
             const suppliers = await supplierService.getSuppliers()
@@ -510,7 +510,7 @@ const PartDetailsPage = () => {
 
     // Fall back to external URL with proxy
     if (part?.additional_properties?.datasheet_url) {
-      return getPDFProxyUrl(part.additional_properties.datasheet_url)
+      return getPDFProxyUrl(String(part.additional_properties.datasheet_url))
     }
 
     return null
@@ -1069,11 +1069,12 @@ const PartDetailsPage = () => {
 
   const additionalProps = part.additional_properties || {}
   const _propertyLeafCount = countPropertyLeaves(additionalProps)
+  const metadata = additionalProps?.metadata as Record<string, unknown> | undefined
   const lastEnrichmentIso =
-    additionalProps?.metadata?.last_enrichment ||
+    metadata?.last_enrichment ||
     additionalProps?.last_enrichment ||
     additionalProps?.last_enrichment_date
-  const lastEnrichmentDisplay = formatDateTime(lastEnrichmentIso)
+  const lastEnrichmentDisplay = formatDateTime(String(lastEnrichmentIso ?? ''))
 
   // Simple check if we have additional properties to display
   const hasAdditionalProperties = additionalProps && Object.keys(additionalProps).length > 0
@@ -1901,7 +1902,7 @@ const PartDetailsPage = () => {
                       key={project.id}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600/10 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-600/20 transition-colors border border-purple-600/30 cursor-pointer"
                       onClick={() => {
-                        setSelectedProject(project)
+                        setSelectedProject(project as Project)
                         setProjectDetailsModalOpen(true)
                       }}
                       title={`View ${project.name} project`}
@@ -2134,7 +2135,7 @@ const PartDetailsPage = () => {
                           <div className="flex justify-between text-xs text-green-300/60">
                             <span>Size:</span>
                             <span>
-                              {((part.additional_properties.datasheet_size || 0) / 1024).toFixed(1)}{' '}
+                              {((Number(part.additional_properties.datasheet_size) || 0) / 1024).toFixed(1)}{' '}
                               KB
                             </span>
                           </div>
@@ -2159,7 +2160,7 @@ const PartDetailsPage = () => {
                                 const link = document.createElement('a')
                                 link.href = url
                                 link.download =
-                                  part.additional_properties.datasheet_filename || 'datasheet.pdf'
+                                  String(part.additional_properties.datasheet_filename) || 'datasheet.pdf'
                                 document.body.appendChild(link)
                                 link.click()
                                 document.body.removeChild(link)
@@ -2277,7 +2278,7 @@ const PartDetailsPage = () => {
           )}
 
           {/* Order History Section */}
-          {priceTrends.length > 0 && (
+          {_priceTrends.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2289,12 +2290,12 @@ const PartDetailsPage = () => {
                   <TrendingUp className="w-5 h-5" />
                   Order History & Price Trends
                   <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
-                    {priceTrends.length} orders
+                    {_priceTrends.length} orders
                   </span>
                 </h2>
               </div>
               <div className="card-content">
-                {loadingPriceHistory ? (
+                {_loadingPriceHistory ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
@@ -2306,13 +2307,13 @@ const PartDetailsPage = () => {
                       <div className="h-64">
                         <Line
                           data={{
-                            labels: priceTrends.map((item) =>
-                              new Date(item.order_date).toLocaleDateString()
+                            labels: _priceTrends.map((item) =>
+                              new Date(item.date).toLocaleDateString()
                             ),
                             datasets: [
                               {
                                 label: 'Unit Price',
-                                data: priceTrends.map((item) => item.unit_price),
+                                data: _priceTrends.map((item) => item.price),
                                 borderColor: 'rgb(99, 102, 241)',
                                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                                 fill: true,
@@ -2365,13 +2366,13 @@ const PartDetailsPage = () => {
                             </tr>
                           </thead>
                           <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
-                            {priceTrends.map((trend, index) => {
+                            {_priceTrends.map((trend, index) => {
                               const prevPrice =
-                                index < priceTrends.length - 1
-                                  ? priceTrends[index + 1].unit_price
+                                index < _priceTrends.length - 1
+                                  ? _priceTrends[index + 1].price
                                   : null
                               const priceChange = prevPrice
-                                ? ((trend.unit_price - prevPrice) / prevPrice) * 100
+                                ? ((trend.price - prevPrice) / prevPrice) * 100
                                 : 0
 
                               return (
@@ -2380,11 +2381,11 @@ const PartDetailsPage = () => {
                                   className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
                                 >
                                   <td className="px-4 py-3 text-primary">
-                                    {new Date(trend.order_date).toLocaleDateString()}
+                                    {new Date(trend.date).toLocaleDateString()}
                                   </td>
-                                  <td className="px-4 py-3 text-secondary">{trend.supplier}</td>
+                                  <td className="px-4 py-3 text-secondary">{part.supplier || 'N/A'}</td>
                                   <td className="px-4 py-3 text-secondary">
-                                    ${trend.unit_price.toFixed(2)}
+                                    ${trend.price.toFixed(2)}
                                   </td>
                                   <td className="px-4 py-3">
                                     {prevPrice && (
@@ -2559,6 +2560,8 @@ const PartDetailsPage = () => {
                         Choose which projects to assign this part to
                       </p>
                       <CustomSelect
+                        value=""
+                        onChange={() => {}}
                         multiSelect={true}
                         selectedValues={selectedProjectIds}
                         onMultiSelectChange={(values) => {
@@ -2999,11 +3002,14 @@ function formatSpecValue(value: unknown): string | JSX.Element {
   if (typeof value === 'object') {
     if (value === null) return '—'
 
+    // Type guard for objects with common properties
+    const obj = value as Record<string, unknown>
+
     // Try to extract meaningful data from objects first
-    if (value.name) return String(value.name)
-    if (value.value) return String(value.value)
-    if (value.label) return String(value.label)
-    if (value.title) return String(value.title)
+    if ('name' in obj && obj.name) return String(obj.name)
+    if ('value' in obj && obj.value) return String(obj.value)
+    if ('label' in obj && obj.label) return String(obj.label)
+    if ('title' in obj && obj.title) return String(obj.title)
 
     const keys = Object.keys(value)
     if (keys.length === 0) return '—'

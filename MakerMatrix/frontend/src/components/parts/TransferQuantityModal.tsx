@@ -222,7 +222,7 @@ const TransferQuantityModal = ({
             required
           >
             <CustomSelect
-              value={form.watch('to_location_id') || ''}
+              value={(form.watch('to_location_id') as unknown as string) || ''}
               onChange={(value) => form.setValue('to_location_id', value)}
               options={hierarchicalLocations.map((loc) => ({
                 value: loc.id,
@@ -258,7 +258,7 @@ const TransferQuantityModal = ({
               type="range"
               min={1}
               max={maxQuantity}
-              value={form.watch('quantity') || 1}
+              value={(form.watch('quantity') as unknown as number) || 1}
               onChange={(e) => form.setValue('quantity', parseInt(e.target.value))}
               className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
@@ -269,20 +269,20 @@ const TransferQuantityModal = ({
           </div>
 
           {/* Transfer Preview */}
-          {form.watch('quantity') > 0 && form.watch('to_location_id') && (
+          {(form.watch('quantity') as unknown as number) > 0 && form.watch('to_location_id') && (
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-theme-primary mb-2 font-medium">Transfer Summary:</p>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span className="text-theme-muted">Transferring:</span>
                   <span className="font-semibold text-theme-primary">
-                    {form.watch('quantity')?.toLocaleString() || 0}
+                    {(form.watch('quantity') as unknown as number)?.toLocaleString() || 0}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-theme-muted">Remaining at source:</span>
                   <span className="font-semibold text-theme-primary">
-                    {(maxQuantity - (form.watch('quantity') || 0)).toLocaleString()}
+                    {(maxQuantity - ((form.watch('quantity') as unknown as number) || 0)).toLocaleString()}
                   </span>
                 </div>
               </div>

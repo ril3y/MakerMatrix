@@ -287,10 +287,7 @@ describe('useAuthStore', () => {
 
   describe('UpdatePassword', () => {
     it('should handle successful password update', async () => {
-      mockAuthService.updatePassword.mockResolvedValueOnce({
-        status: 'success',
-        message: 'Password updated',
-      })
+      mockAuthService.updatePassword.mockResolvedValueOnce(undefined)
 
       const { result } = renderHook(() => useAuthStore())
 

@@ -129,34 +129,34 @@ const PartEnrichmentModal = ({
 
   // Intelligently detect supplier from part data
   const detectSupplierFromPart = (part: Part): string => {
+    const additionalProps = part.additional_properties || {}
+
     console.log('Detecting supplier from part data:', {
-      enrichment_source: part.enrichment_source,
-      lcsc_part_number: part.lcsc_part_number,
+      enrichment_source: additionalProps.enrichment_source,
+      lcsc_part_number: additionalProps.lcsc_part_number,
       supplier: part.supplier,
-      part_vendor: part.part_vendor,
+      part_vendor: additionalProps.part_vendor,
       additional_properties: part.additional_properties,
     })
 
     // First check enrichment_source
-    if (part.enrichment_source) {
-      console.log('Using enrichment_source:', part.enrichment_source)
-      return part.enrichment_source.toLowerCase()
+    if (additionalProps.enrichment_source && typeof additionalProps.enrichment_source === 'string') {
+      console.log('Using enrichment_source:', additionalProps.enrichment_source)
+      return additionalProps.enrichment_source.toLowerCase()
     }
 
     // Check for supplier-specific part numbers
-    const additionalProps = part.additional_properties || {}
-
-    if (part.lcsc_part_number || additionalProps.lcsc_part_number) {
+    if (additionalProps.lcsc_part_number) {
       console.log('Detected LCSC from part number')
       return 'lcsc'
     }
 
-    if (part.digikey_part_number || additionalProps.digikey_part_number) {
+    if (additionalProps.digikey_part_number) {
       console.log('Detected DIGIKEY from part number')
       return 'digikey'
     }
 
-    if (part.mouser_part_number || additionalProps.mouser_part_number) {
+    if (additionalProps.mouser_part_number) {
       console.log('Detected MOUSER from part number')
       return 'mouser'
     }
@@ -167,9 +167,9 @@ const PartEnrichmentModal = ({
       return part.supplier.toLowerCase()
     }
 
-    if (part.part_vendor) {
-      console.log('Using part.part_vendor:', part.part_vendor)
-      return part.part_vendor.toLowerCase()
+    if (additionalProps.part_vendor && typeof additionalProps.part_vendor === 'string') {
+      console.log('Using part.part_vendor:', additionalProps.part_vendor)
+      return additionalProps.part_vendor.toLowerCase()
     }
 
     console.log('No supplier detected from part data')
@@ -322,7 +322,17 @@ const PartEnrichmentModal = ({
       const capabilitiesData = response.data?.data || response.data
       console.log('Extracted capabilities data:', capabilitiesData)
 
-      setSupplierCapabilities(capabilitiesData || {})
+      // Type guard to ensure we have the right structure
+      const validCapabilities: Record<string, string[]> = {}
+      if (capabilitiesData && typeof capabilitiesData === 'object') {
+        Object.entries(capabilitiesData as Record<string, unknown>).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            validCapabilities[key] = value.filter((item): item is string => typeof item === 'string')
+          }
+        })
+      }
+
+      setSupplierCapabilities(validCapabilities)
     } catch (error) {
       console.error('Failed to load supplier capabilities:', error)
     }
@@ -390,9 +400,12 @@ const PartEnrichmentModal = ({
     setIsEnriching(false)
 
     // Process enrichment results
-    const results = task.result_data?.enrichment_summary?.results || {}
+    const resultData = task.result_data as Record<string, unknown> | undefined
+    const enrichmentSummary = resultData?.enrichment_summary as Record<string, unknown> | undefined
+    const results = (enrichmentSummary?.results as Record<string, unknown>) || {}
+
     const enrichmentResults: EnrichmentResult[] = selectedCapabilities.map((capability) => {
-      const result = results[capability]
+      const result = results[capability] as { success?: boolean; data?: unknown; error?: string } | undefined
       const definition = capabilityDefinitions[capability as keyof typeof capabilityDefinitions]
 
       return {

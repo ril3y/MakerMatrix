@@ -139,11 +139,12 @@ export interface ToolMaintenanceRecord {
   tool_id: string
   maintenance_date: string
   maintenance_type: string
+  performed_by: string
   notes?: string
   next_maintenance_date?: string
   cost?: number
   created_at: string
-  updated_at: string
+  updated_at?: string
 }
 
 // Paginated response for tools

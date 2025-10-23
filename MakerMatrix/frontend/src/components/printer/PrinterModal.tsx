@@ -1,26 +1,18 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Printer, TestTube, FileText, HelpCircle } from 'lucide-react'
+import { X, Printer as PrinterIcon, TestTube, FileText, HelpCircle } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { settingsService } from '@/services/settings.service'
-import type { LabelTemplate } from '@/services/template.service'
+import type { Printer, PrinterInfo } from '@/types/settings'
+import type { LabelTemplate, TemplateData } from '@/services/template.service'
 import { templateService } from '@/services/template.service'
 import TemplateSelector from './TemplateSelector'
 import toast from 'react-hot-toast'
 
 interface LabelSize {
   name: string
-  [key: string]: unknown
-}
-
-interface PrinterInfo {
-  supported_sizes?: LabelSize[]
-  [key: string]: unknown
-}
-
-interface AvailablePrinter {
-  printer_id: string
-  name?: string
+  width_mm?: number
+  height_mm?: number
   [key: string]: unknown
 }
 
@@ -49,7 +41,7 @@ const PrinterModal = ({
   showTestMode = false,
   partData,
 }: PrinterModalProps) => {
-  const [availablePrinters, setAvailablePrinters] = useState<AvailablePrinter[]>([])
+  const [availablePrinters, setAvailablePrinters] = useState<Printer[]>([])
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
   const [printerInfo, setPrinterInfo] = useState<PrinterInfo | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<LabelTemplate | null>(null)
@@ -79,6 +71,139 @@ const PrinterModal = ({
       localStorage.setItem('makermatrix_custom_label_template', labelTemplate)
     }
   }, [labelTemplate, selectedTemplate])
+
+  const loadPrinterInfo = useCallback(async (printerId: string) => {
+    try {
+      const info = await settingsService.getPrinterInfo(printerId)
+      setPrinterInfo(info)
+
+      const supportedSizes = (info as { supported_sizes?: LabelSize[] }).supported_sizes
+      if (supportedSizes && supportedSizes.length > 0) {
+        const defaultSize =
+          supportedSizes.find((s: LabelSize) => s.name === '12mm') ||
+          supportedSizes.find((s: LabelSize) => s.name === '12') ||
+          supportedSizes[0]
+        setSelectedLabelSize(defaultSize.name)
+      }
+    } catch {
+      toast.error('Failed to load printer information')
+    }
+  }, [])
+
+  const loadPrinters = useCallback(async () => {
+    try {
+      setLoading(true)
+      const printers = await settingsService.getAvailablePrinters()
+      setAvailablePrinters(printers)
+
+      if (printers.length > 0 && !selectedPrinter && printers[0].printer_id) {
+        setSelectedPrinter(printers[0].printer_id)
+        await loadPrinterInfo(printers[0].printer_id)
+      }
+    } catch {
+      toast.error('Failed to load printers')
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedPrinter, loadPrinterInfo])
+
+  const generatePreview = useCallback(async () => {
+    try {
+      const testData = partData || {
+        id: 'test-part-id-12345',
+        part_name: 'Test Part',
+        part_number: 'TP-001',
+        emoji: '🔧',
+        location: 'A1-B2',
+        category: 'Electronics',
+        quantity: '10',
+        description: 'Test part description',
+        additional_properties: {},
+      }
+
+      // Convert test data to TemplateData format (flatten additional_properties)
+      const templateData: TemplateData = {
+        id: testData.id,
+        part_name: testData.part_name,
+        part_number: testData.part_number,
+        emoji: testData.emoji,
+        location: testData.location,
+        category: testData.category,
+        quantity: testData.quantity,
+        description: testData.description,
+      }
+
+      let blob: Blob
+
+      // Determine which preview method to use (same logic as print)
+      if (selectedTemplate) {
+        // Use saved template system
+        blob = await templateService.previewTemplate({
+          template_id: selectedTemplate.id,
+          data: templateData,
+        })
+      } else if (labelTemplate.trim()) {
+        // Use custom template text
+        const requestData = {
+          template: labelTemplate,
+          text: '', // Not used anymore
+          label_size: selectedLabelSize,
+          label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
+          options: {
+            fit_to_label: true,
+            include_qr: labelTemplate.includes('{qr}') || /\{qr=[^}]+\}/.test(labelTemplate),
+            font_size_override: fontSizeOverride,
+          },
+          data: testData,
+        }
+        blob = await settingsService.previewAdvancedLabel(requestData)
+      } else {
+        // No template and no custom text
+        toast.error('Please select a template or enter custom label text')
+        return
+      }
+
+      const url = URL.createObjectURL(blob)
+      setPreviewUrl(url)
+    } catch (error) {
+      console.error('Preview error:', error)
+
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to generate preview'
+
+      if (error instanceof Error) {
+        const message = error.message
+
+        // Check for field not found error
+        if (message.includes('not found in data')) {
+          // Extract field name from error message
+          const fieldMatch = message.match(/Field '([^']+)' not found/)
+          if (fieldMatch) {
+            const fieldName = fieldMatch[1]
+            errorMessage = `QR field '{${fieldName}}' does not exist in part data`
+          } else {
+            errorMessage = message
+          }
+        }
+        // Check for QR data too long error
+        else if (message.includes('QR data too long')) {
+          const lengthMatch = message.match(/(\d+) characters \(max (\d+)/)
+          if (lengthMatch) {
+            const [, actual, max] = lengthMatch
+            errorMessage = `QR code data too long (${actual} chars, max ${max} for 11mm label)`
+          } else {
+            errorMessage = 'QR code data exceeds size limit for 11mm label'
+          }
+        }
+        // Other errors - use the message directly if it's descriptive
+        else if (message && message !== 'Failed to process preview response') {
+          errorMessage = message
+        }
+      }
+
+      toast.error(errorMessage)
+    }
+  }, [partData, selectedTemplate, labelTemplate, selectedLabelSize, labelLength, fontSizeOverride])
 
   useEffect(() => {
     if (isOpen) {
@@ -140,43 +265,136 @@ const PrinterModal = ({
     setPreviewUrl(null)
   }
 
-  const loadPrinters = useCallback(async () => {
-    try {
-      setLoading(true)
-      const printers = await settingsService.getAvailablePrinters()
-      setAvailablePrinters(printers)
-
-      if (printers.length > 0 && !selectedPrinter && printers[0].printer_id) {
-        setSelectedPrinter(printers[0].printer_id)
-        await loadPrinterInfo(printers[0].printer_id)
-      }
-    } catch {
-      toast.error('Failed to load printers')
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedPrinter, loadPrinterInfo])
-
-  const loadPrinterInfo = useCallback(async (printerId: string) => {
-    try {
-      const info = await settingsService.getPrinterInfo(printerId)
-      setPrinterInfo(info)
-
-      if (info.supported_sizes && info.supported_sizes.length > 0) {
-        const defaultSize =
-          info.supported_sizes.find((s: LabelSize) => s.name === '12mm') ||
-          info.supported_sizes.find((s: LabelSize) => s.name === '12') ||
-          info.supported_sizes[0]
-        setSelectedLabelSize(defaultSize.name)
-      }
-    } catch {
-      toast.error('Failed to load printer information')
-    }
-  }, [])
-
   const handlePrinterChange = async (printerId: string) => {
     setSelectedPrinter(printerId)
     await loadPrinterInfo(printerId)
+  }
+
+  const printLabel = async () => {
+    if (!selectedPrinter) {
+      toast.error('Please select a printer first')
+      return
+    }
+
+    if (!selectedLabelSize) {
+      toast.error('Please select a label size')
+      return
+    }
+
+    try {
+      const testData = partData || {
+        id: 'test-part-id-12345',
+        part_name: 'Test Part',
+        part_number: 'TP-001',
+        emoji: '🔧',
+        location: 'A1-B2',
+        category: 'Electronics',
+        quantity: '10',
+        description: 'Test part description',
+        additional_properties: {},
+      }
+
+      // Convert test data to TemplateData format (flatten additional_properties)
+      const templateData: TemplateData = {
+        id: testData.id,
+        part_name: testData.part_name,
+        part_number: testData.part_number,
+        emoji: testData.emoji,
+        location: testData.location,
+        category: testData.category,
+        quantity: testData.quantity,
+        description: testData.description,
+      }
+
+      let result: unknown
+
+      // Determine which print method to use:
+      // 1. If a saved template is selected, use template system
+      // 2. Otherwise, use custom text with advanced label printing
+      if (selectedTemplate) {
+        // Use saved template system
+        result = await templateService.printTemplate({
+          printer_id: selectedPrinter,
+          template_id: selectedTemplate.id,
+          data: templateData,
+          label_size: selectedLabelSize,
+          copies: 1,
+        })
+      } else if (labelTemplate.trim()) {
+        // Use custom template text
+        const requestData = {
+          printer_id: selectedPrinter,
+          template: labelTemplate,
+          text: '', // Not used anymore
+          label_size: selectedLabelSize,
+          label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
+          options: {
+            fit_to_label: true,
+            include_qr: labelTemplate.includes('{qr}') || /\{qr=[^}]+\}/.test(labelTemplate),
+            font_size_override: fontSizeOverride,
+          },
+          data: testData,
+        }
+        result = await settingsService.printAdvancedLabel(requestData)
+      } else {
+        // No template and no custom text
+        toast.error('Please select a template or enter custom label text')
+        return
+      }
+
+      // Handle API response format: { status, message, data: { success, error, ... } }
+      const printData = (result as { data?: unknown }).data || result
+      const success =
+        (printData as { success?: boolean }).success ||
+        (result as { status?: string }).status === 'success'
+      const errorMessage =
+        (printData as { error?: string; message?: string }).error ||
+        (printData as { error?: string; message?: string }).message ||
+        (result as { message?: string }).message
+
+      if (success) {
+        toast.success('✅ Label printed successfully!')
+        onClose()
+      } else {
+        toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Print error:', error)
+
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to print label'
+
+      if (error instanceof Error) {
+        const message = error.message
+
+        // Check for field not found error
+        if (message.includes('not found in data')) {
+          const fieldMatch = message.match(/Field '([^']+)' not found/)
+          if (fieldMatch) {
+            const fieldName = fieldMatch[1]
+            errorMessage = `QR field '{${fieldName}}' does not exist in part data`
+          } else {
+            errorMessage = message
+          }
+        }
+        // Check for QR data too long error
+        else if (message.includes('QR data too long')) {
+          const lengthMatch = message.match(/(\d+) characters \(max (\d+)/)
+          if (lengthMatch) {
+            const [, actual, max] = lengthMatch
+            errorMessage = `QR code data too long (${actual} chars, max ${max} for 11mm label)`
+          } else {
+            errorMessage = 'QR code data exceeds size limit for 11mm label'
+          }
+        }
+        // Use the message directly if available
+        else if (message) {
+          errorMessage = message
+        }
+      }
+
+      toast.error(errorMessage)
+    }
   }
 
   const processLabelTemplate = (template: string) => {
@@ -239,199 +457,6 @@ const PrinterModal = ({
     }
 
     return null
-  }
-
-  const generatePreview = useCallback(async () => {
-    try {
-      const testData = partData || {
-        id: 'test-part-id-12345',
-        part_name: 'Test Part',
-        part_number: 'TP-001',
-        emoji: '🔧',
-        location: 'A1-B2',
-        category: 'Electronics',
-        quantity: '10',
-        description: 'Test part description',
-        additional_properties: {},
-      }
-
-      let blob: Blob
-
-      // Determine which preview method to use (same logic as print)
-      if (selectedTemplate) {
-        // Use saved template system
-        blob = await templateService.previewTemplate({
-          template_id: selectedTemplate.id,
-          data: testData,
-        })
-      } else if (labelTemplate.trim()) {
-        // Use custom template text
-        const requestData = {
-          template: labelTemplate,
-          text: '', // Not used anymore
-          label_size: selectedLabelSize,
-          label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-          options: {
-            font_size_override: fontSizeOverride,
-          },
-          data: testData,
-        }
-        blob = await settingsService.previewAdvancedLabel(requestData)
-      } else {
-        // No template and no custom text
-        toast.error('Please select a template or enter custom label text')
-        return
-      }
-
-      const url = URL.createObjectURL(blob)
-      setPreviewUrl(url)
-    } catch (error) {
-      console.error('Preview error:', error)
-
-      // Extract user-friendly error message
-      let errorMessage = 'Failed to generate preview'
-
-      if (error instanceof Error) {
-        const message = error.message
-
-        // Check for field not found error
-        if (message.includes('not found in data')) {
-          // Extract field name from error message
-          const fieldMatch = message.match(/Field '([^']+)' not found/)
-          if (fieldMatch) {
-            const fieldName = fieldMatch[1]
-            errorMessage = `QR field '{${fieldName}}' does not exist in part data`
-          } else {
-            errorMessage = message
-          }
-        }
-        // Check for QR data too long error
-        else if (message.includes('QR data too long')) {
-          const lengthMatch = message.match(/(\d+) characters \(max (\d+)/)
-          if (lengthMatch) {
-            const [, actual, max] = lengthMatch
-            errorMessage = `QR code data too long (${actual} chars, max ${max} for 11mm label)`
-          } else {
-            errorMessage = 'QR code data exceeds size limit for 11mm label'
-          }
-        }
-        // Other errors - use the message directly if it's descriptive
-        else if (message && message !== 'Failed to process preview response') {
-          errorMessage = message
-        }
-      }
-
-      toast.error(errorMessage)
-    }
-  }, [partData, selectedTemplate, labelTemplate, selectedLabelSize, labelLength, fontSizeOverride])
-
-  const printLabel = async () => {
-    if (!selectedPrinter) {
-      toast.error('Please select a printer first')
-      return
-    }
-
-    if (!selectedLabelSize) {
-      toast.error('Please select a label size')
-      return
-    }
-
-    try {
-      const testData = partData || {
-        id: 'test-part-id-12345',
-        part_name: 'Test Part',
-        part_number: 'TP-001',
-        emoji: '🔧',
-        location: 'A1-B2',
-        category: 'Electronics',
-        quantity: '10',
-        description: 'Test part description',
-        additional_properties: {},
-      }
-
-      let result: unknown
-
-      // Determine which print method to use:
-      // 1. If a saved template is selected, use template system
-      // 2. Otherwise, use custom text with advanced label printing
-      if (selectedTemplate) {
-        // Use saved template system
-        result = await templateService.printTemplate({
-          printer_id: selectedPrinter,
-          template_id: selectedTemplate.id,
-          data: testData,
-          label_size: selectedLabelSize,
-          copies: 1,
-        })
-      } else if (labelTemplate.trim()) {
-        // Use custom template text
-        const requestData = {
-          printer_id: selectedPrinter,
-          template: labelTemplate,
-          text: '', // Not used anymore
-          label_size: selectedLabelSize,
-          label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
-          options: {
-            font_size_override: fontSizeOverride,
-          },
-          data: testData,
-        }
-        result = await settingsService.printAdvancedLabel(requestData)
-      } else {
-        // No template and no custom text
-        toast.error('Please select a template or enter custom label text')
-        return
-      }
-
-      // Handle API response format: { status, message, data: { success, error, ... } }
-      const printData = (result as any).data || result
-      const success = (printData as any).success || (result as any).status === 'success'
-      const errorMessage =
-        (printData as any).error || (printData as any).message || (result as any).message
-
-      if (success) {
-        toast.success('✅ Label printed successfully!')
-        onClose()
-      } else {
-        toast.error(`❌ Print failed: ${errorMessage || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Print error:', error)
-
-      // Extract user-friendly error message
-      let errorMessage = 'Failed to print label'
-
-      if (error instanceof Error) {
-        const message = error.message
-
-        // Check for field not found error
-        if (message.includes('not found in data')) {
-          const fieldMatch = message.match(/Field '([^']+)' not found/)
-          if (fieldMatch) {
-            const fieldName = fieldMatch[1]
-            errorMessage = `QR field '{${fieldName}}' does not exist in part data`
-          } else {
-            errorMessage = message
-          }
-        }
-        // Check for QR data too long error
-        else if (message.includes('QR data too long')) {
-          const lengthMatch = message.match(/(\d+) characters \(max (\d+)/)
-          if (lengthMatch) {
-            const [, actual, max] = lengthMatch
-            errorMessage = `QR code data too long (${actual} chars, max ${max} for 11mm label)`
-          } else {
-            errorMessage = 'QR code data exceeds size limit for 11mm label'
-          }
-        }
-        // Use the message directly if available
-        else if (message) {
-          errorMessage = message
-        }
-      }
-
-      toast.error(errorMessage)
-    }
   }
 
   const handleEditTemplateLoad = (
@@ -549,7 +574,7 @@ const PrinterModal = ({
       >
         <div className="flex items-center justify-between mb-6">
           <h4 className="text-xl font-semibold text-primary flex items-center gap-2">
-            <Printer className="w-5 h-5" />
+            <PrinterIcon className="w-5 h-5" />
             {title} {partData && `- ${partData.part_name}`}
           </h4>
           <button onClick={onClose} className="text-secondary hover:text-primary">
@@ -564,7 +589,7 @@ const PrinterModal = ({
           </div>
         ) : availablePrinters.length === 0 ? (
           <div className="text-center py-8">
-            <Printer className="w-12 h-12 text-muted mx-auto mb-2" />
+            <PrinterIcon className="w-12 h-12 text-muted mx-auto mb-2" />
             <h3 className="text-lg font-semibold text-primary mb-2">No Printers Available</h3>
             <p className="text-secondary">Please add a printer in Settings first.</p>
           </div>
@@ -690,11 +715,13 @@ const PrinterModal = ({
                     value={selectedLabelSize}
                     onChange={setSelectedLabelSize}
                     options={
-                      printerInfo?.supported_sizes?.length > 0
-                        ? printerInfo.supported_sizes.map((size: LabelSize) => ({
-                            value: size.name,
-                            label: `${size.name} - ${(size as any).width_mm}mm ${(size as any).height_mm ? `x ${(size as any).height_mm}mm` : '(continuous)'}`,
-                          }))
+                      (printerInfo as { supported_sizes?: LabelSize[] })?.supported_sizes?.length > 0
+                        ? (printerInfo as { supported_sizes?: LabelSize[] }).supported_sizes.map(
+                            (size: LabelSize) => ({
+                              value: size.name,
+                              label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`,
+                            })
+                          )
                         : [
                             { value: '12mm', label: '12mm - 12mm (continuous)' },
                             { value: '17mm', label: '17mm - 17mm (continuous)' },
@@ -780,7 +807,7 @@ const PrinterModal = ({
                   !selectedPrinter || (!selectedTemplate && !labelTemplate) || !selectedLabelSize
                 }
               >
-                <Printer className="w-4 h-4" />
+                <PrinterIcon className="w-4 h-4" />
                 Print Label
               </button>
             </div>
@@ -805,7 +832,7 @@ const PrinterModal = ({
                   </div>
                 ) : (
                   <div className="text-center text-muted">
-                    <Printer className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <PrinterIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p>Select a template or enter text to see preview</p>
                   </div>
                 )}

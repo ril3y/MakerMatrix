@@ -86,7 +86,7 @@ export function useTasksDashboard() {
       const configuredNames = new Set(
         configuredSuppliers.data?.map((supplier: Record<string, unknown>) => {
           const supplierName = supplier.id || supplier.supplier_name || supplier.name || ''
-          return supplierName.toUpperCase()
+          return String(supplierName).toUpperCase()
         }) || []
       )
 
@@ -118,7 +118,7 @@ export function useTasksDashboard() {
       )
 
       setSupplierConfigStatus({
-        configured: Array.from(configuredNames),
+        configured: Array.from(configuredNames) as string[],
         partsWithoutSuppliers,
         unconfiguredSuppliers,
         totalParts: allParts.length,
@@ -141,7 +141,7 @@ export function useTasksDashboard() {
       setWorkerStatus(status.data)
     } catch (error) {
       const err = error as {
-        response?: { data?: { detail?: string; message?: string } }
+        response?: { data?: { detail?: string; message?: string }; status?: number }
         message?: string
       }
       if (err?.response?.status !== 404) {
@@ -156,7 +156,7 @@ export function useTasksDashboard() {
       setTaskStats(stats.data)
     } catch (error) {
       const err = error as {
-        response?: { data?: { detail?: string; message?: string } }
+        response?: { data?: { detail?: string; message?: string }; status?: number }
         message?: string
       }
       if (err?.response?.status !== 404) {
@@ -260,7 +260,7 @@ export function useTasksDashboard() {
       updateTasksState(newTasks)
     } catch (error) {
       const err = error as {
-        response?: { data?: { detail?: string; message?: string } }
+        response?: { data?: { detail?: string; message?: string }; status?: number }
         message?: string
       }
       console.error('Failed to load tasks:', error)
@@ -359,7 +359,7 @@ export function useTasksDashboard() {
         const configuredNames = new Set(
           configuredSuppliers.data?.map((supplier: Record<string, unknown>) => {
             const supplierName = supplier.id || supplier.supplier_name || supplier.name || ''
-            return supplierName.toUpperCase()
+            return String(supplierName).toUpperCase()
           }) || []
         )
 
@@ -583,7 +583,10 @@ export function useTasksDashboard() {
           .join(' ')} Task`
 
         addConsoleMessage('info', `Creating ${taskName}...`)
-        const response = await tasksService.createQuickTask(taskType, taskData)
+        const response = await tasksService.createQuickTask(
+          taskType as 'csv-enrichment' | 'price-update' | 'database-cleanup' | 'bulk-enrichment',
+          taskData
+        )
         addConsoleMessage(
           'success',
           `${taskName} created successfully`,
@@ -685,7 +688,7 @@ export function useTasksDashboard() {
         tasksRef.current = updatedTasks
         return updatedTasks
       })
-      toast.info('Task deleted')
+      toast('Task deleted', { icon: 'ℹ️' })
     }
 
     const handleWorkerStatusUpdate = (status: WorkerStatus) => {

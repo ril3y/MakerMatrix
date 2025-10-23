@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type { DashboardStats } from '@/services/dashboard.service'
+import type { DashboardData } from '@/services/dashboard.service'
 import { dashboardService } from '@/services/dashboard.service'
 
 interface DashboardState {
-  stats: DashboardStats | null
+  stats: DashboardData | null
   isLoading: boolean
   error: string | null
   lastUpdated: Date | null
@@ -33,7 +33,7 @@ export const useDashboardStore = create<DashboardState>()(
       set({ isLoading: true, error: null })
 
       try {
-        const stats = await dashboardService.getDashboardStats()
+        const stats = await dashboardService.getDashboardSummary()
         set({
           stats,
           isLoading: false,
@@ -51,7 +51,7 @@ export const useDashboardStore = create<DashboardState>()(
       set({ isLoading: true, error: null, lastUpdated: null })
 
       try {
-        const stats = await dashboardService.getDashboardStats()
+        const stats = await dashboardService.getDashboardSummary()
         set({
           stats,
           isLoading: false,

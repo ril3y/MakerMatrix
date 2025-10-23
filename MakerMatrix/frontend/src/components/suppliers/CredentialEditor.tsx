@@ -48,7 +48,16 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
 
   // Create dynamic form schema based on credential fields
   const formSchema = useMemo(() => {
-    return createCredentialFormSchema(credentialSchema)
+    // Type assertion: credentialSchema comes from API with unknown types
+    return createCredentialFormSchema(credentialSchema as Array<{
+      name: string
+      label: string
+      field_type: string
+      required: boolean
+      description?: string
+      placeholder?: string
+      help_text?: string
+    }>)
   }, [credentialSchema])
 
   // Form with validation
@@ -108,21 +117,23 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
       setInitialCredentials(credentials)
       setShowValues(showValuesState)
 
-      // Reset form with initial data
-      form.reset(credentials)
+      // Reset form with initial data (using setValue for each field instead of reset)
+      Object.entries(credentials).forEach(([key, value]) => {
+        form.setValue(key as keyof CredentialFormData, value)
+      })
     }
 
     initializeCredentials()
   }, [credentialSchema, credentialStatus, supplierName, form])
 
   // Watch form values and notify parent of changes
-  const currentCredentials = form.watch()
+  const currentCredentials = form.watch() as unknown as CredentialFormData
 
   // Use a ref to track the last notified credentials to prevent infinite loops
   const lastNotifiedRef = useRef<string>('')
 
   useEffect(() => {
-    if (Object.keys(currentCredentials).length > 0) {
+    if (currentCredentials && Object.keys(currentCredentials).length > 0) {
       const credentialsString = JSON.stringify(currentCredentials)
 
       // Only notify if credentials actually changed
@@ -313,6 +324,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
 
               <div className="relative">
                 <FormInput
+                  label={field.label}
                   type={shouldShow ? 'text' : 'password'}
                   placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                   registration={form.register(field.name)}

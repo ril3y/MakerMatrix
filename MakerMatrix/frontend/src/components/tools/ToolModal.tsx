@@ -180,11 +180,14 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
             description: enrichedData.description || prev.description,
             manufacturer: enrichedData.manufacturer || prev.manufacturer,
             model_number: enrichedData.manufacturer_part_number || prev.model_number,
-            supplier_part_number: enrichedData.supplier_part_number || prev.supplier_part_number,
             product_url: url, // Keep the full URL
             // Auto-populate purchase price from unit_price if available
             purchase_price:
-              enrichedData.unit_price !== undefined ? enrichedData.unit_price : prev.purchase_price,
+              enrichedData.unit_price !== undefined
+                ? typeof enrichedData.unit_price === 'string'
+                  ? parseFloat(enrichedData.unit_price)
+                  : enrichedData.unit_price
+                : prev.purchase_price,
           }))
 
           // Set image if available
@@ -342,14 +345,14 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       clearFormData()
       onSuccess()
       handleClose()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save tool:', error)
-      console.error('Full error response:', error.response?.data)
-      console.error('Submit data:', submitData)
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
+      console.error('Full error response:', err.response?.data)
       const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        error.message ||
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        err.message ||
         'Failed to save tool'
       toast.error(errorMessage)
     } finally {
@@ -407,9 +410,11 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       setCategories(categoriesData || [])
 
       if (categoriesData && categoriesData.length > 0) {
-        const sortedCategories = categoriesData.sort(
-          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        )
+        const sortedCategories = categoriesData.sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+          return dateB - dateA
+        })
         const newestCategory = sortedCategories[0]
         // Add the newly created category to existing selections
         const currentCategories = formData.category_ids || []
@@ -429,9 +434,11 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
       setLocations(locationsData || [])
 
       if (locationsData && locationsData.length > 0) {
-        const sortedLocations = locationsData.sort(
-          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        )
+        const sortedLocations = locationsData.sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+          return dateB - dateA
+        })
         const newestLocation = sortedLocations[0]
         setFormData({ ...formData, location_id: newestLocation.id })
       }
@@ -521,7 +528,6 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
             <FormField
               label="Product URL"
-              tooltip="Paste product URL for auto-detection and enrichment"
               description="Paste supplier URL to auto-fill tool details"
             >
               <input

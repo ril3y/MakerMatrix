@@ -20,7 +20,7 @@ import {
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toolsService } from '@/services/tools.service'
-import type { Tool } from '@/types/tools'
+import type { Tool, ToolCondition, ToolStatus, SearchToolsRequest } from '@/types/tools'
 import type { Tag } from '@/types/tags'
 import ToolModal from '@/components/tools/ToolModal'
 import ToolDetailModal from '@/components/tools/ToolDetailModal'
@@ -161,11 +161,11 @@ const ToolsPage = () => {
         setError(null)
         setIsSearching(search && search.trim().length > 0)
 
-        const searchParams = {
+        const searchParams: SearchToolsRequest = {
           search_term: search && search.trim() ? search.trim() : undefined,
-          status: statusFilter || undefined,
-          condition: conditionFilter || undefined,
-          sort_by: sortBy || 'created_at',
+          status: statusFilter ? (statusFilter as ToolStatus) : undefined,
+          condition: conditionFilter ? (conditionFilter as ToolCondition) : undefined,
+          sort_by: (sortBy as SearchToolsRequest['sort_by']) || 'created_at',
           sort_order: sortOrder || 'desc',
           page,
           page_size: pageSize,
@@ -769,12 +769,12 @@ const ToolsPage = () => {
                             {tool.tags.map((tag) => (
                               <TagBadge
                                 key={tag.id}
-                                tag={tag}
+                                tag={tag as unknown as Tag}
                                 size="sm"
                                 onClick={() => {
                                   // Add tag to filter when clicked
                                   if (!selectedTags.find((t) => t.id === tag.id)) {
-                                    setSelectedTags([...selectedTags, tag])
+                                    setSelectedTags([...selectedTags, tag as unknown as Tag])
                                   }
                                 }}
                               />

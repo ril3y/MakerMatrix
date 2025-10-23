@@ -43,6 +43,7 @@ const DashboardPage = () => {
     topParts: true,
     alerts: true,
     activity: true,
+    stocks: true,
   })
 
   useEffect(() => {
@@ -539,7 +540,7 @@ const DashboardPage = () => {
                             .slice(0, 2)
                             .map(([key, value]) => (
                               <span key={key} className="mr-3">
-                                {key}: {typeof value === 'object' ? JSON.stringify(value) : value}
+                                {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                               </span>
                             ))}
                         </div>

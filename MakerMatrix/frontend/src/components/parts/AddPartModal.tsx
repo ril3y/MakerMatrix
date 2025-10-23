@@ -175,7 +175,8 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         name: string
         enrichment_available: boolean
       }
-      const enrichmentNames = (importSuppliersData.data || [])
+      const importData = importSuppliersData as { data?: ImportSupplierData[] }
+      const enrichmentNames = (importData.data || [])
         .filter((s: ImportSupplierData) => s.enrichment_available === true)
         .map((s: ImportSupplierData) => s.name.toLowerCase())
       setSuppliersWithEnrichment(enrichmentNames)
@@ -613,8 +614,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               // If scraping is supported, auto-enrich with scraping (no modal needed)
               if (scrapingInfo.supports_scraping) {
                 console.log('🌐 Using web scraping for unconfigured supplier:', formattedName)
-                toast.info(
-                  `${formattedName} detected - using web scraping to fetch part details (API not configured)`
+                toast(
+                  `${formattedName} detected - using web scraping to fetch part details (API not configured)`,
+                  { icon: 'ℹ️' }
                 )
 
                 // Attempt enrichment with scraping
@@ -673,7 +675,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
                     toast.success(`Auto-populated from ${formattedName} using web scraping!`)
                   } else {
-                    toast.warning('Could not scrape data from the page')
+                    toast('Could not scrape data from the page', { icon: '⚠️' })
                   }
                 } catch (error) {
                   console.error('Scraping error:', error)
@@ -742,8 +744,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             // If scraping is supported, auto-enrich with scraping (no modal needed)
             if (scrapingInfo.supports_scraping) {
               console.log('🌐 Using web scraping for unconfigured supplier:', formattedName)
-              toast.info(
-                `${formattedName} detected - using web scraping to fetch part details (API not configured)`
+              toast(
+                `${formattedName} detected - using web scraping to fetch part details (API not configured)`,
+                { icon: 'ℹ️' }
               )
 
               // Attempt enrichment with scraping
@@ -802,7 +805,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
                   toast.success(`Auto-populated from ${formattedName} using web scraping!`)
                 } else {
-                  toast.warning('Could not scrape data from the page')
+                  toast('Could not scrape data from the page', { icon: '⚠️' })
                 }
               } catch (error) {
                 console.error('Scraping error:', error)
@@ -1032,8 +1035,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const handleConfigureSupplier = () => {
     // Close current modal and navigate to supplier configuration
     setShowConfigureSupplierPrompt(false)
-    toast.info(
-      `Please configure ${detectedSupplierInfo?.name} in the Suppliers page to enable enrichment`
+    toast(
+      `Please configure ${detectedSupplierInfo?.name} in the Suppliers page to enable enrichment`,
+      { icon: 'ℹ️' }
     )
     // TODO: Could open supplier configuration modal directly here
   }
@@ -1052,7 +1056,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       const supplierLower = detectedSupplierInfo.name.toLowerCase()
 
       // Use scraping to get part details
-      toast.info('Using web scraping to fetch part details (this may take a moment)...')
+      toast('Using web scraping to fetch part details (this may take a moment)...', { icon: 'ℹ️' })
 
       // Attempt enrichment with scraping mode enabled
       try {
@@ -1098,7 +1102,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
           toast.success(`Scraped data from ${detectedSupplierInfo.name}!`)
         } else {
-          toast.warning('Could not scrape data from the page')
+          toast('Could not scrape data from the page', { icon: '⚠️' })
         }
       } catch (error) {
         console.error('Scraping error:', error)
@@ -1118,9 +1122,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
       // Find the newest category (assuming it's the last one after sort)
       if (categoriesData && categoriesData.length > 0) {
-        const sortedCategories = categoriesData.sort(
-          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        )
+        const sortedCategories = [...categoriesData].sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+          return dateB - dateA
+        })
         const newestCategory = sortedCategories[0]
         if (!selectedCategories.includes(newestCategory.id)) {
           setSelectedCategories([...selectedCategories, newestCategory.id])
@@ -1140,9 +1146,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
       // Find the newest location
       if (locationsData && locationsData.length > 0) {
-        const sortedLocations = locationsData.sort(
-          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        )
+        const sortedLocations = [...locationsData].sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+          return dateB - dateA
+        })
         const newestLocation = sortedLocations[0]
         setFormData({ ...formData, location_id: newestLocation.id })
       }
@@ -1282,17 +1290,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             </div>
 
             <FormField
-              label={
-                <div className="flex items-center gap-1">
-                  <span>Min. Quantity</span>
-                  <TooltipIcon
-                    variant="help"
-                    position="top"
-                    tooltip="Alert when quantity falls below this threshold"
-                  />
-                </div>
-              }
+              label="Min. Quantity"
               error={errors.minimum_quantity}
+              description="Alert when quantity falls below this threshold"
             >
               <input
                 type="number"
@@ -1353,7 +1353,10 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                     <input
                       type={field.type}
                       className="input w-full"
-                      value={(formData as Record<string, unknown>)[field.field]?.toString() || ''}
+                      value={
+                        (formData as unknown as Record<string, unknown>)[field.field]?.toString() ||
+                        ''
+                      }
                       onChange={(e) =>
                         setFormData({
                           ...formData,

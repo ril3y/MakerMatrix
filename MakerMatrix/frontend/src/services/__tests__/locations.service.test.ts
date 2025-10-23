@@ -46,7 +46,7 @@ describe('LocationsService', () => {
     it('should create location successfully', async () => {
       const createRequest: CreateLocationRequest = {
         name: 'New Warehouse',
-        type: 'warehouse',
+        location_type: 'warehouse',
         parent_id: undefined,
       }
 
@@ -67,7 +67,7 @@ describe('LocationsService', () => {
     it('should throw error when creation fails', async () => {
       const createRequest: CreateLocationRequest = {
         name: 'New Warehouse',
-        type: 'warehouse',
+        location_type: 'warehouse',
       }
 
       const mockResponse = {
@@ -85,7 +85,7 @@ describe('LocationsService', () => {
     it('should handle API error during creation', async () => {
       const createRequest: CreateLocationRequest = {
         name: 'New Warehouse',
-        type: 'warehouse',
+        location_type: 'warehouse',
       }
 
       mockApiClient.post.mockRejectedValueOnce(new Error('Network error'))
@@ -193,8 +193,7 @@ describe('LocationsService', () => {
     it('should delete location successfully', async () => {
       const mockDeleteResponse: LocationDeleteResponse = {
         deleted_location: mockLocation,
-        affected_parts_count: 5,
-        moved_parts_count: 3,
+        updated_parts_count: 5,
         deleted_children_count: 2,
       }
 
@@ -254,7 +253,6 @@ describe('LocationsService', () => {
         location: mockLocation,
         children: [mockChildLocation],
         parts_count: 10,
-        children_count: 1,
       }
 
       const mockResponse = {
@@ -274,8 +272,12 @@ describe('LocationsService', () => {
   describe('getLocationPath', () => {
     it('should get location path successfully', async () => {
       const mockPath: LocationPath = {
-        path: [mockLocation, mockChildLocation],
-        location_names: ['Main Warehouse', 'Electronics Section'],
+        id: 'loc-456',
+        name: 'Electronics Section',
+        parent: {
+          id: 'loc-123',
+          name: 'Main Warehouse',
+        },
       }
 
       const mockResponse = {
@@ -296,9 +298,12 @@ describe('LocationsService', () => {
     it('should preview location delete successfully', async () => {
       const mockPreview: LocationDeletePreview = {
         location: mockLocation,
-        affected_parts: 5,
-        affected_children: 2,
-        warnings: ['This will delete 2 child locations'],
+        children_count: 2,
+        parts_count: 5,
+        affected_parts: [
+          { id: 'part-1', part_name: 'Resistor', part_number: 'RES-001' },
+          { id: 'part-2', part_name: 'Capacitor', part_number: 'CAP-001' },
+        ],
       }
 
       const mockResponse = {
@@ -320,8 +325,12 @@ describe('LocationsService', () => {
   describe('cleanupLocations', () => {
     it('should cleanup locations successfully', async () => {
       const mockCleanup: LocationCleanupResponse = {
-        cleaned_locations_count: 3,
-        cleaned_location_ids: ['loc-orphan1', 'loc-orphan2', 'loc-orphan3'],
+        removed_count: 3,
+        removed_locations: [
+          { id: 'loc-orphan1', name: 'Orphan 1', location_type: 'room' },
+          { id: 'loc-orphan2', name: 'Orphan 2', location_type: 'room' },
+          { id: 'loc-orphan3', name: 'Orphan 3', location_type: 'room' },
+        ],
       }
 
       const mockResponse = {

@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { settingsService } from '@/services/settings.service'
 import toast from 'react-hot-toast'
+import type { Printer, PrinterInfo } from '@/types/settings'
 
 interface LabelSize {
   name: string
-  [key: string]: unknown
-}
-
-interface PrinterInfo {
-  supported_sizes?: LabelSize[]
   [key: string]: unknown
 }
 
@@ -31,7 +27,7 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
   const { partData, onPrintSuccess } = options
 
   // Printer state
-  const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
+  const [availablePrinters, setAvailablePrinters] = useState<Printer[]>([])
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
   const [printerInfo, setPrinterInfo] = useState<PrinterInfo | null>(null)
 
@@ -74,10 +70,12 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       const info = await settingsService.getPrinterInfo(printerId)
       setPrinterInfo(info)
 
-      // Set default label size if supported
-      if (info.supported_sizes?.length > 0) {
+      // Set default label size if supported (from capabilities)
+      const capabilities = info.capabilities as { supported_sizes?: LabelSize[] } | undefined
+      if (capabilities?.supported_sizes?.length) {
         const defaultSize =
-          info.supported_sizes.find((s: LabelSize) => s.name === '12mm') || info.supported_sizes[0]
+          capabilities.supported_sizes.find((s: LabelSize) => s.name === '12mm') ||
+          capabilities.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
     } catch (_error) {
@@ -147,17 +145,28 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
         additional_properties: {},
       }
 
-      const requestData = {
+      const requestData: {
+        template: string
+        text: string
+        label_size: string
+        label_length?: number
+        options: {
+          fit_to_label: boolean
+          include_qr: boolean
+          qr_data?: string
+        }
+        data?: Record<string, unknown>
+      } = {
         template: labelTemplate,
         text: '',
         label_size: selectedLabelSize,
-        label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
+        ...(selectedLabelSize.includes('mm') && { label_length: labelLength }),
         options: {
           fit_to_label: fitToLabel,
           include_qr: includeQR,
-          qr_data: includeQR ? qrData : undefined,
+          ...(includeQR && { qr_data: qrData }),
         },
-        data,
+        data: data as Record<string, unknown>,
       }
 
       const blob = await settingsService.previewAdvancedLabel(requestData)
@@ -186,24 +195,36 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
         additional_properties: {},
       }
 
-      const requestData = {
+      const requestData: {
+        printer_id: string
+        template: string
+        text: string
+        label_size: string
+        label_length?: number
+        options: {
+          fit_to_label: boolean
+          include_qr: boolean
+          qr_data?: string
+        }
+        data?: Record<string, unknown>
+      } = {
         printer_id: selectedPrinter,
         template: labelTemplate,
         text: '',
         label_size: selectedLabelSize,
-        label_length: selectedLabelSize.includes('mm') ? labelLength : undefined,
+        ...(selectedLabelSize.includes('mm') && { label_length: labelLength }),
         options: {
           fit_to_label: fitToLabel,
           include_qr: includeQR,
-          qr_data: includeQR ? qrData : undefined,
+          ...(includeQR && { qr_data: qrData }),
         },
-        data,
+        data: data as Record<string, unknown>,
       }
 
       const result = await settingsService.printAdvancedLabel(requestData)
 
       // Handle API response format: { status, message, data: { success, error, ... } }
-      const printData = result.data || result
+      const printData = (result.data || {}) as { success?: boolean; error?: string; message?: string }
       const success = printData.success || result.status === 'success'
       const errorMessage = printData.error || printData.message || result.message
 
@@ -241,10 +262,9 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
     try {
       const result = await settingsService.testPrinterConnection(selectedPrinter)
 
-      // Check both the data.success field and top-level status
-      const isSuccess = result.data?.success || result.status === 'success'
-      const errorMessage =
-        result.data?.error || result.data?.message || result.message || 'Unknown error'
+      // PrinterTestResult has { success, message, details? }
+      const isSuccess = result.success
+      const errorMessage = result.message || 'Unknown error'
 
       if (isSuccess) {
         toast.success('✅ Printer connection successful!')

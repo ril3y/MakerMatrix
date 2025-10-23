@@ -44,8 +44,8 @@ describe('Store Refactoring Tests', () => {
 
     it('should load parts correctly', async () => {
       const mockParts = [
-        { id: '1', name: 'Part 1', description: 'Description 1' },
-        { id: '2', name: 'Part 2', description: 'Description 2' },
+        { id: '1', name: 'Part 1', description: 'Description 1', quantity: 10, created_at: '2025-01-01', updated_at: '2025-01-01' },
+        { id: '2', name: 'Part 2', description: 'Description 2', quantity: 20, created_at: '2025-01-01', updated_at: '2025-01-01' },
       ]
 
       vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
@@ -64,7 +64,7 @@ describe('Store Refactoring Tests', () => {
     })
 
     it('should create parts correctly', async () => {
-      const mockPart = { id: '1', name: 'New Part', description: 'New Description' }
+      const mockPart = { id: '1', name: 'New Part', description: 'New Description', quantity: 5, created_at: '2025-01-01', updated_at: '2025-01-01' }
 
       vi.mocked(partsService.createPart).mockResolvedValueOnce(mockPart)
       vi.mocked(partsService.getAllParts).mockResolvedValueOnce({
@@ -76,11 +76,13 @@ describe('Store Refactoring Tests', () => {
       const result = await store.createPart({
         name: 'New Part',
         description: 'New Description',
+        quantity: 5,
       })
 
       expect(partsService.createPart).toHaveBeenCalledWith({
         name: 'New Part',
         description: 'New Description',
+        quantity: 5,
       })
       expect(result).toEqual(mockPart)
       expect(toast.success).toHaveBeenCalledWith('Part created successfully')
@@ -88,20 +90,21 @@ describe('Store Refactoring Tests', () => {
 
     it('should handle search correctly', async () => {
       const mockSearchResponse = {
-        items: [{ id: '1', name: 'Found Part' }],
+        items: [{ id: '1', name: 'Found Part', quantity: 15, created_at: '2025-01-01', updated_at: '2025-01-01' }],
         total: 1,
         page: 1,
+        page_size: 20,
         total_pages: 1,
       }
 
       vi.mocked(partsService.searchParts).mockResolvedValueOnce(mockSearchResponse)
 
       const store = usePartsStore.getState()
-      await store.searchParts('test query', { category_names: ['electronics'] })
+      await store.searchParts('test query', { category: 'electronics' })
 
       expect(partsService.searchParts).toHaveBeenCalledWith({
         query: 'test query',
-        category_names: ['electronics'],
+        category: 'electronics',
         page: 1,
         page_size: 20,
       })

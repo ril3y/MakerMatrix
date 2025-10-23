@@ -95,17 +95,20 @@ export class DynamicSupplierService {
    */
   async getAvailableSuppliers(): Promise<string[]> {
     try {
-      const response = await apiClient.get('/api/suppliers/')
+      const response = (await apiClient.get('/api/suppliers/')) as {
+        data?: string[] | { data: string[] }
+      }
       console.log('getAvailableSuppliers raw response:', response)
       console.log('getAvailableSuppliers response.data:', response.data)
 
       // Handle different response formats
-      if (response.data && Array.isArray(response.data.data)) {
-        return response.data.data
-      } else if (response.data && Array.isArray(response.data)) {
-        return response.data
+      const data = response.data as { data: string[] } | string[] | undefined
+      if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
+        return data.data
+      } else if (data && Array.isArray(data)) {
+        return data
       } else if (response && Array.isArray(response)) {
-        return response
+        return response as string[]
       }
 
       console.warn('Unexpected response format for available suppliers:', response)
@@ -123,18 +126,23 @@ export class DynamicSupplierService {
     Array<{ id: string; name: string; description: string; configured: boolean; enabled: boolean }>
   > {
     try {
-      const response = await apiClient.get('/api/suppliers/configured')
+      type ConfiguredSupplier = {
+        id: string
+        name: string
+        description: string
+        configured: boolean
+        enabled: boolean
+      }
+      const response = (await apiClient.get('/api/suppliers/configured')) as {
+        data?: ConfiguredSupplier[] | { data: ConfiguredSupplier[] }
+      }
 
       // Handle different response formats
-      if (response && response.data && Array.isArray(response.data)) {
-        return response.data
-      } else if (
-        response &&
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
-        return response.data.data
+      const data = response.data as { data: ConfiguredSupplier[] } | ConfiguredSupplier[] | undefined
+      if (data && Array.isArray(data)) {
+        return data
+      } else if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
+        return data.data
       } else {
         console.warn('Unexpected response format for configured suppliers:', response)
         return []
@@ -150,17 +158,22 @@ export class DynamicSupplierService {
    */
   async getAllSuppliersInfo(): Promise<Record<string, SupplierInfo>> {
     try {
-      const response = await apiClient.get('/api/suppliers/info')
+      const response = (await apiClient.get('/api/suppliers/info')) as
+        | { data: Record<string, SupplierInfo> }
+        | Record<string, SupplierInfo>
 
       // The apiClient.get() method returns response.data directly
       // Check if it has the standard ResponseSchema structure
-      if (response && typeof response === 'object' && response.data) {
-        return response.data
+      if (response && typeof response === 'object' && 'data' in response) {
+        const data = response.data
+        if (data && typeof data === 'object' && !('name' in data)) {
+          return data as Record<string, SupplierInfo>
+        }
       }
 
-      // Fallback: check if the response itself is the data
-      if (response && response.digikey && response.lcsc && response.mouser) {
-        return response
+      // Fallback: check if the response itself is the data (Record<string, SupplierInfo>)
+      if (response && typeof response === 'object' && !('data' in response)) {
+        return response as Record<string, SupplierInfo>
       }
 
       return {}
@@ -177,7 +190,9 @@ export class DynamicSupplierService {
    */
   async getSupplierInfo(supplierName: string): Promise<SupplierInfo> {
     try {
-      const response = await apiClient.get(`/api/suppliers/${supplierName}/info`)
+      const response = (await apiClient.get(`/api/suppliers/${supplierName}/info`)) as {
+        data: SupplierInfo
+      }
       console.log(`getSupplierInfo(${supplierName}) response:`, response)
 
       if (response && response.data) {
@@ -196,7 +211,11 @@ export class DynamicSupplierService {
    */
   async getCredentialSchema(supplierName: string): Promise<FieldDefinition[]> {
     try {
-      const response = await apiClient.get(`/api/suppliers/${supplierName}/credentials-schema`)
+      const response = (await apiClient.get(
+        `/api/suppliers/${supplierName}/credentials-schema`
+      )) as {
+        data: FieldDefinition[]
+      }
       console.log(`getCredentialSchema(${supplierName}) response:`, response)
 
       if (response && response.data) {
@@ -215,7 +234,9 @@ export class DynamicSupplierService {
    */
   async getConfigurationSchema(supplierName: string): Promise<FieldDefinition[]> {
     try {
-      const response = await apiClient.get(`/api/suppliers/${supplierName}/config-schema`)
+      const response = (await apiClient.get(`/api/suppliers/${supplierName}/config-schema`)) as {
+        data: FieldDefinition[]
+      }
       console.log(`getConfigurationSchema(${supplierName}) response:`, response)
 
       if (response && response.data) {
@@ -238,13 +259,15 @@ export class DynamicSupplierService {
     config: Record<string, CredentialValue>
   ): Promise<FieldDefinition[]> {
     try {
-      const response = await apiClient.post(
+      const response = (await apiClient.post(
         `/api/suppliers/${supplierName}/credentials-schema-with-config`,
         {
           credentials,
           config,
         }
-      )
+      )) as {
+        data: FieldDefinition[]
+      }
       console.log(`getCredentialSchemaWithConfig(${supplierName}) response:`, response)
 
       if (response && response.data) {
@@ -267,13 +290,15 @@ export class DynamicSupplierService {
     config: Record<string, CredentialValue>
   ): Promise<FieldDefinition[]> {
     try {
-      const response = await apiClient.post(
+      const response = (await apiClient.post(
         `/api/suppliers/${supplierName}/config-schema-with-config`,
         {
           credentials,
           config,
         }
-      )
+      )) as {
+        data: FieldDefinition[]
+      }
       console.log(`getConfigurationSchemaWithConfig(${supplierName}) response:`, response)
 
       if (response && response.data) {
@@ -291,7 +316,9 @@ export class DynamicSupplierService {
    * Get capabilities for a supplier
    */
   async getSupplierCapabilities(supplierName: string): Promise<string[]> {
-    const response = await apiClient.get(`/api/suppliers/${supplierName}/capabilities`)
+    const response = (await apiClient.get(`/api/suppliers/${supplierName}/capabilities`)) as {
+      data: { data: string[] }
+    }
     return response.data.data
   }
 
@@ -300,9 +327,11 @@ export class DynamicSupplierService {
    */
   async getEnrichmentFieldMappings(supplierName: string): Promise<EnrichmentFieldMapping[]> {
     try {
-      const response = await apiClient.get(
+      const response = (await apiClient.get(
         `/api/suppliers/${supplierName}/enrichment-field-mappings`
-      )
+      )) as {
+        data: EnrichmentFieldMapping[]
+      }
 
       if (response && response.data) {
         return Array.isArray(response.data) ? response.data : []
@@ -320,7 +349,9 @@ export class DynamicSupplierService {
    */
   async getSupplierEnvDefaults(supplierName: string): Promise<Record<string, CredentialValue>> {
     try {
-      const response = await apiClient.get(`/api/suppliers/${supplierName}/env-defaults`)
+      const response = (await apiClient.get(`/api/suppliers/${supplierName}/env-defaults`)) as {
+        data: Record<string, CredentialValue>
+      }
       console.log(`getSupplierEnvDefaults(${supplierName}) response:`, response)
 
       if (response && response.data) {
@@ -344,10 +375,12 @@ export class DynamicSupplierService {
   ): Promise<TestConnectionResult> {
     try {
       console.log(`Testing connection for ${supplierName} with:`, { credentials, config })
-      const response = await apiClient.post(`/api/suppliers/${supplierName}/test`, {
+      const response = (await apiClient.post(`/api/suppliers/${supplierName}/test`, {
         credentials,
         config: config || {},
-      })
+      })) as {
+        data: TestConnectionResult
+      }
       console.log(`Test connection response for ${supplierName}:`, response)
 
       if (response && response.data) {
@@ -376,13 +409,15 @@ export class DynamicSupplierService {
     credentials: Record<string, CredentialValue>,
     config?: Record<string, CredentialValue>
   ): Promise<string> {
-    const response = await apiClient.post(
+    const response = (await apiClient.post(
       `/api/suppliers/${supplierName}/oauth/authorization-url`,
       {
         credentials,
         config: config || {},
       }
-    )
+    )) as {
+      data: { data: string }
+    }
     return response.data.data
   }
 
@@ -395,11 +430,13 @@ export class DynamicSupplierService {
     credentials: Record<string, CredentialValue>,
     config?: Record<string, CredentialValue>
   ): Promise<{ authenticated: boolean }> {
-    const response = await apiClient.post(`/api/suppliers/${supplierName}/oauth/exchange`, {
+    const response = (await apiClient.post(`/api/suppliers/${supplierName}/oauth/exchange`, {
       authorization_code: authorizationCode,
       credentials,
       config: config || {},
-    })
+    })) as {
+      data: { data: { authenticated: boolean } }
+    }
     return response.data.data
   }
 
@@ -412,18 +449,24 @@ export class DynamicSupplierService {
     credentials: Record<string, CredentialValue>,
     config?: Record<string, CredentialValue>
   ): Promise<PartSearchResult> {
-    const response = await apiClient.post(`/api/suppliers/${supplierName}/part/${partNumber}`, {
+    const response = (await apiClient.post(`/api/suppliers/${supplierName}/part/${partNumber}`, {
       credentials,
       config: config || {},
-    })
+    })) as
+      | { data: { data: PartSearchResult } }
+      | { data: PartSearchResult }
+      | PartSearchResult
 
     // Handle different response formats (apiClient.post may return different structures)
-    if (response && response.data && response.data.data) {
-      return response.data.data
-    } else if (response && response.data) {
-      return response.data
-    } else if (response) {
-      return response
+    if (response && typeof response === 'object' && 'data' in response) {
+      const dataWrapper = response.data as { data: PartSearchResult } | PartSearchResult
+      if (dataWrapper && typeof dataWrapper === 'object' && 'data' in dataWrapper) {
+        return dataWrapper.data
+      } else if (dataWrapper && typeof dataWrapper === 'object' && 'supplier_part_number' in dataWrapper) {
+        return dataWrapper as PartSearchResult
+      }
+    } else if (response && typeof response === 'object' && 'supplier_part_number' in response) {
+      return response as PartSearchResult
     }
 
     console.error('Unexpected response format from getPartDetails:', response)
@@ -439,13 +482,15 @@ export class DynamicSupplierService {
     credentials: Record<string, CredentialValue>,
     config?: Record<string, CredentialValue>
   ): Promise<string> {
-    const response = await apiClient.post(
+    const response = (await apiClient.post(
       `/api/suppliers/${supplierName}/part/${partNumber}/datasheet`,
       {
         credentials,
         config: config || {},
       }
-    )
+    )) as {
+      data: { data: string }
+    }
     return response.data.data
   }
 
@@ -458,13 +503,15 @@ export class DynamicSupplierService {
     credentials: Record<string, CredentialValue>,
     config?: Record<string, CredentialValue>
   ): Promise<Array<{ quantity: number; price: number; currency: string }>> {
-    const response = await apiClient.post(
+    const response = (await apiClient.post(
       `/api/suppliers/${supplierName}/part/${partNumber}/pricing`,
       {
         credentials,
         config: config || {},
       }
-    )
+    )) as {
+      data: { data: Array<{ quantity: number; price: number; currency: string }> }
+    }
     return response.data.data
   }
 
@@ -477,13 +524,15 @@ export class DynamicSupplierService {
     credentials: Record<string, CredentialValue>,
     config?: Record<string, CredentialValue>
   ): Promise<number> {
-    const response = await apiClient.post(
+    const response = (await apiClient.post(
       `/api/suppliers/${supplierName}/part/${partNumber}/stock`,
       {
         credentials,
         config: config || {},
       }
-    )
+    )) as {
+      data: { data: number }
+    }
     return response.data.data
   }
 
@@ -497,7 +546,16 @@ export class DynamicSupplierService {
     rate_limit_seconds: number | null
   }> {
     try {
-      const response = await apiClient.get(`/api/suppliers/${supplierName}/supports-scraping`)
+      const response = (await apiClient.get(
+        `/api/suppliers/${supplierName}/supports-scraping`
+      )) as {
+        data: {
+          supports_scraping: boolean
+          requires_js: boolean
+          warning: string | null
+          rate_limit_seconds: number | null
+        }
+      }
 
       if (response && response.data) {
         return response.data
@@ -529,7 +587,13 @@ export class DynamicSupplierService {
     confidence: number
   } | null> {
     try {
-      const response = await apiClient.post(`/api/suppliers/detect-from-url`, { url })
+      const response = (await apiClient.post(`/api/suppliers/detect-from-url`, { url })) as {
+        data: {
+          supplier_name: string
+          display_name: string
+          confidence: number
+        } | null
+      }
 
       if (response && response.data) {
         return response.data

@@ -79,6 +79,12 @@ export interface TemplatePrintRequest {
   copies?: number
 }
 
+interface ApiResponse<T = any> {
+  status: string
+  data?: T
+  message?: string
+}
+
 class TemplateService {
   private baseUrl = '/api/templates'
 
@@ -104,7 +110,7 @@ class TemplateService {
 
       const url = searchParams.toString() ? `${this.baseUrl}/?${searchParams}` : `${this.baseUrl}/`
       console.log('Fetching templates from:', url)
-      const response = await apiClient.get(url)
+      const response = (await apiClient.get(url)) as ApiResponse
       console.log('Template API response:', response)
 
       if (response.status === 'success') {
@@ -153,37 +159,37 @@ class TemplateService {
 
   // Get template by ID
   async getTemplate(id: string): Promise<LabelTemplate> {
-    const response = await apiClient.get(`${this.baseUrl}/${id}`)
+    const response = (await apiClient.get(`${this.baseUrl}/${id}`)) as ApiResponse<LabelTemplate>
 
     if (response.status === 'success') {
-      return response.data
+      return response.data!
     }
     throw new Error(response.message || 'Failed to fetch template')
   }
 
   // Create new template
   async createTemplate(template: Partial<LabelTemplate>): Promise<LabelTemplate> {
-    const response = await apiClient.post(`${this.baseUrl}/`, template)
+    const response = (await apiClient.post(`${this.baseUrl}/`, template)) as ApiResponse<LabelTemplate>
 
     if (response.status === 'success') {
-      return response.data
+      return response.data!
     }
     throw new Error(response.message || 'Failed to create template')
   }
 
   // Update template
   async updateTemplate(id: string, template: Partial<LabelTemplate>): Promise<LabelTemplate> {
-    const response = await apiClient.put(`${this.baseUrl}/${id}`, template)
+    const response = (await apiClient.put(`${this.baseUrl}/${id}`, template)) as ApiResponse<LabelTemplate>
 
     if (response.status === 'success') {
-      return response.data
+      return response.data!
     }
     throw new Error(response.message || 'Failed to update template')
   }
 
   // Delete template
   async deleteTemplate(id: string): Promise<void> {
-    const response = await apiClient.delete(`${this.baseUrl}/${id}`)
+    const response = (await apiClient.delete(`${this.baseUrl}/${id}`)) as ApiResponse
 
     if (response.status !== 'success') {
       throw new Error(response.message || 'Failed to delete template')
@@ -192,17 +198,17 @@ class TemplateService {
 
   // Duplicate template
   async duplicateTemplate(id: string): Promise<LabelTemplate> {
-    const response = await apiClient.post(`${this.baseUrl}/${id}/duplicate`)
+    const response = (await apiClient.post(`${this.baseUrl}/${id}/duplicate`)) as ApiResponse<LabelTemplate>
 
     if (response.status === 'success') {
-      return response.data
+      return response.data!
     }
     throw new Error(response.message || 'Failed to duplicate template')
   }
 
   // Get template categories
   async getCategories(): Promise<TemplateCategory[]> {
-    const response = await apiClient.get(`${this.baseUrl}/categories`)
+    const response = (await apiClient.get(`${this.baseUrl}/categories`)) as ApiResponse<TemplateCategory[]>
 
     if (response.status === 'success') {
       return response.data || []
@@ -212,7 +218,7 @@ class TemplateService {
 
   // Search templates
   async searchTemplates(query: string): Promise<LabelTemplate[]> {
-    const response = await apiClient.post(`${this.baseUrl}/search/`, { query })
+    const response = (await apiClient.post(`${this.baseUrl}/search/`, { query })) as ApiResponse<LabelTemplate[]>
 
     if (response.status === 'success') {
       return response.data || []
@@ -222,7 +228,7 @@ class TemplateService {
 
   // Get compatible templates for a specific label height
   async getCompatibleTemplates(labelHeightMm: number): Promise<LabelTemplate[]> {
-    const response = await apiClient.get(`${this.baseUrl}/compatible/${labelHeightMm}`)
+    const response = (await apiClient.get(`${this.baseUrl}/compatible/${labelHeightMm}`)) as ApiResponse<LabelTemplate[]>
 
     if (response.status === 'success') {
       return response.data || []
@@ -264,10 +270,14 @@ class TemplateService {
     message?: string
     job_id?: string
   }> {
-    const response = await apiClient.post('/api/printer/print/template', request)
+    const response = (await apiClient.post('/api/printer/print/template', request)) as ApiResponse<{
+      success: boolean
+      message?: string
+      job_id?: string
+    }>
 
     if (response.status === 'success') {
-      return response.data
+      return response.data!
     }
     throw new Error(response.message || 'Failed to print template')
   }

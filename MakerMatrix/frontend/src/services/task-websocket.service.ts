@@ -49,11 +49,12 @@ export class TaskWebSocketService extends WebSocketService {
   onTaskUpdate(handler: (task: Task) => void) {
     const wrapped = (message: TaskWebSocketMessage) => {
       console.log('🔥 WebSocket received task_update:', message)
-      if (message.data?.task) {
-        handler(message.data.task)
-      } else if (message.data) {
+      const data = message.data as TaskUpdateData | Task
+      if (data && 'task' in data) {
+        handler(data.task)
+      } else if (data) {
         // Handle case where task data is directly in message.data
-        handler(message.data as Task)
+        handler(data as Task)
       }
     }
 
@@ -64,10 +65,11 @@ export class TaskWebSocketService extends WebSocketService {
   onTaskCreated(handler: (task: Task) => void) {
     const wrapped = (message: TaskWebSocketMessage) => {
       console.log('🆕 WebSocket received task_created:', message)
-      if (message.data?.task) {
-        handler(message.data.task)
-      } else if (message.data) {
-        handler(message.data as Task)
+      const data = message.data as TaskUpdateData | Task
+      if (data && 'task' in data) {
+        handler(data.task)
+      } else if (data) {
+        handler(data as Task)
       }
     }
 
@@ -77,8 +79,9 @@ export class TaskWebSocketService extends WebSocketService {
 
   onTaskDeleted(handler: (taskId: string) => void) {
     const wrapped = (message: TaskWebSocketMessage) => {
-      if (message.data?.task_id) {
-        handler(message.data.task_id)
+      const data = message.data as { task_id: string }
+      if (data?.task_id) {
+        handler(data.task_id)
       }
     }
 
@@ -88,8 +91,9 @@ export class TaskWebSocketService extends WebSocketService {
 
   onWorkerStatusUpdate(handler: (status: WorkerStatus) => void) {
     const wrapped = (message: TaskWebSocketMessage) => {
-      if (message.data?.worker_status) {
-        handler(message.data.worker_status)
+      const data = message.data as WorkerStatusUpdateData
+      if (data?.worker_status) {
+        handler(data.worker_status)
       }
     }
 
@@ -99,8 +103,9 @@ export class TaskWebSocketService extends WebSocketService {
 
   onTaskStatsUpdate(handler: (stats: TaskStats) => void) {
     const wrapped = (message: TaskWebSocketMessage) => {
-      if (message.data?.task_stats) {
-        handler(message.data.task_stats)
+      const data = message.data as TaskStatsUpdateData
+      if (data?.task_stats) {
+        handler(data.task_stats)
       }
     }
 
