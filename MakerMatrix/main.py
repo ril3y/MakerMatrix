@@ -610,6 +610,15 @@ if os.path.exists(frontend_dist_path):
     async def serve_frontend():
         return FileResponse(os.path.join(frontend_dist_path, "index.html"))
 
+    # Serve favicon and other root static files
+    @app.get("/favicon.svg")
+    async def serve_favicon():
+        return FileResponse(os.path.join(frontend_dist_path, "favicon.svg"), media_type="image/svg+xml")
+
+    @app.get("/vite.svg")
+    async def serve_vite_svg():
+        return FileResponse(os.path.join(frontend_dist_path, "vite.svg"), media_type="image/svg+xml")
+
     # Catch-all route for React Router (SPA routing) - but exclude API routes entirely
     @app.get("/{full_path:path}")
     async def serve_frontend_routes(full_path: str):
