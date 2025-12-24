@@ -17,6 +17,7 @@ from MakerMatrix.schemas.part_create import PartUpdate
 from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
+from MakerMatrix.services.system.file_download_service import file_download_service
 
 
 # Configure logging
@@ -51,6 +52,60 @@ class PartService(BaseService):
         # Temporarily disabled order relationship loading to fix immediate issue
         # The order relationships are already loaded in the repository methods
         return part
+
+    def _process_image_url(self, image_url: Optional[str], part_name: str = "") -> Optional[str]:
+        """
+        Process an image URL - if it's an external URL, download it and return a local path.
+
+        External URLs (like McMaster-Carr) often expire, so we download and store locally.
+        If the URL is already a local path (starts with /api/ or is a UUID), return as-is.
+
+        Args:
+            image_url: The image URL to process (can be external URL, local path, or UUID)
+            part_name: Part name for logging purposes
+
+        Returns:
+            Local image path (UUID format) or None if download fails
+        """
+        if not image_url:
+            return None
+
+        # Check if it's already a local image reference (UUID or local path)
+        # Local images are either UUIDs or paths like /api/utility/get_image/{uuid}
+        if image_url.startswith("/api/") or image_url.startswith("/static/"):
+            self.logger.debug(f"Image URL is already local: {image_url}")
+            return image_url
+
+        # Check if it looks like a UUID (already processed image)
+        import re
+        uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        if re.match(uuid_pattern, image_url, re.IGNORECASE):
+            self.logger.debug(f"Image URL is a UUID: {image_url}")
+            return image_url
+
+        # Check if it's an external URL that needs downloading
+        if image_url.startswith("http://") or image_url.startswith("https://"):
+            self.logger.info(f"Downloading external image for '{part_name}': {image_url[:100]}...")
+            try:
+                result = file_download_service.download_image(
+                    url=image_url,
+                    part_number=part_name,
+                    supplier=""
+                )
+                if result and result.get("image_uuid"):
+                    local_uuid = result["image_uuid"]
+                    self.logger.info(f"Successfully downloaded image for '{part_name}', stored as: {local_uuid}")
+                    return local_uuid
+                else:
+                    self.logger.warning(f"Failed to download image for '{part_name}' from: {image_url}")
+                    return None
+            except Exception as e:
+                self.logger.error(f"Error downloading image for '{part_name}': {e}")
+                return None
+
+        # Unknown format - return as-is (might be a relative path or other format)
+        self.logger.debug(f"Image URL format not recognized, returning as-is: {image_url}")
+        return image_url
 
     #####
     def get_part_by_details(
@@ -483,6 +538,14 @@ class PartService(BaseService):
                         else:
                             filtered_part_data[key] = value
 
+                # Process image_url - download external URLs and store locally
+                if "image_url" in filtered_part_data and filtered_part_data["image_url"]:
+                    processed_image_url = self._process_image_url(
+                        filtered_part_data["image_url"],
+                        part_name=part_name
+                    )
+                    filtered_part_data["image_url"] = processed_image_url
+
                 # Create the part with categories using repository
                 self.logger.debug(f"Creating PartModel with data: {filtered_part_data}")
                 new_part = PartModel(**filtered_part_data)
@@ -896,6 +959,19 @@ class PartService(BaseService):
                                 )
 
                         updated_fields.append(f"location: {old_location_name} → {value}")
+                    elif key == "image_url":
+                        # Special handling for image_url - download external URLs
+                        old_value = getattr(part, "image_url", None)
+                        if value:
+                            processed_url = self._process_image_url(value, part_name=part.part_name)
+                            setattr(part, "image_url", processed_url)
+                            if old_value != processed_url:
+                                self.logger.info(f"Updated image for part '{part.part_name}' (ID: {part_id})")
+                                updated_fields.append(f"image_url: updated")
+                        else:
+                            setattr(part, "image_url", None)
+                            if old_value:
+                                updated_fields.append(f"image_url: cleared")
                     elif hasattr(part, key):
                         try:
                             old_value = getattr(part, key)

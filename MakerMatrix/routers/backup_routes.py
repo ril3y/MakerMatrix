@@ -204,12 +204,20 @@ async def restore_backup(
 # ========================================
 
 
+def _get_backups_dir() -> Path:
+    """Get backups directory path - use environment variable if set (Docker)"""
+    import os
+    backups_path_env = os.getenv("BACKUPS_PATH")
+    if backups_path_env:
+        return Path(backups_path_env)
+    return Path(__file__).parent.parent / "backups"
+
+
 @router.get("/list")
 @standard_error_handling
 async def list_backups(current_user: UserModel = Depends(require_permission("admin"))):
     """List all available backup files"""
-    base_path = Path(__file__).parent.parent
-    backups_dir = base_path / "backups"
+    backups_dir = _get_backups_dir()
 
     if not backups_dir.exists():
         return base_router.build_success_response(
@@ -257,9 +265,8 @@ async def download_backup(backup_filename: str, current_user: UserModel = Depend
     if not backup_filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Invalid file format")
 
-    # Locate backup file
-    base_path = Path(__file__).parent.parent
-    backups_dir = base_path / "backups"
+    # Locate backup file - use environment-aware path
+    backups_dir = _get_backups_dir()
     backup_file_path = backups_dir / backup_filename
 
     if not backup_file_path.exists():
@@ -287,9 +294,8 @@ async def delete_backup(backup_filename: str, current_user: UserModel = Depends(
     if not backup_filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Invalid file format")
 
-    # Locate and delete backup file
-    base_path = Path(__file__).parent.parent
-    backups_dir = base_path / "backups"
+    # Locate and delete backup file - use environment-aware path
+    backups_dir = _get_backups_dir()
     backup_file_path = backups_dir / backup_filename
 
     if not backup_file_path.exists():
@@ -473,9 +479,8 @@ async def get_backup_status(current_user: UserModel = Depends(require_permission
         db_size_mb = round(stat.st_size / (1024 * 1024), 2)
         db_last_modified = datetime.fromtimestamp(stat.st_mtime).isoformat()
 
-    # Get backup directory info
-    base_path = Path(__file__).parent.parent
-    backups_dir = base_path / "backups"
+    # Get backup directory info - use environment-aware path
+    backups_dir = _get_backups_dir()
 
     backup_count = 0
     backup_size_mb = 0

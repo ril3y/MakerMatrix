@@ -10,8 +10,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Persistent data
-      - makermatrix-data:/data
+      # Persistent data - bind mount to local filesystem
+      - ./data:/data
     environment:
       # Database
       - DATABASE_URL=sqlite:////data/database/makermatrix.db
@@ -54,10 +54,6 @@ services:
 
     networks:
       - makermatrix-network
-
-volumes:
-  makermatrix-data:
-    driver: local
 
 networks:
   makermatrix-network:

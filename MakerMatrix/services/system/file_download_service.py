@@ -15,7 +15,12 @@ class FileDownloadService:
     """Service for downloading and managing datasheets and component images"""
 
     def __init__(self, download_config=None):
-        self.base_path = Path(__file__).parent.parent / "static"
+        # Use environment variable if set (Docker), otherwise default path
+        static_files_path = os.getenv("STATIC_FILES_PATH")
+        if static_files_path:
+            self.base_path = Path(static_files_path)
+        else:
+            self.base_path = Path(__file__).parent.parent / "static"
         self.datasheets_path = self.base_path / "datasheets"
         # Use images directory within static folder
         self.uploaded_images_path = self.base_path / "images"

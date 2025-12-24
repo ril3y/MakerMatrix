@@ -192,10 +192,19 @@ const PartEnrichmentModal = ({
       console.log('Enrichment requirement check:', check)
 
       // Initialize missing field values object
+      // Pre-populate with existing part data where applicable
       const initialValues: Record<string, string> = {}
       check.required_checks.forEach((reqCheck) => {
         if (!reqCheck.is_present) {
-          initialValues[reqCheck.field_name] = ''
+          // For DigiKey, pre-populate supplier_part_number with existing part_number
+          // since DigiKey API can search by manufacturer part number
+          if (reqCheck.field_name === 'supplier_part_number' && part.part_number) {
+            initialValues[reqCheck.field_name] = part.part_number
+          } else if (reqCheck.field_name === 'manufacturer_part_number' && part.part_number) {
+            initialValues[reqCheck.field_name] = part.part_number
+          } else {
+            initialValues[reqCheck.field_name] = ''
+          }
         }
       })
       setMissingFieldValues(initialValues)

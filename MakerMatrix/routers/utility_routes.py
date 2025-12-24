@@ -30,8 +30,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 base_router = BaseRouter()
 
-# Base path for static files
-STATIC_BASE_PATH = Path(__file__).parent.parent / "services" / "static"
+# Base path for static files - use environment variable if set (Docker), otherwise default
+_static_files_path_env = os.getenv("STATIC_FILES_PATH")
+if _static_files_path_env:
+    STATIC_BASE_PATH = Path(_static_files_path_env)
+else:
+    STATIC_BASE_PATH = Path(__file__).parent.parent / "services" / "static"
 BUILTIN_SUPPLIER_ICONS_PATH = Path(__file__).parent.parent / "static" / "supplier_icons"
 
 
