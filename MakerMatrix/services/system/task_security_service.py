@@ -209,7 +209,20 @@ class TaskSecurityService(BaseService):
     ) -> Tuple[bool, Optional[str]]:
         """Check if user has too many concurrent tasks"""
         with self.get_session() as session:
-            running_count = self.task_repo.count_concurrent_tasks_by_user_and_type(session, user_id, task_type)
+            # First, clean up any stale/stuck tasks that have exceeded the timeout
+            stale_tasks = self.task_repo.mark_stale_tasks_as_failed(
+                session, task_type, policy.task_timeout_hours, reason="Task timed out automatically"
+            )
+            if stale_tasks:
+                logger.info(
+                    f"Auto-cleaned {len(stale_tasks)} stale {task_type.value} task(s) "
+                    f"that exceeded {policy.task_timeout_hours}h timeout"
+                )
+
+            # Count only non-stale concurrent tasks
+            running_count = self.task_repo.count_concurrent_tasks_by_user_and_type(
+                session, user_id, task_type, max_age_hours=policy.task_timeout_hours
+            )
 
             if running_count >= policy.max_concurrent_per_user:
                 return (

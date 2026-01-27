@@ -1,7 +1,8 @@
-# Documentation files (except root README.md)
+# Documentation files (except root README.md and CLAUDE.md)
 *.md
 **/*.md
 !/README.md
+!/CLAUDE.md
 
 # Claude Code configuration (user-specific)
 .claude/

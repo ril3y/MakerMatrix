@@ -80,7 +80,9 @@ async def create_backup(
     task_response = await task_service.create_task(task_request, user_id=current_user.id)
 
     if not task_response.success:
-        raise HTTPException(status_code=500, detail=task_response.message)
+        # Use status code from response (429 for rate limit, 403 for permission errors, 500 for other errors)
+        status_code = getattr(task_response, 'status_code', 500)
+        raise HTTPException(status_code=status_code, detail=task_response.message)
 
     task_data = task_response.data
 
@@ -174,7 +176,9 @@ async def restore_backup(
         task_response = await task_service.create_task(task_request, user_id=current_user.id)
 
         if not task_response.success:
-            raise HTTPException(status_code=500, detail=task_response.message)
+            # Use status code from response (429 for rate limit, 403 for permission errors, 500 for other errors)
+            status_code = getattr(task_response, 'status_code', 500)
+            raise HTTPException(status_code=status_code, detail=task_response.message)
 
         task_data = task_response.data
 
@@ -336,7 +340,9 @@ async def run_retention_cleanup(current_user: UserModel = Depends(require_permis
     task_response = await task_service.create_task(task_request, user_id=current_user.id)
 
     if not task_response.success:
-        raise HTTPException(status_code=500, detail=task_response.message)
+        # Use status code from response (429 for rate limit, 403 for permission errors, 500 for other errors)
+        status_code = getattr(task_response, 'status_code', 500)
+        raise HTTPException(status_code=status_code, detail=task_response.message)
 
     task_data = task_response.data
 

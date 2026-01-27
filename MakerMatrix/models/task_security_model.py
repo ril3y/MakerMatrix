@@ -40,6 +40,7 @@ class TaskSecurityPolicy:
     requires_approval: bool = False
     audit_level: str = "standard"  # "none", "standard", "detailed"
     resource_limits: Dict[str, int] = None
+    task_timeout_hours: float = 2.0  # Tasks running longer than this are considered stuck
 
     def __post_init__(self):
         if self.resource_limits is None:
@@ -138,6 +139,7 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         rate_limit_per_hour=2,
         rate_limit_per_day=5,
         audit_level="detailed",
+        task_timeout_hours=4.0,  # Backups can take a while with large databases/images
     ),
     TaskType.BACKUP_RESTORE: TaskSecurityPolicy(
         security_level=TaskSecurityLevel.ADMIN,
@@ -147,6 +149,7 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         rate_limit_per_hour=1,
         rate_limit_per_day=3,
         audit_level="detailed",
+        task_timeout_hours=6.0,  # Restores can take a long time for large backups
     ),
     TaskType.BACKUP_SCHEDULED: TaskSecurityPolicy(
         security_level=TaskSecurityLevel.ADMIN,
@@ -165,6 +168,7 @@ TASK_SECURITY_POLICIES: Dict[TaskType, TaskSecurityPolicy] = {
         rate_limit_per_hour=2,
         rate_limit_per_day=5,
         audit_level="detailed",
+        task_timeout_hours=1.0,  # Retention cleanup is quick
     ),
     # =============== SYSTEM TASKS ===============
     TaskType.INVENTORY_AUDIT: TaskSecurityPolicy(

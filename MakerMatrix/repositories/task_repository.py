@@ -200,14 +200,62 @@ class TaskRepository(BaseRepository[TaskModel]):
         count = session.exec(query).one()
         return count
 
-    def count_concurrent_tasks_by_user_and_type(self, session: Session, user_id: str, task_type: TaskType) -> int:
-        """Count concurrent (running/pending) tasks by user and type."""
-        query = select(func.count(TaskModel.id)).where(
-            and_(
-                TaskModel.created_by_user_id == user_id,
-                TaskModel.task_type == task_type,
-                TaskModel.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
-            )
-        )
+    def count_concurrent_tasks_by_user_and_type(
+        self, session: Session, user_id: str, task_type: TaskType, max_age_hours: Optional[float] = None
+    ) -> int:
+        """
+        Count concurrent (running/pending) tasks by user and type.
+
+        Args:
+            session: Database session
+            user_id: User ID to filter by
+            task_type: Task type to filter by
+            max_age_hours: If provided, only count tasks created within this many hours.
+                          Tasks older than this are considered stale/stuck and not counted.
+        """
+        conditions = [
+            TaskModel.created_by_user_id == user_id,
+            TaskModel.task_type == task_type,
+            TaskModel.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
+        ]
+
+        # Add age filter to exclude stale/stuck tasks
+        if max_age_hours is not None:
+            cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+            conditions.append(TaskModel.created_at >= cutoff_time)
+
+        query = select(func.count(TaskModel.id)).where(and_(*conditions))
         count = session.exec(query).one()
         return count
+
+    def mark_stale_tasks_as_failed(
+        self, session: Session, task_type: TaskType, max_age_hours: float, reason: str = "Task timed out"
+    ) -> List[TaskModel]:
+        """
+        Mark tasks that have been running/pending too long as failed.
+
+        Returns the list of tasks that were marked as failed.
+        """
+        cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+
+        query = select(TaskModel).where(
+            and_(
+                TaskModel.task_type == task_type,
+                TaskModel.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
+                TaskModel.created_at < cutoff_time,
+            )
+        )
+
+        stale_tasks = list(session.exec(query).all())
+
+        for task in stale_tasks:
+            task.status = TaskStatus.FAILED
+            task.error_message = f"{reason} (stuck for more than {max_age_hours} hours)"
+            task.completed_at = datetime.utcnow()
+            session.add(task)
+            logger.warning(f"Marked stale task {task.id} ({task.name}) as failed - exceeded {max_age_hours}h timeout")
+
+        if stale_tasks:
+            session.commit()
+
+        return stale_tasks
