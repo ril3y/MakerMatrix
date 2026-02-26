@@ -164,8 +164,30 @@ const ApiKeyManagement = () => {
   }
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success('Copied to clipboard')
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(
+        () => toast.success('Copied to clipboard'),
+        () => fallbackCopyToClipboard(text)
+      )
+    } else {
+      fallbackCopyToClipboard(text)
+    }
+  }
+
+  const fallbackCopyToClipboard = (text: string) => {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      toast.success('Copied to clipboard')
+    } catch {
+      toast.error('Failed to copy. Please select and copy manually.')
+    }
+    document.body.removeChild(textarea)
   }
 
   const togglePrefixVisibility = (keyId: string) => {
