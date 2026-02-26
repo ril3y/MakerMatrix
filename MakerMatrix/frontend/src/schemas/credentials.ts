@@ -4,7 +4,7 @@ import { z } from 'zod'
 export const credentialFieldSchema = z.object({
   name: z.string().min(1, 'Field name is required'),
   label: z.string().min(1, 'Field label is required'),
-  field_type: z.enum(['text', 'password', 'url', 'email']),
+  field_type: z.enum(['text', 'password', 'url', 'email', 'file']),
   required: z.boolean(),
   description: z.string().optional(),
   placeholder: z.string().optional(),

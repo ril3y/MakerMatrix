@@ -1,4 +1,4 @@
-import { apiClient } from './api'
+import { apiClient, type ApiResponse } from './api'
 
 export interface APIKeyCreate {
   name: string
@@ -42,8 +42,8 @@ class APIKeyService {
    * Get all API keys for the current user
    */
   async getUserApiKeys(): Promise<APIKey[]> {
-    const response = await apiClient.get<APIKey[]>('/api/api-keys/')
-    return response || []
+    const response = await apiClient.get<ApiResponse<APIKey[]>>('/api/api-keys/')
+    return response.data || []
   }
 
   /**
@@ -51,32 +51,32 @@ class APIKeyService {
    * Returns the key with plaintext api_key - only shown once!
    */
   async createApiKey(keyData: APIKeyCreate): Promise<APIKeyWithKey> {
-    const response = await apiClient.post<APIKeyWithKey>('/api/api-keys/', keyData)
-    return response
+    const response = await apiClient.post<ApiResponse<APIKeyWithKey>>('/api/api-keys/', keyData)
+    return response.data as APIKeyWithKey
   }
 
   /**
    * Get a specific API key by ID
    */
   async getApiKey(keyId: string): Promise<APIKey> {
-    const response = await apiClient.get<APIKey>(`/api/api-keys/${keyId}`)
-    return response
+    const response = await apiClient.get<ApiResponse<APIKey>>(`/api/api-keys/${keyId}`)
+    return response.data as APIKey
   }
 
   /**
    * Update an API key
    */
   async updateApiKey(keyId: string, updates: Partial<APIKeyCreate>): Promise<APIKey> {
-    const response = await apiClient.put<APIKey>(`/api/api-keys/${keyId}`, updates)
-    return response
+    const response = await apiClient.put<ApiResponse<APIKey>>(`/api/api-keys/${keyId}`, updates)
+    return response.data as APIKey
   }
 
   /**
    * Revoke (deactivate) an API key
    */
   async revokeApiKey(keyId: string): Promise<APIKey> {
-    const response = await apiClient.post<APIKey>(`/api/api-keys/${keyId}/revoke`)
-    return response
+    const response = await apiClient.post<ApiResponse<APIKey>>(`/api/api-keys/${keyId}/revoke`)
+    return response.data as APIKey
   }
 
   /**
@@ -90,8 +90,8 @@ class APIKeyService {
    * Get all API keys in the system (admin only)
    */
   async getAllApiKeys(): Promise<APIKey[]> {
-    const response = await apiClient.get<APIKey[]>('/api/api-keys/admin/all')
-    return response || []
+    const response = await apiClient.get<ApiResponse<APIKey[]>>('/api/api-keys/admin/all')
+    return response.data || []
   }
 
   /**
@@ -99,10 +99,10 @@ class APIKeyService {
    * Dynamically fetched from backend based on role definitions
    */
   async getAvailablePermissions(): Promise<AvailablePermission[]> {
-    const response = await apiClient.get<AvailablePermission[]>(
+    const response = await apiClient.get<ApiResponse<AvailablePermission[]>>(
       '/api/api-keys/permissions/available'
     )
-    return response || []
+    return response.data || []
   }
 }
 

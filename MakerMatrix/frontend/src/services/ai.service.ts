@@ -1,4 +1,4 @@
-import { apiClient } from './api'
+import { apiClient, type ApiResponse } from './api'
 
 export interface AICommandResponse {
   action?: 'search-parts' | 'navigate' | 'query' | 'update'
@@ -26,11 +26,14 @@ class AIService {
     context?: Record<string, unknown>
   ): Promise<AICommandResponse> {
     try {
-      const response = await apiClient.post<AICommandResponse>('/api/ai/process-command', {
-        command,
-        context,
-      })
-      return response.data
+      const response = await apiClient.post<ApiResponse<AICommandResponse>>(
+        '/api/ai/process-command',
+        {
+          command,
+          context,
+        }
+      )
+      return response.data as AICommandResponse
     } catch (error) {
       console.error('AI service error:', error)
       // Fallback to local processing if API fails
@@ -91,17 +94,20 @@ class AIService {
   }
 
   async generateLabel(partId: number): Promise<{ label_data: string }> {
-    const response = await apiClient.post<{ label_data: string }>(
+    const response = await apiClient.post<ApiResponse<{ label_data: string }>>(
       `/api/ai/generate-label/${partId}`
     )
-    return response
+    return response.data as { label_data: string }
   }
 
   async suggestCategories(partName: string): Promise<string[]> {
-    const response = await apiClient.post<{ categories: string[] }>('/api/ai/suggest-categories', {
-      part_name: partName,
-    })
-    return response.categories
+    const response = await apiClient.post<ApiResponse<{ categories: string[] }>>(
+      '/api/ai/suggest-categories',
+      {
+        part_name: partName,
+      }
+    )
+    return response.data?.categories || []
   }
 }
 

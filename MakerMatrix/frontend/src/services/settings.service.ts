@@ -35,25 +35,38 @@ function getApiBaseUrl(): string {
 export class SettingsService {
   // Modern Printer Configuration
   async getAvailablePrinters(): Promise<Printer[]> {
-    const response = await apiClient.get<{ data: Printer[] }>('/api/printer/printers')
+    const response = await apiClient.get<ApiResponse<Printer[]>>('/api/printer/printers')
     return response.data || []
   }
 
   async getPrinterInfo(printerId: string): Promise<PrinterInfo> {
-    const response = await apiClient.get<PrinterInfo>(`/api/printer/printers/${printerId}`)
-    return response
+    const response = await apiClient.get<ApiResponse<PrinterInfo>>(
+      `/api/printer/printers/${printerId}`
+    )
+    if (!response.data) {
+      throw new Error('Printer info not found')
+    }
+    return response.data
   }
 
   async getPrinterStatus(printerId: string): Promise<PrinterStatus> {
-    const response = await apiClient.get<PrinterStatus>(`/api/printer/printers/${printerId}/status`)
-    return response
+    const response = await apiClient.get<ApiResponse<PrinterStatus>>(
+      `/api/printer/printers/${printerId}/status`
+    )
+    if (!response.data) {
+      throw new Error('Printer status not found')
+    }
+    return response.data
   }
 
   async testPrinterConnection(printerId: string): Promise<PrinterTestResult> {
-    const response = await apiClient.post<PrinterTestResult>(
+    const response = await apiClient.post<ApiResponse<PrinterTestResult>>(
       `/api/printer/printers/${printerId}/test`
     )
-    return response
+    if (!response.data) {
+      throw new Error('Printer test failed')
+    }
+    return response.data
   }
 
   async printTestLabel(

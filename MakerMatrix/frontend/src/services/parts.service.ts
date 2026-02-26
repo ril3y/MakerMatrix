@@ -195,8 +195,14 @@ export class PartsService {
   }
 
   async searchParts(params: SearchPartsRequest): Promise<PaginatedResponse<Part>> {
-    const response = await apiClient.post<PaginatedResponse<Part>>('/api/parts/search', params)
-    return response
+    const response = await apiClient.post<ApiResponse<PaginatedResponse<Part>>>(
+      '/api/parts/search',
+      params
+    )
+    if (response.data) {
+      return response.data
+    }
+    throw new Error(response.message || 'Failed to search parts')
   }
 
   async searchPartsText(

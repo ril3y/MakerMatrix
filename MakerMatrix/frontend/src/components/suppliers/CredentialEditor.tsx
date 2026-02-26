@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { Eye, EyeOff, TestTube, Save, HelpCircle, CheckCircle, XCircle } from 'lucide-react'
+import { Eye, EyeOff, TestTube, Save, HelpCircle, CheckCircle, XCircle, Upload } from 'lucide-react'
 import { useFormWithValidation } from '@/hooks/useFormWithValidation'
 import {
   createCredentialFormSchema,
@@ -76,9 +76,13 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
     },
   })
 
-  // Initialize credentials when schema changes or credential status loads
+  // Track if initialization has already happened
+  const initializedRef = useRef(false)
+
+  // Initialize credentials when schema changes or credential status loads (only once)
   useEffect(() => {
     if (credentialSchema.length === 0) return
+    if (initializedRef.current) return // Don't re-initialize
 
     const initializeCredentials = async () => {
       const credentials: CredentialFormData = {}
@@ -121,6 +125,8 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
       Object.entries(credentials).forEach(([key, value]) => {
         form.setValue(key as keyof CredentialFormData, value)
       })
+
+      initializedRef.current = true
     }
 
     initializeCredentials()
@@ -280,6 +286,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
       <div className="space-y-3">
         {credentialSchema.map((field) => {
           const isPassword = field.field_type === 'password'
+          const isFile = field.field_type === 'file'
           const currentValue = form.watch(field.name) || ''
           const isConfigured = credentialStatus?.configured_fields?.includes(field.name) || false
           const shouldShow = showValues[field.name]
@@ -323,25 +330,83 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
               </div>
 
               <div className="relative">
-                <FormInput
-                  label={field.label}
-                  type={shouldShow ? 'text' : 'password'}
-                  placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
-                  registration={form.register(field.name)}
-                  error={form.getFieldError(field.name)}
-                  disabled={loading}
-                  className="pr-10"
-                />
+                {/* File upload field */}
+                {isFile ? (
+                  <div className="flex items-center space-x-2">
+                    <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload File
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pfx,.p12,.pem,.crt,.key"
+                        onChange={async (e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0]
+                            try {
+                              // Upload the file to the backend
+                              const formData = new FormData()
+                              formData.append('file', file)
+                              const response = await fetch(
+                                `/api/suppliers/${supplierName.toLowerCase()}/file-upload`,
+                                {
+                                  method: 'POST',
+                                  headers: {
+                                    Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+                                  },
+                                  body: formData,
+                                }
+                              )
+                              if (response.ok) {
+                                const data = await response.json()
+                                const filePath = data.data?.file_path || data.file_path
+                                form.setValue(field.name as keyof CredentialFormData, filePath)
+                                toast.success(`File "${file.name}" uploaded successfully`)
+                              } else {
+                                toast.error('Failed to upload file')
+                              }
+                            } catch (error) {
+                              console.error('File upload error:', error)
+                              toast.error('Failed to upload file')
+                            }
+                          }
+                        }}
+                        disabled={loading}
+                      />
+                    </label>
+                    {hasValue && (
+                      <div className="flex items-center text-green-600 dark:text-green-400">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        <span className="text-sm">
+                          {String(currentValue).split('/').pop() || String(currentValue).split('\\').pop() || 'Uploaded'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Text/Password fields */
+                  <>
+                    <FormInput
+                      label={field.label}
+                      type={shouldShow ? 'text' : 'password'}
+                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                      registration={form.register(field.name)}
+                      error={form.getFieldError(field.name)}
+                      disabled={loading}
+                      className="pr-10"
+                    />
 
-                {(isPassword || hasValue) && (
-                  <button
-                    type="button"
-                    onClick={() => toggleShowValue(field.name)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 z-10"
-                    title="Toggle visibility"
-                  >
-                    {shouldShow ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                    {(isPassword || hasValue) && (
+                      <button
+                        type="button"
+                        onClick={() => toggleShowValue(field.name)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 z-10"
+                        title="Toggle visibility"
+                      >
+                        {shouldShow ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
