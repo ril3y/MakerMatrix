@@ -178,8 +178,8 @@ class LabelTemplateModel(SQLModel, table=True):
             # Set default font_config
             if "font_config" not in values or not values["font_config"]:
                 values["font_config"] = {
-                    "family": "DejaVu Sans",
-                    "weight": "normal",
+                    "family": "DejaVu Sans Bold",
+                    "weight": "bold",
                     "style": "normal",
                     "min_size": 8,
                     "max_size": 72,

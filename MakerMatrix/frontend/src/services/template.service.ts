@@ -252,13 +252,39 @@ class TemplateService {
     throw new Error(response.message || 'Failed to fetch compatible templates')
   }
 
+  // Preview a draft template (unsaved) with all template properties applied
+  async previewTemplateDraft(templateConfig: Record<string, unknown>, data: Record<string, unknown>): Promise<Blob> {
+    const response = await fetch('/api/printer/preview/template/draft', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+      },
+      body: JSON.stringify({ template_config: templateConfig, data }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Failed to generate draft preview')
+    }
+
+    const jsonResponse = await response.json()
+    if (jsonResponse.status === 'success' && jsonResponse.data?.preview_url) {
+      const base64Data = jsonResponse.data.preview_url
+      const resp = await fetch(base64Data)
+      return resp.blob()
+    }
+
+    throw new Error('Invalid preview response format')
+  }
+
   // Preview template with data
   async previewTemplate(request: TemplatePreviewRequest): Promise<Blob> {
     const response = await fetch('/api/printer/preview/template', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
       },
       body: JSON.stringify(request),
     })

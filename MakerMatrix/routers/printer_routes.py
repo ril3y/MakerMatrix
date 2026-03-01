@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, File, UploadFile, Body, Request, Depends
+from fastapi import APIRouter, HTTPException, File, UploadFile, Body, Query, Request, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -42,6 +42,7 @@ class PrinterRegistration(BaseModel):
     identifier: str
     dpi: int = 300
     scaling_factor: float = 1.1
+    default_label_size: str = "12mm"
 
 
 class PreviewRequest(BaseModel):
@@ -79,6 +80,11 @@ class TemplatePrintRequest(BaseModel):
 
 class TemplatePreviewRequest(BaseModel):
     template_id: str
+    data: dict
+
+
+class TemplateDraftPreviewRequest(BaseModel):
+    template_config: dict
     data: dict
 
 
@@ -367,6 +373,9 @@ async def update_printer(printer_id: str, update_data: PrinterRegistration):
         "identifier": update_data.identifier,
         "dpi": update_data.dpi,
         "scaling_factor": update_data.scaling_factor,
+        "config": {
+            "default_label_size": update_data.default_label_size,
+        },
     }
 
     # Update via persistence service (handles both memory and database)
@@ -472,8 +481,8 @@ async def get_printer_status(printer_id: str):
 @router.post("/printers/{printer_id}/test")
 @standard_error_handling
 @log_activity("printer_tested", "User {username} tested printer connection")
-async def test_printer_connection(printer_id: str, request: Request = None):
-    """Test printer connectivity."""
+async def test_printer_connection(printer_id: str, label_size: Optional[str] = Query(default=None), request: Request = None):
+    """Test printer connectivity and print a test label."""
     print(f"Testing connection for printer: {printer_id}")
     printer = await printer_manager.get_printer(printer_id)
 
@@ -497,9 +506,36 @@ async def test_printer_connection(printer_id: str, request: Request = None):
         print(f"Printer {printer_id} not found even after database restore")
         raise HTTPException(status_code=404, detail=f"Printer {printer_id} not found")
 
+    # Resolve label size: query param > printer config > fallback
+    if not label_size:
+        try:
+            from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
+
+            ps = get_printer_persistence_service()
+            db_printers = ps.get_persistent_printers()
+            printer_config = next((p for p in db_printers if p.get("printer_id") == printer_id), None)
+            config = (printer_config or {}).get("config") or {}
+            label_size = config.get("default_label_size", "12mm")
+            print(f"Using label size from printer config: {label_size}")
+        except Exception as e:
+            print(f"Failed to read printer config, using default: {e}")
+            label_size = "12mm"
+
+    # Step 1: Test connectivity
     print(f"Found printer, testing connection...")
     result = await printer.test_connection()
-    print(f"Test result: {result}")
+    print(f"Connection test result: {result}")
+
+    # Step 2: If connectivity succeeded, print a test label
+    print_result = None
+    if result.success:
+        try:
+            print(f"Connection OK, printing test label (size: {label_size})...")
+            print_result = await printer.print_test_label(label_size=label_size)
+            print(f"Test print result: {print_result}")
+        except Exception as e:
+            print(f"Test print failed: {e}")
+            print_result = None
 
     # Log activity
     try:
@@ -524,18 +560,30 @@ async def test_printer_connection(printer_id: str, request: Request = None):
     except Exception as e:
         print(f"Failed to log test activity: {e}")
 
+    # Build response message
+    if result.success and print_result and print_result.success:
+        message = f"Connected and test label printed successfully"
+        overall_success = True
+    elif result.success and print_result and not print_result.success:
+        message = f"Connected but test print failed: {print_result.error}"
+        overall_success = False
+    elif result.success and not print_result:
+        message = f"Connected but test print failed"
+        overall_success = False
+    else:
+        message = result.message or result.error or "Connection failed"
+        overall_success = False
+
     response_data = {
         "printer_id": printer_id,
-        "success": result.success,
-        "message": result.message,
+        "success": overall_success,
+        "message": message,
         "response_time_ms": result.response_time_ms,
     }
     print(f"Returning response: {response_data}")
 
-    # Use different status based on test result
-    status = "success" if result.success else "warning"
     return BaseRouter.build_success_response(
-        data=response_data, message=f"Connection test {'successful' if result.success else 'failed'} for {printer_id}"
+        data=response_data, message=f"Printer test {'successful' if overall_success else 'failed'} for {printer_id}"
     ).dict()
 
 
@@ -570,6 +618,9 @@ async def register_printer(registration: PrinterRegistration, request: Request =
         "identifier": registration.identifier,
         "dpi": registration.dpi,
         "scaling_factor": registration.scaling_factor,
+        "config": {
+            "default_label_size": registration.default_label_size,
+        },
     }
 
     # Register with persistence service (handles both memory and database)
@@ -892,6 +943,23 @@ async def preview_template_label(request: TemplatePreviewRequest):
         ).dict()
     else:
         return BaseRouter.build_error_response(error=result.error, message="Failed to generate template preview").dict()
+
+
+@router.post("/preview/template/draft")
+@standard_error_handling
+async def preview_template_draft(request: TemplateDraftPreviewRequest):
+    """Preview a label from inline template config (unsaved draft)."""
+    result = await printer_manager.preview_template_draft(
+        template_config=request.template_config, data=request.data
+    )
+
+    if result.success:
+        response_data = {"preview_url": result.preview_url, "width": result.width, "height": result.height}
+        return BaseRouter.build_success_response(
+            data=response_data, message="Draft template preview generated successfully"
+        ).dict()
+    else:
+        return BaseRouter.build_error_response(error=result.error, message="Failed to generate draft preview").dict()
 
 
 @router.post("/print/advanced")

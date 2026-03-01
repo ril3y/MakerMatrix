@@ -7,14 +7,8 @@ import type { Printer, PrinterInfo } from '@/types/settings'
 import type { LabelTemplate, TemplateData } from '@/services/template.service'
 import { templateService } from '@/services/template.service'
 import TemplateSelector from './TemplateSelector'
+import LabelPreview from './LabelPreview'
 import toast from 'react-hot-toast'
-
-interface LabelSize {
-  name: string
-  width_mm?: number
-  height_mm?: number
-  [key: string]: unknown
-}
 
 interface PrinterModalProps {
   isOpen: boolean
@@ -77,11 +71,11 @@ const PrinterModal = ({
       const info = await settingsService.getPrinterInfo(printerId)
       setPrinterInfo(info)
 
-      const supportedSizes = (info as { supported_sizes?: LabelSize[] }).supported_sizes
+      const supportedSizes = info.supported_sizes
       if (supportedSizes && supportedSizes.length > 0) {
         const defaultSize =
-          supportedSizes.find((s: LabelSize) => s.name === '12mm') ||
-          supportedSizes.find((s: LabelSize) => s.name === '12') ||
+          supportedSizes.find((s) => s.name === '12mm') ||
+          supportedSizes.find((s) => s.name === '12') ||
           supportedSizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
@@ -715,10 +709,8 @@ const PrinterModal = ({
                     value={selectedLabelSize}
                     onChange={setSelectedLabelSize}
                     options={
-                      (printerInfo as { supported_sizes?: LabelSize[] })?.supported_sizes?.length >
-                      0
-                        ? (printerInfo as { supported_sizes?: LabelSize[] }).supported_sizes.map(
-                            (size: LabelSize) => ({
+                      printerInfo?.supported_sizes && printerInfo.supported_sizes.length > 0
+                        ? printerInfo.supported_sizes.map((size) => ({
                               value: size.name,
                               label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`,
                             })
@@ -816,28 +808,7 @@ const PrinterModal = ({
             {/* Right Column - Preview */}
             <div className="space-y-4">
               <h5 className="font-medium text-primary">Preview</h5>
-              <div className="bg-background-secondary rounded-lg p-4 flex items-center justify-center min-h-64">
-                {previewUrl ? (
-                  <div className="text-center">
-                    <img
-                      src={previewUrl}
-                      alt="Label Preview"
-                      className="
-      max-w-full max-h-48 border border-border rounded
-      mx-auto                   /* keep horizontally centred */
-      block                     /* needed for mx-auto on an <img> */
-    "
-                      style={{ transformOrigin: 'center' }} /* stay centred vertically */
-                    />
-                    <p className="text-sm text-secondary mt-2">Label Preview</p>
-                  </div>
-                ) : (
-                  <div className="text-center text-muted">
-                    <PrinterIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Select a template or enter text to see preview</p>
-                  </div>
-                )}
-              </div>
+              <LabelPreview previewUrl={previewUrl} />
 
               {/* Show processed template preview */}
               <div className="bg-background-secondary rounded-lg p-3">

@@ -3,11 +3,6 @@ import { settingsService } from '@/services/settings.service'
 import toast from 'react-hot-toast'
 import type { Printer, PrinterInfo } from '@/types/settings'
 
-interface LabelSize {
-  name: string
-  [key: string]: unknown
-}
-
 interface PartData {
   part_name?: string
   part_number?: string
@@ -70,12 +65,10 @@ export const usePrinter = (options: PrinterHookOptions = {}) => {
       const info = await settingsService.getPrinterInfo(printerId)
       setPrinterInfo(info)
 
-      // Set default label size if supported (from capabilities)
-      const capabilities = info.capabilities as { supported_sizes?: LabelSize[] } | undefined
-      if (capabilities?.supported_sizes?.length) {
+      // Set default label size if supported
+      if (info.supported_sizes?.length) {
         const defaultSize =
-          capabilities.supported_sizes.find((s: LabelSize) => s.name === '12mm') ||
-          capabilities.supported_sizes[0]
+          info.supported_sizes.find((s) => s.name === '12mm') || info.supported_sizes[0]
         setSelectedLabelSize(defaultSize.name)
       }
     } catch (_error) {

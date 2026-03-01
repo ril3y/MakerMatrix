@@ -83,6 +83,14 @@ export interface ImportProgress {
   estimated_completion?: string
 }
 
+// Label Size (from printer supported sizes)
+export interface LabelSize {
+  name: string
+  width_mm: number
+  height_mm: number
+  is_continuous: boolean
+}
+
 // Printer Types
 export interface Printer {
   printer_id: string
@@ -106,6 +114,7 @@ export interface PrinterInfo {
   dpi: number
   scaling_factor: number
   capabilities?: Record<string, unknown>
+  supported_sizes?: LabelSize[]
 }
 
 export interface PrinterStatus {

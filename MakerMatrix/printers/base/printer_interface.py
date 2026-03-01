@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import uuid
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 
 class PrinterStatus(Enum):
@@ -218,6 +218,39 @@ class BasePrinter(ABC):
     def get_supported_label_sizes(self) -> List[LabelSize]:
         """Get supported label sizes."""
         pass
+
+    async def print_test_label(self, label_size: str = "62") -> PrintJobResult:
+        """Print a test label. Subclasses can override for custom behavior."""
+        # Find a valid label size (use requested or fall back to first available)
+        supported = self.get_supported_label_sizes()
+        valid_size = None
+        for size in supported:
+            if size.name == label_size:
+                valid_size = size
+                break
+        if not valid_size and supported:
+            valid_size = supported[0]
+            label_size = valid_size.name
+
+        if not valid_size:
+            return PrintJobResult(success=False, job_id="", error="No supported label sizes")
+
+        # Create a simple test image
+        width = int(valid_size.width_px or 400)
+        height = int(valid_size.height_px or 200)
+
+        image = Image.new("RGB", (width, height), "white")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle([2, 2, width - 3, height - 3], outline="black", width=2)
+
+        text = "Test Print"
+        font = ImageFont.load_default()
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        draw.text(((width - text_w) // 2, (height - text_h) // 2), text, fill="black", font=font)
+
+        return await self.print_label(image, label_size, copies=1)
 
     async def cancel_current_job(self) -> bool:
         """Default implementation for job cancellation."""

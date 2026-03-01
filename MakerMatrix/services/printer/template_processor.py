@@ -323,18 +323,32 @@ class TemplateProcessor:
         Returns:
             Rotated text image
         """
-        # Create text image without rotation first
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        # Handle multi-line text properly
+        lines = text.split("\n")
+        line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
+
+        # Measure each line to find max width and total height
+        max_line_width = 0
+        for line in lines:
+            if line.strip():
+                bbox = font.getbbox(line)
+                line_width = bbox[2] - bbox[0]
+                max_line_width = max(max_line_width, line_width)
+
+        text_width = max_line_width
+        text_height = len(lines) * line_height
 
         # Create image with some padding
         padding = 10
         img = Image.new("RGBA", (text_width + padding * 2, text_height + padding * 2), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
 
-        # Draw text
-        draw.text((padding, padding), text, font=font, fill=text_color)
+        # Draw each line
+        y_offset = padding
+        for line in lines:
+            if line.strip():
+                draw.text((padding, y_offset), line, font=font, fill=text_color)
+            y_offset += line_height
 
         # Apply rotation
         if rotation == TextRotation.QUARTER:  # 90°
@@ -374,33 +388,42 @@ class TemplateProcessor:
             line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
             return lines, font, line_height
 
-        # Binary search for optimal font size
+        # Start from the available height (matching legacy auto-sizing behavior)
+        # The font_config max_size (72) is too conservative for high-DPI labels
+        effective_max = max(max_size, available_height)
+
+        # Find largest font size where all lines fit
+        # Use coarse search first (step by 10%), then refine
         best_font = None
         best_size = min_size
+        font_size = effective_max
 
-        for font_size in range(max_size, min_size - 1, -1):
+        while font_size >= min_size:
             font = self._get_font(font_family, font_size)
 
             # Check if all lines fit within available dimensions
             line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
             total_height = len(lines) * line_height
 
-            if total_height > available_height:
-                continue
+            if total_height <= available_height:
+                # Check if each line fits within available width
+                all_lines_fit = True
+                for line in lines:
+                    if line.strip():
+                        bbox = font.getbbox(line)
+                        line_width = bbox[2] - bbox[0]
+                        if line_width > available_width:
+                            all_lines_fit = False
+                            break
 
-            # Check if each line fits within available width
-            all_lines_fit = True
-            for line in lines:
-                if line.strip():  # Skip empty lines
-                    bbox = font.getbbox(line)
-                    line_width = bbox[2] - bbox[0]
-                    if line_width > available_width:
-                        all_lines_fit = False
-                        break
+                if all_lines_fit:
+                    best_font = font
+                    best_size = font_size
+                    break
 
-            if all_lines_fit:
-                best_font = font
-                best_size = font_size
+            # Decrease by ~10% for fast convergence (matching legacy behavior)
+            font_size = max(font_size - max(1, font_size // 10), min_size - 1)
+            if font_size < min_size:
                 break
 
         if best_font is None:
@@ -458,19 +481,33 @@ class TemplateProcessor:
 
     def _get_font(self, font_family: str, size: int) -> ImageFont.FreeTypeFont:
         """Get font with fallback handling"""
-        try:
-            return ImageFont.truetype(font_family, size)
-        except (OSError, IOError):
+        # Map common font names to file paths
+        font_name_map = {
+            "DejaVu Sans": "DejaVuSans",
+            "DejaVu Sans Bold": "DejaVuSans-Bold",
+            "DejaVu Serif": "DejaVuSerif",
+            "DejaVu Sans Mono": "DejaVuSansMono",
+        }
+        mapped_name = font_name_map.get(font_family, font_family)
+
+        # Try multiple paths in order
+        paths_to_try = [
+            font_family,
+            f"{font_family}.ttf",
+            mapped_name,
+            f"{mapped_name}.ttf",
+            f"/usr/share/fonts/truetype/dejavu/{mapped_name}.ttf",
+            f"/usr/share/fonts/truetype/dejavu/{mapped_name}-Bold.ttf",
+        ]
+
+        for path in paths_to_try:
             try:
-                # Try with .ttf extension
-                return ImageFont.truetype(f"{font_family}.ttf", size)
+                return ImageFont.truetype(path, size)
             except (OSError, IOError):
-                try:
-                    # Try common font paths
-                    return ImageFont.truetype(f"/usr/share/fonts/truetype/dejavu/{font_family}.ttf", size)
-                except (OSError, IOError):
-                    # Fallback to default font
-                    return ImageFont.load_default()
+                continue
+
+        # Last resort fallback
+        return ImageFont.load_default()
 
     def _generate_text_only_label(self, context: ProcessingContext, text: str, layout: LayoutDimensions) -> Image.Image:
         """Generate a text-only label"""
@@ -478,11 +515,17 @@ class TemplateProcessor:
         img = Image.new("RGB", (context.label_width_px, context.label_height_px), "white")
         draw = ImageDraw.Draw(img)
 
+        # For 90°/270° rotation, swap width/height for auto-sizing since text is
+        # rendered normally then rotated — width becomes height and vice versa
+        is_rotated_90_270 = context.template.text_rotation in (TextRotation.QUARTER, TextRotation.THREE_QUARTER)
+        sizing_width = layout.text_area_height if is_rotated_90_270 else layout.text_area_width
+        sizing_height = layout.text_area_width if is_rotated_90_270 else layout.text_area_height
+
         # Calculate optimal text sizing
         lines, font, line_height = self.calculate_multiline_optimal_sizing(
             text,
-            layout.text_area_width,
-            layout.text_area_height,
+            sizing_width,
+            sizing_height,
             context.template.font_config,
             context.template.enable_auto_sizing,
         )
@@ -495,8 +538,11 @@ class TemplateProcessor:
             paste_y = layout.text_area_y + (layout.text_area_height - text_img.height) // 2
             img.paste(text_img, (paste_x, paste_y), text_img)
         else:
-            # Draw multi-line text
-            y_offset = layout.text_area_y
+            # Draw multi-line text with vertical centering
+            total_text_height = len(lines) * line_height
+            y_offset = layout.text_area_y + (layout.text_area_height - total_text_height) // 2
+            y_offset = max(y_offset, layout.text_area_y)  # Don't go above text area
+
             for line in lines:
                 if line.strip():
                     # Apply text alignment
@@ -579,11 +625,15 @@ class TemplateProcessor:
                 img.paste(text_img, (paste_x, paste_y), text_img)
 
             elif context.template.text_rotation != TextRotation.NONE:
-                # Use rotated text
+                # Use rotated text — swap dimensions for 90°/270° since text is
+                # rendered normally then rotated
+                is_rotated_90_270 = context.template.text_rotation in (TextRotation.QUARTER, TextRotation.THREE_QUARTER)
+                sizing_w = layout.text_area_height if is_rotated_90_270 else layout.text_area_width
+                sizing_h = layout.text_area_width if is_rotated_90_270 else layout.text_area_height
                 lines, font, _ = self.calculate_multiline_optimal_sizing(
                     text,
-                    layout.text_area_width,
-                    layout.text_area_height,
+                    sizing_w,
+                    sizing_h,
                     context.template.font_config,
                     context.template.enable_auto_sizing,
                 )
@@ -602,7 +652,11 @@ class TemplateProcessor:
                     context.template.enable_auto_sizing,
                 )
 
-                y_offset = layout.text_area_y
+                # Vertically center text block within text area
+                total_text_height = len(lines) * line_height
+                y_offset = layout.text_area_y + (layout.text_area_height - total_text_height) // 2
+                y_offset = max(y_offset, layout.text_area_y)  # Don't go above text area
+
                 for line in lines:
                     if line.strip():
                         bbox = font.getbbox(line)

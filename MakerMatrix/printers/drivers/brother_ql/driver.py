@@ -290,6 +290,85 @@ class BrotherQLModern(BasePrinter):
                 success=False, response_time_ms=(time.time() - start_time) * 1000, error=f"Connection failed: {str(e)}"
             )
 
+    async def print_test_label(self, label_size: str = "12mm") -> PrintJobResult:
+        """Print a test label to verify the printer is working end-to-end."""
+        from datetime import datetime as dt
+
+        # Validate label size
+        if not self._is_valid_label_size(label_size):
+            supported = [size.name for size in self.SUPPORTED_SIZES]
+            raise InvalidLabelSizeError(label_size, self.printer_id, supported)
+
+        label_info = self._get_label_size_info(label_size)
+
+        # Determine image dimensions based on label size
+        if label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0:
+            width = int(43.1 * 300 / 25.4)  # ~508px for 43.1mm
+            height = int(12 * 300 / 25.4)  # ~141px for 12mm
+            needs_rotation = True
+        elif label_info.height_mm:  # Die-cut labels
+            width = int(label_info.width_px or 400)
+            height = int(label_info.height_px or 200)
+            needs_rotation = False
+        else:  # Continuous labels
+            width = int(label_info.width_px or 400)
+            height = 200
+            needs_rotation = False
+
+        # Generate test label image
+        image = Image.new("RGB", (width, height), "white")
+        draw = ImageDraw.Draw(image)
+
+        # Draw border
+        draw.rectangle([2, 2, width - 3, height - 3], outline="black", width=2)
+
+        # Draw test text
+        timestamp = dt.now().strftime("%H:%M:%S")
+        lines = ["MakerMatrix", "Test Print", timestamp]
+
+        # Find font size that fits
+        font = None
+        target_height = int(height * 0.7)
+        line_height = target_height // len(lines)
+        font_size = max(line_height - 4, 10)
+
+        try:
+            font = ImageFont.truetype(self._find_font_path(), font_size)
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Draw each line centered
+        y_start = (height - (line_height * len(lines))) // 2
+        for i, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            x = (width - text_width) // 2
+            y = y_start + (i * line_height)
+            draw.text((x, y), line, fill="black", font=font)
+
+        # Rotate for 12mm labels
+        if needs_rotation:
+            image = image.rotate(90, expand=True)
+
+        return await self.print_label(image, label_size, copies=1)
+
+    def _find_font_path(self) -> str:
+        """Find a usable TrueType font path."""
+        from pathlib import Path
+
+        candidates = [
+            Path(__file__).parent.parent.parent.parent / "fonts" / "DejaVuSans-Bold.ttf",
+            Path(__file__).parent.parent.parent.parent / "fonts" / "arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "C:\\Windows\\Fonts\\arial.ttf",
+        ]
+
+        for path in candidates:
+            if Path(path).exists():
+                return str(path)
+
+        raise FileNotFoundError("No TrueType font found")
+
     def get_supported_label_sizes(self) -> List[LabelSize]:
         """Get Brother QL supported label sizes."""
         return self.SUPPORTED_SIZES.copy()

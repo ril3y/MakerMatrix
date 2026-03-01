@@ -70,6 +70,7 @@ const DynamicPrinterModal = ({
     identifier: '',
     dpi: 300,
     scaling_factor: 1.1,
+    default_label_size: '12mm',
     // Dynamic fields will be added here
     custom_fields: {} as Record<string, unknown>,
   })
@@ -128,6 +129,9 @@ const DynamicPrinterModal = ({
         const customFields = {} as Record<string, unknown>
 
         // Populate form with existing printer data
+        const existingConfig = (existingPrinter as unknown as Record<string, unknown>).config as
+          | Record<string, unknown>
+          | undefined
         setPrinterData({
           printer_id: existingPrinter.printer_id,
           name: existingPrinter.name,
@@ -137,6 +141,10 @@ const DynamicPrinterModal = ({
           identifier: existingPrinter.identifier || '',
           dpi: existingPrinter.dpi || 300,
           scaling_factor: existingPrinter.scaling_factor || 1.1,
+          default_label_size:
+            (existingConfig?.default_label_size as string) ||
+            (existingPrinter as unknown as Record<string, unknown>).default_label_size as string ||
+            '12mm',
           custom_fields: customFields,
         })
 
@@ -155,6 +163,7 @@ const DynamicPrinterModal = ({
           identifier: '',
           dpi: 300,
           scaling_factor: 1.1,
+          default_label_size: '12mm',
           custom_fields: {},
         })
         setSelectedDriverInfo(null)
@@ -593,6 +602,41 @@ const DynamicPrinterModal = ({
                     }
                   />
                 </div>
+              </div>
+
+              {/* Default Label Size */}
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
+                  Default Label Size
+                </label>
+                <CustomSelect
+                  value={printerData.default_label_size}
+                  onChange={(val) =>
+                    setPrinterData((prev) => ({ ...prev, default_label_size: val }))
+                  }
+                  options={[
+                    { value: '12mm', label: '12mm (Continuous)' },
+                    { value: '29mm', label: '29mm (Continuous)' },
+                    { value: '38mm', label: '38mm (Continuous)' },
+                    { value: '50mm', label: '50mm (Continuous)' },
+                    { value: '54mm', label: '54mm (Continuous)' },
+                    { value: '62mm', label: '62mm (Continuous)' },
+                    { value: '12', label: '12mm (Die-cut)' },
+                    { value: '29', label: '29mm (Die-cut)' },
+                    { value: '38', label: '38mm (Die-cut)' },
+                    { value: '50', label: '50mm (Die-cut)' },
+                    { value: '54', label: '54mm (Die-cut)' },
+                    { value: '62', label: '62mm (Die-cut)' },
+                    { value: '102', label: '102mm (Die-cut)' },
+                    { value: '17x54', label: '17x54mm' },
+                    { value: '17x87', label: '17x87mm' },
+                    { value: '23x23', label: '23x23mm' },
+                  ]}
+                  placeholder="Select label size"
+                />
+                <p className="text-xs text-secondary mt-1">
+                  Used for test prints. Match this to the label tape loaded in your printer.
+                </p>
               </div>
 
               {/* Custom driver-specific fields */}

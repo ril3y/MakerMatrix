@@ -440,6 +440,67 @@ class PrinterManagerService:
         except Exception as e:
             return PreviewResult(success=False, error=f"Failed to preview template label: {str(e)}")
 
+    async def preview_template_draft(self, template_config: dict, data: dict) -> "PreviewResult":
+        """Preview a label from inline template config (unsaved template)."""
+        try:
+            import io
+            import base64
+
+            # Build an in-memory LabelTemplateModel from the provided config
+            # Default font_config to DejaVu Sans Bold to match the print page
+            default_font_config = {
+                "family": "DejaVu Sans Bold",
+                "weight": "bold",
+                "style": "normal",
+                "min_size": 8,
+                "max_size": 72,
+                "auto_size": True,
+            }
+            template = LabelTemplateModel(
+                id="draft-preview",
+                name=template_config.get("name", "draft"),
+                display_name=template_config.get("display_name", "Draft"),
+                text_template=template_config.get("text_template", ""),
+                label_width_mm=template_config.get("label_width_mm", 39.0),
+                label_height_mm=template_config.get("label_height_mm", 12.0),
+                text_rotation=template_config.get("text_rotation", "NONE"),
+                text_alignment=template_config.get("text_alignment", "LEFT"),
+                qr_enabled=template_config.get("qr_enabled", False),
+                qr_position=template_config.get("qr_position", "LEFT"),
+                qr_scale=template_config.get("qr_scale", 0.95),
+                enable_multiline=template_config.get("enable_multiline", True),
+                enable_auto_sizing=template_config.get("enable_auto_sizing", True),
+                category=template_config.get("category", "CUSTOM"),
+                font_config=template_config.get("font_config", default_font_config),
+            )
+
+            # Determine label dimensions for print settings
+            label_size_mm = template.label_height_mm  # tape width
+            label_len_mm = template.label_width_mm  # label length
+
+            print_settings = PrintSettings(
+                label_size=label_size_mm,
+                label_len=label_len_mm / 25.4 if label_len_mm else None,  # convert mm to inches
+                dpi=300,
+                qr_scale=template.qr_scale,
+            )
+
+            preview_image = self.template_processor.process_template(template, data, print_settings)
+
+            buffer = io.BytesIO()
+            preview_image.save(buffer, format="PNG")
+            image_data = base64.b64encode(buffer.getvalue()).decode()
+
+            return PreviewResult(
+                success=True,
+                preview_url=f"data:image/png;base64,{image_data}",
+                width=preview_image.width,
+                height=preview_image.height,
+            )
+
+        except Exception as e:
+            return PreviewResult(success=False, error=f"Failed to preview draft template: {str(e)}")
+
     async def _create_advanced_label_image(
         self, template: str, data: dict, label_size: str, label_length: int = None, options: dict = None
     ):
