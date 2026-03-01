@@ -28,6 +28,7 @@ class FieldType(Enum):
     BOOLEAN = "boolean"
     SELECT = "select"
     TEXTAREA = "textarea"
+    FILE = "file"
     INFO = "info"  # Display-only informational text
     HIDDEN = "hidden"  # Hidden field for internal values
 

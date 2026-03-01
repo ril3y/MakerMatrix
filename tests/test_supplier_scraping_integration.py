@@ -20,130 +20,30 @@ class TestMcMasterScrapingIntegration:
     """Integration tests for McMaster-Carr scraping functionality"""
 
     def test_mcmaster_supports_scraping(self):
-        """Test that McMaster-Carr reports scraping support"""
+        """Test that McMaster-Carr reports NO scraping support"""
         supplier = McMasterCarrSupplier()
-        assert supplier.supports_scraping() is True
-
-    def test_mcmaster_scraping_config(self):
-        """Test McMaster-Carr scraping configuration"""
-        supplier = McMasterCarrSupplier()
-        config = supplier.get_scraping_config()
-
-        # Check required config keys
-        assert "requires_js" in config
-        assert config["requires_js"] is True  # McMaster uses React
-
-        assert "rate_limit_seconds" in config
-        assert config["rate_limit_seconds"] == 2
-
-        assert "selectors" in config
-        selectors = config["selectors"]
-
-        # Check key selectors are defined (based on actual implementation)
-        assert "heading" in selectors
-        assert "price" in selectors
-        assert "spec_table" in selectors
+        assert supplier.supports_scraping() is False
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    async def test_mcmaster_real_scraping(self):
-        """
-        Test McMaster scraping with REAL web request.
-
-        This test hits the actual McMaster-Carr website to:
-        1. Verify our scraping logic still works
-        2. Detect if HTML structure has changed
-        3. Validate data extraction
-
-        Part: M5 x 16mm Socket Head Cap Screw (91253A194)
-        """
-        supplier = McMasterCarrSupplier()
-
-        try:
-            # Real URL for a stable McMaster part number
-            result = await supplier.scrape_part_details("https://www.mcmaster.com/91253A194/")
-
-            # Verify we got some data back
-            assert result is not None, "Scraping returned None - HTML structure may have changed"
-
-            # Basic data validation
-            assert result.supplier_part_number, "Failed to extract part number - check HTML selectors"
-
-            # McMaster part numbers are typically in format: XXXXXYXXX
-            assert len(result.supplier_part_number) > 5, f"Part number seems malformed: {result.supplier_part_number}"
-
-            # Should have extracted a part name
-            assert result.part_name, "Failed to extract part name - HTML structure may have changed"
-            assert len(result.part_name) > 3, f"Part name seems too short: {result.part_name}"
-
-            # Should have some specifications
-            if result.specifications:
-                assert len(result.specifications) > 0, "No specifications extracted - check spec table selector"
-                print(f"\n✓ Successfully scraped McMaster part {result.supplier_part_number}")
-                print(f"  Name: {result.part_name}")
-                print(f"  Specs extracted: {len(result.specifications)}")
-            else:
-                # Log warning but don't fail - specs might be structured differently
-                print(f"\n⚠ Warning: No specifications extracted for {result.supplier_part_number}")
-
-        except aiohttp.ClientError as e:
-            pytest.skip(f"Network error accessing McMaster-Carr: {e}")
-        except Exception as e:
-            pytest.fail(f"Scraping failed - HTML structure may have changed: {e}")
-
-    @pytest.mark.asyncio
-    @pytest.mark.slow
-    async def test_mcmaster_html_structure_validation(self):
-        """
-        Validate that McMaster-Carr's HTML structure matches our expectations.
-
-        This is a canary test - if it fails, our selectors need updating.
-        """
+    async def test_mcmaster_no_scraping_config(self):
+        """Test that get_scraping_config retrieves default config"""
         supplier = McMasterCarrSupplier()
         config = supplier.get_scraping_config()
-        selectors = config["selectors"]
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                url = "https://www.mcmaster.com/91253A194/"
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                    assert response.status == 200, f"McMaster returned status {response.status}"
-
-                    html = await response.text()
-                    assert html, "Got empty HTML response"
-
-                    # Check for key HTML patterns our selectors expect
-                    # This helps us detect when McMaster's site changes
-
-                    # Check if it's still a React app (we expect client-side rendering)
-                    assert (
-                        "react" in html.lower() or "__NEXT_DATA__" in html
-                    ), "McMaster may have changed from React - update 'requires_js' config"
-
-                    # Verify page has product data structure
-                    assert (
-                        "product" in html.lower() or "part" in html.lower()
-                    ), "Product data structure not found - site may have changed"
-
-                    print(f"\n✓ McMaster HTML structure validation passed")
-                    print(f"  Page size: {len(html)} bytes")
-                    print(f"  Requires JS: {config['requires_js']}")
-
-        except aiohttp.ClientError as e:
-            pytest.skip(f"Network error: {e}")
+        # Should be default dict
+        assert config.get("selectors") == {}
 
     @pytest.mark.asyncio
-    async def test_mcmaster_fallback_when_no_credentials(self):
-        """Test that McMaster falls back to scraping when no API credentials"""
+    async def test_mcmaster_no_fallback_when_no_credentials(self):
+        """Test that McMaster returns None when no API credentials, no scraping fallback"""
         supplier = McMasterCarrSupplier()
 
-        # McMaster doesn't have a public API, so it should always use scraping
-        assert supplier.supports_scraping() is True
+        # McMaster doesn't support scraping anymore
+        assert supplier.supports_scraping() is False
 
-        # Verify that scraping mode is available
-        config = supplier.get_scraping_config()
-        assert config is not None
-        assert "selectors" in config
+        # Attempt to get details without credential
+        result = await supplier.get_part_details("91253A194")
+        assert result is None
 
 
 class TestAPIEndpointIntegration:

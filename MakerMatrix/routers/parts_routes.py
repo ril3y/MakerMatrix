@@ -857,6 +857,13 @@ async def enrich_part_from_supplier(
             data=standardized_data, message=f"Part data enriched from {supplier_name} via {enrichment_method}"
         )
 
+    except ValueError as e:
+        # Handle configuration errors (no credentials/scraper) as 400 Bad Request
+        logger.warning(f"Enrichment configuration error: {e}")
+        raise HTTPException(
+            status_code=400, 
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:

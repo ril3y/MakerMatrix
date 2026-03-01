@@ -642,7 +642,48 @@ async def test_printer_setup(setup_data: dict):
         raise HTTPException(status_code=400, detail=f"Unsupported driver type: {printer_data.get('driver_type')}")
 
 
-# Discovery endpoints removed - caused issues with printer routing
+# Discovery Endpoints (Restored as stubs to prevent frontend 404s)
+
+class LatestDiscovery(BaseModel):
+    discovered_printers: List[dict] = []
+    discovery_time_ms: int = 0
+    scan_info: dict = {}
+
+@router.get("/discover/latest")
+@standard_error_handling
+async def get_latest_discovery():
+    """Get latest discovery results (stubbed)."""
+    # Return empty result to stop frontend errors
+    return BaseRouter.build_success_response(
+        data=LatestDiscovery(
+            discovered_printers=[],
+            discovery_time_ms=0,
+            scan_info={"status": "Discovery is currently disabled via API"}
+        ), 
+        message="Discovery results retrieved"
+    ).dict()
+
+
+@router.post("/discover/start")
+@standard_error_handling
+async def start_discovery():
+    """Start discovery (stubbed)."""
+    # Just pretend we started
+    return BaseRouter.build_success_response(
+        data={"task_id": "discovery-disabled", "status": "completed"},
+        message="Printer discovery is currently disabled"
+    ).dict()
+
+
+@router.get("/discover/status/{task_id}")
+@standard_error_handling
+async def get_discovery_status(task_id: str):
+    """Get discovery status (stubbed)."""
+    return BaseRouter.build_success_response(
+        data={"status": "completed", "progress": 100, "step": "done"},
+        message="Discovery status"
+    ).dict()
+
 # Printing Endpoints
 @router.post("/print/text")
 @standard_error_handling

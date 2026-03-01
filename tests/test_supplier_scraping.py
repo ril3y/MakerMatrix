@@ -38,88 +38,35 @@ class TestMcMasterCarrScraping:
     """Test McMaster-Carr specific scraping implementation"""
 
     def test_mcmaster_supports_scraping(self):
-        """Test that McMaster-Carr reports scraping support"""
+        """Test that McMaster-Carr reports NO scraping support"""
         supplier = McMasterCarrSupplier()
-        assert supplier.supports_scraping() is True
+        assert supplier.supports_scraping() is False
 
-    def test_mcmaster_scraping_config(self):
-        """Test McMaster-Carr scraping configuration"""
-        supplier = McMasterCarrSupplier()
-        config = supplier.get_scraping_config()
-
-        # Check required config keys
-        assert "requires_js" in config
-        assert config["requires_js"] is True  # McMaster uses React
-
-        assert "rate_limit_seconds" in config
-        assert config["rate_limit_seconds"] == 2
-
-        assert "selectors" in config
-        selectors = config["selectors"]
-
-        # Check key selectors are defined
-        assert "part_number" in selectors
-        assert "price" in selectors
-        assert "spec_table" in selectors
-
-    def test_mcmaster_has_scraping_capability(self):
-        """Test that McMaster-Carr reports scraping capability"""
+    def test_mcmaster_does_not_have_scraping_capability(self):
+        """Test that McMaster-Carr does NOT report scraping capability"""
         supplier = McMasterCarrSupplier()
         capabilities = supplier.get_capabilities()
-        assert SupplierCapability.SCRAPE_PART_DETAILS in capabilities
+        assert SupplierCapability.SCRAPE_PART_DETAILS not in capabilities
+
+    def test_mcmaster_scraping_config_returns_default(self):
+        """Test that getting scraping config returns default base config"""
+        supplier = McMasterCarrSupplier()
+        # Base implementation returns a default config, not empty dict
+        config = supplier.get_scraping_config()
+        assert "selectors" in config
+        assert config["selectors"] == {}
+        assert config["requires_js"] is False
 
     @pytest.mark.asyncio
-    @patch("MakerMatrix.suppliers.scrapers.web_scraper.WebScraper.scrape_with_playwright")
-    async def test_mcmaster_scrape_part_details_with_url(self, mock_scrape):
-        """Test scraping part details from URL"""
-        # Mock scraped data
-        mock_scrape.return_value = {
-            "part_number": "91253A194",
-            "name": "Socket Head Cap Screw",
-            "price": "$12.50",
-            "specs": {"Material": "Steel", "Thread Size": "M5", "Length": "16mm"},
-        }
-
+    async def test_mcmaster_get_part_details_no_scraping_fallback(self):
+        """Test that get_part_details returns None when no credentials, without scraping"""
         supplier = McMasterCarrSupplier()
-        result = await supplier.scrape_part_details("https://www.mcmaster.com/91253A194/")
-
-        # Verify result
-        assert result is not None
-        assert isinstance(result, PartSearchResult)
-        assert result.supplier_part_number == "91253A194"
-        assert result.part_name == "Socket Head Cap Screw"
-        assert len(result.specifications) > 0
-
-    @pytest.mark.asyncio
-    @patch("MakerMatrix.suppliers.scrapers.web_scraper.WebScraper.scrape_with_playwright")
-    async def test_mcmaster_scrape_part_details_with_part_number(self, mock_scrape):
-        """Test scraping part details from part number"""
-        # Mock scraped data
-        mock_scrape.return_value = {"part_number": "91253A194", "name": "Socket Head Cap Screw"}
-
-        supplier = McMasterCarrSupplier()
-        result = await supplier.scrape_part_details("91253A194")
-
-        # Verify URL construction
-        mock_scrape.assert_called_once()
-        call_args = mock_scrape.call_args[0]
-        assert "mcmaster.com/91253A194" in call_args[0]
-
-    @pytest.mark.asyncio
-    async def test_mcmaster_get_part_details_fallback_to_scraping(self):
-        """Test that get_part_details falls back to scraping when no API credentials"""
-        supplier = McMasterCarrSupplier()
-
-        # Mock the scraping method
-        mock_result = PartSearchResult(supplier_part_number="91253A194", part_name="Test Part")
-        supplier.scrape_part_details = AsyncMock(return_value=mock_result)
-
-        # Call with scraping mode enabled
-        result = await supplier.get_part_details("91253A194", credentials={}, config={"scraping_mode": True})
-
-        # Verify scraping was called
-        supplier.scrape_part_details.assert_called_once_with("91253A194")
-        assert result == mock_result
+        
+        # Call without credentials
+        # Note: The updated code logs an error and returns None directly
+        result = await supplier.get_part_details("91253A194")
+        
+        assert result is None
 
 
 class TestWebScraper:
@@ -233,7 +180,7 @@ class TestEnrichmentServiceScrapingFallback:
         service = PartEnrichmentService()
 
         # Mock the supplier registry to return McMaster
-        with patch("MakerMatrix.suppliers.registry.supplier_registry.get_supplier") as mock_get:
+        with patch("MakerMatrix.suppliers.registry.SupplierRegistry.get_supplier") as mock_get:
             mock_supplier = Mock(spec=McMasterCarrSupplier)
             mock_supplier.supports_scraping.return_value = True
             mock_supplier.get_part_details = AsyncMock(
@@ -262,13 +209,18 @@ class TestSupplierRoutesScrapingEndpoint:
         from MakerMatrix.routers.supplier_routes import router
         from fastapi.testclient import TestClient
         from fastapi import FastAPI
+        from MakerMatrix.auth.dependencies import get_current_user
+        from MakerMatrix.models.user_models import UserModel
 
         app = FastAPI()
-        app.include_router(router)
+        app.include_router(router, prefix="/api/suppliers")
+        
+        # Override auth dependency
+        app.dependency_overrides[get_current_user] = lambda: Mock(spec=UserModel)
 
         with TestClient(app) as client:
             # Mock the supplier registry
-            with patch("MakerMatrix.suppliers.registry.supplier_registry.get_supplier") as mock_get:
+            with patch("MakerMatrix.suppliers.registry.SupplierRegistry.get_supplier") as mock_get:
                 mock_supplier = Mock(spec=McMasterCarrSupplier)
                 mock_supplier.supports_scraping.return_value = True
                 mock_supplier.get_scraping_config.return_value = {"requires_js": True, "rate_limit_seconds": 2}
@@ -289,13 +241,18 @@ class TestSupplierRoutesScrapingEndpoint:
         from MakerMatrix.routers.supplier_routes import router
         from fastapi.testclient import TestClient
         from fastapi import FastAPI
+        from MakerMatrix.auth.dependencies import get_current_user
+        from MakerMatrix.models.user_models import UserModel
 
         app = FastAPI()
-        app.include_router(router)
+        app.include_router(router, prefix="/api/suppliers")
+        
+        # Override auth dependency
+        app.dependency_overrides[get_current_user] = lambda: Mock(spec=UserModel)
 
         with TestClient(app) as client:
             # Mock a supplier that doesn't support scraping
-            with patch("MakerMatrix.suppliers.registry.supplier_registry.get_supplier") as mock_get:
+            with patch("MakerMatrix.suppliers.registry.SupplierRegistry.get_supplier") as mock_get:
                 mock_supplier = Mock(spec=BaseSupplier)
                 mock_supplier.supports_scraping.return_value = False
                 mock_get.return_value = mock_supplier

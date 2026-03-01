@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { AlertTriangle, CheckCircle, HelpCircle, ExternalLink, Info } from 'lucide-react'
+import { AlertTriangle, CheckCircle, HelpCircle, ExternalLink, Info, Upload } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import type {
   FieldDefinition,
@@ -191,6 +191,25 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
     [config, onConfigChange, reloadSchemasWithConfig]
   )
 
+  const handleFileUpload = async (fieldName: string, file: File) => {
+    try {
+      const { dynamicSupplierService } = await import('../../services/dynamic-supplier.service')
+
+      // Show uploading state
+      // (Could potentially add a specific uploading state per field if needed)
+
+      const filePath = await dynamicSupplierService.uploadSupplierFile(supplierName, file)
+
+      // Update the field with the uploaded file path
+      handleCredentialChange(fieldName, filePath)
+
+    } catch (error) {
+      console.error('File upload failed:', error)
+      // You might want to expose this error to the UI
+      alert(`File upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   const renderField = (
     field: FieldDefinition,
     value: CredentialValue,
@@ -283,6 +302,37 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
             ]}
             placeholder="Select..."
           />
+        )
+
+      case 'file':
+        return (
+          <div className="flex items-center space-x-2">
+            <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <Upload className="w-4 h-4 mr-2" />
+              Upload File
+              <input
+                id={fieldId}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileUpload(field.name, e.target.files[0])
+                  }
+                }}
+              />
+            </label>
+            {value && typeof value === 'string' && (
+              <span className="text-sm text-green-600 dark:text-green-400 flex items-center">
+                <CheckCircle className="w-4 h-4 mr-1" />
+                Uploaded
+              </span>
+            )}
+            {value && typeof value === 'string' && (
+              <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                {value.split(/[/\\]/).pop()}
+              </span>
+            )}
+          </div>
         )
 
       case 'textarea':

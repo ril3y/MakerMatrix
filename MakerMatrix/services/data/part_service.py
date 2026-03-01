@@ -94,8 +94,10 @@ class PartService(BaseService):
                 )
                 if result and result.get("image_uuid"):
                     local_uuid = result["image_uuid"]
-                    self.logger.info(f"Successfully downloaded image for '{part_name}', stored as: {local_uuid}")
-                    return local_uuid
+                    # Return full path so frontend can display it correctly
+                    local_path = f"/api/utility/get_image/{local_uuid}"
+                    self.logger.info(f"Successfully downloaded image for '{part_name}', stored as: {local_path}")
+                    return local_path
                 else:
                     self.logger.warning(f"Failed to download image for '{part_name}' from: {image_url}")
                     return None

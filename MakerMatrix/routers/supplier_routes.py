@@ -8,7 +8,7 @@ Works with any supplier that implements the BaseSupplier interface.
 from typing import List, Dict, Any, Optional
 import logging
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -416,6 +416,45 @@ async def save_supplier_credentials(
         error_details = traceback.format_exc()
         print(f"Error saving credentials: {error_details}")  # For debugging
         raise HTTPException(status_code=500, detail=f"Failed to save credentials: {str(e)}")
+
+
+@router.post("/{supplier_name}/file-upload", response_model=ResponseSchema[Dict[str, str]])
+@standard_error_handling
+async def upload_supplier_file(
+    supplier_name: str,
+    file: UploadFile = File(...),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Upload a file for a supplier configuration"""
+    try:
+        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+
+        if not file:
+            raise HTTPException(status_code=400, detail="No file provided")
+
+        service = SupplierConfigService()
+        
+        # Read file content
+        content = await file.read()
+        
+        # Save file securely
+        file_path = service.save_supplier_file(
+            supplier_name.upper(), 
+            content, 
+            file.filename
+        )
+
+        return ResponseSchema(
+            status="success",
+            message=f"File uploaded successfully for {supplier_name}",
+            data={
+                "supplier_name": supplier_name,
+                "file_path": file_path,
+                "filename": file.filename,
+            },
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
 
 @router.get("/{supplier_name}/config-schema", response_model=ResponseSchema[List[FieldDefinitionResponse]])

@@ -144,7 +144,13 @@ class WebScraper:
             pass
 
     async def scrape_with_playwright(
-        self, url: str, selectors: Dict[str, str], wait_for_selector: str = None, force_refresh: bool = False
+        self,
+        url: str,
+        selectors: Dict[str, str],
+        wait_for_selector: str = None,
+        force_refresh: bool = False,
+        interaction_callback=None,
+        headless: bool = True,
     ) -> Dict[str, Any]:
         """
         Scrape JavaScript-rendered content using Playwright.
@@ -172,47 +178,6 @@ class WebScraper:
         await self._apply_rate_limit(domain, delay_seconds=2.0)  # Longer delay for JS rendering
 
         try:
-            # Check if Playwright browsers are installed
-            import os
-            import sys
-
-            # Check for Playwright browser installations
-            home = os.path.expanduser("~")
-            playwright_paths = [
-                os.path.join(home, ".cache", "ms-playwright"),
-                os.path.join(home, "AppData", "Local", "ms-playwright"),  # Windows
-            ]
-
-            browser_installed = False
-            for path in playwright_paths:
-                if os.path.exists(path) and os.listdir(path):
-                    # Check if there's actually a browser executable
-                    for item in os.listdir(path):
-                        item_path = os.path.join(path, item)
-                        if os.path.isdir(item_path):
-                            # Look for the actual browser subdirectory
-                            for subdir in ["chrome-linux", "chrome-win", "chrome-mac"]:
-                                browser_dir = os.path.join(item_path, subdir)
-                                if os.path.exists(browser_dir):
-                                    # Check for actual executable files
-                                    executables = ["chrome", "chrome.exe", "headless_shell", "Chromium.app"]
-                                    for exe in executables:
-                                        if os.path.exists(os.path.join(browser_dir, exe)):
-                                            browser_installed = True
-                                            break
-                                if browser_installed:
-                                    break
-                        if browser_installed:
-                            break
-                if browser_installed:
-                    break
-
-            if not browser_installed:
-                logger.info(f"Playwright browsers not installed, falling back to simple HTML scraping for {url}")
-                result = await self.scrape_simple(url, selectors)
-                logger.info(f"Simple scraping result: {result}")
-                return result
-
             # Import playwright here to avoid dependency if not needed
             from playwright.async_api import async_playwright
 
@@ -220,7 +185,7 @@ class WebScraper:
             async with async_playwright() as p:
                 # Launch browser with args to make it less detectable
                 browser = await p.chromium.launch(
-                    headless=True,
+                    headless=headless,
                     args=[
                         "--disable-blink-features=AutomationControlled",
                         "--exclude-switches=enable-automation",
@@ -267,7 +232,18 @@ class WebScraper:
                 )
 
                 # Navigate to page with better wait strategy
-                await page.goto(url, wait_until="networkidle", timeout=30000)
+                try:
+                    await page.goto(url, wait_until="networkidle", timeout=30000)
+                except Exception as e:
+                    logger.warning(f"Navigation timeout or error: {e}")
+
+                # Execute custom interaction if provided (e.g., search or verify landing)
+                if interaction_callback:
+                    print(f"DEBUG: Executing custom interaction callback for {url}")
+                    logger.info("Executing custom interaction callback")
+                    await interaction_callback(page)
+                else:
+                    print(f"DEBUG: No interaction callback provided for {url}")
 
                 # Wait for specific element if provided
                 if wait_for_selector:

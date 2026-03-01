@@ -313,7 +313,10 @@ class BoltDepotSupplier(BaseSupplier):
         self, url_or_part_number: str, force_refresh: bool = False
     ) -> Optional[PartSearchResult]:
         """
-        Scrape Bolt Depot product page for part details using Playwright.
+        Scrape Bolt Depot product page for part details.
+
+        Bolt Depot pages are server-rendered HTML, so we use the more reliable
+        BeautifulSoup-based get_part_details() method instead of Playwright.
 
         Args:
             url_or_part_number: Either a full Bolt Depot URL or just the product number
@@ -322,70 +325,32 @@ class BoltDepotSupplier(BaseSupplier):
         Returns:
             PartSearchResult with scraped data, or None if scraping fails
         """
-        scraper_created = False
         try:
-            # Initialize scraper if needed
-            if not hasattr(self, "_scraper") or not self._scraper:
-                from .scrapers.web_scraper import WebScraper
-
-                self._scraper = WebScraper()
-                scraper_created = True
-
-            # Build URL if only part number provided
-            if not url_or_part_number.startswith("http"):
-                base_url = self._get_base_url()
-                url = f"{base_url}/Product-Details?product={url_or_part_number}"
-                part_number = url_or_part_number
+            # Extract part number from URL if needed
+            if url_or_part_number.startswith("http"):
+                part_number = self.extract_part_number_from_url(url_or_part_number)
+                if not part_number:
+                    logger.warning(f"Could not extract part number from URL: {url_or_part_number}")
+                    return None
             else:
-                url = url_or_part_number
-                # Extract part number from URL
-                part_number = self.extract_part_number_from_url(url) or url_or_part_number
+                part_number = url_or_part_number
 
-            logger.info(f"Scraping Bolt Depot page: {url}")
+            logger.info(f"Scraping Bolt Depot part: {part_number}")
 
-            # Define CSS selectors for data extraction
-            selectors = {
-                "product_table": f"tr#p{part_number}",  # Product row in table
-                "details_table": "table.product-details-table tr",  # Product details
-                "price": f"tr#p{part_number} td.cell-price span.price-break, tr#p{part_number} td.cell-price-single span.price-break",  # Pricing
-                "image": 'img[src*="images/catalog/"]',  # Product image
-            }
-
-            # Scrape with Playwright (handles JavaScript-rendered content)
-            logger.info(f"Scraping Bolt Depot URL: {url} (force_refresh={force_refresh})")
-            scraped_data = await self._scraper.scrape_with_playwright(
-                url,
-                selectors,
-                wait_for_selector="table.product-details-table",  # Wait for details table to load
-                force_refresh=force_refresh,
-            )
-
-            logger.info(f"Scraped data: {scraped_data}")
-            if not scraped_data:
-                logger.error("No data scraped from Bolt Depot page")
-                return None
-
-            # Parse the scraped data
-            result = await self._parse_scraped_data_from_scraper(scraped_data, part_number, url)
+            # Delegate to get_part_details which uses BeautifulSoup
+            # This is more reliable for Bolt Depot since their pages are server-rendered
+            result = await self.get_part_details(part_number)
 
             if result:
                 logger.info(f"Successfully scraped Bolt Depot part: {part_number}")
             else:
-                logger.warning(f"Could not parse scraped data for: {part_number}")
+                logger.warning(f"Could not scrape data for: {part_number}")
 
             return result
 
         except Exception as e:
             logger.error(f"Error scraping Bolt Depot: {str(e)}")
             return None
-        finally:
-            # Clean up the scraper session if we created it
-            if scraper_created and hasattr(self, "_scraper") and self._scraper:
-                try:
-                    await self._scraper.close()
-                    self._scraper = None
-                except Exception as e:
-                    logger.debug(f"Error closing scraper: {e}")
 
     async def _parse_scraped_data_from_scraper(
         self, scraped_data: Dict[str, Any], part_number: str, url: str

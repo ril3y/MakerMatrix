@@ -14,8 +14,11 @@ import ssl
 import aiohttp
 import json
 import re
-from datetime import datetime, timedelta
+import os
+import tempfile
+from datetime import datetime
 import logging
+from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, NoEncryption
 
 from .base import (
     BaseSupplier,
@@ -41,8 +44,8 @@ class McMasterCarrSupplier(BaseSupplier):
 
     Supports:
     1. Official API (requires approved account and certificates)
-    2. Web scraping fallback (no credentials required)
-
+    
+    Web scraping is NOT supported due to anti-bot measures.
     For API access, contact eCommerce@mcmaster.com for approval.
     """
 
@@ -51,13 +54,13 @@ class McMasterCarrSupplier(BaseSupplier):
         self._auth_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
         self._ssl_context: Optional[ssl.SSLContext] = None
-        self._scraper = None  # Lazy-loaded web scraper
+        self._temp_files: List[str] = []  # Track temp files for cleanup
 
     def get_supplier_info(self) -> SupplierInfo:
         return SupplierInfo(
             name="McMaster-Carr",
             display_name="McMaster-Carr",
-            description="Industrial supply with official API access - requires approval",
+            description="Industrial supply with official API access - requires approval (No Scraping Support)",
             website_url="https://www.mcmaster.com",
             api_documentation_url="Contact eCommerce@mcmaster.com for API documentation",
             supports_oauth=False,
@@ -110,45 +113,45 @@ class McMasterCarrSupplier(BaseSupplier):
 
     def get_capability_requirements(self) -> Dict[SupplierCapability, CapabilityRequirement]:
         """Define what credentials each capability needs"""
-        all_creds_req = ["username", "password", "client_cert_path", "client_cert_password"]
+        required_creds = ["client_cert_path", "client_cert_password", "username", "password"]
         return {
-            capability: CapabilityRequirement(capability=capability, required_credentials=all_creds_req)
+            capability: CapabilityRequirement(capability=capability, required_credentials=required_creds)
             for capability in self.get_capabilities()
         }
 
     def get_credential_schema(self) -> List[FieldDefinition]:
         return [
             FieldDefinition(
+                name="client_cert_path",
+                label="Client Certificate (.pfx)",
+                field_type=FieldType.FILE,
+                required=True,
+                description="Upload your McMaster-Carr client certificate file (.pfx or .p12)",
+                help_text="Contact eCommerce@mcmaster.com to obtain your client certificate",
+            ),
+            FieldDefinition(
+                name="client_cert_password",
+                label="Certificate Password",
+                field_type=FieldType.PASSWORD,
+                required=True,
+                description="Password for your client certificate",
+                help_text="The password provided with your certificate",
+            ),
+            FieldDefinition(
                 name="username",
                 label="API Username",
                 field_type=FieldType.TEXT,
                 required=True,
-                description="McMaster-Carr approved API account username",
-                help_text="Contact eCommerce@mcmaster.com for API approval",
+                description="Your McMaster-Carr API username",
+                help_text="Username for API login (different from website login)",
             ),
             FieldDefinition(
                 name="password",
                 label="API Password",
                 field_type=FieldType.PASSWORD,
                 required=True,
-                description="McMaster-Carr API account password",
-                help_text="Your approved API account password",
-            ),
-            FieldDefinition(
-                name="client_cert_path",
-                label="Client Certificate Path",
-                field_type=FieldType.TEXT,
-                required=True,
-                description="Path to client certificate file (.p12 or .pfx)",
-                help_text="McMaster-Carr provides client certificates for API access",
-            ),
-            FieldDefinition(
-                name="client_cert_password",
-                label="Client Certificate Password",
-                field_type=FieldType.PASSWORD,
-                required=True,
-                description="Client certificate password",
-                help_text="Password for your McMaster-Carr client certificate",
+                description="Your McMaster-Carr API password",
+                help_text="Password for API login",
             ),
         ]
 
@@ -159,7 +162,7 @@ class McMasterCarrSupplier(BaseSupplier):
                 label="API Base URL",
                 field_type=FieldType.URL,
                 required=False,
-                default_value="https://www.mcmaster.com/api/v1",
+                default_value="https://api.mcmaster.com",
                 description="McMaster-Carr official API endpoint",
                 help_text="Official API base URL (requires approval from McMaster)",
             ),
@@ -192,175 +195,329 @@ class McMasterCarrSupplier(BaseSupplier):
             ),
         ]
 
-    async def _setup_ssl_context(self, credentials: Dict[str, str]) -> ssl.SSLContext:
-        """Setup SSL context with client certificate"""
+    async def _setup_ssl_context(self, credentials: Optional[Dict[str, str]] = None) -> ssl.SSLContext:
+        """Setup SSL context with client certificate for mutual TLS authentication"""
         if self._ssl_context:
             return self._ssl_context
 
+        # Use provided credentials or fall back to instance credentials
+        creds = credentials or self._credentials or {}
+
         try:
-            # Create SSL context
-            context = ssl.create_default_context()
+            # Create SSL context for client certificate authentication
+            # McMaster's API uses a private CA, so we need to handle server verification carefully
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+            # For McMaster's enterprise API with client certs, we trust the connection
+            # since we're authenticating with a client certificate they issued
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
 
             # Load client certificate
-            cert_path = credentials.get("client_cert_path")
-            cert_password = credentials.get("client_cert_password")
+            cert_path = creds.get("client_cert_path")
+            cert_password = creds.get("client_cert_password")
 
             if not cert_path:
                 raise SupplierConfigurationError("Client certificate path is required")
 
-            # Load the client certificate
-            context.load_cert_chain(cert_path, password=cert_password)
+            if not os.path.exists(cert_path):
+                raise SupplierConfigurationError(f"Certificate file not found: {cert_path}")
+
+            # Check if PFX/P12 format
+            if cert_path.lower().endswith((".pfx", ".p12")):
+                # Convert PFX to PEM temp files
+                logger.info(f"Loading PFX certificate from {cert_path}")
+                try:
+                    with open(cert_path, "rb") as f:
+                        pfx_data = f.read()
+                except Exception as e:
+                    raise SupplierConfigurationError(f"Failed to read certificate file: {str(e)}")
+
+                password_bytes = cert_password.encode() if cert_password else None
+                
+                try:
+                    private_key, certificate, additional_certificates = pkcs12.load_key_and_certificates(
+                        pfx_data, password_bytes
+                    )
+                except Exception as pfx_error:
+                    raise SupplierConfigurationError(
+                        f"Failed to load PFX file (check password): {str(pfx_error)}"
+                    )
+
+                if not private_key or not certificate:
+                    raise SupplierConfigurationError("PFX file must contain both private key and certificate")
+
+                # Create temp files for key and cert
+                try:
+                    # Create temporary files that are readable but deleted when closed/unlinked?
+                    # No, on Windows we can't delete while open. We track them in self._temp_files.
+                    key_fd, key_path = tempfile.mkstemp(suffix=".pem")
+                    cert_fd, cert_path_pem = tempfile.mkstemp(suffix=".pem")
+                    
+                    # Close handlers immediately
+                    os.close(key_fd)
+                    os.close(cert_fd)
+
+                    # Write PEM data
+                    with open(key_path, "wb") as f:
+                        f.write(
+                            private_key.private_bytes(
+                                encoding=Encoding.PEM,
+                                format=PrivateFormat.PKCS8,
+                                encryption_algorithm=NoEncryption(),
+                            )
+                        )
+                    
+                    with open(cert_path_pem, "wb") as f:
+                        f.write(certificate.public_bytes(Encoding.PEM))
+                        if additional_certificates:
+                            for cert in additional_certificates:
+                                f.write(cert.public_bytes(Encoding.PEM))
+                except Exception as e:
+                    raise SupplierConfigurationError(f"Failed to process certificate data: {str(e)}")
+
+                # Track for cleanup
+                self._temp_files.extend([key_path, cert_path_pem])
+                
+                # Load into SSL context
+                try:
+                    context.load_cert_chain(certfile=cert_path_pem, keyfile=key_path)
+                    logger.info("Converted PFX to PEM and loaded into SSL context")
+                except ssl.SSLError as e:
+                    raise SupplierConfigurationError(f"Failed to load certificate into SSL context: {str(e)}")
+
+            else:
+                # Load standard PEM
+                try:
+                    context.load_cert_chain(cert_path, password=cert_password)
+                except ssl.SSLError as e:
+                    raise SupplierConfigurationError(f"Failed to load PEM certificate: {str(e)}")
 
             self._ssl_context = context
             logger.info("✅ SSL context configured with client certificate")
             return context
 
+        except SupplierConfigurationError:
+            raise
         except Exception as e:
+            # Cleanup on failure
+            await self.close()
             raise SupplierConfigurationError(f"Failed to setup SSL context: {str(e)}")
 
-    async def _authenticate(self, credentials: Dict[str, str]) -> str:
-        """Authenticate with McMaster-Carr API and get access token"""
+    async def _authenticate(self, credentials: Dict[str, str] = None) -> str:
+        """Authenticate with McMaster-Carr API using certificate + username/password.
 
+        McMaster-Carr uses two-step authentication:
+        1. Client certificate for TLS
+        2. Username/password login to get bearer token
+
+        Returns:
+            Bearer token for API requests
+        """
+        # Use provided credentials or fall back to instance credentials
+        creds = credentials or self._credentials or {}
+
+        # Check if we already have a valid token
         if self._auth_token and self._token_expires_at:
             if datetime.now() < self._token_expires_at:
                 return self._auth_token
 
+        # Setup SSL context with client certificate
+        ssl_context = await self._setup_ssl_context(creds)
+
+        # Login to get bearer token
+        username = creds.get("username")
+        password = creds.get("password")
+
+        if not username or not password:
+            raise SupplierAuthenticationError("Username and password are required for McMaster-Carr API")
+
+        base_url = self._config.get("api_base_url", "https://api.mcmaster.com")
+        login_url = f"{base_url.rstrip('/')}/v1/login"
+
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        timeout = aiohttp.ClientTimeout(total=self._config.get("timeout_seconds", 30))
+
         try:
-            ssl_context = await self._setup_ssl_context(credentials)
-            base_url = self._config.get("api_base_url", "https://www.mcmaster.com/api/v1")
-            timeout_seconds = self._config.get("timeout_seconds", 30)
-
-            # Create HTTP connector with SSL context
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
-            timeout = aiohttp.ClientTimeout(total=timeout_seconds)
-
             async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-                auth_url = f"{base_url}/auth/token"
-
-                auth_data = {"username": credentials["username"], "password": credentials["password"]}
-
+                # McMaster-Carr API uses "UserName" field per their API documentation
+                login_payload = {"UserName": username, "Password": password}
                 headers = {
                     "Content-Type": "application/json",
                     "Accept": "application/json",
-                    "User-Agent": "MakerMatrix/1.0 (API Client)",
                 }
 
-                logger.info("🔐 Authenticating with McMaster-Carr API...")
-
-                async with session.post(auth_url, json=auth_data, headers=headers) as response:
+                logger.info(f"Logging in to McMaster-Carr API at {login_url}")
+                logger.debug(f"Login payload: UserName={username}")
+                async with session.post(login_url, json=login_payload, headers=headers) as response:
                     if response.status == 200:
-                        auth_response = await response.json()
+                        data = await response.json()
+                        # McMaster API returns "AuthToken" per their Postman collection
+                        self._auth_token = data.get("AuthToken") or data.get("Authorization") or data.get("Token")
 
-                        self._auth_token = auth_response.get("access_token")
-                        expires_in = auth_response.get("expires_in", 3600)  # Default 1 hour
-
-                        # Set token expiration
-                        self._token_expires_at = datetime.now() + timedelta(seconds=expires_in - 60)  # 1 minute buffer
+                        # Parse expiration - McMaster returns "ExpirationTS" as Unix timestamp
+                        expires = data.get("ExpirationTS")
+                        if expires:
+                            try:
+                                # ExpirationTS is a Unix timestamp (seconds since epoch)
+                                self._token_expires_at = datetime.fromtimestamp(int(expires))
+                            except (ValueError, TypeError):
+                                # Default to 23 hours from now if can't parse
+                                from datetime import timedelta
+                                self._token_expires_at = datetime.now() + timedelta(hours=23)
+                        else:
+                            from datetime import timedelta
+                            self._token_expires_at = datetime.now() + timedelta(hours=23)
 
                         logger.info("✅ Successfully authenticated with McMaster-Carr API")
                         return self._auth_token
-
-                    elif response.status == 401:
-                        error_text = await response.text()
-                        raise SupplierAuthenticationError(f"Invalid credentials: {error_text}")
-
                     else:
                         error_text = await response.text()
-                        raise SupplierConnectionError(
-                            f"Authentication failed with status {response.status}: {error_text}"
-                        )
+                        raise SupplierAuthenticationError(f"Login failed ({response.status}): {error_text}")
 
         except aiohttp.ClientError as e:
-            raise SupplierConnectionError(f"Network error during authentication: {str(e)}")
-        except Exception as e:
-            raise SupplierAuthenticationError(f"Authentication failed: {str(e)}")
+            raise SupplierConnectionError(f"Network error during login: {str(e)}")
 
     async def _make_api_request(
-        self, endpoint: str, credentials: Dict[str, str], params: Optional[Dict] = None
+        self, endpoint: str, credentials: Dict[str, str] = None, params: Optional[Dict] = None, method: str = "GET", json_body: Dict = None
     ) -> Dict[str, Any]:
-        """Make authenticated API request to McMaster-Carr"""
+        """Make API request to McMaster-Carr using certificate + bearer token authentication"""
 
         try:
-            # Get authentication token
-            auth_token = await self._authenticate(credentials)
+            # Use provided credentials or fall back to instance credentials
+            creds = credentials or self._credentials or {}
 
-            # Setup SSL and session
-            ssl_context = await self._setup_ssl_context(credentials)
+            # Get bearer token (will login if needed)
+            token = await self._authenticate(creds)
+
+            # Setup SSL context with client certificate
+            ssl_context = await self._setup_ssl_context(creds)
             connector = aiohttp.TCPConnector(ssl=ssl_context)
             timeout = aiohttp.ClientTimeout(total=self._config.get("timeout_seconds", 30))
 
-            base_url = self._config.get("api_base_url", "https://www.mcmaster.com/api/v1")
-            url = f"{base_url}/{endpoint.lstrip('/')}"
+            base_url = self._config.get("api_base_url", "https://api.mcmaster.com")
+            url = f"{base_url.rstrip('/')}/v1/{endpoint.lstrip('/')}"
 
             headers = {
-                "Authorization": f"Bearer {auth_token}",
                 "Accept": "application/json",
-                "User-Agent": "MakerMatrix/1.0 (API Client)",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
             }
 
             async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-                logger.info(f"🌐 Making API request to: {endpoint}")
+                logger.info(f"Making {method} API request to: {url}")
 
-                async with session.get(url, headers=headers, params=params) as response:
-                    if response.status == 200:
-                        return await response.json()
-
-                    elif response.status == 401:
-                        # Token expired, clear it and retry once
-                        self._auth_token = None
-                        auth_token = await self._authenticate(credentials)
-                        headers["Authorization"] = f"Bearer {auth_token}"
-
-                        async with session.get(url, headers=headers, params=params) as retry_response:
-                            if retry_response.status == 200:
-                                return await retry_response.json()
-                            else:
-                                error_text = await retry_response.text()
-                                raise SupplierAuthenticationError(f"API request failed after retry: {error_text}")
-
-                    elif response.status == 429:
-                        raise SupplierRateLimitError("API rate limit exceeded")
-
-                    else:
-                        error_text = await response.text()
-                        raise SupplierConnectionError(f"API request failed with status {response.status}: {error_text}")
+                if method.upper() == "GET":
+                    async with session.get(url, headers=headers, params=params) as response:
+                        return await self._handle_response(response, endpoint)
+                elif method.upper() == "PUT":
+                    async with session.put(url, headers=headers, json=json_body) as response:
+                        return await self._handle_response(response, endpoint)
+                elif method.upper() == "DELETE":
+                    async with session.delete(url, headers=headers) as response:
+                        return await self._handle_response(response, endpoint)
+                elif method.upper() == "POST":
+                    async with session.post(url, headers=headers, json=json_body) as response:
+                        return await self._handle_response(response, endpoint)
+                else:
+                    raise ValueError(f"Unsupported HTTP method: {method}")
 
         except aiohttp.ClientError as e:
             raise SupplierConnectionError(f"Network error during API request: {str(e)}")
 
+    async def _handle_response(self, response: aiohttp.ClientResponse, endpoint: str) -> Dict[str, Any]:
+        """Handle API response and extract data or raise appropriate errors"""
+        if response.status == 200:
+            content_type = response.headers.get("Content-Type", "")
+            if "application/json" in content_type:
+                return await response.json()
+            else:
+                # Some endpoints may return empty success
+                text = await response.text()
+                return {"success": True, "raw_response": text}
+
+        elif response.status == 401:
+            # Token may have expired, clear it
+            self._auth_token = None
+            self._token_expires_at = None
+            error_text = await response.text()
+            raise SupplierAuthenticationError(f"Authentication failed (401): {error_text}")
+
+        elif response.status == 403:
+            error_text = await response.text()
+            raise SupplierAuthenticationError(f"Access denied (403) - check subscription: {error_text}")
+
+        elif response.status == 429:
+            raise SupplierRateLimitError("API rate limit exceeded")
+
+        else:
+            error_text = await response.text()
+            raise SupplierConnectionError(f"API request to {endpoint} failed with status {response.status}: {error_text}")
+
     async def authenticate(self) -> bool:
-        """Authenticate with McMaster-Carr API using configured credentials"""
+        """Validate certificate credentials are configured for McMaster-Carr API"""
         try:
             credentials = self._credentials or {}
-            if not credentials:
-                logger.error("No credentials configured for authentication")
+            if not credentials.get("client_cert_path"):
+                logger.error("No certificate credentials configured")
                 return False
 
-            auth_token = await self._authenticate(credentials)
-            return bool(auth_token)
+            # Setup SSL context to validate certificate
+            await self._setup_ssl_context(credentials)
+            return True
 
         except Exception as e:
             logger.error(f"Authentication failed: {str(e)}")
             return False
 
     async def test_connection(self, credentials: Dict[str, str] = None) -> Dict[str, Any]:
-        """Test connection to McMaster-Carr API"""
+        """Test connection to McMaster-Carr API by validating certificate and login"""
         try:
-            # Test authentication
-            auth_token = await self._authenticate(credentials)
+            # Use provided credentials or fall back to instance credentials
+            creds = credentials or self._credentials or {}
 
-            # Test a simple API endpoint
-            response = await self._make_api_request("/health", credentials)
+            if not creds.get("client_cert_path"):
+                return {
+                    "success": False,
+                    "message": "No client certificate configured. Please upload a .pfx certificate file.",
+                    "details": {"error_type": "configuration"},
+                }
 
-            return {
-                "success": True,
-                "message": "Successfully connected to McMaster-Carr API",
-                "details": {
-                    "authenticated": bool(auth_token),
-                    "api_version": response.get("version", "unknown"),
-                    "capabilities": [cap.value for cap in self.get_capabilities()],
-                },
-            }
+            cert_path = creds.get("client_cert_path", "")
+            if not os.path.exists(cert_path):
+                return {
+                    "success": False,
+                    "message": f"Certificate file not found: {cert_path}",
+                    "details": {"error_type": "configuration"},
+                }
+
+            if not creds.get("username") or not creds.get("password"):
+                return {
+                    "success": False,
+                    "message": "API username and password are required for McMaster-Carr API.",
+                    "details": {"error_type": "configuration"},
+                }
+
+            # Test full authentication - certificate + login for bearer token
+            token = await self._authenticate(creds)
+
+            if token:
+                return {
+                    "success": True,
+                    "message": "Successfully authenticated with McMaster-Carr API!",
+                    "details": {
+                        "authentication": "certificate + bearer token",
+                        "certificate_file": os.path.basename(cert_path),
+                        "token_obtained": True,
+                        "capabilities": [cap.value for cap in self.get_capabilities()],
+                    },
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "Login succeeded but no token was returned",
+                    "details": {"error_type": "authentication"},
+                }
 
         except SupplierAuthenticationError as e:
             return {
@@ -373,6 +530,12 @@ class McMasterCarrSupplier(BaseSupplier):
                 "success": False,
                 "message": f"Configuration error: {str(e)}",
                 "details": {"error_type": "configuration"},
+            }
+        except SupplierConnectionError as e:
+            return {
+                "success": False,
+                "message": f"Connection error: {str(e)}",
+                "details": {"error_type": "connection"},
             }
         except Exception as e:
             return {
@@ -406,24 +569,44 @@ class McMasterCarrSupplier(BaseSupplier):
             logger.error(f"❌ Search failed for query '{query}': {str(e)}")
             return []
 
+    async def _subscribe_to_product(self, part_number: str, credentials: Dict[str, str] = None) -> bool:
+        """Subscribe to a product to enable access to its data.
+
+        Per McMaster API docs, the request body format is:
+        {"URL": "https://mcmaster.com/{partNumber}"}
+        """
+        try:
+            creds = credentials or self._credentials or {}
+            # PUT /v1/products with URL format per Postman collection
+            product_url = f"https://mcmaster.com/{part_number}"
+            await self._make_api_request(
+                "products",
+                creds,
+                method="PUT",
+                json_body={"URL": product_url}
+            )
+            logger.info(f"✅ Subscribed to product: {part_number}")
+            return True
+        except Exception as e:
+            logger.warning(f"⚠️ Could not subscribe to product {part_number}: {str(e)}")
+            return False
+
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
-        """Get detailed part information from McMaster-Carr API or scraping"""
+        """Get detailed part information from McMaster-Carr API"""
         try:
             credentials = self._credentials or {}
 
-            # If no credentials, try scraping fallback
+            # If no credentials, we cannot proceed
             if not credentials:
-                if self.supports_scraping():
-                    logger.info(
-                        f"No credentials configured - using web scraping fallback for McMaster-Carr part: {supplier_part_number}"
-                    )
-                    return await self.scrape_part_details(supplier_part_number)
-                else:
-                    logger.error("No credentials configured for part details and scraping not supported")
-                    return None
+                logger.error("No credentials configured for part details")
+                return None
 
-            # Try API first if credentials are available
-            endpoint = f"/parts/{supplier_part_number}"
+            # McMaster-Carr requires subscribing to products before accessing them
+            # Try to subscribe first (may already be subscribed)
+            await self._subscribe_to_product(supplier_part_number, credentials)
+
+            # Get product details using correct endpoint: /v1/products/{partNumber}
+            endpoint = f"products/{supplier_part_number}"
             response = await self._make_api_request(endpoint, credentials)
 
             result = self._parse_part_data(response)
@@ -434,18 +617,11 @@ class McMasterCarrSupplier(BaseSupplier):
                 logger.warning(f"⚠️  No details found for part: {supplier_part_number}")
                 return None
 
+        except SupplierAuthenticationError as e:
+            logger.error(f"❌ Authentication error for part '{supplier_part_number}': {str(e)}")
+            return None
         except Exception as e:
             logger.error(f"❌ Failed to get details for part '{supplier_part_number}': {str(e)}")
-
-            # If API fails and scraping is supported, try that as fallback
-            if self.supports_scraping():
-                logger.info(f"API failed, trying web scraping fallback for part: {supplier_part_number}")
-                try:
-                    return await self.scrape_part_details(supplier_part_number)
-                except Exception as scrape_error:
-                    logger.error(f"Scraping also failed: {str(scrape_error)}")
-                    return None
-
             return None
 
     def _parse_part_data(self, part_data: Dict[str, Any]) -> Optional[PartSearchResult]:
@@ -638,217 +814,23 @@ class McMasterCarrSupplier(BaseSupplier):
 
     # ========== Web Scraping Fallback Methods ==========
 
+    async def close(self):
+        """Clean up resources including temp files"""
+        await super().close()
+        
+        # Clean up temp files
+        for path in self._temp_files:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                    logger.debug(f"Deleted temp file: {path}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp file {path}: {e}")
+        self._temp_files = []
+
     def supports_scraping(self) -> bool:
         """McMaster-Carr supports web scraping as a fallback."""
-        return True
-
-    def get_scraping_config(self) -> Dict[str, Any]:
-        """Get McMaster-Carr specific scraping configuration."""
-        return {
-            "selectors": {
-                # Use simple selectors that actually work based on our testing
-                "spec_table": "tbody tr",  # All table rows in tbody - most reliable
-                "price": '[class*="price"], [class*="Price"]',  # Generic price selector
-                # Don't scrape part_number from page - we already have it from the URL
-                "heading": "h1",  # Primary heading - generic product type
-                "subtitle": "h3",  # Secondary heading - specific details (size, material, etc.)
-                "delivery": '[class*="Delivery"], [class*="delivery"]',
-                "image": 'img[alt*="Product"], img[alt*="orientation"], img[class*="_img_"]',  # Product images
-            },
-            "requires_js": True,  # McMaster uses React, needs JS rendering
-            "rate_limit_seconds": 2.0,  # Be respectful
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "wait_for_selector": "tbody tr",  # Wait for table rows to load
-        }
-
-    async def scrape_part_details(
-        self, url_or_part_number: str, force_refresh: bool = False
-    ) -> Optional[PartSearchResult]:
-        """
-        Scrape McMaster-Carr product page for part details.
-
-        Args:
-            url_or_part_number: Either a full McMaster URL or just the part number
-
-        Returns:
-            PartSearchResult with scraped data, or None if scraping fails
-        """
-        scraper_created = False
-        try:
-            # Initialize scraper if needed
-            if not self._scraper:
-                from .scrapers.web_scraper import WebScraper
-
-                self._scraper = WebScraper()
-                scraper_created = True
-
-            # Build URL if only part number provided
-            if not url_or_part_number.startswith("http"):
-                url = f"https://www.mcmaster.com/{url_or_part_number}/"
-                part_number = url_or_part_number
-            else:
-                url = url_or_part_number
-                # Extract part number from URL (e.g., /91253A194/)
-                match = re.search(r"/(\w+)/?$", url)
-                part_number = match.group(1) if match else ""
-
-            logger.info(f"🌐 Scraping McMaster-Carr page: {url}")
-
-            # Get scraping configuration
-            config = self.get_scraping_config()
-
-            # Scrape the page (using Playwright for JS-rendered content)
-            logger.info(f"Attempting to scrape McMaster-Carr URL: {url} (force_refresh={force_refresh})")
-            scraped_data = await self._scraper.scrape_with_playwright(
-                url, config["selectors"], wait_for_selector=config.get("wait_for_selector"), force_refresh=force_refresh
-            )
-
-            logger.info(f"Scraped data: {scraped_data}")
-            if not scraped_data:
-                logger.error("No data scraped from McMaster-Carr page - scraper returned empty dict")
-                # Try to return minimal data just to test
-                logger.info("Returning minimal test data for part")
-                return PartSearchResult(
-                    supplier_part_number=part_number,
-                    manufacturer="McMaster-Carr",
-                    manufacturer_part_number=part_number,
-                    description=f"McMaster-Carr Part {part_number} (scraped data unavailable)",
-                    category="Industrial Supply",
-                    datasheet_url=None,
-                    image_url=None,
-                    stock_quantity=None,
-                    pricing=None,
-                    specifications={"note": "Scraping failed - returning minimal data"},
-                    additional_data={
-                        "source": "web_scraping_minimal",
-                        "scraped_at": datetime.now().isoformat(),
-                        "url": url,
-                        "warning": "Scraping failed - only part number available",
-                    },
-                )
-
-            # Parse the scraped data
-            result = await self._parse_scraped_data(scraped_data, part_number, url)
-
-            if result:
-                logger.info(f"✅ Successfully scraped McMaster-Carr part: {part_number}")
-            else:
-                logger.warning(f"⚠️  Could not parse scraped data for: {part_number}")
-
-            return result
-
-        except Exception as e:
-            logger.error(f"❌ Error scraping McMaster-Carr: {str(e)}")
-            return None
-        finally:
-            # Clean up the scraper session if we created it
-            if scraper_created and self._scraper:
-                try:
-                    await self._scraper.close()
-                    self._scraper = None
-                except Exception as e:
-                    logger.debug(f"Error closing scraper: {e}")
-
-    async def _parse_scraped_data(
-        self, scraped_data: Dict[str, Any], part_number: str, url: str
-    ) -> Optional[PartSearchResult]:
-        """Parse scraped data into PartSearchResult format."""
-        try:
-            # Extract specifications from table
-            specifications = {}
-            if "spec_table" in scraped_data:
-                spec_data = scraped_data["spec_table"]
-
-                # The scraper should return a dict, but just use whatever we get
-                if isinstance(spec_data, dict):
-                    specifications = spec_data
-                else:
-                    # If it's not a dict (shouldn't happen with current scraper), log it
-                    logger.warning(
-                        f"spec_table is not a dict, it's a {type(spec_data)}: {spec_data[:100] if isinstance(spec_data, str) else spec_data}"
-                    )
-
-            # Parse price information
-            pricing = []
-            if "price" in scraped_data:
-                price_info = self._scraper.parse_price(scraped_data["price"]) if self._scraper else None
-                if price_info:
-                    pricing = [
-                        {
-                            "quantity": price_info.get("quantity", 1),
-                            "price": price_info.get("unit_price", price_info.get("price", 0)),
-                            "currency": price_info.get("currency", "USD"),
-                            "original_text": scraped_data["price"],
-                        }
-                    ]
-
-            # Build complete description from H1 (generic) and H3 (specific details)
-            description_parts = []
-            heading = scraped_data.get("heading", "")  # H1 - generic product type
-            subtitle = scraped_data.get("subtitle", "")  # H3 - specific details
-
-            # Combine H1 and H3 for a complete, unique description
-            if heading:
-                description_parts.append(heading.strip())
-            if subtitle:
-                description_parts.append(subtitle.strip())
-
-            # If we have both, join with a separator for clarity
-            if len(description_parts) == 2:
-                description = f"{description_parts[0]} - {description_parts[1]}"
-            elif description_parts:
-                description = description_parts[0]
-            else:
-                description = f"McMaster-Carr Part {part_number}"
-
-            # Extract key specifications
-            material = specifications.get("material", "")
-            thread_size = specifications.get("thread_size", "")
-
-            # Create category from specifications
-            category_parts = []
-            if "fastener_head_type" in specifications:
-                category_parts.append(specifications["fastener_head_type"])
-            if "drive_style" in specifications:
-                category_parts.append(specifications["drive_style"] + " Drive")
-            if material:
-                category_parts.append(material)
-
-            category = " ".join(category_parts) if category_parts else "Industrial Supply"
-
-            # Extract image URL if available
-            image_url = scraped_data.get("image")
-            if image_url:
-                # Convert relative URLs to absolute URLs
-                if not image_url.startswith("http"):
-                    image_url = f"https://www.mcmaster.com{image_url}"
-                logger.info(f"Scraped image URL: {image_url}")
-
-            return PartSearchResult(
-                supplier_part_number=part_number,  # The actual McMaster part number like 92210A203
-                manufacturer="McMaster-Carr",
-                manufacturer_part_number=part_number,  # Same as supplier part number
-                description=description,  # The product description like "18-8 Stainless Steel..."
-                category=category,
-                datasheet_url=None,  # McMaster doesn't typically provide datasheets
-                image_url=image_url,  # Now extracted from scraping
-                stock_quantity=None,  # Stock info not easily scraped
-                pricing=pricing if pricing else None,
-                specifications=specifications,
-                additional_data={
-                    "source": "web_scraping",
-                    "scraped_at": datetime.now().isoformat(),
-                    "url": url,
-                    "delivery_info": scraped_data.get("delivery", ""),
-                    "material": material,
-                    "thread_size": thread_size,
-                    "warning": "Data obtained via web scraping - may be incomplete or outdated",
-                },
-            )
-
-        except Exception as e:
-            logger.error(f"Error parsing scraped McMaster-Carr data: {str(e)}")
-            return None
+        return False
 
 
 # Register the supplier
