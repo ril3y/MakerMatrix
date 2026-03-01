@@ -12,12 +12,14 @@ import {
   ChevronDown,
   Eye,
   Package,
+  Printer,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import AddLocationModal from '@/components/locations/AddLocationModal'
 import EditLocationModal from '@/components/locations/EditLocationModal'
 import LocationDetailsModal from '@/components/locations/LocationDetailsModal'
 import ContainerSlotPickerModal from '@/components/locations/ContainerSlotPickerModal'
+import PrinterModal from '@/components/printer/PrinterModal'
 import AuthenticatedImage from '@/components/ui/AuthenticatedImage'
 import { locationsService } from '@/services/locations.service'
 import type { Location } from '@/types/locations'
@@ -29,6 +31,8 @@ const LocationsPage = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showSlotPickerModal, setShowSlotPickerModal] = useState(false)
+  const [showPrintModal, setShowPrintModal] = useState(false)
+  const [printingLocation, setPrintingLocation] = useState<Location | null>(null)
   const [editingLocation, setEditingLocation] = useState<Location | null>(null)
   const [viewingLocation, setViewingLocation] = useState<Location | null>(null)
   const [selectedContainer, setSelectedContainer] = useState<Location | null>(null)
@@ -83,6 +87,11 @@ const LocationsPage = () => {
   const handleEdit = (location: Location) => {
     setEditingLocation(location)
     setShowEditModal(true)
+  }
+
+  const handlePrintLabel = (location: Location) => {
+    setPrintingLocation(location)
+    setShowPrintModal(true)
   }
 
   const handleViewSlots = (location: Location, event: React.MouseEvent) => {
@@ -344,6 +353,13 @@ const LocationsPage = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => handlePrintLabel(location)}
+                          className="btn btn-icon btn-secondary"
+                          title="Print label"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
                         <PermissionGuard permission="locations:update">
                           <button
                             onClick={() => handleEdit(location)}
@@ -386,6 +402,7 @@ const LocationsPage = () => {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onViewSlots={handleViewSlots}
+            onPrintLabel={handlePrintLabel}
           />
         </motion.div>
       )}
@@ -443,6 +460,24 @@ const LocationsPage = () => {
           }}
         />
       )}
+
+      {/* Print Label Modal */}
+      {printingLocation && (
+        <PrinterModal
+          isOpen={showPrintModal}
+          onClose={() => {
+            setShowPrintModal(false)
+            setPrintingLocation(null)
+          }}
+          title={`Print Label: ${printingLocation.name}`}
+          defaultTemplate="{name}"
+          partData={{
+            name: printingLocation.name,
+            part_name: printingLocation.name,
+            description: printingLocation.description || '',
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -457,6 +492,7 @@ interface LocationTreeNodeProps {
   onEdit: (location: Location) => void
   onDelete: (location: Location) => void
   onViewSlots: (location: Location, event: React.MouseEvent) => void
+  onPrintLabel: (location: Location) => void
   level?: number
 }
 
@@ -469,6 +505,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
   onEdit,
   onDelete,
   onViewSlots,
+  onPrintLabel,
   level = 0,
 }) => {
   // Calculate total parts for a location, including parts in child slots for containers
@@ -569,6 +606,13 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                 >
                   <Eye className="w-4 h-4" />
                 </button>
+                <button
+                  onClick={() => onPrintLabel(location)}
+                  className="btn btn-icon btn-secondary"
+                  title="Print label"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
                 <PermissionGuard permission="locations:update">
                   <button
                     onClick={() => onEdit(location)}
@@ -599,6 +643,7 @@ const LocationTreeNode: React.FC<LocationTreeNodeProps> = ({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onViewSlots={onViewSlots}
+                onPrintLabel={onPrintLabel}
                 level={level + 1}
               />
             )}

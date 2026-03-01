@@ -15,11 +15,67 @@ interface ImageUploadProps {
   showPreview?: boolean
 }
 
+const MAX_DIMENSION = 800
+const JPEG_QUALITY = 0.85
+
+/** Resize and compress an image file to JPEG, returning a new File under ~300KB */
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    // If already small enough and is JPEG, skip compression
+    if (file.size <= 300 * 1024 && (file.type === 'image/jpeg' || file.type === 'image/jpg')) {
+      return resolve(file)
+    }
+
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+
+      let { width, height } = img
+
+      // Scale down to fit within MAX_DIMENSION
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const scale = MAX_DIMENSION / Math.max(width, height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return reject(new Error('Could not get canvas context'))
+
+      ctx.drawImage(img, 0, 0, width, height)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error('Canvas toBlob failed'))
+          const compressed = new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {
+            type: 'image/jpeg',
+          })
+          resolve(compressed)
+        },
+        'image/jpeg',
+        JPEG_QUALITY
+      )
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Failed to load image for compression'))
+    }
+
+    img.src = url
+  })
+}
+
 const ImageUpload: React.FC<ImageUploadProps> = ({
   onImageUploaded,
   currentImageUrl,
   placeholder = 'Click to upload or paste an image',
-  maxSize = 5, // 5MB default
+  maxSize: _maxSize = 5,
   acceptedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'],
   className = '',
   disabled = false,
@@ -35,47 +91,41 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     setPreviewUrl(currentImageUrl || null)
   }, [currentImageUrl])
 
-  const validateFile = useCallback(
+  const validateFileType = useCallback(
     (file: File): boolean => {
-      // Check file type
       if (!acceptedTypes.includes(file.type)) {
         toast.error(`Invalid file type. Accepted types: ${acceptedTypes.join(', ')}`)
         return false
       }
-
-      // Check file size (5MB limit)
-      const maxFileSize = maxSize * 1024 * 1024 // Convert MB to bytes
-      if (file.size > maxFileSize) {
-        toast.error(`File too large. Maximum size: ${maxSize}MB`)
-        return false
-      }
-
       return true
     },
-    [acceptedTypes, maxSize]
+    [acceptedTypes]
   )
 
   const handleFileUpload = useCallback(
     async (file: File) => {
-      console.log('🚀 handleFileUpload called with file:', file.name, file.size, file.type)
-      if (!validateFile(file)) {
-        console.log('❌ File validation failed')
-        return
-      }
+      console.log('handleFileUpload called with file:', file.name, file.size, file.type)
+      if (!validateFileType(file)) return
 
       try {
-        console.log('⏳ Setting uploading to true...')
         setUploading(true)
 
+        // Compress image client-side (resize + JPEG conversion)
+        const originalSize = file.size
+        const compressed = await compressImage(file)
+        if (compressed.size < originalSize) {
+          console.log(
+            `Image compressed: ${(originalSize / 1024).toFixed(0)}KB -> ${(compressed.size / 1024).toFixed(0)}KB`
+          )
+        }
+
         // Create preview URL immediately
-        const tempPreviewUrl = URL.createObjectURL(file)
+        const tempPreviewUrl = URL.createObjectURL(compressed)
         setPreviewUrl(tempPreviewUrl)
 
         // Upload to server using utilityService
         const { utilityService } = await import('@/services/utility.service')
-        console.log('🔄 Starting image upload...')
-        const imageUrl = await utilityService.uploadImage(file)
-        console.log('✅ Upload successful, imageUrl:', imageUrl)
+        const imageUrl = await utilityService.uploadImage(compressed)
 
         // Clean up temp preview URL
         URL.revokeObjectURL(tempPreviewUrl)
@@ -83,18 +133,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         // Set final preview URL
         setPreviewUrl(imageUrl)
         onImageUploaded(imageUrl)
-        console.log('📷 Set preview URL and called onImageUploaded with:', imageUrl)
 
-        toast.success('✅ Image uploaded successfully!')
+        toast.success('Image uploaded successfully!')
       } catch (error) {
         console.error('Upload error:', error)
-        toast.error('❌ Failed to upload image')
+        toast.error('Failed to upload image')
         setPreviewUrl(currentImageUrl || null) // Reset to original
       } finally {
         setUploading(false)
       }
     },
-    [currentImageUrl, onImageUploaded, validateFile]
+    [currentImageUrl, onImageUploaded, validateFileType]
   )
 
   // Handle paste events - works globally when component is mounted
@@ -296,7 +345,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                     Drag & drop, click, or paste (Ctrl+V)
                   </p>
                   <p className="text-xs text-muted">
-                    Max {maxSize}MB • {acceptedTypes.map((type) => type.split('/')[1]).join(', ')}
+                    Auto-resized to save space • any size accepted
                   </p>
                 </>
               )}

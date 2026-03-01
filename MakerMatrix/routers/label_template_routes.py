@@ -220,7 +220,7 @@ async def update_template(
                 pass
 
             # Update template
-            updates = template_updates.model_dump(exclude_unset=True)
+            updates = template_data.model_dump(exclude_unset=True)
             updated_template = repo.update_template(session, template_id, updates)
 
             # Add template name to activity context

@@ -161,15 +161,15 @@ class TemplateProcessor:
 
         # Get margins from template config
         margins_config = template.layout_config.get("margins", {})
-        margin_mm = template.spacing_config.get("margin_mm", 1.0)
 
-        # Convert margins to pixels
-        margin_px = round((margin_mm / 25.4) * context.dpi)
+        # Use tight default margins (0.15mm ≈ 2px at 300 DPI) to maximize text area,
+        # matching the legacy label rendering behavior. Templates can override via layout_config.
+        default_margin = 0.15
         margins = {
-            "top": round(((margins_config.get("top", 1) / 25.4) * context.dpi)),
-            "bottom": round(((margins_config.get("bottom", 1) / 25.4) * context.dpi)),
-            "left": round(((margins_config.get("left", 1) / 25.4) * context.dpi)),
-            "right": round(((margins_config.get("right", 1) / 25.4) * context.dpi)),
+            "top": round(((margins_config.get("top", default_margin) / 25.4) * context.dpi)),
+            "bottom": round(((margins_config.get("bottom", default_margin) / 25.4) * context.dpi)),
+            "left": round(((margins_config.get("left", default_margin) / 25.4) * context.dpi)),
+            "right": round(((margins_config.get("right", default_margin) / 25.4) * context.dpi)),
         }
 
         # Calculate QR code size if enabled
@@ -198,7 +198,7 @@ class TemplateProcessor:
             qr_size_px,
             template.qr_position if template.qr_enabled else QRPosition.CENTER,
             margins,
-            template.layout_config.get("spacing", {}).get("qr_text_gap", 2),
+            template.layout_config.get("spacing", {}).get("qr_text_gap", 0.35),
         )
 
         return LayoutDimensions(

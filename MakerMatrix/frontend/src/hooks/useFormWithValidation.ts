@@ -237,7 +237,8 @@ export const useModalFormWithValidation = <T extends FieldValues>(
     if (!isOpen && resetOnClose) {
       form.reset()
     }
-  }, [isOpen, resetOnClose, form])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, resetOnClose])
 
   return {
     ...form,

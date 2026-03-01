@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeStack } from '@/hooks/useEscapeStack'
 
 interface ModalProps {
   isOpen: boolean
@@ -36,17 +36,8 @@ const Modal = ({
     xl: 'max-w-6xl',
   }
 
-  // Handle Escape key to close modal
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !loading) {
-        onClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, loading, onClose])
+  // Handle Escape key via shared stack — only topmost modal closes
+  useEscapeStack(isOpen, onClose, loading)
 
   const modalContent = (
     <AnimatePresence>

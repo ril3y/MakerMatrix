@@ -44,8 +44,9 @@ BUILTIN_SUPPLIER_ICONS_PATH = Path(__file__).parent.parent / "static" / "supplie
 async def upload_image(file: UploadFile = File(...), current_user: UserModel = Depends(get_current_user)):
     """
     Upload an image file and return the image ID for later retrieval.
-    Supports PNG, JPG, JPEG, GIF, WebP formats with max 5MB file size.
-    Images are automatically padded to square aspect ratio (letterboxed with white borders).
+    Supports PNG, JPG, JPEG, GIF, WebP formats.
+    Images are automatically resized to max 800px and converted to JPEG.
+    Original aspect ratio is preserved.
     """
     from PIL import Image
     import io
@@ -58,18 +59,17 @@ async def upload_image(file: UploadFile = File(...), current_user: UserModel = D
             detail=f"Unsupported file type: {file.content_type}. Supported types: PNG, JPG, JPEG, GIF, WebP",
         )
 
-    # Validate file size (5MB max)
-    MAX_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+    # Safety-net size limit (20MB) — frontend compresses before upload
+    MAX_SIZE = 20 * 1024 * 1024
     if file.size and file.size > MAX_SIZE:
-        raise HTTPException(status_code=400, detail=f"File too large: {file.size} bytes. Maximum size: 5MB")
+        raise HTTPException(status_code=400, detail=f"File too large: {file.size} bytes. Maximum size: 20MB")
 
     # Ensure upload directory exists
     upload_dir = STATIC_BASE_PATH / "images"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate unique filename - always save as PNG for consistency
     image_id = str(uuid.uuid4())
-    file_path = upload_dir / f"{image_id}.png"
+    file_path = upload_dir / f"{image_id}.jpg"
 
     try:
         # Read image data
@@ -78,7 +78,6 @@ async def upload_image(file: UploadFile = File(...), current_user: UserModel = D
 
         # Convert to RGB if necessary (for PNG with transparency, GIF, etc.)
         if image.mode in ("RGBA", "LA", "P"):
-            # Create white background
             background = Image.new("RGB", image.size, (255, 255, 255))
             if image.mode == "P":
                 image = image.convert("RGBA")
@@ -87,31 +86,21 @@ async def upload_image(file: UploadFile = File(...), current_user: UserModel = D
         elif image.mode != "RGB":
             image = image.convert("RGB")
 
-        # Make square by adding padding (letterbox) instead of cropping
+        # Resize to max 800px on the longest side, preserving aspect ratio
+        MAX_DIM = 800
         width, height = image.size
-        if width != height:
-            # Use the larger dimension as the square size
-            size = max(width, height)
+        if width > MAX_DIM or height > MAX_DIM:
+            scale = MAX_DIM / max(width, height)
+            image = image.resize((round(width * scale), round(height * scale)), Image.LANCZOS)
 
-            # Create a new white square image
-            square_image = Image.new("RGB", (size, size), (255, 255, 255))
-
-            # Calculate position to paste the original image (centered)
-            x_offset = (size - width) // 2
-            y_offset = (size - height) // 2
-
-            # Paste the original image onto the square canvas
-            square_image.paste(image, (x_offset, y_offset))
-            image = square_image
-
-        # Save as PNG with optimization
-        image.save(str(file_path), "PNG", optimize=True)
+        # Save as JPEG for small file size
+        image.save(str(file_path), "JPEG", quality=85, optimize=True)
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process image: {str(e)}")
 
     return base_router.build_success_response(
-        data={"image_id": image_id}, message="Image uploaded and resized to square successfully"
+        data={"image_id": image_id}, message="Image uploaded and resized successfully"
     )
 
 

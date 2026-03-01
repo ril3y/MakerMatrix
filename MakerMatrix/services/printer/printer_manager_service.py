@@ -352,27 +352,20 @@ class PrinterManagerService:
                         success=False, job_id="", message="", error=f"Template {template_id} not found"
                     )
 
-                # Use the text_template directly with the advanced label creation method
-                # This ensures the same rendering as custom templates and previews
-                template_label_size = f"{int(template.label_height_mm)}mm"
-                template_label_length = int(template.label_width_mm)
+                # Use TemplateProcessor for full template rendering (QR, layout, rotation, etc.)
+                label_size_mm = template.label_height_mm  # tape width
+                label_len_mm = template.label_width_mm  # label length
 
-                print(f"[DEBUG] Printing saved template:")
-                print(f"[DEBUG] - Template text: {template.text_template}")
-                print(f"[DEBUG] - Label size: {template_label_size}")
-                print(f"[DEBUG] - Label length: {template_label_length}mm")
-
-                label_image = await self._create_advanced_label_image(
-                    template=template.text_template,
-                    data=data,
-                    label_size=template_label_size,
-                    label_length=template_label_length,
-                    options={},
+                print_settings = PrintSettings(
+                    label_size=label_size_mm,
+                    label_len=label_len_mm / 25.4 if label_len_mm else None,  # convert mm to inches
+                    dpi=300,
+                    qr_scale=template.qr_scale,
                 )
 
-                print(f"[DEBUG] - Generated image size: {label_image.width}x{label_image.height}")
+                label_image = self.template_processor.process_template(template, data, print_settings)
 
-                # Apply rotation for 12mm labels for printing (same as custom templates)
+                # Apply rotation for 12mm labels for printing
                 supported_sizes = printer.get_supported_label_sizes()
                 label_info = None
                 for size in supported_sizes:
@@ -381,9 +374,7 @@ class PrinterManagerService:
                         break
 
                 if label_info and (label_info.name in ["12", "12mm"] or label_info.width_mm == 12.0):
-                    print(f"[DEBUG] Applying 90° rotation for 12mm label")
                     label_image = label_image.rotate(90, expand=True)
-                    print(f"[DEBUG] - Rotated image size: {label_image.width}x{label_image.height}")
 
                 # Update template usage
                 template.update_usage()
@@ -399,7 +390,7 @@ class PrinterManagerService:
             )
 
     async def preview_template_label(self, template_id: str, data: dict) -> PreviewResult:
-        """Preview a label using a saved template - uses text_template directly."""
+        """Preview a label using a saved template - uses TemplateProcessor for full rendering."""
         try:
             from sqlmodel import Session
             from MakerMatrix.models.models import engine
@@ -409,18 +400,18 @@ class PrinterManagerService:
                 if not template:
                     return PreviewResult(success=False, error=f"Template {template_id} not found")
 
-                # Use the text_template directly with the advanced label creation method
-                # This ensures the same rendering as custom templates
-                label_size = f"{int(template.label_height_mm)}mm"
-                label_length = int(template.label_width_mm)
+                # Use TemplateProcessor for full template rendering (QR, layout, rotation, etc.)
+                label_size_mm = template.label_height_mm  # tape width
+                label_len_mm = template.label_width_mm  # label length
 
-                preview_image = await self._create_advanced_label_image(
-                    template=template.text_template,
-                    data=data,
-                    label_size=label_size,
-                    label_length=label_length,
-                    options={},
+                print_settings = PrintSettings(
+                    label_size=label_size_mm,
+                    label_len=label_len_mm / 25.4 if label_len_mm else None,  # convert mm to inches
+                    dpi=300,
+                    qr_scale=template.qr_scale,
                 )
+
+                preview_image = self.template_processor.process_template(template, data, print_settings)
 
                 # Convert image to base64 for preview
                 import io
@@ -584,11 +575,23 @@ class PrinterManagerService:
         if has_qr or has_emoji_placeholder:
             # Create optimized layout with QR code, emoji, and text using improved sizing logic
 
+            # Determine QR position from template text: if {qr} appears at/near the end, put QR on right
+            qr_on_right = False
+            if has_qr and not skip_qr:
+                # Strip the template to find where {qr} or {qr=...} appears relative to other content
+                stripped = template.strip()
+                # Remove rotation markers for position analysis
+                stripped = re.sub(r"\{rotate=\d+\}", "", stripped).strip()
+                # Check if QR placeholder is at the end
+                if stripped.endswith("{qr}") or re.search(r"\{qr=[^}]+\}$", stripped):
+                    qr_on_right = True
+
             # Current x position for elements
             current_x = 2  # Start with minimal left padding
 
-            # Handle QR code if needed
+            # Generate QR image if needed (but don't paste yet if it goes on the right)
             qr_size = 0
+            qr_image = None
             if has_qr and not skip_qr:
                 # Create print settings for optimal QR sizing
                 label_height_mm = label_info.width_mm if label_info else 12.0  # Label width becomes height in output
@@ -606,23 +609,21 @@ class PrinterManagerService:
                     # User specified {qr=field_name}
                     qr_field = qr_field_matches[0]
                     qr_data = str(data.get(qr_field, "UNKNOWN"))
-                    print(f"[DEBUG] Print: Using QR field '{qr_field}': {qr_data}")
                     part_dict = {"id": qr_data}
                 else:
                     # Default to MM:id format
                     part_id = data.get("id") or data.get("part_id") or "UNKNOWN"
                     qr_data = f"MM:{part_id}"
-                    print(f"[DEBUG] Print: Using default QR data: {qr_data}")
                     part_dict = {"id": qr_data}
 
                 qr_image = LabelService.generate_optimized_qr(part_dict, print_settings)
                 qr_size = qr_image.width  # Get actual optimized size
 
-                # Paste QR code
-                qr_y = (height - qr_size) // 2
-                image.paste(qr_image, (current_x, qr_y))
-                current_x += qr_size + 4  # Move position after QR code with spacing
-                print(f"[DEBUG] Print: QR rendered at ({current_x - qr_size - 4}, {qr_y}), size: {qr_size}px")
+                if not qr_on_right:
+                    # Paste QR on left side
+                    qr_y = (height - qr_size) // 2
+                    image.paste(qr_image, (current_x, qr_y))
+                    current_x += qr_size + 4  # Move position after QR code with spacing
 
             # Handle emoji if needed
             emoji_size = 0
@@ -651,9 +652,10 @@ class PrinterManagerService:
                     traceback.print_exc()
                     # Continue without emoji if rendering fails
 
-            # Calculate available text area (after QR and emoji)
+            # Calculate available text area (accounting for QR and emoji)
             text_x = current_x
-            text_width = width - text_x - 2  # Minimal right padding
+            right_reserved = (qr_size + 4) if (qr_on_right and qr_size > 0) else 0
+            text_width = width - text_x - 2 - right_reserved  # Minimal padding
             text_height = height - 4  # 2px top/bottom margins
 
             print(
@@ -764,7 +766,12 @@ class PrinterManagerService:
             y = (height - final_text_height) // 2
 
             draw.multiline_text((x, y), wrapped_text, fill="black", font=font)
-            print(f"[DEBUG] Rendered wrapped text ({len(final_wrapped_lines)} lines) at font_size={font_size}px")
+
+            # Paste QR on the right side if needed
+            if qr_on_right and qr_image is not None and qr_size > 0:
+                qr_x = width - qr_size - 2
+                qr_y = (height - qr_size) // 2
+                image.paste(qr_image, (qr_x, qr_y))
         else:
             # Text-only layout - maximize text size
             target_height = int(height * 0.98)  # Use 98% of label height

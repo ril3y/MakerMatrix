@@ -131,7 +131,8 @@ const AddLocationModal = ({
       timestamp: Date.now(),
     }
     localStorage.setItem(LOCATION_DRAFT_KEY, JSON.stringify(draft))
-  }, [form, imageUrl])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUrl])
 
   const loadDraft = useCallback(() => {
     try {
@@ -201,7 +202,8 @@ const AddLocationModal = ({
         setShowDraftBanner(true)
       }
     }
-  }, [isOpen, defaultParentId, loadDraft, form])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, defaultParentId])
 
   // Auto-save draft when form changes (debounced)
   // Extract form.watch() to a separate variable for static checking
@@ -220,7 +222,8 @@ const AddLocationModal = ({
 
       return () => clearTimeout(timeoutId)
     }
-  }, [isOpen, formWatchValues, saveDraft, form])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, formWatchValues, saveDraft])
 
   const loadParentLocations = async () => {
     try {

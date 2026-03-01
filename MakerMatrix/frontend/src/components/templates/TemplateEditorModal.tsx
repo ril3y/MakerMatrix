@@ -364,12 +364,33 @@ const TemplateEditorModal = ({ isOpen, onClose, template, onSave }: TemplateEdit
                 <h5 className="font-medium text-primary mb-3">Label Size</h5>
 
                 {sizeOptions.length > 0 ? (
-                  <CustomSelect
-                    value={selectedSizeKey}
-                    onChange={handleSizeChange}
-                    options={sizeOptions}
-                    placeholder="Select a label size..."
-                  />
+                  <div className="space-y-3">
+                    <CustomSelect
+                      value={selectedSizeKey}
+                      onChange={handleSizeChange}
+                      options={sizeOptions}
+                      placeholder="Select a label size..."
+                    />
+                    {/* Show length input for continuous tape sizes */}
+                    {selectedSizeKey && supportedSizes.find((s) => s.name === selectedSizeKey)?.is_continuous && (
+                      <div>
+                        <label className="block text-sm font-medium text-primary mb-1">
+                          Label Length (mm)
+                        </label>
+                        <input
+                          type="number"
+                          step="1"
+                          min="10"
+                          max="300"
+                          className="input w-full"
+                          value={formData.label_width_mm}
+                          onChange={(e) =>
+                            setFormData({ ...formData, label_width_mm: parseFloat(e.target.value) || 39 })
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
                     <div>

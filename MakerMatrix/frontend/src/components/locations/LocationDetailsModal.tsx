@@ -123,7 +123,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
       // Search for parts at this location
       let partsData: PartWithSlot[] = []
 
-      // For containers with slots, get parts from all child slots
+      // For containers with slots, get parts from child slots AND the container itself
       if (location.location_type === 'container' && location.slot_count && details.children) {
         console.log(
           `[LocationDetailsModal] Loading parts from container with ${details.children.length} child slots`
@@ -152,8 +152,29 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
             }
           })
         )
-        // Flatten array of arrays
-        partsData = allSlotParts.flat()
+        // Also get parts allocated directly to the container (not in any slot)
+        try {
+          const containerResponse = await partsService.searchParts({
+            location_id: location.id,
+            page: 1,
+            page_size: 1000,
+          })
+          const containerParts = (containerResponse.items || []).map(
+            (part: Part): PartWithSlot => ({ ...part })
+          )
+          if (containerParts.length > 0) {
+            console.log(
+              `[LocationDetailsModal] ${containerParts.length} parts allocated directly to container`
+            )
+          }
+          // Deduplicate: prefer slot-tagged parts over container-level ones
+          const slotParts = allSlotParts.flat()
+          const slotPartIds = new Set(slotParts.map((p) => p.id))
+          const uniqueContainerParts = containerParts.filter((p) => !slotPartIds.has(p.id))
+          partsData = [...slotParts, ...uniqueContainerParts]
+        } catch {
+          partsData = allSlotParts.flat()
+        }
         console.log(`[LocationDetailsModal] Total parts across all slots: ${partsData.length}`)
       } else {
         // Regular location - just get parts at this specific location
@@ -314,6 +335,16 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                   >
                     <Edit className="w-5 h-5 text-theme-secondary hover:text-primary" />
                   </button>
+                  <button
+                    onClick={() => {
+                      setSelectedPartForPrint(null)
+                      setShowPrintModal(true)
+                    }}
+                    className="p-2 hover:bg-theme-secondary rounded-lg transition-colors"
+                    title="Print location label"
+                  >
+                    <Printer className="w-5 h-5 text-theme-secondary hover:text-primary" />
+                  </button>
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-sm text-theme-secondary">
                   <span className="px-2 py-1 bg-theme-secondary rounded text-xs font-medium">
@@ -335,12 +366,14 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
           {/* Image if available */}
           {location.image_url && (
-            <div className="rounded-lg overflow-hidden border border-theme-primary">
-              <img
-                src={location.image_url}
-                alt={location.name}
-                className="w-full h-48 object-cover"
-              />
+            <div className="flex justify-center">
+              <div className="rounded-lg overflow-hidden border border-theme-primary">
+                <img
+                  src={location.image_url}
+                  alt={location.name}
+                  className="max-w-48 max-h-48 object-contain"
+                />
+              </div>
             </div>
           )}
 
@@ -572,20 +605,30 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         </div>
       </Modal>
 
-      {/* Print Modal */}
-      {showPrintModal && selectedPartForPrint && (
+      {/* Print Modal - for part labels or location labels */}
+      {showPrintModal && (
         <PrinterModal
           isOpen={showPrintModal}
           onClose={handleClosePrintModal}
-          title={`Print Label: ${selectedPartForPrint.part_name}`}
-          partData={{
-            part_name: selectedPartForPrint.part_name,
-            part_number: selectedPartForPrint.part_number || '',
-            location: location.name,
-            category: selectedPartForPrint.category || '',
-            quantity: selectedPartForPrint.quantity_at_location.toString(),
-            description: selectedPartForPrint.description || '',
-          }}
+          title={selectedPartForPrint ? `Print Label: ${selectedPartForPrint.part_name}` : `Print Label: ${location.name}`}
+          defaultTemplate={selectedPartForPrint ? undefined : '{name}'}
+          partData={
+            selectedPartForPrint
+              ? {
+                  part_name: selectedPartForPrint.part_name,
+                  part_number: selectedPartForPrint.part_number || '',
+                  location: location.name,
+                  category: selectedPartForPrint.category || '',
+                  quantity: selectedPartForPrint.quantity_at_location.toString(),
+                  description: selectedPartForPrint.description || '',
+                }
+              : {
+                  name: location.name,
+                  part_name: location.name,
+                  location: locationPath || location.name,
+                  description: location.description || '',
+                }
+          }
         />
       )}
 

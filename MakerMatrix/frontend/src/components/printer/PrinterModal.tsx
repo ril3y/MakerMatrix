@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Printer as PrinterIcon, TestTube, FileText, HelpCircle } from 'lucide-react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
@@ -9,12 +10,14 @@ import { templateService } from '@/services/template.service'
 import TemplateSelector from './TemplateSelector'
 import LabelPreview from './LabelPreview'
 import toast from 'react-hot-toast'
+import { useEscapeStack } from '@/hooks/useEscapeStack'
 
 interface PrinterModalProps {
   isOpen: boolean
   onClose: () => void
   title?: string
   showTestMode?: boolean
+  defaultTemplate?: string
   partData?: {
     id?: string
     part_name?: string
@@ -24,7 +27,7 @@ interface PrinterModalProps {
     category?: string
     quantity?: string
     description?: string
-    additional_properties?: Record<string, unknown>
+    [key: string]: string | Record<string, unknown> | undefined
   }
 }
 
@@ -33,6 +36,7 @@ const PrinterModal = ({
   onClose,
   title = 'Print Label',
   showTestMode = false,
+  defaultTemplate,
   partData,
 }: PrinterModalProps) => {
   const [availablePrinters, setAvailablePrinters] = useState<Printer[]>([])
@@ -50,6 +54,9 @@ const PrinterModal = ({
   const [showTemplateSyntaxHelp, setShowTemplateSyntaxHelp] = useState(false)
   const [fontSizeOverride, setFontSizeOverride] = useState<number | null>(null)
   const reloadTemplatesRef = useRef<(() => Promise<void>) | null>(null)
+
+  // Handle Escape key via shared stack — only topmost modal closes
+  useEscapeStack(isOpen, onClose)
 
   // Load custom template from localStorage on mount
   useEffect(() => {
@@ -207,7 +214,9 @@ const PrinterModal = ({
       setUseTemplateSystem(true)
       // Load saved template from localStorage or use default
       const savedTemplate = localStorage.getItem('makermatrix_custom_label_template')
-      if (savedTemplate) {
+      if (defaultTemplate) {
+        setLabelTemplate(defaultTemplate)
+      } else if (savedTemplate) {
         setLabelTemplate(savedTemplate)
       } else if (partData) {
         setLabelTemplate('{part_name}')
@@ -559,8 +568,8 @@ const PrinterModal = ({
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000]">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -857,7 +866,8 @@ const PrinterModal = ({
           </div>
         )}
       </motion.div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
