@@ -214,7 +214,7 @@ const PartEnrichmentModal = ({
     } finally {
       setIsCheckingRequirements(false)
     }
-  }, [selectedSupplier, part.id])
+  }, [selectedSupplier, part.id, part.part_number])
 
   useEffect(() => {
     if (isOpen) {

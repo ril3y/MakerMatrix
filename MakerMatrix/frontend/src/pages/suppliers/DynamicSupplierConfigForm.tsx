@@ -202,7 +202,6 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
 
       // Update the field with the uploaded file path
       handleCredentialChange(fieldName, filePath)
-
     } catch (error) {
       console.error('File upload failed:', error)
       // You might want to expose this error to the UI

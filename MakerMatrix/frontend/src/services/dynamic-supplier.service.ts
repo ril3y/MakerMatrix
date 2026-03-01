@@ -132,9 +132,8 @@ export class DynamicSupplierService {
    */
   async getAllSuppliersInfo(): Promise<Record<string, SupplierInfo>> {
     try {
-      const response = await apiClient.get<ApiResponse<Record<string, SupplierInfo>>>(
-        '/api/suppliers/info'
-      )
+      const response =
+        await apiClient.get<ApiResponse<Record<string, SupplierInfo>>>('/api/suppliers/info')
       return response.data || {}
     } catch (error) {
       console.error('Failed to fetch suppliers info:', error)

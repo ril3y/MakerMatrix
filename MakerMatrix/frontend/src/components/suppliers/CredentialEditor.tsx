@@ -378,7 +378,9 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
                       <div className="flex items-center text-green-600 dark:text-green-400">
                         <CheckCircle className="w-4 h-4 mr-1" />
                         <span className="text-sm">
-                          {String(currentValue).split('/').pop() || String(currentValue).split('\\').pop() || 'Uploaded'}
+                          {String(currentValue).split('/').pop() ||
+                            String(currentValue).split('\\').pop() ||
+                            'Uploaded'}
                         </span>
                       </div>
                     )}
