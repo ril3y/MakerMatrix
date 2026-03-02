@@ -652,18 +652,12 @@ if os.path.exists(frontend_dist_path):
     # Catch-all route for React Router (SPA routing) - but exclude API routes entirely
     @app.get("/{full_path:path}")
     async def serve_frontend_routes(full_path: str):
-        # Skip this route entirely for API paths - let FastAPI routing handle them
+        # Skip API, docs, and static paths - let FastAPI routing handle them.
+        # All API routes are mounted under /api/, so only exclude that prefix
+        # (plus docs/static). Frontend SPA routes like /parts/, /locations/
+        # etc. must fall through to serve index.html for client-side routing.
         if full_path.startswith(
             (
-                "parts/",
-                "locations/",
-                "categories/",
-                "printer/",
-                "utility/",
-                "auth/",
-                "users/",
-                "roles/",
-                "ai/",
                 "api/",
                 "static/",
                 "docs",
@@ -671,14 +665,6 @@ if os.path.exists(frontend_dist_path):
                 "openapi.json",
             )
         ):
-            # Special case: if it's an API route without trailing slash, try redirecting
-            if full_path == "api/tasks":
-                from fastapi.responses import RedirectResponse
-
-                return RedirectResponse(url="/api/tasks/", status_code=307)
-
-            # This will never actually be reached for properly mounted API routes
-            # but provides a fallback for unmounted API-like paths
             from fastapi import HTTPException
 
             raise HTTPException(status_code=404, detail="API endpoint not found")

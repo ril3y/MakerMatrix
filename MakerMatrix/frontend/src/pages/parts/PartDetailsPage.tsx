@@ -1846,18 +1846,9 @@ const PartDetailsPage = () => {
               ) : (
                 <div className="text-center py-8">
                   <Tag className="w-12 h-12 text-theme-muted mx-auto mb-3" />
-                  <p className="text-theme-muted text-sm mb-4">
+                  <p className="text-theme-muted text-sm">
                     No categories assigned to this part yet.
                   </p>
-                  <PermissionGuard permission="categories:update">
-                    <button
-                      onClick={() => setCategoryManagementOpen(true)}
-                      className="btn btn-primary btn-sm flex items-center gap-2"
-                    >
-                      <Tag className="w-4 h-4" />
-                      Manage Categories
-                    </button>
-                  </PermissionGuard>
                 </div>
               )}
             </div>
