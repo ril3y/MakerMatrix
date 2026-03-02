@@ -1,11 +1,6 @@
-# Documentation files (except root README.md and CLAUDE.md)
-*.md
-**/*.md
-!/README.md
-!/CLAUDE.md
-
 # Claude Code configuration (user-specific)
 .claude/
+CLAUDE.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -266,3 +261,19 @@ MakerMatrix/backups/
 *.zip
 .env
 venv_ci_test/
+
+# Debug and test scripts (not part of the test suite)
+scripts/debug_*
+scripts/test_*
+scripts/verify_*
+test_output.txt
+
+# Security certificates and keystores
+*.pfx
+
+# Data and storage directories (generated at runtime)
+data/
+secure_storage/
+
+# Windows artifacts
+nul

@@ -2,7 +2,7 @@
 
 **A powerful, modern electronic parts inventory management system designed for makers, engineers, and electronics enthusiasts.**
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.1.1-blue)
 ![Code Quality](https://img.shields.io/badge/code%20quality-100%25%20type%20safe-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![GitHub stars](https://img.shields.io/github/stars/ril3y/MakerMatrix?style=social)
@@ -41,7 +41,7 @@ Pull and run from GitHub Container Registry:
 
 ```bash
 # Interactive quick-start
-curl -sL https://raw.githubusercontent.com/ril3y/MakerMatrix/main/docker-run.sh | bash
+curl -sL https://raw.githubusercontent.com/ril3y/MakerMatrix/main/scripts/docker-run.sh | bash
 
 # Or with Docker Compose
 git clone https://github.com/ril3y/MakerMatrix.git
@@ -104,7 +104,7 @@ python dev_manager.py
 - **[Configuration Guide](docs/CONFIGURATION.md)**
   Environment variables, HTTPS setup, supplier keys, and more
 
-- **[Docker Deployment](DOCKER.md)**
+- **[Docker Deployment](docs/DOCKER.md)**
   Container deployment, GitHub registry, and production setup
 
 </td>
@@ -268,7 +268,7 @@ python dev_manager.py
 docker pull ghcr.io/ril3y/makermatrix:latest
 
 # Specific version
-docker pull ghcr.io/ril3y/makermatrix:1.0.0
+docker pull ghcr.io/ril3y/makermatrix:1.1.1
 
 # Run
 docker run -d -p 8080:8080 -v makermatrix-data:/data ghcr.io/ril3y/makermatrix:latest
@@ -278,10 +278,10 @@ docker run -d -p 8080:8080 -v makermatrix-data:/data ghcr.io/ril3y/makermatrix:l
 
 - `latest` - Latest from main branch or version tags
 - `main` - Latest development build from main branch
-- `1.0.0`, `1.0`, `1` - Version-specific tags (semver)
+- `1.1.1`, `1.1`, `1` - Version-specific tags (semver)
 - `sha-abc1234` - Commit-specific builds (main branch only)
 
-**[Complete Docker Guide →](DOCKER.md)**
+**[Complete Docker Guide →](docs/DOCKER.md)**
 
 ---
 
@@ -335,7 +335,7 @@ We welcome contributions! Whether it's bug reports, feature requests, code contr
 | Mobile App | 🚧 Planned |
 | Multi-Warehouse | 🚧 Planned |
 
-**Latest Release:** v1.0.0 - Complete code quality overhaul with perfect type safety
+**Latest Release:** v1.1.1 - Bug fix release: printing, locations, modals, and scheduled backups
 
 ---
 

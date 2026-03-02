@@ -62,7 +62,6 @@ dev_manager.log
 # Environment files (use docker-compose env)
 .env
 .env.local
-.env.https
 MakerMatrix/frontend/.env
 MakerMatrix/frontend/.env.local
 

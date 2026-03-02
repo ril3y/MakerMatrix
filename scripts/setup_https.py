@@ -210,7 +210,7 @@ CORS_ORIGINS=https://localhost:{https_port},https://127.0.0.1:{https_port},http:
 DIGIKEY_OAUTH_CALLBACK=https://localhost:{https_port}/digikey_callback
 """
 
-        env_path = Path(".env.https")
+        env_path = Path(".env")
         with open(env_path, "w") as f:
             f.write(env_content.strip())
 
@@ -242,7 +242,7 @@ echo "🔒 MakerMatrix is running at https://localhost:{https_port}"
 echo "📝 API documentation: https://localhost:{https_port}/docs"
 """
 
-        script_path = Path("start_https.sh")
+        script_path = Path("scripts/start-https.sh")
         with open(script_path, "w") as f:
             f.write(script_content)
 
@@ -312,7 +312,7 @@ def main():
     print(f"   - DigiKey OAuth: https://{args.domain}:{args.https_port}/digikey_callback")
     print(f"")
     print(f"🚀 Start the application:")
-    print(f"   ./start_https.sh")
+    print(f"   ./scripts/start-https.sh")
     print(f"   # OR")
     print(f"   HTTPS_ENABLED=true python -m MakerMatrix.main")
 

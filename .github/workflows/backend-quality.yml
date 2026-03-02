@@ -6,7 +6,7 @@ on:
     paths:
       - 'MakerMatrix/**/*.py'
       - 'tests/**/*.py'
-      - 'vulture.toml'
+      - 'pyproject.toml'
       - '.github/workflows/backend-quality.yml'
       - 'requirements.txt'
   pull_request:
@@ -14,7 +14,7 @@ on:
     paths:
       - 'MakerMatrix/**/*.py'
       - 'tests/**/*.py'
-      - 'vulture.toml'
+      - 'pyproject.toml'
       - '.github/workflows/backend-quality.yml'
       - 'requirements.txt'
   workflow_dispatch:
@@ -80,16 +80,16 @@ jobs:
     - name: Run Vulture dead code analysis
       run: |
         source venv_test/bin/activate
-        vulture MakerMatrix/ --config vulture.toml --sort-by-size > vulture_report.txt || true
+        vulture MakerMatrix/ --config pyproject.toml --sort-by-size > vulture_report.txt || true
         cat vulture_report.txt
 
     - name: Check for critical dead code
       run: |
         source venv_test/bin/activate
         # Fail if vulture finds high-confidence (>95%) unused code outside of tests
-        if vulture MakerMatrix/ --config vulture.toml --min-confidence 95 --exclude MakerMatrix/tests/ | grep -q "unused"; then
+        if vulture MakerMatrix/ --config pyproject.toml --min-confidence 95 --exclude MakerMatrix/tests/ | grep -q "unused"; then
           echo "❌ High-confidence dead code found!"
-          vulture MakerMatrix/ --config vulture.toml --min-confidence 95 --exclude MakerMatrix/tests/
+          vulture MakerMatrix/ --config pyproject.toml --min-confidence 95 --exclude MakerMatrix/tests/
           exit 1
         else
           echo "✅ No critical dead code found"

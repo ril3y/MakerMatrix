@@ -145,7 +145,7 @@ def main():
     print("2. Carefully examine identified dead code")
     print("3. Remove confirmed dead code")
     print("4. Run tests to ensure nothing breaks")
-    print("5. Update vulture.toml and .ts-unused-exports.json to ignore false positives")
+    print("5. Update pyproject.toml [tool.vulture] and .ts-unused-exports.json to ignore false positives")
 
 
 if __name__ == "__main__":
