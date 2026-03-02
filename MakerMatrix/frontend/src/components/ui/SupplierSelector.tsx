@@ -10,12 +10,19 @@ import { supplierService } from '@/services/supplier.service'
 import { CustomSelect } from './CustomSelect'
 import toast from 'react-hot-toast'
 
+interface PendingSupplier {
+  name: string
+  displayName: string
+}
+
 interface SupplierSelectorProps {
   value: string
   onChange: (value: string) => void
   error?: string
   placeholder?: string
   disabled?: boolean
+  /** Temporarily show an auto-detected supplier in the dropdown without saving to backend */
+  pendingSupplier?: PendingSupplier | null
 }
 
 export const SupplierSelector = ({
@@ -24,6 +31,7 @@ export const SupplierSelector = ({
   error,
   placeholder = 'Select supplier...',
   disabled = false,
+  pendingSupplier = null,
 }: SupplierSelectorProps) => {
   const [suppliers, setSuppliers] = useState<SupplierConfig[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,12 +50,17 @@ export const SupplierSelector = ({
           s.supplier_name.toLowerCase() === value.toLowerCase() ||
           s.display_name.toLowerCase() === value.toLowerCase()
       )
-      if (!isConfigured) {
+      const isPending = pendingSupplier && pendingSupplier.name.toLowerCase() === value.toLowerCase()
+      if (!isConfigured && !isPending) {
         setShowCustomInput(true)
         setCustomSupplier(value)
+      } else if (isPending) {
+        // Pending supplier is in the dropdown — show dropdown, not custom input
+        setShowCustomInput(false)
+        setCustomSupplier('')
       }
     }
-  }, [value, suppliers])
+  }, [value, suppliers, pendingSupplier])
 
   const loadSuppliers = async () => {
     try {
@@ -196,14 +209,28 @@ export const SupplierSelector = ({
     options: [{ value: '__custom__', label: '+ Add Custom Supplier...' }],
   })
 
+  // Add pending (auto-detected but not yet saved) supplier if present
+  if (pendingSupplier && !suppliers.some(s => s.supplier_name.toLowerCase() === pendingSupplier.name.toLowerCase())) {
+    optionGroups.push({
+      label: 'Detected Supplier',
+      options: [{
+        value: pendingSupplier.name,
+        label: `${pendingSupplier.displayName} (new)`,
+        image_url: `/api/utility/supplier_icon/${encodeURIComponent(pendingSupplier.name)}`,
+      }],
+    })
+  }
+
   // Then add configured suppliers
+  // Use supplier_icon endpoint which auto-fetches and caches favicons,
+  // so icons survive container restarts even if the stored image_url is stale.
   if (suppliers.length > 0) {
     optionGroups.push({
       label: 'Configured Suppliers',
       options: suppliers.map((supplier) => ({
         value: supplier.supplier_name,
         label: supplier.display_name,
-        image_url: supplier.image_url,
+        image_url: `/api/utility/supplier_icon/${encodeURIComponent(supplier.supplier_name)}`,
       })),
     })
   }

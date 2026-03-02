@@ -1608,10 +1608,10 @@ const PartDetailsPage = () => {
                           ) : (
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                {supplierConfig?.image_url && (
+                                {part.supplier && (
                                   <img
-                                    src={supplierConfig.image_url}
-                                    alt={part.supplier || ''}
+                                    src={`/api/utility/supplier_icon/${encodeURIComponent(part.supplier)}`}
+                                    alt={part.supplier}
                                     className="w-5 h-5 rounded object-contain flex-shrink-0"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none'

@@ -904,6 +904,7 @@ class PartService(BaseService):
                                 notes="Allocation created during quantity update",
                             )
                             session.add(allocation)
+                            session.flush()  # Make allocation visible to subsequent handlers (e.g., location_id)
                             self.logger.info(
                                 f"Created new allocation with quantity {value} at location {location_id_for_allocation} for part '{part.part_name}' (ID: {part_id})"
                             )
@@ -930,19 +931,35 @@ class PartService(BaseService):
                         old_location = part.primary_location
                         old_location_name = old_location.name if old_location else "None"
 
+                        # Flush to ensure any allocation created by quantity handler is visible
+                        session.flush()
+
                         if not part.allocations:
                             # No allocations exist - create new allocation at this location
-                            allocation = PartLocationAllocation(
-                                part_id=part.id,
-                                location_id=value,
-                                quantity_at_location=0,
-                                is_primary_storage=True,
-                                notes="Location updated from part edit",
+                            # But first check if an allocation was already added to the session
+                            # (e.g., by the quantity handler in this same update)
+                            pending_alloc = (
+                                session.query(PartLocationAllocation)
+                                .filter_by(part_id=part.id, location_id=value)
+                                .first()
                             )
-                            session.add(allocation)
-                            self.logger.info(
-                                f"Created new allocation at location {value} for part '{part.part_name}' (ID: {part_id})"
-                            )
+                            if pending_alloc:
+                                # Allocation already exists (created by quantity handler) - just update location
+                                self.logger.info(
+                                    f"Allocation already exists at location {value} for part '{part.part_name}' (ID: {part_id}) - skipping duplicate creation"
+                                )
+                            else:
+                                allocation = PartLocationAllocation(
+                                    part_id=part.id,
+                                    location_id=value,
+                                    quantity_at_location=0,
+                                    is_primary_storage=True,
+                                    notes="Location updated from part edit",
+                                )
+                                session.add(allocation)
+                                self.logger.info(
+                                    f"Created new allocation at location {value} for part '{part.part_name}' (ID: {part_id})"
+                                )
                         else:
                             # Update primary allocation location
                             primary_alloc = next(

@@ -316,11 +316,10 @@ const PartsPage = () => {
       const suppliers = await supplierService.getSuppliers()
       const imageMap: Record<string, string> = {}
       suppliers.forEach((supplier) => {
-        if (supplier.image_url) {
-          // Map both supplier_name and display_name to image_url
-          imageMap[supplier.supplier_name.toLowerCase()] = supplier.image_url
-          imageMap[supplier.display_name.toLowerCase()] = supplier.image_url
-        }
+        // Use supplier_icon endpoint which auto-fetches and caches favicons
+        const iconUrl = `/api/utility/supplier_icon/${encodeURIComponent(supplier.supplier_name)}`
+        imageMap[supplier.supplier_name.toLowerCase()] = iconUrl
+        imageMap[supplier.display_name.toLowerCase()] = iconUrl
       })
       setSupplierImageMap(imageMap)
     } catch (err) {

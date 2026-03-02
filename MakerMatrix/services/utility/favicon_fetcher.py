@@ -5,6 +5,7 @@ Automatically fetches and stores favicons from supplier websites.
 """
 
 import logging
+import os
 import aiohttp
 import uuid
 from pathlib import Path
@@ -12,6 +13,14 @@ from urllib.parse import urlparse
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _get_static_images_dir() -> Path:
+    """Get the static images directory, respecting STATIC_FILES_PATH env var for Docker."""
+    env_path = os.getenv("STATIC_FILES_PATH")
+    if env_path:
+        return Path(env_path) / "images"
+    return Path("MakerMatrix/services/static/images")
 
 
 async def fetch_and_save_favicon(supplier_name: str, website_url: str, save_dir: Path) -> Optional[Path]:
@@ -95,8 +104,8 @@ async def fetch_and_save_favicon(supplier_name: str, website_url: str, save_dir:
 class FaviconFetcherService:
     """Service for fetching and storing supplier favicons"""
 
-    def __init__(self, static_images_dir: str = "MakerMatrix/services/static/images"):
-        self.static_images_dir = Path(static_images_dir)
+    def __init__(self, static_images_dir: str | None = None):
+        self.static_images_dir = Path(static_images_dir) if static_images_dir else _get_static_images_dir()
         self.static_images_dir.mkdir(parents=True, exist_ok=True)
 
     async def fetch_and_store_favicon(self, website_url: str, supplier_name: str) -> Optional[str]:

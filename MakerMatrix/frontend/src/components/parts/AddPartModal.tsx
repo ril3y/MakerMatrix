@@ -81,6 +81,13 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     scrapingWarning?: string
   } | null>(null)
 
+  // Pending supplier — auto-detected but not yet saved to backend (saved on part submit)
+  const [pendingSupplier, setPendingSupplier] = useState<{
+    name: string
+    displayName: string
+    url: string
+  } | null>(null)
+
   // Inline modal states
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
@@ -343,6 +350,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         additional_properties: Object.keys(properties).length > 0 ? properties : undefined,
       }
 
+      // Persist any pending (auto-detected) supplier before creating the part
+      if (pendingSupplier) {
+        await savePendingSupplier()
+      }
+
       console.log('🚀 Creating part with data:', submitData)
       const createdPart = await partsService.createPart(submitData)
       toast.success('Part created successfully')
@@ -473,6 +485,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setShowAddProjectModal(false)
     setShowConfigureSupplierPrompt(false)
     setDetectedSupplierInfo(null)
+    setPendingSupplier(null)
 
     onClose()
   }
@@ -499,6 +512,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     setImageUrl('')
     setEmoji(null)
     setSupplierRequiredFields([])
+    setPendingSupplier(null)
     localStorage.removeItem('addPartFormData')
   }
 
@@ -696,7 +710,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           } else {
             // Path 2: NOT a REST supplier - create as simple supplier
             console.log('📎 Not a REST supplier - creating simple supplier')
-            await createSimpleSupplier(supplierLower, formattedName, url)
+            await stageSimpleSupplier(supplierLower, formattedName, url)
           }
           return
         }
@@ -826,7 +840,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         } else {
           // Path 2: NOT a REST supplier - create as simple supplier
           console.log('📎 Not a REST supplier - creating simple supplier')
-          await createSimpleSupplier(supplierName, formattedName, url)
+          await stageSimpleSupplier(supplierName, formattedName, url)
         }
       }
     }
@@ -990,39 +1004,60 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     }
   }
 
-  const createSimpleSupplier = async (supplierName: string, formattedName: string, url: string) => {
+  /**
+   * Stage a simple supplier for creation — shown in dropdown immediately but
+   * only persisted to the backend when the part is actually submitted.
+   */
+  const stageSimpleSupplier = async (supplierName: string, formattedName: string, url: string) => {
     try {
-      // Check if supplier already exists
+      // Check if supplier already exists on backend
       const existingSuppliers = await supplierService.getSuppliers()
       const supplierExists = existingSuppliers.some(
         (s) => s.supplier_name.toLowerCase() === supplierName.toLowerCase()
       )
 
       if (!supplierExists) {
-        // Create simple supplier config with website URL (triggers favicon fetch on backend)
-        const supplierConfig = {
-          supplier_name: supplierName.toLowerCase(),
-          display_name: formattedName,
-          description: `Auto-detected supplier: ${formattedName}`,
-          website_url: url.startsWith('http') ? url : `https://${url}`,
-          supplier_type: 'simple' as const,
-          api_type: 'rest' as const,
-          base_url: '',
-          enabled: true,
-          supports_datasheet: false,
-          supports_image: false,
-          supports_pricing: false,
-          supports_stock: false,
-          supports_specifications: false,
-        }
-
-        await supplierService.createSupplier(supplierConfig)
+        // Don't save yet — just stage it so the dropdown shows it
+        setPendingSupplier({
+          name: supplierName.toLowerCase(),
+          displayName: formattedName,
+          url: url.startsWith('http') ? url : `https://${url}`,
+        })
         console.log(
-          `Created simple supplier config for ${formattedName} - favicon will be fetched automatically`
+          `Staged simple supplier ${formattedName} — will be saved when part is submitted`
         )
       }
     } catch (error) {
-      // Silent failure - supplier config creation is optional, part creation will still work
+      console.warn('Failed to check existing suppliers:', error)
+    }
+  }
+
+  /** Actually persist a pending simple supplier to the backend */
+  const savePendingSupplier = async () => {
+    if (!pendingSupplier) return
+    try {
+      const supplierConfig = {
+        supplier_name: pendingSupplier.name,
+        display_name: pendingSupplier.displayName,
+        description: `Auto-detected supplier: ${pendingSupplier.displayName}`,
+        website_url: pendingSupplier.url,
+        supplier_type: 'simple' as const,
+        api_type: 'rest' as const,
+        base_url: '',
+        enabled: true,
+        supports_datasheet: false,
+        supports_image: false,
+        supports_pricing: false,
+        supports_stock: false,
+        supports_specifications: false,
+      }
+
+      await supplierService.createSupplier(supplierConfig)
+      console.log(
+        `Created simple supplier config for ${pendingSupplier.displayName} - favicon will be fetched automatically`
+      )
+      setPendingSupplier(null)
+    } catch (error) {
       console.warn('Failed to create supplier config for favicon:', error)
     }
   }
@@ -1040,7 +1075,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const handleAddAsSimpleSupplier = async () => {
     if (detectedSupplierInfo) {
       const supplierName = detectedSupplierInfo.name.toLowerCase()
-      await createSimpleSupplier(supplierName, detectedSupplierInfo.name, detectedSupplierInfo.url)
+      await stageSimpleSupplier(supplierName, detectedSupplierInfo.name, detectedSupplierInfo.url)
       setShowConfigureSupplierPrompt(false)
       setDetectedSupplierInfo(null)
     }
@@ -1212,6 +1247,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 onChange={(value) => setFormData({ ...formData, supplier: value })}
                 error={errors.supplier}
                 placeholder="Select supplier..."
+                pendingSupplier={pendingSupplier}
               />
             </FormField>
           </div>
