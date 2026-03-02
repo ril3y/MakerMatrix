@@ -253,7 +253,10 @@ class TemplateService {
   }
 
   // Preview a draft template (unsaved) with all template properties applied
-  async previewTemplateDraft(templateConfig: Record<string, unknown>, data: Record<string, unknown>): Promise<Blob> {
+  async previewTemplateDraft(
+    templateConfig: Record<string, unknown>,
+    data: Record<string, unknown>
+  ): Promise<Blob> {
     const response = await fetch('/api/printer/preview/template/draft', {
       method: 'POST',
       headers: {

@@ -143,7 +143,8 @@ const DynamicPrinterModal = ({
           scaling_factor: existingPrinter.scaling_factor || 1.1,
           default_label_size:
             (existingConfig?.default_label_size as string) ||
-            (existingPrinter as unknown as Record<string, unknown>).default_label_size as string ||
+            ((existingPrinter as unknown as Record<string, unknown>)
+              .default_label_size as string) ||
             '12mm',
           custom_fields: customFields,
         })
