@@ -14,7 +14,9 @@ Default: patch
 
 import argparse
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -137,6 +139,22 @@ def main():
     # Update version files
     update_python_version(python_init, new_version)
     update_package_json_version(frontend_package, new_version)
+
+    # Regenerate openapi.json so the spec version stays in sync
+    generate_script = project_root / "scripts" / "generate_openapi.py"
+    if generate_script.exists():
+        print("🔄 Regenerating openapi.json ...")
+        env = {**os.environ, "JWT_SECRET_KEY": os.environ.get("JWT_SECRET_KEY", "bump-version-dummy")}
+        result = subprocess.run(
+            [sys.executable, str(generate_script)],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            print(f"✅ {result.stdout.strip()}")
+        else:
+            print(f"⚠️  openapi.json generation failed (non-fatal): {result.stderr.strip()}")
 
     print(f"\n✨ Version bumped successfully: {current_version} → {new_version}")
     print("\n📝 Next steps:")

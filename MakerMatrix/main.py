@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
 import os
 
+from MakerMatrix import __version__
 from MakerMatrix.repositories.printer_repository import PrinterRepository
 from MakerMatrix.routers import (
     parts_routes,
@@ -243,7 +244,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MakerMatrix",
     description="A comprehensive part inventory management system with label printing capabilities.",
-    version="1.0.0",
+    version=__version__,
     lifespan=lifespan,
     docs_url="/docs",  # Enable API documentation
     redoc_url="/redoc",  # Enable ReDoc documentation
@@ -543,6 +544,22 @@ def custom_openapi():
             description=app.description,
             routes=app.routes,
         )
+
+        # Inject JWT Bearer security scheme (documentation-only)
+        openapi_schema.setdefault("components", {}).setdefault("securitySchemes", {})
+        openapi_schema["components"]["securitySchemes"]["BearerAuth"] = {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT access token obtained from /api/auth/login",
+        }
+
+        # Apply BearerAuth to every operation that already carries a security key
+        for _path, methods in openapi_schema.get("paths", {}).items():
+            for _method, operation in methods.items():
+                if isinstance(operation, dict) and "security" in operation:
+                    operation["security"].append({"BearerAuth": []})
+
         app.openapi_schema = openapi_schema
         return app.openapi_schema
     except Exception as e:
@@ -551,7 +568,6 @@ def custom_openapi():
 
         # Try to generate schema route by route to identify problematic routes
         try:
-            from fastapi.openapi.utils import get_openapi
             from fastapi.routing import APIRoute
 
             # Get all non-problematic routes
@@ -573,6 +589,20 @@ def custom_openapi():
                     description=app.description,
                     routes=working_routes,
                 )
+
+                # Inject JWT Bearer security scheme into fallback schema too
+                openapi_schema.setdefault("components", {}).setdefault("securitySchemes", {})
+                openapi_schema["components"]["securitySchemes"]["BearerAuth"] = {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT",
+                    "description": "JWT access token obtained from /api/auth/login",
+                }
+                for _path, methods in openapi_schema.get("paths", {}).items():
+                    for _method, operation in methods.items():
+                        if isinstance(operation, dict) and "security" in operation:
+                            operation["security"].append({"BearerAuth": []})
+
                 app.openapi_schema = openapi_schema
                 return app.openapi_schema
 

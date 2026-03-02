@@ -1,13 +1,11 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Request
-from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from MakerMatrix.services.system.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.schemas.response import ResponseSchema
-from MakerMatrix.auth.dependencies import oauth2_scheme
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -31,17 +29,21 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# Response model for login / guest-login (schema-only; actual return is JSONResponse)
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: Dict[str, Any]
+    status: str
+    message: str
+
+
 router = APIRouter()
 auth_service = AuthService()
 user_repository = UserRepository()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserModel:
-    return auth_service.get_current_user(token)
-
-
-@router.post("/auth/login")
+@router.post("/auth/login", response_model=LoginResponse)
 async def login(request: Request):
     # Try to get form data first (for Swagger UI compatibility)
     try:
@@ -204,7 +206,7 @@ async def mobile_refresh_token(refresh_request: RefreshRequest) -> ResponseSchem
         )
 
 
-@router.post("/auth/refresh")
+@router.post("/auth/refresh", response_model=ResponseSchema)
 @standard_error_handling
 async def refresh_token(refresh_token: Optional[str] = Cookie(None)) -> JSONResponse:
     if not refresh_token:
@@ -252,7 +254,7 @@ async def refresh_token(refresh_token: Optional[str] = Cookie(None)) -> JSONResp
         )
 
 
-@router.post("/auth/logout")
+@router.post("/auth/logout", response_model=ResponseSchema)
 @standard_error_handling
 async def logout() -> JSONResponse:
     response_data = BaseRouter.build_success_response(data=None, message="Logout successful")
@@ -265,7 +267,7 @@ async def logout() -> JSONResponse:
     return response
 
 
-@router.post("/auth/guest-login")
+@router.post("/auth/guest-login", response_model=LoginResponse)
 @standard_error_handling
 async def guest_login() -> JSONResponse:
     """

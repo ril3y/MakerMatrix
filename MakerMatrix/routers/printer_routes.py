@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from MakerMatrix.services.printer.printer_manager_service import printer_manager
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.auth.dependencies import get_current_user
+from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity
 
 router = APIRouter()
@@ -89,7 +90,7 @@ class TemplateDraftPreviewRequest(BaseModel):
 
 
 # Printer Management Endpoints
-@router.get("/drivers")
+@router.get("/drivers", response_model=ResponseSchema)
 @standard_error_handling
 async def list_supported_drivers():
     """Get list of supported printer drivers."""
@@ -176,26 +177,26 @@ async def list_supported_drivers():
 
     return BaseRouter.build_success_response(
         data={"drivers": drivers_data}, message="Supported drivers retrieved successfully"
-    ).dict()
+    )
 
 
-@router.get("/drivers/{driver_type}")
+@router.get("/drivers/{driver_type}", response_model=ResponseSchema)
 @standard_error_handling
 async def get_driver_info(driver_type: str):
     """Get detailed information about a specific driver."""
     # Get all drivers first
     drivers_response = await list_supported_drivers()
-    drivers = drivers_response["data"]["drivers"]
+    drivers = drivers_response.data["drivers"]
 
     # Find the specific driver
     driver = next((d for d in drivers if d["id"] == driver_type), None)
     if not driver:
         raise HTTPException(status_code=404, detail=f"Driver '{driver_type}' not found")
 
-    return BaseRouter.build_success_response(data=driver, message=f"Driver information for {driver_type}").dict()
+    return BaseRouter.build_success_response(data=driver, message=f"Driver information for {driver_type}")
 
 
-@router.get("/printers")
+@router.get("/printers", response_model=ResponseSchema)
 @standard_error_handling
 async def list_printers():
     """Get list of all registered printers."""
@@ -283,10 +284,10 @@ async def list_printers():
     print(f"[DEBUG] Returning {len(printer_list)} printers")
     return BaseRouter.build_success_response(
         data=printer_list, message=f"Retrieved {len(printer_list)} printers"
-    ).dict()
+    )
 
 
-@router.get("/printers/{printer_id}")
+@router.get("/printers/{printer_id}", response_model=ResponseSchema)
 @standard_error_handling
 async def get_printer_info(printer_id: str):
     """Get detailed information about a specific printer."""
@@ -346,10 +347,10 @@ async def get_printer_info(printer_id: str):
 
     return BaseRouter.build_success_response(
         data=printer_data, message=f"Retrieved printer information for {printer_id}"
-    ).dict()
+    )
 
 
-@router.put("/printers/{printer_id}")
+@router.put("/printers/{printer_id}", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("printer_updated", "User {username} updated printer")
 async def update_printer(printer_id: str, update_data: PrinterRegistration):
@@ -413,10 +414,10 @@ async def update_printer(printer_id: str, update_data: PrinterRegistration):
 
     return BaseRouter.build_success_response(
         data={"printer_id": printer_id}, message=f"Printer '{update_data.name}' updated successfully"
-    ).dict()
+    )
 
 
-@router.delete("/printers/{printer_id}")
+@router.delete("/printers/{printer_id}", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("printer_deleted", "User {username} deleted printer")
 async def delete_printer(printer_id: str, request: Request = None):
@@ -461,10 +462,10 @@ async def delete_printer(printer_id: str, request: Request = None):
 
     return BaseRouter.build_success_response(
         data={"printer_id": printer_id}, message=f"Printer {printer_id} deleted successfully"
-    ).dict()
+    )
 
 
-@router.get("/printers/{printer_id}/status")
+@router.get("/printers/{printer_id}/status", response_model=ResponseSchema)
 @standard_error_handling
 async def get_printer_status(printer_id: str):
     """Get current status of a printer."""
@@ -475,10 +476,10 @@ async def get_printer_status(printer_id: str):
     status = await printer.get_status()
     return BaseRouter.build_success_response(
         data={"printer_id": printer_id, "status": status.value}, message=f"Retrieved status for printer {printer_id}"
-    ).dict()
+    )
 
 
-@router.post("/printers/{printer_id}/test")
+@router.post("/printers/{printer_id}/test", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("printer_tested", "User {username} tested printer connection")
 async def test_printer_connection(printer_id: str, label_size: Optional[str] = Query(default=None), request: Request = None):
@@ -584,10 +585,10 @@ async def test_printer_connection(printer_id: str, label_size: Optional[str] = Q
 
     return BaseRouter.build_success_response(
         data=response_data, message=f"Printer test {'successful' if overall_success else 'failed'} for {printer_id}"
-    ).dict()
+    )
 
 
-@router.post("/register")
+@router.post("/register", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("printer_registered", "User {username} registered printer")
 async def register_printer(registration: PrinterRegistration, request: Request = None):
@@ -650,10 +651,10 @@ async def register_printer(registration: PrinterRegistration, request: Request =
 
     return BaseRouter.build_success_response(
         data=response_data, message=f"Printer '{registration.name}' registered successfully"
-    ).dict()
+    )
 
 
-@router.post("/test-setup")
+@router.post("/test-setup", response_model=ResponseSchema)
 @standard_error_handling
 async def test_printer_setup(setup_data: dict):
     """Test printer setup without registering."""
@@ -688,7 +689,7 @@ async def test_printer_setup(setup_data: dict):
         }
         return BaseRouter.build_success_response(
             data=response_data, message=f"Test setup {'successful' if result.success else 'failed'}"
-        ).dict()
+        )
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported driver type: {printer_data.get('driver_type')}")
 
@@ -700,7 +701,7 @@ class LatestDiscovery(BaseModel):
     discovery_time_ms: int = 0
     scan_info: dict = {}
 
-@router.get("/discover/latest")
+@router.get("/discover/latest", response_model=ResponseSchema)
 @standard_error_handling
 async def get_latest_discovery():
     """Get latest discovery results (stubbed)."""
@@ -712,10 +713,10 @@ async def get_latest_discovery():
             scan_info={"status": "Discovery is currently disabled via API"}
         ), 
         message="Discovery results retrieved"
-    ).dict()
+    )
 
 
-@router.post("/discover/start")
+@router.post("/discover/start", response_model=ResponseSchema)
 @standard_error_handling
 async def start_discovery():
     """Start discovery (stubbed)."""
@@ -723,20 +724,20 @@ async def start_discovery():
     return BaseRouter.build_success_response(
         data={"task_id": "discovery-disabled", "status": "completed"},
         message="Printer discovery is currently disabled"
-    ).dict()
+    )
 
 
-@router.get("/discover/status/{task_id}")
+@router.get("/discover/status/{task_id}", response_model=ResponseSchema)
 @standard_error_handling
 async def get_discovery_status(task_id: str):
     """Get discovery status (stubbed)."""
     return BaseRouter.build_success_response(
         data={"status": "completed", "progress": 100, "step": "done"},
         message="Discovery status"
-    ).dict()
+    )
 
 # Printing Endpoints
-@router.post("/print/text")
+@router.post("/print/text", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("label_printed", "User {username} printed text label")
 async def print_text_label(
@@ -782,10 +783,10 @@ async def print_text_label(
     print(f"Returning print response: {response_data}")
     return BaseRouter.build_success_response(
         data=response_data, message=f"Text label print {'successful' if result.success else 'failed'}"
-    ).dict()
+    )
 
 
-@router.post("/print/qr")
+@router.post("/print/qr", response_model=ResponseSchema)
 @standard_error_handling
 async def print_qr_code(request: QRCodeRequest):
     """Print a QR code label."""
@@ -796,10 +797,10 @@ async def print_qr_code(request: QRCodeRequest):
     return BaseRouter.build_success_response(
         data={"success": result.success, "job_id": result.job_id, "message": result.message, "error": result.error},
         message=f"QR code print {'successful' if result.success else 'failed'}",
-    ).dict()
+    )
 
 
-@router.post("/print/image")
+@router.post("/print/image", response_model=ResponseSchema)
 @standard_error_handling
 async def print_image_label(
     printer_id: str = Body(...), label_size: str = Body(...), copies: int = Body(1), image: UploadFile = File(...)
@@ -817,10 +818,10 @@ async def print_image_label(
     return BaseRouter.build_success_response(
         data={"success": result.success, "job_id": result.job_id, "message": result.message, "error": result.error},
         message=f"Image print {'successful' if result.success else 'failed'}",
-    ).dict()
+    )
 
 
-@router.post("/print/template")
+@router.post("/print/template", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("template_label_printed", "User {username} printed template label")
 async def print_template_label(
@@ -924,10 +925,10 @@ async def print_template_label(
     print(f"Returning template print response: {response_data}")
     return BaseRouter.build_success_response(
         data=response_data, message=f"Template label print {'successful' if result.success else 'failed'}"
-    ).dict()
+    )
 
 
-@router.post("/preview/template")
+@router.post("/preview/template", response_model=ResponseSchema)
 @standard_error_handling
 async def preview_template_label(request: TemplatePreviewRequest):
     """Preview a label using a saved template."""
@@ -940,12 +941,11 @@ async def preview_template_label(request: TemplatePreviewRequest):
         response_data = {"preview_url": result.preview_url, "width": result.width, "height": result.height}
         return BaseRouter.build_success_response(
             data=response_data, message="Template preview generated successfully"
-        ).dict()
+        )
     else:
-        return BaseRouter.build_error_response(error=result.error, message="Failed to generate template preview").dict()
+        return BaseRouter.build_error_response(error=result.error, message="Failed to generate template preview")
 
-
-@router.post("/preview/template/draft")
+@router.post("/preview/template/draft", response_model=ResponseSchema)
 @standard_error_handling
 async def preview_template_draft(request: TemplateDraftPreviewRequest):
     """Preview a label from inline template config (unsaved draft)."""
@@ -957,12 +957,11 @@ async def preview_template_draft(request: TemplateDraftPreviewRequest):
         response_data = {"preview_url": result.preview_url, "width": result.width, "height": result.height}
         return BaseRouter.build_success_response(
             data=response_data, message="Draft template preview generated successfully"
-        ).dict()
+        )
     else:
-        return BaseRouter.build_error_response(error=result.error, message="Failed to generate draft preview").dict()
+        return BaseRouter.build_error_response(error=result.error, message="Failed to generate draft preview")
 
-
-@router.post("/print/advanced")
+@router.post("/print/advanced", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("advanced_label_printed", "User {username} printed advanced label")
 async def print_advanced_label(
@@ -1046,7 +1045,7 @@ async def print_advanced_label(
     print(f"Returning advanced print response: {response_data}")
     return BaseRouter.build_success_response(
         data=response_data, message=f"Advanced label print {'successful' if result.success else 'failed'}"
-    ).dict()
+    )
 
 
 # Note: Preview endpoints have been moved to /api/preview/* in preview_routes.py

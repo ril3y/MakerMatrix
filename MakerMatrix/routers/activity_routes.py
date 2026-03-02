@@ -33,7 +33,7 @@ class ActivityListResponse(BaseModel):
     total: int
 
 
-@router.get("/recent")
+@router.get("/recent", response_model=ResponseSchema)
 @standard_error_handling
 async def get_recent_activities(
     limit: int = Query(50, ge=1, le=100, description="Number of activities to return"),
@@ -66,7 +66,7 @@ async def get_recent_activities(
     )
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=ResponseSchema)
 @standard_error_handling
 async def get_activity_stats(
     hours: int = Query(24, ge=1, le=168, description="Hours back to analyze"),
@@ -100,7 +100,7 @@ async def get_activity_stats(
     return base_router.build_success_response(data=stats, message="Activity statistics retrieved successfully")
 
 
-@router.post("/cleanup")
+@router.post("/cleanup", response_model=ResponseSchema)
 @standard_error_handling
 async def cleanup_old_activities(
     keep_days: int = Query(90, ge=7, le=365, description="Days of activities to keep"),

@@ -17,6 +17,7 @@ from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPrio
 from MakerMatrix.models.backup_models import BackupConfigModel, BackupConfigCreate, BackupConfigUpdate
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.database.db import engine
+from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 from MakerMatrix.services.system.task_service import task_service
 
@@ -29,7 +30,7 @@ base_router = BaseRouter()
 # ========================================
 
 
-@router.post("/create")
+@router.post("/create", response_model=ResponseSchema)
 @standard_error_handling
 async def create_backup(
     password: Optional[str] = Form(None),
@@ -114,7 +115,7 @@ async def create_backup(
 # ========================================
 
 
-@router.post("/restore")
+@router.post("/restore", response_model=ResponseSchema)
 @standard_error_handling
 async def restore_backup(
     backup_file: UploadFile = File(...),
@@ -217,7 +218,7 @@ def _get_backups_dir() -> Path:
     return Path(__file__).parent.parent / "backups"
 
 
-@router.get("/list")
+@router.get("/list", response_model=ResponseSchema)
 @standard_error_handling
 async def list_backups(current_user: UserModel = Depends(require_permission("admin"))):
     """List all available backup files"""
@@ -287,7 +288,7 @@ async def download_backup(backup_filename: str, current_user: UserModel = Depend
     )
 
 
-@router.delete("/delete/{backup_filename}")
+@router.delete("/delete/{backup_filename}", response_model=ResponseSchema)
 @standard_error_handling
 async def delete_backup(backup_filename: str, current_user: UserModel = Depends(require_permission("admin"))):
     """Delete a backup file"""
@@ -322,7 +323,7 @@ async def delete_backup(backup_filename: str, current_user: UserModel = Depends(
 # ========================================
 
 
-@router.post("/retention/run")
+@router.post("/retention/run", response_model=ResponseSchema)
 @standard_error_handling
 async def run_retention_cleanup(current_user: UserModel = Depends(require_permission("admin"))):
     """Manually trigger backup retention cleanup"""
@@ -363,7 +364,7 @@ async def run_retention_cleanup(current_user: UserModel = Depends(require_permis
 # ========================================
 
 
-@router.get("/config")
+@router.get("/config", response_model=ResponseSchema)
 @standard_error_handling
 async def get_backup_config(current_user: UserModel = Depends(require_permission("admin"))):
     """Get current backup configuration (password excluded for security)"""
@@ -395,7 +396,7 @@ async def get_backup_config(current_user: UserModel = Depends(require_permission
         )
 
 
-@router.get("/config/password-set")
+@router.get("/config/password-set", response_model=ResponseSchema)
 @standard_error_handling
 async def check_password_set(current_user: UserModel = Depends(require_permission("admin"))):
     """Check if scheduled backup encryption password is configured"""
@@ -409,7 +410,7 @@ async def check_password_set(current_user: UserModel = Depends(require_permissio
         )
 
 
-@router.put("/config")
+@router.put("/config", response_model=ResponseSchema)
 @standard_error_handling
 async def update_backup_config(
     config_update: BackupConfigUpdate, current_user: UserModel = Depends(require_permission("admin"))
@@ -464,7 +465,7 @@ async def update_backup_config(
 # ========================================
 
 
-@router.get("/status")
+@router.get("/status", response_model=ResponseSchema)
 @standard_error_handling
 async def get_backup_status(current_user: UserModel = Depends(require_permission("admin"))):
     """Get comprehensive backup system status"""

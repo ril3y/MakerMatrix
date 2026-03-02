@@ -39,7 +39,7 @@ else:
 BUILTIN_SUPPLIER_ICONS_PATH = Path(__file__).parent.parent / "static" / "supplier_icons"
 
 
-@router.post("/upload_image")
+@router.post("/upload_image", response_model=ResponseSchema)
 @standard_error_handling
 async def upload_image(file: UploadFile = File(...), current_user: UserModel = Depends(get_current_user)):
     """
@@ -208,7 +208,7 @@ async def debug_server_info():
     }
 
 
-@router.get("/get_counts")
+@router.get("/get_counts", response_model=ResponseSchema)
 @standard_error_handling
 async def get_counts():
     """
@@ -232,7 +232,7 @@ async def get_counts():
     )
 
 
-@router.post("/backup/create")
+@router.post("/backup/create", response_model=ResponseSchema)
 @standard_error_handling
 async def create_database_backup_task(current_user: UserModel = Depends(require_permission("admin"))):
     """Create a comprehensive database backup task and return task information for monitoring"""
@@ -276,7 +276,7 @@ async def create_database_backup_task(current_user: UserModel = Depends(require_
     )
 
 
-@router.get("/backup/download")
+@router.get("/backup/download", response_model=ResponseSchema)
 async def create_database_backup_task_legacy(current_user: UserModel = Depends(require_permission("admin"))):
     """Legacy GET endpoint for backup creation - redirects to new task-based system"""
     # For backward compatibility with existing frontend
@@ -314,7 +314,7 @@ async def download_completed_backup(
     )
 
 
-@router.get("/backup/list")
+@router.get("/backup/list", response_model=ResponseSchema)
 @standard_error_handling
 async def list_available_backups(current_user: UserModel = Depends(require_permission("admin"))):
     """List all available backup files"""
@@ -375,7 +375,7 @@ async def export_data_json():
     return FileResponse(path=temp_file, filename=f"makermatrix_export_{timestamp}.json", media_type="application/json")
 
 
-@router.get("/backup/status")
+@router.get("/backup/status", response_model=ResponseSchema)
 @standard_error_handling
 async def get_backup_status():
     """Get backup status and database information"""
@@ -435,7 +435,7 @@ async def get_backup_status():
 
 @router.delete("/clear_suppliers", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
-@log_activity
+@log_activity("suppliers_cleared", "User {username} cleared all supplier data")
 async def clear_suppliers_data(
     current_user: UserModel = Depends(require_permission("admin")),
 ) -> ResponseSchema[Dict[str, Any]]:
@@ -514,7 +514,7 @@ async def clear_suppliers_data(
     return base_router.build_success_response(message="All supplier data has been cleared successfully", data=result)
 
 
-@router.api_route("/static/datasheets/{filename}", methods=["GET", "HEAD"])
+@router.get("/static/datasheets/{filename}")
 async def serve_datasheet(filename: str):
     """Serve component datasheets"""
     file_path = STATIC_BASE_PATH / "datasheets" / filename

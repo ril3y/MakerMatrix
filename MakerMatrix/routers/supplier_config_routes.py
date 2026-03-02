@@ -458,7 +458,7 @@ async def store_credentials(
         service = SupplierConfigService()
 
         # Filter out None values
-        creds_dict = {k: v for k, v in credentials.dict().items() if v is not None}
+        creds_dict = {k: v for k, v in credentials.model_dump().items() if v is not None}
 
         if not creds_dict:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No credentials provided")
@@ -489,7 +489,7 @@ async def update_credentials(
         service = SupplierConfigService()
 
         # Filter out None values
-        creds_dict = {k: v for k, v in credentials.dict().items() if v is not None}
+        creds_dict = {k: v for k, v in credentials.model_dump().items() if v is not None}
 
         if not creds_dict:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No credentials provided")

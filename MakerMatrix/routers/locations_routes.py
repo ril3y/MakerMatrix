@@ -46,7 +46,7 @@ router = APIRouter()
 base_router = BaseRouter()
 
 
-@router.get("/get_all_locations")
+@router.get("/get_all_locations", response_model=ResponseSchema)
 @standard_error_handling
 async def get_all_locations(
     hide_auto_slots: bool = Query(False, description="Hide auto-generated container slots")
@@ -91,7 +91,7 @@ async def get_all_locations(
     return base_router.build_success_response(message=service_response.message, data=location_data)
 
 
-@router.get("/get_location")
+@router.get("/get_location", response_model=ResponseSchema)
 @standard_error_handling
 async def get_location(location_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[Dict[str, Any]]:
     if not location_id and not name:
@@ -108,7 +108,7 @@ async def get_location(location_id: Optional[str] = None, name: Optional[str] = 
     )
 
 
-@router.put("/update_location/{location_id}")
+@router.put("/update_location/{location_id}", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("location_updated", "User {username} updated location")
 async def update_location(
@@ -184,7 +184,7 @@ async def update_location(
     )
 
 
-@router.post("/add_location")
+@router.post("/add_location", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("location_created", "User {username} created location")
 async def add_location(
@@ -253,7 +253,7 @@ async def add_location(
     return base_router.build_success_response(message=success_message, data=response_data)
 
 
-@router.get("/get_location_details/{location_id}")
+@router.get("/get_location_details/{location_id}", response_model=ResponseSchema)
 @standard_error_handling
 async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any]]:
     """
@@ -292,7 +292,7 @@ async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, A
     return base_router.build_success_response(message=service_response.message, data=service_response.data)
 
 
-@router.get("/get_container_slots/{container_id}")
+@router.get("/get_container_slots/{container_id}", response_model=ResponseSchema)
 @standard_error_handling
 async def get_container_slots(
     container_id: str, include_occupancy: bool = Query(True, description="Include occupancy information for each slot")
@@ -324,7 +324,7 @@ async def get_container_slots(
     return base_router.build_success_response(message=service_response.message, data=service_response.data)
 
 
-@router.get("/preview-location-delete/{location_id}")
+@router.get("/preview-location-delete/{location_id}", response_model=ResponseSchema)
 @standard_error_handling
 async def preview_location_delete(location_id: str) -> ResponseSchema:
     """
@@ -344,7 +344,7 @@ async def preview_location_delete(location_id: str) -> ResponseSchema:
     return base_router.build_success_response(message=service_response.message, data=service_response.data)
 
 
-@router.delete("/delete_location/{location_id}")
+@router.delete("/delete_location/{location_id}", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("location_deleted", "User {username} deleted location")
 async def delete_location(
@@ -385,7 +385,7 @@ async def delete_location(
     return base_router.build_success_response(message=response["message"], data=response["data"])
 
 
-@router.delete("/cleanup-locations")
+@router.delete("/cleanup-locations", response_model=ResponseSchema)
 @standard_error_handling
 async def cleanup_locations(current_user: UserModel = Depends(require_admin)) -> ResponseSchema[Dict[str, Any]]:
     """

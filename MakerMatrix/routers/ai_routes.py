@@ -11,7 +11,7 @@ router = APIRouter()
 base_router = BaseRouter()
 
 
-@router.get("/config")
+@router.get("/config", response_model=ResponseSchema)
 @standard_error_handling
 async def get_ai_config():
     """Get current AI configuration"""
@@ -24,7 +24,7 @@ async def get_ai_config():
     return base_router.build_success_response(message="AI configuration retrieved successfully", data=config_dict)
 
 
-@router.put("/config")
+@router.put("/config", response_model=ResponseSchema)
 @standard_error_handling
 async def update_ai_config(config_update: AIConfigUpdate):
     """Update AI configuration"""
@@ -56,7 +56,7 @@ class ChatResponse(BaseModel):
     provider: str = ""
 
 
-@router.post("/chat")
+@router.post("/chat", response_model=ResponseSchema)
 @standard_error_handling
 async def chat_with_ai(chat_data: ChatMessage):
     """Chat with AI assistant"""
@@ -78,7 +78,7 @@ async def chat_with_ai(chat_data: ChatMessage):
     )
 
 
-@router.post("/test")
+@router.post("/test", response_model=ResponseSchema)
 @standard_error_handling
 async def test_ai_connection():
     """Test AI connection with current configuration"""
@@ -87,12 +87,12 @@ async def test_ai_connection():
     if result.get("error"):
         return base_router.build_error_response(message=result["error"], data=result)
     elif result.get("warning"):
-        return base_router.build_warning_response(message=result["warning"], data=result)
+        return base_router.build_success_response(message=result["warning"], data=result)
     else:
         return base_router.build_success_response(message=result.get("message", "Connection successful"), data=result)
 
 
-@router.post("/reset")
+@router.post("/reset", response_model=ResponseSchema)
 @standard_error_handling
 async def reset_ai_config():
     """Reset AI configuration to defaults"""
@@ -103,7 +103,7 @@ async def reset_ai_config():
         raise HTTPException(status_code=500, detail="Failed to reset configuration")
 
 
-@router.get("/providers")
+@router.get("/providers", response_model=ResponseSchema)
 @standard_error_handling
 async def get_available_providers():
     """Get information about available AI providers"""
@@ -120,7 +120,7 @@ async def get_available_providers():
     )
 
 
-@router.get("/models")
+@router.get("/models", response_model=ResponseSchema)
 @standard_error_handling
 async def get_available_models():
     """Get available models from the current AI provider"""

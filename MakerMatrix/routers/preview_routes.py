@@ -123,7 +123,7 @@ def get_preview_manager():
         raise Exception(f"Preview manager initialization failed: {str(e)}")
 
 
-@router.get("/printers")
+@router.get("/printers", response_model=ResponseSchema)
 @standard_error_handling
 async def get_available_printers() -> ResponseSchema[Dict[str, Any]]:
     """Get list of available printers for preview."""
@@ -135,7 +135,7 @@ async def get_available_printers() -> ResponseSchema[Dict[str, Any]]:
     return base_router.build_success_response(data=data, message="Available printers retrieved successfully")
 
 
-@router.get("/labels/sizes")
+@router.get("/labels/sizes", response_model=ResponseSchema)
 @standard_error_handling
 async def get_label_sizes(printer_id: Optional[str] = None) -> ResponseSchema[Dict[str, Any]]:
     """Get available label sizes for preview."""
@@ -272,7 +272,7 @@ async def preview_combined_label(
     )
 
 
-@router.get("/validate/size/{label_size}")
+@router.get("/validate/size/{label_size}", response_model=ResponseSchema)
 @standard_error_handling
 async def validate_label_size(label_size: str, printer_id: Optional[str] = None) -> ResponseSchema[Dict[str, Any]]:
     """Validate if a label size is supported."""
@@ -287,7 +287,7 @@ async def validate_label_size(label_size: str, printer_id: Optional[str] = None)
     return base_router.build_success_response(data=data, message="Label size validation completed")
 
 
-@router.get("/health")
+@router.get("/health", response_model=ResponseSchema)
 @standard_error_handling
 async def preview_system_health() -> ResponseSchema[Dict[str, Any]]:
     """Health check endpoint for the preview system."""
