@@ -226,7 +226,7 @@ const PrinterModal = ({
       // Clear preview when modal opens
       setPreviewUrl(null)
     }
-  }, [isOpen, partData, loadPrinters])
+  }, [isOpen, partData, loadPrinters, defaultTemplate])
 
   // Auto-generate preview when template configuration changes
   useEffect(() => {
@@ -720,10 +720,9 @@ const PrinterModal = ({
                     options={
                       printerInfo?.supported_sizes && printerInfo.supported_sizes.length > 0
                         ? printerInfo.supported_sizes.map((size) => ({
-                              value: size.name,
-                              label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`,
-                            })
-                          )
+                            value: size.name,
+                            label: `${size.name} - ${size.width_mm}mm ${size.height_mm ? `x ${size.height_mm}mm` : '(continuous)'}`,
+                          }))
                         : [
                             { value: '12mm', label: '12mm - 12mm (continuous)' },
                             { value: '17mm', label: '17mm - 17mm (continuous)' },

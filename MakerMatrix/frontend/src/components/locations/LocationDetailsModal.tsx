@@ -610,7 +610,11 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         <PrinterModal
           isOpen={showPrintModal}
           onClose={handleClosePrintModal}
-          title={selectedPartForPrint ? `Print Label: ${selectedPartForPrint.part_name}` : `Print Label: ${location.name}`}
+          title={
+            selectedPartForPrint
+              ? `Print Label: ${selectedPartForPrint.part_name}`
+              : `Print Label: ${location.name}`
+          }
           defaultTemplate={selectedPartForPrint ? undefined : '{name}'}
           partData={
             selectedPartForPrint
