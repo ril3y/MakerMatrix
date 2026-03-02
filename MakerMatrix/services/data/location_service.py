@@ -681,11 +681,75 @@ class LocationService(BaseService):
                     .order_by(LocationModel.slot_number)
                 )
 
-                slots = session.exec(query).all()
+                slots = list(session.exec(query).all())
 
-                if not slots:
-                    self.logger.debug(f"No slots found for container {container_id}")
-                    return self.success_response(f"No slots found for container", [])
+                # Auto-generate missing slots if container has slot_count configured
+                container_query = LocationQueryModel(id=container_id)
+                try:
+                    container = self.location_repo.get_location(session, container_query)
+                except ResourceNotFoundError:
+                    return self.error_response(f"Container with ID '{container_id}' not found")
+
+                expected_slot_count = container.slot_count or 0
+                existing_count = len(slots)
+
+                if expected_slot_count > 0 and existing_count < expected_slot_count:
+                    missing_count = expected_slot_count - existing_count
+                    self.logger.info(
+                        f"Container '{container.name}' has {existing_count}/{expected_slot_count} slots. "
+                        f"Auto-generating {missing_count} missing slot(s)."
+                    )
+
+                    # Determine which slot numbers already exist
+                    existing_slot_numbers: Set[int] = {s.slot_number for s in slots if s.slot_number is not None}
+
+                    layout_type = container.slot_layout_type or "simple"
+                    naming_pattern = container.slot_naming_pattern or (
+                        "R{row}-C{col}" if layout_type == "grid" else "Slot {n}"
+                    )
+
+                    if layout_type == "grid" and container.grid_rows and container.grid_columns:
+                        # Generate only the missing grid slots
+                        slot_number = 1
+                        for row in range(1, container.grid_rows + 1):
+                            for col in range(1, container.grid_columns + 1):
+                                if slot_number not in existing_slot_numbers:
+                                    slot_metadata = {"row": row, "column": col}
+                                    slot_name = apply_slot_naming_pattern(naming_pattern, slot_number, slot_metadata)
+                                    slot_data = {
+                                        "name": slot_name,
+                                        "parent_id": container.id,
+                                        "location_type": "slot",
+                                        "is_auto_generated_slot": True,
+                                        "slot_number": slot_number,
+                                        "slot_metadata": slot_metadata,
+                                    }
+                                    slot = self.location_repo.add_location(session, slot_data)
+                                    slots.append(slot)
+                                    self.logger.debug(f"Auto-created grid slot: {slot_name} (#{slot_number})")
+                                slot_number += 1
+                    else:
+                        # Generate only the missing simple slots
+                        for i in range(1, expected_slot_count + 1):
+                            if i not in existing_slot_numbers:
+                                slot_name = apply_slot_naming_pattern(naming_pattern, i, None)
+                                slot_data = {
+                                    "name": slot_name,
+                                    "parent_id": container.id,
+                                    "location_type": "slot",
+                                    "is_auto_generated_slot": True,
+                                    "slot_number": i,
+                                    "slot_metadata": None,
+                                }
+                                slot = self.location_repo.add_location(session, slot_data)
+                                slots.append(slot)
+                                self.logger.debug(f"Auto-created simple slot: {slot_name} (#{i})")
+
+                    # Re-sort by slot_number after adding new slots
+                    slots.sort(key=lambda s: s.slot_number or 0)
+                    self.logger.info(
+                        f"Auto-generation complete. Container '{container.name}' now has {len(slots)} slots."
+                    )
 
                 # Convert slots to dictionaries
                 slots_data = []
@@ -714,7 +778,7 @@ class LocationService(BaseService):
                                 [
                                     {
                                         "part_id": alloc.part_id,
-                                        "part_name": alloc.part.name if alloc.part else "Unknown",
+                                        "part_name": alloc.part.part_name if alloc.part else "Unknown",
                                         "part_number": alloc.part.part_number if alloc.part else None,
                                         "quantity": alloc.quantity_at_location,
                                         "is_primary": alloc.is_primary_storage,
