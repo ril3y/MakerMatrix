@@ -55,7 +55,6 @@ McMaster-Carr uses a private API with **client certificate authentication** (mut
 3. McMaster-Carr will review and, if approved, provide:
    - A **client certificate** file (`.pfx` or `.p12` format)
    - A **certificate password**
-   - API **username** and **password** (separate from your website login)
    - API documentation (Postman collection)
 
 > **Note**: Approval is not guaranteed. McMaster-Carr typically approves businesses with established purchasing accounts.
@@ -70,8 +69,8 @@ McMaster-Carr uses a private API with **client certificate authentication** (mut
 |-------|-------------|
 | **Client Certificate (.pfx)** | Upload the `.pfx` or `.p12` certificate file provided by McMaster-Carr |
 | **Certificate Password** | The password for the certificate file |
-| **Username** | Your McMaster-Carr API username (not your website login) |
-| **Password** | Your McMaster-Carr API password |
+| **Username** | Your McMaster-Carr website login username |
+| **Password** | Your McMaster-Carr website login password |
 | **API Base URL** | `https://api.mcmaster.com` (default, typically no change needed) |
 
 4. Click **Test Connection** to verify your credentials
@@ -103,7 +102,7 @@ Then in the MakerMatrix UI, set the certificate path to `/data/certs/mcmaster-ce
 |-------|----------|
 | "Certificate file not found" | Verify the file path and that the certificate is mounted in Docker |
 | "Failed to load certificate" | Check that the certificate password is correct |
-| "Authentication failed" | Verify your API username/password (different from website login) |
+| "Authentication failed" | Verify your McMaster-Carr website username and password |
 | Images not loading | This is normal for first load — MakerMatrix downloads them server-side on enrichment |
 | "Rate limit exceeded" | Increase the request delay in supplier configuration |
 
