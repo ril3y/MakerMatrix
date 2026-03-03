@@ -2,7 +2,7 @@
 
 **A powerful, modern electronic parts inventory management system designed for makers, engineers, and electronics enthusiasts.**
 
-![Version](https://img.shields.io/badge/version-1.1.1-blue)
+![Version](https://img.shields.io/badge/version-1.1.3-blue)
 ![Code Quality](https://img.shields.io/badge/code%20quality-100%25%20type%20safe-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![GitHub stars](https://img.shields.io/github/stars/ril3y/MakerMatrix?style=social)

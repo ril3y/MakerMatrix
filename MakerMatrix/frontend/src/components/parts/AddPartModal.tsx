@@ -1010,16 +1010,24 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
    */
   const stageSimpleSupplier = async (supplierName: string, formattedName: string, url: string) => {
     try {
+      const supplierLower = supplierName.toLowerCase()
+
+      // Always set the supplier name on the form so the part gets saved with it
+      setFormData((prev) => ({
+        ...prev,
+        supplier: supplierLower,
+      }))
+
       // Check if supplier already exists on backend
       const existingSuppliers = await supplierService.getSuppliers()
       const supplierExists = existingSuppliers.some(
-        (s) => s.supplier_name.toLowerCase() === supplierName.toLowerCase()
+        (s) => s.supplier_name.toLowerCase() === supplierLower
       )
 
       if (!supplierExists) {
         // Don't save yet — just stage it so the dropdown shows it
         setPendingSupplier({
-          name: supplierName.toLowerCase(),
+          name: supplierLower,
           displayName: formattedName,
           url: url.startsWith('http') ? url : `https://${url}`,
         })
@@ -1027,6 +1035,8 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           `Staged simple supplier ${formattedName} — will be saved when part is submitted`
         )
       }
+
+      toast.success(`Auto-detected supplier: ${formattedName}`)
     } catch (error) {
       console.warn('Failed to check existing suppliers:', error)
     }

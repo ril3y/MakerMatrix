@@ -427,7 +427,7 @@ class McMasterCarrSupplier(BaseSupplier):
 
     async def _handle_response(self, response: aiohttp.ClientResponse, endpoint: str) -> Dict[str, Any]:
         """Handle API response and extract data or raise appropriate errors"""
-        if response.status == 200:
+        if response.status in (200, 201):
             content_type = response.headers.get("Content-Type", "")
             if "application/json" in content_type:
                 return await response.json()
@@ -569,27 +569,29 @@ class McMasterCarrSupplier(BaseSupplier):
             logger.error(f"❌ Search failed for query '{query}': {str(e)}")
             return []
 
-    async def _subscribe_to_product(self, part_number: str, credentials: Dict[str, str] = None) -> bool:
+    async def _subscribe_to_product(self, part_number: str, credentials: Dict[str, str] = None) -> Optional[Dict[str, Any]]:
         """Subscribe to a product to enable access to its data.
 
         Per McMaster API docs, the request body format is:
         {"URL": "https://mcmaster.com/{partNumber}"}
+
+        Returns the product data from the subscribe response (201), or None on failure.
         """
         try:
             creds = credentials or self._credentials or {}
             # PUT /v1/products with URL format per Postman collection
             product_url = f"https://mcmaster.com/{part_number}"
-            await self._make_api_request(
+            response = await self._make_api_request(
                 "products",
                 creds,
                 method="PUT",
                 json_body={"URL": product_url}
             )
             logger.info(f"✅ Subscribed to product: {part_number}")
-            return True
+            return response
         except Exception as e:
             logger.warning(f"⚠️ Could not subscribe to product {part_number}: {str(e)}")
-            return False
+            return None
 
     async def get_part_details(self, supplier_part_number: str) -> Optional[PartSearchResult]:
         """Get detailed part information from McMaster-Carr API"""
@@ -601,16 +603,36 @@ class McMasterCarrSupplier(BaseSupplier):
                 logger.error("No credentials configured for part details")
                 return None
 
-            # McMaster-Carr requires subscribing to products before accessing them
-            # Try to subscribe first (may already be subscribed)
-            await self._subscribe_to_product(supplier_part_number, credentials)
+            # McMaster-Carr requires subscribing to products before accessing them.
+            # The subscribe (PUT) response already contains full product data.
+            subscribe_data = await self._subscribe_to_product(supplier_part_number, credentials)
 
-            # Get product details using correct endpoint: /v1/products/{partNumber}
+            if subscribe_data:
+                result = self._parse_part_data(subscribe_data)
+                if result:
+                    # Download authenticated image if it's an API URL
+                    if result.image_url and "api.mcmaster.com" in result.image_url:
+                        local_url = await self._download_authenticated_image(
+                            result.image_url, supplier_part_number
+                        )
+                        if local_url:
+                            result.image_url = local_url
+                    logger.info(f"✅ Retrieved details for part from subscribe response: {supplier_part_number}")
+                    return result
+
+            # Fallback: try GET endpoint directly
             endpoint = f"products/{supplier_part_number}"
             response = await self._make_api_request(endpoint, credentials)
 
             result = self._parse_part_data(response)
             if result:
+                # Download authenticated image if it's an API URL
+                if result.image_url and "api.mcmaster.com" in result.image_url:
+                    local_url = await self._download_authenticated_image(
+                        result.image_url, supplier_part_number
+                    )
+                    if local_url:
+                        result.image_url = local_url
                 logger.info(f"✅ Retrieved details for part: {supplier_part_number}")
                 return result
             else:
@@ -625,49 +647,88 @@ class McMasterCarrSupplier(BaseSupplier):
             return None
 
     def _parse_part_data(self, part_data: Dict[str, Any]) -> Optional[PartSearchResult]:
-        """Parse part data from McMaster-Carr API response"""
+        """Parse part data from McMaster-Carr API response.
+
+        The McMaster API returns PascalCase fields:
+        - PartNumber, ProductStatus, ProductCategory
+        - FamilyDescription, DetailDescription
+        - Specifications: [{Attribute, Values}, ...]
+        - Links: [{Key, Value}, ...]
+        """
         try:
-            part_number = part_data.get("partNumber")
+            # Support both PascalCase (actual API) and camelCase (legacy)
+            part_number = part_data.get("PartNumber") or part_data.get("partNumber")
             if not part_number:
                 return None
 
-            # Extract specifications
-            specifications = {}
-            specs_data = part_data.get("specifications", {})
-            for spec_name, spec_value in specs_data.items():
-                if spec_value:
-                    specifications[spec_name] = spec_value
+            # Build description from FamilyDescription + DetailDescription
+            family_desc = part_data.get("FamilyDescription", "")
+            detail_desc = part_data.get("DetailDescription", "")
+            if family_desc and detail_desc:
+                description = f"{family_desc}, {detail_desc}"
+            elif family_desc:
+                description = family_desc
+            elif detail_desc:
+                description = detail_desc
+            else:
+                description = part_data.get("description", f"McMaster-Carr Part {part_number}")
 
-            # Extract pricing
+            # Extract category
+            category = part_data.get("ProductCategory") or part_data.get("category", "Industrial Supply")
+
+            # Extract specifications from array format: [{Attribute, Values}, ...]
+            specifications = {}
+            specs_data = part_data.get("Specifications") or part_data.get("specifications")
+            if isinstance(specs_data, list):
+                for spec in specs_data:
+                    attr = spec.get("Attribute") or spec.get("attribute", "")
+                    values = spec.get("Values") or spec.get("values", [])
+                    if attr and values:
+                        specifications[attr] = ", ".join(str(v) for v in values)
+            elif isinstance(specs_data, dict):
+                for spec_name, spec_value in specs_data.items():
+                    if spec_value:
+                        specifications[spec_name] = spec_value
+
+            # Extract URLs from Links array: [{Key, Value}, ...]
+            image_url = None
+            datasheet_url = None
+            price_link = None
+            links = part_data.get("Links", [])
+            base_api_url = self._config.get("api_base_url", "https://api.mcmaster.com")
+            for link in links:
+                key = link.get("Key", "")
+                value = link.get("Value", "")
+                if key == "Image" and value:
+                    # Image links are API-relative paths
+                    image_url = f"{base_api_url}/{value.lstrip('/')}" if not value.startswith("http") else value
+                elif key == "2-D PDF" and value:
+                    datasheet_url = f"{base_api_url}/{value.lstrip('/')}" if not value.startswith("http") else value
+                elif key == "Price" and value:
+                    price_link = value
+
+            # Fallback to legacy field names
+            if not image_url:
+                image_url = part_data.get("imageUrl")
+                if image_url and not image_url.startswith("http"):
+                    image_url = f"https://www.mcmaster.com{image_url}"
+
+            # Extract pricing from nested data or link
             pricing_data = part_data.get("pricing", {})
             price_text = None
             if pricing_data:
                 price_value = pricing_data.get("unitPrice")
                 unit_quantity = pricing_data.get("unitQuantity", 1)
                 currency = pricing_data.get("currency", "USD")
-
                 if price_value:
-                    if unit_quantity > 1:
-                        price_text = f"{currency} {price_value} per {unit_quantity}"
-                    else:
-                        price_text = f"{currency} {price_value} each"
-
-            # Extract image URL
-            image_url = part_data.get("imageUrl")
-            if image_url and not image_url.startswith("http"):
-                image_url = f"https://www.mcmaster.com{image_url}"
-
-            # Extract datasheet URL
-            datasheet_url = part_data.get("datasheetUrl")
-            if datasheet_url and not datasheet_url.startswith("http"):
-                datasheet_url = f"https://www.mcmaster.com{datasheet_url}"
+                    price_text = f"{currency} {price_value} per {unit_quantity}" if unit_quantity > 1 else f"{currency} {price_value} each"
 
             return PartSearchResult(
                 supplier_part_number=part_number,
                 manufacturer="McMaster-Carr",
                 manufacturer_part_number=part_number,
-                description=part_data.get("description", f"McMaster-Carr Part {part_number}"),
-                category=part_data.get("category", "Industrial Supply"),
+                description=description,
+                category=category,
                 datasheet_url=datasheet_url,
                 image_url=image_url,
                 stock_quantity=part_data.get("stockQuantity"),
@@ -675,16 +736,81 @@ class McMasterCarrSupplier(BaseSupplier):
                 specifications=specifications if specifications else None,
                 additional_data={
                     "source": "mcmaster_api",
-                    "api_version": part_data.get("apiVersion"),
-                    "last_updated": part_data.get("lastUpdated"),
-                    "unit_of_measure": part_data.get("unitOfMeasure"),
-                    "minimum_order_quantity": part_data.get("minimumOrderQuantity"),
-                    "lead_time_days": part_data.get("leadTimeDays"),
+                    "product_status": part_data.get("ProductStatus"),
+                    "product_detail_url": f"https://www.mcmaster.com/{part_number}",
+                    "price_api_link": price_link,
                 },
             )
 
         except Exception as e:
             logger.error(f"❌ Failed to parse part data: {str(e)}")
+            return None
+
+    async def _download_authenticated_image(self, image_api_url: str, part_number: str) -> Optional[str]:
+        """Download an image from the McMaster API using authenticated session and save locally.
+
+        McMaster image URLs are API-internal and require client cert + bearer token.
+        The browser cannot load them directly, so we download and serve locally.
+
+        Returns:
+            Local serving URL (e.g., /api/utility/get_image/{uuid}) or None on failure.
+        """
+        try:
+            from MakerMatrix.services.system.file_download_service import FileDownloadService
+
+            creds = self._credentials or {}
+            token = await self._authenticate(creds)
+            ssl_context = await self._setup_ssl_context(creds)
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=self._config.get("timeout_seconds", 30))
+
+            headers = {
+                "Accept": "image/*",
+                "Authorization": f"Bearer {token}",
+            }
+
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                logger.info(f"Downloading authenticated image for {part_number}: {image_api_url}")
+                async with session.get(image_api_url, headers=headers) as response:
+                    if response.status not in (200, 201):
+                        logger.warning(f"Image download failed with status {response.status}")
+                        return None
+
+                    content_type = response.headers.get("Content-Type", "").lower()
+                    image_data = await response.read()
+
+                    if len(image_data) < 100:
+                        logger.warning(f"Image too small ({len(image_data)} bytes), skipping")
+                        return None
+
+                    # Determine extension from content type
+                    ext = ".png"
+                    if "jpeg" in content_type or "jpg" in content_type:
+                        ext = ".jpg"
+                    elif "gif" in content_type:
+                        ext = ".gif"
+                    elif "webp" in content_type:
+                        ext = ".webp"
+
+                    # Generate UUID and save
+                    import uuid as uuid_mod
+                    image_uuid = str(uuid_mod.uuid5(uuid_mod.NAMESPACE_URL, image_api_url))
+                    file_service = FileDownloadService()
+                    filename = f"{image_uuid}{ext}"
+                    file_path = file_service.uploaded_images_path / filename
+
+                    if file_path.exists():
+                        logger.info(f"McMaster image already cached: {filename}")
+                        return file_service.get_image_url(image_uuid)
+
+                    with open(file_path, "wb") as f:
+                        f.write(image_data)
+
+                    logger.info(f"✅ Saved McMaster image: {filename} ({len(image_data)} bytes)")
+                    return file_service.get_image_url(image_uuid)
+
+        except Exception as e:
+            logger.warning(f"Failed to download McMaster image: {e}")
             return None
 
     async def fetch_datasheet(self, supplier_part_number: str) -> Optional[str]:

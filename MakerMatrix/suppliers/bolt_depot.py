@@ -133,9 +133,9 @@ class BoltDepotSupplier(BaseSupplier):
                 label="User Agent String",
                 field_type=FieldType.TEXT,
                 required=False,
-                default_value="MakerMatrix/1.0 (Inventory Management System)",
+                default_value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
                 description="User agent string for HTTP requests",
-                help_text="Identifies your application to the website",
+                help_text="Browser-like user agent for web scraping requests",
             ),
             FieldDefinition(
                 name="enable_caching",
@@ -190,13 +190,18 @@ class BoltDepotSupplier(BaseSupplier):
 
     def _get_headers(self) -> Dict[str, str]:
         """Get headers for HTTP requests"""
+        default_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
         return {
-            "User-Agent": self._config.get("user_agent", "MakerMatrix/1.0 (Inventory Management System)"),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
+            "User-Agent": self._config.get("user_agent", default_ua),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
         }
 
     def _get_http_client(self):

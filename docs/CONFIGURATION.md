@@ -42,7 +42,70 @@ All supplier keys are optional. Without them, enrichment for that supplier is di
 | `MOUSER_API_KEY` | Mouser API key |
 | `LCSC_API_KEY` | LCSC API key (LCSC also works without a key) |
 
-Suppliers without API keys (Adafruit, Seeed Studio, McMaster-Carr, Bolt Depot) use web scraping with Playwright.
+Suppliers without API keys (Adafruit, Seeed Studio, Bolt Depot) use web scraping to extract part details from product pages.
+
+## McMaster-Carr API Setup
+
+McMaster-Carr uses a private API with **client certificate authentication** (mutual TLS). This is not a public API — you must be approved by McMaster-Carr.
+
+### Step 1: Request API Access
+
+1. Email **eCommerce@mcmaster.com** from your company email
+2. Explain your use case (inventory management, automated purchasing, etc.)
+3. McMaster-Carr will review and, if approved, provide:
+   - A **client certificate** file (`.pfx` or `.p12` format)
+   - A **certificate password**
+   - API **username** and **password** (separate from your website login)
+   - API documentation (Postman collection)
+
+> **Note**: Approval is not guaranteed. McMaster-Carr typically approves businesses with established purchasing accounts.
+
+### Step 2: Configure in MakerMatrix
+
+1. Go to **Settings > Suppliers** in the MakerMatrix web UI
+2. Find **McMaster-Carr** in the supplier list and click **Configure**
+3. Fill in the required fields:
+
+| Field | Description |
+|-------|-------------|
+| **Client Certificate (.pfx)** | Upload the `.pfx` or `.p12` certificate file provided by McMaster-Carr |
+| **Certificate Password** | The password for the certificate file |
+| **Username** | Your McMaster-Carr API username (not your website login) |
+| **Password** | Your McMaster-Carr API password |
+| **API Base URL** | `https://api.mcmaster.com` (default, typically no change needed) |
+
+4. Click **Test Connection** to verify your credentials
+5. If successful, you'll see "Successfully authenticated with McMaster-Carr API!"
+
+### Step 3: Using McMaster-Carr Enrichment
+
+Once configured, McMaster-Carr enrichment works automatically:
+
+- **When adding a part**: Paste a McMaster-Carr URL (e.g., `https://www.mcmaster.com/92196A077`) into the Supplier URL field. The part number is auto-extracted and part details are fetched.
+- **Enriched data includes**: Part name, description, specifications (material, dimensions, threading, etc.), category, product images, and pricing links.
+- **Images**: McMaster-Carr API images require authentication, so MakerMatrix downloads them server-side and serves them locally.
+
+### Docker Certificate Mounting
+
+When running in Docker, mount your certificate file into the container:
+
+```yaml
+# docker-compose.yml
+volumes:
+  - ./certs/mcmaster-cert.pfx:/data/certs/mcmaster-cert.pfx:ro
+```
+
+Then in the MakerMatrix UI, set the certificate path to `/data/certs/mcmaster-cert.pfx`.
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Certificate file not found" | Verify the file path and that the certificate is mounted in Docker |
+| "Failed to load certificate" | Check that the certificate password is correct |
+| "Authentication failed" | Verify your API username/password (different from website login) |
+| Images not loading | This is normal for first load — MakerMatrix downloads them server-side on enrichment |
+| "Rate limit exceeded" | Increase the request delay in supplier configuration |
 
 ## AI Integration (Optional)
 
