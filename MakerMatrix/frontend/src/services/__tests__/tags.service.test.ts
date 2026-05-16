@@ -245,7 +245,7 @@ describe('TagsService', () => {
 
       const result = await tagsService.getPartTags('part-1')
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/parts/part-1/tags')
+      expect(apiClient.get).toHaveBeenCalledWith('/api/tags/parts/part-1/tags')
       expect(result).toEqual(mockTags)
     })
   })
@@ -288,7 +288,7 @@ describe('TagsService', () => {
 
       const result = await tagsService.getToolTags('tool-1')
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/tools/tool-1/tags')
+      expect(apiClient.get).toHaveBeenCalledWith('/api/tags/tools/tool-1/tags')
       expect(result).toEqual(mockTags)
     })
   })

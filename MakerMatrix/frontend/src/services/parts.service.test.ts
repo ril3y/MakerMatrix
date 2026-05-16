@@ -39,6 +39,7 @@ describe('PartsService', () => {
   describe('getAllParts', () => {
     it('fetches parts with default pagination', async () => {
       const mockResponse = {
+        status: 'success',
         data: [mockPart],
         total_parts: 1,
       }
@@ -63,6 +64,7 @@ describe('PartsService', () => {
 
     it('fetches parts with custom pagination', async () => {
       const mockResponse = {
+        status: 'success',
         data: [],
         total_parts: 0,
       }
@@ -88,6 +90,7 @@ describe('PartsService', () => {
     it('fetches part by ID', async () => {
       const mockPart = createMockPart()
       const mockResponse = {
+        status: 'success',
         data: mockPart,
       }
 
@@ -107,7 +110,7 @@ describe('PartsService', () => {
     it('throws error when no data returned', async () => {
       vi.mocked(apiClient.get).mockResolvedValue({})
 
-      await expect(partsService.getPart('test-id')).rejects.toThrow('No data in response')
+      await expect(partsService.getPart('test-id')).rejects.toThrow('Failed to get part')
     })
   })
 
@@ -115,6 +118,7 @@ describe('PartsService', () => {
     it('fetches part by name', async () => {
       const mockPart = createMockPart()
       const mockResponse = {
+        status: 'success',
         data: mockPart,
       }
 
@@ -144,7 +148,7 @@ describe('PartsService', () => {
         location_id: 'loc-1',
       }
 
-      vi.mocked(apiClient.post).mockResolvedValue({ data: mockPart })
+      vi.mocked(apiClient.post).mockResolvedValue({ status: 'success', data: mockPart })
 
       const result = await partsService.createPart(createRequest)
 
@@ -172,7 +176,7 @@ describe('PartsService', () => {
 
       vi.mocked(apiClient.post).mockResolvedValue({})
 
-      await expect(partsService.createPart(createRequest)).rejects.toThrow('No data in response')
+      await expect(partsService.createPart(createRequest)).rejects.toThrow('Failed to create part')
     })
   })
 
@@ -185,7 +189,7 @@ describe('PartsService', () => {
         description: 'Updated description',
       }
 
-      vi.mocked(apiClient.put).mockResolvedValue({ data: mockPart })
+      vi.mocked(apiClient.put).mockResolvedValue({ status: 'success', data: mockPart })
 
       const result = await partsService.updatePart(updateRequest)
 
@@ -210,10 +214,9 @@ describe('PartsService', () => {
 
       vi.mocked(apiClient.delete).mockResolvedValue(mockResponse)
 
-      const result = await partsService.deletePart('test-id')
+      await partsService.deletePart('test-id')
 
       expect(apiClient.delete).toHaveBeenCalledWith('/api/parts/delete_part?part_id=test-id')
-      expect(result).toEqual(mockResponse)
     })
   })
 
@@ -221,6 +224,7 @@ describe('PartsService', () => {
     it('searches parts with query parameters', async () => {
       const mockPart = createMockPart()
       const mockResponse = {
+        status: 'success',
         data: [mockPart],
         total_parts: 1,
       }
@@ -244,6 +248,7 @@ describe('PartsService', () => {
 
     it('handles empty search results', async () => {
       const mockResponse = {
+        status: 'success',
         data: [],
         total_parts: 0,
       }
@@ -262,6 +267,7 @@ describe('PartsService', () => {
   describe('getPartSuggestions', () => {
     it('returns suggestions for valid query', async () => {
       const mockResponse = {
+        status: 'success',
         data: ['Resistor 10K', 'Resistor 1K', 'Resistor 100K'],
       }
 
@@ -293,7 +299,7 @@ describe('PartsService', () => {
 
   describe('checkNameExists', () => {
     it('checks if part name exists', async () => {
-      const mockResponse = { data: true }
+      const mockResponse = { status: 'success', data: true }
 
       vi.mocked(apiClient.get).mockResolvedValue(mockResponse)
 

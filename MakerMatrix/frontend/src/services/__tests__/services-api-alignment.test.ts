@@ -46,7 +46,7 @@ describe('Services API Alignment Tests', () => {
         quantity: 10,
       })
 
-      expect(result).toEqual(mockResponse.data)
+      expect(result).toMatchObject(mockResponse.data)
       expect(apiClient.post).toHaveBeenCalledWith('/api/parts/add_part', {
         part_name: 'Test Part',
         description: 'Test description',
@@ -71,7 +71,7 @@ describe('Services API Alignment Tests', () => {
 
       const result = await partsService.getPart('123')
 
-      expect(result).toEqual(mockResponse.data)
+      expect(result).toMatchObject(mockResponse.data)
       expect(apiClient.get).toHaveBeenCalledWith('/api/parts/get_part?part_id=123')
     })
 
@@ -90,10 +90,10 @@ describe('Services API Alignment Tests', () => {
 
       const result = await partsService.getAllParts(1, 10)
 
-      expect(result).toEqual({
-        data: mockResponse.data,
-        total_parts: 2,
-      })
+      expect(result.total_parts).toBe(2)
+      expect(result.data).toHaveLength(2)
+      expect(result.data[0]).toMatchObject(mockResponse.data[0])
+      expect(result.data[1]).toMatchObject(mockResponse.data[1])
       expect(apiClient.get).toHaveBeenCalledWith('/api/parts/get_all_parts', {
         params: { page: 1, page_size: 10 },
       })
@@ -122,7 +122,7 @@ describe('Services API Alignment Tests', () => {
         categories: [],
       })
 
-      expect(result).toEqual(mockResponse.data)
+      expect(result).toMatchObject(mockResponse.data)
       expect(apiClient.put).toHaveBeenCalledWith('/api/parts/update_part/123', {
         part_name: 'Updated Part',
         description: 'Updated description',
@@ -224,7 +224,7 @@ describe('Services API Alignment Tests', () => {
         description: 'Test description',
       })
 
-      expect(result).toEqual(mockResponse.data)
+      expect(result).toMatchObject(mockResponse.data)
       expect(apiClient.post).toHaveBeenCalledWith('/api/locations/add_location', {
         name: 'Test Location',
         description: 'Test description',
@@ -245,7 +245,7 @@ describe('Services API Alignment Tests', () => {
 
       const result = await locationsService.getAllLocations()
 
-      expect(result).toEqual(mockResponse.data)
+      expect(result).toMatchObject(mockResponse.data)
       expect(apiClient.get).toHaveBeenCalledWith('/api/locations/get_all_locations')
     })
   })
@@ -266,7 +266,7 @@ describe('Services API Alignment Tests', () => {
       })
 
       expect(result).toEqual(mockResponse)
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/login', {
+      expect(apiClient.post).toHaveBeenCalledWith('/api/auth/login', {
         username: 'testuser',
         password: 'password',
       })

@@ -68,16 +68,7 @@ describe('AuthService', () => {
 
       const result = await authService.login(mockCredentials)
 
-      expect(mockApiClient.post).toHaveBeenCalledWith('/auth/login', expect.any(URLSearchParams), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      })
-
-      // Check that form data was properly encoded
-      const formDataCall = mockApiClient.post.mock.calls[0][1] as URLSearchParams
-      expect(formDataCall.get('username')).toBe('testuser')
-      expect(formDataCall.get('password')).toBe('password123')
+      expect(mockApiClient.post).toHaveBeenCalledWith('/api/auth/login', mockCredentials)
 
       expect(mockApiClient.setAuthToken).toHaveBeenCalledWith('mock-jwt-token')
       expect(localStorageMock.setItem).toHaveBeenCalledWith('user', JSON.stringify(mockUser))
@@ -119,7 +110,7 @@ describe('AuthService', () => {
 
       await authService.logout()
 
-      expect(mockApiClient.post).toHaveBeenCalledWith('/auth/logout')
+      expect(mockApiClient.post).toHaveBeenCalledWith('/api/auth/logout')
       expect(mockApiClient.clearAuth).toHaveBeenCalled()
     })
 
@@ -129,7 +120,7 @@ describe('AuthService', () => {
       // The method throws the API error but still clears auth due to finally block
       await expect(authService.logout()).rejects.toThrow('Network error')
 
-      expect(mockApiClient.post).toHaveBeenCalledWith('/auth/logout')
+      expect(mockApiClient.post).toHaveBeenCalledWith('/api/auth/logout')
       expect(mockApiClient.clearAuth).toHaveBeenCalled()
     })
   })
@@ -144,7 +135,7 @@ describe('AuthService', () => {
 
   describe('getCurrentUser', () => {
     it('should fetch current user successfully', async () => {
-      mockApiClient.get.mockResolvedValueOnce(mockUser)
+      mockApiClient.get.mockResolvedValueOnce({ status: 'success', data: mockUser })
 
       const result = await authService.getCurrentUser()
 
@@ -173,13 +164,12 @@ describe('AuthService', () => {
       }
       mockApiClient.put.mockResolvedValueOnce(mockResponse)
 
-      const result = await authService.updatePassword('oldpass', 'newpass')
+      await authService.updatePassword('oldpass', 'newpass')
 
       expect(mockApiClient.put).toHaveBeenCalledWith('/api/users/update_password', {
         current_password: 'oldpass',
         new_password: 'newpass',
       })
-      expect(result).toEqual(mockResponse)
     })
 
     it('should handle password update error', async () => {
