@@ -23,6 +23,20 @@ vi.mock('react-hot-toast', () => ({
 vi.mock('@/contexts/ThemeContext')
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({
+    isAdmin: () => true,
+    hasPermission: () => true,
+    hasRole: () => true,
+    hasAnyPermission: () => true,
+    hasAllPermissions: () => true,
+    canCreate: () => true,
+    canRead: () => true,
+    canUpdate: () => true,
+    canDelete: () => true,
+  }),
+}))
+
 vi.mock('@/services/settings.service', () => ({
   settingsService: {
     getAIConfig: vi.fn(),
@@ -212,7 +226,7 @@ describe('SettingsPage - AI Helper Tab', () => {
   })
 
   it('disables model refresh when AI helper is disabled', async () => {
-    settingsServiceMock.getAIConfig.mockResolvedValueOnce({
+    settingsServiceMock.getAIConfig.mockResolvedValue({
       ...baseAiConfig,
       enabled: false,
     })

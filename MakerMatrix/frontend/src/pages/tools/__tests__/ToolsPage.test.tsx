@@ -1,3 +1,4 @@
+import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -9,14 +10,51 @@ import { useAuthStore } from '@/store/authStore'
 vi.mock('@/services/tools.service')
 vi.mock('@/store/authStore')
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
-      <div {...props}>{children}</div>
-    ),
-  },
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({
+    isAdmin: () => true,
+    hasPermission: () => true,
+    hasRole: () => true,
+    hasAnyPermission: () => true,
+    hasAllPermissions: () => true,
+    canCreate: () => true,
+    canRead: () => true,
+    canUpdate: () => true,
+    canDelete: () => true,
+  }),
 }))
+
+// Mock framer-motion
+vi.mock('framer-motion', () => {
+  const passthrough =
+    (Tag: string) =>
+    ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
+      // Strip framer-motion-specific props that aren't valid DOM attributes
+      const {
+        initial: _initial,
+        animate: _animate,
+        exit: _exit,
+        transition: _transition,
+        whileHover: _whileHover,
+        whileTap: _whileTap,
+        whileInView: _whileInView,
+        layout: _layout,
+        layoutId: _layoutId,
+        variants: _variants,
+        ...rest
+      } = props as Record<string, unknown>
+      return React.createElement(Tag, rest, children)
+    }
+  return {
+    motion: new Proxy(
+      {},
+      {
+        get: (_target, prop: string) => passthrough(prop),
+      }
+    ),
+    AnimatePresence: ({ children }: React.PropsWithChildren<unknown>) => <>{children}</>,
+  }
+})
 
 describe('ToolsPage', () => {
   const mockTools = [
@@ -144,7 +182,7 @@ describe('ToolsPage', () => {
       </MemoryRouter>
     )
 
-    const searchInput = screen.getByPlaceholderText(/Search tools/i)
+    const searchInput = await screen.findByPlaceholderText(/Search tools/i)
     fireEvent.change(searchInput, { target: { value: 'Drill' } })
 
     await waitFor(
@@ -166,7 +204,7 @@ describe('ToolsPage', () => {
       </MemoryRouter>
     )
 
-    const statusSelect = screen.getByDisplayValue('All Status')
+    const statusSelect = await screen.findByDisplayValue('All Status')
     fireEvent.change(statusSelect, { target: { value: 'available' } })
 
     await waitFor(() => {
@@ -185,7 +223,7 @@ describe('ToolsPage', () => {
       </MemoryRouter>
     )
 
-    const conditionSelect = screen.getByDisplayValue('All Conditions')
+    const conditionSelect = await screen.findByDisplayValue('All Conditions')
     fireEvent.change(conditionSelect, { target: { value: 'good' } })
 
     await waitFor(() => {
@@ -227,11 +265,13 @@ describe('ToolsPage', () => {
     )
 
     await waitFor(() => {
-      const goodCondition = screen.getByText('Good')
-      expect(goodCondition).toHaveClass('text-blue-500')
+      const goodConditions = screen.getAllByText('Good')
+      const goodSpan = goodConditions.find((el) => el.tagName === 'SPAN')
+      expect(goodSpan).toHaveClass('text-blue-500')
 
-      const fairCondition = screen.getByText('Fair')
-      expect(fairCondition).toHaveClass('text-yellow-500')
+      const fairConditions = screen.getAllByText('Fair')
+      const fairSpan = fairConditions.find((el) => el.tagName === 'SPAN')
+      expect(fairSpan).toHaveClass('text-yellow-500')
     })
   })
 
