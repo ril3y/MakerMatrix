@@ -78,7 +78,7 @@ describe('UnifiedFileImporter', () => {
     await user.click(importButton)
 
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Processed 1 parts'))
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Imported 1 parts'))
     })
   })
 
@@ -92,7 +92,8 @@ describe('UnifiedFileImporter', () => {
     await user.click(importButton)
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Import failed')
+      // Generic Error → falls back to default message
+      expect(toast.error).toHaveBeenCalledWith('Failed to import parts from file')
     })
   })
 })

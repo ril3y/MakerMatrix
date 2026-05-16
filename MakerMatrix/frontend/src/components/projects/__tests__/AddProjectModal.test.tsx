@@ -122,6 +122,10 @@ describe('AddProjectModal - Core Functionality', () => {
   })
 
   describe('Links Management', () => {
+    // The link UI was simplified: each "link" is a single URL input
+    // (the key is derived from the URL's domain on submit).
+    const LINK_URL_PLACEHOLDER = 'URL (e.g., github.com/project or https://example.com)'
+
     it('should add a new link when Add Link button is clicked', async () => {
       const user: UserEvent = userEvent.setup()
       render(<AddProjectModal {...mockProps} />)
@@ -129,10 +133,7 @@ describe('AddProjectModal - Core Functionality', () => {
       const addLinkButton = screen.getByText('Add Link')
       await user.click(addLinkButton)
 
-      const linkNameInputs = screen.getAllByPlaceholderText('Link name (e.g., GitHub)')
-      expect(linkNameInputs).toHaveLength(1)
-
-      const linkUrlInputs = screen.getAllByPlaceholderText('URL (e.g., https://github.com/...)')
+      const linkUrlInputs = screen.getAllByPlaceholderText(LINK_URL_PLACEHOLDER)
       expect(linkUrlInputs).toHaveLength(1)
     })
 
@@ -146,8 +147,8 @@ describe('AddProjectModal - Core Functionality', () => {
       await user.click(addLinkButton)
       await user.click(addLinkButton)
 
-      const linkNameInputs = screen.getAllByPlaceholderText('Link name (e.g., GitHub)')
-      expect(linkNameInputs).toHaveLength(3)
+      const linkUrlInputs = screen.getAllByPlaceholderText(LINK_URL_PLACEHOLDER)
+      expect(linkUrlInputs).toHaveLength(3)
     })
 
     it('should remove link when X button is clicked', async () => {
@@ -158,17 +159,19 @@ describe('AddProjectModal - Core Functionality', () => {
       await user.click(addLinkButton)
       await user.click(addLinkButton)
 
-      let linkNameInputs = screen.getAllByPlaceholderText('Link name (e.g., GitHub)')
-      expect(linkNameInputs).toHaveLength(2)
+      let linkUrlInputs = screen.getAllByPlaceholderText(LINK_URL_PLACEHOLDER)
+      expect(linkUrlInputs).toHaveLength(2)
 
-      // Click the first X button
-      const removeButtons = screen
-        .getAllByRole('button')
-        .filter((btn) => btn.querySelector('svg')?.classList.contains('lucide-x'))
-      await user.click(removeButtons[0])
+      // Find the X button that is a sibling of the link URL input (the first
+      // lucide-x in the DOM is the modal's own close button).
+      const firstUrlInput = linkUrlInputs[0]
+      const linkRow = firstUrlInput.parentElement
+      const removeButton = linkRow?.querySelector('button')
+      expect(removeButton).toBeTruthy()
+      await user.click(removeButton!)
 
-      linkNameInputs = screen.queryAllByPlaceholderText('Link name (e.g., GitHub)')
-      expect(linkNameInputs).toHaveLength(1)
+      linkUrlInputs = screen.queryAllByPlaceholderText(LINK_URL_PLACEHOLDER)
+      expect(linkUrlInputs).toHaveLength(1)
     })
 
     it('should show empty state when no links added', () => {
@@ -188,13 +191,9 @@ describe('AddProjectModal - Core Functionality', () => {
       const addLinkButton = screen.getByText('Add Link')
       await user.click(addLinkButton)
 
-      const linkNameInput = screen.getByPlaceholderText('Link name (e.g., GitHub)')
-      const linkUrlInput = screen.getByPlaceholderText('URL (e.g., https://github.com/...)')
-
-      await user.type(linkNameInput, 'GitHub')
+      const linkUrlInput = screen.getByPlaceholderText(LINK_URL_PLACEHOLDER)
       await user.type(linkUrlInput, 'https://github.com/test/repo')
 
-      expect(linkNameInput).toHaveValue('GitHub')
       expect(linkUrlInput).toHaveValue('https://github.com/test/repo')
     })
   })
@@ -285,10 +284,9 @@ describe('AddProjectModal - Core Functionality', () => {
       const addLinkButton = screen.getByText('Add Link')
       await user.click(addLinkButton)
 
-      const linkNameInput = screen.getByPlaceholderText('Link name (e.g., GitHub)')
-      const linkUrlInput = screen.getByPlaceholderText('URL (e.g., https://github.com/...)')
-
-      await user.type(linkNameInput, 'GitHub')
+      const linkUrlInput = screen.getByPlaceholderText(
+        'URL (e.g., github.com/project or https://example.com)'
+      )
       await user.type(linkUrlInput, 'https://github.com/test/repo')
 
       const submitButton = screen.getByText('Create Project')
@@ -298,15 +296,16 @@ describe('AddProjectModal - Core Functionality', () => {
         expect(mockProjectsService.createProject).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'new-project',
+            // Links are now keyed by domain extracted from the URL
             links: {
-              GitHub: 'https://github.com/test/repo',
+              'github.com': 'https://github.com/test/repo',
             },
           })
         )
       })
     })
 
-    it('should trim whitespace from link keys and values', async () => {
+    it('should trim whitespace from link URLs', async () => {
       const user: UserEvent = userEvent.setup()
       render(<AddProjectModal {...mockProps} />)
 
@@ -316,10 +315,9 @@ describe('AddProjectModal - Core Functionality', () => {
       const addLinkButton = screen.getByText('Add Link')
       await user.click(addLinkButton)
 
-      const linkNameInput = screen.getByPlaceholderText('Link name (e.g., GitHub)')
-      const linkUrlInput = screen.getByPlaceholderText('URL (e.g., https://github.com/...)')
-
-      await user.type(linkNameInput, '  GitHub  ')
+      const linkUrlInput = screen.getByPlaceholderText(
+        'URL (e.g., github.com/project or https://example.com)'
+      )
       await user.type(linkUrlInput, '  https://github.com/test/repo  ')
 
       const submitButton = screen.getByText('Create Project')
@@ -329,7 +327,7 @@ describe('AddProjectModal - Core Functionality', () => {
         expect(mockProjectsService.createProject).toHaveBeenCalledWith(
           expect.objectContaining({
             links: {
-              GitHub: 'https://github.com/test/repo',
+              'github.com': 'https://github.com/test/repo',
             },
           })
         )
@@ -347,11 +345,11 @@ describe('AddProjectModal - Core Functionality', () => {
       await user.click(addLinkButton)
       await user.click(addLinkButton)
 
-      // Fill only the first link
-      const linkNameInputs = screen.getAllByPlaceholderText('Link name (e.g., GitHub)')
-      const linkUrlInputs = screen.getAllByPlaceholderText('URL (e.g., https://github.com/...)')
+      const linkUrlInputs = screen.getAllByPlaceholderText(
+        'URL (e.g., github.com/project or https://example.com)'
+      )
 
-      await user.type(linkNameInputs[0], 'GitHub')
+      // Fill only the first link
       await user.type(linkUrlInputs[0], 'https://github.com/test/repo')
       // Leave second link empty
 
@@ -362,7 +360,7 @@ describe('AddProjectModal - Core Functionality', () => {
         expect(mockProjectsService.createProject).toHaveBeenCalledWith(
           expect.objectContaining({
             links: {
-              GitHub: 'https://github.com/test/repo',
+              'github.com': 'https://github.com/test/repo',
             },
           })
         )
@@ -403,7 +401,8 @@ describe('AddProjectModal - Core Functionality', () => {
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith('Failed to create project')
+        // Component surfaces err.message verbatim when no response.data.detail
+        expect(mockToast.error).toHaveBeenCalledWith('Network error')
       })
     })
   })
@@ -446,7 +445,9 @@ describe('AddProjectModal - Core Functionality', () => {
       unmount()
       render(<AddProjectModal {...mockProps} />)
 
-      const linkInputs = screen.queryAllByPlaceholderText('Link name (e.g., GitHub)')
+      const linkInputs = screen.queryAllByPlaceholderText(
+        'URL (e.g., github.com/project or https://example.com)'
+      )
       expect(linkInputs).toHaveLength(0)
     })
   })

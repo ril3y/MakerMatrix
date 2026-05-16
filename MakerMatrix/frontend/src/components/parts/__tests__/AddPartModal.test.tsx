@@ -14,6 +14,34 @@ vi.mock('@/services/parts.service')
 vi.mock('@/services/locations.service')
 vi.mock('@/services/categories.service')
 vi.mock('@/services/utility.service')
+// Mocks for additional services AddPartModal pulls on mount. Without these
+// the unmocked methods hit MSW with unhandled URLs and pollute test output.
+vi.mock('@/services/projects.service', () => ({
+  projectsService: {
+    getAllProjects: vi.fn().mockResolvedValue([]),
+  },
+}))
+vi.mock('@/services/supplier.service', () => ({
+  // Default export object
+  default: {
+    getSuppliers: vi.fn().mockResolvedValue([]),
+  },
+}))
+vi.mock('@/services/dynamic-supplier.service', () => ({
+  dynamicSupplierService: {
+    getAvailableSuppliers: vi.fn().mockResolvedValue([]),
+    detectSupplierFromUrl: vi.fn().mockResolvedValue(null),
+    checkScrapingSupport: vi.fn().mockResolvedValue({ supports_scraping: false }),
+  },
+}))
+vi.mock('@/services/api', () => ({
+  apiClient: {
+    get: vi.fn().mockResolvedValue({ data: [] }),
+    post: vi.fn().mockResolvedValue({ data: {} }),
+    put: vi.fn().mockResolvedValue({ data: {} }),
+    delete: vi.fn().mockResolvedValue({ data: {} }),
+  },
+}))
 
 const mockPartsService = vi.mocked(partsService)
 const mockLocationsService = vi.mocked(locationsService)
@@ -155,7 +183,8 @@ describe('AddPartModal - Core Functionality', () => {
     })
 
     it('should handle data loading error', async () => {
-      mockLocationsService.getAllLocations.mockRejectedValue(new Error('API Error'))
+      // loadData now uses categoriesService + projectsService + supplierService, not locationsService.
+      mockCategoriesService.getAllCategories.mockRejectedValue(new Error('API Error'))
 
       render(<AddPartModal {...mockProps} />)
 

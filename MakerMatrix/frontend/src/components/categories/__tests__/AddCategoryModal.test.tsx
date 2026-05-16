@@ -43,7 +43,7 @@ describe('AddCategoryModal - Core Functionality', () => {
 
       expect(screen.getByText('Add New Category')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('Enter category name')).toBeInTheDocument()
-      expect(screen.getByText('Create Category')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Create$/i })).toBeInTheDocument()
     })
 
     it('should show character count', () => {
@@ -102,7 +102,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const user = userEvent.setup()
       render(<AddCategoryModal {...mockProps} />)
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       expect(screen.getByText('Category name is required')).toBeInTheDocument()
@@ -116,7 +116,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'A')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       expect(screen.getByText('Category name must be at least 2 characters')).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const maxLengthName = 'A'.repeat(50)
       await user.type(nameInput, maxLengthName)
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       // This should succeed with exactly 50 characters
@@ -149,7 +149,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Electronics') // Existing category
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       expect(screen.getByText('A category with this name already exists')).toBeInTheDocument()
@@ -162,7 +162,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'ELECTRONICS') // Different case
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       expect(screen.getByText('A category with this name already exists')).toBeInTheDocument()
@@ -175,7 +175,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Invalid@Category!') // Contains invalid chars
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       expect(screen.getByText('Category name contains invalid characters')).toBeInTheDocument()
@@ -188,7 +188,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Power & Control (12V)')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       await waitFor(() => {
@@ -219,7 +219,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       await user.type(nameInput, longName)
 
       const characterCount = screen.getByText('45/50 characters')
-      expect(characterCount).toHaveClass('text-orange-500')
+      expect(characterCount).toHaveClass('text-warning')
     })
   })
 
@@ -301,7 +301,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'New Category')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       await waitFor(() => {
@@ -312,7 +312,8 @@ describe('AddCategoryModal - Core Functionality', () => {
 
       expect(mockToast.success).toHaveBeenCalledWith('Category created successfully')
       expect(mockProps.onSuccess).toHaveBeenCalled()
-      expect(mockProps.onClose).toHaveBeenCalled()
+      // Note: AddCategoryModal calls onSuccess() on submit but does not call
+      // onClose() itself; the parent is responsible for closing.
     })
 
     it('should trim whitespace from category name before creation', async () => {
@@ -322,7 +323,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, '  Whitespace Category  ')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       await waitFor(() => {
@@ -343,7 +344,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Test Category')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       await waitFor(() => {
@@ -362,11 +363,12 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Test Category')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith('Failed to create category')
+        // useModalForm surfaces err.message verbatim when there's no response.data.message
+        expect(mockToast.error).toHaveBeenCalledWith('Network error')
       })
     })
   })
@@ -403,15 +405,15 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Test Category')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       await waitFor(() => {
         expect(mockCategoriesService.createCategory).toHaveBeenCalled()
       })
 
-      // Form should be reset after success
-      expect(mockProps.onClose).toHaveBeenCalled()
+      // AddCategoryModal calls onSuccess (parent responsibility to close).
+      expect(mockProps.onSuccess).toHaveBeenCalled()
     })
 
     it('should clear validation errors when form is reset', async () => {
@@ -419,7 +421,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       render(<AddCategoryModal {...mockProps} />)
 
       // Trigger validation error
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
       expect(screen.getByText('Category name is required')).toBeInTheDocument()
 
@@ -448,7 +450,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Test Category')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       // Check loading state
@@ -471,7 +473,7 @@ describe('AddCategoryModal - Core Functionality', () => {
       const nameInput = screen.getByPlaceholderText('Enter category name')
       await user.type(nameInput, 'Test Category')
 
-      const submitButton = screen.getByText('Create Category')
+      const submitButton = screen.getByRole('button', { name: /^Create$/i })
       await user.click(submitButton)
 
       // Check for spinner (animated element)
@@ -508,7 +510,7 @@ describe('AddCategoryModal - Core Functionality', () => {
         .filter(
           (btn) =>
             btn.textContent &&
-            !['Create Category', 'Cancel'].includes(btn.textContent) &&
+            !['Create', 'Cancel'].includes(btn.textContent.trim()) &&
             btn.className.includes('bg-primary-10')
         )
 

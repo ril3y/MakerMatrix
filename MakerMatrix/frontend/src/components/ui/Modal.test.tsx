@@ -46,25 +46,20 @@ describe('Modal', () => {
   })
 
   it('renders different sizes correctly', () => {
+    const sizeSelector = '.max-w-md, .max-w-lg, .max-w-2xl, .max-w-4xl, .max-w-6xl'
     const { rerender } = render(<Modal {...defaultProps} size="sm" />)
 
     // Find the modal container with the size class
-    let modalContainer = screen
-      .getByText('Test Modal')
-      .closest('.max-w-md, .max-w-lg, .max-w-2xl, .max-w-4xl')
+    let modalContainer = screen.getByText('Test Modal').closest(sizeSelector)
     expect(modalContainer).toHaveClass('max-w-md')
 
     rerender(<Modal {...defaultProps} size="lg" />)
-    modalContainer = screen
-      .getByText('Test Modal')
-      .closest('.max-w-md, .max-w-lg, .max-w-2xl, .max-w-4xl')
+    modalContainer = screen.getByText('Test Modal').closest(sizeSelector)
     expect(modalContainer).toHaveClass('max-w-2xl')
 
     rerender(<Modal {...defaultProps} size="xl" />)
-    modalContainer = screen
-      .getByText('Test Modal')
-      .closest('.max-w-md, .max-w-lg, .max-w-2xl, .max-w-4xl')
-    expect(modalContainer).toHaveClass('max-w-4xl')
+    modalContainer = screen.getByText('Test Modal').closest(sizeSelector)
+    expect(modalContainer).toHaveClass('max-w-6xl')
   })
 
   it('displays the title correctly', () => {
