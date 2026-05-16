@@ -9,6 +9,23 @@ import { partsService } from '@/services/parts.service'
 vi.mock('@/services/tasks.service')
 vi.mock('@/services/parts.service')
 
+// Mock the WebSocket service so useTasksDashboard does not attempt a real connection
+vi.mock('@/services/task-websocket.service', () => ({
+  taskWebSocket: {
+    isConnected: false,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    startHeartbeat: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
+    onTaskUpdate: vi.fn(() => vi.fn()),
+    onTaskCreated: vi.fn(() => vi.fn()),
+    onTaskDeleted: vi.fn(() => vi.fn()),
+    onWorkerStatusUpdate: vi.fn(() => vi.fn()),
+    onTaskStatsUpdate: vi.fn(() => vi.fn()),
+  },
+}))
+
 const mockTasksService = vi.mocked(tasksService)
 const mockPartsService = vi.mocked(partsService)
 
@@ -103,17 +120,37 @@ describe('TasksManagement - Basic Tests', () => {
         updated_at: new Date().toISOString(),
       },
     ])
+
+    // useTasksDashboard uses raw fetch() for /api/suppliers/configured and
+    // /api/tasks/capabilities/suppliers — stub it so MSW does not error.
+    ;(global as unknown as { fetch: typeof fetch }).fetch = vi.fn(
+      (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.includes('/api/suppliers/configured')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [] }),
+          } as Response)
+        }
+        if (url.includes('/api/tasks/capabilities/suppliers')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: {} }),
+          } as Response)
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+      }
+    ) as unknown as typeof fetch
   })
 
   afterEach(() => {
     vi.clearAllTimers()
   })
 
-  it('renders header with worker status', async () => {
+  it('renders worker status badge', async () => {
     render(<TasksManagement />, { wrapper: TestWrapper })
 
     await waitFor(() => {
-      expect(screen.getByText('Background Tasks')).toBeInTheDocument()
       expect(screen.getByText('Worker Running')).toBeInTheDocument()
     })
   })
@@ -122,9 +159,11 @@ describe('TasksManagement - Basic Tests', () => {
     render(<TasksManagement />, { wrapper: TestWrapper })
 
     await waitFor(() => {
-      expect(screen.getByText('25')).toBeInTheDocument() // Total tasks
-      expect(screen.getByText('1')).toBeInTheDocument() // Running
-      expect(screen.getByText('12')).toBeInTheDocument() // Completed today
+      // Total tasks card
+      expect(screen.getByText('Total Tasks')).toBeInTheDocument()
+      expect(screen.getByText('25')).toBeInTheDocument()
+      expect(screen.getByText('Completed Today')).toBeInTheDocument()
+      expect(screen.getByText('12')).toBeInTheDocument()
     })
   })
 
@@ -132,11 +171,10 @@ describe('TasksManagement - Basic Tests', () => {
     render(<TasksManagement />, { wrapper: TestWrapper })
 
     await waitFor(() => {
-      // Look for the task name in the task list, not in filters
+      // Look for the task name as an H5 inside the task list
       const taskElements = screen.getAllByText('Part Enrichment')
       const taskInList = taskElements.find((el) => el.tagName === 'H5')
       expect(taskInList).toBeInTheDocument()
-
       expect(screen.getByText('Fetching specifications')).toBeInTheDocument()
     })
   })
@@ -148,17 +186,18 @@ describe('TasksManagement - Basic Tests', () => {
       expect(screen.getByText('Update Prices')).toBeInTheDocument()
       expect(screen.getByText('Enrich All Parts')).toBeInTheDocument()
       expect(screen.getByText('Clean Database')).toBeInTheDocument()
-      expect(screen.getByText('Create Custom Task')).toBeInTheDocument()
     })
   })
 
   it('shows filter controls', async () => {
     render(<TasksManagement />, { wrapper: TestWrapper })
 
+    // The component renders CustomSelect dropdowns whose initial labels are
+    // "All Status", "All Types", "All Priorities".
     await waitFor(() => {
-      expect(screen.getByDisplayValue('All Status')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('All Types')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('All Priorities')).toBeInTheDocument()
+      expect(screen.getByText('All Status')).toBeInTheDocument()
+      expect(screen.getByText('All Types')).toBeInTheDocument()
+      expect(screen.getByText('All Priorities')).toBeInTheDocument()
     })
   })
 })

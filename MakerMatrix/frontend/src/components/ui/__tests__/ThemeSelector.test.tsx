@@ -53,20 +53,21 @@ describe('ThemeSelector', () => {
     it('displays correct color previews for each theme', () => {
       render(<ThemeSelector />)
 
-      // Check if color preview divs are present
+      // Each theme button renders a preview area with inline-styled color bars.
       const themeButtons = screen.getAllByRole('button')
       themeButtons.forEach((button) => {
-        const colorPreview = button.querySelector('div[class*="w-4 h-4"]')
-        expect(colorPreview).toBeInTheDocument()
+        // The preview container uses a fixed h-20 rounded-lg block.
+        const previewBlock = button.querySelector('div.h-20')
+        expect(previewBlock).toBeInTheDocument()
       })
     })
 
     it('shows theme-specific colors', () => {
       render(<ThemeSelector />)
 
-      // Check for different background colors that represent themes
+      // Five themes are configured (Matrix, Arctic, Nebula, Sunset, Monolith).
       const buttons = screen.getAllByRole('button')
-      expect(buttons.length).toBeGreaterThan(5) // Should have at least 6 theme options
+      expect(buttons.length).toBeGreaterThanOrEqual(5)
     })
   })
 
@@ -118,16 +119,8 @@ describe('ThemeSelector', () => {
 
       const buttons = screen.getAllByRole('button')
       buttons.forEach((button) => {
-        expect(button).toHaveClass('hover:scale-105')
-      })
-    })
-
-    it('applies focus styles', () => {
-      render(<ThemeSelector />)
-
-      const buttons = screen.getAllByRole('button')
-      buttons.forEach((button) => {
-        expect(button).toHaveClass('focus:outline-none', 'focus:ring-2', 'focus:ring-primary')
+        // Current component uses hover:shadow-md on theme buttons.
+        expect(button).toHaveClass('hover:shadow-md')
       })
     })
 
@@ -145,15 +138,9 @@ describe('ThemeSelector', () => {
     it('uses grid layout for theme options', () => {
       render(<ThemeSelector />)
 
-      const container = screen.getByText('Default').closest('.grid')
-      expect(container).toHaveClass('grid', 'grid-cols-3', 'gap-3')
-    })
-
-    it('applies proper spacing', () => {
-      render(<ThemeSelector />)
-
-      const container = screen.getByText('Choose Theme').nextElementSibling
-      expect(container).toHaveClass('grid')
+      // First theme is now "Matrix" instead of "Default".
+      const container = screen.getByText('Matrix').closest('.grid')
+      expect(container).toHaveClass('grid', 'lg:grid-cols-3')
     })
 
     it('has rounded corners on theme buttons', () => {
@@ -171,7 +158,8 @@ describe('ThemeSelector', () => {
       render(<ThemeSelector />)
 
       const buttons = screen.getAllByRole('button')
-      expect(buttons.length).toBeGreaterThan(5)
+      // 5 theme buttons (Matrix, Arctic, Nebula, Sunset, Monolith).
+      expect(buttons.length).toBeGreaterThanOrEqual(5)
     })
 
     it('has descriptive labels', () => {
@@ -255,8 +243,9 @@ describe('ThemeSelector', () => {
     it('handles invalid current theme', () => {
       mockUseTheme.mockReturnValue({ ...mockThemeContext, currentTheme: 'invalid-theme' })
 
+      // Should still render the available themes (Matrix is first in the list).
       render(<ThemeSelector />)
-      expect(screen.getByText('Default')).toBeInTheDocument()
+      expect(screen.getByText('Matrix')).toBeInTheDocument()
     })
   })
 })

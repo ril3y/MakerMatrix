@@ -110,15 +110,16 @@ describe('TagBadge', () => {
   })
 
   it('shows description as title attribute', () => {
-    render(<TagBadge tag={mockTag} />)
-    const badge = screen.getByText('#testing').closest('span')
+    const { container } = render(<TagBadge tag={mockTag} />)
+    // The outer wrapper span carries the title attribute.
+    const badge = container.querySelector('span')
     expect(badge).toHaveAttribute('title', 'For testing purposes')
   })
 
   it('shows tag name as title when description is not provided', () => {
     const tagWithoutDescription = { ...mockTag, description: undefined }
-    render(<TagBadge tag={tagWithoutDescription} />)
-    const badge = screen.getByText('#testing').closest('span')
+    const { container } = render(<TagBadge tag={tagWithoutDescription} />)
+    const badge = container.querySelector('span')
     expect(badge).toHaveAttribute('title', 'testing')
   })
 
