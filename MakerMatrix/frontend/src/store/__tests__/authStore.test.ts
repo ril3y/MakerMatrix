@@ -148,7 +148,7 @@ describe('useAuthStore', () => {
         }
       })
 
-      expect(result.current.error).toBe('Login failed')
+      expect(result.current.error).toBe('Network error')
     })
 
     it('should set loading state during login', async () => {

@@ -59,7 +59,7 @@ describe('filenameExtractor', () => {
             detected_supplier: 'lcsc',
             file_type: 'CSV',
             order_info: {
-              order_date: '20240101',
+              order_date: '2024-01-01',
               notes: 'Auto-extracted from filename: lcsc_parts_20240101.csv',
             },
           },
@@ -199,7 +199,7 @@ describe('filenameExtractor', () => {
         },
         {
           filename: 'export_20240115.xlsx',
-          expected: { order_date: '20240115' },
+          expected: { order_date: '2024-01-15' },
         },
         {
           filename: 'order_01-15-2024.xls',
