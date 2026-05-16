@@ -68,6 +68,9 @@ jobs:
     env:
       # Backend requires JWT_SECRET_KEY to start; this value is for CI only.
       JWT_SECRET_KEY: ci-test-secret-key-not-for-production-use
+      # SQLite path inside the workflow workspace; the default sqlite:////data/...
+      # is the Docker path and isn't writable in GH Actions runners.
+      DATABASE_URL: sqlite:///./ci_test.db
       # The workflow starts its own preview server below — tell playwright.config.ts
       # not to spawn an extra one (its default uses https://localhost:5173 with PEM
       # certs that don't exist in CI), and point tests at the workflow's preview.
@@ -183,6 +186,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JWT_SECRET_KEY: ci-test-secret-key-not-for-production-use
+      # SQLite path inside the workflow workspace; the default sqlite:////data/...
+      # is the Docker path and isn't writable in GH Actions runners.
+      DATABASE_URL: sqlite:///./ci_test.db
       PLAYWRIGHT_SKIP_SERVER: '1'
       PLAYWRIGHT_BASE_URL: http://localhost:4173
 

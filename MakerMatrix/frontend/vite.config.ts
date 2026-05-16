@@ -1,10 +1,18 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import fs from 'fs'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  
+
+  // Only enable HTTPS when the cert/key actually exist on disk. CI runners and
+  // anyone without local certs (HTTPS_ENABLED=false) should fall back to HTTP.
+  const keyPath = path.resolve(__dirname, '../../certs/key.pem')
+  const certPath = path.resolve(__dirname, '../../certs/cert.pem')
+  const httpsConfig =
+    fs.existsSync(keyPath) && fs.existsSync(certPath) ? { key: keyPath, cert: certPath } : undefined
+
   return {
     plugins: [react()],
     resolve: {
@@ -15,10 +23,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: '0.0.0.0',
-      https: {
-        key: path.resolve(__dirname, '../../certs/key.pem'),
-        cert: path.resolve(__dirname, '../../certs/cert.pem'),
-      },
+      https: httpsConfig,
       watch: {
         usePolling: true,
       },
@@ -30,6 +35,11 @@ export default defineConfig(({ mode }) => {
           // Don't rewrite /api paths - pass them through as-is
         },
       },
+    },
+    preview: {
+      port: 4173,
+      host: '0.0.0.0',
+      https: httpsConfig,
     },
   }
 })

@@ -8,6 +8,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
+    // Vitest defaults to picking up **/*.{test,spec}.{ts,tsx}, which sweeps in the
+    // Playwright e2e suites at tests/e2e/*.spec.ts and crashes the unit run. Pin
+    // vitest to src-only test files.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'tests/**'],
     css: true,
     coverage: {
       provider: 'v8',
