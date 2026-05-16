@@ -282,12 +282,39 @@ describe('TagFilter', () => {
   })
 
   it('shows "+X more" when more than 3 tags selected', () => {
+    // Build 5 tags so we get "first 3 visible + 2 more"
+    const extraTags: Tag[] = [
+      ...mockTags,
+      {
+        id: 'tag-4',
+        name: 'extra1',
+        color: '#000000',
+        is_system_tag: false,
+        created_by: 'user-1',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+        parts_count: 0,
+        tools_count: 0,
+      },
+      {
+        id: 'tag-5',
+        name: 'extra2',
+        color: '#000000',
+        is_system_tag: false,
+        created_by: 'user-1',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+        parts_count: 0,
+        tools_count: 0,
+      },
+    ]
+
     render(
-      <TagFilter selectedTags={mockTags} onFilterChange={mockOnFilterChange} entityType="parts" />
+      <TagFilter selectedTags={extraTags} onFilterChange={mockOnFilterChange} entityType="parts" />
     )
 
-    // Should show first 3 tags + "+X more" text
-    expect(screen.getByText('+0 more')).toBeInTheDocument()
+    // Should show first 3 tags + "+2 more" text
+    expect(screen.getByText('+2 more')).toBeInTheDocument()
   })
 
   it('closes dropdown when clicking outside', async () => {
@@ -332,14 +359,16 @@ describe('TagFilter', () => {
         )
     )
 
-    render(<TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />)
+    const { container } = render(
+      <TagFilter selectedTags={[]} onFilterChange={mockOnFilterChange} entityType="parts" />
+    )
 
     const button = screen.getByText('Tags')
     await userEvent.click(button)
 
-    // Should show loading spinner
+    // Should show loading spinner (animate-spin class)
     await waitFor(() => {
-      expect(screen.getByRole('status', { hidden: true })).toBeInTheDocument()
+      expect(container.querySelector('.animate-spin')).toBeInTheDocument()
     })
   })
 
