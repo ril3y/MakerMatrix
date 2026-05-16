@@ -123,24 +123,22 @@ describe('TasksManagement - Basic Tests', () => {
 
     // useTasksDashboard uses raw fetch() for /api/suppliers/configured and
     // /api/tasks/capabilities/suppliers — stub it so MSW does not error.
-    ;(global as unknown as { fetch: typeof fetch }).fetch = vi.fn(
-      (input: RequestInfo | URL) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (url.includes('/api/suppliers/configured')) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ data: [] }),
-          } as Response)
-        }
-        if (url.includes('/api/tasks/capabilities/suppliers')) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ data: {} }),
-          } as Response)
-        }
-        return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+    ;(global as unknown as { fetch: typeof fetch }).fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/api/suppliers/configured')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
       }
-    ) as unknown as typeof fetch
+      if (url.includes('/api/tasks/capabilities/suppliers')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: {} }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+    }) as unknown as typeof fetch
   })
 
   afterEach(() => {
