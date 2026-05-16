@@ -98,7 +98,7 @@ describe('SettingsPage - Appearance Tab', () => {
       await user.click(appearanceTab)
 
       expect(screen.getByText('Appearance Settings')).toBeInTheDocument()
-      expect(appearanceTab).toHaveClass('bg-primary')
+      expect(appearanceTab).toHaveClass('bg-primary-20')
     })
   })
 
