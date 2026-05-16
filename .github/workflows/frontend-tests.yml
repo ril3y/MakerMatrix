@@ -65,12 +65,20 @@ jobs:
   # End-to-End Tests
   e2e-tests:
     runs-on: ubuntu-latest
-    
+    env:
+      # Backend requires JWT_SECRET_KEY to start; this value is for CI only.
+      JWT_SECRET_KEY: ci-test-secret-key-not-for-production-use
+      # The workflow starts its own preview server below — tell playwright.config.ts
+      # not to spawn an extra one (its default uses https://localhost:5173 with PEM
+      # certs that don't exist in CI), and point tests at the workflow's preview.
+      PLAYWRIGHT_SKIP_SERVER: '1'
+      PLAYWRIGHT_BASE_URL: http://localhost:4173
+
     services:
       # We'll start the backend manually using Python
       python:
         image: python:3.11
-        
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -173,7 +181,11 @@ jobs:
   # Accessibility Tests
   accessibility-tests:
     runs-on: ubuntu-latest
-    
+    env:
+      JWT_SECRET_KEY: ci-test-secret-key-not-for-production-use
+      PLAYWRIGHT_SKIP_SERVER: '1'
+      PLAYWRIGHT_BASE_URL: http://localhost:4173
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -211,11 +223,16 @@ jobs:
         python -m uvicorn MakerMatrix.main:app --host 0.0.0.0 --port 57891 &
         sleep 10
 
+    - name: Build frontend
+      working-directory: MakerMatrix/frontend
+      run: npm run build
+
     - name: Start frontend server
       working-directory: MakerMatrix/frontend
       run: |
-        npm run dev &
-        sleep 10
+        npm run preview &
+        sleep 5
+        curl --retry 5 --retry-delay 5 --retry-connrefused http://localhost:4173
 
     - name: Run accessibility tests
       working-directory: MakerMatrix/frontend
