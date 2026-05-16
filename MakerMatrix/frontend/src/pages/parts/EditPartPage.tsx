@@ -267,6 +267,47 @@ const EditPartPage: React.FC = () => {
         product_url: data.product_url === '' ? undefined : data.product_url,
       }
 
+      // If the supplier on this part isn't a configured supplier yet, register it as a
+      // "simple" supplier config (parity with AddPartModal). Without this, the parts page
+      // can't look up an icon for the part because the supplier doesn't exist server-side.
+      const supplierTyped = data.supplier?.trim()
+      const supplierUrlTyped = data.supplier_url?.trim()
+      if (supplierTyped && supplierUrlTyped) {
+        try {
+          const supplierLower = supplierTyped.toLowerCase()
+          const existingSuppliers = await supplierService.getSuppliers()
+          const exists = existingSuppliers.some(
+            (s) =>
+              s.supplier_name.toLowerCase() === supplierLower ||
+              s.display_name.toLowerCase() === supplierLower
+          )
+          if (!exists) {
+            const url = supplierUrlTyped.startsWith('http')
+              ? supplierUrlTyped
+              : `https://${supplierUrlTyped}`
+            await supplierService.createSupplier({
+              supplier_name: supplierLower,
+              display_name: supplierTyped,
+              description: `Auto-detected supplier: ${supplierTyped}`,
+              website_url: url,
+              supplier_type: 'simple',
+              api_type: 'rest',
+              base_url: '',
+              enabled: true,
+              supports_datasheet: false,
+              supports_image: false,
+              supports_pricing: false,
+              supports_stock: false,
+              supports_specifications: false,
+            })
+            console.log(`Created simple supplier config for ${supplierTyped} (favicon will be fetched)`)
+          }
+        } catch (error) {
+          // Non-fatal: the part update should still proceed even if supplier registration fails.
+          console.warn('Failed to ensure supplier config exists:', error)
+        }
+      }
+
       console.log('Sending update data:', updateData)
 
       await partsService.updatePart({ id, ...updateData })

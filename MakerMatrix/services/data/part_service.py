@@ -8,7 +8,7 @@ from sqlmodel import Session
 
 from MakerMatrix.models.models import CategoryModel, LocationQueryModel, AdvancedPartSearch
 from MakerMatrix.models.part_allocation_models import PartLocationAllocation
-from MakerMatrix.exceptions import ResourceNotFoundError, PartAlreadyExistsError
+from MakerMatrix.exceptions import ResourceNotFoundError, PartAlreadyExistsError, ValidationError as MMValidationError
 from MakerMatrix.repositories.parts_repositories import PartRepository, handle_categories
 from MakerMatrix.models.models import PartModel
 from MakerMatrix.models.models import engine  # Import the engine from db.py
@@ -53,6 +53,39 @@ class PartService(BaseService):
         # The order relationships are already loaded in the repository methods
         return part
 
+    # Keys in additional_properties that reference files on the *client's* filesystem.
+    # MCP and other API clients sometimes pass these; the server can't read them
+    # (it runs in Docker with its own fs), so storing them is just dead data.
+    _CLIENT_LOCAL_PATH_KEYS = ("image_local_path", "datasheet_local_path")
+
+    @staticmethod
+    def _is_local_filesystem_path(value: str) -> bool:
+        """Return True if value is a `file://` URL or a Windows/Unix-style absolute local path."""
+        v = value.strip()
+        if v.lower().startswith("file://"):
+            return True
+        # Windows: C:\, D:\, \\server\share, etc.
+        if len(v) >= 3 and v[1:3] in (":\\", ":/") and v[0].isalpha():
+            return True
+        if v.startswith("\\\\"):
+            return True
+        # Unix absolute path that's not one of our app-served prefixes
+        if v.startswith("/") and not (v.startswith("/api/") or v.startswith("/static/")):
+            return True
+        return False
+
+    def _strip_client_local_paths(self, additional_properties: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Drop `*_local_path` keys that point at the client's filesystem from additional_properties."""
+        if not additional_properties:
+            return additional_properties
+        for key in self._CLIENT_LOCAL_PATH_KEYS:
+            if key in additional_properties:
+                self.logger.info(
+                    f"Stripping client-side local path from additional_properties.{key}: {additional_properties[key]!r}"
+                )
+                additional_properties.pop(key, None)
+        return additional_properties
+
     def _process_image_url(self, image_url: Optional[str], part_name: str = "") -> Optional[str]:
         """
         Process an image URL - if it's an external URL, download it and return a local path.
@@ -60,12 +93,9 @@ class PartService(BaseService):
         External URLs (like McMaster-Carr) often expire, so we download and store locally.
         If the URL is already a local path (starts with /api/ or is a UUID), return as-is.
 
-        Args:
-            image_url: The image URL to process (can be external URL, local path, or UUID)
-            part_name: Part name for logging purposes
-
-        Returns:
-            Local image path (UUID format) or None if download fails
+        Raises:
+            MMValidationError: if image_url points at the client's filesystem (file:// or
+                Windows/Unix absolute path) — the server cannot reach those.
         """
         if not image_url:
             return None
@@ -104,6 +134,15 @@ class PartService(BaseService):
             except Exception as e:
                 self.logger.error(f"Error downloading image for '{part_name}': {e}")
                 return None
+
+        # Reject client-side filesystem paths — they can't work, the server is sandboxed.
+        if self._is_local_filesystem_path(image_url):
+            raise MMValidationError(
+                "image_url must be an http(s) URL or an existing /api/utility/get_image/<uuid>; "
+                "client-side filesystem paths (file://, C:\\..., /Users/...) are not accepted because "
+                "the server cannot read them. Upload the image via POST /api/utility/upload_image first.",
+                field_errors={"image_url": image_url},
+            )
 
         # Unknown format - return as-is (might be a relative path or other format)
         self.logger.debug(f"Image URL format not recognized, returning as-is: {image_url}")
@@ -548,6 +587,11 @@ class PartService(BaseService):
                     )
                     filtered_part_data["image_url"] = processed_image_url
 
+                # Drop client-side local file paths from additional_properties — the server
+                # can't read the client's filesystem, so storing them is dead data.
+                if filtered_part_data.get("additional_properties"):
+                    self._strip_client_local_paths(filtered_part_data["additional_properties"])
+
                 # Create the part with categories using repository
                 self.logger.debug(f"Creating PartModel with data: {filtered_part_data}")
                 new_part = PartModel(**filtered_part_data)
@@ -991,6 +1035,11 @@ class PartService(BaseService):
                             setattr(part, "image_url", None)
                             if old_value:
                                 updated_fields.append(f"image_url: cleared")
+                    elif key == "additional_properties":
+                        # Drop client-side local file paths before persisting.
+                        cleaned = self._strip_client_local_paths(dict(value)) if value else value
+                        setattr(part, "additional_properties", cleaned)
+                        updated_fields.append("additional_properties: updated")
                     elif hasattr(part, key):
                         try:
                             old_value = getattr(part, key)
