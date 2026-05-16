@@ -168,7 +168,8 @@ describe('AddProjectModal - Core Functionality', () => {
       const linkRow = firstUrlInput.parentElement
       const removeButton = linkRow?.querySelector('button')
       expect(removeButton).toBeTruthy()
-      await user.click(removeButton!)
+      if (!removeButton) throw new Error('remove button not found')
+      await user.click(removeButton)
 
       linkUrlInputs = screen.queryAllByPlaceholderText(LINK_URL_PLACEHOLDER)
       expect(linkUrlInputs).toHaveLength(1)
