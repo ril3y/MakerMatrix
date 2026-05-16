@@ -50,7 +50,8 @@ export const SupplierSelector = ({
           s.supplier_name.toLowerCase() === value.toLowerCase() ||
           s.display_name.toLowerCase() === value.toLowerCase()
       )
-      const isPending = pendingSupplier && pendingSupplier.name.toLowerCase() === value.toLowerCase()
+      const isPending =
+        pendingSupplier && pendingSupplier.name.toLowerCase() === value.toLowerCase()
       if (!isConfigured && !isPending) {
         setShowCustomInput(true)
         setCustomSupplier(value)
@@ -210,14 +211,19 @@ export const SupplierSelector = ({
   })
 
   // Add pending (auto-detected but not yet saved) supplier if present
-  if (pendingSupplier && !suppliers.some(s => s.supplier_name.toLowerCase() === pendingSupplier.name.toLowerCase())) {
+  if (
+    pendingSupplier &&
+    !suppliers.some((s) => s.supplier_name.toLowerCase() === pendingSupplier.name.toLowerCase())
+  ) {
     optionGroups.push({
       label: 'Detected Supplier',
-      options: [{
-        value: pendingSupplier.name,
-        label: `${pendingSupplier.displayName} (new)`,
-        image_url: `/api/utility/supplier_icon/${encodeURIComponent(pendingSupplier.name)}`,
-      }],
+      options: [
+        {
+          value: pendingSupplier.name,
+          label: `${pendingSupplier.displayName} (new)`,
+          image_url: `/api/utility/supplier_icon/${encodeURIComponent(pendingSupplier.name)}`,
+        },
+      ],
     })
   }
 

@@ -38,7 +38,7 @@ const ContainerSlotPickerModal = ({
   isOpen,
   onClose,
   containerLocation,
-  currentSlotId,
+  currentSlotId: _currentSlotId,
   onSlotSelect,
 }: ContainerSlotPickerModalProps) => {
   const [slots, setSlots] = useState<SlotWithParts[]>([])
@@ -190,7 +190,8 @@ const ContainerSlotPickerModal = ({
   const handleAssignPart = async (part: Part, slotId: string) => {
     // Check if part already has a location
     const currentLocation = part.location
-    const currentLocationName = currentLocation?.name || (part.location_id ? 'another location' : '')
+    const currentLocationName =
+      currentLocation?.name || (part.location_id ? 'another location' : '')
 
     if (currentLocationName) {
       // Part is already somewhere — show confirmation
@@ -241,10 +242,7 @@ const ContainerSlotPickerModal = ({
     }, 300)
   }
 
-  const handleOccupantHover = (
-    occupant: SlotWithParts['parts'][0],
-    event: React.MouseEvent
-  ) => {
+  const handleOccupantHover = (occupant: SlotWithParts['parts'][0], event: React.MouseEvent) => {
     // Build a minimal Part-like object for the preview card
     const partLike = {
       id: occupant.part_id,
@@ -413,11 +411,7 @@ const ContainerSlotPickerModal = ({
     const cells = buildSimpleCells()
     if (cells.length === 0) return null
 
-    return (
-      <div className="grid grid-cols-4 gap-2">
-        {cells.map((slot) => renderSlotCell(slot))}
-      </div>
-    )
+    return <div className="grid grid-cols-4 gap-2">{cells.map((slot) => renderSlotCell(slot))}</div>
   }
 
   const renderSlotPanel = () => {
@@ -455,10 +449,7 @@ const ContainerSlotPickerModal = ({
         {hasParts && (
           <div className="mb-3 border border-theme-primary rounded-lg divide-y divide-theme-primary">
             {activeSlot.parts.map((occupant) => (
-              <div
-                key={occupant.part_id}
-                className="flex items-center gap-3 px-4 py-2"
-              >
+              <div key={occupant.part_id} className="flex items-center gap-3 px-4 py-2">
                 {occupant.image_url ? (
                   <img
                     src={occupant.image_url}
@@ -575,9 +566,7 @@ const ContainerSlotPickerModal = ({
           <div className="flex items-center gap-3">
             <Package className="w-6 h-6 text-primary" />
             <div>
-              <h2 className="text-xl font-semibold text-theme-primary">
-                {containerLocation.name}
-              </h2>
+              <h2 className="text-xl font-semibold text-theme-primary">{containerLocation.name}</h2>
               <p className="text-sm text-theme-secondary mt-1">
                 {isGridLayout
                   ? `${containerLocation.grid_rows} x ${containerLocation.grid_columns} grid layout`
@@ -666,13 +655,15 @@ const ContainerSlotPickerModal = ({
               is currently in{' '}
               <span className="font-medium text-theme-primary">
                 {pendingAssign.currentLocationName}
-              </span>.
+              </span>
+              .
             </p>
             <p className="text-sm text-theme-secondary mb-6">
               Move it to{' '}
               <span className="font-medium text-theme-primary">
                 {slots.find((s) => s.id === pendingAssign.slotId)?.name || pendingAssign.slotId}
-              </span>?
+              </span>
+              ?
             </p>
             <div className="flex justify-end gap-3">
               <button

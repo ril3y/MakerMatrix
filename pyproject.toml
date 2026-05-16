@@ -21,6 +21,7 @@ keywords = ["inventory", "electronics", "parts", "management", "maker"]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "critical: marks tests as critical security tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 testpaths = ["MakerMatrix/tests", "MakerMatrix/integration_tests", "MakerMatrix/unit_tests"]
 python_files = ["test_*.py"]
