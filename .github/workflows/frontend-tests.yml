@@ -122,6 +122,11 @@ jobs:
 
     - name: Build frontend for E2E
       working-directory: MakerMatrix/frontend
+      env:
+        # Preview server (port 4173) serves a static prod build with no proxy,
+        # so /api/* would 404 against the preview itself. Point the built bundle
+        # at the workflow's backend instead.
+        VITE_API_URL: http://localhost:57891
       run: npm run build
 
     - name: Start frontend server
