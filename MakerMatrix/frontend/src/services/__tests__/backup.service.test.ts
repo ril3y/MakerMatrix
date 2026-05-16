@@ -54,6 +54,9 @@ describe('BackupService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // Reassign fetch as a fresh vi.fn each test — the forks-pool isolation
+    // can replace the module-level global.fetch reference between tests.
+    global.fetch = vi.fn()
     localStorageMock.getItem.mockReturnValue('mock-auth-token')
   })
 
@@ -282,6 +285,7 @@ describe('BackupService', () => {
         download: '',
         click: vi.fn(),
         remove: vi.fn(),
+        setAttribute: vi.fn(),
       } as unknown as HTMLAnchorElement
       const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink)
       const appendChildSpy = vi
