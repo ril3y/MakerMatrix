@@ -31,8 +31,8 @@ describe('Tooltip', () => {
       // Hover over trigger
       await user.hover(trigger)
 
-      // Tooltip should now be visible
-      expect(screen.getByText('Tooltip content')).toBeInTheDocument()
+      // Tooltip should now be visible (findByText waits for portal render)
+      expect(await screen.findByText('Tooltip content')).toBeInTheDocument()
 
       // Move mouse away
       await user.unhover(trigger)
@@ -134,9 +134,9 @@ describe('Tooltip', () => {
       expect(text).toBeInTheDocument()
       expect(text).toHaveClass('border-b', 'border-dotted')
 
-      // Hover to show tooltip
+      // Hover to show tooltip (findByText waits for portal render)
       await user.hover(text)
-      expect(screen.getByText('Tooltip content')).toBeInTheDocument()
+      expect(await screen.findByText('Tooltip content')).toBeInTheDocument()
     })
 
     it('supports different positions', async () => {
@@ -177,7 +177,8 @@ describe('Tooltip', () => {
       // Hover over icon
       if (icon?.parentElement) {
         await user.hover(icon.parentElement)
-        expect(screen.getByText('Icon content')).toBeInTheDocument()
+        // findByText waits for the tooltip to render after the hover state flush.
+        expect(await screen.findByText('Icon content')).toBeInTheDocument()
       }
     })
 
