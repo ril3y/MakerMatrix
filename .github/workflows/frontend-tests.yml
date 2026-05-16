@@ -181,78 +181,9 @@ jobs:
         path: MakerMatrix/frontend/test-results/
         retention-days: 30
 
-  # Accessibility Tests
-  accessibility-tests:
-    runs-on: ubuntu-latest
-    env:
-      JWT_SECRET_KEY: ci-test-secret-key-not-for-production-use
-      # SQLite path inside the workflow workspace; the default sqlite:////data/...
-      # is the Docker path and isn't writable in GH Actions runners.
-      DATABASE_URL: sqlite:///./ci_test.db
-      PLAYWRIGHT_SKIP_SERVER: '1'
-      PLAYWRIGHT_BASE_URL: http://localhost:4173
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: MakerMatrix/frontend/package-lock.json
-
-    - name: Install Python dependencies
-      run: |
-        python -m venv venv_test
-        source venv_test/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Install frontend dependencies
-      working-directory: MakerMatrix/frontend
-      run: npm ci
-
-    - name: Install Playwright browsers
-      working-directory: MakerMatrix/frontend
-      run: npx playwright install --with-deps
-
-    - name: Start backend server
-      run: |
-        source venv_test/bin/activate
-        python -m uvicorn MakerMatrix.main:app --host 0.0.0.0 --port 57891 &
-        sleep 10
-
-    - name: Build frontend
-      working-directory: MakerMatrix/frontend
-      run: npm run build
-
-    - name: Start frontend server
-      working-directory: MakerMatrix/frontend
-      run: |
-        npm run preview &
-        sleep 5
-        curl --retry 5 --retry-delay 5 --retry-connrefused http://localhost:4173
-
-    - name: Run accessibility tests
-      working-directory: MakerMatrix/frontend
-      run: |
-        # Create accessibility test script
-        npx playwright test --grep "accessibility" --reporter=html
-
-    - name: Upload accessibility test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: accessibility-report
-        path: MakerMatrix/frontend/playwright-report/
-        retention-days: 30
+  # Accessibility Tests — removed: there are no Playwright tests tagged
+  # "accessibility" in tests/, so this job always failed with "No tests found".
+  # Re-add when real a11y tests exist (e.g., axe-core checks under tests/e2e/).
 
   # Bundle Size Analysis
   bundle-analysis:

@@ -13,6 +13,11 @@ export default defineConfig({
     // vitest to src-only test files.
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['**/node_modules/**', '**/dist/**', 'tests/**'],
+    // The default worker_threads pool aborts on teardown in CI with
+    // "uv__stream_destroy: Assertion `!uv__io_active(...)' failed" (libuv issue with
+    // jsdom + MSW). Forks pool gets each test file its own subprocess and tears down
+    // cleanly — the trade-off is slightly slower runs, which is fine for CI.
+    pool: 'forks',
     css: true,
     coverage: {
       provider: 'v8',
