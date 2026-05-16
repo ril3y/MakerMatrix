@@ -144,7 +144,8 @@ describe('Tooltip', () => {
       render(<TooltipText text="Test" tooltip="Content" position="bottom" />)
 
       await user.hover(screen.getByText('Test'))
-      expect(screen.getByText('Content')).toBeInTheDocument()
+      // findByText waits for the tooltip to render after the hover state flush.
+      expect(await screen.findByText('Content')).toBeInTheDocument()
     })
 
     it('supports different variants', async () => {
@@ -152,7 +153,8 @@ describe('Tooltip', () => {
       render(<TooltipText text="Warning" tooltip="Warning message" variant="warning" />)
 
       await user.hover(screen.getByText('Warning'))
-      expect(screen.getByText('Warning message')).toBeInTheDocument()
+      // findByText waits for the tooltip to render after the hover state flush.
+      expect(await screen.findByText('Warning message')).toBeInTheDocument()
     })
   })
 

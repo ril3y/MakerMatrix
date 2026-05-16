@@ -1,0 +1,24 @@
+# Normalize line endings on commit and checkout so Windows checkouts don't
+# produce CRLF that prettier/eslint then flag. Prior to this file, multiple CI
+# runs failed locally-passing because Windows working trees had CRLF while
+# stored blobs were LF (or vice versa).
+* text=auto eol=lf
+
+# Binary files — never auto-convert.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.tgz binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.db binary
+*.sqlite binary
+*.pfx binary

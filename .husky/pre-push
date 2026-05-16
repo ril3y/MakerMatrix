@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# Mirror the Frontend Tests CI gate locally so we catch lint / vitest failures
+# before they hit GitHub Actions. Skip with `git push --no-verify` if you really
+# need to (e.g., docs-only push) — CI is still the source of truth.
+
+set -e
+
+echo "[pre-push] Running frontend lint + type-check + vitest…"
+cd MakerMatrix/frontend
+npm run lint
+npm run type-check
+npx vitest run --reporter=dot
+echo "[pre-push] ✓ lint, type-check, and vitest all clean."
