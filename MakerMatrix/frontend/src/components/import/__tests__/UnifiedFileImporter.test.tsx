@@ -10,6 +10,12 @@ vi.mock('react-hot-toast')
 vi.mock('@/services/api')
 vi.mock('@/utils/filenameExtractor', () => ({
   extractOrderInfoFromFilename: vi.fn().mockResolvedValue({}),
+  extractFilenameInfo: vi.fn().mockReturnValue({
+    supplier: null,
+    orderNumber: null,
+    orderDate: null,
+    notes: [],
+  }),
 }))
 
 const mockApiClient = vi.mocked(apiClient)
