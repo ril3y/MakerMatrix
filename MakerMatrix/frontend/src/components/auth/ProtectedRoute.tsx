@@ -1,5 +1,5 @@
 import React from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 
@@ -15,6 +15,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requirePermission,
 }) => {
   const { isAuthenticated, isLoading, hasRole, hasPermission, checkAuth } = useAuthStore()
+  const location = useLocation()
 
   // Check auth on mount if not already authenticated
   React.useEffect(() => {
@@ -28,7 +29,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    // Preserve the URL the user was trying to reach so LoginPage can send them back after login.
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   if (requireRole && !hasRole(requireRole)) {

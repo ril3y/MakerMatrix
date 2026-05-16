@@ -300,7 +300,9 @@ const EditPartPage: React.FC = () => {
               supports_stock: false,
               supports_specifications: false,
             })
-            console.log(`Created simple supplier config for ${supplierTyped} (favicon will be fetched)`)
+            console.log(
+              `Created simple supplier config for ${supplierTyped} (favicon will be fetched)`
+            )
           }
         } catch (error) {
           // Non-fatal: the part update should still proceed even if supplier registration fails.

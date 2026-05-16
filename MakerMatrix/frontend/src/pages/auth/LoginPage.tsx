@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
+import { useLocation } from 'react-router-dom'
 import { LogIn, Eye, EyeOff, AlertCircle, UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import type { LoginRequest } from '@/types/auth'
@@ -19,6 +20,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isGuestLoading, setIsGuestLoading] = useState(false)
+  const location = useLocation()
 
   const {
     register,
@@ -28,6 +30,20 @@ const LoginPage = () => {
     resolver: zodResolver(loginSchema),
   })
 
+  // Resolve where to send the user after login. ProtectedRoute passes the originally
+  // requested location in router state; fall back to /dashboard. Restrict to same-origin
+  // paths (must start with "/" and not "//") so a crafted state can't open-redirect.
+  const getPostLoginTarget = (): string => {
+    const from = (
+      location.state as { from?: { pathname: string; search?: string; hash?: string } } | null
+    )?.from
+    if (!from) return '/dashboard'
+    const target = `${from.pathname}${from.search || ''}${from.hash || ''}`
+    if (!target.startsWith('/') || target.startsWith('//')) return '/dashboard'
+    if (target.startsWith('/login')) return '/dashboard'
+    return target
+  }
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     clearError()
@@ -35,7 +51,7 @@ const LoginPage = () => {
     try {
       await login(data as LoginRequest)
       // Force a page reload to ensure proper state initialization
-      window.location.href = '/dashboard'
+      window.location.href = getPostLoginTarget()
     } catch (_error) {
       setIsLoading(false)
       // Error is handled in the store
@@ -49,7 +65,7 @@ const LoginPage = () => {
     try {
       await guestLogin()
       // Force a page reload to ensure proper state initialization
-      window.location.href = '/dashboard'
+      window.location.href = getPostLoginTarget()
     } catch (_error) {
       setIsGuestLoading(false)
       // Error is handled in the store
