@@ -309,8 +309,48 @@ class TestPathTraversal:
         assert resp.status_code != 200
 
     def test_image_double_dot_blocked(self, client):
-        resp = client.get("/api/utility/get_image/..")
-        assert resp.status_code in (400, 404)
+        # ``..`` in the URL path is stripped client-side by httpx/urllib's URL
+        # normalization before TestClient ever sends the request, so going
+        # through ``client.get(...)`` we cannot exercise the middleware
+        # directly. Instead we send a raw ASGI request whose ``raw_path``
+        # contains the literal ``..`` segment — this is what an attacker
+        # using ``curl`` or a raw socket would send, and is exactly the
+        # case the new PathTraversalMiddleware in main.py is there to catch.
+        import asyncio
+
+        from MakerMatrix.main import app
+
+        received: list[dict] = []
+
+        async def send(msg: dict) -> None:
+            received.append(msg)
+
+        async def receive() -> dict:
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/utility/get_image/..",
+            "raw_path": b"/api/utility/get_image/..",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+            "server": ("testserver", 80),
+            "root_path": "",
+        }
+        asyncio.run(app(scope, receive, send))
+
+        status = next(
+            m["status"] for m in received if m["type"] == "http.response.start"
+        )
+        # The middleware returns 400 with our explicit error body. 404 is
+        # accepted as a fallback in case a future refactor moves the guard
+        # back into the route handler.
+        assert status in (400, 404), f"Expected 400/404 from middleware, got {status}"
 
     def test_image_with_slash_blocked(self, client):
         # raw slashes - many servers route this away, but starlette can be tricky;

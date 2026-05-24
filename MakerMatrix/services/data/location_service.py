@@ -295,9 +295,35 @@ class LocationService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"preview delete {self.entity_name}")
 
-    @staticmethod
-    def get_parts_effected_locations(location_id: str):
-        return LocationService.location_repo.get_parts_effected_locations(location_id)
+    def get_parts_effected_locations(self, location_id: str) -> List[str]:
+        """Return the IDs of parts affected by deleting ``location_id``.
+
+        Previously decorated as @staticmethod but referenced
+        LocationService.location_repo (an instance attribute set in
+        __init__) — calls always raised AttributeError. The underlying
+        repository also had no ``get_parts_effected_locations`` method, so
+        this method was effectively dead. It is now rewritten as a real
+        instance method that walks the location hierarchy and returns the
+        affected part IDs using the existing repository helpers.
+
+        Returns an empty list if the location does not exist (rather than
+        propagating ResourceNotFoundError) to keep the contract simple for
+        the "preview delete" UX this is intended for.
+        """
+        with self.get_session() as session:
+            try:
+                hierarchy = self.location_repo.get_location_hierarchy(session, location_id)
+            except ResourceNotFoundError:
+                return []
+            except Exception:
+                logger.exception(
+                    "get_location_hierarchy raised unexpectedly for id %s; returning []",
+                    location_id,
+                )
+                return []
+            if not hierarchy:
+                return []
+            return self.location_repo.get_affected_part_ids(session, hierarchy["affected_location_ids"])
 
     @staticmethod
     def delete_location(location_id: str) -> Dict:
@@ -417,10 +443,16 @@ class LocationService(BaseService):
             },
         }
 
-    @staticmethod
-    def delete_all_locations():
-        session = next(get_session())
-        return LocationService.location_repo.delete_all_locations(session)
+    def delete_all_locations(self):
+        """Delete every location.
+
+        Previously decorated as @staticmethod but referenced
+        LocationService.location_repo, which is an instance attribute — calls
+        always raised AttributeError. Converted to an instance method that
+        opens a managed session via BaseService.get_session().
+        """
+        with self.get_session() as session:
+            return self.location_repo.delete_all_locations(session)
 
     def get_or_create_unsorted_location(self) -> ServiceResponse[Dict[str, Any]]:
         """

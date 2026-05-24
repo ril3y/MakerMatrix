@@ -332,6 +332,15 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Add the middleware to the app
 app.middleware("http")(guest_rate_limit_middleware)
 
+# SECURITY: register the path-traversal middleware LAST so Starlette wraps it
+# OUTERMOST — it runs before CORS, before guest-rate-limiting, and before
+# routing has a chance to URL-normalize ``..`` segments out of the path.
+# Without this, /api/utility/get_image/.. silently becomes /api/utility/get_image
+# at the router and the per-handler regex validator never sees the attack.
+from MakerMatrix.middleware.path_traversal import path_traversal_middleware
+
+app.middleware("http")(path_traversal_middleware)
+
 # Define permissions for specific routes
 parts_permissions = {
     "/add_part": "parts:create",
