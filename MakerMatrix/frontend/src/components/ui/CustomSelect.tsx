@@ -171,20 +171,6 @@ export const CustomSelect = ({
     }
   }
 
-  // Debug logging
-  if (allowCustom && searchTerm) {
-    console.log('CustomSelect Debug:', {
-      allowCustom,
-      searchTerm,
-      isCustomValue,
-      optionsCount: options.length,
-      optionValues: options.map((o) => o.value),
-      optionLabels: options.map((o) => o.label),
-      trimmedSearchTerm: searchTerm.trim(),
-      searchTermLower: searchTerm.toLowerCase(),
-    })
-  }
-
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Trigger Button */}

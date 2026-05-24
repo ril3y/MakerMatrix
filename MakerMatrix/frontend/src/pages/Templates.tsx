@@ -6,7 +6,6 @@ import TemplateEditorModal from '@/components/templates/TemplateEditorModal'
 import toast from 'react-hot-toast'
 
 const Templates = () => {
-  console.log('Templates component rendering...')
   const [templates, setTemplates] = useState<LabelTemplate[]>([])
   const [systemTemplates, setSystemTemplates] = useState<LabelTemplate[]>([])
   const [userTemplates, setUserTemplates] = useState<LabelTemplate[]>([])
@@ -22,21 +21,14 @@ const Templates = () => {
   const loadTemplates = async () => {
     try {
       setLoading(true)
-      console.log('Loading templates...')
       const [system, user] = await Promise.all([
         templateService.getSystemTemplates(),
         templateService.getUserTemplates(),
       ])
 
-      console.log('Raw API responses:', { system, user })
-
       // Ensure we have arrays
       const systemArray = Array.isArray(system) ? system : []
       const userArray = Array.isArray(user) ? user : []
-
-      console.log(
-        `Loaded ${systemArray.length} system templates, ${userArray.length} user templates`
-      )
 
       // Deduplicate templates by ID
       const deduplicateById = (templates: LabelTemplate[]) => {
@@ -71,10 +63,8 @@ const Templates = () => {
   }
 
   const handleCreate = () => {
-    console.log('Create Template button clicked!')
     setEditingTemplate(null)
     setIsEditorOpen(true)
-    console.log('Modal should be opening, isEditorOpen set to true')
   }
 
   const handleEdit = (template: LabelTemplate) => {

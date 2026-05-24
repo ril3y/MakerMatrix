@@ -63,7 +63,6 @@ import { projectsService } from '@/services/projects.service'
 import type { Project } from '@/types/projects'
 // Analytics service removed - price trends disabled
 // import { analyticsService } from '@/services/analytics.service'
-import { Line } from 'react-chartjs-2'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import TransferQuantityModal from '@/components/parts/TransferQuantityModal'
@@ -138,18 +137,17 @@ const PartDetailsPage = () => {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('')
   const [enrichmentModalOpen, setEnrichmentModalOpen] = useState(false)
   const [printerModalOpen, setPrinterModalOpen] = useState(false)
-  const [_priceTrends, _setPriceTrends] = useState<Array<{ date: string; price: number }>>([])
-  const [_loadingPriceHistory, _setLoadingPriceHistory] = useState(false)
+  // NOTE: `_priceTrends` / `_loadingPriceHistory` zombie state was removed —
+  // it dated back to a deleted analyticsService that never populated them,
+  // so the "Order History & Price Trends" section was unreachable.
   const [copiedPartNumber, setCopiedPartNumber] = useState(false)
   const [copiedPartName, setCopiedPartName] = useState(false)
   const [supplierConfig, setSupplierConfig] = useState<SupplierConfig | null>(null)
   const [editingSupplier, setEditingSupplier] = useState(false)
   const [tempSupplier, setTempSupplier] = useState<string>('')
   const [supplierSupportsScraping, setSupplierSupportsScraping] = useState(false)
-  const [_availableSuppliers, _setAvailableSuppliers] = useState<string[]>([])
   const [partAllocations, setPartAllocations] = useState<PartAllocation[]>([])
   const [allocationTotalQuantity, setAllocationTotalQuantity] = useState<number | null>(null)
-  const [_loadingAllocations, _setLoadingAllocations] = useState(false)
 
   // Category management state
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false)
@@ -204,7 +202,6 @@ const PartDetailsPage = () => {
 
   const loadAllocations = useCallback(async (partId: string) => {
     try {
-      _setLoadingAllocations(true)
       const data = await partAllocationService.getPartAllocations(partId)
       setPartAllocations(data.allocations || [])
       setAllocationTotalQuantity(data.total_quantity)
@@ -212,8 +209,6 @@ const PartDetailsPage = () => {
       console.error('Failed to load allocations:', err)
       setPartAllocations([])
       setAllocationTotalQuantity(null)
-    } finally {
-      _setLoadingAllocations(false)
     }
   }, [])
 
@@ -230,7 +225,6 @@ const PartDetailsPage = () => {
           try {
             // Get available suppliers from registry
             const availableSuppliersData = await dynamicSupplierService.getAvailableSuppliers()
-            _setAvailableSuppliers(availableSuppliersData.map((s) => s.toLowerCase()))
 
             // Get configured suppliers
             const suppliers = await supplierService.getSuppliers()
@@ -254,7 +248,6 @@ const PartDetailsPage = () => {
                 const scrapingInfo =
                   await dynamicSupplierService.checkScrapingSupport(supplierLower)
                 setSupplierSupportsScraping(scrapingInfo.supports_scraping)
-                console.log(`Supplier ${response.supplier} scraping support:`, scrapingInfo)
               } catch (error) {
                 console.error('Failed to check scraping support:', error)
                 setSupplierSupportsScraping(false)
@@ -573,7 +566,6 @@ const PartDetailsPage = () => {
     try {
       setLoadingCategories(true)
       const categories = await categoriesService.getAllCategories()
-      console.log('Loaded categories:', categories)
       setAllCategories(categories || [])
     } catch (error) {
       console.error('Failed to load categories:', error)
@@ -642,7 +634,6 @@ const PartDetailsPage = () => {
     try {
       setLoadingProjects(true)
       const projects = await projectsService.getAllProjects()
-      console.log('Loaded projects:', projects)
       setAllProjects(projects || [])
     } catch (error) {
       console.error('Failed to load projects:', error)
@@ -2267,141 +2258,6 @@ const PartDetailsPage = () => {
 
               <div className="p-6">
                 <CleanPropertiesDisplay properties={additionalProps} />
-              </div>
-            </motion.div>
-          )}
-
-          {/* Order History Section */}
-          {_priceTrends.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="card"
-            >
-              <div className="card-header">
-                <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Order History & Price Trends
-                  <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
-                    {_priceTrends.length} orders
-                  </span>
-                </h2>
-              </div>
-              <div className="card-content">
-                {_loadingPriceHistory ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Price Trend Chart */}
-                    <div>
-                      <h3 className="text-md font-medium text-primary mb-4">Price Trend</h3>
-                      <div className="h-64">
-                        <Line
-                          data={{
-                            labels: _priceTrends.map((item) =>
-                              new Date(item.date).toLocaleDateString()
-                            ),
-                            datasets: [
-                              {
-                                label: 'Unit Price',
-                                data: _priceTrends.map((item) => item.price),
-                                borderColor: 'rgb(99, 102, 241)',
-                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                                fill: true,
-                                tension: 0.4,
-                              },
-                            ],
-                          }}
-                          options={{
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                              legend: {
-                                display: false,
-                              },
-                            },
-                            scales: {
-                              y: {
-                                beginAtZero: false,
-                                ticks: {
-                                  callback: function (value: string | number) {
-                                    return '$' + Number(value).toFixed(2)
-                                  },
-                                },
-                              },
-                            },
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Order Details Table */}
-                    <div>
-                      <h3 className="text-md font-medium text-primary mb-4">Order Details</h3>
-                      <div className="overflow-x-auto">
-                        <table className="table w-full">
-                          <thead className="bg-gradient-to-r from-purple-600/20 to-blue-600/20">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
-                                Date
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
-                                Supplier
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
-                                Unit Price
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider">
-                                Change
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-theme-elevated/50 divide-y divide-purple-500/10">
-                            {_priceTrends.map((trend, index) => {
-                              const prevPrice =
-                                index < _priceTrends.length - 1
-                                  ? _priceTrends[index + 1].price
-                                  : null
-                              const priceChange = prevPrice
-                                ? ((trend.price - prevPrice) / prevPrice) * 100
-                                : 0
-
-                              return (
-                                <tr
-                                  key={index}
-                                  className="hover:bg-gradient-to-r hover:from-purple-600/5 hover:to-blue-600/5 transition-all duration-200"
-                                >
-                                  <td className="px-4 py-3 text-primary">
-                                    {new Date(trend.date).toLocaleDateString()}
-                                  </td>
-                                  <td className="px-4 py-3 text-secondary">
-                                    {part.supplier || 'N/A'}
-                                  </td>
-                                  <td className="px-4 py-3 text-secondary">
-                                    ${trend.price.toFixed(2)}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {prevPrice && (
-                                      <span
-                                        className={`flex items-center gap-1 ${priceChange > 0 ? 'text-error' : priceChange < 0 ? 'text-success' : 'text-secondary'}`}
-                                      >
-                                        {priceChange > 0 ? '↑' : priceChange < 0 ? '↓' : '→'}
-                                        {Math.abs(priceChange).toFixed(1)}%
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </motion.div>
           )}

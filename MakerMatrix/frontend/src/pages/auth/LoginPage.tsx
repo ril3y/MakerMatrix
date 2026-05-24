@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { LogIn, Eye, EyeOff, AlertCircle, UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import type { LoginRequest } from '@/types/auth'
@@ -21,6 +21,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [isGuestLoading, setIsGuestLoading] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
 
   const {
     register,
@@ -50,8 +51,9 @@ const LoginPage = () => {
 
     try {
       await login(data as LoginRequest)
-      // Force a page reload to ensure proper state initialization
-      window.location.href = getPostLoginTarget()
+      // SPA navigation — `WebSocketProvider` reconnects the shared WS
+      // singletons in response to the auth-state flip.
+      navigate(getPostLoginTarget(), { replace: true })
     } catch (_error) {
       setIsLoading(false)
       // Error is handled in the store
@@ -64,8 +66,7 @@ const LoginPage = () => {
 
     try {
       await guestLogin()
-      // Force a page reload to ensure proper state initialization
-      window.location.href = getPostLoginTarget()
+      navigate(getPostLoginTarget(), { replace: true })
     } catch (_error) {
       setIsGuestLoading(false)
       // Error is handled in the store

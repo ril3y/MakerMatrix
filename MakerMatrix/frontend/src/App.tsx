@@ -1,29 +1,29 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext'
 import { WebSocketProvider } from '@/contexts/WebSocketContext'
 
-// Layouts
+// Layouts (kept eager — shells around lazy pages)
 import MainLayout from '@/components/layouts/MainLayout'
 import AuthLayout from '@/components/layouts/AuthLayout'
 
-// Pages
-import LoginPage from '@/pages/auth/LoginPage'
-import DashboardPage from '@/pages/DashboardPage'
-import PartsPage from '@/pages/parts/PartsPage'
-import PartDetailsPage from '@/pages/parts/PartDetailsPage'
-import EditPartPage from '@/pages/parts/EditPartPage'
-import LocationsPage from '@/pages/locations/LocationsPage'
-import CategoriesPage from '@/pages/categories/CategoriesPage'
-import ProjectsPage from '@/pages/projects/ProjectsPage'
-import ToolsPage from '@/pages/tools/ToolsPage'
-import UsersPage from '@/pages/users/UsersPage'
-import SettingsPage from '@/pages/settings/SettingsPage'
-import TasksPage from '@/pages/tasks/TasksPage'
-import UnauthorizedPage from '@/pages/UnauthorizedPage'
-import NotFoundPage from '@/pages/NotFoundPage'
+// Pages (lazy — each becomes its own chunk so the initial bundle stays small)
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
+const PartsPage = lazy(() => import('@/pages/parts/PartsPage'))
+const PartDetailsPage = lazy(() => import('@/pages/parts/PartDetailsPage'))
+const EditPartPage = lazy(() => import('@/pages/parts/EditPartPage'))
+const LocationsPage = lazy(() => import('@/pages/locations/LocationsPage'))
+const CategoriesPage = lazy(() => import('@/pages/categories/CategoriesPage'))
+const ProjectsPage = lazy(() => import('@/pages/projects/ProjectsPage'))
+const ToolsPage = lazy(() => import('@/pages/tools/ToolsPage'))
+const UsersPage = lazy(() => import('@/pages/users/UsersPage'))
+const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'))
+const TasksPage = lazy(() => import('@/pages/tasks/TasksPage'))
+const UnauthorizedPage = lazy(() => import('@/pages/UnauthorizedPage'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 // Components
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -47,63 +47,65 @@ function AppContent() {
   return (
     <>
       <Router>
-        <Routes>
-          {/* Auth Routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={<LoginPage />} />
-          </Route>
-
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-
-              {/* Parts Management */}
-              <Route path="/parts" element={<PartsPage />} />
-              <Route path="/parts/:id" element={<PartDetailsPage />} />
-              <Route path="/parts/:id/edit" element={<EditPartPage />} />
-
-              {/* Location Management */}
-              <Route path="/locations" element={<LocationsPage />} />
-
-              {/* Category Management */}
-              <Route path="/categories" element={<CategoriesPage />} />
-
-              {/* Project Management */}
-              <Route path="/projects" element={<ProjectsPage />} />
-
-              {/* Tools Management */}
-              <Route path="/tools" element={<ToolsPage />} />
-
-              {/* Template Management - Redirect to Settings */}
-              <Route
-                path="/templates"
-                element={<Navigate to="/settings?tab=templates" replace />}
-              />
-
-              {/* User Management - Admin Only */}
-              <Route
-                path="/users"
-                element={
-                  <ProtectedRoute requireRole="admin">
-                    <UsersPage />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Settings */}
-              <Route path="/settings" element={<SettingsPage />} />
-
-              {/* Tasks Management */}
-              <Route path="/tasks" element={<TasksPage />} />
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            {/* Auth Routes */}
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={<LoginPage />} />
             </Route>
-          </Route>
 
-          {/* Public Routes */}
-          <Route path="/unauthorized" element={<UnauthorizedPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<MainLayout />}>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+
+                {/* Parts Management */}
+                <Route path="/parts" element={<PartsPage />} />
+                <Route path="/parts/:id" element={<PartDetailsPage />} />
+                <Route path="/parts/:id/edit" element={<EditPartPage />} />
+
+                {/* Location Management */}
+                <Route path="/locations" element={<LocationsPage />} />
+
+                {/* Category Management */}
+                <Route path="/categories" element={<CategoriesPage />} />
+
+                {/* Project Management */}
+                <Route path="/projects" element={<ProjectsPage />} />
+
+                {/* Tools Management */}
+                <Route path="/tools" element={<ToolsPage />} />
+
+                {/* Template Management - Redirect to Settings */}
+                <Route
+                  path="/templates"
+                  element={<Navigate to="/settings?tab=templates" replace />}
+                />
+
+                {/* User Management - Admin Only */}
+                <Route
+                  path="/users"
+                  element={
+                    <ProtectedRoute requireRole="admin">
+                      <UsersPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Settings */}
+                <Route path="/settings" element={<SettingsPage />} />
+
+                {/* Tasks Management */}
+                <Route path="/tasks" element={<TasksPage />} />
+              </Route>
+            </Route>
+
+            {/* Public Routes */}
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </Router>
 
       <Toaster

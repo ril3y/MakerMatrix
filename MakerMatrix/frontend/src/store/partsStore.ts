@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { Part, CreatePartRequest, UpdatePartRequest, SearchPartsRequest } from '@/types/parts'
 import { partsService } from '@/services/parts.service'
+import { getErrorMessage } from '@/services/api'
 import type { PaginatedResponse } from '@/services/api'
 import { toast } from 'react-hot-toast'
 
@@ -70,9 +71,7 @@ export const usePartsStore = create<PartsState>()(
       } catch (error: unknown) {
         set({
           isLoading: false,
-          error:
-            (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
-            'Failed to load parts',
+          error: getErrorMessage(error, 'Failed to load parts'),
         })
       }
     },
@@ -99,9 +98,7 @@ export const usePartsStore = create<PartsState>()(
       } catch (error: unknown) {
         set({
           isLoading: false,
-          error:
-            (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
-            'Search failed',
+          error: getErrorMessage(error, 'Search failed'),
         })
       }
     },
@@ -115,9 +112,7 @@ export const usePartsStore = create<PartsState>()(
       } catch (error: unknown) {
         set({
           isLoadingPart: false,
-          error:
-            (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
-            'Failed to load part',
+          error: getErrorMessage(error, 'Failed to load part'),
         })
       }
     },

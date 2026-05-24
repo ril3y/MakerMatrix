@@ -43,9 +43,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
       setLoading(true)
       setErrors([])
       const suppliersInfo = await dynamicSupplierService.getAllSuppliersInfo()
-      console.log('API call successful - suppliersInfo:', suppliersInfo)
-      console.log('Type of suppliersInfo:', typeof suppliersInfo)
-      console.log('Object.keys length:', Object.keys(suppliersInfo || {}).length)
 
       setAvailableSuppliers(suppliersInfo || {})
     } catch (error) {
@@ -122,7 +119,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
 
       if (!needsCredentials && !needsConfiguration) {
         // For suppliers like LCSC that don't need saved config, just mark as successful
-        console.log(`${selectedSupplier} is a public API - no configuration needed to save`)
       } else {
         // Use the existing supplier service to save the configuration
         const { supplierService } = await import('../../services/supplier.service')
@@ -149,8 +145,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
           custom_parameters: config, // Use custom_parameters instead of configuration
         }
 
-        console.log('Creating supplier configuration:', supplierConfig)
-
         try {
           // Try to create new supplier
           await supplierService.createSupplier(supplierConfig)
@@ -158,7 +152,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
           const err = error as { response?: { status?: number } }
           if (err.response?.status === 409) {
             // Supplier already exists, try to update instead
-            console.log(`Supplier ${selectedSupplier} already exists, updating configuration...`)
             await supplierService.updateSupplier(supplierConfig.supplier_name, {
               display_name: supplierConfig.display_name,
               description: supplierConfig.description,
@@ -173,7 +166,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
 
         // Save credentials if any
         if (needsCredentials) {
-          console.log('Saving supplier credentials:', credentials)
           // Convert credentials to Record<string, string> format
           const stringCredentials: Record<string, string> = {}
           for (const [key, value] of Object.entries(credentials)) {
@@ -183,7 +175,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
         }
       }
 
-      console.log('Supplier configuration saved successfully')
       onSuccess()
     } catch (error) {
       console.error('Failed to save supplier configuration:', error)
@@ -308,9 +299,6 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
 
               {(() => {
                 const suppliersCount = Object.keys(availableSuppliers || {}).length
-                console.log('Render check - suppliers count:', suppliersCount)
-                console.log('Render check - availableSuppliers:', availableSuppliers)
-                console.log('Render check - loading:', loading)
 
                 if (suppliersCount === 0 && !loading) {
                   return (

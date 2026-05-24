@@ -89,21 +89,18 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
         }
 
         // Get credential schema from backend
-        console.log(`Fetching credentials schema for ${supplier.supplier_name}`)
         const schemaResponse = await fetch(
           `/api/suppliers/${supplier.supplier_name.toLowerCase()}/credentials-schema`,
           {
             headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
           }
         )
-        console.log('Schema response status:', schemaResponse.status)
         if (!schemaResponse.ok) {
           throw new Error(
             `Schema API returned ${schemaResponse.status}: ${schemaResponse.statusText}`
           )
         }
         const schemaData = await schemaResponse.json()
-        console.log('Schema data:', schemaData)
         if (schemaData.status === 'success') {
           setCredentialSchema(schemaData.data)
         } else {
@@ -112,11 +109,8 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
 
         // Get credential status to show what's already configured
         try {
-          console.log('Fetching credential status for:', supplier.supplier_name)
           const status = await supplierService.getCredentialStatus(supplier.supplier_name)
-          console.log('Credential status response:', status)
           setCredentialStatus(status)
-          console.log('Credential status set in state:', status)
         } catch (error) {
           console.error('Failed to load credential status:', error)
           console.error('Error details:', error)

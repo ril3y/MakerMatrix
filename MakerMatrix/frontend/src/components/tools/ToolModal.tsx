@@ -156,7 +156,6 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
         const supplierLower = detectedSupplier.supplier_name.toLowerCase()
         const formattedName = detectedSupplier.display_name || detectedSupplier.supplier_name
 
-        console.log(`🔍 Detected supplier for tool: ${formattedName}`)
         toast.loading(`Fetching tool details from ${formattedName}...`, { duration: 2000 })
 
         // Use the SAME enrichment endpoint as parts
@@ -209,7 +208,6 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           }
 
           toast.success(`Auto-populated tool details from ${formattedName}!`)
-          console.log('✅ Tool enriched successfully:', enrichedData)
         } else {
           console.warn('No enriched data returned')
         }
@@ -309,8 +307,6 @@ const ToolModal = ({ isOpen, onClose, onSuccess, editingTool }: ToolModalProps) 
           for (const tagId of tagsToAdd) {
             await tagsService.assignTagToTool(tagId, toolId)
           }
-
-          console.log(`✅ Tool tagged with ${selectedTags.length} tag(s)`)
         } catch (error) {
           console.error('Failed to assign tags to tool:', error)
           toast.error('Tool saved but failed to assign tags')

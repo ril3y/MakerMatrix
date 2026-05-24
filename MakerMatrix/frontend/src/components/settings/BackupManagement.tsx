@@ -71,7 +71,6 @@ const BackupManagement = () => {
 
     // Reset completion flag when starting to monitor a new task
     completionProcessedRef.current = false
-    console.log('[BackupManagement] Starting to monitor task:', activeTaskId)
 
     const interval = setInterval(async () => {
       try {
@@ -86,13 +85,6 @@ const BackupManagement = () => {
           const data = await response.json()
           const task = data.data
 
-          console.log(
-            '[BackupManagement] Task status:',
-            task.status,
-            'Progress:',
-            task.progress_percentage
-          )
-
           setTaskProgress(task.progress_percentage || 0)
           setTaskStatus(task.current_step || task.status)
 
@@ -100,12 +92,10 @@ const BackupManagement = () => {
           if (task.status === 'completed' || task.status === 'failed') {
             // Check if we've already processed completion (prevents duplicate toasts from race condition)
             if (completionProcessedRef.current) {
-              console.log('[BackupManagement] Completion already processed, ignoring duplicate')
               return
             }
             completionProcessedRef.current = true
 
-            console.log('[BackupManagement] Task finished with status:', task.status)
             clearInterval(interval) // Clear interval immediately to prevent duplicate toast notifications
 
             if (task.status === 'completed') {
@@ -114,9 +104,6 @@ const BackupManagement = () => {
                 task.name?.includes('Restore') || task.task_type === 'backup_restore'
 
               if (isRestoreTask) {
-                console.log(
-                  '[BackupManagement] Restore completed - waiting for application restart'
-                )
                 setIsRestoreCompleted(true)
                 setIsWaitingForRestart(true)
                 setActiveTaskId(null)
@@ -126,9 +113,6 @@ const BackupManagement = () => {
                   try {
                     const response = await fetch('/api/utility/get_counts')
                     if (response.ok) {
-                      console.log(
-                        '[BackupManagement] Application is back online - redirecting to dashboard'
-                      )
                       clearInterval(checkInterval)
                       toast.success('Restore completed! Redirecting to dashboard...')
                       setTimeout(() => {
@@ -136,7 +120,7 @@ const BackupManagement = () => {
                       }, 1000)
                     }
                   } catch (_error) {
-                    console.log('[BackupManagement] Still waiting for application restart...')
+                    // Server may still be restarting — keep polling.
                   }
                 }, 2000) // Check every 2 seconds
 
@@ -183,15 +167,11 @@ const BackupManagement = () => {
           // Task not found - likely means database was restored and task is gone
           // Check if we've already processed completion (prevents duplicate processing from race condition)
           if (completionProcessedRef.current) {
-            console.log('[BackupManagement] Completion already processed (404), ignoring duplicate')
             return
           }
           completionProcessedRef.current = true
 
           // If we're monitoring a restore task, assume it completed and switch to restart mode
-          console.log(
-            '[BackupManagement] Task not found (404) - assuming restore completed and database was replaced'
-          )
           clearInterval(interval) // Clear interval immediately to prevent duplicate processing
           setIsRestoreCompleted(true)
           setIsWaitingForRestart(true)
@@ -202,9 +182,6 @@ const BackupManagement = () => {
             try {
               const response = await fetch('/api/utility/get_counts')
               if (response.ok) {
-                console.log(
-                  '[BackupManagement] Application is back online - redirecting to dashboard'
-                )
                 clearInterval(checkInterval)
                 toast.success('Restore completed! Redirecting to dashboard...')
                 setTimeout(() => {
@@ -212,7 +189,7 @@ const BackupManagement = () => {
                 }, 1000)
               }
             } catch (_error) {
-              console.log('[BackupManagement] Still waiting for application restart...')
+              // Server may still be restarting — keep polling.
             }
           }, 2000) // Check every 2 seconds
         } else {
@@ -224,7 +201,6 @@ const BackupManagement = () => {
     }, 1000) // Poll every second
 
     return () => {
-      console.log('[BackupManagement] Stopping monitor for task:', activeTaskId)
       clearInterval(interval)
     }
   }, [activeTaskId, isWaitingForRestart])
@@ -289,7 +265,6 @@ const BackupManagement = () => {
         create_safety_backup: createSafetyBackup,
       })
 
-      console.log('[BackupManagement] Restore task created:', task.task_id)
       toast.success('Restore task created - monitoring progress...')
 
       // Start monitoring task progress

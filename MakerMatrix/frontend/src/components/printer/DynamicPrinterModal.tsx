@@ -218,14 +218,9 @@ const DynamicPrinterModal = ({
       let result
       if (mode === 'edit' && existingPrinter?.printer_id) {
         // For edit mode, test the existing registered printer
-        console.log('🧪 Edit mode: Testing existing printer:', existingPrinter.printer_id)
-        console.log('🔗 Using endpoint: /printer/printers/{id}/test')
         result = await settingsService.testPrinterConnection(existingPrinter.printer_id)
       } else {
         // For add mode, test the setup configuration
-        console.log('🧪 Add mode: Testing printer setup configuration')
-        console.log('🔗 Using endpoint: /printer/test-setup')
-        console.log('📋 Configuration:', printerData)
         result = await settingsService.testPrinterSetup(printerData as unknown as Printer)
       }
 

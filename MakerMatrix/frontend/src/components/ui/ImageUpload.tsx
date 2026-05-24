@@ -104,20 +104,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   const handleFileUpload = useCallback(
     async (file: File) => {
-      console.log('handleFileUpload called with file:', file.name, file.size, file.type)
       if (!validateFileType(file)) return
 
       try {
         setUploading(true)
 
         // Compress image client-side (resize + JPEG conversion)
-        const originalSize = file.size
         const compressed = await compressImage(file)
-        if (compressed.size < originalSize) {
-          console.log(
-            `Image compressed: ${(originalSize / 1024).toFixed(0)}KB -> ${(compressed.size / 1024).toFixed(0)}KB`
-          )
-        }
 
         // Create preview URL immediately
         const tempPreviewUrl = URL.createObjectURL(compressed)
@@ -149,8 +142,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   // Handle paste events - works globally when component is mounted
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
-      console.log('🔍 Paste event detected - target:', (e.target as HTMLElement)?.tagName)
-
       // Don't interfere with text inputs, textareas, or contenteditable elements
       const target = e.target as HTMLElement
 
@@ -162,31 +153,25 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           target.contentEditable === 'true' ||
           target.closest('input, textarea, [contenteditable]'))
       ) {
-        console.log('📋 Paste ignored - target is a text input')
         return
       }
 
       if (disabled) {
-        console.log('📋 Paste ignored - component is disabled')
         return
       }
 
       const items = e.clipboardData?.items
       if (!items) {
-        console.log('📋 Paste ignored - no clipboard items')
         return
       }
 
       // Check if there's an image in the clipboard
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        console.log(`📋 Clipboard item ${i}:`, item.type)
         if (item.type.indexOf('image') !== -1) {
-          console.log('✅ Image in clipboard detected - processing paste')
           e.preventDefault()
           const file = item.getAsFile()
           if (file) {
-            console.log('📋 Image pasted from clipboard:', file.name, file.type)
             toast.success('📎 Image detected in clipboard - uploading...')
             await handleFileUpload(file)
           }

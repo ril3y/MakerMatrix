@@ -137,7 +137,6 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         }
         const configData = configResponse.data as { data?: ConfiguredSupplier[] } | undefined
         configuredSuppliers = (configData?.data || []) as ConfiguredSupplier[]
-        console.log('Configured suppliers from DB:', configuredSuppliers)
       } catch (configError) {
         console.warn(
           'Could not load configured suppliers, will use import suppliers only:',
@@ -149,7 +148,6 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
       const response = (await apiClient.get('/api/import/suppliers')) as {
         data?: { data?: ImportSupplier[] } | ImportSupplier[]
       }
-      console.log('Import suppliers response:', response)
 
       const responseData = response.data as
         | { data?: ImportSupplier[] }
@@ -159,7 +157,6 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
         const importSuppliers = (
           responseData && 'data' in responseData ? responseData.data || [] : responseData || []
         ) as ImportSupplier[]
-        console.log('Available import suppliers:', importSuppliers)
 
         let availableSuppliers: ImportSupplier[] = []
 
@@ -168,8 +165,6 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
           const enabledSupplierNames = configuredSuppliers
             .filter((config) => config.enabled)
             .map((config) => config.supplier_name.toLowerCase())
-
-          console.log('Enabled supplier names:', enabledSupplierNames)
 
           availableSuppliers = importSuppliers.filter(
             (supplier) =>
@@ -214,16 +209,12 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
           }
         })
 
-        console.log('Final mapped suppliers:', mappedSuppliers)
-
         setParsers(mappedSuppliers)
 
         if (mappedSuppliers.length === 0) {
           if (configuredSuppliers.length === 0) {
-            console.log('No suppliers configured at all')
             toast.error('No suppliers are configured. Please configure suppliers in Settings.')
           } else {
-            console.log('Suppliers configured but none available for import')
             toast.error(
               'Configured suppliers are not available for import. Check supplier configurations.'
             )
