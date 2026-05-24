@@ -26,6 +26,26 @@ class CategoryService(BaseService):
         self.category_repo = CategoryRepository(self.engine)
         self.entity_name = "Category"
 
+    def get_category_count(self) -> ServiceResponse[dict]:
+        """
+        Get total category count.
+
+        CONSOLIDATED SESSION MANAGEMENT: Service owns session lifecycle so the
+        router never needs to open Session(engine) directly for a simple count.
+        """
+        try:
+            self.log_operation("get_count", self.entity_name)
+
+            with self.get_session() as session:
+                total = self.category_repo.get_category_count(session)
+                return self.success_response(
+                    f"Total {self.entity_name.lower()} count retrieved successfully",
+                    {"total_categories": total},
+                )
+
+        except Exception as e:
+            return self.handle_exception(e, f"get {self.entity_name.lower()} count")
+
     def add_category(self, category_data: CategoryModel) -> ServiceResponse[dict]:
         """
         Add a new category to the system.

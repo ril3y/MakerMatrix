@@ -9,6 +9,7 @@ from MakerMatrix.exceptions import ResourceNotFoundError, CategoryAlreadyExistsE
 from MakerMatrix.schemas.part_response import CategoryResponse, DeleteCategoriesResponse, CategoriesListResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.category_service import CategoryService
+from MakerMatrix.dependencies import get_category_service
 from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
 
@@ -24,14 +25,15 @@ router = APIRouter()
 
 @router.get("/get_all_categories", response_model=ResponseSchema[CategoriesListResponse])
 @standard_error_handling
-async def get_all_categories() -> ResponseSchema[CategoriesListResponse]:
+async def get_all_categories(
+    category_service: CategoryService = Depends(get_category_service),
+) -> ResponseSchema[CategoriesListResponse]:
     """
     Get all categories in the system.
 
     Returns:
         ResponseSchema: A response containing all categories
     """
-    category_service = CategoryService()
     service_response = category_service.get_all_categories()
     data = validate_service_response(service_response)
 
@@ -44,6 +46,7 @@ async def add_category(
     category_data: CategoryModel,
     request: Request,
     current_user: UserModel = Depends(require_permission("categories:create")),
+    category_service: CategoryService = Depends(get_category_service),
 ) -> ResponseSchema[CategoryResponse]:
     """
     Add a new category to the system.
@@ -57,7 +60,6 @@ async def add_category(
     if not category_data.name:
         raise ValueError("Category name is required")
 
-    category_service = CategoryService()
     service_response = category_service.add_category(category_data)
     data = validate_service_response(service_response)
 
@@ -98,6 +100,7 @@ async def update_category(
     category_data: CategoryUpdate,
     request: Request,
     current_user: UserModel = Depends(require_permission("categories:update")),
+    category_service: CategoryService = Depends(get_category_service),
 ) -> ResponseSchema[CategoryResponse]:
     """
     Update a category's fields.
@@ -112,7 +115,6 @@ async def update_category(
     if not category_id:
         raise ValueError("Category ID is required")
 
-    category_service = CategoryService()
     service_response = category_service.update_category(category_id, category_data)
     data = validate_service_response(service_response)
 
@@ -157,7 +159,9 @@ async def update_category(
 @router.get("/get_category", response_model=ResponseSchema[CategoryResponse])
 @standard_error_handling
 async def get_category(
-    category_id: Optional[str] = None, name: Optional[str] = None
+    category_id: Optional[str] = None,
+    name: Optional[str] = None,
+    category_service: CategoryService = Depends(get_category_service),
 ) -> ResponseSchema[CategoryResponse]:
     """
     Get a category by ID or name.
@@ -172,7 +176,6 @@ async def get_category(
     if not category_id and not name:
         raise ValueError("Either 'category_id' or 'name' must be provided")
 
-    category_service = CategoryService()
     service_response = category_service.get_category(category_id=category_id, name=name)
     data = validate_service_response(service_response)
 
@@ -188,6 +191,7 @@ async def remove_category(
     current_user: UserModel = Depends(require_permission("categories:delete")),
     cat_id: Optional[str] = None,
     name: Optional[str] = None,
+    category_service: CategoryService = Depends(get_category_service),
 ) -> ResponseSchema[CategoryResponse]:
     """
     Remove a category by ID or name.
@@ -202,7 +206,6 @@ async def remove_category(
     if not cat_id and not name:
         raise ValueError("Either category ID or name must be provided")
 
-    category_service = CategoryService()
     service_response = category_service.remove_category(id=cat_id, name=name)
     data = validate_service_response(service_response)
 

@@ -20,7 +20,14 @@ from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
 from MakerMatrix.suppliers.base import SupplierCapability
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.services.data.order_service import order_service
+from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+from MakerMatrix.services.system.task_service import TaskService
 from MakerMatrix.models.order_models import CreateOrderRequest
+from MakerMatrix.dependencies import (
+    get_part_service,
+    get_supplier_config_service,
+    get_task_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +79,9 @@ async def import_file(
         None, description="Comma-separated list of enrichment capabilities (e.g., 'get_part_details,fetch_datasheet')"
     ),
     current_user: UserModel = Depends(require_permission("parts:create")),
+    part_service: PartService = Depends(get_part_service),
+    config_service: SupplierConfigService = Depends(get_supplier_config_service),
+    task_service: TaskService = Depends(get_task_service),
 ):
     """
     Import parts from a supplier file.
@@ -93,9 +103,6 @@ async def import_file(
 
         # NEW: Check if supplier is configured in the system
         try:
-            from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-
-            config_service = SupplierConfigService()
             # Try multiple case variations to find the supplier config
             supplier_config_dict = None
             name_variations = [
@@ -187,8 +194,7 @@ async def import_file(
                 detail=f"No parts found in file. Check that the file format matches {supplier_name} requirements.",
             )
 
-        # Create parts in database
-        part_service = PartService()
+        # Create parts in database (part_service injected via Depends).
         part_ids = []
         failed_items = []
 
@@ -314,10 +320,7 @@ async def import_file(
 
                 if valid_capabilities:
                     # Create enrichment task
-                    from MakerMatrix.services.system.task_service import TaskService
                     from MakerMatrix.models.task_models import TaskType, TaskPriority, CreateTaskRequest
-
-                    task_service = TaskService()
 
                     # Prepare input data for enrichment task
                     enrichment_input = {
@@ -433,7 +436,10 @@ async def import_file(
 
 
 @router.get("/suppliers", response_model=ResponseSchema[List[SupplierImportInfo]])
-async def get_import_suppliers(current_user: UserModel = Depends(get_current_user)):
+async def get_import_suppliers(
+    current_user: UserModel = Depends(get_current_user),
+    config_service: SupplierConfigService = Depends(get_supplier_config_service),
+):
     """
     Get list of suppliers that support file imports.
 
@@ -445,9 +451,6 @@ async def get_import_suppliers(current_user: UserModel = Depends(get_current_use
         # Get configured suppliers from database
         configured_suppliers = {}
         try:
-            from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-
-            config_service = SupplierConfigService()
             configs = config_service.get_all_supplier_configs()
             configured_suppliers = {
                 config["supplier_name"].lower(): config for config in configs if config.get("enabled", False)

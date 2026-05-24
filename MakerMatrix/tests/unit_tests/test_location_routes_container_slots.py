@@ -153,14 +153,20 @@ class TestGetAllLocationsEndpoint:
 
     @pytest.fixture
     def mock_location_service(self):
-        """Mock LocationService for testing."""
-        with patch("MakerMatrix.routers.locations_routes.LocationService") as mock:
-            yield mock
+        """
+        Provide a MagicMock LocationService and inject it via FastAPI's
+        dependency_overrides — the route now uses Depends(get_location_service)
+        so patching the module symbol is a no-op.
+        """
+        from MakerMatrix.dependencies import get_location_service
+
+        mock_service = Mock()
+        mock = Mock(return_value=mock_service)  # mimic class-like .return_value
+        return mock_service, mock, get_location_service
 
     def test_get_all_locations_without_filter(self, mock_location_service):
         """Test getting all locations including auto-generated slots."""
-        # Setup mock service
-        service_instance = mock_location_service.return_value
+        service_instance, _mock_class, dep_provider = mock_location_service
         service_instance.get_all_locations.return_value = Mock(
             status="success",
             message="Locations retrieved",
@@ -193,10 +199,13 @@ class TestGetAllLocationsEndpoint:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[dep_provider] = lambda: service_instance
 
         client = TestClient(app)
-
-        response = client.get("/get_all_locations")
+        try:
+            response = client.get("/get_all_locations")
+        finally:
+            app.dependency_overrides.pop(dep_provider, None)
 
         assert response.status_code == 200
         result = response.json()
@@ -205,8 +214,7 @@ class TestGetAllLocationsEndpoint:
 
     def test_get_all_locations_with_hide_auto_slots(self, mock_location_service):
         """Test getting locations with auto-generated slots filtered out."""
-        # Setup mock service
-        service_instance = mock_location_service.return_value
+        service_instance, _mock_class, dep_provider = mock_location_service
         service_instance.get_all_locations.return_value = Mock(
             status="success",
             message="Locations retrieved",
@@ -239,10 +247,13 @@ class TestGetAllLocationsEndpoint:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[dep_provider] = lambda: service_instance
 
         client = TestClient(app)
-
-        response = client.get("/get_all_locations?hide_auto_slots=true")
+        try:
+            response = client.get("/get_all_locations?hide_auto_slots=true")
+        finally:
+            app.dependency_overrides.pop(dep_provider, None)
 
         assert response.status_code == 200
         result = response.json()

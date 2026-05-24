@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import uuid
 import json
@@ -12,9 +13,48 @@ import logging
 import httpx
 from urllib.parse import urlparse
 
+# Allowed characters for a single path component used in static file lookups.
+# Rejects path separators, NUL, leading dots, and "..".
+_SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _validate_safe_filename(name: str) -> None:
+    """Reject anything that could be used for path traversal.
+
+    Raises HTTP 400 on invalid input.
+    """
+    if not name or len(name) > 255:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if "\x00" in name or "/" in name or "\\" in name or ".." in name:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if name.startswith("."):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if not _SAFE_FILENAME_RE.match(name):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+
+def _safe_resolve_within(base_dir: Path, name: str) -> Path:
+    """Resolve ``base_dir / name`` and ensure it remains under ``base_dir``.
+
+    Caller must have already passed ``name`` through :func:`_validate_safe_filename`.
+    Raises HTTP 400 if the resolved path escapes ``base_dir``.
+    """
+    base_resolved = base_dir.resolve()
+    candidate = (base_dir / name).resolve()
+    try:
+        candidate.relative_to(base_resolved)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    return candidate
+
 from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.services.data.part_service import PartService
+from MakerMatrix.dependencies import (
+    get_category_service,
+    get_location_service,
+    get_part_service,
+)
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.database.db import DATABASE_URL
 from MakerMatrix.auth.dependencies import get_current_user
@@ -114,21 +154,34 @@ async def serve_index_html():
 async def get_image(image_id: str):
     import glob
 
+    # SECURITY: image_id comes from a path parameter and is used to build
+    # filesystem paths. Reject anything that could be used for traversal
+    # BEFORE touching the filesystem.
+    _validate_safe_filename(image_id)
+
     # Use static images directory
     uploaded_images_dir = STATIC_BASE_PATH / "images"
 
-    # First try with the image_id as-is (might include extension)
-    file_path = uploaded_images_dir / image_id
-    if file_path.exists():
+    # First try with the image_id as-is (might include extension).
+    # _safe_resolve_within enforces the path stays inside uploaded_images_dir.
+    file_path = _safe_resolve_within(uploaded_images_dir, image_id)
+    if file_path.exists() and file_path.is_file():
         return FileResponse(str(file_path))
 
-    # If not found, try to find the file with any extension
+    # If not found, try to find the file with any extension. We re-validate
+    # by checking each match resolves inside the images directory.
     pattern = str(uploaded_images_dir / f"{image_id}.*")
     matching_files = glob.glob(pattern)
 
-    if matching_files:
-        # Return the first matching file
-        return FileResponse(matching_files[0])
+    base_resolved = uploaded_images_dir.resolve()
+    for match in matching_files:
+        candidate = Path(match).resolve()
+        try:
+            candidate.relative_to(base_resolved)
+        except ValueError:
+            continue
+        if candidate.is_file():
+            return FileResponse(str(candidate))
 
     raise HTTPException(status_code=404, detail="Image not found")
 
@@ -210,21 +263,24 @@ async def debug_server_info():
 
 @router.get("/get_counts", response_model=ResponseSchema)
 @standard_error_handling
-async def get_counts():
+async def get_counts(
+    part_service: PartService = Depends(get_part_service),
+    location_service: LocationService = Depends(get_location_service),
+    category_service: CategoryService = Depends(get_category_service),
+):
     """
-    Returns all counts for parts, locations, and categories using efficient SQL COUNT queries
+    Returns all counts for parts, locations, and categories using efficient SQL COUNT queries.
+
+    Sessions are owned by the services (via BaseService.get_session()); the
+    router never opens a database session directly.
     """
-    # Use repositories directly for efficient counting (SQL COUNT instead of fetching all records)
-    from MakerMatrix.repositories.parts_repositories import PartRepository
-    from sqlalchemy import func
+    parts_response = part_service.get_part_counts()
+    locations_response = location_service.get_location_count()
+    categories_response = category_service.get_category_count()
 
-    with Session(engine) as session:
-        # Use existing efficient count method for parts
-        parts_count = PartRepository.get_part_counts(session)
-
-        # Use direct SQL COUNT for locations and categories (more efficient than fetching all)
-        locations_count = session.exec(select(func.count()).select_from(LocationModel)).one()
-        categories_count = session.exec(select(func.count()).select_from(CategoryModel)).one()
+    parts_count = parts_response.data["total_parts"] if parts_response.success else 0
+    locations_count = locations_response.data["total_locations"] if locations_response.success else 0
+    categories_count = categories_response.data["total_categories"] if categories_response.success else 0
 
     return base_router.build_success_response(
         message="Counts retrieved successfully",
@@ -377,7 +433,11 @@ async def export_data_json():
 
 @router.get("/backup/status", response_model=ResponseSchema)
 @standard_error_handling
-async def get_backup_status():
+async def get_backup_status(
+    part_service: PartService = Depends(get_part_service),
+    location_service: LocationService = Depends(get_location_service),
+    category_service: CategoryService = Depends(get_category_service),
+):
     """Get backup status and database information"""
     # Get database path - try multiple resolution strategies
     db_path_raw = DATABASE_URL.replace("sqlite:///", "")
@@ -408,17 +468,14 @@ async def get_backup_status():
     file_size = stat.st_size
     last_modified = datetime.fromtimestamp(stat.st_mtime)
 
-    # Get table counts using repositories directly (more efficient than services)
-    from MakerMatrix.repositories.parts_repositories import PartRepository
-    from sqlalchemy import func
+    # Get table counts via services so the router never opens a DB session.
+    parts_response = part_service.get_part_counts()
+    locations_response = location_service.get_location_count()
+    categories_response = category_service.get_category_count()
 
-    with Session(engine) as session:
-        # Use existing efficient count method for parts
-        parts_count = PartRepository.get_part_counts(session)
-
-        # Use direct SQL COUNT for locations and categories (more efficient)
-        locations_count = session.exec(select(func.count()).select_from(LocationModel)).one()
-        categories_count = session.exec(select(func.count()).select_from(CategoryModel)).one()
+    parts_count = parts_response.data["total_parts"] if parts_response.success else 0
+    locations_count = locations_response.data["total_locations"] if locations_response.success else 0
+    categories_count = categories_response.data["total_categories"] if categories_response.success else 0
 
     return base_router.build_success_response(
         message="Backup status retrieved successfully",
@@ -517,19 +574,18 @@ async def clear_suppliers_data(
 @router.get("/static/datasheets/{filename}")
 async def serve_datasheet(filename: str):
     """Serve component datasheets"""
-    file_path = STATIC_BASE_PATH / "datasheets" / filename
+    # SECURITY: validate the filename BEFORE building any filesystem path
+    # so a traversal attempt like ../makermatrix.db is rejected with 400.
+    _validate_safe_filename(filename)
+
+    datasheets_dir = STATIC_BASE_PATH / "datasheets"
+    file_path = _safe_resolve_within(datasheets_dir, filename)
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Datasheet not found")
 
     if not file_path.is_file():
         raise HTTPException(status_code=404, detail="Invalid file")
-
-    # Security check - make sure the file is within the datasheets directory
-    try:
-        file_path.resolve().relative_to((STATIC_BASE_PATH / "datasheets").resolve())
-    except ValueError:
-        raise HTTPException(status_code=403, detail="Access denied")
 
     return FileResponse(path=str(file_path), media_type="application/pdf", filename=filename)
 

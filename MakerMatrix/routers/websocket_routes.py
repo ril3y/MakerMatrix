@@ -20,19 +20,28 @@ base_router = BaseRouter()
 
 @router.websocket("/ws/tasks")
 async def websocket_tasks_endpoint(websocket: WebSocket, token: Optional[str] = Query(None)):
-    """WebSocket endpoint for task monitoring"""
-    user = None
+    """WebSocket endpoint for task monitoring.
 
-    # Try to authenticate user if token provided
-    if token:
-        try:
-            user = await get_current_user_from_token(token)
-        except Exception as e:
-            logger.warning(f"WebSocket authentication failed: {e}")
-            # Don't continue with authentication if there's an error
-            user = None
+    SECURITY: requires a valid bearer token. Missing or invalid tokens get
+    closed with code 4001 *before* the WebSocket is accepted so unauthenticated
+    clients cannot keep the connection open or send messages.
+    """
+    if not token:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
 
-    user_id = user.id if user else None
+    try:
+        user = await get_current_user_from_token(token)
+    except Exception as e:
+        logger.warning(f"WebSocket authentication failed: {e}")
+        await websocket.close(code=4001, reason="Authentication failed")
+        return
+
+    if not user:
+        await websocket.close(code=4001, reason="Authentication failed")
+        return
+
+    user_id = user.id
 
     try:
         await websocket_manager.connect(websocket, "tasks", user_id)
@@ -63,19 +72,27 @@ async def websocket_tasks_endpoint(websocket: WebSocket, token: Optional[str] = 
 
 @router.websocket("/ws/general")
 async def websocket_general_endpoint(websocket: WebSocket, token: Optional[str] = Query(None)):
-    """WebSocket endpoint for general activity updates"""
-    user = None
+    """WebSocket endpoint for general activity updates.
 
-    # Try to authenticate user if token provided (optional for general updates)
-    if token:
-        try:
-            user = await get_current_user_from_token(token)
-        except Exception as e:
-            logger.warning(f"General WebSocket authentication failed: {e}")
-            # Don't continue with authentication if there's an error
-            user = None
+    SECURITY: requires a valid bearer token. Missing or invalid tokens get
+    closed with code 4001 *before* the WebSocket is accepted.
+    """
+    if not token:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
 
-    user_id = user.id if user else None
+    try:
+        user = await get_current_user_from_token(token)
+    except Exception as e:
+        logger.warning(f"General WebSocket authentication failed: {e}")
+        await websocket.close(code=4001, reason="Authentication failed")
+        return
+
+    if not user:
+        await websocket.close(code=4001, reason="Authentication failed")
+        return
+
+    user_id = user.id
 
     try:
         await websocket_manager.connect(websocket, "general", user_id)

@@ -86,6 +86,26 @@ class LocationService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"get all {self.entity_name.lower()}s")
 
+    def get_location_count(self) -> ServiceResponse[Dict[str, int]]:
+        """
+        Get total location count.
+
+        CONSOLIDATED SESSION MANAGEMENT: Service owns session lifecycle so the
+        router never needs to open Session(engine) directly for a simple count.
+        """
+        try:
+            self.log_operation("get_count", self.entity_name)
+
+            with self.get_session() as session:
+                total = self.location_repo.get_location_count(session)
+                return self.success_response(
+                    f"Total {self.entity_name.lower()} count retrieved successfully",
+                    {"total_locations": total},
+                )
+
+        except Exception as e:
+            return self.handle_exception(e, f"get {self.entity_name.lower()} count")
+
     def get_location(self, location_query: LocationQueryModel) -> ServiceResponse[Dict[str, Any]]:
         """
         Get a location by query parameters.
