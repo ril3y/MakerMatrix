@@ -12,6 +12,26 @@ from sqlmodel import SQLModel, Session
 from fastapi.testclient import TestClient
 from typing import Generator
 
+# IMPORTANT: bootstrap required env vars BEFORE importing MakerMatrix.main.
+# The auth_service raises if JWT_SECRET_KEY is missing, the credential
+# encryption helper raises if MAKERMATRIX_ENCRYPTION_KEY is missing, and the
+# production engine in models.py reads DATABASE_URL at import time (default
+# points at a hard-coded posix path that breaks on Windows/CI).
+os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-key-for-tests")
+
+# Generate a per-session Fernet key so encryption round-trips work without
+# the operator having to set MAKERMATRIX_ENCRYPTION_KEY for tests. We use
+# setdefault so an explicit env value still wins (e.g. CI may pin one).
+if not os.environ.get("MAKERMATRIX_ENCRYPTION_KEY"):
+    from cryptography.fernet import Fernet as _Fernet
+
+    os.environ["MAKERMATRIX_ENCRYPTION_KEY"] = _Fernet.generate_key().decode()
+
+if not os.environ.get("DATABASE_URL"):
+    _conftest_db_fd, _conftest_db_path = tempfile.mkstemp(suffix="_conftest_test.db")
+    os.close(_conftest_db_fd)
+    os.environ["DATABASE_URL"] = f"sqlite:///{_conftest_db_path}"
+
 from MakerMatrix.main import app
 from MakerMatrix.tests.test_database_config import (
     TestDatabaseConfig,
