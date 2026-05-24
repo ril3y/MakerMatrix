@@ -55,6 +55,15 @@ from MakerMatrix.services.printer.printer_manager_service import initialize_defa
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting up...")
+
+    # Fail loud if the credential encryption key is missing or set to the
+    # .env.example placeholder. We do this BEFORE anything else so a
+    # misconfigured deployment refuses to start rather than silently
+    # storing supplier API keys in plaintext.
+    from MakerMatrix.utils.credential_encryption import validate_encryption_key
+
+    validate_encryption_key()
+
     # Run the database setup
     create_db_and_tables()
 
@@ -256,17 +265,35 @@ app = FastAPI(
 register_exception_handlers(app)
 
 # Configure CORS
-# Get CORS origins from environment variable
+# Get CORS origins from environment variable. The default origin list is
+# explicit localhost variants only - we removed "*" because mixing wildcard
+# origins with allow_credentials=True is a security misconfiguration the
+# browser will (correctly) refuse, and is a CSRF vector if the browser
+# accepts it. If an operator sets CORS_ORIGINS to include "*" we honour it
+# but force allow_credentials=False and log a warning.
+import logging as _cors_logging
+
+_cors_logger = _cors_logging.getLogger(__name__)
+
 cors_origins = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,*",
+    "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174",
 )
-cors_origins_list = [origin.strip() for origin in cors_origins.split(",")]
+cors_origins_list = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+
+_allow_credentials = True
+if "*" in cors_origins_list:
+    _cors_logger.warning(
+        "CORS_ORIGINS contains '*'. Forcing allow_credentials=False to avoid the "
+        "wildcard-with-credentials security misconfiguration. Configure explicit "
+        "origins to use authenticated cross-origin requests."
+    )
+    _allow_credentials = False
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins_list,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -456,6 +483,19 @@ backup_permissions = {
     "/status": "admin",
 }
 
+# AI endpoints expose powerful LLM capabilities and can read/write the
+# system-wide AI configuration. Mutating endpoints require admin role
+# (reuses CVE-001 hardening in auth/guards.py: "admin" is checked as role
+# name, not just permission string).
+ai_permissions = {
+    "/config": {"GET": None, "PUT": "admin"},
+    "/chat": "admin",
+    "/test": "admin",
+    "/reset": "admin",
+    "/providers": None,
+    "/models": None,
+}
+
 # Define paths that should be excluded from authentication
 auth_exclude_paths = ["/login", "/refresh", "/logout"]
 
@@ -475,8 +515,16 @@ secure_all_routes(
     utility_routes.router,
     exclude_paths=[
         "/get_counts",
-        "/get_image/{image_id}",
-        "/static/datasheets/{filename}",
+        # NOTE: /get_image/{image_id} and /static/datasheets/{filename} were
+        # previously unauthenticated. That allowed any network-reachable
+        # client to enumerate static/images/ and static/datasheets/. They
+        # are now gated behind get_current_user.
+        # The frontend fetches images via axios (apiClient sends the bearer
+        # token automatically — see PartImage.tsx). The PDF iframe in
+        # PartPDFViewer/PartDetailsPage embeds the URL directly, which
+        # browsers will not load with credentials — that flow needs to be
+        # migrated to a blob-fetch pattern (or a short-lived signed URL).
+        # The auth gate is the correct security default in the meantime.
         "/supplier_icon/{supplier_name}",
     ],
 )
@@ -484,7 +532,7 @@ secure_all_routes(
 # secure_all_routes(auth_routes.router, exclude_paths=auth_exclude_paths)
 secure_all_routes(user_management_routes.router, permissions=user_permissions)
 secure_all_routes(api_key_routes.router, permissions=api_key_permissions)
-secure_all_routes(ai_routes.router)
+secure_all_routes(ai_routes.router, permissions=ai_permissions)
 secure_all_routes(import_routes.router, permissions=import_permissions)
 secure_all_routes(task_routes.router, permissions=task_permissions)
 secure_all_routes(supplier_config_routes.router, permissions=supplier_config_permissions)
