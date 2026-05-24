@@ -68,9 +68,12 @@ class DatasheetHandlerService(BaseService):
                     part = PartRepository.get_part_by_id(session, part_id)
                     if not part:
                         raise ValueError(f"Part not found: {part_id}")
-                    # Use the appropriate part number for the supplier
+                    # Use the appropriate part number for the supplier.
+                    # PartModel.part_vendor was removed during the schema cleanup;
+                    # surface legacy values from additional_properties if present.
                     part_number = self._get_supplier_part_number(part, supplier)
-                    supplier = supplier or part.supplier or part.part_vendor
+                    legacy_props = getattr(part, "additional_properties", {}) or {}
+                    supplier = supplier or part.supplier or legacy_props.get("part_vendor")
 
             if not supplier:
                 raise ValueError("Supplier is required for datasheet fetch")
@@ -257,9 +260,11 @@ class DatasheetHandlerService(BaseService):
         Returns:
             The appropriate part number for the supplier
         """
-        # Implementation would depend on how part numbers are mapped to suppliers
-        # For now, use the general part number logic
-        return part.part_number or part.lcsc_part_number
+        # Implementation would depend on how part numbers are mapped to suppliers.
+        # PartModel.lcsc_part_number was removed; recover legacy values via the
+        # additional_properties dict if a caller still depends on them.
+        legacy_props = getattr(part, "additional_properties", {}) or {}
+        return part.part_number or legacy_props.get("lcsc_part_number")
 
     def _get_supplier_config(self, supplier: str) -> Any:
         """

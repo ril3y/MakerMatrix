@@ -326,7 +326,10 @@ class PartEnrichmentService(BaseService):
 
     def _determine_supplier(self, part: PartModel, preferred_supplier: Optional[str]) -> str:
         """Determine which supplier to use for enrichment."""
-        supplier = preferred_supplier or part.supplier or part.part_vendor
+        # PartModel.part_vendor was removed during the schema cleanup; recover
+        # legacy values from additional_properties if a caller depends on them.
+        legacy_props = getattr(part, "additional_properties", {}) or {}
+        supplier = preferred_supplier or part.supplier or legacy_props.get("part_vendor")
         if not supplier:
             raise ValueError("No supplier specified for part enrichment")
         return supplier
@@ -537,8 +540,8 @@ class PartEnrichmentService(BaseService):
             image_url = None
             pricing = None
             stock_quantity = None
-            specifications = {}
-            additional_data = {}
+            specifications: dict[str, Any] = {}
+            additional_data: dict[str, Any] = {}
 
             # Initialize core field variables
             manufacturer = None
@@ -794,7 +797,7 @@ class PartEnrichmentService(BaseService):
 
     def _create_enrichment_metadata(self, enrichment_results: Dict[str, Any]) -> Dict[str, Any]:
         """Create enrichment metadata from results."""
-        metadata = {}
+        metadata: Dict[str, Any] = {}
 
         # Extract key information from enrichment results
         for key, result in enrichment_results.items():

@@ -6,7 +6,7 @@ methods must return, ensuring consistency across all supplier integrations.
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Type, Union
 from datetime import datetime
 from enum import Enum
 
@@ -186,7 +186,7 @@ EnrichmentResponse = Union[
 
 
 # Capability to Response Schema Mapping
-CAPABILITY_SCHEMA_MAPPING = {
+CAPABILITY_SCHEMA_MAPPING: Dict[str, Type[BaseEnrichmentResponse]] = {
     "fetch_datasheet": DatasheetEnrichmentResponse,
     "fetch_image": ImageEnrichmentResponse,
     "fetch_pricing": PricingEnrichmentResponse,
@@ -196,7 +196,7 @@ CAPABILITY_SCHEMA_MAPPING = {
 }
 
 
-def get_schema_for_capability(capability: str) -> BaseEnrichmentResponse:
+def get_schema_for_capability(capability: str) -> Type[BaseEnrichmentResponse]:
     """
     Get the appropriate response schema for a given capability
 

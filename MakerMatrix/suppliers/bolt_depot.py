@@ -477,7 +477,7 @@ class BoltDepotSupplier(BaseSupplier):
 
     def _extract_product_details(self, soup: BeautifulSoup) -> Dict[str, str]:
         """Extract product details from the product-details-table"""
-        details = {}
+        details: Dict[str, str] = {}
 
         # Find the product details table
         details_table = soup.find("table", class_="product-details-table")

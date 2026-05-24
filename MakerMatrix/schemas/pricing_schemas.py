@@ -70,7 +70,7 @@ class StandardPricing(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage in PartModel.pricing_data"""
-        data = {
+        data: Dict[str, Any] = {
             "pricing_type": self.pricing_type.value,
             "currency": self.currency,
             "supplier": self.supplier,

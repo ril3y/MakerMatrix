@@ -729,6 +729,11 @@ if TYPE_CHECKING:
     from .location_models import LocationModel
     from .category_models import CategoryModel
     from .order_models import OrderItemModel
-    from .part_metadata_models import PartSystemMetadata
+    from .part_metadata_models import (
+        PartSystemMetadata,
+        PartEnrichmentMetadata,
+        PartPricingHistory,
+    )
     from .part_allocation_models import PartLocationAllocation
     from .tag_models import TagModel, PartTagLink
+    from .project_models import ProjectModel

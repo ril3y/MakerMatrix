@@ -226,7 +226,7 @@ class AIService:
         config = self.load_config()
         return AIProviderFactory.get_provider_info(config.provider)
 
-    def get_available_providers(self) -> Dict[str, Dict[str, any]]:
+    def get_available_providers(self) -> Dict[str, Dict[str, Any]]:
         """Get information about all available providers"""
         return AIProviderFactory.get_available_providers()
 

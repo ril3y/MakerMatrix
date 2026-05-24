@@ -108,7 +108,7 @@ async def get_suppliers_for_dropdown(current_user: UserModel = Depends(get_curre
     configured_suppliers = supplier_service.get_all_supplier_configs(enabled_only=True)
     configured_names = {config["supplier_name"].lower() for config in configured_suppliers}
 
-    dropdown_suppliers = []
+    dropdown_suppliers: List[Dict[str, Any]] = []
 
     for supplier_name in available_suppliers:
         try:
@@ -996,9 +996,12 @@ async def get_part_pricing(
         supplier = SupplierRegistry.get_supplier(supplier_name)
         supplier.configure(config_request.credentials, config_request.config)
 
-        pricing = await supplier.fetch_pricing(part_number)
+        # TODO: BaseSupplier only exposes a combined fetch_pricing_stock; surface the
+        # pricing component here until a dedicated fetch_pricing method is added.
+        pricing_stock = await supplier.fetch_pricing_stock(part_number)
         await supplier.close()
 
+        pricing = pricing_stock.get("pricing") if pricing_stock else None
         if not pricing:
             raise HTTPException(status_code=404, detail="Pricing not available")
 
@@ -1024,9 +1027,12 @@ async def get_part_stock(
         supplier = SupplierRegistry.get_supplier(supplier_name)
         supplier.configure(config_request.credentials, config_request.config)
 
-        stock = await supplier.fetch_stock(part_number)
+        # TODO: BaseSupplier only exposes a combined fetch_pricing_stock; surface
+        # the stock component here until a dedicated fetch_stock method is added.
+        pricing_stock = await supplier.fetch_pricing_stock(part_number)
         await supplier.close()
 
+        stock = pricing_stock.get("stock_quantity") if pricing_stock else None
         if stock is None:
             raise HTTPException(status_code=404, detail="Stock information not available")
 
@@ -1151,8 +1157,8 @@ async def detect_supplier_from_url(request: Dict[str, str], current_user: UserMo
         hostname = parsed.hostname or ""
 
         # Check each available supplier for URL pattern match
-        best_match = None
-        highest_confidence = 0
+        best_match: Optional[Dict[str, Any]] = None
+        highest_confidence: float = 0.0
 
         for supplier_name in SupplierRegistry.get_available_suppliers():
             try:

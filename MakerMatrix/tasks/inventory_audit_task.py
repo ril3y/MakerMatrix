@@ -31,7 +31,7 @@ class InventoryAuditTask(BaseTask):
 
         await self.update_progress(task, 5, "Initializing inventory audit")
 
-        audit_results = {
+        audit_results: Dict[str, Any] = {
             "total_parts_audited": 0,
             "discrepancies_found": 0,
             "low_stock_items": 0,

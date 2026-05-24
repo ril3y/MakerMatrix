@@ -81,7 +81,7 @@ class EnrichmentDataMapper:
         Returns:
             Dict with extracted and normalized data
         """
-        extracted_data = {
+        extracted_data: Dict[str, Any] = {
             "datasheet_url": None,
             "image_url": None,
             "pricing": None,

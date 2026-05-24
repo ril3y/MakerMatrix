@@ -234,7 +234,7 @@ def is_task_allowed_for_user(task_type: TaskType, user_permissions: List[str]) -
 
 def get_task_security_summary() -> Dict[str, List[str]]:
     """Get summary of tasks by security level"""
-    summary = {"public": [], "user": [], "power_user": [], "admin": [], "system": []}
+    summary: Dict[str, List[str]] = {"public": [], "user": [], "power_user": [], "admin": [], "system": []}
 
     for task_type, policy in TASK_SECURITY_POLICIES.items():
         summary[policy.security_level.value].append(task_type.value)

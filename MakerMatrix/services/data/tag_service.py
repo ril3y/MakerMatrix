@@ -663,7 +663,7 @@ class TagService(BaseService):
             self.log_operation("bulk_operation", self.entity_name, operation_data.operation)
 
             with self.get_session() as session:
-                results = {"successful": [], "failed": [], "skipped": []}
+                results: dict[str, list[Any]] = {"successful": [], "failed": [], "skipped": []}
 
                 # Verify all tags exist
                 tags = session.exec(select(TagModel).where(TagModel.id.in_(operation_data.tag_ids))).all()
@@ -789,7 +789,7 @@ class TagService(BaseService):
                 cleanup_request = TagCleanupRequest()
 
             with self.get_session() as session:
-                results = {"removed_tags": [], "merged_tags": [], "errors": []}
+                results: dict[str, list[Any]] = {"removed_tags": [], "merged_tags": [], "errors": []}
 
                 if cleanup_request.remove_unused:
                     # Find unused tags

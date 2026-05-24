@@ -299,7 +299,7 @@ class EnhancedImportService:
     ) -> List[Dict[str, Any]]:
         """Queue enrichment tasks for imported parts"""
 
-        enrichment_results = []
+        enrichment_results: List[Dict[str, Any]] = []
 
         # Check if parser type supports enrichment
         supplier_name = parser_type.upper()  # e.g., 'lcsc' -> 'LCSC'

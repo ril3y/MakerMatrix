@@ -8,6 +8,7 @@ contamination of the main application database.
 import os
 import tempfile
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlmodel import SQLModel, Session
 from typing import Generator
 

@@ -671,7 +671,7 @@ class AdafruitSupplier(BaseSupplier):
 
     def _parse_invoice_products(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
         """Parse product list from invoice HTML"""
-        parts = []
+        parts: List[Dict[str, Any]] = []
 
         try:
             # Find the products table

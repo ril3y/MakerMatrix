@@ -37,7 +37,7 @@ class FontService:
     @staticmethod
     def list_bundled_fonts() -> List[FontInfo]:
         """List all bundled fonts in the repo."""
-        fonts = []
+        fonts: List[FontInfo] = []
 
         if not FONTS_DIR.exists():
             return fonts
