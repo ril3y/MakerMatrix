@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 /**
  * Dynamic Add Supplier Modal
  *
@@ -8,7 +7,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
-import type { SupplierInfo } from '../../services/dynamic-supplier.service'
+import type { SupplierInfo, CredentialValue } from '../../services/dynamic-supplier.service'
 import { dynamicSupplierService } from '../../services/dynamic-supplier.service'
 import { DynamicSupplierConfigForm } from './DynamicSupplierConfigForm'
 
@@ -30,8 +29,8 @@ export const DynamicAddSupplierModal: React.FC<DynamicAddSupplierModalProps> = (
   const [configuring, setConfiguring] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
 
-  const [credentials, setCredentials] = useState<Record<string, string | number | boolean>>({})
-  const [config, setConfig] = useState<Record<string, string | number | boolean>>({})
+  const [credentials, setCredentials] = useState<Record<string, CredentialValue>>({})
+  const [config, setConfig] = useState<Record<string, CredentialValue>>({})
   const [testLoading, setTestLoading] = useState(false)
   const [testResult, setTestResult] = useState<{
     success: boolean

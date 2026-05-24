@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { motion } from 'framer-motion'
 import {
   Wrench,
@@ -158,7 +157,7 @@ const ToolsPage = () => {
       try {
         setLoading(true)
         setError(null)
-        setIsSearching(search && search.trim().length > 0)
+        setIsSearching(Boolean(search) && search.trim().length > 0)
 
         const searchParams: SearchToolsRequest = {
           search_term: search && search.trim() ? search.trim() : undefined,
@@ -176,7 +175,7 @@ const ToolsPage = () => {
         let filteredTools = response.items || []
         if (selectedTags.length > 0) {
           filteredTools = filteredTools.filter((tool: Tool) => {
-            const toolTagIds = tool.tags?.map((t: Tag) => t.id) || []
+            const toolTagIds = tool.tags?.map((t) => t.id) || []
             if (tagFilterMode === 'AND') {
               // All selected tags must be present
               return selectedTags.every((tag) => toolTagIds.includes(tag.id))

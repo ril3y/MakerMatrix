@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../../__tests__/utils/render'
 import { SupplierConfigPage } from './SupplierConfigPage'
@@ -99,7 +98,7 @@ describe('SupplierConfigPage', () => {
       () => {
         const pageContent = document.body.textContent
         expect(pageContent).toBeTruthy()
-        expect(pageContent.length).toBeGreaterThan(0)
+        expect(pageContent?.length ?? 0).toBeGreaterThan(0)
       },
       { timeout: 3000 }
     )

@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { motion } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -748,7 +747,7 @@ const PrinterModal = ({
                     className="input w-full"
                     value={labelLength}
                     onChange={(e) => setLabelLength(Number(e.target.value))}
-                    disabled={selectedLabelSize && !selectedLabelSize.includes('mm')}
+                    disabled={!!selectedLabelSize && !selectedLabelSize.includes('mm')}
                   />
                 </div>
               </div>
