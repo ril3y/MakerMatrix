@@ -34,7 +34,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
     def get_by_user(self, session: Session, user_id: str, include_public: bool = True) -> List[LabelTemplateModel]:
         """Get templates for a specific user"""
         if include_public:
-            return session.exec(
+            return list(session.exec(
                 select(LabelTemplateModel)
                 .where(
                     or_(
@@ -45,41 +45,41 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
                 )
                 .where(LabelTemplateModel.is_active == True)
                 .order_by(LabelTemplateModel.is_system_template.desc(), LabelTemplateModel.name)
-            ).all()
+            ).all())
         else:
-            return session.exec(
+            return list(session.exec(
                 select(LabelTemplateModel)
                 .where(LabelTemplateModel.created_by_user_id == user_id)
                 .where(LabelTemplateModel.is_active == True)
                 .order_by(LabelTemplateModel.name)
-            ).all()
+            ).all())
 
     def get_by_category(self, session: Session, category: TemplateCategory) -> List[LabelTemplateModel]:
         """Get templates by category"""
-        return session.exec(
+        return list(session.exec(
             select(LabelTemplateModel)
             .where(LabelTemplateModel.category == category)
             .where(LabelTemplateModel.is_active == True)
             .order_by(LabelTemplateModel.name)
-        ).all()
+        ).all())
 
     def get_public_templates(self, session: Session) -> List[LabelTemplateModel]:
         """Get all public and system templates"""
-        return session.exec(
+        return list(session.exec(
             select(LabelTemplateModel)
             .where(or_(LabelTemplateModel.is_public == True, LabelTemplateModel.is_system_template == True))
             .where(LabelTemplateModel.is_active == True)
             .order_by(LabelTemplateModel.is_system_template.desc(), LabelTemplateModel.name)
-        ).all()
+        ).all())
 
     def get_system_templates(self, session: Session) -> List[LabelTemplateModel]:
         """Get only system templates"""
-        return session.exec(
+        return list(session.exec(
             select(LabelTemplateModel)
             .where(LabelTemplateModel.is_system_template == True)
             .where(LabelTemplateModel.is_active == True)
             .order_by(LabelTemplateModel.name)
-        ).all()
+        ).all())
 
     def search_templates(
         self,
@@ -133,7 +133,7 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
                 and_(LabelTemplateModel.label_height_mm >= min_size, LabelTemplateModel.label_height_mm <= max_size)
             )
 
-        return session.exec(query.order_by(LabelTemplateModel.name)).all()
+        return list(session.exec(query.order_by(LabelTemplateModel.name)).all())
 
     def get_compatible_templates(
         self, session: Session, label_height_mm: float, label_width_mm: Optional[float] = None
@@ -161,18 +161,18 @@ class LabelTemplateRepository(BaseRepository[LabelTemplateModel]):
                 )
             )
 
-        return session.exec(
+        return list(session.exec(
             query.order_by(LabelTemplateModel.is_system_template.desc(), LabelTemplateModel.usage_count.desc())
-        ).all()
+        ).all())
 
     def get_popular_templates(self, session: Session, limit: int = 10) -> List[LabelTemplateModel]:
         """Get most popular templates by usage count"""
-        return session.exec(
+        return list(session.exec(
             select(LabelTemplateModel)
             .where(LabelTemplateModel.is_active == True)
             .order_by(LabelTemplateModel.usage_count.desc())
             .limit(limit)
-        ).all()
+        ).all())
 
     def create_template(self, session: Session, template: LabelTemplateModel) -> LabelTemplateModel:
         """Create a new template with validation"""
@@ -323,20 +323,20 @@ class LabelTemplatePresetRepository(BaseRepository[LabelTemplatePresetModel]):
 
     def get_by_category(self, session: Session, category: TemplateCategory) -> List[LabelTemplatePresetModel]:
         """Get presets by category"""
-        return session.exec(
+        return list(session.exec(
             select(LabelTemplatePresetModel)
             .where(LabelTemplatePresetModel.category == category)
             .where(LabelTemplatePresetModel.is_active == True)
             .order_by(LabelTemplatePresetModel.sort_order, LabelTemplatePresetModel.name)
-        ).all()
+        ).all())
 
     def get_active_presets(self, session: Session) -> List[LabelTemplatePresetModel]:
         """Get all active presets ordered by sort order"""
-        return session.exec(
+        return list(session.exec(
             select(LabelTemplatePresetModel)
             .where(LabelTemplatePresetModel.is_active == True)
             .order_by(LabelTemplatePresetModel.sort_order, LabelTemplatePresetModel.name)
-        ).all()
+        ).all())
 
     def increment_usage(self, session: Session, preset_id: str) -> None:
         """Increment preset usage count"""

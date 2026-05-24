@@ -79,7 +79,7 @@ class DatabaseRestoreTask(BaseTask):
         datasheets_path = static_path / "datasheets"
         images_path = static_path / "images"
 
-        restore_stats = {
+        restore_stats: Dict[str, Any] = {
             "backup_file": backup_path.name,
             "restore_started_at": datetime.now().isoformat(),
             "safety_backup_created": False,

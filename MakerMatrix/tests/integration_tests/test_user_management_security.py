@@ -3,6 +3,7 @@ Integration tests for user management security
 Tests the security fixes for user creation and permission enforcement
 """
 
+import os
 import pytest
 import time
 from fastapi.testclient import TestClient

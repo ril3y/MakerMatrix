@@ -289,7 +289,10 @@ class SupplierIntegrationService:
 
             # Get configuration from supplier config service
             try:
-                config_data = self.supplier_config_service.get_supplier_by_name(supplier_name)
+                # SupplierConfigService exposes get_supplier_config, not get_supplier_by_name.
+                config_data = self.supplier_config_service.get_supplier_config(
+                    supplier_name, include_credentials=True
+                )
                 if config_data:
                     # Extract credentials and configuration
                     credentials = config_data.get("credentials", {})

@@ -199,13 +199,13 @@ jobs:
         pip install mypy
 
     - name: Run mypy type checking
-      # mypy currently surfaces hundreds of legacy type errors. The `|| true`
-      # below keeps the step from failing while still ensuring mypy installs
-      # and runs against the full tree. Drop the `|| true` once the backlog
-      # is cleared.
+      # The mypy gate now enforces. Targeted suppressions for known SQLModel /
+      # SQLAlchemy / BeautifulSoup / PIL typing limitations live in
+      # pyproject.toml under [tool.mypy] module overrides. Add to those
+      # overrides (or fix the call site) before re-enabling a noisy error code.
       run: |
         source venv_test/bin/activate
-        mypy MakerMatrix/ --ignore-missing-imports --no-strict-optional || true
+        mypy MakerMatrix/ --ignore-missing-imports --no-strict-optional
 
   # Security Tests
   security-tests:

@@ -14,7 +14,7 @@ import signal
 import argparse
 import json
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union
 import requests
 from contextlib import contextmanager
 
@@ -54,8 +54,13 @@ class TestRunner:
 
     def run_command(
         self, cmd: List[str], cwd: Optional[Path] = None, check: bool = True
-    ) -> subprocess.CompletedProcess:
-        """Run a command with proper error handling"""
+    ) -> Union[subprocess.CompletedProcess, subprocess.CalledProcessError]:
+        """Run a command with proper error handling.
+
+        When ``check=False`` and the process exits non-zero, returns the
+        CalledProcessError so callers can inspect stdout/stderr without
+        having to wrap the call in their own try/except.
+        """
         print(f"🏃 Running: {' '.join(cmd)}")
         try:
             result = subprocess.run(cmd, cwd=cwd, check=check, capture_output=True, text=True)

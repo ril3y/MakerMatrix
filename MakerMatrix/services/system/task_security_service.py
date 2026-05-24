@@ -4,7 +4,7 @@ Task Security Service - Enforces security policies for task creation and executi
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 from MakerMatrix.services.base_service import BaseService
@@ -310,7 +310,7 @@ class TaskSecurityService(BaseService):
         # For now, just log to application logs
         logger.info(f"Task Security Event: {event_type}", extra=audit_entry)
 
-    def get_user_task_limits_summary(self, user: UserModel) -> Dict[str, any]:
+    def get_user_task_limits_summary(self, user: UserModel) -> Dict[str, Any]:
         """Get summary of user's task limits and current usage"""
         # This would return current usage vs limits for the user
         # Useful for UI to show users their current status

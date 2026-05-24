@@ -40,7 +40,7 @@ class AnthropicProvider(BaseAIProvider):
 
     def supports_sql_queries(self) -> bool:
         """Anthropic supports SQL queries via LangChain"""
-        return LANGCHAIN_AVAILABLE and os.path.exists(self.db_path) and self.config.api_key
+        return bool(LANGCHAIN_AVAILABLE and os.path.exists(self.db_path) and self.config.api_key)
 
     async def chat(self, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
         """Send chat message to Anthropic"""

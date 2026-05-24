@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from pathlib import Path
 import logging
-from MakerMatrix.models.user_models import UserCreate, UserUpdate, PasswordUpdate
+from MakerMatrix.models.user_models import UserCreate, UserUpdate, PasswordUpdate, UserModel
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.system.auth_service import AuthService
@@ -159,7 +159,9 @@ async def update_user(
 
 @router.put("/{user_id}/password", response_model=ResponseSchema)
 @standard_error_handling
-async def update_password(user_id: str, password_data: PasswordUpdate, current_user: dict = Depends(get_current_user)):
+async def update_password(
+    user_id: str, password_data: PasswordUpdate, current_user: UserModel = Depends(get_current_user)
+):
     user = user_repository.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

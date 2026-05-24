@@ -1,3 +1,5 @@
+from typing import Any
+
 from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.models.models import engine
 from sqlmodel import SQLModel
@@ -12,7 +14,7 @@ DEFAULT_ADMIN_PASSWORD = "Admin123!"  # This should be changed on first login
 
 def setup_default_roles(user_repo: UserRepository):
     """Set up default roles if they don't exist."""
-    roles = [
+    roles: list[dict[str, Any]] = [
         {
             "name": "admin",
             "description": "Administrator with full access",

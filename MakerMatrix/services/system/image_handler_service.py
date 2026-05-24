@@ -62,8 +62,13 @@ class ImageHandlerService(BaseService):
                     part = PartRepository.get_part_by_id(session, part_id)
                     if not part:
                         raise ValueError(f"Part not found: {part_id}")
-                    part_number = part.part_number or part.lcsc_part_number
-                    supplier = supplier or part.supplier or part.part_vendor
+                    # PartModel no longer carries lcsc_part_number / part_vendor;
+                    # they collapsed into part_number / supplier during the schema
+                    # cleanup. Use additional_properties to recover legacy values
+                    # if a caller still depends on them.
+                    legacy_props = getattr(part, "additional_properties", {}) or {}
+                    part_number = part.part_number or legacy_props.get("lcsc_part_number")
+                    supplier = supplier or part.supplier or legacy_props.get("part_vendor")
 
             if not supplier:
                 raise ValueError("Supplier is required for image fetch")

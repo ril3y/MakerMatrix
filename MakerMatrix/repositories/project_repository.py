@@ -178,7 +178,7 @@ class ProjectRepository:
         Returns:
             List[ProjectModel]: List of all projects
         """
-        return session.exec(select(ProjectModel)).all()
+        return list(session.exec(select(ProjectModel)).all())
 
     @staticmethod
     def update_project(session: Session, project_id: str, project_data: Dict[str, Any]) -> ProjectModel:

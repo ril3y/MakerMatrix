@@ -9,6 +9,7 @@ Supports:
 
 import os
 import shutil
+import sys
 import tempfile
 import json
 import asyncio
@@ -104,7 +105,7 @@ class DatabaseBackupTask(BaseTask):
                 "makermatrix_version": __version__,
                 "schema_version": __schema_version__,
                 "backup_format_version": "2.0",  # Updated to use password-protected ZIP
-                "python_version": f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}",
+                "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
                 # Security
                 "password_protected": bool(password),
                 "credential_storage": "plain_text_in_database",
@@ -255,8 +256,8 @@ class DatabaseBackupTask(BaseTask):
 
                 # Set file prefixes for relative paths in ZIP
                 file_prefixes = []
-                for file_path in files_to_compress:
-                    relative_path = Path(file_path).relative_to(backup_dir)
+                for compressed_path in files_to_compress:
+                    relative_path = Path(compressed_path).relative_to(backup_dir)
                     # Get parent directory for prefix (empty string for root files)
                     prefix = str(relative_path.parent) if relative_path.parent != Path(".") else ""
                     file_prefixes.append(prefix)

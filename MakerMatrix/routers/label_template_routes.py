@@ -492,7 +492,10 @@ async def preview_template(
     For now, it returns a placeholder response with the template configuration.
     """
     try:
-        template_config = None
+        # template_config holds either a LabelTemplateResponse loaded from the
+        # database or the LabelTemplateCreate payload from the request; both
+        # are SQLModel/Pydantic schemas that get serialized identically below.
+        template_config: Any = None
 
         if preview_request.template_id:
             # Load template from database

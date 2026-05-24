@@ -277,7 +277,11 @@ class LocationService(BaseService):
 
     @staticmethod
     def get_parts_effected_locations(location_id: str):
-        return LocationService.location_repo.get_parts_effected_locations(location_id)
+        # TODO(mypy): location_repo is an instance attribute on LocationService
+        # but is accessed here through the class. Likely a missed conversion to
+        # @classmethod / instance method; flag for follow-up rather than refactor
+        # during the typing sweep.
+        return LocationService.location_repo.get_parts_effected_locations(location_id)  # type: ignore[misc]
 
     @staticmethod
     def delete_location(location_id: str) -> Dict:

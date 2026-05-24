@@ -12,7 +12,7 @@ class BaseRepository(Generic[T]):
         return session.exec(select(self.model_class).where(self.model_class.id == id)).first()
 
     def get_all(self, session: Session) -> List[T]:
-        return session.exec(select(self.model_class)).all()
+        return list(session.exec(select(self.model_class)).all())
 
     def create(self, session: Session, model: T) -> T:
         session.add(model)

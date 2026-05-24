@@ -38,8 +38,8 @@ class EnrichmentProgressTracker:
         self.total_steps = 0
         self.current_progress = 0.0
         self.status = "initialized"
-        self.start_time = None
-        self.end_time = None
+        self.start_time: Optional[datetime] = None
+        self.end_time: Optional[datetime] = None
         self.current_message = ""
         self.errors: List[Dict[str, Any]] = []
         self.warnings: List[Dict[str, Any]] = []
@@ -191,7 +191,7 @@ class EnrichmentProgressTracker:
             warning: Warning message
             context: Additional context information
         """
-        warning_data = {"message": warning, "timestamp": datetime.utcnow().isoformat()}
+        warning_data: Dict[str, Any] = {"message": warning, "timestamp": datetime.utcnow().isoformat()}
 
         if context:
             warning_data["context"] = context
@@ -340,7 +340,7 @@ class MultiStepProgressTracker:
         self.task_id = task_id
         self.main_tracker = EnrichmentProgressTracker(task_id)
         self.step_trackers: Dict[str, EnrichmentProgressTracker] = {}
-        self.current_step_key = None
+        self.current_step_key: Optional[str] = None
 
     def register_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Register callback for main tracker"""

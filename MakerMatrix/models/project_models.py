@@ -7,9 +7,12 @@ This module supports many-to-many relationships between parts and projects with 
 
 import uuid
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 from pydantic import ConfigDict
+
+if TYPE_CHECKING:
+    from .part_models import PartModel
 
 
 class PartProjectLink(SQLModel, table=True):

@@ -16,7 +16,7 @@ class LocationRepository:
 
     @staticmethod
     def get_all_locations(session: Session) -> Sequence[LocationModel]:
-        return session.exec(select(LocationModel).options(selectinload(LocationModel.parent))).all()
+        return list(session.exec(select(LocationModel).options(selectinload(LocationModel.parent))).all())
 
     @staticmethod
     def delete_location(session: Session, location: LocationModel):

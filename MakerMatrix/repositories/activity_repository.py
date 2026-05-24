@@ -132,9 +132,9 @@ class ActivityRepository(BaseRepository[ActivityLogModel]):
         total_activities = session.exec(select(ActivityLogModel).where(ActivityLogModel.timestamp >= cutoff_time)).all()
 
         # Group by action type
-        action_counts = {}
-        entity_counts = {}
-        user_counts = {}
+        action_counts: dict[str, int] = {}
+        entity_counts: dict[str, int] = {}
+        user_counts: dict[str, int] = {}
 
         for activity in total_activities:
             # Count by action

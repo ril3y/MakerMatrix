@@ -53,7 +53,8 @@ class ModernPrinterService:
             # Create print settings with defaults for QR code
             print_settings = PrintSettings(label_size=62, dpi=300, copies=1)  # Default to 62mm
 
-            # Generate QR + text label
+            # Pass the PartModel directly; LabelService accesses .part_number /
+            # .part_name as attributes despite its current dict[str, Any] annotation.
             label_image = LabelService.generate_combined_label(part=part, print_settings=print_settings)
 
             # Rotate if needed (Brother QL typically needs 90-degree rotation)
@@ -134,7 +135,7 @@ class ModernPrinterService:
             )
             scaling_factor = printer_config.get("scaling_factor", 1.0)
 
-            # Generate combined label
+            # Pass the PartModel directly (see note above re: attribute access).
             label_image = LabelService.generate_combined_label(
                 part=part, print_settings=print_settings, custom_text=text
             )

@@ -511,13 +511,18 @@ class SupplierConfigService(BaseService):
         Returns:
             Dictionary with all configurations
         """
+        # get_all_supplier_configs already returns List[Dict[str, Any]] (the
+        # repository serializes models to dicts before returning).
         configs = self.get_all_supplier_configs()
 
-        export_data = {"version": "1.0", "exported_at": datetime.utcnow().isoformat(), "suppliers": []}
+        export_data: Dict[str, Any] = {
+            "version": "1.0",
+            "exported_at": datetime.utcnow().isoformat(),
+            "suppliers": [],
+        }
 
         for config in configs:
-            config_dict = config.to_dict()
-            export_data["suppliers"].append(config_dict)
+            export_data["suppliers"].append(config)
 
         self.logger.info(f"Exported {len(configs)} supplier configurations")
         return export_data

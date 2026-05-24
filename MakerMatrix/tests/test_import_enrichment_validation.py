@@ -229,7 +229,7 @@ def validate_parts_enrichment(supplier: str) -> Dict[str, Any]:
     """
     print(f"\n🔍 Validating enrichment for {supplier} parts...")
 
-    validation_results = {
+    validation_results: Dict[str, Any] = {
         "supplier": supplier,
         "total_parts": 0,
         "parts_with_datasheets": 0,
