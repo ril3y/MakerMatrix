@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Download, FileText, ExternalLink } from 'lucide-react'
 import type { Datasheet } from '@/types/parts'
+import { fetchDatasheetBlob, revokeDatasheetBlob } from '@/services/datasheet.service'
+import { getErrorMessage } from '@/services/api'
 
 interface PartPDFViewerProps {
   isOpen: boolean
@@ -12,28 +14,73 @@ interface PartPDFViewerProps {
 const PartPDFViewer = ({ isOpen, onClose, datasheet }: PartPDFViewerProps) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
 
-  const getDatasheetUrl = (datasheet: Datasheet) => {
-    // In development, use the vite proxy. In production, use the configured API URL
-    const isDevelopment = import.meta.env?.DEV
-    if (isDevelopment) {
-      // Use relative URL so it goes through Vite proxy
-      return `/static/datasheets/${datasheet.filename}`
-    } else {
-      // Production: use full API URL
-      const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080'
-      return `${API_BASE_URL}/static/datasheets/${datasheet.filename}`
+  // Fetch the datasheet through the authenticated API client and expose it
+  // as a `blob:` URL so the <iframe> can render it without needing a Bearer
+  // token (iframes do not send auth headers).
+  useEffect(() => {
+    if (!isOpen || !datasheet.filename) return
+
+    let cancelled = false
+    let createdUrl: string | null = null
+
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError(false)
+        const url = await fetchDatasheetBlob(datasheet.filename)
+        createdUrl = url
+        if (cancelled) {
+          revokeDatasheetBlob(url)
+          return
+        }
+        setBlobUrl(url)
+      } catch (err) {
+        console.error('Failed to load datasheet PDF:', getErrorMessage(err, 'Unknown error'))
+        if (!cancelled) {
+          setError(true)
+          setLoading(false)
+        }
+      }
     }
-  }
+
+    void load()
+
+    return () => {
+      cancelled = true
+      if (createdUrl) {
+        revokeDatasheetBlob(createdUrl)
+      }
+      setBlobUrl(null)
+    }
+  }, [isOpen, datasheet.filename])
+
+  // Final-mount cleanup: revoke any URL still held in state when this
+  // component is removed from the tree.
+  useEffect(() => {
+    return () => {
+      if (blobUrl) {
+        revokeDatasheetBlob(blobUrl)
+      }
+    }
+    // Run only on unmount — re-fetch cleanup is handled above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const downloadDatasheet = () => {
-    const url = getDatasheetUrl(datasheet)
+    if (!blobUrl) return
     const link = document.createElement('a')
-    link.href = url
+    link.href = blobUrl
     link.download = datasheet.original_filename || datasheet.filename
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const openInNewTab = () => {
+    if (!blobUrl) return
+    window.open(blobUrl, '_blank', 'noopener,noreferrer')
   }
 
   const formatFileSize = (bytes?: number) => {
@@ -72,15 +119,17 @@ const PartPDFViewer = ({ isOpen, onClose, datasheet }: PartPDFViewerProps) => {
             <div className="flex items-center gap-2">
               <button
                 onClick={downloadDatasheet}
-                className="btn btn-secondary btn-sm flex items-center gap-2"
+                disabled={!blobUrl}
+                className="btn btn-secondary btn-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Download PDF"
               >
                 <Download className="w-4 h-4" />
                 Download
               </button>
               <button
-                onClick={() => window.open(getDatasheetUrl(datasheet), '_blank')}
-                className="btn btn-secondary btn-sm flex items-center gap-2"
+                onClick={openInNewTab}
+                disabled={!blobUrl}
+                className="btn btn-secondary btn-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Open in new tab"
               >
                 <ExternalLink className="w-4 h-4" />
@@ -113,36 +162,22 @@ const PartPDFViewer = ({ isOpen, onClose, datasheet }: PartPDFViewerProps) => {
                   <FileText className="w-12 h-12 text-red-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-primary mb-2">Failed to Load PDF</h3>
                   <p className="text-secondary mb-4">The PDF document could not be displayed.</p>
-                  <div className="flex gap-2 justify-center">
-                    <button
-                      onClick={downloadDatasheet}
-                      className="btn btn-primary flex items-center gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download Instead
-                    </button>
-                    <button
-                      onClick={() => window.open(getDatasheetUrl(datasheet), '_blank')}
-                      className="btn btn-secondary flex items-center gap-2"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Open in New Tab
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
 
-            <iframe
-              src={getDatasheetUrl(datasheet)}
-              className="w-full h-full border-0"
-              title={datasheet.original_filename || datasheet.filename}
-              onLoad={() => setLoading(false)}
-              onError={() => {
-                setLoading(false)
-                setError(true)
-              }}
-            />
+            {blobUrl && !error && (
+              <iframe
+                src={blobUrl}
+                className="w-full h-full border-0"
+                title={datasheet.original_filename || datasheet.filename}
+                onLoad={() => setLoading(false)}
+                onError={() => {
+                  setLoading(false)
+                  setError(true)
+                }}
+              />
+            )}
           </div>
         </motion.div>
       </div>
