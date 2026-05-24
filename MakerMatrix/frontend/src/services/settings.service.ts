@@ -109,8 +109,6 @@ export class SettingsService {
   }
 
   async previewAdvancedLabel(requestData: PreviewAdvancedLabelRequest): Promise<Blob> {
-    console.log('[DEBUG] previewAdvancedLabel called with:', requestData)
-
     const response = await fetch(`${getApiBaseUrl()}/api/preview/advanced`, {
       method: 'POST',
       headers: {
@@ -119,8 +117,6 @@ export class SettingsService {
       },
       body: JSON.stringify(requestData),
     })
-
-    console.log('[DEBUG] Preview response status:', response.status, response.statusText)
 
     if (!response.ok) {
       // Try to parse error response as JSON to get detailed error message
@@ -141,13 +137,11 @@ export class SettingsService {
 
     // The API returns JSON with base64 image data, not a raw blob
     const contentType = response.headers.get('content-type')
-    console.log('[DEBUG] Response content-type:', contentType)
 
     if (contentType && contentType.includes('application/json')) {
       // Parse the JSON response which contains base64 image data
       try {
         const responseData = (await response.json()) as PreviewResponse
-        console.log('[DEBUG] Received JSON preview response:', responseData)
 
         // Check if this is an error response
         if (!responseData.success) {
@@ -169,7 +163,6 @@ export class SettingsService {
           }
 
           const blob = new Blob([bytes], { type: `image/${format}` })
-          console.log('[DEBUG] Successfully converted base64 to blob')
           return blob
         } else {
           throw new Error('Preview response missing image data')
@@ -182,7 +175,6 @@ export class SettingsService {
     }
 
     // Fallback to blob response (for backward compatibility)
-    console.log('[DEBUG] Returning blob response (fallback)')
     return await response.blob()
   }
 

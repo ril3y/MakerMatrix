@@ -48,7 +48,6 @@ export class TaskWebSocketService extends WebSocketService {
   // Task-specific event handlers
   onTaskUpdate(handler: (task: Task) => void) {
     const wrapped = (message: TaskWebSocketMessage) => {
-      console.log('🔥 WebSocket received task_update:', message)
       const data = message.data as TaskUpdateData | Task
       if (data && 'task' in data) {
         handler(data.task)
@@ -64,7 +63,6 @@ export class TaskWebSocketService extends WebSocketService {
 
   onTaskCreated(handler: (task: Task) => void) {
     const wrapped = (message: TaskWebSocketMessage) => {
-      console.log('🆕 WebSocket received task_created:', message)
       const data = message.data as TaskUpdateData | Task
       if (data && 'task' in data) {
         handler(data.task)
@@ -161,16 +159,5 @@ export class TaskWebSocketService extends WebSocketService {
 // Global instance for task WebSocket communication
 export const taskWebSocket = new TaskWebSocketService()
 
-// Auto-connect when module is imported
-if (typeof window !== 'undefined') {
-  // Add connection event logging
-  taskWebSocket
-    .connect()
-    .then(() => {
-      console.log('✅ Task WebSocket connected successfully')
-    })
-    .catch((error) => {
-      console.error('❌ Task WebSocket connection failed:', error)
-    })
-  taskWebSocket.startHeartbeat()
-}
+// NOTE: Lifecycle is managed by `WebSocketProvider`. See the matching comment
+// in `websocket.service.ts` for the auth-token timing rationale.

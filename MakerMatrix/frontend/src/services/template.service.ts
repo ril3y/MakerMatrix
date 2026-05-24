@@ -109,9 +109,7 @@ class TemplateService {
       if (params.page_size) searchParams.append('page_size', params.page_size.toString())
 
       const url = searchParams.toString() ? `${this.baseUrl}/?${searchParams}` : `${this.baseUrl}/`
-      console.log('Fetching templates from:', url)
       const response = (await apiClient.get(url)) as ApiResponse
-      console.log('Template API response:', response)
 
       if (response.status === 'success') {
         // Backend returns { templates: [], total_count: number }
@@ -121,14 +119,12 @@ class TemplateService {
         if (data && typeof data === 'object' && 'templates' in data) {
           const templates = (data as { templates: unknown }).templates
           if (Array.isArray(templates)) {
-            console.log(`Successfully fetched ${templates.length} templates`)
             return templates as LabelTemplate[]
           }
         }
 
         // Fallback: check if data is array directly (legacy format)
         if (Array.isArray(data)) {
-          console.log(`Successfully fetched ${data.length} templates`)
           return data as LabelTemplate[]
         }
 

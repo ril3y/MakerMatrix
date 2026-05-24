@@ -107,11 +107,8 @@ export const useOrderImport = ({
   useEffect(() => {
     const extractInitialFileInfo = async () => {
       if (initialFile && extractOrderInfoFromFilename) {
-        console.log('[useOrderImport] Extracting order info from initialFile:', initialFile.name)
         const extractedInfo = await extractOrderInfoFromFilename(initialFile.name)
-        console.log('[useOrderImport] Extracted info from initialFile:', extractedInfo)
         if (extractedInfo && (extractedInfo.order_date || extractedInfo.order_number)) {
-          console.log('[useOrderImport] Updating order info from initialFile')
           setOrderInfo((prev) => ({
             ...prev,
             order_date: extractedInfo.order_date || prev.order_date,
@@ -144,23 +141,17 @@ export const useOrderImport = ({
 
       // Try to extract order info from filename
       if (extractOrderInfoFromFilename) {
-        console.log('[useOrderImport] Extracting order info from filename:', selectedFile.name)
         const extractedInfo = await extractOrderInfoFromFilename(selectedFile.name)
-        console.log('[useOrderImport] Extracted info:', extractedInfo)
         if (extractedInfo) {
-          console.log('[useOrderImport] Updating order info with extracted data')
           setOrderInfo((prev) => {
             const newOrderInfo = {
               ...prev,
               order_date: extractedInfo.order_date || prev.order_date,
               order_number: extractedInfo.order_number || prev.order_number,
             }
-            console.log('[useOrderImport] New order info:', newOrderInfo)
             return newOrderInfo
           })
           // Toast removed - will be shown once after all auto-detection is complete
-        } else {
-          console.log('[useOrderImport] No extracted info returned')
         }
       }
 
@@ -222,7 +213,6 @@ export const useOrderImport = ({
 
   const pollProgress = useCallback(async (taskId?: string) => {
     if (!taskId) {
-      console.log('No task ID available for progress tracking')
       return
     }
 
@@ -288,7 +278,6 @@ export const useOrderImport = ({
   const startProgressPolling = useCallback(
     (taskId?: string) => {
       if (!taskId) {
-        console.log('No task ID provided for progress polling')
         return
       }
       progressPollInterval.current = setInterval(() => pollProgress(taskId), 2000)

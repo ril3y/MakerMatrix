@@ -184,9 +184,6 @@ const ToolsPage = () => {
               return selectedTags.some((tag) => toolTagIds.includes(tag.id))
             }
           })
-          console.log(
-            `Filtered ${response.items?.length || 0} tools to ${filteredTools.length} based on tags`
-          )
         }
 
         setTools(filteredTools)

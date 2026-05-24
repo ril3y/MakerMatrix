@@ -88,7 +88,6 @@ export const EditSimpleSupplierModal: React.FC<EditSimpleSupplierModalProps> = (
           : `https://${formData.website_url}`,
       }
 
-      console.log('Updating simple supplier:', supplier.supplier_name, updateData)
       await supplierService.updateSupplier(supplier.supplier_name, updateData)
 
       setSuccess(true)

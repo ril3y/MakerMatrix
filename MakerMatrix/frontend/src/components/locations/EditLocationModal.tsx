@@ -154,10 +154,6 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
         updateData.emoji = selectedEmoji || null
       }
 
-      console.log('[DEBUG] emojiChanged:', emojiChanged)
-      console.log('[DEBUG] selectedEmoji:', selectedEmoji)
-      console.log('[DEBUG] Update data being sent:', updateData)
-
       await locationsService.updateLocation(updateData)
       toast.success('Location updated successfully')
       onSuccess()

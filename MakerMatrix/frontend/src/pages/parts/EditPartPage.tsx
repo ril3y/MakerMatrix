@@ -87,7 +87,7 @@ const EditPartPage: React.FC = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid },
+    formState: { errors },
     setValue,
     watch,
     reset,
@@ -122,10 +122,6 @@ const EditPartPage: React.FC = () => {
 
         // Set selected projects
         const projectIds = partData.projects?.map((proj) => proj.id) || []
-        console.log('Initial projects loaded:', {
-          partDataProjects: partData.projects,
-          projectIds,
-        })
         setSelectedProjects(projectIds)
 
         // Populate form with existing data using reset() for proper form population
@@ -162,11 +158,6 @@ const EditPartPage: React.FC = () => {
   // Watch supplier field
   const supplierValue = watch('supplier')
 
-  // Debug: Watch selectedProjects changes
-  useEffect(() => {
-    console.log('selectedProjects state changed:', selectedProjects)
-  }, [selectedProjects])
-
   const loadEnrichmentRequirements = useCallback(async (supplier: string) => {
     try {
       setLoadingRequirements(true)
@@ -179,9 +170,6 @@ const EditPartPage: React.FC = () => {
 
       if (!isKnownApiSupplier) {
         // Simple supplier without API capabilities - skip the API call
-        console.log(
-          `Supplier "${supplier}" is not a known API supplier - skipping enrichment check`
-        )
         setEnrichmentRequirements(null)
         return
       }
@@ -224,10 +212,6 @@ const EditPartPage: React.FC = () => {
   }, [supplierValue, loadEnrichmentRequirements])
 
   const onSubmit = async (data: PartFormData) => {
-    console.log('🚀 onSubmit called!')
-    console.log('onSubmit data:', data)
-    console.log('onSubmit context:', { id, part, selectedCategories })
-
     if (!id || !part) {
       console.error('Missing id or part:', { id, part })
       return
@@ -243,16 +227,8 @@ const EditPartPage: React.FC = () => {
         })
         .filter(Boolean) as string[]
 
-      console.log('Category conversion:', { selectedCategories, categoryNames })
-
       // Get the current image_url value from the form
       const currentImageUrl = watch('image_url')
-
-      console.log('Image URL values:', {
-        dataImageUrl: data.image_url,
-        currentImageUrl,
-        watchedValue: watch('image_url'),
-      })
 
       const updateData: CreatePartRequest = {
         name: data.name,
@@ -300,9 +276,6 @@ const EditPartPage: React.FC = () => {
               supports_stock: false,
               supports_specifications: false,
             })
-            console.log(
-              `Created simple supplier config for ${supplierTyped} (favicon will be fetched)`
-            )
           }
         } catch (error) {
           // Non-fatal: the part update should still proceed even if supplier registration fails.
@@ -310,20 +283,12 @@ const EditPartPage: React.FC = () => {
         }
       }
 
-      console.log('Sending update data:', updateData)
-
       await partsService.updatePart({ id, ...updateData })
 
       // Handle project assignments
       const currentProjectIds = part.projects?.map((p) => p.id) || []
-      console.log('Project assignment debug:', {
-        selectedProjects,
-        currentProjectIds,
-        part_projects: part.projects,
-      })
       const projectsToAdd = selectedProjects.filter((pid) => !currentProjectIds.includes(pid))
       const projectsToRemove = currentProjectIds.filter((pid) => !selectedProjects.includes(pid))
-      console.log('Project changes:', { projectsToAdd, projectsToRemove })
 
       // Add new project assignments
       for (const projectId of projectsToAdd) {
@@ -370,7 +335,6 @@ const EditPartPage: React.FC = () => {
       ? selectedCategories.filter((id) => id !== categoryId)
       : [...selectedCategories, categoryId]
 
-    console.log('Category toggled:', { categoryId, newSelected })
     setSelectedCategories(newSelected)
     setValue('category_ids', newSelected)
   }
@@ -425,7 +389,6 @@ const EditPartPage: React.FC = () => {
       // Auto-select the newly created project
       if (createdProjectId) {
         const newSelected = [...selectedProjects, createdProjectId]
-        console.log('Auto-selecting newly created project:', { createdProjectId, newSelected })
         setSelectedProjects(newSelected)
         toast.success('Project added and automatically selected')
       }
@@ -485,17 +448,6 @@ const EditPartPage: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              console.log('Save button clicked')
-              console.log(
-                'Form errors:',
-                Object.keys(errors).length > 0
-                  ? Object.fromEntries(
-                      Object.entries(errors).map(([key, error]) => [key, error?.message])
-                    )
-                  : 'No errors'
-              )
-              console.log('Form isValid:', isValid)
-              console.log('Form values:', watch())
               handleSubmit(onSubmit)()
             }}
             disabled={isSaving}
@@ -627,7 +579,6 @@ const EditPartPage: React.FC = () => {
               multiSelect={true}
               selectedValues={selectedProjects}
               onMultiSelectChange={(values) => {
-                console.log('Projects changed:', values)
                 setSelectedProjects(values)
               }}
               options={projects.map((project) => ({

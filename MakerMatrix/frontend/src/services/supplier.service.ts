@@ -212,7 +212,6 @@ export class SupplierService {
     if (!supplierName || !supplierName.trim()) {
       throw new Error('Supplier name is required for deletion')
     }
-    console.log(`Deleting supplier: ${supplierName}`)
     await apiClient.delete(`/api/suppliers/config/suppliers/${encodeURIComponent(supplierName)}`)
   }
 
@@ -227,7 +226,6 @@ export class SupplierService {
       credentials: Object.keys(credentials).length > 0 ? credentials : {},
       config: {}, // Required for supplier test endpoint
     })) as ApiResponse<ConnectionTestResult>
-    console.log('Raw API response:', response.data)
     return response.data || ({} as ConnectionTestResult)
   }
 
@@ -374,7 +372,6 @@ export class SupplierService {
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { status?: number } }
         if (axiosError.response?.status === 404) {
-          console.log(`Supplier "${supplierName}" has no enrichment capabilities (simple supplier)`)
           return []
         }
       }

@@ -125,9 +125,6 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
       // For containers with slots, get parts from child slots AND the container itself
       if (location.location_type === 'container' && location.slot_count && details.children) {
-        console.log(
-          `[LocationDetailsModal] Loading parts from container with ${details.children.length} child slots`
-        )
         // Get parts from each child slot and tag with slot info
         const allSlotParts = await Promise.all(
           details.children.map(async (childSlot: Location) => {
@@ -138,7 +135,6 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
                 page_size: 1000,
               })
               const items = response.items || []
-              console.log(`[LocationDetailsModal] Slot ${childSlot.name} has ${items.length} parts`)
               // Tag each part with its slot location
               return items.map(
                 (part: Part): PartWithSlot => ({
@@ -162,11 +158,6 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
           const containerParts = (containerResponse.items || []).map(
             (part: Part): PartWithSlot => ({ ...part })
           )
-          if (containerParts.length > 0) {
-            console.log(
-              `[LocationDetailsModal] ${containerParts.length} parts allocated directly to container`
-            )
-          }
           // Deduplicate: prefer slot-tagged parts over container-level ones
           const slotParts = allSlotParts.flat()
           const slotPartIds = new Set(slotParts.map((p) => p.id))
@@ -175,7 +166,6 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
         } catch {
           partsData = allSlotParts.flat()
         }
-        console.log(`[LocationDetailsModal] Total parts across all slots: ${partsData.length}`)
       } else {
         // Regular location - just get parts at this specific location
         const searchResponse = await partsService.searchParts({
