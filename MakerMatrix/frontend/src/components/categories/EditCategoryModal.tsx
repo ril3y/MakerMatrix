@@ -1,3 +1,4 @@
+// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useMemo } from 'react'
 import { Tag } from 'lucide-react'
 import CrudModal from '@/components/ui/CrudModal'

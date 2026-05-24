@@ -82,7 +82,7 @@ async def create_backup(
 
     if not task_response.success:
         # Use status code from response (429 for rate limit, 403 for permission errors, 500 for other errors)
-        status_code = getattr(task_response, 'status_code', 500)
+        status_code = getattr(task_response, "status_code", 500)
         raise HTTPException(status_code=status_code, detail=task_response.message)
 
     task_data = task_response.data
@@ -178,7 +178,7 @@ async def restore_backup(
 
         if not task_response.success:
             # Use status code from response (429 for rate limit, 403 for permission errors, 500 for other errors)
-            status_code = getattr(task_response, 'status_code', 500)
+            status_code = getattr(task_response, "status_code", 500)
             raise HTTPException(status_code=status_code, detail=task_response.message)
 
         task_data = task_response.data
@@ -212,6 +212,7 @@ async def restore_backup(
 def _get_backups_dir() -> Path:
     """Get backups directory path - use environment variable if set (Docker)"""
     import os
+
     backups_path_env = os.getenv("BACKUPS_PATH")
     if backups_path_env:
         return Path(backups_path_env)
@@ -342,7 +343,7 @@ async def run_retention_cleanup(current_user: UserModel = Depends(require_permis
 
     if not task_response.success:
         # Use status code from response (429 for rate limit, 403 for permission errors, 500 for other errors)
-        status_code = getattr(task_response, 'status_code', 500)
+        status_code = getattr(task_response, "status_code", 500)
         raise HTTPException(status_code=status_code, detail=task_response.message)
 
     task_data = task_response.data

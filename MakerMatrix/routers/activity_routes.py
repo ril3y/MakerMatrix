@@ -12,7 +12,6 @@ from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 from MakerMatrix.schemas.response import ResponseSchema
 
-
 router = APIRouter()
 base_router = BaseRouter()
 

@@ -21,7 +21,6 @@ from MakerMatrix.suppliers.base import PartSearchResult, EnrichmentResult, Suppl
 from MakerMatrix.suppliers.registry import get_supplier
 from MakerMatrix.services.data.supplier_data_mapper import SupplierDataMapper
 
-
 logger = logging.getLogger(__name__)
 
 

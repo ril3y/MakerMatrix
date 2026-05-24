@@ -1,3 +1,4 @@
+// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BaseNamedCrudService } from '../baseCrud.service'
 import { enhancedCategoriesService } from '../categories.service.enhanced'

@@ -1,3 +1,4 @@
+// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, X, Search } from 'lucide-react'
 

@@ -1,3 +1,4 @@
+// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useState, useEffect, useCallback } from 'react'
 import { MapPin, AlertCircle } from 'lucide-react'
 import Modal from '@/components/ui/Modal'

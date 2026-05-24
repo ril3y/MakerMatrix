@@ -582,23 +582,23 @@ class SupplierConfigService(BaseService):
         else:
             root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
             storage_dir = os.path.join(root_dir, "secure_storage")
-        
+
         if not os.path.exists(storage_dir):
             os.makedirs(storage_dir)
-            
+
         # Ensure .gitignore exists to protect sensitive files
         gitignore_path = os.path.join(storage_dir, ".gitignore")
         if not os.path.exists(gitignore_path):
             with open(gitignore_path, "w") as f:
                 f.write("*\n!.gitignore\n")
-        
+
         # Generate secure filename to avoid collisions and directory traversal
         ext = os.path.splitext(filename)[1].lower() if "." in filename else ""
         safe_name = f"{supplier_name.lower()}_{uuid.uuid4().hex}{ext}"
         file_path = os.path.join(storage_dir, safe_name)
-        
+
         with open(file_path, "wb") as f:
             f.write(file_content)
-            
+
         self.logger.info(f"Saved secure file for {supplier_name}: {file_path}")
         return file_path

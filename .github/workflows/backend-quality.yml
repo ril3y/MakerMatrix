@@ -31,7 +31,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install Black
@@ -42,7 +42,6 @@ jobs:
     - name: Check code formatting with Black
       run: |
         black --check --diff --color MakerMatrix/
-      continue-on-error: true  # WARN but don't fail (for gradual adoption)
 
     - name: Show formatting diff
       if: failure()
@@ -62,7 +61,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Create virtual environment
@@ -143,7 +142,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies
@@ -155,17 +154,18 @@ jobs:
         pip install pylint flake8
 
     - name: Run pylint
+      # pylint uses --exit-zero so it always succeeds; the gate verifies pylint
+      # itself installs and runs and produces a report (uploaded as an artifact).
       run: |
         source venv_test/bin/activate
         pylint MakerMatrix/ --exit-zero --output-format=text > pylint_report.txt
         cat pylint_report.txt
-      continue-on-error: true
 
     - name: Run flake8
+      # flake8 uses --exit-zero; the gate verifies flake8 installs and runs.
       run: |
         source venv_test/bin/activate
         flake8 MakerMatrix/ --max-line-length=120 --exclude=venv_test,node_modules --exit-zero
-      continue-on-error: true
 
     - name: Upload lint reports
       uses: actions/upload-artifact@v4
@@ -187,7 +187,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies
@@ -199,10 +199,13 @@ jobs:
         pip install mypy
 
     - name: Run mypy type checking
+      # mypy currently surfaces hundreds of legacy type errors. The `|| true`
+      # below keeps the step from failing while still ensuring mypy installs
+      # and runs against the full tree. Drop the `|| true` once the backlog
+      # is cleared.
       run: |
         source venv_test/bin/activate
         mypy MakerMatrix/ --ignore-missing-imports --no-strict-optional || true
-      continue-on-error: true
 
   # Security Tests
   security-tests:
@@ -215,7 +218,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Create virtual environment
@@ -284,7 +287,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Create virtual environment

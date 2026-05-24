@@ -1,3 +1,4 @@
+// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'

@@ -10,7 +10,6 @@ from pathlib import Path
 from dataclasses import dataclass
 import os
 
-
 # Get bundled fonts directory
 FONTS_DIR = Path(__file__).parent.parent.parent / "fonts"
 

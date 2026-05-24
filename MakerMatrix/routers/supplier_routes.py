@@ -433,16 +433,12 @@ async def upload_supplier_file(
             raise HTTPException(status_code=400, detail="No file provided")
 
         service = SupplierConfigService()
-        
+
         # Read file content
         content = await file.read()
-        
+
         # Save file securely
-        file_path = service.save_supplier_file(
-            supplier_name.upper(), 
-            content, 
-            file.filename
-        )
+        file_path = service.save_supplier_file(supplier_name.upper(), content, file.filename)
 
         return ResponseSchema(
             status="success",

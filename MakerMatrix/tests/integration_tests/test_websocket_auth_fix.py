@@ -2,6 +2,7 @@
 """
 Test WebSocket authentication to diagnose and fix the database table issue.
 """
+
 import pytest
 import asyncio
 import os
